@@ -151,8 +151,7 @@ class TestJudge:
         shadow = shadow_polygon(selftest._ring(100.0, 100.0), 100.0, selftest.SUN.elevation_deg,
                                 selftest.SUN.azimuth_deg)
         reach = max(x for polygon in shadow for x, _y in polygon) + selftest._BOX.east_cm
-        for patch in (selftest.DRAPE_PATCH, selftest.LINES_PATCH, selftest.FADED_PATCH,
-                      selftest.FADED_FOLIAGE_PATCH, selftest.FADED_WATER_PATCH):
+        for patch in (selftest.DRAPE_PATCH, selftest.LINES_PATCH):
             assert patch.east_cm - patch.width_cm / 2 > reach
             assert patch.north_cm - patch.depth_cm / 2 > 0.0
             assert patch.north_cm + patch.depth_cm / 2 < selftest.GROUND.depth_cm
@@ -247,10 +246,35 @@ class TestScene:
         sync = SceneSync(Quick3DSink(engine), selftest.registry(), validate=True)
         sync.apply(selftest.records())
         assert {part.spec.kind for part in engine.parts} == MATERIAL_KINDS
-        # one part per kind, and one faded cube per screen-door shader (L2.4)
-        assert sync.failures == {} and len(engine.parts) == len(MATERIAL_KINDS) + 3
+        # one part per kind, and one faded cube per screen-door material (L2.4)
+        assert sync.failures == {} and len(engine.parts) == len(MATERIAL_KINDS) + 4
         assert {selftest.records()[item_id].params["material_kind"] for item_id in
-                selftest.FADED} == {"vc", "foliage", "water"}
+                selftest.FADED} == {"vc", "foliage", "grass", "water"}
+
+    def test_the_faded_cubes_stand_clear_of_everything_else(self) -> None:
+        """Senior review round 3 of #386: the first placement overlapped a swatch, and the
+        swatch's pixels inflated the screen door's share (39 %, 53 %). Each faded cube,
+        with its 10 cm cube's shadow (7 cm) as margin, overlaps no other item and no
+        other judge region."""
+        def box(region: selftest.Region, grow: float = 0.0) -> tuple[float, float, float, float]:
+            return (region.east_cm - region.width_cm / 2 - grow, region.north_cm - region.depth_cm / 2 - grow,
+                    region.east_cm + region.width_cm / 2 + grow, region.north_cm + region.depth_cm / 2 + grow)
+
+        def apart(a: tuple[float, ...], b: tuple[float, ...]) -> bool:
+            return a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1]
+
+        others = [selftest._BOX, selftest._LAWN, selftest.DRAPE_PATCH, selftest.LINES_PATCH,
+                  *selftest._SWATCHES.values()]
+        others += [region for name, region in selftest.REGIONS.items() if name not in selftest.FADED]
+        cubes = [patch for patch, _kind in selftest.FADED_CUBES.values()]
+        ring = RING_WIDTH_PX / selftest.SHOT.px_per_cm
+        for cube in cubes:
+            mine = box(cube, 7.0)
+            for other in others:
+                assert apart(mine, box(other, ring)), (cube, other)
+            for neighbour in cubes:
+                if neighbour is not cube:
+                    assert apart(mine, box(neighbour)), (cube, neighbour)
 
     def test_every_region_lies_inside_the_frame(self) -> None:
         width, height = selftest.SIZE

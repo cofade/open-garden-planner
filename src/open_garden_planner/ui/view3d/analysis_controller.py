@@ -298,6 +298,10 @@ class AnalysisController(QObject):
         if not self._cutaway:
             self._faded = frozenset()   # Cutaway went off while hidden: nothing fades
         self._host_call("set_faded_items", self._faded, XRAY_OPACITY)
+        # everything that shows the state (menu, legend, card) refreshes with the pane:
+        # a date moved while it was hidden left the twin-arc legend stale (senior review
+        # round 3)
+        self.changed.emit()
 
     def set_drape_mode(self, mode: DrapeMode) -> None:
         # the shared Hours of Sun decides: choosing its drape always switches it on (the

@@ -7173,6 +7173,7 @@ switch to screen-door copies of their shaders as the built parts do, so the look
 shaders are master's to the byte and carry no discard while nothing fades. The probe
 says "could not be computed" after a failed run (`LiveSunMap.unavailable`), and the
 legend names a key day whose arc the plan date's arc covers (noons within 0.5°). Pinned by the render tier's new mood, shadow and
-screen-door tests, `test_quick3d_qml.py` (blends, screen doors), the self-test (a
-faded cube: `screen.frag` compiled from the bundle), and `test_view3d_analysis.py`
+screen-door tests, `test_quick3d_qml.py` (blends, screen doors), the self-test (four
+faded cubes — built part, crown, grass, pond: every screen-door shader compiled from
+the bundle), and `test_view3d_analysis.py`
 with the real `LiveSunMap`.

@@ -141,7 +141,7 @@ def test_the_3d_selftest_draws_and_judges_the_selection_ring(tmp_path: Path) -> 
     assert proc.returncode == 0, proc.stdout + proc.stderr[-2000:] + log
     (frame,) = [line for line in proc.stdout.splitlines() if "Qt Quick 3D frame" in line]
     assert frame.endswith("(Garden.qml, 6 materials, a baked ground of 12 tiles in 12 tile "
-                          "paints, the selection ring, the shade and the lines overlays, three "
+                          "paints, the selection ring, the shade and the lines overlays, four "
                           "screen doors)")
 
 

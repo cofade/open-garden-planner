@@ -25,10 +25,11 @@ the artifact it runs in: can THIS build render the garden? It
    are compiled from the bundle too: the shade must darken the ground towards the
    canvas's shadow blue (it multiplies the frame), the lines patch must be its unlit
    colour;
-6. fades three more cubes as X-ray occluders (L2.4) — a built part, a crown and a
-   pond — so the screen-door shaders (``screen.frag``, ``foliage_door.frag``,
-   ``water_door.frag``) are compiled from the bundle as well: some, but not most, of
-   each cube's pixels must be its colour.
+6. fades four more cubes as X-ray occluders (L2.4) — a built part, a crown, grass
+   and a pond — so every screen-door shader (``screen.frag`` / ``.vert``,
+   ``foliage_door.frag`` / ``.vert``, ``grass_door.vert``, ``water_door.frag``) is
+   compiled from the bundle as well: some, but not most, of each cube's pixels must be
+   its colour.
 
 A QML error, a shader that does not compile, a frame that fails the judge or an
 exception fails the self-test. So does a hang: a watchdog dumps every thread's
@@ -149,21 +150,19 @@ RING_REGION: Final = _SWATCHES[SELECTED[0]]
 DRAPE_PATCH: Final = _at(165.0, 0.0, 40.0, 40.0)
 LINES_PATCH: Final = _at(165.0, 80.0, 30.0, 30.0)
 #: The cubes drawn as X-ray occluders (screen doors of ``XRAY_OPACITY``), one per
-#: screen-door shader: in the south-east, low (10 cm), their shadows clear of each other
-#: and of the patches. Measured 2026-10-24 (GPU and WARP alike): 39 % (vc), 25 % (foliage)
-#: and 53 % (water) of the sampled pixels in their colour — the dither keeps a quarter, and
-#: the top-down frame's antialiasing blends neighbours into pixels that still count.
-FADED_PATCH: Final = _at(165.0, -80.0, 30.0, 30.0)
-FADED_FOLIAGE_PATCH: Final = _at(165.0, -40.0, 30.0, 30.0)
-FADED_WATER_PATCH: Final = _at(165.0, -125.0, 30.0, 30.0)
-#: item id → (footprint, material kind)
-FADED_CUBES: Final = {"screen": (FADED_PATCH, "vc"),
-                      "screen_foliage": (FADED_FOLIAGE_PATCH, "foliage"),
-                      "screen_water": (FADED_WATER_PATCH, "water")}
+#: screen-door shader: low (10 cm), in the lit west between the swatches and the lit
+#: ground, clear of every other item and of each other's shadows (pinned by
+#: ``tests/unit/test_quick3d_selftest.py``: the first placement overlapped a swatch,
+#: whose pixels read 39 % and 53 %). Measured 2026-10-24: 25 % of each
+#: cube's sampled pixels in its colour, GPU and WARP alike.
+FADED_CUBES: Final = {"screen": (_at(-170.0, -55.0, 24.0, 24.0), "vc"),
+                      "screen_foliage": (_at(-130.0, -55.0, 24.0, 24.0), "foliage"),
+                      "screen_grass": (_at(-170.0, -15.0, 24.0, 24.0), "grass"),
+                      "screen_water": (_at(-130.0, -15.0, 24.0, 24.0), "water")}
 FADED: Final = tuple(FADED_CUBES)
 #: The share of a faded cube's sampled pixels in its colour must lie in this range: a
 #: cube drawn whole (no screen door: all of them) or not at all fails.
-FADED_SHARE: Final = (0.08, 0.75)
+FADED_SHARE: Final = (0.08, 0.5)
 
 #: Where the judge looks. Each patch lies well inside what it samples; the shadow
 #: patch is inside the analytic 2D shadow of the box for ``SUN`` and outside the
@@ -175,7 +174,7 @@ REGIONS: Final[dict[str, Region]] = {
     "lawn": _at(-150.0, 125.0, 30.0, 14.0),
     "shade": Region(DRAPE_PATCH.east_cm, DRAPE_PATCH.north_cm, 20.0, 20.0),
     "lines": Region(LINES_PATCH.east_cm, LINES_PATCH.north_cm, 14.0, 14.0),
-    **{item_id: Region(patch.east_cm, patch.north_cm, 20.0, 20.0)
+    **{item_id: Region(patch.east_cm, patch.north_cm, 14.0, 14.0)
        for item_id, (patch, _kind) in FADED_CUBES.items()},
     **{kind: Region(region.east_cm, region.north_cm, 20.0, 20.0)
        for kind, region in _SWATCHES.items()},
@@ -509,7 +508,7 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                           f"{rendered.open_ms:.0f} ms (Garden.qml, {len(SWATCH_KINDS) + 1} materials, "
                           f"a baked ground of {rendered.ground_tiles} tiles in "
                           f"{rendered.ground_tiles_painted} tile paints, the selection ring, "
-                          f"the shade and the lines overlays, three screen doors)")
+                          f"the shade and the lines overlays, four screen doors)")
         except Exception as exc:  # noqa: BLE001 - a QML or shader error arrives here
             say(False, f"Qt Quick 3D render -> {type(exc).__name__}: {exc}")
     ok = all(line.startswith("  OK  ") for line in lines)

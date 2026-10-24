@@ -755,3 +755,21 @@ def test_the_legend_names_a_key_arc_the_plan_dates_arc_covers(bench) -> None:
     bench.settle()
     text = workspace.legend_text()
     assert "same path" not in text and "21 June" in text
+
+
+
+def test_the_legend_follows_a_date_moved_while_the_pane_was_hidden(bench) -> None:
+    """Senior review round 3 of #386: the legend kept "21 June — same path …" after the
+    date moved to September while the 3D pane was hidden."""
+    bench.open3d()
+    workspace = bench.workspace
+    workspace.set_sun_path_visible(True)
+    bench.settle()
+    assert "same path" in workspace.legend_text()          # the plan date is 21 June
+    workspace.set_mode(PLAN)
+    bench.settle()
+    bench.clock.set_date(date(2026, 9, 1))
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    assert workspace.analysis.arcs()[0].day == date(2026, 9, 1)
+    assert "same path" not in workspace.legend_text() and "21 June" in workspace.legend_text()
