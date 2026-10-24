@@ -37,10 +37,14 @@ WAIVERS: tuple[str, ...] = ()
 
 
 def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
-    assert "pip-audit -r locked-requirements.txt" in CI
-    waived = tuple(re.findall(r"--ignore-vuln[ =](\S+)", CI))
-    assert waived == WAIVERS, (
-        "a pip-audit waiver is named here AND justified in §11.2, never added silently"
+    # the WHOLE command line, so no abbreviated waiver (argparse takes `--ignore`), no
+    # `|| true` and no other flag can be added without changing this test
+    audit_lines = [line.strip() for line in CI.splitlines()
+                   if line.strip().startswith("pip-audit")]
+    expected = " ".join(["pip-audit -r locked-requirements.txt --progress-spinner off",
+                         *(f"--ignore-vuln {waiver}" for waiver in WAIVERS)])
+    assert audit_lines == [expected], (
+        "a pip-audit waiver is named in WAIVERS AND justified in §11.2, never added silently"
     )
     assert "uv export --locked --all-extras --group build" in CI, (
         "the audit must run against the committed lock export, not installed state"
