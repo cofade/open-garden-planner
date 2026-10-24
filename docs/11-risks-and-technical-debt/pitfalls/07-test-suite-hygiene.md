@@ -385,3 +385,9 @@ platform). All 41 strip-layout tests pass under it. A test can force fractional
 advances at scale 1 with a fractional point size and
 `QFont.HintingPreference.PreferNoHinting`. Measure a widget's text the way the
 widget measures it (§8.10).
+
+The same tests hid a second difference between platforms. A size given to a
+top-level window before its first show did not hold on CI's Linux runner. The
+themed strip test's "1284 px" variants ran at 796 px there, so their one-row check
+measured an 800-px strip, and failed only when a group grew. Set the size again
+once the window is shown, and assert that it held (as the narrow-width test does).

@@ -464,6 +464,11 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         win.resize(width, 800)
         win.show()
         qtbot.wait(60)
+        # a size set before the first show did not hold on CI's Linux runner (the
+        # "1284" variants ran at 796 px): set it again once shown, and check it held
+        win.resize(width, 800)
+        qtbot.wait(20)
+        assert win.width() == width, (win.width(), width)
         bar = win._sun_toolbar
         assert bar._today_button.text() == bar.tr("Today")  # the button itself says where the date is
         assert bar._date_edit.height() == bar._time_edit.height()
@@ -613,6 +618,9 @@ def test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves(qt
         win.resize(1284, 800)
         win.show()
         qtbot.wait(60)
+        win.resize(1284, 800)  # once shown: a size set before did not hold on CI's Linux
+        qtbot.wait(20)
+        assert win.width() == 1284, win.width()
         bar = win._sun_toolbar
         button = bar._today_button
         width, slider_x = button.width(), bar._month_slider.mapTo(bar, QPoint()).x()
