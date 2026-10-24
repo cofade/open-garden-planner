@@ -6870,6 +6870,28 @@ The frozen `--selftest` draws a drape patch and a lines patch: both overlay shad
 compiled from the bundle and judged by colour. The Beauty Board renders each shot with
 the drapes, the sun path and Cutaway (`scripts/render_beauty_board.py --analysis`).
 
+### 8.29.11 Plant Forge — procedural 3D species models, LODs and phenology (L3, #387, ADR-064)
+
+Every one of the 128 procedural 2D plant sprite recipes (`core/plant_art/`) has a
+botanically distinct 3D procedural plant model synthesized from its recipe traits
+(`core/plant_art/traits3d.py`) by the Qt-free `core/plant_forge/` package, with zero
+external 3D asset files.
+
+| Module | Role |
+|---|---|
+| `core/plant_art/traits3d.py` | Frozen `Traits3D`, `FruitTraits`, `BlossomTraits` for all 128 canonical recipe keys across 16 architectural habits (`broadleaf_tree`, `conifer_cone`, `conifer_column`, `conifer_layered`, `conifer_pendulous`, `palm_fan`, `palm_feather`, `shrub_dome`, `shrub_arching`, `shrub_cane`, `rosette`, `grass_tuft`, `feathery_frond`, `allium_umbel`, `brassica_head`, `ground_mat`, `flower_clump`, `climbing_vine`, `twining_vine`, `sprawling_vine`). Stdlib-only. |
+| `core/object_art/materials.py` | Frozen `ObjectMaterial3D` PBR palettes for all 24 object SVG generators. Stdlib-only; SVG generators remain byte-identical. |
+| `core/plant_forge/` | `lod.py` (`LOD0` ≤ 4,500 tris, `LOD1` ≤ 1,200 tris, `LOD2` ≤ 250 tris), `skeleton.py` (3D space-colonisation + Leonardo pipe-model branch radii $r_{\text{parent}}^{2.3} = \sum r_{\text{child}}^{2.3}$), `tube.py` (Bishop parallel-transport tube sweeps), `foliage.py` (crossed/angled leaf cards with outward hemisphere normals), `trees.py`, `woody.py` (conifers, palms, shrubs, box-clipped hedges), `herbaceous.py` (Fibonacci rosettes, Bézier grasses, pinnate fronds, alliums, heads, ground covers, flowers), `climbers.py` (3-tier support resolution: `TRELLIS` parent → nearest `FENCE`/`WALL`/`PERGOLA` within 60 cm → 3-pole bamboo tripod), `accents.py` (`FRUIT_PART` + `FLOWER_PART` seasonal accents), `assemble.py` (`fit_forged_parts` exact bounds), `cache.py` (256-entry / 64 MB unit-template LRU cache). Qt-free. |
+| `core/phenology.py` | `PhenologyState` and `SeasonStage` (`WINTER_DORMANT`, `SPRING_BUDBREAK`, `SPRING_BLOSSOM`, `SUMMER_GROWTH`, `SUMMER_FRUIT`, `AUTUMN_HARVEST`, `AUTUMN_COLOR`) from `(species_key, day_of_year, latitude_deg)`, with 182.5-day southern-hemisphere phase shift. Qt-free. |
+| `ui/view3d/forge_worker.py` | Progressive visible-first/latest-wins upgrade (`ForgeWorker`) and seasonal phenology application (`apply_seasonal_appearance`). |
+
+**Invariants.**
+- *Dimensional truth:* Every forged model fits `z_min == 0.0 ± 0.1 cm`, `z_max == height_cm ± 0.1 cm`, and XY extent `== width_cm × depth_cm ± 0.5 cm`, with `casts_shadow=True` on every solid part.
+- *Boundary discipline:* `core/plant_art/` and `core/object_art/` import only Python stdlib; `core/plant_forge/` and `core/phenology.py` import zero `PyQt6` modules.
+- *Measured synthesis latency:* Cold `LOD0` across all 128 recipes has median `4.26 ms`, p90 `16.07 ms`, max `30.02 ms` (< 40 ms p90 threshold, so no disk cache is required); warm cache hit is `< 0.1 ms`.
+
+**Testing (§8.10).** `tests/integration/test_plant_forge.py` (16-species garden with trellis/fence/free climbers, LOD budgets, dimensional accuracy, progressive `ForgeWorker` upgrade, winter deciduous bare branches vs evergreen foliage, cold/warm latency gates), `tests/unit/test_plant_art_traits3d.py`, `tests/unit/test_object_art_materials.py`, `tests/unit/test_plant_forge_l31.py`..`l34.py`, `tests/unit/test_phenology.py`, and `tests/fixtures/plant_forge/forged_trees_golden.json`.
+
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 
 `core/item_look.py` owns `LineLook`, `capture_line_look`, `apply_line_look`,

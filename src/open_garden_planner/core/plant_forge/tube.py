@@ -230,7 +230,7 @@ def frustum_tubes(
     col = np.broadcast_to(
         np.asarray(color_rgba, dtype=np.float32)[None, :], (len(pos), 4)
     ).copy()
-    z_max = max(float(pos[:, 2].max()), 1.0)
+    z_max = max(float(np.max(pos[:, 2])), 1.0)
     uv = np.zeros((len(pos), 2), dtype=np.float32)
     uv[:, 0] = np.clip(pos[:, 2] / z_max, 0.0, 1.0) * 0.35
 

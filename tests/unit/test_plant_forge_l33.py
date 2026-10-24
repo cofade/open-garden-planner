@@ -179,6 +179,7 @@ class TestL33HerbaceousArchetypes:
         mean_offset = (mean_hue - centre + 180.0) % 360.0 - 180.0
         assert min(anchor_offsets) - 5.0 <= mean_offset <= max(anchor_offsets) + 5.0
 
+    @pytest.mark.perf
     def test_median_build_time_under_150ms(self) -> None:
         durations_ms: list[float] = []
         for sprite in L33_SPRITES:

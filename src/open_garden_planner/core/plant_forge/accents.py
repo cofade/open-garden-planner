@@ -42,7 +42,7 @@ def _hex_to_linear_rgb(hex_color: str) -> np.ndarray:
     r, g, b = srgb_to_linear(hex_color)[:3]
     arr = np.array([float(r), float(g), float(b)], dtype=np.float64)
     # Apply WHITE_BARK_SHADE (0.7) to near-white petals/umbels so direct sunlight never clips
-    if float(arr.max()) > 0.78 and float(arr.min()) > 0.62:
+    if float(np.max(arr)) > 0.78 and float(np.min(arr)) > 0.62:
         arr *= WHITE_BARK_SHADE
     return np.clip(arr, 0.02, 0.88).astype(np.float32)
 
@@ -78,7 +78,7 @@ def _select_crown_anchors(
         indices = np.linspace(0, len(candidates) - 1, count, dtype=np.int64)
         jitter = rng.integers(-max(1, len(candidates) // (count * 3 + 1)), max(2, len(candidates) // (count * 3 + 1)), size=count)
         indices = np.clip(indices + jitter, 0, len(candidates) - 1)
-        chosen = candidates[indices].copy()
+        chosen: np.ndarray = np.asarray(candidates[indices], dtype=np.float64).copy()
         # Pull slightly inward so accent geometry never breaches REACH_MAX * radius_cm
         chosen[:, 0] *= 0.92
         chosen[:, 1] *= 0.92

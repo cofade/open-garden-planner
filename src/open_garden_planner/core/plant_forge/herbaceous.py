@@ -95,7 +95,7 @@ def _curved_blades_geo(
     shade_t = np.tile(ring_t, b)[:, None]
     cols[:, :3] = np.clip(cols[:, :3] * shade_t, 0.0, 1.0)
 
-    z_max = max(float(verts[:, 2].max()), 1.0)
+    z_max = max(float(np.max(verts[:, 2])), 1.0)
     wind = np.clip(verts[:, 2:3] / z_max, 0.0, 1.0).astype(np.float32)
     phases = np.repeat(rng.random((b, 1), dtype=np.float32), v_per_blade, axis=0)
     uv = np.concatenate([wind, phases], axis=1)

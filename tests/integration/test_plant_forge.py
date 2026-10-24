@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime
 import time
 
+import pytest
 from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core.object_types import ObjectType
@@ -209,6 +210,44 @@ class TestPlantForgeEndToEndIntegration:
         assert winter_sh[str(p_near.item_id)].leaf_density == 0.0
         assert winter_sh[str(p_ever.item_id)].leaf_density == 1.0
 
+        # Seasonal appearance modulation when plan_date is supplied to submit_snapshot:
+        # in winter, deciduous trees shed foliage (PART_WOOD only) while evergreens keep PART_FOLIAGE
+        worker.submit_snapshot(
+            records.values(),
+            camera_pos=(near_rec.transform.east_cm, near_rec.transform.north_cm, 170.0),
+            plan_date=datetime.date(2026, 1, 15),
+            latitude_deg=52.0,
+        )
+        worker.drain()
+        near_winter_parts = {p.name for p in sink.item(str(p_near.item_id)).parts}
+        ever_winter_parts = {p.name for p in sink.item(str(p_ever.item_id)).parts}
+        assert near_winter_parts == {PART_WOOD}
+        assert PART_FOLIAGE in ever_winter_parts
+
+    def test_l36_all_13_archetypes_and_cache_hits(self) -> None:
+        """L3.6 gate: verify all 13 archetypes build cleanly and populate/hit the LRU cache."""
+        cache = ForgeCache(max_entries=256)
+        rep_by_arch: dict[str, SpriteRef] = {}
+        for name, rec in sorted(SPECIES.items()):
+            rep_by_arch.setdefault(str(rec["a"]), SpriteRef("species", name))
+        for name, rec in sorted(CATEGORIES.items()):
+            rep_by_arch.setdefault(str(rec["a"]), SpriteRef("categories", name))
+
+        assert set(rep_by_arch.keys()) == ARCHETYPES
+
+        for sprite in rep_by_arch.values():
+            parts = forge_plant(sprite, 160.0, 65.0, seed=77, lod=LOD0, cache=cache)
+            assert len(parts) >= 2
+            for part in parts:
+                part.validate()
+
+        for sprite in rep_by_arch.values():
+            parts = forge_plant(sprite, 160.0, 65.0, seed=77, lod=LOD0, cache=cache)
+            assert len(parts) >= 2
+
+        assert cache.hits == len(ARCHETYPES)
+
+    @pytest.mark.perf
     def test_l36_all_13_archetypes_and_cache_latency_budget(self) -> None:
         """L3.6 gate: verify all 13 archetypes build cleanly and warm cache hits take < 1 ms."""
         cache = ForgeCache(max_entries=256)

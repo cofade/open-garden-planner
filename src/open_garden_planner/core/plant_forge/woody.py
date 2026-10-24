@@ -446,10 +446,10 @@ def build_forged_shrub(
     crown_center = np.array([0.0, 0.0, height_cm * 0.45], dtype=np.float64)
     outward = normalize_vec(0.6 * dirs + 0.4 * normalize_vec(leaf_pts - crown_center[None, :]))
 
-    z_min = float(leaf_pts[:, 2].min())
-    height_frac = (leaf_pts[:, 2] - z_min) / max(float(leaf_pts[:, 2].max()) - z_min, 1.0)
+    z_min = float(np.min(leaf_pts[:, 2]))
+    height_frac = (leaf_pts[:, 2] - z_min) / max(float(np.max(leaf_pts[:, 2])) - z_min, 1.0)
     dist_c = np.linalg.norm(leaf_pts - crown_center[None, :], axis=1)
-    depth_frac = dist_c / max(float(dist_c.max()), 1.0)
+    depth_frac = dist_c / max(float(np.max(dist_c)), 1.0)
     colors = palette_leaf_colors(traits.palette, traits.sprite, height_frac, depth_frac, rng)
 
     lod_scale = 1.0 if lod == LOD0 else (1.55 if lod == LOD1 else 2.5)
@@ -556,10 +556,10 @@ def build_forged_hedge(
     hull_center = np.array([0.0, 0.0, height_cm * 0.48], dtype=np.float64)
     outward = normalize_vec(0.55 * dirs + 0.45 * normalize_vec(leaf_pts - hull_center[None, :]))
 
-    z_min = float(leaf_pts[:, 2].min())
-    height_frac = (leaf_pts[:, 2] - z_min) / max(float(leaf_pts[:, 2].max()) - z_min, 1.0)
+    z_min = float(np.min(leaf_pts[:, 2]))
+    height_frac = (leaf_pts[:, 2] - z_min) / max(float(np.max(leaf_pts[:, 2])) - z_min, 1.0)
     dist_c = np.linalg.norm(leaf_pts - hull_center[None, :], axis=1)
-    depth_frac = dist_c / max(float(dist_c.max()), 1.0)
+    depth_frac = dist_c / max(float(np.max(dist_c)), 1.0)
     colors = palette_leaf_colors(traits.palette, traits.sprite, height_frac, depth_frac, rng)
 
     lod_scale = 1.0 if lod == LOD0 else (1.55 if lod == LOD1 else 2.5)

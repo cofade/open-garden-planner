@@ -249,10 +249,12 @@ def forge_record(
     if isinstance(support, Mapping):
         support_map: Mapping[str, Any] | None = support
     elif isinstance(support, tuple) and len(support) >= 2:
+        s1 = support[1]
+        s2 = support[2] if len(support) >= 3 else 0.0
         support_map = {
             "kind": str(support[0]),
-            "azimuth_deg": float(support[1]),
-            "distance_cm": float(support[2]) if len(support) >= 3 else 0.0,
+            "azimuth_deg": float(s1) if isinstance(s1, (int, float, str)) else 0.0,
+            "distance_cm": float(s2) if isinstance(s2, (int, float, str)) else 0.0,
         }
     else:
         support_map = None

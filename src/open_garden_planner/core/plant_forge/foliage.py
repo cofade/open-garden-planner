@@ -86,7 +86,7 @@ def concat_geo(parts: Sequence[RawGeo]) -> RawGeo:
 def normalize_vec(v: np.ndarray) -> np.ndarray:
     """Normalise row vectors ``(..., 3)`` safely."""
     norm = np.linalg.norm(v, axis=-1, keepdims=True)
-    return v / np.maximum(norm, 1e-9)
+    return np.asarray(v / np.maximum(norm, 1e-9), dtype=np.float64)
 
 
 def _srgb_hex_to_rgb01(hex_str: str) -> np.ndarray:

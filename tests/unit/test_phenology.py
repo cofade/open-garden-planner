@@ -333,6 +333,7 @@ class TestL35PhenologyAndHemispheres:
 class TestL35Scrubbing300PlantsPerformance:
     """Gate: scrubbing 300 plants across dates completes in <= 16 ms."""
 
+    @pytest.mark.perf
     def test_scrubbing_300_plants_under_16ms(self) -> None:
         # Build 300 plant records cycling across all 123 recipes
         records = [

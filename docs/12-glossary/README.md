@@ -326,3 +326,10 @@ download integrity; it is not an Authenticode signature or provenance attestatio
 **Removal date:** an optional plant-instance ISO date, exclusive: the plant is absent
 on this day and later. Planting is inclusive. This is separate from a Season Manager
 yearly plan copy and from task reminder reference dates (ADR-062).
+
+### Plant Forge, Space colonisation, Pipe model and Phenology (L3, #387, ADR-064)
+
+- **Plant Forge:** The Qt-free procedural 3D plant mesh synthesis subsystem (`core/plant_forge/`) that turns all 128 2D procedural plant sprite recipes (`core/plant_art/traits3d.py`) into multi-LOD 3D plant models across 16 architectural habits, with zero external 3D asset files.
+- **Space colonisation:** Runions et al. (2007) iterative 3D branching algorithm (`core/plant_forge/skeleton.py`) that grows a tree or shrub skeleton from a trunk tip toward crown-volume attractors within attraction radius $r_a$ and prunes reached attractors within kill distance $r_k$.
+- **Pipe model:** Leonardo da Vinci / Shinozaki area-preserving branch radius rule ($r_{\text{parent}}^{2.3} = \sum r_{\text{child}}^{2.3}$) computed bottom-up from terminal twigs (`r_tip = 0.6 cm`) to the trunk base, swept into watertight bark tubes via Bishop parallel-transport frames (`core/plant_forge/tube.py`).
+- **Phenology:** The deterministic day-of-year and hemisphere-aware seasonal state of a plant (`core/phenology.py`, `PhenologyState`): spring budbreak and blossom peak, summer growth and fruit set, autumn foliage colour transition, and winter dormancy (bare branches on deciduous species, full foliage on evergreens).

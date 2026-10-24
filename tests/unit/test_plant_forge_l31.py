@@ -272,6 +272,7 @@ class TestL31GoldenMeshesAndPerformance:
                 np.testing.assert_allclose(m.positions.mean(axis=0), expected["mean_pos"], atol=1e-3)
                 np.testing.assert_allclose(m.colors.mean(axis=0), expected["mean_col"], atol=1e-4)
 
+    @pytest.mark.perf
     def test_median_build_time_under_150ms(self) -> None:
         durations_ms: list[float] = []
         for ref in CANOPY_SPRITES:

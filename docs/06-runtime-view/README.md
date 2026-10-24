@@ -767,3 +767,11 @@ stack signals mark the plan dirty and invalidate the 3D snapshot. A preset is
 applied when selected, not while restoring history. Geometry notifications precede
 pen/preset mutation so Qt can retire the old scene/cache bounds. Panel destruction
 does not invalidate the command callback. See crosscutting section 8.30.
+
+## Plant Forge progressive upgrade and seasonal phenology (L3, #387, ADR-064)
+
+When the 3D workspace applies a scene diff, `Scene3DController` places fast v0 plant silhouettes synchronously so the first frame is never blocked by procedural synthesis. In the desktop workspace, `Workspace._on_scene_applied` then hands the current `SceneRecord` snapshot, camera target, `SimClock.plan_date`, and project latitude to `ForgeWorker.request_upgrade`:
+
+1. `ForgeWorker` increments its generation counter (cancelling any stale batch), enriches climber records with 3-tier support resolution (`enrich_climber_records`), and sorts visible plants by distance to the camera target (`lod_for_distance`: `LOD0` < 25 m, `LOD1` 25–60 m, `LOD2` > 60 m).
+2. In zero-delay event-loop slices (`_BATCH_SIZE = 4`), `ForgeWorker` synthesizes each plant's forged mesh via `build_forged_plant` (backed by the 256-entry / 64 MB unit-template LRU cache), applies `apply_seasonal_appearance` for the plan date's `PhenologyState` (recolouring autumn foliage or stripping `CROWN_PART` on bare winter deciduous trees/shrubs while keeping evergreens intact), and calls `sink.upsert(record_id, parts)`.
+3. When the user scrubs the plan date (`SimClock.date_changed`), `Scene3DController` emits `applied` on its throttled date tick and `ForgeWorker` updates the seasonal phenology state across all plants in the scene.

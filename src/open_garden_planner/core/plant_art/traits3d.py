@@ -776,7 +776,7 @@ def resolve_traits(
     category: str | None = None,
 ) -> Traits3D | None:
     """Resolve ``(kind, species, category)`` through ``resolve_sprite`` to its ``Traits3D``."""
-    sprite = resolve_sprite(kind, species, category)
+    sprite = resolve_sprite(kind, species or "", category)
     return None if sprite is None else traits_for(sprite)
 
 

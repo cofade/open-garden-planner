@@ -86,11 +86,11 @@ def build_tree_foliage_from_skeleton(
     outward = normalize_vec(leaf_pts - crown_center[None, :])
 
     # Height and radial depth fractions for palette gradient + interior AO
-    z_min = float(leaf_pts[:, 2].min())
-    z_span = max(float(leaf_pts[:, 2].max()) - z_min, 1.0)
+    z_min = float(np.min(leaf_pts[:, 2]))
+    z_span = max(float(np.max(leaf_pts[:, 2])) - z_min, 1.0)
     height_frac = (leaf_pts[:, 2] - z_min) / z_span
     dist_c = np.linalg.norm(leaf_pts - crown_center[None, :], axis=1)
-    depth_frac = dist_c / max(float(dist_c.max()), 1.0)
+    depth_frac = dist_c / max(float(np.max(dist_c)), 1.0)
 
     colors = palette_leaf_colors(
         traits.palette,

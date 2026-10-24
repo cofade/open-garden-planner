@@ -74,6 +74,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import os
 import time
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, Protocol
@@ -117,6 +118,7 @@ if TYPE_CHECKING:
     from open_garden_planner.core.sim_clock import SimClock
 
     from .analysis_controller import AnalysisController, ProbeResult
+    from .forge_worker import ForgeWorker
     from .growth_jump import GrowthJump
     from .info_card import CardSubject, View3DCardSlot, View3DInfoCard
     from .look_controller import LookController
@@ -443,6 +445,7 @@ class Workspace(QWidget):
         self._pane: _Pane3D | None = None
         self._host: EngineHost | None = None
         self._controller: Scene3DController | None = None
+        self._forge_worker: ForgeWorker | None = None  # Plant Forge progressive upgrader (L3)
         self._look: LookController | None = None   # the look of the view (L1.4)
         self._input: OrbitInput | None = None
         self._problems_dialog: View3DProblemsDialog | None = None
@@ -480,6 +483,9 @@ class Workspace(QWidget):
         self._build_timer = QTimer(self)
         self._build_timer.setSingleShot(True)
         self._build_timer.timeout.connect(self._begin_build)
+        self._forge_timer = QTimer(self)
+        self._forge_timer.setSingleShot(True)
+        self._forge_timer.timeout.connect(self._step_forge)
 
         self._build_actions()
         self._init_selection_and_walk()  # L1.8: its state and the Walk action
@@ -845,6 +851,16 @@ class Workspace(QWidget):
             return
         self._host, self._controller, self._input = host, controller, orbit
         self._look = look
+        if (
+            self.engine_factory is quick3d_engine
+            and not os.environ.get("OGP_RENDER3D")
+            and not os.environ.get("OGP_WORKSPACE_GATE_SCENARIO")
+        ):
+            from .forge_worker import ForgeWorker
+
+            self._forge_worker = ForgeWorker(sink)
+        else:
+            self._forge_worker = None
         orbit.moved.connect(self._start_camera)
         orbit.reset_requested.connect(self.reset_view)
         self._wire_selection(host, orbit, controller)  # L1.8: the click, the ring, the card
@@ -886,6 +902,7 @@ class Workspace(QWidget):
             return
         if not showing:
             self._drop_held_build()
+            self._forge_timer.stop()
             controller.set_active(False)
             self._health_timer.stop()
             self._camera_timer.stop()
@@ -1065,6 +1082,9 @@ class Workspace(QWidget):
             return
         self.set_walking(False)  # L1.8: the walker's world is gone with the document
         self._analysis_document_changed()  # L2: the probe, the sweep, the jump, the wipe
+        self._forge_timer.stop()
+        if self._forge_worker is not None:
+            self._forge_worker.clear()
         controller.document_changed()
         # … and so is what was selected. NOT read from the scene: the old items are
         # still in it (and still selected) when the signal comes. The new document
@@ -1102,6 +1122,32 @@ class Workspace(QWidget):
         self._retired += report.retired
         if self._retired >= RELEASE_NOW_RETIRED:
             self._release_engine_caches()  # a flood: not worth waiting for quiet
+        if report.snapshot and self._forge_worker is not None and self._controller is not None:
+            loc = self._location()
+            lat = loc.get("latitude") if isinstance(loc, Mapping) else None
+            lat_deg = float(lat) if isinstance(lat, (int, float)) else 52.52
+            self._forge_worker.submit_snapshot(
+                self._controller.sync.records.values(),
+                camera_pos=self._camera.pose.eye,
+                plan_date=self._controller.pass_date,
+                latitude_deg=lat_deg,
+            )
+            if self._forge_worker.pending_count > 0 and self._pane_is_showing():
+                self._forge_timer.start(0)
+
+    def _step_forge(self) -> None:
+        """Upgrade up to a small slice of visible plants to forged 3D models per event-loop turn."""
+        worker = self._forge_worker
+        if worker is None or not self._pane_is_showing() or self._controller is None:
+            return
+        upgraded = worker.step(max_items=6)
+        if upgraded:
+            self._applied_at = _now()
+            self._retired += len(upgraded)
+            if self._retired >= RELEASE_NOW_RETIRED:
+                self._release_engine_caches()
+        if worker.pending_count > 0 and self._pane_is_showing():
+            self._forge_timer.start(0)
 
     def _release_engine_caches(self) -> None:
         """Tell the engine to let go of the graphics state Qt keeps for Models that
@@ -1344,6 +1390,10 @@ class Workspace(QWidget):
         self._unwire_analysis()   # L2: its timers and its sources
         self._camera_timer.stop()
         self._health_timer.stop()
+        self._forge_timer.stop()
+        if self._forge_worker is not None:
+            self._forge_worker.clear()
+            self._forge_worker = None
         self._drop_held_build()
         self._retired = 0  # the host goes, and what it cached with it
         self._notices.clear()  # … and whatever the status line said about it

@@ -16,7 +16,9 @@ import datetime
 import logging
 import math
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+
+import numpy as np
 
 from ...core.phenology import (
     DEFAULT_LATITUDE_DEG,
@@ -26,15 +28,64 @@ from ...core.phenology import (
 from ...core.plant_art import PLANT_KINDS
 from ...core.plant_forge import (
     DEFAULT_FORGE_CACHE,
+    PART_ACCENTS,
+    PART_FOLIAGE,
+    PART_WOOD,
     ForgeCache,
     enrich_climber_records,
     forge_record,
     select_lod,
     validate_lod,
 )
-from ...core.scene3d import EngineSink, MeshPart, Record
+from ...core.scene3d import EngineSink, Mesh, MeshPart, Record
 
 _log = logging.getLogger(__name__)
+
+
+def apply_seasonal_appearance(
+    parts: Sequence[MeshPart],
+    state: PhenologyState | None,
+) -> tuple[MeshPart, ...]:
+    """Modulate forged ``parts`` by seasonal ``state`` (winter bare wood, autumn foliage, seasonal accents)."""
+    if state is None:
+        return tuple(parts)
+
+    has_wood = any(p.name == PART_WOOD for p in parts)
+    out: list[MeshPart] = []
+
+    for part in parts:
+        if part.name == PART_WOOD:
+            out.append(part)
+        elif part.name == PART_FOLIAGE:
+            if state.leaf_density <= 0.05 and has_wood:
+                # Deciduous woody plant in winter dormancy: bare branch skeleton only
+                continue
+            if state.autumn_color > 0.05:
+                m = part.mesh
+                colors = m.colors.copy()
+                # Blend linear RGB toward warm autumn amber/gold while keeping per-vertex variation
+                autumn_target = np.array([0.55, 0.18, 0.03], dtype=np.float32)
+                w = float(min(max(state.autumn_color * 0.80, 0.0), 0.85))
+                colors[:, :3] = (1.0 - w) * colors[:, :3] + w * autumn_target[None, :]
+                new_mesh = Mesh(
+                    positions=m.positions,
+                    normals=m.normals,
+                    colors=colors,
+                    uvs=m.uvs,
+                    indices=m.indices,
+                )
+                out.append(replace(part, mesh=new_mesh))
+            else:
+                out.append(part)
+        elif part.name == PART_ACCENTS:
+            if state.leaf_density <= 0.05:
+                continue
+            if state.bloom > 0.10 or state.ripeness > 0.10:
+                out.append(part)
+        else:
+            out.append(part)
+
+    return tuple(out) if out else tuple(parts)
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,9 +117,11 @@ class ForgeWorker:
         self._force_lod: int | None = None
         self._generation: int = 0
         self._latest_records: dict[str, Record] = {}
-        self._applied_state: dict[str, tuple[object, int]] = {}
+        self._applied_state: dict[str, tuple[object, int, object]] = {}
         self._pending: dict[str, ForgeJob] = {}
         self._phenology: dict[str, PhenologyState] = {}
+        self._plan_date: datetime.date | None = None
+        self._latitude_deg: float = DEFAULT_LATITUDE_DEG
 
     @property
     def pending_count(self) -> int:
@@ -128,6 +181,19 @@ class ForgeWorker:
         lod = self._force_lod if self._force_lod is not None else select_lod(dist)
         return visible, dist, lod
 
+    def _season_key(self, item_id: str) -> object:
+        if self._plan_date is None:
+            return None
+        state = self._phenology.get(item_id)
+        if state is None:
+            return None
+        return (
+            round(state.leaf_density * 10.0),
+            round(state.bloom * 5.0),
+            round(state.ripeness * 5.0),
+            round(state.autumn_color * 10.0),
+        )
+
     def submit_record(self, record: Record, *, lod: int | None = None) -> None:
         """Submit or supersede a single plant ``record`` (`latest wins`)."""
         if record.kind not in PLANT_KINDS:
@@ -137,8 +203,9 @@ class ForgeWorker:
         visible, dist, auto_lod = self._score_record(record)
         chosen_lod = validate_lod(lod) if lod is not None else auto_lod
         sig = record.geometry_sig
+        s_key = self._season_key(record.item_id)
 
-        if self._applied_state.get(record.item_id) == (sig, chosen_lod):
+        if self._applied_state.get(record.item_id) == (sig, chosen_lod, s_key):
             self._pending.pop(record.item_id, None)
             return
 
@@ -159,6 +226,8 @@ class ForgeWorker:
         camera_pos: tuple[float, float, float] | None = None,
         camera_forward: tuple[float, float, float] | None = None,
         force_lod: int | None = None,
+        plan_date: datetime.date | None = None,
+        latitude_deg: float = DEFAULT_LATITUDE_DEG,
     ) -> None:
         """Update queue from a full scene snapshot (`visible plants first, latest wins`)."""
         if camera_pos is not None:
@@ -176,8 +245,20 @@ class ForgeWorker:
         if force_lod is not None:
             self._force_lod = validate_lod(force_lod)
 
+        self._plan_date = plan_date
+        self._latitude_deg = float(latitude_deg)
+
         enriched = enrich_climber_records(records)
         plant_records = {r.item_id: r for r in enriched if r.kind in PLANT_KINDS}
+
+        if plan_date is not None:
+            self._phenology = dict(
+                evaluate_phenology_for_records(
+                    tuple(plant_records.values()),
+                    plan_date,
+                    latitude_deg=self._latitude_deg,
+                )
+            )
 
         # Prune removed items
         for stale_id in list(self._latest_records):
@@ -243,7 +324,7 @@ class ForgeWorker:
             return False
 
         self._pending.pop(item_id, None)
-        self._applied_state[item_id] = (geometry_sig, lod)
+        self._applied_state[item_id] = (geometry_sig, lod, self._season_key(item_id))
         if self._sink is not None:
             self._sink.begin()
             try:
@@ -258,7 +339,7 @@ class ForgeWorker:
             return []
 
         ids = self.pending_order()[:max_items]
-        upgraded: list[tuple[str, tuple[MeshPart, ...], object, int]] = []
+        upgraded: list[tuple[str, tuple[MeshPart, ...], object, int, object]] = []
 
         for item_id in ids:
             job = self._pending.pop(item_id, None)
@@ -269,10 +350,14 @@ class ForgeWorker:
                 continue
             try:
                 parts = forge_record(latest, lod=job.lod, cache=self._cache)
+                if self._plan_date is not None:
+                    parts = apply_seasonal_appearance(parts, self._phenology.get(item_id))
             except Exception:
                 _log.exception("Plant Forge failed for item %s", item_id)
                 continue
-            upgraded.append((item_id, parts, job.geometry_sig, job.lod))
+            upgraded.append(
+                (item_id, parts, job.geometry_sig, job.lod, self._season_key(item_id))
+            )
 
         if not upgraded:
             return []
@@ -280,16 +365,16 @@ class ForgeWorker:
         if self._sink is not None:
             self._sink.begin()
             try:
-                for item_id, parts, sig, lod in upgraded:
+                for item_id, parts, sig, lod, s_key in upgraded:
                     self._sink.replace_geometry(item_id, parts)
-                    self._applied_state[item_id] = (sig, lod)
+                    self._applied_state[item_id] = (sig, lod, s_key)
             finally:
                 self._sink.commit()
         else:
-            for item_id, _parts, sig, lod in upgraded:
-                self._applied_state[item_id] = (sig, lod)
+            for item_id, _parts, sig, lod, s_key in upgraded:
+                self._applied_state[item_id] = (sig, lod, s_key)
 
-        return [item_id for item_id, _, _, _ in upgraded]
+        return [item_id for item_id, _, _, _, _ in upgraded]
 
     def drain(self, batch_size: int = 8) -> list[str]:
         """Process all pending plant forge jobs in priority order."""
@@ -305,4 +390,5 @@ class ForgeWorker:
 __all__ = [
     "ForgeJob",
     "ForgeWorker",
+    "apply_seasonal_appearance",
 ]
