@@ -24,17 +24,18 @@ from __future__ import annotations
 
 import datetime
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Final
 
+from .calendar_windows import calendar_windows
+from .frost_dates import parse_frost
 from .plant_art import (
     PALETTES,
     PLANT_KINDS,
     SpriteRef,
     Traits3D,
-    fruit_months_from_harvest_window,
     recipe_for,
     traits_for,
 )
@@ -177,6 +178,62 @@ def _month_window_weight(
     return float(min(max(ramp_from + (1.0 - ramp_from) * progress, 0.0), 1.0))
 
 
+def _frost_window(frost_dates: Mapping[str, object] | None) -> tuple[str | None, str | None]:
+    if not frost_dates:
+        return None, None
+    spring = frost_dates.get("last_spring_frost")
+    fall = frost_dates.get("first_fall_frost")
+    return (spring if isinstance(spring, str) else None, fall if isinstance(fall, str) else None)
+
+
+def _record_harvest(record: Record) -> tuple[float, float] | None:
+    values = [record.params.get(key) for key in ("harvest_start", "harvest_end")]
+    if all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+           for v in values):
+        return float(values[0]), float(values[1])  # type: ignore[arg-type]
+    return None
+
+
+def _inside_frost_free_season(day: datetime.date, spring: str | None, fall: str | None) -> bool:
+    start, end = parse_frost(spring, day.year), parse_frost(fall, day.year)
+    if start is None or end is None:
+        return True  # Missing/invalid inputs cannot make an analytical seasonal claim.
+    if start <= end:
+        return start <= day <= end
+    return day >= start or day <= end
+
+
+@lru_cache(maxsize=4096)
+def _harvest_ripeness(day: datetime.date, weeks: tuple[float, float], frost_mmdd: str) -> float:
+    # Derive every possible anchor year from the offsets, including multi-year
+    # establishment windows and those that cross New Year (task generator #414).
+    lo, hi = weeks
+    if not (math.isfinite(lo) and math.isfinite(hi)) or lo > hi:
+        return 0.0
+    # Recorded week offsets can be arbitrarily large. Outside datetime's range
+    # no representable frost anchor can produce a window for this date.
+    earliest = day.toordinal() - math.ceil(hi * 7)
+    latest = day.toordinal() - math.floor(lo * 7)
+    if latest < 1 or earliest > datetime.date.max.toordinal():
+        return 0.0
+    first = datetime.date.fromordinal(max(1, earliest)).year
+    last = datetime.date.fromordinal(min(datetime.date.max.toordinal(), latest)).year
+    offsets = {"harvest_start": lo, "harvest_end": hi}
+    for year in range(first, last + 1):
+        frost = parse_frost(frost_mmdd, year)
+        if frost is None:
+            continue
+        try:
+            windows = calendar_windows(offsets.get, frost)
+        except OverflowError:
+            continue
+        for _, start, end in windows:
+            if start <= day <= end:
+                share = (day - start).days / max((end - start).days, 1)
+                return 0.55 + 0.45 * share
+    return 0.0
+
+
 @lru_cache(maxsize=4096)
 def _evaluate_cached(
     sprite: SpriteRef,
@@ -184,6 +241,8 @@ def _evaluate_cached(
     lat_q: float,
     last_frost: datetime.date | None,
     snow_q: float | None,
+    frost_window: tuple[str | None, str | None] = (None, None),
+    harvest_override: tuple[float, float] | None = None,
 ) -> PhenologyState:
     traits = traits_for(sprite)
     recipe = recipe_for(sprite)
@@ -219,15 +278,19 @@ def _evaluate_cached(
     bloom = _month_window_weight(plan_date, lat_q, traits.bloom_months, ramp_from=1.0)
 
     # 3. Ripeness (0..1)
-    if last_frost is not None and traits.harvest_weeks is not None:
-        f_months = fruit_months_from_harvest_window(
-            traits.harvest_weeks[0],
-            traits.harvest_weeks[1],
-            last_frost,
-        )
+    harvest_weeks = harvest_override if harvest_override is not None else traits.harvest_weeks
+    frost_mmdd = frost_window[0] or (last_frost.strftime("%m-%d") if last_frost else None)
+    if frost_mmdd and harvest_weeks is not None:
+        # Calendar frost dates already describe local seasons. Do not apply the
+        # hemisphere phase shift to them again, or round windows to whole months.
+        ripeness = _harvest_ripeness(plan_date, harvest_weeks, frost_mmdd)
     else:
-        f_months = traits.fruit_months
-    ripeness = _month_window_weight(plan_date, lat_q, f_months, ramp_from=0.55)
+        ripeness = _month_window_weight(plan_date, lat_q, traits.fruit_months, ramp_from=0.55)
+    if (frost_window[0] and frost_window[1]
+            and not _inside_frost_free_season(plan_date, *frost_window)):
+        bloom = 0.0
+        if harvest_weeks is None:
+            ripeness = 0.0
 
     # 4. Snow (0..1)
     if snow_q is not None:
@@ -251,9 +314,9 @@ def _evaluate_cached(
         ft_b = ft_b * (1.0 - 0.45 * snow) + SNOW_LINEAR_RGB[2] * (0.45 * snow)
 
     foliage_tint_linear = (
-        round(min(max(ft_r, 0.05), 1.0), 5),
-        round(min(max(ft_g, 0.05), 1.0), 5),
-        round(min(max(ft_b, 0.05), 1.0), 5),
+        round(min(max(ft_r, 0.05), 2.1), 5),
+        round(min(max(ft_g, 0.05), 2.1), 5),
+        round(min(max(ft_b, 0.05), 2.1), 5),
     )
     foliage_tint_rgba = _linear_to_srgb8((*foliage_tint_linear, 1.0))
 
@@ -313,6 +376,7 @@ def evaluate_phenology(
     latitude_deg: float = DEFAULT_LATITUDE_DEG,
     last_frost: datetime.date | None = None,
     snow_override: float | None = None,
+    frost_dates: Mapping[str, object] | None = None,
 ) -> PhenologyState:
     """Evaluate `PhenologyState` for `plant` (`Traits3D`, `SpriteRef`, or `Record`) on `plan_date`."""
     if isinstance(plant, Traits3D):
@@ -327,7 +391,9 @@ def evaluate_phenology(
 
     lat_q = round(float(latitude_deg), 2) if math.isfinite(latitude_deg) else DEFAULT_LATITUDE_DEG
     snow_q = round(float(snow_override), 3) if snow_override is not None else None
-    return _evaluate_cached(sprite, plan_date, lat_q, last_frost, snow_q)
+    frost_window = _frost_window(frost_dates)
+    override = _record_harvest(plant) if isinstance(plant, Record) else None
+    return _evaluate_cached(sprite, plan_date, lat_q, last_frost, snow_q, frost_window, override)
 
 
 def evaluate_phenology_batch(
@@ -337,21 +403,13 @@ def evaluate_phenology_batch(
     latitude_deg: float = DEFAULT_LATITUDE_DEG,
     last_frost: datetime.date | None = None,
     snow_override: float | None = None,
+    frost_dates: Mapping[str, object] | None = None,
 ) -> list[PhenologyState]:
     """Evaluate `PhenologyState` for a batch of plants (`<= 16 ms` for 300 plants)."""
-    lat_q = round(float(latitude_deg), 2) if math.isfinite(latitude_deg) else DEFAULT_LATITUDE_DEG
-    snow_q = round(float(snow_override), 3) if snow_override is not None else None
-    out: list[PhenologyState] = []
-    for item in plants:
-        if isinstance(item, Traits3D):
-            sprite = item.sprite
-        elif isinstance(item, SpriteRef):
-            sprite = item
-        else:
-            resolved = plant_sprite(item)
-            sprite = resolved if resolved is not None else SpriteRef("categories", "round_deciduous")
-        out.append(_evaluate_cached(sprite, plan_date, lat_q, last_frost, snow_q))
-    return out
+    return [evaluate_phenology(
+        plant, plan_date, latitude_deg=latitude_deg, last_frost=last_frost,
+        snow_override=snow_override, frost_dates=frost_dates,
+    ) for plant in plants]
 
 
 def evaluate_phenology_for_records(
@@ -361,19 +419,13 @@ def evaluate_phenology_for_records(
     latitude_deg: float = DEFAULT_LATITUDE_DEG,
     last_frost: datetime.date | None = None,
     snow_override: float | None = None,
+    frost_dates: Mapping[str, object] | None = None,
 ) -> dict[str, PhenologyState]:
     """Evaluate `{item_id: PhenologyState}` for all plant records in `records`."""
-    lat_q = round(float(latitude_deg), 2) if math.isfinite(latitude_deg) else DEFAULT_LATITUDE_DEG
-    snow_q = round(float(snow_override), 3) if snow_override is not None else None
-    result: dict[str, PhenologyState] = {}
-    for rec in records:
-        if rec.kind not in PLANT_KINDS:
-            continue
-        sprite = plant_sprite(rec)
-        if sprite is None:
-            sprite = SpriteRef("categories", "round_deciduous")
-        result[rec.item_id] = _evaluate_cached(sprite, plan_date, lat_q, last_frost, snow_q)
-    return result
+    return {rec.item_id: evaluate_phenology(
+        rec, plan_date, latitude_deg=latitude_deg, last_frost=last_frost,
+        snow_override=snow_override, frost_dates=frost_dates,
+    ) for rec in records if rec.kind in PLANT_KINDS}
 
 
 __all__ = [

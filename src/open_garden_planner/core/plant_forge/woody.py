@@ -15,7 +15,15 @@ import numpy as np
 from ..plant_art.traits3d import Traits3D
 from ..scene3d.mesh import MeshPart
 from .assemble import fit_forged_parts
-from .foliage import RawGeo, concat_geo, empty_geo, micro_leaves, normalize_vec, palette_leaf_colors
+from .foliage import (
+    RawGeo,
+    concat_geo,
+    crown_leaf_budget,
+    empty_geo,
+    micro_leaves,
+    normalize_vec,
+    palette_leaf_colors,
+)
 from .lod import LOD0, LOD1, triangle_budget_for_lod, validate_lod
 from .trees import bark_linear_rgba
 from .tube import frustum_tubes
@@ -165,10 +173,17 @@ def build_forged_conifer(
     accent_geo = accents if accents is not None else empty_geo()
 
     budget_leaves = max((triangle_budget_for_lod(lod) - wood.triangle_count - accent_geo.triangle_count - 16) // 2, 32)
-    if len(all_leaf_pts) > budget_leaves:
-        sel = np.linspace(0, len(all_leaf_pts) - 1, budget_leaves, dtype=np.int32)
-        all_leaf_pts = all_leaf_pts[sel]
-        all_leaf_dirs = all_leaf_dirs[sel]
+    lod_scale = 1.0 if lod == LOD0 else (1.5 if lod == LOD1 else 2.4)
+    base_length = max(min(height_cm, radius_cm * 2.2) * 0.075 * lod_scale, 2.5)
+    width_ratio = max(traits.leaf.width_ratio, 0.32)
+    leaf_count, base_length = crown_leaf_budget(
+        height_cm, radius_cm, trunk_share, base_length, width_ratio, budget_leaves,
+    )
+    sel = rng.integers(0, len(all_leaf_pts), size=leaf_count)
+    all_leaf_pts = all_leaf_pts[sel] + rng.normal(
+        0.0, min(height_cm, radius_cm * 2) * 0.025, size=(leaf_count, 3),
+    )
+    all_leaf_dirs = all_leaf_dirs[sel]
 
     crown_center = np.array([0.0, 0.0, height_cm * 0.48], dtype=np.float64)
     outward = normalize_vec(0.65 * all_leaf_dirs + 0.35 * normalize_vec(all_leaf_pts - crown_center[None, :]))
@@ -179,11 +194,9 @@ def build_forged_conifer(
     depth_frac = radial_dist / max(float(radial_dist.max()), 1.0)
     colors = palette_leaf_colors(traits.palette, traits.sprite, height_frac, depth_frac, rng)
 
-    lod_scale = 1.0 if lod == LOD0 else (1.5 if lod == LOD1 else 2.4)
-    needle_len = max(min(height_cm, radius_cm * 2.2) * 0.075 * lod_scale, 2.5) * rng.uniform(
-        0.8, 1.25, size=len(all_leaf_pts)
-    )
-    needle_wid = needle_len * max(traits.leaf.width_ratio, 0.32)
+    # Radial fitting trims the broad sprays; retain cover after that fit.
+    needle_len = (base_length * 1.12) * rng.uniform(0.8, 1.25, size=len(all_leaf_pts))
+    needle_wid = needle_len * width_ratio
 
     foliage = micro_leaves(
         all_leaf_pts,
@@ -197,7 +210,8 @@ def build_forged_conifer(
         droop=traits.crown.droop,
         cup=0.05,
     )
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                            structural_height=traits.deciduous)
 
 
 def build_forged_palm(
@@ -331,7 +345,8 @@ def build_forged_palm(
         cup=0.06,
     )
     accent_geo = accents if accents is not None else empty_geo()
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                            structural_height=traits.deciduous)
 
 
 def build_forged_shrub(
@@ -470,7 +485,8 @@ def build_forged_shrub(
         cup=0.07 if traits.leaf.frilly else 0.03,
     )
     accent_geo = accents if accents is not None else empty_geo()
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                            structural_height=traits.deciduous)
 
 
 def build_forged_hedge(
@@ -580,7 +596,8 @@ def build_forged_hedge(
         cup=0.04,
     )
     accent_geo = accents if accents is not None else empty_geo()
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                            structural_height=traits.deciduous)
 
 
 __all__ = [

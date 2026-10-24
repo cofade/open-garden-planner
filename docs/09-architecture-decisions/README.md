@@ -7262,42 +7262,67 @@ addendum "ground surfaces lie under the sun study".
 
 ---
 
-## ADR-064: Plant Forge — Procedural 3D Species Models from the 2D Sprite Recipes, LODs and Phenology (#387)
+## ADR-064: Plant Forge ? Procedural 3D Species Models from the 2D Sprite Recipes, LODs and Phenology (#387)
 
-**Status:** Accepted
+**Status:** Accepted implementation; owner beauty/manual acceptance pending (PR #593).
 **Date:** 2026-10-25
-**Context:** Phase 17 L1.7 (`core/scene3d/plants.py`) gave every plant a clean v0 silhouette (`CROWN_PART`, `TRUNK_PART`) driven by `plant_art` colours and resolved dimensions. Issue #387 (Phase 17 L3 "Plant Forge", epic #383) requires turning all 128 procedural 2D sprite recipes (`core/plant_art/`) into distinct, botanically truthful 3D species models across 16 architectural families, with distance-based level-of-detail (LOD0/LOD1/LOD2), climber support awareness, seasonal accents (fruits, blossoms, umbels, pods, tubers), and full-year seasonal phenology without ever stalling the 3D view's first frame or date scrubbing.
+**Context:** L3 replaces the first silhouettes with procedural species models,
+while preserving plan dimensions, responsive navigation and a shared local date.
+The implementation contains 123 recipes in 13 archetypes; the initial PR text's
+128 recipes, 16 habits, invented trait APIs and smaller triangle limits were
+incorrect and are replaced here by executable contracts.
 
 **Decision:**
 
-1. **Zero external 3D assets; one recipe table (`core/plant_art/traits3d.py`).**
-   Every 3D plant model is synthesized purely from the existing 2D sprite recipes in `core/plant_art/` (`trees.py`, `shrubs.py`, `perennials.py`, `vegetables.py`, `herbs.py`, `flowers.py`, `climbers.py`, `palms.py`, `conifers.py`, `ground_cover.py`). `core/plant_art/traits3d.py` maps all 128 canonical recipe keys (plus category fallbacks) to a frozen, stdlib-only `Traits3D` dataclass (`habit`, `crown`, `foliage_palette`, `bark_palette`, `trunk_fraction`, `branch_spread`, `leaf_card_density`, `leaf_tilt_deg`, `fruit`, `blossom`, `deciduous`, `support_habit`). `core/plant_art/` remains 100% stdlib-only (no `numpy`, no `PyQt6`). In parallel, `core/object_art/materials.py` extracts PBR material palettes (`ObjectMaterial3D`) for all 24 object SVG generators while preserving byte-for-byte SVG output identity (`test_generator_svg_byte_identity`).
-2. **Qt-free `core/plant_forge/` with 16 architectural builders and exact dimensional truth.**
-   `core/plant_forge/` (`lod.py`, `foliage.py`, `skeleton.py`, `tube.py`, `assemble.py`, `trees.py`, `woody.py`, `herbaceous.py`, `climbers.py`, `accents.py`, `cache.py`) imports only stdlib + `numpy` + `core.plant_art` + `core.scene3d`.
-   - **Broadleaf trees (`trees.py`):** 3D space-colonisation skeleton (`skeleton.py`, attraction radius $r_a$, kill distance $r_k$, step $d$) with Leonardo da Vinci pipe-model radii ($r_{\text{parent}}^{2.3} = \sum r_{\text{child}}^{2.3}$) swept via Bishop parallel-transport frames (`tube.py`) into `TRUNK_PART`, plus outward-normal leaf cards (`foliage.py`) in `CROWN_PART`.
-   - **Conifers, palms, shrubs, hedges (`woody.py`):** Whorled tiers (`conifer_cone`, `conifer_column`, `conifer_layered`, `conifer_pendulous`), curved trunk + Fibonacci pinnate/fan fronds (`palm_fan`, `palm_feather`), multi-stem basal canes + dome clusters (`shrub_dome`, `shrub_arching`, `shrub_cane`), and box-clipped leaf hulls (`build_forged_hedge`).
-   - **Herbaceous & vegetables (`herbaceous.py`):** Fibonacci phyllotaxis rosettes (`rosette`, golden angle $137.508^\circ$), quadratic Bézier grass culms (`grass_tuft`), pinnate/fern fronds (`feathery_frond`), hollow scapes + spherical umbels (`allium_umbel`), wrapper leaves + central head (`brassica_head`), prostrate runners (`ground_mat`), and basal foliage + flower stems (`flower_clump`).
-   - **Truth-before-beauty invariant (`assemble.fit_forged_parts`):** Every forged model's vertex bounds hit `z_min == 0.0 ± 0.1 cm`, `z_max == height_cm ± 0.1 cm`, and XY extent `== width_cm × depth_cm ± 0.5 cm`, with `casts_shadow=True` on every solid part and zero non-finite floats or out-of-range indices.
-3. **Three-LOD budget and two-tier memory cache (`lod.py`, `cache.py`).**
-   - `LOD0` (< 25 m): ≤ 4,500 triangles (`LOD_TRIS_CAP[LOD0] = 4500`).
-   - `LOD1` (25–60 m): ≤ 1,200 triangles (`LOD_TRIS_CAP[LOD1] = 1200`).
-   - `LOD2` (> 60 m): ≤ 250 triangles (`LOD_TRIS_CAP[LOD2] = 250`).
-   - Unit-normalised templates (`height=100 cm, width=100 cm, depth=100 cm`) are cached by `(recipe_key, lod, seed_bucket, support_key, ripeness_bucket, blossom_bucket)` in an LRU cache (bounded at 256 entries / 64 MB) and scaled to instance dimensions on hit.
-   - **Measured synthesis latency (no disk cache needed):** Across all 128 recipes at `LOD0`, cold synthesis median is **4.26 ms**, p90 is **16.07 ms**, and max is **30.02 ms** (well under the 40 ms p90 threshold that would trigger a disk cache). Warm cache hit median is **0.072 ms** (< 1 ms budget). A 50-plant mixed-LOD garden builds cold in **136.2 ms** and warm in **0.073 ms**.
-4. **Progressive background upgrade (`ui/view3d/forge_worker.py`).**
-   The synchronous `Scene3DController` pass always places fast v0 silhouettes immediately (`< 150 ms` first frame), and `ForgeWorker` upgrades plants asynchronously in distance-sorted chunks (nearest to camera first, latest-wins generation counter so rapid edits discard stale work, clean `shutdown()`).
-5. **Three-tier climber support precedence (`core/plant_forge/climbers.py`).**
-   `resolve_climber_support(record, all_records)` resolves climber support in strict precedence:
-   1. Explicit `parent_id` pointing to a `TRELLIS` record (`kind="trellis_parent"`).
-   2. Nearest `FENCE`, `WALL`, or `PERGOLA` polyline/polygon segment within 60 cm of the plant's centre (`kind="nearby_structure"`).
-   3. Self-supporting tripod of 3 bamboo bean poles (`kind="bean_poles"`) when no support is within 60 cm.
-6. **Seasonal accents and hemisphere-aware phenology (`core/plant_forge/accents.py`, `core/phenology.py`).**
-   - `accents.py` generates low-poly icosphere fruits (tomato, apple, citrus, pumpkin, gourd, berry clusters, grape bunches), 5-petal blossom stars, compound umbel discs, hanging pods, and half-emerged root shoulders, interpolating vertex colours from unripe green through breaker to ripe species colour (`ripeness`).
-   - `core/phenology.py` computes a deterministic `PhenologyState(foliage_color, leaf_opacity, bloom, ripeness, bare_branches, stage)` from `(species_key, day_of_year, latitude_deg)` — shifting by 182.5 days in the southern hemisphere (`latitude_deg < 0`).
-   - Date scrubbing updates plant appearance in place (`ForgeWorker.apply_seasonal_appearance`, ≤ 0.5 ms for 100 plants, measured ~0.1 ms, zero mesh rebuilds on day-of-year change); in winter (`bare_branches=True`), deciduous trees and shrubs shed their `CROWN_PART` (`CROWN_PART` omitted, `TRUNK_PART` space-colonisation skeleton retained) while evergreens (`conifer_*`, `palm_*`, rosemary, lavender, boxwood) keep full foliage.
+1. **One art source.** Frozen `Traits3D` combines crown, branching, leaf and
+   illustrative seasonal traits from the existing recipes. The exact Lemon Balm /
+   Melissa officinalis alias resolves to the herb category before word matching
+   (L3.0 explicitly requests this correction; the earlier #446 decision had left
+   it unresolved). Melon and flax keep the already-correct category fallbacks.
+   `core/object_art/materials.py` supplies the unchanged object SVG colour tables.
+2. **Qt-free synthesis.** `core/plant_forge/` uses stdlib and NumPy for
+   space-colonisation skeletons, parallel-transport tubes, geometric micro-leaves,
+   tiered conifers, palms, shrubs, hedges, herbaceous forms and climbers. Total
+   triangle caps are 25,000 / 6,000 / 800 at LOD0/1/2, as issue #387 requires;
+   distance thresholds are 18/45 m. Foliage counts derive from crown area with
+   target coverage 1.6; capped distant crowns receive larger leaves. Deciduous
+   structural wood keeps its base and full height independently of foliage.
+3. **Bounded instance cache.** The LRU stores fully sized, seeded immutable meshes,
+   at most 256 entries and 64 MiB of array data. It is not a unit-template cache.
+   Local cold synthesis across all 123 recipes (height420/radius180/seed303,
+   median of three per recipe, Python3.11) measured median3.75/p9012.64/max21.19 ms;
+   warm median0.0013 ms. A disk cache is unnecessary against the issue's median
+   150 ms budget. These numbers exclude GUI uploads and presentation.
+4. **Background synthesis, main-thread admission.** The workspace retains the
+   existing first silhouettes and uses a one-job executor for upgrades. A GUI
+   timer admits only a current document epoch, geometry signature and LOD.
+   Controller recovery invalidates applied upgrades; orbit and walk camera
+   movement update visibility/distance ordering and LOD. Render flags never
+   disable this production feature. The Beauty Board uses the same forge and
+   seasonal path, rather than silently rendering the old registry alone.
+5. **Support precedence.** A climber first uses its trellis parent; otherwise the
+   nearest fence/wall/pergola/trellis within50 cm of its canopy edge, accounting
+   for path width, then a three-pole bamboo tripod. Supports are transient record
+   inputs, not saved plan mutations.
+6. **Stable seasonal geometry.** Flowers, fruits/pods and tubers are separate
+   parts. Foliage density/tint/snow, bloom and ripeness update persistent Models
+   without mesh copies on season-only changes. Leaf collapse removes seasonal
+   shadows too; X-ray retains its independent screen-door shadow policy.
+   `core/calendar_windows.py` owns exact frost-relative arithmetic, re-exported
+   at the old task-generator API; phenology reads instance harvest offsets and
+   the plan's frost dates across all contributing anchor years. Hemisphere
+   shifting applies to illustrative seasonal cycles, never to recorded local
+   frost dates. Plant existence remains #315's shared clock/lifetime rule.
 
-**Consequences:**
-- All 128 species recipes render as distinct, recognizable 3D plants at exact plan height and spread.
-- `core/plant_art/` and `core/object_art/` stay stdlib-only; `core/plant_forge/` and `core/phenology.py` stay Qt-free.
-- Pinned by `tests/unit/test_plant_art_traits3d.py`, `tests/unit/test_object_art_materials.py`, `tests/unit/test_plant_forge_l31.py`..`l34.py`, `tests/unit/test_phenology.py`, `tests/integration/test_plant_forge.py`, and `tests/fixtures/plant_forge/forged_trees_golden.json`.
+**Alternatives rejected:** GUI timer batches still block the GUI during synthesis
+(measured six-apple batch116.6 ms). Replacing meshes on a date step defeats the
+16 ms scrub contract. A merged accent mesh cannot hide spring fruit independently
+of blossom. A render-only feature bypass makes green gates irrelevant to shipping.
+A disk cache adds persistence/versioning costs without the measured need.
+
+**Consequences:** No external asset or runtime dependency, plan format change, or
+new persistent setting. The old silhouettes remain a temporary first view.
+Acceptance uses the production workspace, real engine seasonal tests, 40 mesh
+references, calendar/geometry regressions and an independently rendered board.
+The owner still judges final beauty and interactive use before merge.
 

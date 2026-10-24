@@ -24,9 +24,9 @@ from open_garden_planner.core.plant_forge import (
     LOD0,
     LOD1,
     PARAM_CLIMBER_SUPPORT,
-    PART_ACCENTS,
     PART_FOLIAGE,
     PART_WOOD,
+    SEASONAL_PARTS,
     SUPPORT_BEAN_POLES,
     SUPPORT_FENCE,
     SUPPORT_TRELLIS,
@@ -109,7 +109,7 @@ class TestPlantForgeEndToEndIntegration:
 
         # Apple tree, lilac, sunflower, radish, dill all have seasonal accents at LOD1
         apple_id = next(k for k, r in records.items() if r.params.get("sprite_species") == "apple_tree")
-        assert PART_ACCENTS in {p.name for p in sink.item(apple_id).parts}
+        assert SEASONAL_PARTS & {p.name for p in sink.item(apple_id).parts}
 
     def test_climber_support_end_to_end_on_canvas(self, qtbot: object) -> None:
         _ = qtbot
@@ -184,7 +184,8 @@ class TestPlantForgeEndToEndIntegration:
         sync = SceneSync(sink, production_registry())
         sync.apply(records)
 
-        worker = ForgeWorker(sink, cache=ForgeCache(max_entries=32))
+        seasons = []
+        worker = ForgeWorker(sink, cache=ForgeCache(max_entries=32), season_sink=seasons.append)
         near_rec = records[str(p_near.item_id)]
         worker.submit_snapshot(
             records.values(),
@@ -210,8 +211,9 @@ class TestPlantForgeEndToEndIntegration:
         assert winter_sh[str(p_near.item_id)].leaf_density == 0.0
         assert winter_sh[str(p_ever.item_id)].leaf_density == 1.0
 
-        # Seasonal appearance modulation when plan_date is supplied to submit_snapshot:
-        # in winter, deciduous trees shed foliage (PART_WOOD only) while evergreens keep PART_FOLIAGE
+        # A snapshot date changes shader values on the existing Models; static
+        # geometry and upload count do not depend on the season.
+        near_parts = sink.item(str(p_near.item_id)).parts
         worker.submit_snapshot(
             records.values(),
             camera_pos=(near_rec.transform.east_cm, near_rec.transform.north_cm, 170.0),
@@ -219,9 +221,11 @@ class TestPlantForgeEndToEndIntegration:
             latitude_deg=52.0,
         )
         worker.drain()
-        near_winter_parts = {p.name for p in sink.item(str(p_near.item_id)).parts}
         ever_winter_parts = {p.name for p in sink.item(str(p_ever.item_id)).parts}
-        assert near_winter_parts == {PART_WOOD}
+        assert sink.item(str(p_near.item_id)).parts is near_parts
+        assert seasons[-1][str(p_near.item_id)].leaf_density == 0.0
+        assert seasons[-1][str(p_ever.item_id)].leaf_density == 1.0
+        assert len([c for c in sink.calls if c.op == "replace_geometry"]) == uploads_before
         assert PART_FOLIAGE in ever_winter_parts
 
     def test_l36_all_13_archetypes_and_cache_hits(self) -> None:

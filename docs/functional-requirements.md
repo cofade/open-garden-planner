@@ -705,14 +705,34 @@ Acceptance (L2): `tests/integration/test_view3d_analysis.py` (§8.10 — the wor
 
 Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
 
-- **FR-3D-FORGE-01** (L3.0–L3.3): Every one of the 128 procedural 2D plant sprite recipes (`core/plant_art/`) has a corresponding 3D procedural plant model (`core/plant_forge/`) built purely from its recipe traits (`core/plant_art/traits3d.py`) with zero external 3D asset files: broadleaf trees (3D space-colonisation skeleton with Leonardo pipe-model branch radii + outward-normal leaf cards), conifers (whorled tiers: conical, columnar, layered, pendulous), palms (curved ringed trunk + Fibonacci fronds), shrubs (dome, arching, cane), hedges (box-clipped leaf hulls), rosettes (Fibonacci golden-angle phyllotaxis), grasses (quadratic Bézier culms), feathery/pinnate foliage, allium scapes + umbels, brassica/lettuce heads, ground covers, and flower clumps. Every forged model fits the plan's exact resolved height (`z_min == 0.0 ± 0.1 cm`, `z_max == height_cm ± 0.1 cm`) and footprint (`width_cm × depth_cm ± 0.5 cm`), and every solid part casts shadows (`casts_shadow=True`).
-- **FR-3D-FORGE-02** (L3.1, L3.6): Plant models respect three distance-based level-of-detail triangle budgets (`LOD0` < 25 m ≤ 4,500 tris, `LOD1` 25–60 m ≤ 1,200 tris, `LOD2` > 60 m ≤ 250 tris) and are cached in a bounded LRU template cache (`256` entries / `64 MB`, cold `LOD0` median `4.26 ms`, p90 `16.07 ms`, warm hit `< 0.1 ms`).
-- **FR-3D-FORGE-03** (L3.1, L3.6): Opening or editing the 3D view never blocks on procedural plant synthesis: `Scene3DController` places fast v0 silhouettes immediately, and `ForgeWorker` upgrades plants progressively (nearest to the camera first, latest-wins generation counter so rapid edits discard stale work).
-- **FR-3D-FORGE-04** (L3.4): Climbers (`climbing_vine`, `twining_vine`, `sprawling_vine`) resolve their 3D support in three-tier precedence: (1) an explicit `parent_id` pointing to a `TRELLIS` object, (2) the nearest `FENCE`, `WALL`, or `PERGOLA` segment within 60 cm of the plant's centre, or (3) a self-supporting tripod of three bamboo bean poles when no structure is within 60 cm.
-- **FR-3D-FORGE-05** (L3.5): Fruiting and flowering species display procedural 3D seasonal accents (`FRUIT_PART`, `FLOWER_PART`: spheres/icospheres for tomatoes, apples, citrus, pumpkins, gourds, berry clusters, and grape bunches; 5-petal blossom stars; compound umbels; hanging pods; half-emerged root shoulders) whose vertex colours interpolate from unripe green through breaker to ripe species colour.
-- **FR-3D-FORGE-06** (L3.5, L3.6): Scrubbing the plan date updates plant phenology across the year (`core/phenology.py`, hemisphere-aware via `latitude_deg < 0`): spring budbreak and blossom peak, summer canopy and fruit set, autumn foliage colour transition (gold/amber/crimson for deciduous species), and winter dormancy where deciduous trees and shrubs shed their `CROWN_PART` to reveal bare space-colonisation branches while evergreens retain full foliage.
+- **FR-3D-FORGE-01:** All 123 sprite recipes (108 species and 15 categories)
+  have procedural 3D models in 13 archetypes, using shared art traits and no
+  external models. Known heights remain within3% and crown spread within10%;
+  winter structural wood retains ground contact and recorded height.
+- **FR-3D-FORGE-02:** Total triangle caps are25,000/6,000/800 at distance LODs
+  up to18 m / up to45 m / beyond45 m. A256-entry,64 MiB LRU bounds mesh storage.
+- **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Camera
+  movement updates LOD without an edit; stale document/geometry completions are
+  refused. Recovery restores progressive upgrades.
+- **FR-3D-FORGE-04:** Climbers prefer their trellis parent, then a structure
+  within50 cm of the canopy edge, then a three-pole bamboo tripod.
+- **FR-3D-FORGE-05:** Separate flower, fruit/pod and tuber geometry permits
+  independent bloom and ripeness. Recorded harvest windows follow the shared
+  day-level task calendar and the plan's local frost dates.
+- **FR-3D-FORGE-06:** Existing Models respond to seasonal date changes through
+  shader/material values. Deciduous leaves and their shadows disappear in
+  winter, evergreens retain foliage; illustrative seasons shift in the southern
+  hemisphere. Plant existence stays on the shared lifetime rule.
 
-Acceptance (L3): `tests/integration/test_plant_forge.py` (§8.10 — end-to-end 16-species garden with trellis/fence/free climbers, LOD budgets, dimensional accuracy, progressive `ForgeWorker` upgrade, winter deciduous bare branches vs evergreen foliage, and cold/warm latency gates), `tests/unit/test_plant_art_traits3d.py`, `tests/unit/test_object_art_materials.py`, `tests/unit/test_plant_forge_l31.py`, `tests/unit/test_plant_forge_l32.py`, `tests/unit/test_plant_forge_l33.py`, `tests/unit/test_plant_forge_l34.py`, `tests/unit/test_phenology.py`, and `tests/fixtures/plant_forge/forged_trees_golden.json`.
+Acceptance: `tests/integration/test_plant_forge.py`,
+`tests/integration/test_plant_forge_workspace.py`,
+`tests/integration/test_plant_forge_calendar.py`, `tests/unit/test_plant_forge_review.py`,
+`tests/unit/test_plant_forge_l31.py` through `test_plant_forge_l34.py`,
+`tests/unit/test_phenology.py`, `tests/unit/test_plant_art.py`,
+`tests/unit/test_object_sprite_conformance.py` and the40 golden tree references.
+The production Beauty Board, actual engine seasonal checks and owner acceptance
+complete the evidence.
+
 
 ## FR-34: Plan timeline and plant lifetimes (US-F4, #315)
 

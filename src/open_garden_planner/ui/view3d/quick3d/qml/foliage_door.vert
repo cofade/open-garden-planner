@@ -19,6 +19,9 @@ void MAIN()
     float rest = smoothstep(0.0, 2.0, uTime);
     VERTEX.x += sin(uTime * 1.9 + ph + wp.x * 0.011) * uWind * w * gust * rest;
     VERTEX.z += cos(uTime * 1.4 + ph + wp.z * 0.009) * uWind * 0.6 * w * gust * rest;
+    // Every vertex of a leaf shares UV.y: collapse whole leaves, including shadows.
+    if (UV0.y >= uLeafDensity)
+        VERTEX = vec3(0.0);
     vColor = COLOR;
     POSITION = MODELVIEWPROJECTION_MATRIX * vec4(VERTEX, 1.0);
     // the screen door's depth-pass collapse (screen.vert): no ghost in the AO depth

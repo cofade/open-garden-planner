@@ -729,8 +729,22 @@ See crosscutting section 8.30 and the ADR-059 addendum for the contracts.
 
 ## Plant Forge: procedural 3D species models and phenology (L3, #387, ADR-064)
 
-- `core/plant_art/traits3d.py`: stdlib-only 3D trait extraction (`Traits3D`, `FruitTraits`, `BlossomTraits`, `traits_for_species`, `traits_for_record`) mapping all 128 procedural 2D sprite recipes in `core/plant_art/` across 16 architectural habits.
-- `core/object_art/materials.py`: stdlib-only PBR material palettes (`ObjectMaterial3D`, `OBJECT_MATERIALS_3D`) extracted from the 24 object SVG generators while preserving byte-identical SVG output.
-- `core/plant_forge/`: Qt-free procedural 3D plant mesh synthesis (`lod.py`, `foliage.py`, `skeleton.py`, `tube.py`, `assemble.py`, `trees.py`, `woody.py`, `herbaceous.py`, `climbers.py`, `accents.py`, `cache.py`, `__init__.py`). Builds space-colonisation broadleaf trees, whorled conifers, palms, shrubs, box-clipped hedges, Fibonacci rosettes, Bézier grass tufts, pinnate fronds, alliums, heads, ground covers, flower clumps, 3-tier support-aware climbers, and seasonal accents (`FRUIT_PART`, `FLOWER_PART`), with bounded LRU template caching (`256` entries / `64 MB`).
-- `core/phenology.py`: Qt-free seasonal phenology engine (`PhenologyState`, `SeasonStage`, `phenology_for_species`, `phenology_for_record`) computing deterministic foliage colour, blossom density, fruit ripeness, and winter deciduous bare-branch state from `(species_key, day_of_year, latitude_deg)`.
-- `ui/view3d/forge_worker.py`: Progressive background upgrade coordinator (`ForgeWorker`) that keeps first-frame v0 silhouettes fast (`< 150 ms`), upgrades plants nearest-to-camera first with a latest-wins generation counter, and applies seasonal phenology on date changes (`apply_seasonal_appearance`).
+`core/plant_art/traits3d.py` supplies frozen `Traits3D`, `CrownTraits`,
+`BranchingTraits` and `LeafTraits` for the 108 species and 15 category recipes
+in 13 archetypes. The shared resolver gives Lemon Balm its exact herb alias
+before word matching. `core/object_art/materials.py` owns the object SVGs'
+`MATERIALS`, `EMBER` and `FLAME` tables; 3D palette readers use that same source.
+Both art packages remain stdlib-only.
+
+`core/plant_forge/` builds skeletons, tubes, geometric leaves, climbers and
+separate flower, fruit/pod and tuber parts. Its cache stores fully sized,
+seeded immutable meshes, bounded by 256 entries and 64 MiB of array data.
+`core/phenology.py` evaluates date, hemisphere and recorded harvest windows;
+`core/calendar_windows.py` owns the frost-relative arithmetic, re-exported by
+`services/task_generator.py` for existing callers. These modules are Qt-free.
+
+`ui/view3d/forge_worker.py` queues visible plants first and synthesizes one
+plant at a time off the GUI thread. The workspace admits current completions,
+updates LOD on orbit/walk movement and sends seasonal values to persistent
+Models. Scene recovery invalidates remembered upgrades. See ADR-064.
+

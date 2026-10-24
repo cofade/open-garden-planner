@@ -88,6 +88,7 @@ class PartSpec:
     kind: str              # a ``core.scene3d.MATERIAL_KINDS`` member
     buffers: EngineBuffers
     casts_shadow: bool
+    name: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -365,7 +366,7 @@ class Quick3DSink:
             if buffers.is_empty:
                 held.handles.append(None)
                 continue
-            spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow)
+            spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow, part.name)
             held.handles.append(self._scene.create_part(spec, pose, part_tint(part, held.material)))
             self.geometry_uploads += 1
 

@@ -1021,6 +1021,13 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
     if isinstance(species, dict):
         params[PARAM_SPECIES_KEY] = species_key(species)
         species_name = str(species.get("common_name") or "")
+        # Transient calendar inputs, read from this instance's species snapshot.
+        # Rendering must respect edited harvest windows, as the Tasks tab does.
+        for field in ("harvest_start", "harvest_end"):
+            value = species.get(field)
+            if (isinstance(value, (int, float)) and not isinstance(value, bool)
+                    and math.isfinite(value)):
+                params[field] = value
     species_name = (species_name or str(getattr(item, "plant_species", "") or "")).strip()
     if species_name:
         params[PARAM_SPECIES_NAME] = species_name

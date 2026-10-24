@@ -2730,14 +2730,28 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
-### L3 acceptance highlights — Plant Forge (#387, ADR-064)
+### L3 acceptance highlights ? Plant Forge (#387, ADR-064) ? draft PR #593
 
-- **L3.0 recipe traits + object PBR palettes.** `core/plant_art/traits3d.py` maps all 128 canonical 2D sprite recipes across 16 architectural habits (`Traits3D`, stdlib-only); `core/object_art/materials.py` extracts PBR material palettes (`ObjectMaterial3D`) for all 24 object SVG generators while keeping SVG output byte-identical.
-- **L3.1 broadleaf trees, LODs, cache & progressive worker.** `core/plant_forge/` builds 3D space-colonisation skeletons (`skeleton.py`), Leonardo pipe-model branch radii ($r_{\text{parent}}^{2.3} = \sum r_{\text{child}}^{2.3}$) swept via Bishop parallel-transport frames (`tube.py`), and outward-normal leaf cards (`foliage.py`), within `LOD0` (≤ 4,500 tris), `LOD1` (≤ 1,200 tris), and `LOD2` (≤ 250 tris) budgets (`lod.py`) and a 256-entry / 64 MB unit-template LRU cache (`cache.py`). Cold `LOD0` across all 128 recipes: median `4.26 ms`, p90 `16.07 ms`, max `30.02 ms` (< 40 ms p90 threshold, so no disk cache is required); warm cache hit `< 0.1 ms`. `ForgeWorker` (`ui/view3d/forge_worker.py`) upgrades v0 silhouettes nearest-to-camera first with a latest-wins generation counter.
-- **L3.2 conifers, palms, shrubs & hedges.** `core/plant_forge/woody.py` builds whorled conifers (`conifer_cone`, `conifer_column`, `conifer_layered`, `conifer_pendulous`), curved-trunk Fibonacci palms (`palm_fan`, `palm_feather`), multi-stem shrubs (`shrub_dome`, `shrub_arching`, `shrub_cane`), and box-clipped leaf-hull hedges (`build_forged_hedge`).
-- **L3.3 vegetables, herbs, perennials, grasses & flowers.** `core/plant_forge/herbaceous.py` builds Fibonacci golden-angle rosettes (`rosette`), quadratic Bézier grass culms (`grass_tuft`), pinnate/fern fronds (`feathery_frond`), hollow scapes + spherical umbels (`allium_umbel`), wrapper leaves + central head (`brassica_head`), prostrate runners (`ground_mat`), and flower clumps (`flower_clump`).
-- **L3.4 support-aware climbers.** `core/plant_forge/climbers.py` resolves climber support in 3-tier precedence: (1) explicit `parent_id` pointing to a `TRELLIS`, (2) nearest `FENCE`, `WALL`, or `PERGOLA` segment within 60 cm, or (3) a self-supporting tripod of 3 bamboo bean poles.
-- **L3.5–L3.6 seasonal accents, phenology & integration.** `core/plant_forge/accents.py` adds `FRUIT_PART` and `FLOWER_PART` seasonal meshes with unripe-to-ripe colour interpolation; `core/phenology.py` drives hemisphere-aware spring blossom, summer fruit, autumn foliage colour, and winter deciduous bare-branch state (`apply_seasonal_appearance`). Pinned by `tests/integration/test_plant_forge.py` and 697 unit + integration tests.
+- **L3.0:** Shared traits cover123 recipes in13 archetypes. Object SVG material
+  tables have one stdlib-only home with byte-conformance checks. Exact Lemon Balm
+  aliases now select the herb sprite; melon/flax keep their corrected fallbacks.
+- **L3.1?L3.3:** Skeleton/tube/leaf builders cover broadleaf trees, conifers,
+  palms, shrubs, hedges and herbaceous forms. LOD caps are25,000/6,000/800 at
+  18/45 m thresholds; cache bounds256 entries/64 MiB. Crown area drives leaf
+  cover at every LOD. Bare structural wood remains grounded at full height.
+- **L3.4:** Climbers prefer a trellis parent, then a nearby structure within50 cm
+  of the canopy edge, then a bamboo tripod.
+- **L3.5?L3.6:** Background synthesis admits only current document/geometry/LOD
+  results. Orbit and walk update LOD. Seasons update existing Models, with
+  independent flower, fruit and tuber controls. Exact harvest days share the
+  task calendar and local frost dates. Render gates and the Beauty Board exercise
+  the production forge. PR #593 review fixes are pinned by workspace, calendar,
+  coverage and winter-height regressions. Owner beauty/manual acceptance remains.
+
+Cold synthesis measurement:123 recipes,height420/radius180/seed303, median of
+three builds per recipe on Python3.11: median3.75 ms,p9012.64 ms,max21.19 ms;
+warm median0.0013 ms. Synthesis excludes engine uploads and presentation.
+
 
 ### L2 acceptance highlights — Analyze in 3D (#386, ADR-063) — **shipped v1.31.0, PR #584**
 

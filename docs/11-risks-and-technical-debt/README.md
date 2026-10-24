@@ -330,6 +330,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-L3D-07 | An unlit overlay passes through the mood's exposure, so a 3D shadow drape multiplies the frame and an overlay colour is divided by the exposure. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-07) |  |
 | PF-L3D-08 | A hidden or blended Model drops out of the shadow map, so a part that must keep casting while it fades or is cut is an opaque screen door (a fragment discard) that collapses in the AO depth pass. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-08) |  |
 | PF-L3D-09 | The 3D drape follows the shared Hours of Sun both ways, also when 3D opens with it on. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-09) |  |
+| PF-L3D-10 | Exercise the production forge in render gates, keep seasonal geometry stable, and measure structural bounds after seasonal foliage disappears. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-10) |  |
 
 ### Redirect of legacy numbered IDs
 

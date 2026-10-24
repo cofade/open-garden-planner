@@ -11,6 +11,7 @@ Qt-free: standard library + NumPy only.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -19,6 +20,27 @@ import numpy as np
 from ..plant_art import DEFAULT_PALETTE, PALETTES, SpriteRef, has_recipe, recipe_for
 from ..scene3d.builders.plants import FOLIAGE_TIP_WEIGHT
 from ..scene3d.mesh import Mesh
+
+
+def crown_leaf_budget(
+    height_cm: float, radius_cm: float, trunk_share: float,
+    leaf_length: float, width_ratio: float, max_leaves: int,
+) -> tuple[int, float]:
+    """Preserve 1.6 crown-surface areas of leaves within a triangle budget.
+
+    The ellipsoid area uses Knud Thomsen's approximation (p=1.6075).
+    A diamond leaf has area length*width/2. Prefer more leaves, then enlarge
+    them when a distant LOD cannot afford the count; never thin the crown.
+    """
+    rz = max(height_cm * (1.0 - trunk_share) * 0.5, 1.0)
+    p = 1.6075
+    surface = 4.0 * math.pi * ((radius_cm**(2*p) + 2*(radius_cm*rz)**p) / 3)**(1/p)
+    target = 1.6 * surface
+    leaf_area = 0.5 * leaf_length**2 * width_ratio
+    wanted = max(1, math.ceil(target / max(leaf_area, 1e-6)))
+    count = min(wanted, max(1, max_leaves))
+    length = max(leaf_length, math.sqrt(2.0 * target / (count * width_ratio)))
+    return count, length
 
 
 @dataclass

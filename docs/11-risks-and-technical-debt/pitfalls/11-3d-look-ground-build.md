@@ -83,3 +83,19 @@ Cutaway first hid the roofs (`visible: !roofsHidden`) and X-ray faded occluders 
 - **Legacy:** none (new entry)
 
 Review round 1 made the drape follow the shared Hours of Sun going OFF (a document replace had left it on with the 2D side off). The owner then switched Hours of Sun on in the toolbar: the canvas showed the map, the 3D ground nothing, and the report read "in 3D no hours of sun are shown on the ground". The pipeline was sound — reproduced in the real app on the real engine at the owner's settings, the drape loaded and drew on screen in every order when chosen in the menu — the state machine had one edge. Lesson: when a view mirrors a shared state, test the transition the user makes from the OTHER surface in both directions, and the view's start in each state.
+
+### PF-L3D-10
+
+- **Rule:** Exercise the production forge in render gates, keep seasonal geometry stable, and measure structural bounds after seasonal foliage disappears.
+- **Pinned by:** `tests/unit/test_plant_forge_review.py::test_winter_skeleton_keeps_ground_and_height`; `tests/unit/test_plant_forge_review.py::test_tall_crowns_retain_foliage_coverage_at_every_lod`; `tests/integration/test_plant_forge_workspace.py::test_workspace_render_flags_use_the_production_worker`; `tests/integration/test_plant_forge_calendar.py::test_instance_harvest_and_task_calendar_agree_across_years`
+- **Source:** #387, PR #593, ADR-064
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The original render flags disabled the new forge, so CI validated old silhouettes.
+Actual output exposed low summer leaf cover, short/floating winter skeletons
+and merged spring fruit/autumn blossom. Static bounds before leaf removal and
+an evaluator-only timing test missed each seam. The workspace now synthesizes
+off the GUI thread, invalidates upgrades on recovery and updates persistent
+seasonal Models. Independent wood bounds, area-based foliage and separate accent
+parts pin visible truth; harvest reuses exact shared calendar windows.

@@ -14,9 +14,16 @@ from ..plant_art.traits3d import BranchingTraits, Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
 from .assemble import fit_forged_parts
-from .foliage import RawGeo, empty_geo, micro_leaves, normalize_vec, palette_leaf_colors
+from .foliage import (
+    RawGeo,
+    crown_leaf_budget,
+    empty_geo,
+    micro_leaves,
+    normalize_vec,
+    palette_leaf_colors,
+)
 from .lod import LOD0, LOD1, lod_skeleton_budget, triangle_budget_for_lod, validate_lod
-from .skeleton import Skeleton, grow_skeleton
+from .skeleton import Skeleton, _sample_crown_attractors, grow_skeleton
 from .tube import limb_tubes
 
 
@@ -41,45 +48,18 @@ def build_tree_foliage_from_skeleton(
     if len(tips) == 0:
         return empty_geo()
 
-    budget_tris = max(triangle_budget_for_lod(lod) - wood_tris - 32, 60)
-    max_leaves = budget_tris // 2  # 2 triangles per micro-leaf
-
-    if lod == LOD0:
-        leaves_per_tip = 14
-        leaf_scale = 1.0
-    elif lod == LOD1:
-        leaves_per_tip = 7
-        leaf_scale = 1.45
-    else:
-        leaves_per_tip = 3
-        leaf_scale = 2.35
-
-    total_wanted = len(tips) * leaves_per_tip
-    if total_wanted > max_leaves:
-        leaves_per_tip = max(1, max_leaves // max(len(tips), 1))
-        if len(tips) * leaves_per_tip > max_leaves:
-            tips = tips[:max_leaves]
-            leaves_per_tip = 1
-
-    tip_pos = skeleton.positions[tips]
-    k_tips = len(tip_pos)
-    total_leaves = k_tips * leaves_per_tip
-    if total_leaves == 0:
-        return empty_geo()
-
-    # Cluster radius around each twig tip scales with tree size and LOD
-    cluster_r = max(min(height_cm, radius_cm * 2.0) * 0.085 * leaf_scale, 2.5)
-    if traits.crown.shape == "weeping":
-        cluster_r *= 1.15
-
-    # Repeat tip centres and add spherical/ellipsoidal spray offsets
-    base_pts = np.repeat(tip_pos, leaves_per_tip, axis=0)
-    spray_dir = normalize_vec(rng.normal(0.0, 1.0, size=(total_leaves, 3)))
-    if traits.crown.shape == "weeping":
-        spray_dir[:, 2] -= 0.45
-        spray_dir = normalize_vec(spray_dir)
-    spray_dist = cluster_r * (rng.uniform(0.15, 1.0, size=(total_leaves, 1)) ** 0.6)
-    leaf_pts = base_pts + spray_dir * spray_dist
+    reserve = 512 if lod == LOD0 else (128 if lod == LOD1 else 16)
+    max_leaves = max(1, (triangle_budget_for_lod(lod) - wood_tris - reserve) // 2)
+    leaf_scale = 1.0 if lod == LOD0 else (1.6 if lod == LOD1 else 3.3)
+    scale_factor = max(height_cm / 320.0, 0.35) * leaf_scale
+    base_len = max(traits.leaf.length_cm * scale_factor * 1.45, 2.2)
+    total_leaves, base_len = crown_leaf_budget(
+        height_cm, radius_cm, traits.crown.trunk_share, base_len,
+        traits.leaf.width_ratio, max_leaves,
+    )
+    # A tall crown can have very few terminal twigs. Sampling its seeded lobe
+    # envelope prevents those few tips becoming isolated leaf pom-poms.
+    leaf_pts = _sample_crown_attractors(total_leaves, height_cm, radius_cm, traits.crown, rng)
 
     crown_z = height_cm * (0.5 * traits.crown.trunk_share + 0.52)
     crown_center = np.array([0.0, 0.0, crown_z], dtype=np.float64)
@@ -100,9 +80,6 @@ def build_tree_foliage_from_skeleton(
         rng,
     )
 
-    # Scale leaf dimensions proportionally so crowns read clearly at any plant scale
-    scale_factor = max(height_cm / 320.0, 0.35) * leaf_scale
-    base_len = max(traits.leaf.length_cm * scale_factor * 1.45, 2.2)
     lengths = base_len * rng.uniform(0.82, 1.22, size=total_leaves)
     widths = lengths * traits.leaf.width_ratio * (1.15 if traits.leaf.frilly else 1.0)
 
@@ -159,7 +136,8 @@ def build_forged_tree(
         lod,
         wood.triangle_count + accent_geo.triangle_count,
     )
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                            structural_height=traits.deciduous)
 
 
 __all__ = [

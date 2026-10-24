@@ -395,7 +395,8 @@ def build_forged_climber(
         cup=0.06,
     )
     accent_geo = accents if accents is not None else empty_geo()
-    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm)
+    return fit_forged_parts(wood, foliage, accent_geo, height_cm, radius_cm,
+                            structural_height=traits.deciduous)
 
 
 __all__ = [

@@ -177,6 +177,32 @@ Item {
         })
     }
 
+    // Plant Forge: material state only. A date scrub keeps every Model and buffer.
+    property var plantSeasons: ({})
+    function applyPlantSeason(part) {
+        var state = plantSeasons[part.itemId]
+        var foliage = part.kind === "foliage" || part.kind === "grass"
+        var accent = part.partName === "flowers" || part.partName === "fruits" || part.partName === "tubers"
+        part.seasonDensity = state && foliage ? state[0] : 1.0
+        part.seasonSnow = state && foliage ? state[6] : 0.0
+        part.seasonTint = state && foliage ? Qt.vector3d(state[1], state[2], state[3]) :
+                          state && accent ? Qt.vector3d(state[7], state[8], state[9]) : Qt.vector3d(1, 1, 1)
+        part.seasonOpacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
+                             part.partName === "fruits" ? (state[5] > 0.0 ? 1.0 : 0.0) : 1.0
+        // Seasonal absence removes its shadow too. X-ray's independent fade keeps it.
+        part.visible = !part.retired && part.seasonOpacity > 0.0
+        return true
+    }
+    function setPlantSeasons(states) {
+        plantSeasons = states
+        for (var i = 0; i < parts.children.length; ++i) {
+            var part = parts.children[i]
+            if (!part.retired)
+                applyPlantSeason(part)
+        }
+        return true
+    }
+
     function destroyPart(part) {
         // retired first: destroy() is deferred, and until the delete arrives the Model
         // must be neither drawn, nor picked, nor listed
@@ -349,6 +375,11 @@ Item {
             property string itemId
             property int partIndex: 0
             property string kind
+            property string partName: ""
+            property real seasonDensity: 1.0
+            property real seasonOpacity: 1.0
+            property vector3d seasonTint: Qt.vector3d(1, 1, 1)
+            property real seasonSnow: 0.0
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
@@ -359,7 +390,7 @@ Item {
             PrincipledMaterial {
                 id: vcLook
                 vertexColorsEnabled: true
-                baseColor: tint
+                baseColor: Qt.rgba(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z, 1)
                 roughness: 0.78
                 specularAmount: 0.35
                 // Cutaway: the inner faces of a roofless house's walls
@@ -367,7 +398,7 @@ Item {
             }
             CustomMaterial {
                 id: vcScreen
-                property vector3d uTint: tintLinear
+                property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
                 property real uOpacity: fade
                 property real uRough: 0.78
                 property real uSpecular: 0.35
@@ -384,6 +415,11 @@ Item {
             property string itemId
             property int partIndex: 0
             property string kind
+            property string partName: ""
+            property real seasonDensity: 1.0
+            property real seasonOpacity: 1.0
+            property vector3d seasonTint: Qt.vector3d(1, 1, 1)
+            property real seasonSnow: 0.0
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
@@ -419,6 +455,11 @@ Item {
             property string itemId
             property int partIndex: 0
             property string kind
+            property string partName: ""
+            property real seasonDensity: 1.0
+            property real seasonOpacity: 1.0
+            property vector3d seasonTint: Qt.vector3d(1, 1, 1)
+            property real seasonSnow: 0.0
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
@@ -444,6 +485,11 @@ Item {
             property string itemId
             property int partIndex: 0
             property string kind
+            property string partName: ""
+            property real seasonDensity: 1.0
+            property real seasonOpacity: 1.0
+            property vector3d seasonTint: Qt.vector3d(1, 1, 1)
+            property real seasonSnow: 0.0
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
@@ -518,6 +564,11 @@ Item {
             property string itemId
             property int partIndex: 0
             property string kind
+            property string partName: ""
+            property real seasonDensity: 1.0
+            property real seasonOpacity: 1.0
+            property vector3d seasonTint: Qt.vector3d(1, 1, 1)
+            property real seasonSnow: 0.0
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
@@ -527,7 +578,9 @@ Item {
             materials: fade < 1.0 ? [foliageDoor] : [foliageLook]
             CustomMaterial {
                 id: foliageLook
-                property vector3d uTint: tintLinear
+                property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uLeafDensity: seasonDensity
+                property real uSnow: seasonSnow
                 property real uTime: root.windTime
                 property real uWind: root.windStrength * 0.35
                 shadingMode: CustomMaterial.Shaded
@@ -537,7 +590,9 @@ Item {
             }
             CustomMaterial {   // the same leaves as a screen door (X-ray, L2.4)
                 id: foliageDoor
-                property vector3d uTint: tintLinear
+                property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uLeafDensity: seasonDensity
+                property real uSnow: seasonSnow
                 property real uTime: root.windTime
                 property real uWind: root.windStrength * 0.35
                 property real uOpacity: fade
@@ -554,6 +609,11 @@ Item {
             property string itemId
             property int partIndex: 0
             property string kind
+            property string partName: ""
+            property real seasonDensity: 1.0
+            property real seasonOpacity: 1.0
+            property vector3d seasonTint: Qt.vector3d(1, 1, 1)
+            property real seasonSnow: 0.0
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
@@ -563,7 +623,9 @@ Item {
             materials: fade < 1.0 ? [grassDoor] : [grassLook]
             CustomMaterial {
                 id: grassLook
-                property vector3d uTint: tintLinear
+                property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uLeafDensity: seasonDensity
+                property real uSnow: seasonSnow
                 property real uTime: root.windTime
                 property real uWind: root.windStrength
                 shadingMode: CustomMaterial.Shaded
@@ -573,7 +635,9 @@ Item {
             }
             CustomMaterial {   // the same blades as a screen door (X-ray, L2.4)
                 id: grassDoor
-                property vector3d uTint: tintLinear
+                property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
+                property real uLeafDensity: seasonDensity
+                property real uSnow: seasonSnow
                 property real uTime: root.windTime
                 property real uWind: root.windStrength
                 property real uOpacity: fade

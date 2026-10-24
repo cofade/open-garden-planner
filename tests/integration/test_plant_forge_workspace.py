@@ -1,0 +1,146 @@
+"""Plant Forge's real scheduling seam: background synthesis, dates and camera."""
+
+from __future__ import annotations
+
+import datetime
+import json
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+import pytest
+
+from open_garden_planner.core.plant_forge import LOD0, LOD2, LOD2_TRIANGLE_BUDGET, ForgeCache
+from open_garden_planner.core.scene3d import Material, Params, Record, RecordingSink, Transform
+from open_garden_planner.ui.view3d import forge_worker as module
+from open_garden_planner.ui.view3d.forge_worker import ForgeWorker
+
+
+def tree(item_id: str = "oak") -> Record:
+    return Record(
+        item_id=item_id, kind="TREE", name="Oak", shape="circle",
+        footprints=(((-100., -100.), (100., -100.), (100., 100.), (-100., 100.)),),
+        transform=Transform(0., 0., 0., 0.), height_cm=400., material=Material("plant"),
+        params=Params({"seed": item_id, "radius_cm": 100., "sprite_species": "Oak"}),
+    )
+
+
+def sink_for(record: Record) -> RecordingSink:
+    sink = RecordingSink()
+    sink.begin()
+    sink.add(record.item_id, (), record.transform, record.material)
+    sink.commit()
+    return sink
+
+
+def test_background_forge_does_not_hold_the_gui_and_rejects_replaced_document(qtbot, monkeypatch):
+    record = tree()
+    sink = sink_for(record)
+    entered, release = threading.Event(), threading.Event()
+    original = module.forge_record
+
+    def held(*args, **kwargs):
+        entered.set()
+        assert release.wait(5)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "forge_record", held)
+    worker = ForgeWorker(sink, cache=ForgeCache(), background=True)
+    try:
+        worker.submit_snapshot([record], force_lod=LOD2)
+        assert worker.step() == []
+        qtbot.waitUntil(entered.is_set)
+        worker.clear()
+        release.set()
+        qtbot.waitUntil(lambda: worker.pending_count == 0 or bool(worker.step()))
+        assert sink.item(record.item_id).parts == ()
+    finally:
+        release.set()
+        worker.shutdown()
+
+
+def test_season_only_scrub_updates_uniforms_without_rebuilding_or_uploading(monkeypatch):
+    record = tree()
+    sink = sink_for(record)
+    states = []
+    worker = ForgeWorker(sink, cache=ForgeCache(), season_sink=states.append)
+    worker.submit_snapshot([record], force_lod=LOD2, plan_date=datetime.date(2026, 6, 21))
+    assert worker.drain() == [record.item_id]
+    parts = sink.item(record.item_id).parts
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("A season-only scrub must not synthesize geometry")
+
+    monkeypatch.setattr(module, "forge_record", forbidden)
+    worker.submit_snapshot([record], force_lod=LOD2, plan_date=datetime.date(2026, 1, 15))
+    assert worker.pending_count == 0
+    assert sink.item(record.item_id).parts is parts
+    assert states[-1][record.item_id].leaf_density == 0
+
+
+def test_v0_replacement_invalidates_applied_forge_and_camera_requeues_lod():
+    record = tree()
+    sink = sink_for(record)
+    worker = ForgeWorker(sink, cache=ForgeCache())
+    worker.submit_snapshot([record], force_lod=LOD0)
+    worker.drain()
+    assert sink.item(record.item_id).parts
+    sink.begin()
+    sink.replace_geometry(record.item_id, ())
+    sink.commit()
+    worker.invalidate([record.item_id])
+    worker.submit_snapshot([record], force_lod=LOD0)
+    assert worker.drain() == [record.item_id]
+    worker.update_camera((0., 0., 10000.), force_lod=LOD2)
+    assert worker.drain() == [record.item_id]
+    assert sum(p.mesh.triangle_count for p in sink.item(record.item_id).parts) <= LOD2_TRIANGLE_BUDGET
+
+
+def test_workspace_render_flags_use_the_production_worker(qtbot, monkeypatch, tmp_path):
+    from open_garden_planner.core.commands import CreateItemCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.view3d import workspace as workspace_module
+    from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+    from tests.integration.test_view3d_workspace import build_app3d, first_pass
+
+    window, engines = build_app3d(qtbot, monkeypatch, tmp_path)
+    workspace = window._workspace
+    # Replace the production factory with a recording engine at its documented seam.
+    monkeypatch.setattr(workspace_module, "quick3d_engine", workspace.engine_factory)
+    monkeypatch.setenv("OGP_RENDER3D", "1")
+    monkeypatch.setenv("OGP_WORKSPACE_GATE_SCENARIO", "plant-forge")
+    item = CircleItem(500., 500., 100., object_type=ObjectType.TREE,
+                      metadata={"height_cm": 400.})
+    item.plant_species = "Oak"
+    window.canvas_view.command_manager.execute(CreateItemCommand(window.canvas_scene, item, "tree"))
+    workspace.set_mode(WorkspaceMode.VIEW3D)
+    first_pass(workspace, qtbot)
+    worker = workspace._forge_worker
+    assert worker is not None
+    qtbot.waitUntil(lambda: worker.pending_count == 0, timeout=10000)
+    assert {p.name for p in engines.sink.item(str(item.item_id)).parts} >= {"wood", "foliage"}
+    workspace._apply_camera()
+    assert worker._camera_forward is not None
+    window.close()
+    assert worker._closed
+
+
+def test_real_engine_scrubs_the_same_forged_models(tmp_path):
+    from tests.integration.quick3d_render_support import REPO, render_env, render_tier_skip_reason
+
+    reason = render_tier_skip_reason()
+    if reason:
+        pytest.skip(reason)
+    driver = Path(__file__).with_name("plant_forge_render_driver.py")
+    proc = subprocess.run([sys.executable, str(driver), str(tmp_path)],
+                          cwd=REPO, env=render_env(tmp_path), capture_output=True,
+                          text=True, timeout=90)
+    assert proc.returncode == 0, proc.stdout[-1500:] + proc.stderr[-3000:]
+    result = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    assert result["summer"] == result["summer_again"] == 1.
+    assert result["winter"] == 0.
+    assert result["changed_channels"] > 3000
+    assert result["restored_equal"]
+    assert result["uploads_unchanged"] and result["models_unchanged"]

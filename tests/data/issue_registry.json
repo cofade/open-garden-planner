@@ -611,7 +611,7 @@
   },
   "386": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L2 \"Analyze in 3D\": shadow and sun-hours drapes, sun path, info card, growth jump, cutaway (Phase 17)"
   },
   "387": {
@@ -1116,12 +1116,12 @@
   },
   "571": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CI: required Dependencies checks fail on master (setuptools GHSA-xmj3-9gf7-h52w, filelock 4.2.0)"
   },
   "572": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Remove the stale pip-audit waiver PYSEC-2026-3447 (setuptools is past 83.0.0)"
   },
   "573": {
@@ -1131,12 +1131,17 @@
   },
   "575": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
   },
   "584": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
+  },
+  "593": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(3D): Phase 17 L3 Plant Forge: procedural species models from sprite recipes (#387)"
   }
 }

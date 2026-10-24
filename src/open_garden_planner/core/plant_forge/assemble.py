@@ -57,6 +57,8 @@ def fit_forged_parts(
     accents: RawGeo,
     height_cm: float,
     radius_cm: float,
+    *,
+    structural_height: bool = False,
 ) -> tuple[MeshPart, ...]:
     """Fit ``(wood, foliage, accents)`` to ``height_cm`` and ``radius_cm`` and wrap as ``MeshPart``s."""
     raw_list = [
@@ -95,6 +97,14 @@ def fit_forged_parts(
     for name, mat, geo in non_empty:
         p = geo.pos.copy()
         p[:, 2] = (p[:, 2] - z_min) * sz
+        part_sz = sz
+        if name == PART_WOOD and structural_height:
+            # A leaf-off tree must keep its ground anchor and recorded top.
+            # A low leaf must never lift the entire winter skeleton above soil.
+            wood_floor = float(geo.pos[:, 2].min())
+            wood_span = max(float(geo.pos[:, 2].max()) - wood_floor, 1e-4)
+            part_sz = float(height_cm) / wood_span
+            p[:, 2] = (geo.pos[:, 2] - wood_floor) * part_sz
         # Smoothly blend horizontal centring above ground so trunk base doesn't jump off-centre
         if name == PART_WOOD:
             collar = np.clip(p[:, 2] / max(float(height_cm) * 0.18, 1e-3), 0.0, 1.0)
@@ -122,7 +132,9 @@ def fit_forged_parts(
             geo.uv[:, 0] = np.clip(geo.pos[:, 2] / max(float(height_cm), 1e-6), 0.0, 1.0)
             geo.uv[:, 1] = np.clip(geo.uv[:, 1], 0.0, 0.999999)
 
-        scaled_nrm = normalize_vec(geo.nrm * inv_scale[None, :]).astype(np.float32)
+        part_inv_scale = inv_scale.copy()
+        part_inv_scale[2] = 1.0 / max(part_sz, 1e-5)
+        scaled_nrm = normalize_vec(geo.nrm * part_inv_scale[None, :]).astype(np.float32)
         if mat == "vc":
             geo.nrm = _fix_vc_flat_normals(geo.pos, scaled_nrm, geo.tri)
         else:

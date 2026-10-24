@@ -42,10 +42,14 @@ def make_cache_key(
 class ForgeCache:
     """Bounded LRU cache mapping ``CacheKey`` to ``tuple[MeshPart, ...]``."""
 
-    def __init__(self, max_entries: int = 512) -> None:
+    def __init__(self, max_entries: int = 256, max_bytes: int = 64 * 1024 * 1024) -> None:
         if max_entries < 1:
             raise ValueError(f"max_entries must be >= 1, got {max_entries}")
         self._max_entries = int(max_entries)
+        if max_bytes < 1:
+            raise ValueError("max_bytes must be >= 1")
+        self.max_bytes = int(max_bytes)
+        self.current_bytes = 0
         self._store: OrderedDict[CacheKey, tuple[MeshPart, ...]] = OrderedDict()
         self.hits: int = 0
         self.misses: int = 0
@@ -59,6 +63,7 @@ class ForgeCache:
 
     def clear(self) -> None:
         self._store.clear()
+        self.current_bytes = 0
         self.hits = 0
         self.misses = 0
 
@@ -72,11 +77,26 @@ class ForgeCache:
         return None
 
     def put(self, key: CacheKey, parts: tuple[MeshPart, ...]) -> tuple[MeshPart, ...]:
+        old = self._store.pop(key, None)
+        if old is not None:
+            self.current_bytes -= self._size(old)
+        size = self._size(parts)
+        if size > self.max_bytes:
+            return parts
         self._store[key] = parts
+        self.current_bytes += size
         self._store.move_to_end(key)
-        while len(self._store) > self._max_entries:
-            self._store.popitem(last=False)
+        while len(self._store) > self._max_entries or self.current_bytes > self.max_bytes:
+            _, evicted = self._store.popitem(last=False)
+            self.current_bytes -= self._size(evicted)
         return parts
+
+    @staticmethod
+    def _size(parts: tuple[MeshPart, ...]) -> int:
+        return sum(array.nbytes for part in parts for array in (
+            part.mesh.positions, part.mesh.normals, part.mesh.colors,
+            part.mesh.uvs, part.mesh.indices,
+        ))
 
     def get_or_build(
         self,
@@ -90,7 +110,7 @@ class ForgeCache:
         return self.put(key, built)
 
 
-DEFAULT_FORGE_CACHE = ForgeCache(max_entries=512)
+DEFAULT_FORGE_CACHE = ForgeCache()
 
 __all__ = [
     "CacheKey",

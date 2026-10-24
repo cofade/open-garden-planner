@@ -22,10 +22,15 @@ from ..plant_art import FLOWERS, FRUITS, PALETTES, WHITE_BARK_SHADE, recipe_for
 from ..plant_art.traits3d import Traits3D
 from ..scene3d.color import srgb_to_linear
 from ..scene3d.mesh import MeshPart
-from .assemble import PART_ACCENTS, PART_FOLIAGE, PART_WOOD, REACH_MAX, _fix_vc_flat_normals
+from .assemble import PART_FOLIAGE, PART_WOOD, REACH_MAX, _fix_vc_flat_normals
 from .foliage import RawGeo, concat_geo, empty_geo, normalize_vec
 from .lod import LOD0, LOD2, triangle_budget_for_lod, validate_lod
 from .tube import frustum_tubes
+
+FLOWER_PART: Final[str] = "flowers"
+FRUIT_PART: Final[str] = "fruits"
+TUBER_PART: Final[str] = "tubers"
+SEASONAL_PARTS: Final[frozenset[str]] = frozenset({FLOWER_PART, FRUIT_PART, TUBER_PART})
 
 ACCENT_FAMILIES: Final[frozenset[str]] = frozenset(
     {"fruits", "blossoms", "umbels", "pods", "tubers"}
@@ -700,6 +705,7 @@ def build_accents(
     anchor_points: np.ndarray | None = None,
     basal_center: np.ndarray | None = None,
     max_tris: int | None = None,
+    family: str | None = None,
 ) -> RawGeo:
     """Build combined seasonal accent geometry (`PART_ACCENTS`) for `traits`."""
     validate_lod(lod)
@@ -712,7 +718,7 @@ def build_accents(
 
     # 1. Tubers / root crowns (`bulb`)
     bulb_spec = recipe.get("bulb")
-    if isinstance(bulb_spec, Mapping):
+    if isinstance(bulb_spec, Mapping) and family in (None, TUBER_PART):
         parts.append(
             build_tuber_accents(
                 bulb_spec,
@@ -725,7 +731,7 @@ def build_accents(
 
     # 2. Pods (`pods`)
     pod_spec = recipe.get("pods")
-    if isinstance(pod_spec, Mapping):
+    if isinstance(pod_spec, Mapping) and family in (None, FRUIT_PART):
         parts.append(
             build_pod_accents(
                 pod_spec,
@@ -740,7 +746,7 @@ def build_accents(
 
     # 3. Umbels (`umbels`)
     umbel_spec = recipe.get("umbels")
-    if isinstance(umbel_spec, Mapping):
+    if isinstance(umbel_spec, Mapping) and family in (None, FLOWER_PART):
         parts.append(
             build_umbel_accents(
                 umbel_spec,
@@ -755,7 +761,7 @@ def build_accents(
 
     # 4. Fruits (`fruit`, `fruit2`)
     fruit_spec = recipe.get("fruit")
-    if isinstance(fruit_spec, Mapping):
+    if isinstance(fruit_spec, Mapping) and family in (None, FRUIT_PART):
         parts.append(
             build_fruit_accents(
                 fruit_spec,
@@ -767,7 +773,7 @@ def build_accents(
             )
         )
     fruit2_spec = recipe.get("fruit2")
-    if isinstance(fruit2_spec, Mapping):
+    if isinstance(fruit2_spec, Mapping) and family in (None, FRUIT_PART):
         parts.append(
             build_fruit_accents(
                 fruit2_spec,
@@ -780,7 +786,7 @@ def build_accents(
         )
 
     # 5. Blossoms (`flowers`, `clusters`, `puffs`, or spring `blossom_spec`)
-    if (
+    if family in (None, FLOWER_PART) and (
         "flowers" in recipe
         or "clusters" in recipe
         or "puffs" in recipe
@@ -830,7 +836,7 @@ def attach_accents(
     lod: int = LOD0,
 ) -> tuple[MeshPart, ...]:
     """Attach `PART_ACCENTS` to an already-fitted `(wood, foliage)` part tuple without altering them."""
-    if lod == LOD2 or any(p.name == PART_ACCENTS for p in parts):
+    if lod == LOD2 or any(p.name in SEASONAL_PARTS for p in parts):
         return parts
 
     used_tris = sum(p.mesh.triangle_count for p in parts)
@@ -849,31 +855,30 @@ def attach_accents(
         if np.any(low_mask):
             basal_center = wpos[low_mask].mean(axis=0).astype(np.float64)
 
-    accent_geo = build_accents(
-        traits,
-        height_cm,
-        radius_cm,
-        seed,
-        lod=lod,
-        anchor_points=anchors,
-        basal_center=basal_center,
-        max_tris=remaining,
-    )
-    if accent_geo.vertex_count == 0 or accent_geo.triangle_count == 0:
-        return parts
+    added: list[MeshPart] = []
+    for family in (TUBER_PART, FRUIT_PART, FLOWER_PART):
+        accent_geo = build_accents(
+            traits, height_cm, radius_cm, seed, lod=lod,
+            anchor_points=anchors, basal_center=basal_center,
+            max_tris=remaining, family=family,
+        )
+        if accent_geo.triangle_count == 0:
+            continue
+        remaining -= accent_geo.triangle_count
+        added.append(MeshPart(
+            mesh=accent_geo.to_mesh(), material_kind="vc", casts_shadow=True,
+            tinted=False, name=family,
+        ))
+    return (*parts, *added)
 
-    accent_part = MeshPart(
-        mesh=accent_geo.to_mesh(),
-        material_kind="vc",
-        casts_shadow=True,
-        tinted=False,
-        name=PART_ACCENTS,
-    )
-    return (*parts, accent_part)
 
 
 __all__ = [
     "ACCENT_FAMILIES",
+    "FLOWER_PART",
+    "FRUIT_PART",
+    "TUBER_PART",
+    "SEASONAL_PARTS",
     "attach_accents",
     "build_accents",
     "build_blossom_accents",

@@ -360,11 +360,14 @@ class Board:
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
         try:
+            build_date = self._snapshot_day.get(id(records))
             frame = render_records(
                 records, shot=shot, sun=sun, ground=ground, size=size or self.size,
                 registry=registry, look=look, qml_dir=self.args.qml_dir, log=self.log,
                 graphics_info=True, sky_light=sky and not self.software,
-                prefer_software=self.software)
+                prefer_software=self.software, plant_date=build_date,
+                latitude_deg=float(self.location.get("latitude", 52.0)),
+                frost_dates=self.location.get("frost_dates"))
         except RenderError as error:
             self._count(dict(error.qt))
             self.write()             # what Qt said is in metrics.json before the run ends

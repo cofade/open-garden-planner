@@ -39,6 +39,10 @@ from ..scene3d.builders.plants import (
 )
 from .accents import (
     ACCENT_FAMILIES,
+    FLOWER_PART,
+    FRUIT_PART,
+    SEASONAL_PARTS,
+    TUBER_PART,
     attach_accents,
     build_accents,
     build_blossom_accents,
@@ -287,6 +291,10 @@ def register_forged_plants(
 
 __all__ = [
     "ACCENT_FAMILIES",
+    "FLOWER_PART",
+    "FRUIT_PART",
+    "SEASONAL_PARTS",
+    "TUBER_PART",
     "CLIMBER_SUPPORT_MAX_DISTANCE_CM",
     "CacheKey",
     "DEFAULT_FORGE_CACHE",

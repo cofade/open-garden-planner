@@ -57,6 +57,7 @@ sys.path.insert(0, str(REPO / "src"))
 from open_garden_planner.core.plant_art.resolve import (  # noqa: E402
     CATEGORY_SPRITES,
     DEFAULT_CATEGORY,
+    EXACT_CATEGORY_ALIASES,
     SPECIES_SPRITES,
     SpriteRef,
     resolve_sprite,
@@ -160,8 +161,12 @@ def reference_resolve(
     if kind not in default_category:
         return None
 
+    alias = EXACT_CATEGORY_ALIASES.get(re.sub(r"[\s\-_]+", " ", species.lower()).strip())
+    if alias and exists("categories", alias):
+        return f"categories/{alias}"
+
     # 1. Try species-specific SVG
-    for stem in _reference_candidates(species, species_files):
+    for stem in ([] if alias else _reference_candidates(species, species_files)):
         if exists("species", stem):
             return f"species/{stem}"
 

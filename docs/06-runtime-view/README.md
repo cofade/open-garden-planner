@@ -770,8 +770,24 @@ does not invalidate the command callback. See crosscutting section 8.30.
 
 ## Plant Forge progressive upgrade and seasonal phenology (L3, #387, ADR-064)
 
-When the 3D workspace applies a scene diff, `Scene3DController` places fast v0 plant silhouettes synchronously so the first frame is never blocked by procedural synthesis. In the desktop workspace, `Workspace._on_scene_applied` then hands the current `SceneRecord` snapshot, camera target, `SimClock.plan_date`, and project latitude to `ForgeWorker.request_upgrade`:
+`Scene3DController` first applies the existing fast silhouettes. After an applied
+snapshot, `Workspace._on_applied` submits the current records, camera eye/forward,
+plan date, latitude and frost dates to `ForgeWorker.submit_snapshot`. Climber
+support is enriched from that same snapshot. The queue orders front-facing
+plants before those behind the camera, then by eye distance.
 
-1. `ForgeWorker` increments its generation counter (cancelling any stale batch), enriches climber records with 3-tier support resolution (`enrich_climber_records`), and sorts visible plants by distance to the camera target (`lod_for_distance`: `LOD0` < 25 m, `LOD1` 25–60 m, `LOD2` > 60 m).
-2. In zero-delay event-loop slices (`_BATCH_SIZE = 4`), `ForgeWorker` synthesizes each plant's forged mesh via `build_forged_plant` (backed by the 256-entry / 64 MB unit-template LRU cache), applies `apply_seasonal_appearance` for the plan date's `PhenologyState` (recolouring autumn foliage or stripping `CROWN_PART` on bare winter deciduous trees/shrubs while keeping evergreens intact), and calls `sink.upsert(record_id, parts)`.
-3. When the user scrubs the plan date (`SimClock.date_changed`), `Scene3DController` emits `applied` on its throttled date tick and `ForgeWorker` updates the seasonal phenology state across all plants in the scene.
+The production worker synthesizes one plant on an executor thread; a GUI timer
+polls the result and alone writes the engine sink. A document epoch and current
+geometry/LOD checks reject superseded work. A replaced/reset silhouette
+invalidates the worker's remembered upgrade. Closing stops admission without
+waiting on synthesis in the GUI; hiding pauses application. Orbit and walk
+camera changes requeue distance LOD without requiring a plan edit.
+
+A date-only seasonal change sends foliage density/tint/snow and independent
+flower/fruit state to existing Models. Seasonal leaf removal also removes its
+shadow; X-ray fading retains its separate shadow-preservation policy. Growth
+changes still rebuild geometry through the shared controller. Harvest uses the
+instance snapshot's week offsets and the shared day-level calendar calculation,
+including frost anchors in other years. Southern latitude shifts illustrative
+seasonal months, never already-local recorded frost dates.
+

@@ -37,6 +37,7 @@ from open_garden_planner.core.plant_forge import (
     PART_ACCENTS,
     PART_FOLIAGE,
     PART_WOOD,
+    SEASONAL_PARTS,
     ForgeCache,
     build_accents,
     forge_plant,
@@ -177,14 +178,14 @@ class TestL35SeasonalAccents:
         part_names = {p.name for p in parts}
         assert PART_WOOD in part_names
         assert PART_FOLIAGE in part_names
-        assert PART_ACCENTS in part_names
+        assert part_names & SEASONAL_PARTS
 
-        accent_part = next(p for p in parts if p.name == PART_ACCENTS)
-        accent_part.validate()
-        assert accent_part.mesh.triangle_count >= 12
-        # Verify linear colours are strictly within valid non-clipping range
-        assert float(accent_part.mesh.colors[:, :3].min()) >= 0.01
-        assert float(accent_part.mesh.colors[:, :3].max()) <= 0.90
+        accent_parts = [p for p in parts if p.name in SEASONAL_PARTS]
+        assert sum(p.mesh.triangle_count for p in accent_parts) >= 12
+        for part in accent_parts:
+            part.validate()
+            assert float(part.mesh.colors[:, :3].min()) >= 0.01
+            assert float(part.mesh.colors[:, :3].max()) <= 0.90
 
         # Verify LOD ordering and budgets still hold with accents included
         p0 = forge_plant(sprite, 150.0, 60.0, seed=101, lod=LOD0, cache=None)

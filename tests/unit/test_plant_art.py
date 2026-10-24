@@ -493,12 +493,11 @@ class TestResolution:
     def test_the_partial_match_keeps_its_2d_quirks(self) -> None:
         """The residue of the old substring rule that the new one keeps.
 
-        "Lemon Balm" still takes the lemon tree's sprite: "lemon" is a whole
-        word of the name, and the tables hold no herb by that name. Fixing it
-        would need a curated alias table, which the owner declined (#446); the
-        quirk is pinned so that a later change to the rule has to say so.
+        L3 fixes Lemon Balm with an exact category alias (#387). Bean (Bush)
+        and Sweet Potato retain their existing recipes; they are outside the
+        three resolver examples scoped by that issue.
         """
-        assert resolve_sprite("PERENNIAL", "Lemon Balm") == SpriteRef("species", "lemon_tree")
+        assert resolve_sprite("PERENNIAL", "Lemon Balm") == SpriteRef("categories", "herb")
         assert resolve_sprite("PERENNIAL", "Bean (Bush)") == SpriteRef("species", "bean")
         assert resolve_sprite("PERENNIAL", "Sweet Potato") == SpriteRef("species", "potato")
         assert resolve_sprite("PERENNIAL", "Echinacea") == SpriteRef(
@@ -514,7 +513,7 @@ class TestTheNameIsMatchedAsAWholeName:
         # the issues' own examples, with what each of them answered before
         ("Melon", "categories/flowering_perennial"),      # was species/eggplant
         ("melon", "categories/flowering_perennial"),      # was species/eggplant
-        ("Lemon Balm", "species/lemon_tree"),              # unchanged - see above
+        ("Lemon Balm", "categories/herb"),                 # exact alias (#387)
         ("Bean (Bush)", "species/bean"),                   # unchanged - see above
         ("Sweet Potato", "species/potato"),               # unchanged - see above
         (" ", "categories/flowering_perennial"),          # was species/rose
@@ -602,16 +601,19 @@ class TestTheNameIsMatchedAsAWholeName:
             ("Melon", "PERENNIAL", "species/eggplant", "categories/flowering_perennial"),
             ("Melon", "SHRUB", "species/eggplant", "categories/spreading_shrub"),
             ("Melon", "TREE", "species/eggplant", "categories/round_deciduous"),
+            ("Lemon Balm", "PERENNIAL", "species/lemon_tree", "categories/herb"),
+            ("Lemon Balm", "SHRUB", "species/lemon_tree", "categories/herb"),
+            ("Lemon Balm", "TREE", "species/lemon_tree", "categories/herb"),
         ]
 
     def test_the_change_is_small_and_measured(self) -> None:
-        """74 of the golden's 1,562 answers change, and 37 distinct names are
+        """80 of the golden's 1,562 answers change, and 41 distinct names are
         involved. The number is pinned so that a later change to the rule is a
         deliberate act with a visible number attached."""
         script = _load_golden_script()
         rows = script.legacy_diff()
-        assert len(rows) == 74
-        assert len({(name, was, now) for name, _kind, _cat, was, now in rows}) == 37
+        assert len(rows) == 80
+        assert len({(name, was, now) for name, _kind, _cat, was, now in rows}) == 41
 
     def test_recipe_for_and_resolve_recipe(self) -> None:
         assert recipe_for(SpriteRef("species", "tomato")) is recipes.SPECIES["tomato"]
@@ -641,7 +643,7 @@ class TestTheNameIsMatchedAsAWholeName:
                 assert path is not None
                 assert (path.parent.name, path.stem) == (sprite.group, sprite.name), name
             species_sprites += resolved[0].group == "species"
-        assert species_sprites == 105  # the other 13 take their item type's category
+        assert species_sprites == 104  # the other 14 take a category recipe
 
 
 class TestTraits3D:
