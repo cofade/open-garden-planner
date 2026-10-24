@@ -1,7 +1,7 @@
 """Combined date/time controls, accurate live-map previews and export readiness."""
 
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from threading import Event, get_ident
 
 import numpy as np
@@ -536,16 +536,24 @@ def test_groups_wrap_without_clipping_and_calendar_fits(win, qtbot, width):
         assert len(rows) == 1
 
 
+@pytest.mark.parametrize("theme", [None, "dark"])
 @pytest.mark.parametrize("language", ["de", "es"])
 @pytest.mark.parametrize("font_points", [9, 10])
-def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_points):
+def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_points, theme):
+    # themed too: the theme's padding put German at 10 pt on a third row once the
+    # Today button made room for "Vergangenheit" (PR #584 review)
     from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
 
     app = QApplication.instance()
     original_font = app.font()
+    original_stylesheet = app.styleSheet()
+    original_theme = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
     try:
         app.setFont(QFont("Verdana", font_points))
         assert load_translator(app, language)
+        if theme is not None:
+            apply_theme(app, ThemeMode(theme))
         win = GardenPlannerApp()
         qtbot.addWidget(win)
         win.resize(800, 800)
@@ -559,6 +567,8 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_
         assert len({group.y() for group in groups}) == 2, [
             (group.width(), group.sizeHint().width(), group.y()) for group in groups]
         assert all(bar._content.rect().contains(group.geometry()) for group in groups)
+        # the reflow's own criterion, not only the layout's slack beyond it
+        assert bar._flow.rows_for_width(max(1, bar.width() - 12)) <= 2, bar._month_slider.width()
         win.resize(1650, 800)
         qtbot.wait(50)
         assert len({group.y() for group in groups}) == 1
@@ -570,6 +580,9 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_
     finally:
         app.setFont(original_font)
         load_translator(app, "en")
+        if theme is not None:
+            apply_theme(app, original_theme)
+            app.setStyleSheet(original_stylesheet)
 
 
 @pytest.mark.parametrize("theme", ["dark", "light"])
@@ -628,6 +641,39 @@ def test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves(qt
         load_translator(app, "en")
         apply_theme(app, original_theme)
         app.setStyleSheet(original_stylesheet)
+
+
+@pytest.mark.parametrize("language", ["en", "de", "es"])
+def test_today_button_width_holds_with_fractional_font_metrics(qtbot, language):
+    """Qt measures a tool button's text as a bounding rect rounded up. The one width
+    must be built from that measure, or fractional metrics move it by 1 px (PR #584
+    review: 378 of 480 font/scale/language combinations did with horizontalAdvance).
+    Unhinted fonts at fractional sizes give fractional advances on a real font engine;
+    the offscreen platform's box engine has only whole ones, so a run there proves
+    little - run with QT_QPA_PLATFORM=minimal:enable_fonts for real fonts, headless."""
+    from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.ui.widgets.sun_sim_toolbar import SunSimToolbar
+
+    app = QApplication.instance()
+    try:
+        assert load_translator(app, language)
+        bar = SunSimToolbar()
+        qtbot.addWidget(bar)
+        button = bar._today_button
+        now = datetime.now().replace(second=0, microsecond=0)
+        for family in ("Verdana", "Segoe UI", "DejaVu Sans", "Arial"):
+            for points in (8.25, 8.5, 9.0, 9.5, 10.5):
+                font = QFont(family)
+                font.setPointSizeF(points)
+                font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+                button.setFont(font)
+                widths = {}
+                for days in (0, -40, 40):
+                    bar.set_datetime_local(now + timedelta(days=days))
+                    widths[button.text()] = button.sizeHint().width()
+                assert len(widths) == 3 and len(set(widths.values())) == 1, (family, points, widths)
+    finally:
+        load_translator(app, "en")
 
 
 def test_live_date_change_retains_honestly_dated_preview_and_latest_request(win, qtbot, jobs):

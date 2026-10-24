@@ -1124,6 +1124,11 @@
     "state": "OPEN",
     "title": "Remove the stale pip-audit waiver PYSEC-2026-3447 (setuptools is past 83.0.0)"
   },
+  "573": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plan & Sun strip layout tests fail on Windows (Verdana present), pass on Linux CI"
+  },
   "575": {
     "is_pr": true,
     "state": "OPEN",

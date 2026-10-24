@@ -96,7 +96,7 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-TST-09
 
-- **Rule:** Isolating one store is not isolating the process, so every place the app touches (`get_app_data_dir`, `QStandardPaths`, `Path.home()`, the temp directory) is redirected in each process running it.
+- **Rule:** Isolating one store is not isolating the process: every place the app touches (`get_app_data_dir`, `QStandardPaths`, `Path.home()`, temp) is redirected per process.
 - **Pinned by:** `tests/integration/test_app_data_isolation.py`
 - **Source:** #285
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l387-the-test-suite-wrote-into-the-developers-real-plant-library--isolating-one-store-is-not-isolating-the-process)
@@ -104,7 +104,7 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 
 ### PF-TST-10
 
-- **Rule:** A 'nobody may use X' gate walks the AST and matches the name binding rather than a regex over uses, and every detector has a positive control fed the exact escape it exists to catch.
+- **Rule:** A 'nobody may use X' gate matches the AST name binding, not a regex over uses, and each detector has a positive control fed the escape it exists to catch.
 - **Pinned by:** `tests/unit/test_settings_chokepoint.py`
 - **Source:** #285
 - **Status:** standing
@@ -154,7 +154,7 @@ Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate
 
 ### PF-TST-15
 
-- **Rule:** Top-level JavaScript `let` bindings never land on `window`, so a readiness probe evaluates them in page scope (`typeof map !== 'undefined'`) or calls a status function the page exposes on `window`.
+- **Rule:** Top-level JavaScript `let` bindings never land on `window`, so a readiness probe checks them in page scope (`typeof map !== 'undefined'`) or calls a status function on `window`.
 - **Pinned by:** none — the body names no test; it describes how a live-harness probe should read page state.
 - **Source:** #346
 - **Status:** standing
@@ -194,7 +194,7 @@ Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate
 
 ### PF-TST-19
 
-- **Rule:** A green suite is evidence only about the paths it exercises, so a regression test reproduces the exposing condition, such as a preview over an existing item or a stop with a client attached.
+- **Rule:** A green suite proves only the paths it exercises, so a regression test reproduces the exposing condition (a preview over an item, a stop with a client attached).
 - **Pinned by:** `tests/integration/test_tool_preview_z_order.py`; `tests/integration/test_agent_api_shutdown.py`
 - **Source:** #373, #377, #378, #380
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l630-the-four-bugs-a-manual-pass-found-that-a-green-suite-could-not-377-380-373)
@@ -268,7 +268,7 @@ Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate
 
 ### PF-TST-23
 
-- **Rule:** Asking the OS for a free port and closing the socket is not a reservation, so one shared helper retries only the port-in-use failures and re-raises every other `RuntimeError` at once.
+- **Rule:** A free port the OS named, its socket closed, is not reserved: one shared helper retries only port-in-use failures and re-raises every other `RuntimeError`.
 - **Pinned by:** none — the body names no test for the shared port-retry helper, and `tests/perf/test_nfr_budgets.py` is cited only as evidence about the CI frame budget.
 - **Source:** #509
 - **Status:** standing
@@ -308,7 +308,7 @@ Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate
 
 ### PF-TST-24
 
-- **Rule:** A measurement that travels in an attribute is a wall-clock assertion too: the perf-marker guard follows the carrier into the local support modules, scoped to the class that owns it, and a value that is only counted is not a duration.
+- **Rule:** A duration carried in an attribute is a wall-clock assertion too: the perf-marker guard follows it into the local support modules, scoped to its owning class; a count is not a duration.
 - **Pinned by:** `tests/unit/test_perf_marker_guard.py::test_a_measurement_that_travels_in_an_attribute_is_seen`; `tests/unit/test_perf_marker_guard.py::test_same_module_bakers_keep_their_own_clock_sensitivity`; `tests/unit/test_perf_marker_guard.py::test_the_original_ground_bake_module_accepts_its_timed_helper_inline`
 - **Source:** #528
 - **Status:** standing
@@ -356,3 +356,30 @@ Qt's timer has its own clock: the held-burst test records the requested 500-ms
 delay but postpones physical delivery beyond the test timeout, then consumes it
 at the controlled clock boundary. Fixing monotonic alone does not stop Qt from
 delivering a timeout in a slow processEvents loop.
+
+### PF-TST-26
+
+- **Rule:** Font-metric claims are measured on a real font engine; offscreen Qt on Windows draws every glyph as a whole-pixel box.
+- **Pinned by:** `tests/integration/test_plan_sun_controls.py::test_today_button_width_holds_with_fractional_font_metrics`; `tests/integration/test_plan_sun_controls.py::test_translated_controls_fit_two_rows_at_narrow_width`
+- **Source:** PR #584 (owner manual pass 2, its senior review), #573
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Under `QT_QPA_PLATFORM=offscreen` on Windows, Qt has no font database and falls
+back to a box engine: every glyph is as wide as the pixel size, and every advance
+is a whole number (Verdana 9 pt "Today": 60 px, really 37 px). Two things in one
+change went wrong because of it, and its offscreen tests passed. An ADR draft
+quoted the Today button as 48 / 108 px wider "at Verdana 9 pt": those were
+character counts × 12 px, and real Verdana gave 33 / 64 px. And the button's width
+was built with `horizontalAdvance`, which rounds to the nearest pixel, where
+`QToolButton::sizeHint` uses `fontMetrics().size(Qt::TextShowMnemonic, …)`, a
+bounding rectangle rounded up. With fractional metrics (125 % scaling, the unhinted
+fonts of CI's Linux) the "constant" width moved by 1 px in 378 of 480 font, size and
+language combinations. The same box engine is why the strip's layout tests fail on
+the dev box and pass on CI (#573).
+Measure with `QT_QPA_PLATFORM=minimal:enable_fonts`: the real Windows font engine,
+with no window on screen (`horizontalAdvance("Today")` = 37, as on the `windows`
+platform). All 41 strip-layout tests pass under it. A test can force fractional
+advances at scale 1 with a fractional point size and
+`QFont.HintingPreference.PreferNoHinting`. Measure a widget's text the way the
+widget measures it (§8.10).

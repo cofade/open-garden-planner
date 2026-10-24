@@ -6994,17 +6994,34 @@ back to today, and the click does what it always did. On today it says Today and
 is disabled, as before.
 
 The button has one width for all three texts. `_TodayButton.sizeHint` keeps the
-style's padding, uses the widest of the three texts in the active language, and
-adds one letter's width as a buffer for a theme or platform font that runs wider.
-The width follows a font or theme change, because it is a size hint and not a
-fixed pixel value. A language change takes effect on restart, as for every string
-in the app. The cost is a wider Today group on today. Measured at Verdana 9 pt on
-the development machine, it is 48 px wider in Spanish and 108 px wider in German.
-The strip's existing reflow shrinks the sliders before it needs a third row.
+style's padding and puts it around the widest of the three texts in the active
+language. Each text is measured as `QToolButton::sizeHint` measures it
+(`fontMetrics().size(Qt::TextShowMnemonic, …)`, a bounding rectangle rounded up).
+The first version used `horizontalAdvance`, which rounds to the nearest pixel. With
+fractional font metrics (125 % scaling, unhinted fonts) the width then still moved
+by 1 px, in 378 of 480 font/size/language combinations measured with real fonts.
+One letter's width is added as the buffer the owner asked for. The width follows a
+font or theme change, because it is a size hint and not a fixed pixel value. A
+language change takes effect on restart, as for every string in the app. The
+button's accessible name stays "Go to today", because its text now names a state.
+
+The cost is a wider Today group on today. With real Verdana 9 pt (Windows font
+engine) the button goes from 59 to 123 px in German and from 45 to 78 px in
+Spanish. With the theme, German at 10 pt in an 800-px strip then needed a third
+row by the strip's own row estimate, with the sliders at their former 90-px floor;
+80 px brings it back to two. The floor is now 70 px (`_MIN_SLIDER_WIDTH`). The
+reflow only shrinks the sliders when the strip needs it, so wider windows are
+unchanged. (The first draft of this addendum quoted 48 and 108 px. Those were the
+offscreen platform's box font, not Verdana: PF-TST-26.)
 
 Pinned by test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves
-(en/de/es × both themes). It scrubs the month slider across today and back, and
-asserts the button's width and the month slider's position do not change.
+(en/de/es × both themes), which scrubs the month slider across today and back and
+asserts the button's width and the month slider's position do not change;
+test_today_button_width_holds_with_fractional_font_metrics (unhinted fonts at
+fractional sizes); and the themed variants of
+test_translated_controls_fit_two_rows_at_narrow_width, which also assert the
+reflow's own two-row estimate. Run with `QT_QPA_PLATFORM=minimal:enable_fonts`
+for real fonts on the dev box.
 
 ## ADR-063: Analyze in 3D — the 2D analysis on the 3D ground, sun path, info card v1, growth jump, Cutaway (Phase 17 L2, #386)
 

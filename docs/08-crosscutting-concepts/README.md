@@ -649,6 +649,14 @@ def canvas(qtbot):
 
 Integration tests run automatically in CI (`ci.yml`) alongside unit and widget tests. Qt rendering uses `QT_QPA_PLATFORM=offscreen` — no display server required.
 
+**Fonts on the dev box (PF-TST-26).** On Windows the `offscreen` platform has no font database: Qt falls back to a box engine in which every glyph is as wide as the pixel size and every advance is a whole number (Verdana 9 pt "Today": 60 px, really 37 px). A width, a row count or a rounding claim measured there says nothing about real fonts. This is also why the Plan & Sun strip's layout tests fail locally and pass on CI's Linux, which has real fonts (#573). For real font metrics without a window on screen, run with `QT_QPA_PLATFORM=minimal:enable_fonts` (`tests/conftest.py` only sets `offscreen` as a default):
+
+```bash
+QT_QPA_PLATFORM="minimal:enable_fonts" venv/Scripts/python.exe -m pytest tests/integration/test_plan_sun_controls.py -n 0
+```
+
+Fractional advances, which 125 % display scaling and unhinted fonts produce, can be forced in a test at scale 1 with a fractional point size and `QFont.HintingPreference.PreferNoHinting`.
+
 ### Render tier (opt-in, Phase 17)
 
 The `offscreen` platform plugin selects Qt Quick's *software* scene graph, which renders no 3D at all — an empty frame, not a wrong one. Tests that must see a real Qt Quick 3D frame therefore form an opt-in **render tier**, skipped unless `OGP_RENDER3D=1` and a display are present:
@@ -6962,10 +6970,11 @@ group geometry is refreshed before measuring, including on wider platform fonts.
 Each row is measured before placement so all group layouts share the row's height
 and centre their controls vertically. Date/time fields use the same themed sizing.
 The Today button says Past or Future in its own place while the plan date is
-elsewhere, at one width for all three texts (`_TodayButton.sizeHint`), so no control
-after it moves while the date does; a click goes back to today (ADR-062 addendum
-"Past/Future in the Today button": a separate label pushed the month slider under
-the dragging pointer). Map status consumes space only
+elsewhere, at one width for all three texts (`_TodayButton.sizeHint`, each text
+measured as `QToolButton` measures it), so no control after it moves while the date
+does; a click goes back to today (ADR-062 addendum "Past/Future in the Today
+button": a separate label pushed the month slider under the dragging pointer). The
+sliders shrink to 70 px at most (`_MIN_SLIDER_WIDTH`) to keep the strip within two rows. Map status consumes space only
 while needed: a completed current map shares the calendar's date, an updating map
 for that date says Updating, and an older preview retains its actual date. The
 hidden-plants menu follows the visible map controls without an empty reserved slot.

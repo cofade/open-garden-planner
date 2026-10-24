@@ -8,10 +8,11 @@ DE = {
     },
     "Compass": {"N": "N", "E": "O", "S": "S", "W": "W"},
     "SunSimToolbar": {
+        "Go to today": "Zum heutigen Datum",
         "The plan date is in the future. Click to go back to today.":
-            "Das Plandatum liegt in der Zukunft. Klicken, um zu heute zurückzukehren.",
+            "Das Plandatum liegt in der Zukunft. Klicken, um zum heutigen Datum zurückzukehren.",
         "The plan date is in the past. Click to go back to today.":
-            "Das Plandatum liegt in der Vergangenheit. Klicken, um zu heute zurückzukehren.",
+            "Das Plandatum liegt in der Vergangenheit. Klicken, um zum heutigen Datum zurückzukehren.",
         "The plan date is today.": "Das Plandatum ist heute.",
     },
     "View3DInfoCard": {
@@ -100,6 +101,7 @@ ES = {
     },
     "Compass": {"N": "N", "E": "E", "S": "S", "W": "O"},
     "SunSimToolbar": {
+        "Go to today": "Ir a hoy",
         "The plan date is in the future. Click to go back to today.":
             "La fecha del plano está en el futuro. Haga clic para volver a hoy.",
         "The plan date is in the past. Click to go back to today.":

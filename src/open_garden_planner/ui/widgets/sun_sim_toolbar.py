@@ -32,6 +32,11 @@ from open_garden_planner.ui.icons import get_icon
 
 _ANIMATE_INTERVAL_MS = 200
 _ANIMATE_STEP_MINUTES = 10
+#: The shortest the two sliders get while the strip makes room to stay within two
+#: rows. Once the Today button made room for "Vergangenheit" (PR #584), the strip's own
+#: row estimate (``_reflow``) for German at 10 pt in an 800-px strip still read three
+#: rows at the former 90 px; it reads two at 80.
+_MIN_SLIDER_WIDTH = 70
 
 
 def _editor_owner(edit: QDateTimeEdit) -> SunSimToolbar | None:
@@ -99,15 +104,19 @@ class _TodayButton(QToolButton):
     def sizeHint(self) -> QSize:
         hint = super().sizeHint()
         metrics = self.fontMetrics()
-        widest = max(metrics.horizontalAdvance(text) for text in self._texts)
-        # the style's padding around the current text, put around the widest one,
-        # and one letter more for a theme or platform font that runs wider
-        hint.setWidth(hint.width() - metrics.horizontalAdvance(self.text())
-                      + widest + metrics.horizontalAdvance("M"))
-        return hint
 
-    def minimumSizeHint(self) -> QSize:
-        return self.sizeHint()
+        def width(text: str) -> int:
+            # measured as QToolButton::sizeHint measures it: a bounding rect, rounded
+            # up. horizontalAdvance rounds to nearest, and the difference moved the
+            # width by 1 px with fractional font metrics (125 % scaling, unhinted
+            # fonts) - invisible offscreen, where every advance is a whole box
+            return metrics.size(Qt.TextFlag.TextShowMnemonic, text).width()
+
+        # the style's padding around the current text, put around the widest one,
+        # plus one letter of room: the buffer the owner asked for
+        hint.setWidth(hint.width() - width(self.text())
+                      + max(width(text) for text in self._texts) + metrics.horizontalAdvance("M"))
+        return hint
 
 
 class _GroupFlow(QLayout):
@@ -224,9 +233,10 @@ class SunSimToolbar(QToolBar):
         self._date_edit.setMinimumWidth(self._date_edit.fontMetrics().horizontalAdvance("2000-00-00") + 48)
         self._date_edit.setToolTip(self.tr("Plan date: plant presence, growth and sunlight"))
         group.addWidget(self._date_edit)
-        self._today_button = self._button(
-            self.tr("Today"), group,
-            button=_TodayButton((self.tr("Today"), self.tr("Past"), self.tr("Future")), self))
+        self._today_button = _TodayButton((self.tr("Today"), self.tr("Past"), self.tr("Future")), self)
+        self._configure_button(self._today_button, self.tr("Today"), group)
+        # the text says where the plan date is; what the button does stays the same
+        self._today_button.setAccessibleName(self.tr("Go to today"))
         self._today_button.clicked.connect(lambda: self.date_requested.emit(date.today()))
 
         group = self._group()
@@ -301,14 +311,18 @@ class SunSimToolbar(QToolBar):
         self._flow.addWidget(widget)
         return group
 
-    def _button(self, text: str, group: QHBoxLayout, *, checkable: bool = False,
-                button: QToolButton | None = None) -> QToolButton:
-        button = button if button is not None else QToolButton(self)
+    def _button(self, text: str, group: QHBoxLayout, *, checkable: bool = False) -> QToolButton:
+        button = QToolButton(self)
+        self._configure_button(button, text, group, checkable=checkable)
+        return button
+
+    @staticmethod
+    def _configure_button(button: QToolButton, text: str, group: QHBoxLayout, *,
+                          checkable: bool = False) -> None:
         button.setText(text)
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         button.setCheckable(checkable)
         group.addWidget(button)
-        return button
 
     def resizeEvent(self, event: Any) -> None:
         super().resizeEvent(event)
@@ -330,7 +344,7 @@ class SunSimToolbar(QToolBar):
                     layout.invalidate()
                     layout.activate()
                     widget.updateGeometry()
-            if self._flow.rows_for_width(available) <= 2 or slider_width <= 90:
+            if self._flow.rows_for_width(available) <= 2 or slider_width <= _MIN_SLIDER_WIDTH:
                 break
             slider_width -= 10
         height = self._flow.heightForWidth(available)
