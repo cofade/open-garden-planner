@@ -255,6 +255,13 @@ Three further rules, each gated, each worth understanding before touching this:
   "optimise" the names into a default argument, a module-level tuple or a
   `functools.partial` — `test_rebinding_the_names_redirects_new_stores` will stop
   you, and neither can they retarget an *existing* store (ADR-041).
+  **A script outside pytest gets none of this.** A probe that builds
+  `GardenPlannerApp` must rebind the two names itself before it builds anything,
+  or it reads and writes the user's real store. A throwaway QApplication name or
+  `QSettings.setDefaultFormat()` does not redirect it: the factory passes the
+  module's names, and `QSettings(organization, application)` always uses the
+  native format. Four such probes once switched off the owner's Welcome dialog
+  (PF-TST-27).
 - **Prefer building a store at runtime over import time.** A module-level
   `_STORE = create_qsettings()` (or one in a class body, decorator or default
   argument) can be redirected by nothing at all once constructed.
@@ -656,6 +663,8 @@ QT_QPA_PLATFORM="minimal:enable_fonts" venv/Scripts/python.exe -m pytest tests/i
 ```
 
 Fractional advances, which 125 % display scaling and unhinted fonts produce, can be forced in a test at scale 1 with a fractional point size and `QFont.HintingPreference.PreferNoHinting`.
+
+**The startup Welcome dialog.** The suite silences it for every test, because its `exec()` is modal (PF-TST-11). The session fixture yields the real method, and `tests/integration/test_startup_welcome.py` puts it back for its two tests. Only `exec()` is replaced, so the 500 ms startup timer, the settings read, the recent list and the opening of a picked plan run as in the product.
 
 ### Render tier (opt-in, Phase 17)
 

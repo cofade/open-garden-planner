@@ -7,6 +7,25 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: the startup Welcome dialog gone - a probe wrote the user's real settings (PR #584 manual pass 2)
+
+**Symptom.** The owner: the startup dialog for opening previous plans is missing, "a
+regression we fixed several times".
+**Wrong theory.** A code regression on the branch. The startup path was intact:
+`_startup_sequence` -> `_show_welcome_dialog`, which returned early on the setting.
+**Evidence.** `HKCU\Software\cofade\Open Garden Planner\startup`: `show_welcome =
+false`, the key last written 14:25:35 (RegQueryInfoKey). The scratchpad held four
+scripts writing `show_welcome_on_startup = False` without rebinding the settings
+names; the reviewer's `measure_strip.py` was saved at 14:25:31.
+**Root cause.** The probes "isolated" with a throwaway QApplication name and
+`setDefaultFormat(IniFormat)`. `create_qsettings()` passes the module's own names to
+`QSettings(org, app)`, which always uses the registry.
+**Fix.** The key backed up, `show_welcome` restored and the recent list pruned to
+the owner's own plan. The startup test runs the real path. PF-TST-27 and §8.8 say
+how a script must isolate: rebind the two names first.
+**Lesson.** A script that builds the app is a user of the real store unless it
+rebinds the names. Check what a probe writes before running it on the owner's machine.
+
 ## Case study: a "constant" button width measured on a font engine that does not exist (PR #584 manual pass 2)
 
 **Symptom.** The owner: the strip's Past/Future label pushes the controls after it while

@@ -391,3 +391,34 @@ top-level window before its first show did not hold on CI's Linux runner. The
 themed strip test's "1284 px" variants ran at 796 px there, so their one-row check
 measured an 800-px strip, and failed only when a group grew. Set the size again
 once the window is shown, and assert that it held (as the narrow-width test does).
+
+### PF-TST-27
+
+- **Rule:** A script that builds the real app rebinds the settings names first, as tests/conftest.py does; setDefaultFormat isolates nothing.
+- **Pinned by:** `tests/integration/test_startup_welcome.py::test_a_fresh_install_opens_the_welcome_dialog_with_the_recent_plans`; `tests/integration/test_startup_welcome.py::test_switched_off_in_the_dialog_it_stays_closed_at_the_next_start`
+- **Source:** PR #584 (owner manual pass 2)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The owner found the startup Welcome dialog gone: a "regression fixed several times
+before". The code was intact. The real settings store held `startup/show_welcome =
+false`, and its registry key was last written at 14:25:35. Four probe scripts from
+that day built `GardenPlannerApp` to measure the Plan & Sun strip with real fonts:
+two from the session and two from its senior reviewer. The reviewer's probe, saved
+at 14:25:31, was the first. Each set `show_welcome_on_startup = False`, as the tests
+do. Each believed itself isolated, because it gave the QApplication a throwaway
+name and called `QSettings.setDefaultFormat(IniFormat)`. Neither isolates anything.
+`create_qsettings()` builds `QSettings(ORGANIZATION_NAME, APPLICATION_NAME)` from
+the module's own names, and that constructor always uses the native format. So the
+writes went to the user's registry. The same scripts and earlier test processes had
+filled the user's recent-files list with fixture and temp paths.
+
+The suite is safe because `tests/conftest.py` rebinds those two names at import
+time (§8.8). A script outside pytest must do the same before it builds anything:
+set `open_garden_planner.app.settings.ORGANIZATION_NAME` and `APPLICATION_NAME` to
+throwaway names, and remove that store when done. The suite silences the dialog
+for every test (PF-TST-11), so the startup path had no pin at all. The startup test
+now runs the real path with only the modal `exec()` replaced. It cannot see a flag
+stored as false: the app then does what the setting says. Nor can any test pin a
+script outside the suite; the rule lives in this entry, §8.8 and the reviewer
+definitions.
