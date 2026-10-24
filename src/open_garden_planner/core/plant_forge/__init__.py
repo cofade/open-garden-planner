@@ -36,6 +36,16 @@ from ..scene3d.builders.plants import (
     placeholder_parts,
     plant_sprite,
 )
+from .accents import (
+    ACCENT_FAMILIES,
+    attach_accents,
+    build_accents,
+    build_blossom_accents,
+    build_fruit_accents,
+    build_pod_accents,
+    build_tuber_accents,
+    build_umbel_accents,
+)
 from .assemble import PART_ACCENTS, PART_FOLIAGE, PART_WOOD, fit_forged_parts, silhouette_iou
 from .cache import DEFAULT_FORGE_CACHE, CacheKey, ForgeCache, make_cache_key
 from .climbers import (
@@ -105,6 +115,7 @@ def forge_plant(
     lod: int = LOD0,
     cache: ForgeCache | None = DEFAULT_FORGE_CACHE,
     support: Mapping[str, Any] | None = None,
+    include_accents: bool = True,
 ) -> tuple[MeshPart, ...]:
     """Forge a 3D plant mesh for ``sprite`` at ``(height_cm, radius_cm, seed, lod)``."""
     validate_lod(lod)
@@ -114,37 +125,43 @@ def forge_plant(
         raise ValueError(f"height_cm and radius_cm must be finite positive floats, got ({h!r}, {r!r})")
 
     extra_sig = _support_signature(support)
+    if not include_accents:
+        extra_sig = f"{extra_sig}|no_accents"
     key = make_cache_key(sprite.group, sprite.name, seed, lod, h, r, extra_sig)
 
     def _build() -> tuple[MeshPart, ...]:
         traits = traits_for(sprite)
         if traits.archetype == "canopy":
-            return build_forged_tree(traits, h, r, seed, lod=lod)
-        if traits.archetype == "conifer":
-            return build_forged_conifer(traits, h, r, seed, lod=lod)
-        if traits.archetype == "palm":
-            return build_forged_palm(traits, h, r, seed, lod=lod)
-        if traits.archetype == "mound":
-            return build_forged_shrub(traits, h, r, seed, lod=lod)
-        if traits.archetype == "hedge":
-            return build_forged_hedge(traits, h, r, seed, lod=lod)
-        if traits.archetype == "rosette":
-            return build_forged_rosette(traits, h, r, seed, lod=lod)
-        if traits.archetype == "grass":
-            return build_forged_grass(traits, h, r, seed, lod=lod)
-        if traits.archetype == "feathery":
-            return build_forged_feathery(traits, h, r, seed, lod=lod)
-        if traits.archetype == "allium":
-            return build_forged_allium(traits, h, r, seed, lod=lod)
-        if traits.archetype == "head":
-            return build_forged_head(traits, h, r, seed, lod=lod)
-        if traits.archetype == "ground":
-            return build_forged_ground(traits, h, r, seed, lod=lod)
-        if traits.archetype == "flower":
-            return build_forged_flower(traits, h, r, seed, lod=lod)
-        if traits.archetype == "climber":
-            return build_forged_climber(traits, h, r, seed, lod=lod, support=support)
-        return build_silhouette(recipe_for(sprite), int(seed), h, r)
+            parts = build_forged_tree(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "conifer":
+            parts = build_forged_conifer(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "palm":
+            parts = build_forged_palm(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "mound":
+            parts = build_forged_shrub(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "hedge":
+            parts = build_forged_hedge(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "rosette":
+            parts = build_forged_rosette(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "grass":
+            parts = build_forged_grass(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "feathery":
+            parts = build_forged_feathery(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "allium":
+            parts = build_forged_allium(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "head":
+            parts = build_forged_head(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "ground":
+            parts = build_forged_ground(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "flower":
+            parts = build_forged_flower(traits, h, r, seed, lod=lod)
+        elif traits.archetype == "climber":
+            parts = build_forged_climber(traits, h, r, seed, lod=lod, support=support)
+        else:
+            return build_silhouette(recipe_for(sprite), int(seed), h, r)
+        if include_accents:
+            parts = attach_accents(parts, traits, h, r, seed, lod=lod)
+        return parts
 
     if cache is None:
         return _build()
@@ -250,6 +267,7 @@ def forge_record(
 
 
 __all__ = [
+    "ACCENT_FAMILIES",
     "CLIMBER_SUPPORT_MAX_DISTANCE_CM",
     "CacheKey",
     "DEFAULT_FORGE_CACHE",
@@ -276,7 +294,10 @@ __all__ = [
     "SUPPORT_PERGOLA",
     "SUPPORT_TRELLIS",
     "Skeleton",
+    "attach_accents",
     "bark_linear_rgba",
+    "build_accents",
+    "build_blossom_accents",
     "build_forged_allium",
     "build_forged_climber",
     "build_forged_conifer",
@@ -290,7 +311,11 @@ __all__ = [
     "build_forged_rosette",
     "build_forged_shrub",
     "build_forged_tree",
+    "build_fruit_accents",
+    "build_pod_accents",
     "build_tree_foliage_from_skeleton",
+    "build_tuber_accents",
+    "build_umbel_accents",
     "concat_geo",
     "cylinder_geo",
     "empty_geo",

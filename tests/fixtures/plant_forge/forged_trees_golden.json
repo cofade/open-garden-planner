@@ -64,6 +64,34 @@
             1.0
           ],
           "indices_sha16": "bce1f02b1de6c6ec"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -62.0486,
+            -50.1533,
+            82.3527
+          ],
+          "bounds_max": [
+            52.7141,
+            60.0703,
+            176.3023
+          ],
+          "mean_pos": [
+            -17.8,
+            -6.9679,
+            118.5562
+          ],
+          "mean_col": [
+            0.73711,
+            0.30637,
+            0.23603,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -129,6 +157,34 @@
             1.0
           ],
           "indices_sha16": "8db5c05713f43faa"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -150.7404,
+            -126.0398,
+            197.7051
+          ],
+          "bounds_max": [
+            127.4623,
+            143.2071,
+            388.0961
+          ],
+          "mean_pos": [
+            -32.2092,
+            -7.6877,
+            282.6578
+          ],
+          "mean_col": [
+            0.73711,
+            0.30637,
+            0.23603,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -194,6 +250,34 @@
             1.0
           ],
           "indices_sha16": "7620b8644cda8109"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -58.764,
+            -30.0707,
+            75.0129
+          ],
+          "bounds_max": [
+            50.6296,
+            58.9454,
+            149.6864
+          ],
+          "mean_pos": [
+            -8.1069,
+            8.791,
+            111.9058
+          ],
+          "mean_col": [
+            0.73711,
+            0.30637,
+            0.23603,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -259,6 +343,34 @@
             1.0
           ],
           "indices_sha16": "fd9553486868cfda"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -130.0298,
+            -101.7729,
+            193.8228
+          ],
+          "bounds_max": [
+            132.7598,
+            127.4399,
+            383.1847
+          ],
+          "mean_pos": [
+            -13.7286,
+            22.6185,
+            287.4248
+          ],
+          "mean_col": [
+            0.73711,
+            0.30637,
+            0.23603,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -324,6 +436,34 @@
             1.0
           ],
           "indices_sha16": "43bd0404a63cce87"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -54.5148,
+            -36.1505,
+            79.8904
+          ],
+          "bounds_max": [
+            54.8129,
+            36.8115,
+            151.5481
+          ],
+          "mean_pos": [
+            -12.0021,
+            -3.2164,
+            122.4608
+          ],
+          "mean_col": [
+            0.60267,
+            0.55761,
+            0.27428,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -389,6 +529,34 @@
             1.0
           ],
           "indices_sha16": "7620b8644cda8109"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -144.7208,
+            -107.7937,
+            183.2523
+          ],
+          "bounds_max": [
+            147.0578,
+            147.2021,
+            392.0096
+          ],
+          "mean_pos": [
+            -29.6597,
+            -0.2401,
+            296.1424
+          ],
+          "mean_col": [
+            0.60267,
+            0.55761,
+            0.27428,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -454,6 +622,34 @@
             1.0
           ],
           "indices_sha16": "57f4269ae5a98511"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -61.6059,
+            -41.8239,
+            85.9658
+          ],
+          "bounds_max": [
+            64.2707,
+            57.9726,
+            178.2534
+          ],
+          "mean_pos": [
+            -5.6423,
+            6.3365,
+            129.5602
+          ],
+          "mean_col": [
+            0.60267,
+            0.55761,
+            0.27428,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -519,6 +715,34 @@
             1.0
           ],
           "indices_sha16": "813f0346bfcda242"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -104.7031,
+            -86.0829,
+            193.4587
+          ],
+          "bounds_max": [
+            137.8383,
+            99.5086,
+            403.3478
+          ],
+          "mean_pos": [
+            -7.7619,
+            18.3194,
+            300.374
+          ],
+          "mean_col": [
+            0.60267,
+            0.55761,
+            0.27428,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -584,6 +808,34 @@
             1.0
           ],
           "indices_sha16": "00196d7c4b5028a2"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -53.7939,
+            -56.1901,
+            87.934
+          ],
+          "bounds_max": [
+            52.0013,
+            50.6139,
+            174.804
+          ],
+          "mean_pos": [
+            -11.9808,
+            -6.9845,
+            134.3234
+          ],
+          "mean_col": [
+            0.46855,
+            0.39246,
+            0.40526,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -649,6 +901,34 @@
             1.0
           ],
           "indices_sha16": "ff92899d0136ac29"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -138.3775,
+            -137.905,
+            192.7553
+          ],
+          "bounds_max": [
+            128.5445,
+            96.947,
+            397.5511
+          ],
+          "mean_pos": [
+            -28.1138,
+            -10.9549,
+            293.9251
+          ],
+          "mean_col": [
+            0.46855,
+            0.39246,
+            0.40526,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -714,6 +994,34 @@
             1.0
           ],
           "indices_sha16": "43bd0404a63cce87"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -51.2413,
+            -34.2981,
+            94.6316
+          ],
+          "bounds_max": [
+            53.7639,
+            47.0644,
+            167.8567
+          ],
+          "mean_pos": [
+            -7.3908,
+            8.993,
+            131.7463
+          ],
+          "mean_col": [
+            0.46855,
+            0.39246,
+            0.40526,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -779,6 +1087,34 @@
             1.0
           ],
           "indices_sha16": "651641d8a92035f1"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 608,
+          "triangle_count": 744,
+          "bounds_min": [
+            -150.4434,
+            -111.5449,
+            208.0013
+          ],
+          "bounds_max": [
+            118.5258,
+            132.9775,
+            413.0085
+          ],
+          "mean_pos": [
+            -21.1981,
+            25.7093,
+            303.9436
+          ],
+          "mean_col": [
+            0.46855,
+            0.39246,
+            0.40526,
+            1.0
+          ],
+          "indices_sha16": "720c3f6c942c0e7c"
         }
       ]
     },
@@ -844,6 +1180,34 @@
             1.0
           ],
           "indices_sha16": "813f0346bfcda242"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 664,
+          "triangle_count": 840,
+          "bounds_min": [
+            -60.1757,
+            -55.1202,
+            84.9456
+          ],
+          "bounds_max": [
+            40.8758,
+            42.5261,
+            171.8434
+          ],
+          "mean_pos": [
+            -14.7988,
+            -4.1386,
+            126.9935
+          ],
+          "mean_col": [
+            0.71575,
+            0.27732,
+            0.22898,
+            1.0
+          ],
+          "indices_sha16": "076fa668357b86ce"
         }
       ]
     },
@@ -909,6 +1273,34 @@
             1.0
           ],
           "indices_sha16": "fd9553486868cfda"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 664,
+          "triangle_count": 840,
+          "bounds_min": [
+            -154.7743,
+            -125.5918,
+            197.7366
+          ],
+          "bounds_max": [
+            157.8575,
+            136.3456,
+            394.6758
+          ],
+          "mean_pos": [
+            -53.7918,
+            -8.4485,
+            321.6204
+          ],
+          "mean_col": [
+            0.71575,
+            0.27732,
+            0.22898,
+            1.0
+          ],
+          "indices_sha16": "076fa668357b86ce"
         }
       ]
     },
@@ -974,6 +1366,34 @@
             1.0
           ],
           "indices_sha16": "a0c2e540c8df91b5"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 664,
+          "triangle_count": 840,
+          "bounds_min": [
+            -54.3397,
+            -53.1082,
+            91.7795
+          ],
+          "bounds_max": [
+            48.8982,
+            48.4316,
+            180.0365
+          ],
+          "mean_pos": [
+            -0.8726,
+            2.2575,
+            128.3736
+          ],
+          "mean_col": [
+            0.71575,
+            0.27732,
+            0.22898,
+            1.0
+          ],
+          "indices_sha16": "076fa668357b86ce"
         }
       ]
     },
@@ -1039,6 +1459,34 @@
             1.0
           ],
           "indices_sha16": "ea46594ad85ee606"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 664,
+          "triangle_count": 840,
+          "bounds_min": [
+            -164.4704,
+            -117.2791,
+            192.0873
+          ],
+          "bounds_max": [
+            130.5719,
+            138.992,
+            407.313
+          ],
+          "mean_pos": [
+            -18.9989,
+            1.6523,
+            303.6928
+          ],
+          "mean_col": [
+            0.71575,
+            0.27732,
+            0.22898,
+            1.0
+          ],
+          "indices_sha16": "076fa668357b86ce"
         }
       ]
     },
@@ -2144,6 +2592,34 @@
             1.0
           ],
           "indices_sha16": "68edd703ea23109e"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 440,
+          "triangle_count": 360,
+          "bounds_min": [
+            -43.1474,
+            -53.0602,
+            91.9283
+          ],
+          "bounds_max": [
+            39.5183,
+            54.5898,
+            176.1367
+          ],
+          "mean_pos": [
+            -11.3337,
+            -0.9991,
+            142.5376
+          ],
+          "mean_col": [
+            0.78267,
+            0.41167,
+            0.38658,
+            1.0
+          ],
+          "indices_sha16": "bb3383a14cd9ac34"
         }
       ]
     },
@@ -2209,6 +2685,34 @@
             1.0
           ],
           "indices_sha16": "507da6a82b0a8839"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 440,
+          "triangle_count": 360,
+          "bounds_min": [
+            -156.9566,
+            -128.7621,
+            187.2444
+          ],
+          "bounds_max": [
+            111.3246,
+            109.9299,
+            358.8663
+          ],
+          "mean_pos": [
+            -36.6076,
+            -10.4143,
+            293.4002
+          ],
+          "mean_col": [
+            0.78267,
+            0.41167,
+            0.38658,
+            1.0
+          ],
+          "indices_sha16": "bb3383a14cd9ac34"
         }
       ]
     },
@@ -2274,6 +2778,34 @@
             1.0
           ],
           "indices_sha16": "91b39b4eab29437c"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 440,
+          "triangle_count": 360,
+          "bounds_min": [
+            -47.6076,
+            -60.6803,
+            98.9934
+          ],
+          "bounds_max": [
+            43.5706,
+            55.1778,
+            168.9191
+          ],
+          "mean_pos": [
+            2.6694,
+            -0.9822,
+            136.1195
+          ],
+          "mean_col": [
+            0.78267,
+            0.41167,
+            0.38658,
+            1.0
+          ],
+          "indices_sha16": "bb3383a14cd9ac34"
         }
       ]
     },
@@ -2339,6 +2871,34 @@
             1.0
           ],
           "indices_sha16": "575a6362b8b20194"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 440,
+          "triangle_count": 360,
+          "bounds_min": [
+            -169.2415,
+            -92.8649,
+            206.6065
+          ],
+          "bounds_max": [
+            147.0312,
+            175.8292,
+            377.6362
+          ],
+          "mean_pos": [
+            -22.1043,
+            24.3988,
+            300.6361
+          ],
+          "mean_col": [
+            0.78267,
+            0.41167,
+            0.38658,
+            1.0
+          ],
+          "indices_sha16": "bb3383a14cd9ac34"
         }
       ]
     },
@@ -2404,6 +2964,34 @@
             1.0
           ],
           "indices_sha16": "8eb980a53355a6fb"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 832,
+          "triangle_count": 1128,
+          "bounds_min": [
+            -59.739,
+            -60.4822,
+            89.2012
+          ],
+          "bounds_max": [
+            36.3323,
+            60.3394,
+            174.2832
+          ],
+          "mean_pos": [
+            -12.1679,
+            -6.4168,
+            132.9957
+          ],
+          "mean_col": [
+            0.33676,
+            0.31692,
+            0.17788,
+            1.0
+          ],
+          "indices_sha16": "a60497cd66853d62"
         }
       ]
     },
@@ -2469,6 +3057,34 @@
             1.0
           ],
           "indices_sha16": "6d24030d589436ff"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 832,
+          "triangle_count": 1128,
+          "bounds_min": [
+            -160.6387,
+            -150.9187,
+            190.6988
+          ],
+          "bounds_max": [
+            128.2841,
+            159.2639,
+            382.4722
+          ],
+          "mean_pos": [
+            -42.1214,
+            -15.0632,
+            304.5189
+          ],
+          "mean_col": [
+            0.33676,
+            0.31692,
+            0.17788,
+            1.0
+          ],
+          "indices_sha16": "a60497cd66853d62"
         }
       ]
     },
@@ -2534,6 +3150,34 @@
             1.0
           ],
           "indices_sha16": "086da1296a520125"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 832,
+          "triangle_count": 1128,
+          "bounds_min": [
+            -59.6157,
+            -62.8005,
+            83.1982
+          ],
+          "bounds_max": [
+            57.0082,
+            46.2503,
+            179.2345
+          ],
+          "mean_pos": [
+            -12.6324,
+            2.7486,
+            133.1238
+          ],
+          "mean_col": [
+            0.33676,
+            0.31692,
+            0.17788,
+            1.0
+          ],
+          "indices_sha16": "a60497cd66853d62"
         }
       ]
     },
@@ -2599,6 +3243,34 @@
             1.0
           ],
           "indices_sha16": "e077f00bf22603ff"
+        },
+        {
+          "name": "accents",
+          "material_kind": "vc",
+          "vertex_count": 832,
+          "triangle_count": 1128,
+          "bounds_min": [
+            -159.999,
+            -137.5941,
+            200.008
+          ],
+          "bounds_max": [
+            148.6508,
+            131.2002,
+            408.4368
+          ],
+          "mean_pos": [
+            -24.2741,
+            20.5945,
+            290.346
+          ],
+          "mean_col": [
+            0.33676,
+            0.31692,
+            0.17788,
+            1.0
+          ],
+          "indices_sha16": "a60497cd66853d62"
         }
       ]
     }
