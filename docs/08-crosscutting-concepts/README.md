@@ -4058,10 +4058,11 @@ layer serves a whole add loop. Any item that can re-order existing items — a
 pre-ranked re-add, a child, a bed with children, a linked plant, a roof ridge,
 or a ground surface (which sorts into its own band, §8.25.2) — runs
 `_refresh_layer_z` synchronously instead. Every derivation reseeds the per-layer
-provisional cache; a full `_update_items_z_order` clears both it and the rank
-cache, and a rank writer (arrange, move to layer, group/ungroup, relink) or a
-layer reorder runs that sweep, so the next add reseeds from the real top rather
-than resurrecting a stale value. There is
+provisional cache; a full `_update_items_z_order` sweep clears both it and the
+rank cache. Arrange, move to layer, and adding/deleting/reordering layers run
+that sweep; grouping and relinking refresh one layer through
+`_refresh_layer_z`, which reseeds that layer alone. Either way the next add
+reseeds from the real top rather than resurrecting a stale value. There is
 no deferred pass and no command-boundary flush: what `addItem` writes is final,
 which is why 2 000 single adds (and 2 000 single-item commands) cost one
 derivation, not 2 000 (the pre-#450 loop took 45 s).

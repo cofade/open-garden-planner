@@ -1730,6 +1730,23 @@ MAX_DENSE_VERTEX_HANDLES = 128
 DENSE_HANDLE_SPACING_PX = 24.0
 
 
+def _visible_device_rect(view: Any, margin: float) -> QRectF:
+    """The view's viewport in DEVICE pixels, grown by *margin* device pixels.
+
+    ``QWidget.rect()`` is in logical (device-independent) pixels while
+    ``deviceTransform`` maps to physical device pixels, so a high-DPI screen
+    would otherwise sample only the top-left ``1 / ratio`` of the viewport.
+    """
+    rect = QRectF(view.viewport().rect())
+    ratio = view.devicePixelRatioF()
+    return QRectF(
+        rect.x() * ratio,
+        rect.y() * ratio,
+        rect.width() * ratio,
+        rect.height() * ratio,
+    ).adjusted(-margin, -margin, margin, margin)
+
+
 def _dense_overlay_indices(
     item: Any, points: list[tuple[int, QPointF]]
 ) -> list[int]:
@@ -1748,12 +1765,7 @@ def _dense_overlay_indices(
         return [index for index, _point in points[::step]][:MAX_DENSE_VERTEX_HANDLES]
     view = views[0]
     transform = item.deviceTransform(view.viewportTransform())
-    visible = QRectF(view.viewport().rect()).adjusted(
-        -DENSE_HANDLE_SPACING_PX,
-        -DENSE_HANDLE_SPACING_PX,
-        DENSE_HANDLE_SPACING_PX,
-        DENSE_HANDLE_SPACING_PX,
-    )
+    visible = _visible_device_rect(view, DENSE_HANDLE_SPACING_PX)
     spacing = DENSE_HANDLE_SPACING_PX
     cells: dict[tuple[int, int], list[QPointF]] = {}
     indices: list[int] = []

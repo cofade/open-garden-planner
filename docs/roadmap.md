@@ -2753,7 +2753,7 @@ alias-table case the owner declined. Contributed content: @Sevoiger's personal-f
 implementation informed #550/#551; #569 was reported by @jbuijgers (fork branch
 `fix/preferences-dialog-height`). §8.25 (one derivation per layer), §8.9 (shared
 path clip), ADR-043 and ADR-061 addenda, FR-EDIT-19, FR-UI-14; the residual
-per-command UI refresh is #592.
+per-command UI refresh is #592 and the dense-overlay scroll re-sample is #594.
 The local full suite still carries the 24 pre-existing Windows-offscreen Plan &
 Sun layout failures tracked by #562; native Windows passes them.
 

@@ -8,9 +8,10 @@ removed them from the project. CI builds from the lock and was never affected;
 the local gate was.
 
 This module is the one place that answers "which installed distributions does
-``pylock.toml`` not pin?". Both the PyInstaller spec (a warning at the start of
-every build) and the local build script use it. The warnings are advisory;
-``--strict`` turns them into a failed check for a caller that wants a gate.
+``pylock.toml`` not pin, or pin at another version?". Both the PyInstaller spec
+(a warning at the start of every build) and the local build script use it. The
+warnings are advisory; ``--strict`` turns them into a failed check for a caller
+that wants a gate.
 
 Every installed distribution the lock omits or pins at another version is
 reported. A package in the lock but missing from this environment is not an

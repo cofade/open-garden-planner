@@ -15,6 +15,7 @@ from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 from open_garden_planner.ui.canvas.items.resize_handle import (
     MAX_DENSE_VERTEX_HANDLES,
     _format_coordinate,
+    _visible_device_rect,
 )
 
 
@@ -51,6 +52,37 @@ def _show(view: CanvasView, item, *, zoom: float, center: QPointF) -> None:
     view.centerOn(center)
     view.repaint()
     QApplication.processEvents()
+
+
+def test_the_visible_rect_is_scaled_to_device_pixels() -> None:
+    """``viewport().rect()`` is logical; ``deviceTransform`` is physical (#551).
+
+    At 200 % scaling the old comparison measured the viewport as half its real
+    device size, so a dense outline sampled only its top-left quarter.
+    """
+
+    class FakeViewport:
+        @staticmethod
+        def rect():
+            from PyQt6.QtCore import QRect
+
+            return QRect(0, 0, 800, 600)
+
+    class FakeView:
+        @staticmethod
+        def viewport():
+            return FakeViewport()
+
+        @staticmethod
+        def devicePixelRatioF():
+            return 2.0
+
+    assert _visible_device_rect(FakeView(), 10.0).getRect() == (
+        -10.0,
+        -10.0,
+        1620.0,
+        1220.0,
+    )
 
 
 def test_dense_polygon_overlay_is_bounded_and_keeps_the_outline(view) -> None:

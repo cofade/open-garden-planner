@@ -1252,10 +1252,12 @@ class CanvasScene(QGraphicsScene):
         """Refresh the derived z-value of every item in every layer.
 
         A full re-derivation also invalidates the per-layer rank cache and any
-        provisional values: a rank writer (arrange, move-to-layer, group/
-        ungroup, relink) may have moved items above what the cache recorded, so
+        provisional values: a sweep caller (arrange, move-to-layer, add/delete/
+        reorder layers) may have moved items above what the cache recorded, so
         the next ``addItem`` must reseed from this derivation's own top for the
-        layer again (#450).
+        layer again (#450). Grouping and relinking refresh one layer instead
+        (``_refresh_layer_z``), which reseeds that layer's entry without a
+        sweep.
         """
         self._next_rank_cache = {}
         self._provisional_z = {}
