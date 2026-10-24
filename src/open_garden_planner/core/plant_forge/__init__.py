@@ -58,6 +58,12 @@ from .lod import (
 from .skeleton import Skeleton, grow_skeleton
 from .trees import bark_linear_rgba, build_forged_tree, build_tree_foliage_from_skeleton
 from .tube import cylinder_geo, frustum_tubes, limb_tubes
+from .woody import (
+    build_forged_conifer,
+    build_forged_hedge,
+    build_forged_palm,
+    build_forged_shrub,
+)
 
 
 def _support_signature(support: Mapping[str, Any] | None) -> str:
@@ -90,7 +96,15 @@ def forge_plant(
         traits = traits_for(sprite)
         if traits.archetype == "canopy":
             return build_forged_tree(traits, h, r, seed, lod=lod)
-        # Archetypes scheduled for L3.2..L3.4 fall back to the fast v0 silhouette until forged
+        if traits.archetype == "conifer":
+            return build_forged_conifer(traits, h, r, seed, lod=lod)
+        if traits.archetype == "palm":
+            return build_forged_palm(traits, h, r, seed, lod=lod)
+        if traits.archetype == "mound":
+            return build_forged_shrub(traits, h, r, seed, lod=lod)
+        if traits.archetype == "hedge":
+            return build_forged_hedge(traits, h, r, seed, lod=lod)
+        # Archetypes scheduled for L3.3..L3.4 fall back to the fast v0 silhouette until forged
         return build_silhouette(recipe_for(sprite), int(seed), h, r)
 
     if cache is None:
@@ -207,6 +221,10 @@ __all__ = [
     "RawGeo",
     "Skeleton",
     "bark_linear_rgba",
+    "build_forged_conifer",
+    "build_forged_hedge",
+    "build_forged_palm",
+    "build_forged_shrub",
     "build_forged_tree",
     "build_tree_foliage_from_skeleton",
     "concat_geo",
