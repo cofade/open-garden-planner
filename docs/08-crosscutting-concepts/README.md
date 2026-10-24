@@ -629,7 +629,7 @@ def canvas(qtbot):
     return view
 ```
 
-**The startup Welcome dialog.** The suite silences it for every test, because its `exec()` is modal (PF-TST-11). The session fixture yields the real method, and `tests/integration/test_startup_welcome.py` puts it back for its own tests. Three things are stood in for there: `WelcomeDialog.exec` records instead of blocking (any other modal `exec` fails the test), the recovery check, and the window's handlers for a picked plan, New and Open. So the startup timer, the settings read, the recent list and the dialog's wiring to the window run as in the product, not the opening of a plan. A spy marks the end of each window's `_startup_sequence`, so no assertion depends on the timer's length (PF-TST-25).
+**The startup Welcome dialog.** The suite silences it for every test, because its `exec()` is modal (PF-TST-11). The session fixture yields the real method, and `tests/integration/test_startup_welcome.py` puts it back for its own tests. Three things are stood in for there: `WelcomeDialog.exec` records instead of blocking (another modal - a Python-level `exec` or a static `QMessageBox` helper - fails the test), the recovery check, and the window's handlers for a picked plan, New and Open. So the startup timer, the settings read, the recent list and the dialog's wiring to the window run as in the product, not the opening of a plan. A spy marks the end of each window's `_startup_sequence`, so no assertion depends on the timer's length (PF-TST-25).
 
 ### Coordinate system reminder
 

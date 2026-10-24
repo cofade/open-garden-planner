@@ -15,8 +15,8 @@ regression we fixed several times".
 `_startup_sequence` -> `_show_welcome_dialog`, which returned early on the setting.
 **Evidence.** `HKCU\Software\cofade\Open Garden Planner\startup`: `show_welcome =
 false`, the key last written 14:25:35 (RegQueryInfoKey), 4 s after the reviewer's
-`measure_strip.py` was saved. Three more scratchpad probes wrote the same flag the
-same way; one write is evidenced.
+`measure_strip.py` was saved. Three more scratchpad probes had the same defect;
+one write is evidenced.
 **Root cause.** The probes "isolated" with a throwaway QApplication name and
 `setDefaultFormat(IniFormat)`. `create_qsettings()` passes the module's own names to
 `QSettings(org, app)`, which always uses the registry. `scripts/script_isolation.py`

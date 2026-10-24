@@ -6,10 +6,12 @@ closes it headless. So nothing else drives the real startup path. These tests pu
 the real ``GardenPlannerApp._show_welcome_dialog`` back and start from the
 production default (no stored value). Three things are stood in for:
 
-- ``WelcomeDialog.exec`` records the dialog instead of blocking (any other modal
-  ``QDialog.exec`` at startup fails the test instead of hanging the run);
-- ``AutoSaveManager.find_recovery_files`` finds nothing, or ``_check_recovery_files``
-  is replaced where a test is about the recovery branch;
+- ``WelcomeDialog.exec`` records the dialog instead of blocking. Any other modal at
+  startup fails the test instead of hanging the run: a Python-level ``QDialog.exec``
+  and the static ``QMessageBox`` helpers (``question`` and its siblings run their own
+  modal loop in C++, past any ``exec`` patch) raise;
+- ``AutoSaveManager.find_recovery_files`` finds nothing, or one recovery file where a
+  test drives the real recovery prompt with a scripted answer;
 - the window's handlers for a picked plan, New and Open record their calls, so what
   runs as in the product is the WIRING of the dialog to the window, not the opening.
 
@@ -27,7 +29,7 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QDialog
+from PyQt6.QtWidgets import QDialog, QMessageBox
 
 import open_garden_planner.app.settings as settings_module
 from open_garden_planner.app.application import GardenPlannerApp
@@ -62,6 +64,12 @@ def startup(monkeypatch: pytest.MonkeyPatch, _silence_welcome_dialog) -> Startup
         raise AssertionError(f"an unexpected modal dialog at startup: {type(dialog).__name__}")
 
     monkeypatch.setattr(QDialog, "exec", unexpected_modal)
+
+    def unexpected_box(*_args, **_kwargs) -> QMessageBox.StandardButton:
+        raise AssertionError("an unexpected message box at startup")
+
+    for helper in ("question", "information", "warning", "critical"):
+        monkeypatch.setattr(QMessageBox, helper, staticmethod(unexpected_box))
     sequence = GardenPlannerApp._startup_sequence
 
     def observed(self: GardenPlannerApp) -> None:
@@ -118,16 +126,31 @@ def test_switched_off_in_the_dialog_it_stays_closed_at_the_next_start(
     assert len(startup.shown) == 1
 
 
-@pytest.mark.parametrize("recovered", [False, True])
-def test_a_recovery_prompt_comes_first_and_a_declined_one_still_shows_the_welcome(
-        qtbot, monkeypatch, startup: Startup, recovered: bool) -> None:
-    def recovery(_self: GardenPlannerApp) -> bool:
-        startup.calls.append(("recovery", ()))
-        return recovered
+@pytest.mark.parametrize(("answer", "welcome", "loaded", "deleted"), [
+    (QMessageBox.StandardButton.No, 1, 0, 0),
+    (QMessageBox.StandardButton.Discard, 1, 0, 1),
+    (QMessageBox.StandardButton.Yes, 0, 1, 0),
+])
+def test_the_recovery_prompt_comes_first_and_only_a_recovery_skips_the_welcome(
+        qtbot, monkeypatch, tmp_path: Path, startup: Startup,
+        answer: QMessageBox.StandardButton, welcome: int, loaded: int, deleted: int) -> None:
+    autosave = tmp_path / ".ogp_autosave_untitled.ogp"
+    monkeypatch.setattr(AutoSaveManager, "find_recovery_files",
+                        classmethod(lambda _cls: [(autosave, {"timestamp": "2026-10-24 12:00"})]))
 
-    monkeypatch.setattr(GardenPlannerApp, "_check_recovery_files", recovery)
+    def question(*_args, **_kwargs) -> QMessageBox.StandardButton:
+        startup.calls.append(("question", ()))
+        return answer
+
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(question))
+    monkeypatch.setattr(GardenPlannerApp, "_load_recovery_file",
+                        lambda _self, path: startup.calls.append(("load", (path,))))
+    monkeypatch.setattr(AutoSaveManager, "delete_recovery_file",
+                        classmethod(lambda _cls, path: startup.calls.append(("delete", (path,)))))
 
     startup.start(qtbot)
 
-    assert startup.calls[0][0] == "recovery"
-    assert len(startup.shown) == (0 if recovered else 1)
+    names = [name for name, _args in startup.calls]
+    assert names[0] == "question"
+    assert (names.count("load"), names.count("delete")) == (loaded, deleted)
+    assert len(startup.shown) == welcome
