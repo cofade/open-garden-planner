@@ -12,10 +12,11 @@ This module is the one place that answers "which installed distributions does
 every build) and the local build script use it. The warnings are advisory;
 ``--strict`` turns them into a failed check for a caller that wants a gate.
 
-Only distributions the lock does not list are reported. A package in the lock
-but missing from this environment is not an error here: platform-gated
-requirements (``macholib`` on Windows, for example) are legitimately absent,
-and PyInstaller reports a genuinely missing runtime import itself.
+Every installed distribution the lock omits or pins at another version is
+reported. A package in the lock but missing from this environment is not an
+error here: platform-gated requirements (``macholib`` on Windows, for example)
+are legitimately absent, and PyInstaller reports a genuinely missing runtime
+import itself.
 """
 
 from __future__ import annotations
@@ -36,10 +37,11 @@ PROJECT_DISTRIBUTION = "open-garden-planner"
 DEFAULT_LOCK = Path(__file__).resolve().parents[1] / "pylock.toml"
 
 #: Tools a developer environment may carry without them being part of the
-#: application's locked set. They are skipped only when the lock does not pin
-#: them: ``pip``, ``setuptools`` and ``wheel`` ARE locked here (the build group),
-#: and their versions reach ``dist/build-evidence.json``, so a stale one is a
-#: real mismatch — exactly the advisory case that failed CI in #571.
+#: application's runtime closure. They are skipped only when the lock does not
+#: pin them: ``uv`` is not in ``pylock.toml``, while ``setuptools`` and ``wheel``
+#: are build-group pins recorded in ``dist/build-evidence.json`` and ``pip`` is
+#: pinned through the dev extra, so a stale one is a real mismatch — exactly the
+#: advisory case that failed CI in #571.
 BUILD_TOOL_ALLOWLIST = frozenset({"pip", "setuptools", "wheel", "uv"})
 
 

@@ -142,7 +142,12 @@ def boolean_union_many(paths: list[QPainterPath]) -> QPolygonF | None:
 def boolean_union(
     path_a: QPainterPath, path_b: QPainterPath
 ) -> QPolygonF | None:
-    """Compute the union of two paths. Returns None if result is degenerate."""
+    """Compute the union of two paths. Returns None if result is degenerate.
+
+    Raw geometry, like :func:`boolean_union_many`: it applies no UI policy
+    (hole, vertex cap, layer). A caller that creates an item must go through
+    ``union_outline_many`` and those checks, as ``CanvasView`` does.
+    """
     return boolean_union_many([path_a, path_b])
 
 

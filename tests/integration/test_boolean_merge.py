@@ -215,6 +215,8 @@ def test_a_selection_spanning_layers_is_refused(qtbot, monkeypatch) -> None:
     _add(scene, first, second)
     second.layer_id = other.id
 
+    messages = []
+    view.status_message.connect(messages.append)
     monkeypatch.setattr(
         QMessageBox,
         "question",
@@ -222,6 +224,7 @@ def test_a_selection_spanning_layers_is_refused(qtbot, monkeypatch) -> None:
     )
     view.boolean_operation("union")
 
+    assert messages == ["All shapes must be on the same layer"]
     assert all(item.scene() is scene for item in (first, second))
     assert not _polygons(scene)
     assert view.command_manager.undo_depth == 0

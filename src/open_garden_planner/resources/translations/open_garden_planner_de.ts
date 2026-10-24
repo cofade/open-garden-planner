@@ -546,7 +546,7 @@
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="5299" />
             <source>All shapes must be on the same layer</source>
-            <translation>Alle Formen m?ssen auf derselben Ebene liegen</translation>
+            <translation>Alle Formen müssen auf derselben Ebene liegen</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="5790" />

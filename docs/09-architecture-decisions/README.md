@@ -1460,9 +1460,9 @@ cache with the top of its band-space order — a layer-band value, never the hig
 `GROUND_Z_RANGE`, and seeding from it would put the next added solids below the background.
 A rank writer or a layer reorder invalidates the rank and provisional caches.
 
-**Measurements (dev box, 2026-10-24).** 2 000 direct `addItem` calls: 45 s before, about
-0.1 s after, one `_refresh_layer_z` call, also with 1 000–1 500 items already in the
-layer. 1 000 one-item `CreateItemCommand` executions: 13.09 s before this addendum's final
+**Measurements (dev box, 2026-10-24).** 2 000 direct `addItem` calls: 45 s as reported
+in #450, 26.3 s reproduced on `master` at this tree (2 000 derivations), about 0.1 s
+after (one `_refresh_layer_z` call), also with 1 000–1 500 items already in the layer. 1 000 one-item `CreateItemCommand` executions: 13.09 s before this addendum's final
 shape, 3.18 s after (2 000: 12.1 s), still one derivation for the whole loop; the residual is
 *not* z work — it is the per-command UI refresh that already existed (`update_dimension_lines`
 refreshing every item's lock badge, about 1.8 s of 3.1 s, and PR #584's O(items)
