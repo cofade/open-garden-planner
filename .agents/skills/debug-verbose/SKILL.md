@@ -14,17 +14,18 @@ regression we fixed several times".
 **Wrong theory.** A code regression on the branch. The startup path was intact:
 `_startup_sequence` -> `_show_welcome_dialog`, which returned early on the setting.
 **Evidence.** `HKCU\Software\cofade\Open Garden Planner\startup`: `show_welcome =
-false`, the key last written 14:25:35 (RegQueryInfoKey). The scratchpad held four
-scripts writing `show_welcome_on_startup = False` without rebinding the settings
-names; the reviewer's `measure_strip.py` was saved at 14:25:31.
+false`, the key last written 14:25:35 (RegQueryInfoKey), 4 s after the reviewer's
+`measure_strip.py` was saved. Three more scratchpad probes wrote the same flag the
+same way; one write is evidenced.
 **Root cause.** The probes "isolated" with a throwaway QApplication name and
 `setDefaultFormat(IniFormat)`. `create_qsettings()` passes the module's own names to
-`QSettings(org, app)`, which always uses the registry.
+`QSettings(org, app)`, which always uses the registry. `scripts/script_isolation.py`
+existed, but its gate reads only `scripts/`.
 **Fix.** The key backed up, `show_welcome` restored and the recent list pruned to
-the owner's own plan. The startup test runs the real path. PF-TST-27 and §8.8 say
-how a script must isolate: rebind the two names first.
+the owner's own plan. The startup test runs the real path without timed waits.
+PF-TST-27, §8.8/§8.10 and the reviewer definitions: a probe calls the helper.
 **Lesson.** A script that builds the app is a user of the real store unless it
-rebinds the names. Check what a probe writes before running it on the owner's machine.
+calls `script_isolation`. Check what a probe writes before running it.
 
 ## Case study: a "constant" button width measured on a font engine that does not exist (PR #584 manual pass 2)
 

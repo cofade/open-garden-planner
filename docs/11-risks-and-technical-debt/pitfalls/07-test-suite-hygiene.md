@@ -120,6 +120,8 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Status:** standing
 - **Legacy:** b1faaa9 README L402
 
+- **One sanctioned exception (PR #584):** `_silence_welcome_dialog` yields the real method, and `tests/integration/test_startup_welcome.py` puts it back for its own tests, with `WelcomeDialog.exec` made non-blocking and any other modal `exec` failing the test. That is not a violation of this entry; without it nothing pins the startup dialog (PF-TST-27).
+
 - **The Welcome-dialog hang above was re-hit on 2026-08-17 (Package 3a) — because its fix was per-file, and only three of 34 app-building test files had it.** A full `pytest tests/` run stalled silently for 18 minutes inside `tests/integration/test_trellis.py` (2nd test), noticed only because the log's **modification time** was old — the tail looked like normal progress. A first write-up of this incident misfiled it as an unsolved "leaked slot" hang and reached for `pytest-timeout` as the fix; the senior review's stack dump (`application.py` → `dialog.exec()` inside pytest-qt's teardown `processEvents()`) pointed straight back at the entry above, which nobody had grepped for "Welcome" first — an institutional-memory failure committed inside a documentation commit. **Fix (structural):** `tests/conftest.py::_silence_welcome_dialog` — a **session**-scoped autouse fixture that replaces `GardenPlannerApp._show_welcome_dialog` with a no-op for the whole run (the class-level patch three files had applied per file), plus `_disable_welcome_dialog`, a per-test store write of `KEY_SHOW_WELCOME=False`. The class patch is the load-bearing one: a store-only guard was tried first and *lost a race once in a full run* — the read returned the default inside a `qtbot.wait` although both a conftest and a module fixture had written `False` before the app was built (`test_idle_scene_quiescence.py`, 2026-08-17). **The mechanism was then pinned down with two 15-line probes, and it is a second, independent pitfall (Windows registry backend):** a `QSettings` that has called `clear()` deletes its registry key **when it is destroyed** (`deleteWriteHandleOnExit`), and **every store built between that `clear()` and that destruction becomes a "black hole" — its writes vanish and its reads return defaults** (probe: `t.clear()`; build `s`; `s.setValue("x", 1)` reads 1; `del t` → `s.value("x")` reads the default and further writes are lost). **And the clearing instance was in ANOTHER PROCESS.** The test key was a fixed name (`cofade_test / Open Garden Planner Test`), so a second pytest run on the same machine — here the senior-reviewer agent running the suite in its worktree while the main battery ran — shared it, and every one of *its* per-test `clear()`s deleted the key under *this* process's live singleton. Decisive experiment: the same three files produce black holes on every run with a deliberately concurrent pytest process, and pass 3/3 under the same concurrency with the fix below. It also explains why the failures moved between tests and runs, and why "passes alone" told nothing. **Fix (three layers, all in `tests/conftest.py`):** (1) **per-process test key** — `TEST_APPLICATION = f"Open Garden Planner Test {os.getpid()}"`, so concurrent suites cannot see each other's key (the session-end `clear()` removes this process's key; a crashed run leaves an orphan `… Test <pid>` under `HKCU\Software\cofade_test`, harmless); (2) `_reset_app_settings` wipes per key (`remove(key)` for `allKeys()`, then `sync()`) instead of `clear()` — defence in depth against the same mechanism inside one process; (3) a **tripwire** at teardown that probes the live singleton and fails the test with "settings singleton is a BLACK HOLE …" if it is dead — the next such incident is a diagnosis, not a mystery. Rules: **never `clear()` a QSettings key that other live instances (in any process) share — `remove()` keys instead; and never assume a settings-based test guard is airtight when a concurrent process can exist (the senior-reviewer worktree runs the suite while you do).** `pytest-timeout` (MIT, dev dependency; `[tool.pytest.ini_options] timeout = 180`) stays — as a guard against *unknown* hangs, not as the fix for this one: on Linux/CI the signal method fails just the hung test; on Windows the thread method dumps every thread's stack and aborts the run, which names the culprit. **Lessons:** (1) before writing a new §11.4 entry, grep §11.4 for the symptom's nouns — this file is only institutional memory if it is read; (2) a hang guard is worth having, but never ship a detector for a landmine you know how to defuse without also defusing it; (3) when waiting on a long run, watch the log's **age**, not its tail (`stat -c %Y` vs `date +%s`); if it stalls, kill it, run the stalled file alone, then after its collection-order predecessors — or use `-o faulthandler_timeout=40` as the "silence the startup Welcome dialog" entry above prescribes.
 
 ### PF-TST-12
@@ -394,31 +396,37 @@ once the window is shown, and assert that it held (as the narrow-width test does
 
 ### PF-TST-27
 
-- **Rule:** A script that builds the real app rebinds the settings names first, as tests/conftest.py does; setDefaultFormat isolates nothing.
-- **Pinned by:** `tests/integration/test_startup_welcome.py::test_a_fresh_install_opens_the_welcome_dialog_with_the_recent_plans`; `tests/integration/test_startup_welcome.py::test_switched_off_in_the_dialog_it_stays_closed_at_the_next_start`
-- **Source:** PR #584 (owner manual pass 2)
+- **Rule:** A probe that builds the app calls script_isolation's isolate_profile() and isolate() first; setDefaultFormat isolates nothing.
+- **Pinned by:** none — a script outside the suite has no automated pin; `tests/integration/test_startup_welcome.py` pins the startup path whose setting was overwritten, not the rule.
+- **Source:** PR #584 (owner manual pass 2), #587
 - **Status:** standing
 - **Legacy:** none (new entry)
 
 The owner found the startup Welcome dialog gone: a "regression fixed several times
 before". The code was intact. The real settings store held `startup/show_welcome =
-false`, and its registry key was last written at 14:25:35. Four probe scripts from
-that day built `GardenPlannerApp` to measure the Plan & Sun strip with real fonts:
-two from the session and two from its senior reviewer. The reviewer's probe, saved
-at 14:25:31, was the first. Each set `show_welcome_on_startup = False`, as the tests
-do. Each believed itself isolated, because it gave the QApplication a throwaway
-name and called `QSettings.setDefaultFormat(IniFormat)`. Neither isolates anything.
+false`, and its registry key was last written at 14:25:35. A review probe saved at
+14:25:31 built `GardenPlannerApp` to measure the Plan & Sun strip, and set
+`show_welcome_on_startup = False` as the tests do. That one write is evidenced;
+three more probe scripts of that day had the same defect. Each believed itself
+isolated, because it gave the QApplication a throwaway name and called
+`QSettings.setDefaultFormat(IniFormat)`. Neither isolates anything.
 `create_qsettings()` builds `QSettings(ORGANIZATION_NAME, APPLICATION_NAME)` from
 the module's own names, and that constructor always uses the native format. So the
-writes went to the user's registry. The same scripts and earlier test processes had
-filled the user's recent-files list with fixture and temp paths.
+write went to the user's registry. The user's recent-files list also held plans that
+scripts had opened: scratchpad copies of fixtures, the PR #566 review artifacts
+under `build/quality/`, a fixture path relative to the repository root, and
+temporary files.
 
-The suite is safe because `tests/conftest.py` rebinds those two names at import
-time (§8.8). A script outside pytest must do the same before it builds anything:
-set `open_garden_planner.app.settings.ORGANIZATION_NAME` and `APPLICATION_NAME` to
-throwaway names, and remove that store when done. The suite silences the dialog
-for every test (PF-TST-11), so the startup path had no pin at all. The startup test
-now runs the real path with only the modal `exec()` replaced. It cannot see a flag
-stored as false: the app then does what the setting says. Nor can any test pin a
-script outside the suite; the rule lives in this entry, §8.8 and the reviewer
-definitions.
+`scripts/script_isolation.py` already isolates a script (§8.10). Call
+`isolate_profile()` before the first app import, then `isolate()` before building
+anything. Together they rebind the two settings names, and move the profile
+variables and the `QStandardPaths` locations behind the plant library, plant lists,
+seed inventory, smart symbols and caches. Rebinding the names alone would leave
+those. The gate `tests/integration/test_script_isolation.py` reads only `scripts/`.
+A probe in a scratchpad or temp directory is outside it and must call the helper
+itself, with the repository's `scripts/` on `sys.path`.
+
+The suite silences the dialog for every test (PF-TST-11), so the startup path had no
+pin at all. `tests/integration/test_startup_welcome.py` now runs it: the dialog, its
+recent plans, and its wiring to the window. It cannot see a flag stored as false:
+the app then does what the setting says.

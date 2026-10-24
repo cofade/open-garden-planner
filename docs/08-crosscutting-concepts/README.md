@@ -255,13 +255,12 @@ Three further rules, each gated, each worth understanding before touching this:
   "optimise" the names into a default argument, a module-level tuple or a
   `functools.partial` — `test_rebinding_the_names_redirects_new_stores` will stop
   you, and neither can they retarget an *existing* store (ADR-041).
-  **A script outside pytest gets none of this.** A probe that builds
-  `GardenPlannerApp` must rebind the two names itself before it builds anything,
-  or it reads and writes the user's real store. A throwaway QApplication name or
-  `QSettings.setDefaultFormat()` does not redirect it: the factory passes the
-  module's names, and `QSettings(organization, application)` always uses the
-  native format. Four such probes once switched off the owner's Welcome dialog
-  (PF-TST-27).
+  **A script outside pytest gets none of this:** it isolates itself through
+  `scripts/script_isolation.py` (§8.10), a probe in a scratchpad included. A
+  throwaway QApplication name or `QSettings.setDefaultFormat()` redirects nothing:
+  the factory passes the module's names, and `QSettings(organization,
+  application)` always uses the native format. A review probe that relied on them
+  once switched off the owner's Welcome dialog (PF-TST-27).
 - **Prefer building a store at runtime over import time.** A module-level
   `_STORE = create_qsettings()` (or one in a class body, decorator or default
   argument) can be redirected by nothing at all once constructed.
@@ -551,7 +550,10 @@ settings names rebound to a key of the process, cleared at exit; and the stand-i
 climate and thumbnail caches live: Qt asks the shell). That stand-in is ONE function,
 `script_isolation.redirect_qt_locations`: `tests/conftest.py` loads `script_isolation` and
 installs the same one for the suite. Not at import: tests import the fixture generators into
-the pytest process, and a second redirection there would take its test key away.
+the pytest process, and a second redirection there would take its test key away. **A probe
+outside `scripts/`** - in a scratchpad or temp directory, an agent's included - is not read by
+the gate below and calls the helper itself, with the repository's `scripts/` on `sys.path`; one
+that did not switched off the owner's Welcome dialog (PF-TST-27).
 
 **Every script is read, not a list of them kept.** `tests/integration/test_script_isolation.py`
 parses every file under `scripts/`: one that imports the app or builds a Qt application either
@@ -627,6 +629,8 @@ def canvas(qtbot):
     return view
 ```
 
+**The startup Welcome dialog.** The suite silences it for every test, because its `exec()` is modal (PF-TST-11). The session fixture yields the real method, and `tests/integration/test_startup_welcome.py` puts it back for its own tests. Three things are stood in for there: `WelcomeDialog.exec` records instead of blocking (any other modal `exec` fails the test), the recovery check, and the window's handlers for a picked plan, New and Open. So the startup timer, the settings read, the recent list and the dialog's wiring to the window run as in the product, not the opening of a plan. A spy marks the end of each window's `_startup_sequence`, so no assertion depends on the timer's length (PF-TST-25).
+
 ### Coordinate system reminder
 
 > **Framing note.** The "Y-down / (0,0) top-left" label below is Qt's *abstract*
@@ -663,8 +667,6 @@ QT_QPA_PLATFORM="minimal:enable_fonts" venv/Scripts/python.exe -m pytest tests/i
 ```
 
 Fractional advances, which 125 % display scaling and unhinted fonts produce, can be forced in a test at scale 1 with a fractional point size and `QFont.HintingPreference.PreferNoHinting`.
-
-**The startup Welcome dialog.** The suite silences it for every test, because its `exec()` is modal (PF-TST-11). The session fixture yields the real method, and `tests/integration/test_startup_welcome.py` puts it back for its two tests. Only `exec()` is replaced, so the 500 ms startup timer, the settings read, the recent list and the opening of a picked plan run as in the product.
 
 ### Render tier (opt-in, Phase 17)
 
