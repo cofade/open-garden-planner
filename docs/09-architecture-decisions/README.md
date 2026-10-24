@@ -6983,6 +6983,29 @@ or document edits, and is covered by the adaptive toolbar's native layout tests.
 Pinned by test_sun_location_hint_opens_existing_dialog_and_recovers_map and the
 located/unlocated locale/theme/width matrix in test_plan_sun_controls.py.
 
+### ADR-062 addendum: Past/Future in the Today button (PR #584 manual pass)
+
+The owner found the separate Past/Future label more disruptive than useful. It
+appeared, disappeared and changed width as the date moved. That pushed the
+controls after it, including the month slider under the dragging pointer. The
+label is removed. The Today button says Past or Future in its own place while the
+plan date is elsewhere. Its tooltip says where the date is and that a click goes
+back to today, and the click does what it always did. On today it says Today and
+is disabled, as before.
+
+The button has one width for all three texts. `_TodayButton.sizeHint` keeps the
+style's padding, uses the widest of the three texts in the active language, and
+adds one letter's width as a buffer for a theme or platform font that runs wider.
+The width follows a font or theme change, because it is a size hint and not a
+fixed pixel value. A language change takes effect on restart, as for every string
+in the app. The cost is a wider Today group on today. Measured at Verdana 9 pt on
+the development machine, it is 48 px wider in Spanish and 108 px wider in German.
+The strip's existing reflow shrinks the sliders before it needs a third row.
+
+Pinned by test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves
+(en/de/es × both themes). It scrubs the month slider across today and back, and
+asserts the button's width and the month slider's position do not change.
+
 ## ADR-063: Analyze in 3D — the 2D analysis on the 3D ground, sun path, info card v1, growth jump, Cutaway (Phase 17 L2, #386)
 
 **Status:** Accepted for implementation; owner acceptance pending.

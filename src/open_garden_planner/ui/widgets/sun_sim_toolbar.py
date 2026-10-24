@@ -84,6 +84,32 @@ class _PlanTimeEdit(QTimeEdit):
         return _editor_steps(self)
 
 
+class _TodayButton(QToolButton):
+    """Today, or Past / Future in its place while the plan date is elsewhere.
+
+    One width for all of its texts, so the controls after it never move while the
+    date does (owner manual pass of #386: a separate Past/Future label pushed the
+    month slider away from the pointer while it was dragged).
+    """
+
+    def __init__(self, texts: tuple[str, ...], parent: QWidget) -> None:
+        super().__init__(parent)
+        self._texts = texts
+
+    def sizeHint(self) -> QSize:
+        hint = super().sizeHint()
+        metrics = self.fontMetrics()
+        widest = max(metrics.horizontalAdvance(text) for text in self._texts)
+        # the style's padding around the current text, put around the widest one,
+        # and one letter more for a theme or platform font that runs wider
+        hint.setWidth(hint.width() - metrics.horizontalAdvance(self.text())
+                      + widest + metrics.horizontalAdvance("M"))
+        return hint
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+
 class _GroupFlow(QLayout):
     """Wrap complete control groups, without QToolBar's overflow popup."""
 
@@ -198,11 +224,10 @@ class SunSimToolbar(QToolBar):
         self._date_edit.setMinimumWidth(self._date_edit.fontMetrics().horizontalAdvance("2000-00-00") + 48)
         self._date_edit.setToolTip(self.tr("Plan date: plant presence, growth and sunlight"))
         group.addWidget(self._date_edit)
-        self._today_button = self._button(self.tr("Today"), group)
+        self._today_button = self._button(
+            self.tr("Today"), group,
+            button=_TodayButton((self.tr("Today"), self.tr("Past"), self.tr("Future")), self))
         self._today_button.clicked.connect(lambda: self.date_requested.emit(date.today()))
-        self._state_label = QLabel(self)
-        self._state_label.setToolTip(self.tr("The plan date controls plant presence, growth and sunlight."))
-        group.addWidget(self._state_label)
 
         group = self._group()
         group.addWidget(QLabel(self.tr("Months"), self))
@@ -276,8 +301,9 @@ class SunSimToolbar(QToolBar):
         self._flow.addWidget(widget)
         return group
 
-    def _button(self, text: str, group: QHBoxLayout, *, checkable: bool = False) -> QToolButton:
-        button = QToolButton(self)
+    def _button(self, text: str, group: QHBoxLayout, *, checkable: bool = False,
+                button: QToolButton | None = None) -> QToolButton:
+        button = button if button is not None else QToolButton(self)
         button.setText(text)
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         button.setCheckable(checkable)
@@ -523,10 +549,16 @@ class SunSimToolbar(QToolBar):
         self._month_slider.setRange(low, high)
         self._month_slider.setValue(month_number(day))
         self._month_slider.blockSignals(False)
-        self._state_label.setText(self.tr("Past") if day < date.today() else
-                                  self.tr("Future") if day > date.today() else "")
-        self._state_label.setVisible(day != date.today())
-        self._today_button.setEnabled(day != date.today())
+        today = date.today()
+        if day < today:
+            text, tip = self.tr("Past"), self.tr("The plan date is in the past. Click to go back to today.")
+        elif day > today:
+            text, tip = self.tr("Future"), self.tr("The plan date is in the future. Click to go back to today.")
+        else:
+            text, tip = self.tr("Today"), self.tr("The plan date is today.")
+        self._today_button.setText(text)
+        self._today_button.setToolTip(tip)
+        self._today_button.setEnabled(day != today)
         count = sum(not self._scene.is_present(p) for p in plants)
         self._hidden_button.setText(self.tr("{count} hidden").format(count=count))
         self._hidden_button.setEnabled(count > 0)

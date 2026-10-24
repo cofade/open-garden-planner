@@ -72,7 +72,7 @@ def test_month_scrub_shared_date_growth_and_half_open_visibility(win):
     assert effective_height_cm(apple.object_type, apple.metadata, date(2030, 6, 1)) > effective_height_cm(
         apple.object_type, apple.metadata, date(2025, 6, 1))
     assert len(grown) == 3
-    assert win._sun_toolbar._state_label.text() == "Future"
+    assert win._sun_toolbar._today_button.text() == "Future"
 
 
 def test_canvas_sprite_regrows_through_real_render_without_resizing_footprint(win):

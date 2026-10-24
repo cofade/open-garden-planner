@@ -437,7 +437,7 @@ def test_month_day_clamping_time_edit_animation_and_today(win):
     bar._today_button.click()
     assert win._sim_clock.plan_date == date.today()
     assert win._sim_clock.time_of_day == time(15, 27)
-    assert bar._state_label.isHidden()
+    assert bar._today_button.text() == bar.tr("Today") and not bar._today_button.isEnabled()
 
 
 @pytest.mark.parametrize("theme", ["dark", "light"])
@@ -465,7 +465,7 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         win.show()
         qtbot.wait(60)
         bar = win._sun_toolbar
-        assert bar._state_label.isHidden()  # Today is already the directly accessible action.
+        assert bar._today_button.text() == bar.tr("Today")  # the button itself says where the date is
         assert bar._date_edit.height() == bar._time_edit.height()
         assert bar._map_label.isHidden()
         for group_index in range(bar._flow.count()):
@@ -513,7 +513,7 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         qtbot.wait(20)
         assert bar._map_label.isHidden()
         win._sim_clock.set_date(old_day)
-        assert bar._state_label.isVisible() and bar._state_label.text() == bar.tr("Past")
+        assert bar._today_button.text() == bar.tr("Past") and bar._today_button.isEnabled()
     finally:
         load_translator(app, "en")
         apply_theme(app, original_theme)
@@ -570,6 +570,64 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_
     finally:
         app.setFont(original_font)
         load_translator(app, "en")
+
+
+@pytest.mark.parametrize("theme", ["dark", "light"])
+@pytest.mark.parametrize("language", ["en", "de", "es"])
+def test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves(qtbot, theme, language):
+    """Owner manual pass of #386: a separate Past/Future label changed width as the
+    date moved and pushed the controls after it, the month slider being dragged
+    included. The Today button says it in its own place, at one width."""
+    from PyQt6.QtWidgets import QToolButton
+
+    from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
+
+    app = QApplication.instance()
+    original_stylesheet = app.styleSheet()
+    original_theme = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
+    try:
+        assert load_translator(app, language)
+        apply_theme(app, ThemeMode(theme))
+        get_settings().show_welcome_on_startup = False
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        win._sim_clock.set_date(date.today())
+        win.resize(1284, 800)
+        win.show()
+        qtbot.wait(60)
+        bar = win._sun_toolbar
+        button = bar._today_button
+        width, slider_x = button.width(), bar._month_slider.mapTo(bar, QPoint()).x()
+        assert button.text() == bar.tr("Today") and not button.isEnabled()
+        now = bar._month_slider.value()
+        # the scrub the owner made: across today and back, by the month slider
+        for month, text in ((now - 1, bar.tr("Past")), (now + 3, bar.tr("Future")),
+                            (now - 12, bar.tr("Past")), (now, bar.tr("Today"))):
+            bar._month_slider.setValue(month)
+            qtbot.wait(20)
+            assert button.text() == text
+            assert button.isEnabled() == (text != bar.tr("Today"))
+            assert button.width() == width, text
+            assert bar._month_slider.mapTo(bar, QPoint()).x() == slider_x, text
+        assert win._sim_clock.plan_date == date.today()
+        for text in (bar.tr("Today"), bar.tr("Past"), bar.tr("Future")):
+            probe = QToolButton(bar)  # the same style: the plain size of this one text
+            probe.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+            probe.setText(text)
+            probe.ensurePolished()
+            assert probe.sizeHint().width() < width, text
+            probe.deleteLater()
+        win._sim_clock.set_date(date(date.today().year + 2, 6, 1))
+        assert button.text() == bar.tr("Future")
+        assert button.toolTip() == bar.tr("The plan date is in the future. Click to go back to today.")
+        button.click()
+        assert win._sim_clock.plan_date == date.today()
+        assert button.text() == bar.tr("Today") and not button.isEnabled()
+    finally:
+        load_translator(app, "en")
+        apply_theme(app, original_theme)
+        app.setStyleSheet(original_stylesheet)
 
 
 def test_live_date_change_retains_honestly_dated_preview_and_latest_request(win, qtbot, jobs):

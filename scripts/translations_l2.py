@@ -7,6 +7,13 @@ DE = {
             "Vergleich schließen und die 3D-Ansicht zeigen (Esc)",
     },
     "Compass": {"N": "N", "E": "O", "S": "S", "W": "W"},
+    "SunSimToolbar": {
+        "The plan date is in the future. Click to go back to today.":
+            "Das Plandatum liegt in der Zukunft. Klicken, um zu heute zurückzukehren.",
+        "The plan date is in the past. Click to go back to today.":
+            "Das Plandatum liegt in der Vergangenheit. Klicken, um zu heute zurückzukehren.",
+        "The plan date is today.": "Das Plandatum ist heute.",
+    },
     "View3DInfoCard": {
         "Growth:": "Wachstum:",
         "Harvest:": "Ernte:",
@@ -92,6 +99,13 @@ ES = {
             "Cerrar la comparación y mostrar la vista 3D (Esc)",
     },
     "Compass": {"N": "N", "E": "E", "S": "S", "W": "O"},
+    "SunSimToolbar": {
+        "The plan date is in the future. Click to go back to today.":
+            "La fecha del plano está en el futuro. Haga clic para volver a hoy.",
+        "The plan date is in the past. Click to go back to today.":
+            "La fecha del plano está en el pasado. Haga clic para volver a hoy.",
+        "The plan date is today.": "La fecha del plano es hoy.",
+    },
     "View3DInfoCard": {
         "Growth:": "Crecimiento:",
         "Harvest:": "Cosecha:",
