@@ -176,17 +176,18 @@ jobs:
       # invisible to a Linux-only scan — measured, senior review round 3.
       # `shell: bash` keeps the redirection UTF-8 on the Windows runner.
       #
-      # The single recorded exception is the setuptools advisory
-      # PYSEC-2026-3447 / GHSA-h35f-9h28-mq5c: it only affects publishing macOS
-      # source distributions, which this project never does. Setuptools code is
-      # bundled; the waiver concerns that unused operation — justified in
-      # docs/11-risks-and-technical-debt/README.md §11.2, and its fix (83.0.0)
-      # is tracked for a separately reviewed dependency PR.
+      # No advisory is waived. The one former exception (setuptools
+      # PYSEC-2026-3447 / GHSA-h35f-9h28-mq5c, macOS sdist publishing only) ended
+      # on 2026-10-24 when the build group moved to setuptools 84.1.0 (#571, #572):
+      # a waiver that matches nothing in the lock would silently hide a widened
+      # advisory. A new waiver needs its justification in
+      # docs/11-risks-and-technical-debt/README.md §11.2 and in
+      # tests/unit/test_dependency_governance.py::WAIVERS.
       - name: Audit locked dependencies
         shell: bash
         run: |
           uv export --locked --all-extras --group build --no-emit-project --no-hashes > locked-requirements.txt
-          pip-audit -r locked-requirements.txt --progress-spinner off --ignore-vuln PYSEC-2026-3447
+          pip-audit -r locked-requirements.txt --progress-spinner off
 
   types:
     name: Types (${{ matrix.os }})

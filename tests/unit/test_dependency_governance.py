@@ -30,10 +30,17 @@ def _job_block(name: str) -> str:
     return match.group("body")
 
 
+#: The advisories CI's pip-audit step may waive, each justified in §11.2. Empty since
+#: 2026-10-24: setuptools 84.1.0 (#571) ended the only one, PYSEC-2026-3447 (#572) — a
+#: waiver that matches nothing in the lock would hide a widened advisory unreviewed.
+WAIVERS: tuple[str, ...] = ()
+
+
 def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
-    assert "pip-audit" in CI
-    assert "--ignore-vuln PYSEC-2026-3447" in CI, (
-        "the one build-time exception must be named explicitly, not by disabling the scan"
+    assert "pip-audit -r locked-requirements.txt" in CI
+    waived = tuple(re.findall(r"--ignore-vuln[ =](\S+)", CI))
+    assert waived == WAIVERS, (
+        "a pip-audit waiver is named here AND justified in §11.2, never added silently"
     )
     assert "uv export --locked --all-extras --group build" in CI, (
         "the audit must run against the committed lock export, not installed state"
@@ -49,9 +56,8 @@ def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
         "the Windows runner needs bash so the export redirection stays UTF-8"
     )
     docs = (ROOT / "docs/11-risks-and-technical-debt/README.md").read_text(encoding="utf-8")
-    assert "PYSEC-2026-3447" in docs or "GHSA-h35f-9h28-mq5c" in docs, (
-        "the exception must stay justified in the risk register"
-    )
+    for waiver in WAIVERS:
+        assert waiver in docs, f"the waiver {waiver} must be justified in the risk register"
 
 
 def test_pip_audit_is_part_of_the_locked_dev_environment() -> None:
