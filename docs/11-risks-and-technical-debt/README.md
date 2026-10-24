@@ -37,23 +37,28 @@ exclusions when publishing macOS source distributions. GitHub identifies 83.0.0 
 patched version. Applicability assessment: current CI uses Linux/Windows editable installs
 and publishes a Windows PyInstaller/NSIS installer; neither that build pipeline nor the app publishes macOS sdists. The waiver concerns the unused affected operation, not absence of setuptools from the executable.
 [Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
-remains open for a separately reviewed backend/lock update. The CI `Dependencies` matrix job
+remained open for a separately reviewed backend/lock update — #571 is that update (below). The CI `Dependencies` matrix job
 (Linux and Windows) now runs `pip-audit` against the committed lock export
 (`uv export --locked --all-extras --group build`) on every push, with this single advisory
 recorded as `--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job. Both platforms
 run it because pip-audit evaluates markers for the running interpreter.
 
-**Update 2026-10-24.** The job did its work: it failed `master` (run of 2026-10-23, commit
-`50324280`) on [GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w)
+**Update 2026-10-24 (#571, #572).** The job did its work: it failed `master` (run of
+2026-10-23, commit `50324280`) on [GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w)
 (low: a Windows path escape through `namespace_packages.txt` during a legacy wheel
 installation, setuptools < 84.1.0), and a local re-run then found six `filelock` 4.2.0
 advisories (fixed in 4.2.1; `filelock` is only in the dev extra, through
 `pip-audit` → `cachecontrol[filecache]`). The build group now pins setuptools **84.1.0**
 (the first patched version) and the lock carries filelock 4.2.4; `pip-audit` over the
 locked export reports no known vulnerability. 84.1.0 also contains the 83.0.0 fix for
-GHSA-h35f-9h28-mq5c, so the `PYSEC-2026-3447` waiver above no longer matches anything in
-the lock; it is left in place here and its removal (CI line, governance test, the docs
-that cite it) is a follow-up, so this change stays a lock update.
+GHSA-h35f-9h28-mq5c, so the `PYSEC-2026-3447` waiver above ended with it (#572): a waiver
+that matches nothing in the lock would hide a widened advisory unreviewed. CI waives no
+advisory now; a new waiver is justified here and named in
+`tests/unit/test_dependency_governance.py::WAIVERS`. Dependabot alerts 1–5 (setuptools ×2,
+filelock ×3, all on `uv.lock`) close with the merge. The frozen bundle was rebuilt on the
+locked 3.11 builder: its inventory passes, the SBOM lists setuptools 84.1.0 (its vendored
+copies attributed to it), filelock is not in it, smoke and `--selftest` pass. Lesson:
+PF-CI-12.
 
 Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
 **0.12.19** (`uv/Dockerfile` in dependabot-core, read 2026-10-13) while this project pins
@@ -219,6 +224,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-CI-09 | A version-only `pyproject.toml` edit makes `uv.lock` stale, so the version-sync chore refreshes the lock's project version offline together with both source version declarations. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-09) |  |
 | PF-CI-10 | Release version bump derives from the triggering merge commit SHA (via `scripts/resolve_release_pr.py` with commit pulls lookup, squash subject `(#N)` fallback, and exact label matching), never from `gh pr list --state merged` which sorts by creation date and ignores older-created PRs. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-10) |  |
 | PF-CI-11 | Windows executables, installers, and desktop shortcuts require multi-resolution `.ico` files containing all standard frames (16x16 to 256x256), and `SetCurrentProcessExplicitAppUserModelID` must be called before any GUI or WebEngine subsystem imports; an icon with only 16x16 leaves the Windows taskbar with a generic blank window icon. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-11) |  |
+| PF-CI-12 | The required `Dependencies` job audits against a live advisory database, so it can turn `master` red with no code change; answer with a targeted `uv lock --upgrade-package` per named package (never a full upgrade), and end every waiver whose advisory no longer matches the lock. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-12) |  |
 | PF-TST-01 | A GUI-responsiveness test holds the real worker in flight with an Event and counts heartbeat ticks only while it runs on another thread, so the count cannot depend on compute duration. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-01) |  |
 | PF-TST-02 | A within-day simulation test sets the time of day as well as the date, such as noon via `set_time_of_day`, rather than inheriting the host clock, changing clock semantics or relaxing timeouts. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-02) |  |
 | PF-TST-03 | Every concrete placeable graphics item, `TextItem` included, round-trips through the `ProjectManager` serializer with exact dictionary equality, checked by one matrix over every item class. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-03) |  |

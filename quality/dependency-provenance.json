@@ -3,6 +3,7 @@
     "setuptools": "82.0.0",
     "wheel": "0.48.0"
   },
+  "added_build_backend_note": "the versions the backend was ADDED at (v1.29.5 snapshot); the build group's pins move with pyproject.toml - setuptools 82.0.0 -> 84.1.0 on 2026-10-24 (#571)",
   "commit": "db38aad7ab2e3a653c934613f3dfce962042282e",
   "license_review": {
     "pyinstaller": "GPL-2.0-or-later with bundling exception (preserved released version)",

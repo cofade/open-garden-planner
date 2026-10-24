@@ -1992,11 +1992,20 @@ Windows) also runs `pip-audit` over the committed lock export
 group), so a finding is a finding in a shipped artifact, a build tool or a development tool
 that runs in CI; it runs on both platforms because pip-audit evaluates requirement markers
 for the running interpreter (the Windows-only `pywin32` is invisible to a Linux-only scan).
-One advisory is recorded as an explicit exception — the `setuptools` advisory affecting
-unused macOS source-distribution publishing,
-`PYSEC-2026-3447`, which only affects publishing macOS source distributions (justification in
-§11.2); its fix stays reserved for a separately reviewed dependency PR. Any new advisory
-fails the job.
+No advisory is waived; any advisory fails the job.
+
+*Fixed 2026-10-24 (#571, #572).* The job turned `master` red with no code change:
+[GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w) (setuptools
+< 84.1.0, low: a Windows path escape through `namespace_packages.txt` during a legacy wheel
+installation; setuptools is in the build group and in the frozen bundle), and a re-run hours
+later added six `filelock` 4.2.0 advisories (fixed in 4.2.1; dev extra only, through
+`pip-audit` → `cachecontrol[filecache]`). Mitigation: the build group pins setuptools
+**84.1.0** and a targeted `uv lock --upgrade-package setuptools --upgrade-package filelock`
+moved only those two packages (filelock to 4.2.4); the frozen bundle's inventory, SBOM,
+smoke and `--selftest` were re-verified on the locked 3.11 builder. 84.1.0 also contains
+the 83.0.0 fix for GHSA-h35f-9h28-mq5c, so the one former waiver, `PYSEC-2026-3447`, ended
+with it (a waiver that matches nothing would hide a widened advisory unreviewed). Lesson:
+PF-CI-12.
 
 **Local use:**
 ```bash
