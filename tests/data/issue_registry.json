@@ -1113,5 +1113,20 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#552,#557,#558,#559,#560): plant details undo, lock guard, estimated heights"
+  },
+  "571": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "CI: required Dependencies checks fail on master (setuptools GHSA-xmj3-9gf7-h52w, filelock 4.2.0)"
+  },
+  "572": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Remove the stale pip-audit waiver PYSEC-2026-3447 (setuptools is past 83.0.0)"
+  },
+  "575": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
   }
 }
