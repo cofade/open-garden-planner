@@ -26,6 +26,7 @@ from ..scene3d import (
     MAX_LENGTH_CM,
     PARAM_RADIUS_CM,
     PARAM_SEED,
+    BuilderRegistry,
     MeshPart,
     Record,
     default_builder,
@@ -266,6 +267,22 @@ def forge_record(
     )
 
 
+def register_forged_plants(
+    registry: BuilderRegistry,
+    *,
+    lod: int = LOD0,
+    replace: bool = True,
+) -> None:
+    """Register `forge_record` for all `PLANT_KINDS` (`TREE`, `SHRUB`, `PERENNIAL`) on `registry`."""
+    validate_lod(lod)
+
+    def _builder(record: Record) -> tuple[MeshPart, ...]:
+        return forge_record(record, lod=lod)
+
+    for kind in sorted(PLANT_KINDS):
+        registry.register(kind, _builder, replace=replace)
+
+
 __all__ = [
     "ACCENT_FAMILIES",
     "CLIMBER_SUPPORT_MAX_DISTANCE_CM",
@@ -331,6 +348,7 @@ __all__ = [
     "make_cache_key",
     "micro_leaves",
     "palette_leaf_colors",
+    "register_forged_plants",
     "resolve_climber_support",
     "select_lod",
     "silhouette_iou",

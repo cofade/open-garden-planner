@@ -844,3 +844,4 @@ __all__ = [
     "build_forged_rosette",
     "srgb_to_linear",
 ]
+

@@ -13,3 +13,4 @@ from __future__ import annotations
 from .materials import EMBER, FLAME, MATERIALS, TONE_KEYS, mat
 
 __all__ = ["EMBER", "FLAME", "MATERIALS", "TONE_KEYS", "mat"]
+

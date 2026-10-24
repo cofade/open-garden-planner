@@ -80,3 +80,4 @@ EMBER: Final[tuple[str, str, str]] = ("#fff4b0", "#ff9d3e", "#c8421a")
 FLAME: Final[tuple[str, str, str]] = ("#fff7c2", "#ffc23a", "#f0621c")
 
 __all__ = ["EMBER", "FLAME", "MATERIALS", "TONE_KEYS", "mat"]
+

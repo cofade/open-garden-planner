@@ -190,3 +190,4 @@ class TestL33HerbaceousArchetypes:
             durations_ms.append((t1 - t0) * 1000.0)
         median_ms = float(np.median(durations_ms))
         assert median_ms <= 150.0, f"Median cold build time {median_ms:.2f} ms > 150 ms"
+
