@@ -1,0 +1,2606 @@
+{
+  "version": 1,
+  "count": 40,
+  "entries": [
+    {
+      "species": "apple_tree",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2149,
+          "triangle_count": 3374,
+          "bounds_min": [
+            -63.968,
+            -63.9401,
+            0.0
+          ],
+          "bounds_max": [
+            60.0142,
+            62.7491,
+            183.305
+          ],
+          "mean_pos": [
+            -11.2164,
+            -6.3858,
+            123.0462
+          ],
+          "mean_col": [
+            0.11734,
+            0.04957,
+            0.02224,
+            1.0
+          ],
+          "indices_sha16": "d41befb24e57035c"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11256,
+          "triangle_count": 5628,
+          "bounds_min": [
+            -73.8165,
+            -73.1138,
+            15.8277
+          ],
+          "bounds_max": [
+            74.2292,
+            75.0,
+            190.0
+          ],
+          "mean_pos": [
+            -11.4808,
+            -4.218,
+            127.4951
+          ],
+          "mean_col": [
+            0.1001,
+            0.36961,
+            0.09705,
+            1.0
+          ],
+          "indices_sha16": "bce1f02b1de6c6ec"
+        }
+      ]
+    },
+    {
+      "species": "apple_tree",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2443,
+          "triangle_count": 3836,
+          "bounds_min": [
+            -153.67,
+            -160.2315,
+            0.0
+          ],
+          "bounds_max": [
+            160.2272,
+            153.398,
+            421.7734
+          ],
+          "mean_pos": [
+            -20.023,
+            -11.7735,
+            280.33
+          ],
+          "mean_col": [
+            0.11741,
+            0.0496,
+            0.02226,
+            1.0
+          ],
+          "indices_sha16": "5e86206ca6724800"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 13048,
+          "triangle_count": 6524,
+          "bounds_min": [
+            -180.6231,
+            -183.4809,
+            36.0443
+          ],
+          "bounds_max": [
+            190.0,
+            183.4809,
+            450.0
+          ],
+          "mean_pos": [
+            -20.7673,
+            -4.9943,
+            289.3421
+          ],
+          "mean_col": [
+            0.099,
+            0.36738,
+            0.09631,
+            1.0
+          ],
+          "indices_sha16": "8db5c05713f43faa"
+        }
+      ]
+    },
+    {
+      "species": "apple_tree",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2254,
+          "triangle_count": 3556,
+          "bounds_min": [
+            -56.9655,
+            -61.7977,
+            0.0
+          ],
+          "bounds_max": [
+            60.835,
+            61.3238,
+            182.0959
+          ],
+          "mean_pos": [
+            -4.1424,
+            7.9056,
+            116.0977
+          ],
+          "mean_col": [
+            0.11574,
+            0.04889,
+            0.02194,
+            1.0
+          ],
+          "indices_sha16": "bb97476d20e27294"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11144,
+          "triangle_count": 5572,
+          "bounds_min": [
+            -73.8212,
+            -74.1243,
+            19.2163
+          ],
+          "bounds_max": [
+            75.0,
+            74.6461,
+            190.0
+          ],
+          "mean_pos": [
+            -2.1027,
+            6.6249,
+            120.6439
+          ],
+          "mean_col": [
+            0.10007,
+            0.36935,
+            0.09702,
+            1.0
+          ],
+          "indices_sha16": "7620b8644cda8109"
+        }
+      ]
+    },
+    {
+      "species": "apple_tree",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2366,
+          "triangle_count": 3710,
+          "bounds_min": [
+            -156.5833,
+            -155.2943,
+            0.0
+          ],
+          "bounds_max": [
+            149.1428,
+            152.999,
+            430.5769
+          ],
+          "mean_pos": [
+            -8.0703,
+            21.1053,
+            269.3
+          ],
+          "mean_col": [
+            0.11528,
+            0.0487,
+            0.02185,
+            1.0
+          ],
+          "indices_sha16": "9d3ccb7d8596d3de"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11088,
+          "triangle_count": 5544,
+          "bounds_min": [
+            -187.567,
+            -190.0,
+            40.5322
+          ],
+          "bounds_max": [
+            187.6897,
+            186.164,
+            450.0
+          ],
+          "mean_pos": [
+            -5.2259,
+            22.5737,
+            286.4948
+          ],
+          "mean_col": [
+            0.10015,
+            0.36953,
+            0.09707,
+            1.0
+          ],
+          "indices_sha16": "fd9553486868cfda"
+        }
+      ]
+    },
+    {
+      "species": "pear_tree",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 1967,
+          "triangle_count": 3108,
+          "bounds_min": [
+            -60.8677,
+            -48.3635,
+            0.0
+          ],
+          "bounds_max": [
+            64.5054,
+            53.0922,
+            173.659
+          ],
+          "mean_pos": [
+            -6.8679,
+            -3.639,
+            115.0315
+          ],
+          "mean_col": [
+            0.04357,
+            0.01699,
+            0.00751,
+            1.0
+          ],
+          "indices_sha16": "e6591a09b2269ace"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9520,
+          "triangle_count": 4760,
+          "bounds_min": [
+            -75.0,
+            -66.4481,
+            27.4468
+          ],
+          "bounds_max": [
+            75.0,
+            66.4481,
+            190.0
+          ],
+          "mean_pos": [
+            -7.5711,
+            -3.1732,
+            123.564
+          ],
+          "mean_col": [
+            0.09888,
+            0.36678,
+            0.09613,
+            1.0
+          ],
+          "indices_sha16": "43bd0404a63cce87"
+        }
+      ]
+    },
+    {
+      "species": "pear_tree",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2247,
+          "triangle_count": 3542,
+          "bounds_min": [
+            -156.3425,
+            -144.0014,
+            0.0
+          ],
+          "bounds_max": [
+            168.0544,
+            133.6237,
+            427.7171
+          ],
+          "mean_pos": [
+            -18.8699,
+            -13.5435,
+            284.9339
+          ],
+          "mean_col": [
+            0.04374,
+            0.01706,
+            0.00754,
+            1.0
+          ],
+          "indices_sha16": "e79a8634f64142e8"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11144,
+          "triangle_count": 5572,
+          "bounds_min": [
+            -184.8932,
+            -173.6142,
+            57.9934
+          ],
+          "bounds_max": [
+            190.0,
+            173.6142,
+            450.0
+          ],
+          "mean_pos": [
+            -19.1733,
+            -13.1581,
+            302.4812
+          ],
+          "mean_col": [
+            0.09968,
+            0.36883,
+            0.09683,
+            1.0
+          ],
+          "indices_sha16": "7620b8644cda8109"
+        }
+      ]
+    },
+    {
+      "species": "pear_tree",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 1946,
+          "triangle_count": 3080,
+          "bounds_min": [
+            -63.174,
+            -57.6761,
+            0.0
+          ],
+          "bounds_max": [
+            61.6521,
+            57.1212,
+            176.3497
+          ],
+          "mean_pos": [
+            -5.3404,
+            6.5861,
+            117.0057
+          ],
+          "mean_col": [
+            0.04353,
+            0.01697,
+            0.0075,
+            1.0
+          ],
+          "indices_sha16": "95e82b627f808b58"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9408,
+          "triangle_count": 4704,
+          "bounds_min": [
+            -75.0,
+            -69.0964,
+            30.3163
+          ],
+          "bounds_max": [
+            75.0,
+            69.4384,
+            190.0
+          ],
+          "mean_pos": [
+            -4.7366,
+            4.7995,
+            124.2923
+          ],
+          "mean_col": [
+            0.09908,
+            0.36757,
+            0.09632,
+            1.0
+          ],
+          "indices_sha16": "57f4269ae5a98511"
+        }
+      ]
+    },
+    {
+      "species": "pear_tree",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2037,
+          "triangle_count": 3262,
+          "bounds_min": [
+            -166.0766,
+            -134.1852,
+            0.0
+          ],
+          "bounds_max": [
+            159.1038,
+            143.9469,
+            414.2278
+          ],
+          "mean_pos": [
+            -6.69,
+            26.0135,
+            274.2057
+          ],
+          "mean_col": [
+            0.04349,
+            0.01696,
+            0.0075,
+            1.0
+          ],
+          "indices_sha16": "23818c125bca20fa"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9968,
+          "triangle_count": 4984,
+          "bounds_min": [
+            -189.9575,
+            -170.4551,
+            59.77
+          ],
+          "bounds_max": [
+            187.4666,
+            170.4551,
+            450.0
+          ],
+          "mean_pos": [
+            -7.5352,
+            20.671,
+            288.6819
+          ],
+          "mean_col": [
+            0.09897,
+            0.36743,
+            0.09626,
+            1.0
+          ],
+          "indices_sha16": "813f0346bfcda242"
+        }
+      ]
+    },
+    {
+      "species": "plum_tree",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2065,
+          "triangle_count": 3332,
+          "bounds_min": [
+            -62.1892,
+            -60.4603,
+            0.0
+          ],
+          "bounds_max": [
+            66.2488,
+            61.5605,
+            181.8876
+          ],
+          "mean_pos": [
+            -8.476,
+            -7.9563,
+            121.5219
+          ],
+          "mean_col": [
+            0.04342,
+            0.01693,
+            0.00749,
+            1.0
+          ],
+          "indices_sha16": "7596cfeaaa9e3c20"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9464,
+          "triangle_count": 4732,
+          "bounds_min": [
+            -74.7335,
+            -71.6156,
+            31.5511
+          ],
+          "bounds_max": [
+            75.0,
+            71.6711,
+            190.0
+          ],
+          "mean_pos": [
+            -9.7726,
+            -6.9062,
+            129.095
+          ],
+          "mean_col": [
+            0.05156,
+            0.23497,
+            0.06638,
+            1.0
+          ],
+          "indices_sha16": "00196d7c4b5028a2"
+        }
+      ]
+    },
+    {
+      "species": "plum_tree",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2226,
+          "triangle_count": 3514,
+          "bounds_min": [
+            -156.623,
+            -148.1524,
+            0.0
+          ],
+          "bounds_max": [
+            152.1571,
+            137.755,
+            419.0796
+          ],
+          "mean_pos": [
+            -15.5032,
+            -15.478,
+            282.55
+          ],
+          "mean_col": [
+            0.04348,
+            0.01696,
+            0.0075,
+            1.0
+          ],
+          "indices_sha16": "ece971b0dd637d07"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10080,
+          "triangle_count": 5040,
+          "bounds_min": [
+            -190.0,
+            -172.8776,
+            74.6823
+          ],
+          "bounds_max": [
+            190.0,
+            172.8776,
+            450.0
+          ],
+          "mean_pos": [
+            -17.2051,
+            -13.5453,
+            298.8217
+          ],
+          "mean_col": [
+            0.05203,
+            0.23629,
+            0.06676,
+            1.0
+          ],
+          "indices_sha16": "ff92899d0136ac29"
+        }
+      ]
+    },
+    {
+      "species": "plum_tree",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 1925,
+          "triangle_count": 3094,
+          "bounds_min": [
+            -55.2925,
+            -56.8096,
+            0.0
+          ],
+          "bounds_max": [
+            66.0615,
+            56.2645,
+            179.235
+          ],
+          "mean_pos": [
+            -2.8323,
+            4.4838,
+            121.9471
+          ],
+          "mean_col": [
+            0.04364,
+            0.01702,
+            0.00752,
+            1.0
+          ],
+          "indices_sha16": "5a62def6d03332fb"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9520,
+          "triangle_count": 4760,
+          "bounds_min": [
+            -75.0,
+            -71.5936,
+            35.5389
+          ],
+          "bounds_max": [
+            75.0,
+            71.5936,
+            190.0
+          ],
+          "mean_pos": [
+            -4.433,
+            6.8466,
+            130.5289
+          ],
+          "mean_col": [
+            0.05188,
+            0.23579,
+            0.06659,
+            1.0
+          ],
+          "indices_sha16": "43bd0404a63cce87"
+        }
+      ]
+    },
+    {
+      "species": "plum_tree",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2121,
+          "triangle_count": 3374,
+          "bounds_min": [
+            -153.3551,
+            -154.3391,
+            0.0
+          ],
+          "bounds_max": [
+            164.0486,
+            161.9446,
+            416.9939
+          ],
+          "mean_pos": [
+            -11.8271,
+            17.9263,
+            286.6273
+          ],
+          "mean_col": [
+            0.04376,
+            0.01706,
+            0.00754,
+            1.0
+          ],
+          "indices_sha16": "8d1af7c395f10865"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10528,
+          "triangle_count": 5264,
+          "bounds_min": [
+            -186.7434,
+            -190.0,
+            78.2843
+          ],
+          "bounds_max": [
+            186.7434,
+            190.0,
+            450.0
+          ],
+          "mean_pos": [
+            -15.1695,
+            23.6469,
+            305.2323
+          ],
+          "mean_col": [
+            0.05195,
+            0.23601,
+            0.06666,
+            1.0
+          ],
+          "indices_sha16": "651641d8a92035f1"
+        }
+      ]
+    },
+    {
+      "species": "cherry_tree",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2058,
+          "triangle_count": 3220,
+          "bounds_min": [
+            -63.7233,
+            -61.2029,
+            0.0
+          ],
+          "bounds_max": [
+            64.7696,
+            60.3397,
+            180.4579
+          ],
+          "mean_pos": [
+            -8.8475,
+            -6.218,
+            126.1769
+          ],
+          "mean_col": [
+            0.1244,
+            0.04515,
+            0.01023,
+            1.0
+          ],
+          "indices_sha16": "44a0868ad0a89052"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9968,
+          "triangle_count": 4984,
+          "bounds_min": [
+            -75.0,
+            -68.7006,
+            39.9842
+          ],
+          "bounds_max": [
+            75.0,
+            72.8764,
+            190.0
+          ],
+          "mean_pos": [
+            -8.0284,
+            -6.0693,
+            132.8349
+          ],
+          "mean_col": [
+            0.09911,
+            0.36764,
+            0.09639,
+            1.0
+          ],
+          "indices_sha16": "813f0346bfcda242"
+        }
+      ]
+    },
+    {
+      "species": "cherry_tree",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2275,
+          "triangle_count": 3542,
+          "bounds_min": [
+            -165.1587,
+            -141.5952,
+            0.0
+          ],
+          "bounds_max": [
+            160.3737,
+            146.8875,
+            424.153
+          ],
+          "mean_pos": [
+            -38.3671,
+            -8.8428,
+            298.1199
+          ],
+          "mean_col": [
+            0.12467,
+            0.04525,
+            0.01025,
+            1.0
+          ],
+          "indices_sha16": "0b640a0c067c070a"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11088,
+          "triangle_count": 5544,
+          "bounds_min": [
+            -184.7094,
+            -169.3787,
+            86.7374
+          ],
+          "bounds_max": [
+            190.0,
+            178.7883,
+            450.0
+          ],
+          "mean_pos": [
+            -38.5724,
+            -9.6798,
+            310.8085
+          ],
+          "mean_col": [
+            0.09947,
+            0.36857,
+            0.09675,
+            1.0
+          ],
+          "indices_sha16": "fd9553486868cfda"
+        }
+      ]
+    },
+    {
+      "species": "cherry_tree",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2002,
+          "triangle_count": 3220,
+          "bounds_min": [
+            -60.1763,
+            -56.9573,
+            0.0
+          ],
+          "bounds_max": [
+            59.596,
+            58.8707,
+            180.4873
+          ],
+          "mean_pos": [
+            -4.0948,
+            8.5046,
+            119.6712
+          ],
+          "mean_col": [
+            0.12099,
+            0.04391,
+            0.00995,
+            1.0
+          ],
+          "indices_sha16": "3f8e3d264a9be53f"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 5936,
+          "triangle_count": 2968,
+          "bounds_min": [
+            -75.0,
+            -69.9614,
+            36.7686
+          ],
+          "bounds_max": [
+            71.1087,
+            69.9614,
+            190.0
+          ],
+          "mean_pos": [
+            2.2202,
+            3.9546,
+            128.4392
+          ],
+          "mean_col": [
+            0.09863,
+            0.3666,
+            0.09601,
+            1.0
+          ],
+          "indices_sha16": "a0c2e540c8df91b5"
+        }
+      ]
+    },
+    {
+      "species": "cherry_tree",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2079,
+          "triangle_count": 3430,
+          "bounds_min": [
+            -156.6525,
+            -167.3409,
+            0.0
+          ],
+          "bounds_max": [
+            151.9728,
+            152.7122,
+            426.2284
+          ],
+          "mean_pos": [
+            -9.0239,
+            14.2919,
+            283.4251
+          ],
+          "mean_col": [
+            0.12135,
+            0.04404,
+            0.00998,
+            1.0
+          ],
+          "indices_sha16": "1d8fe17ca490a5f6"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 7000,
+          "triangle_count": 3500,
+          "bounds_min": [
+            -189.1517,
+            -190.0,
+            88.7856
+          ],
+          "bounds_max": [
+            189.1517,
+            190.0,
+            450.0
+          ],
+          "mean_pos": [
+            1.5422,
+            -0.8126,
+            302.5309
+          ],
+          "mean_col": [
+            0.09769,
+            0.36453,
+            0.09532,
+            1.0
+          ],
+          "indices_sha16": "ea46594ad85ee606"
+        }
+      ]
+    },
+    {
+      "species": "oak",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2219,
+          "triangle_count": 3528,
+          "bounds_min": [
+            -61.4756,
+            -65.1721,
+            0.0
+          ],
+          "bounds_max": [
+            58.6103,
+            63.707,
+            175.3004
+          ],
+          "mean_pos": [
+            -9.2063,
+            -9.1202,
+            121.3963
+          ],
+          "mean_col": [
+            0.04348,
+            0.01695,
+            0.00749,
+            1.0
+          ],
+          "indices_sha16": "5c12d90f4d512120"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9576,
+          "triangle_count": 4788,
+          "bounds_min": [
+            -71.2604,
+            -74.1353,
+            67.083
+          ],
+          "bounds_max": [
+            71.2604,
+            75.0,
+            190.0
+          ],
+          "mean_pos": [
+            -8.8159,
+            -8.3393,
+            130.474
+          ],
+          "mean_col": [
+            0.05216,
+            0.2362,
+            0.06675,
+            1.0
+          ],
+          "indices_sha16": "00c54a3cff6eabe3"
+        }
+      ]
+    },
+    {
+      "species": "oak",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2268,
+          "triangle_count": 3668,
+          "bounds_min": [
+            -155.0319,
+            -156.9538,
+            0.0
+          ],
+          "bounds_max": [
+            155.1861,
+            157.5509,
+            410.4669
+          ],
+          "mean_pos": [
+            -25.7943,
+            -18.0485,
+            283.9674
+          ],
+          "mean_col": [
+            0.04358,
+            0.01699,
+            0.00751,
+            1.0
+          ],
+          "indices_sha16": "89763ff3517f9ff5"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10752,
+          "triangle_count": 5376,
+          "bounds_min": [
+            -188.4309,
+            -190.0,
+            94.7227
+          ],
+          "bounds_max": [
+            188.4309,
+            190.0,
+            450.0
+          ],
+          "mean_pos": [
+            -23.1278,
+            -17.0746,
+            301.735
+          ],
+          "mean_col": [
+            0.05209,
+            0.23653,
+            0.06681,
+            1.0
+          ],
+          "indices_sha16": "ee57c26fdd887c95"
+        }
+      ]
+    },
+    {
+      "species": "oak",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2037,
+          "triangle_count": 3262,
+          "bounds_min": [
+            -59.0217,
+            -59.0377,
+            0.0
+          ],
+          "bounds_max": [
+            55.8448,
+            59.6598,
+            180.0551
+          ],
+          "mean_pos": [
+            -3.7569,
+            6.2006,
+            124.7699
+          ],
+          "mean_col": [
+            0.04376,
+            0.01707,
+            0.00754,
+            1.0
+          ],
+          "indices_sha16": "9f1f0c6ec1208f8a"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10192,
+          "triangle_count": 5096,
+          "bounds_min": [
+            -73.1578,
+            -74.0225,
+            41.2629
+          ],
+          "bounds_max": [
+            74.07,
+            75.0,
+            190.0
+          ],
+          "mean_pos": [
+            -1.8879,
+            5.3106,
+            130.9127
+          ],
+          "mean_col": [
+            0.05182,
+            0.23577,
+            0.06661,
+            1.0
+          ],
+          "indices_sha16": "06f76abccfd3c355"
+        }
+      ]
+    },
+    {
+      "species": "oak",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2170,
+          "triangle_count": 3444,
+          "bounds_min": [
+            -145.0098,
+            -162.5254,
+            0.0
+          ],
+          "bounds_max": [
+            139.8604,
+            158.5527,
+            416.2306
+          ],
+          "mean_pos": [
+            -11.0115,
+            22.28,
+            290.601
+          ],
+          "mean_col": [
+            0.04384,
+            0.0171,
+            0.00756,
+            1.0
+          ],
+          "indices_sha16": "a74bcf1af3ba1590"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10920,
+          "triangle_count": 5460,
+          "bounds_min": [
+            -175.1285,
+            -190.0,
+            99.1641
+          ],
+          "bounds_max": [
+            175.1285,
+            190.0,
+            450.0
+          ],
+          "mean_pos": [
+            -6.4597,
+            22.5757,
+            305.3138
+          ],
+          "mean_col": [
+            0.05221,
+            0.2366,
+            0.06687,
+            1.0
+          ],
+          "indices_sha16": "8311290e99ae273c"
+        }
+      ]
+    },
+    {
+      "species": "maple",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2051,
+          "triangle_count": 3276,
+          "bounds_min": [
+            -62.8875,
+            -57.7422,
+            0.0
+          ],
+          "bounds_max": [
+            66.3292,
+            61.278,
+            178.129
+          ],
+          "mean_pos": [
+            -12.6152,
+            -1.9095,
+            122.4488
+          ],
+          "mean_col": [
+            0.10055,
+            0.08575,
+            0.06182,
+            1.0
+          ],
+          "indices_sha16": "6811176dd6adcd1c"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10080,
+          "triangle_count": 5040,
+          "bounds_min": [
+            -75.0,
+            -71.8149,
+            30.5516
+          ],
+          "bounds_max": [
+            75.0,
+            71.8149,
+            190.0
+          ],
+          "mean_pos": [
+            -12.4324,
+            -2.1977,
+            128.4317
+          ],
+          "mean_col": [
+            0.36833,
+            0.13473,
+            0.0391,
+            1.0
+          ],
+          "indices_sha16": "ff92899d0136ac29"
+        }
+      ]
+    },
+    {
+      "species": "maple",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2359,
+          "triangle_count": 3696,
+          "bounds_min": [
+            -152.818,
+            -158.3604,
+            0.0
+          ],
+          "bounds_max": [
+            165.7281,
+            156.2084,
+            419.668
+          ],
+          "mean_pos": [
+            -21.7158,
+            -5.3406,
+            293.1254
+          ],
+          "mean_col": [
+            0.10122,
+            0.08631,
+            0.06223,
+            1.0
+          ],
+          "indices_sha16": "7f016141525a3aac"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11816,
+          "triangle_count": 5908,
+          "bounds_min": [
+            -190.0,
+            -182.6263,
+            77.2961
+          ],
+          "bounds_max": [
+            190.0,
+            185.0101,
+            450.0
+          ],
+          "mean_pos": [
+            -21.1421,
+            -4.5167,
+            306.7564
+          ],
+          "mean_col": [
+            0.3686,
+            0.13484,
+            0.03911,
+            1.0
+          ],
+          "indices_sha16": "8fc6d77b57db826b"
+        }
+      ]
+    },
+    {
+      "species": "maple",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 1925,
+          "triangle_count": 3136,
+          "bounds_min": [
+            -55.8824,
+            -62.6684,
+            0.0
+          ],
+          "bounds_max": [
+            55.9804,
+            57.9085,
+            178.3221
+          ],
+          "mean_pos": [
+            -3.5732,
+            4.3278,
+            117.38
+          ],
+          "mean_col": [
+            0.0979,
+            0.08348,
+            0.06019,
+            1.0
+          ],
+          "indices_sha16": "47fd5052ec7f4947"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 6048,
+          "triangle_count": 3024,
+          "bounds_min": [
+            -72.5327,
+            -75.0,
+            31.3668
+          ],
+          "bounds_max": [
+            70.9712,
+            75.0,
+            190.0
+          ],
+          "mean_pos": [
+            2.2011,
+            -0.83,
+            126.4821
+          ],
+          "mean_col": [
+            0.36722,
+            0.13407,
+            0.03889,
+            1.0
+          ],
+          "indices_sha16": "c90802d128bdbc8e"
+        }
+      ]
+    },
+    {
+      "species": "maple",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2268,
+          "triangle_count": 3682,
+          "bounds_min": [
+            -139.3694,
+            -154.883,
+            0.0
+          ],
+          "bounds_max": [
+            150.158,
+            157.4796,
+            425.6705
+          ],
+          "mean_pos": [
+            -5.1773,
+            22.4417,
+            287.6945
+          ],
+          "mean_col": [
+            0.09863,
+            0.08411,
+            0.06064,
+            1.0
+          ],
+          "indices_sha16": "473bf86f4c16665f"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 7952,
+          "triangle_count": 3976,
+          "bounds_min": [
+            -176.7986,
+            -190.0,
+            93.6544
+          ],
+          "bounds_max": [
+            185.5573,
+            190.0,
+            450.0
+          ],
+          "mean_pos": [
+            6.9007,
+            14.8404,
+            308.0338
+          ],
+          "mean_col": [
+            0.36512,
+            0.13292,
+            0.03855,
+            1.0
+          ],
+          "indices_sha16": "4d61800191ade583"
+        }
+      ]
+    },
+    {
+      "species": "birch",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 3297,
+          "triangle_count": 4480,
+          "bounds_min": [
+            -64.4486,
+            -50.9399,
+            0.0
+          ],
+          "bounds_max": [
+            64.9391,
+            55.7651,
+            181.8015
+          ],
+          "mean_pos": [
+            -6.5496,
+            -15.6094,
+            117.3417
+          ],
+          "mean_col": [
+            0.49294,
+            0.47392,
+            0.41947,
+            1.0
+          ],
+          "indices_sha16": "363bcd6e46ab67e8"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 14000,
+          "triangle_count": 7000,
+          "bounds_min": [
+            -75.0,
+            -64.0369,
+            19.6494
+          ],
+          "bounds_max": [
+            73.6693,
+            64.0369,
+            190.0
+          ],
+          "mean_pos": [
+            -6.5493,
+            -14.0116,
+            123.0022
+          ],
+          "mean_col": [
+            0.19789,
+            0.42126,
+            0.07398,
+            1.0
+          ],
+          "indices_sha16": "b0067f40751c7d38"
+        }
+      ]
+    },
+    {
+      "species": "birch",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2163,
+          "triangle_count": 3458,
+          "bounds_min": [
+            -173.0878,
+            -130.0726,
+            0.0
+          ],
+          "bounds_max": [
+            172.5078,
+            135.6994,
+            430.8728
+          ],
+          "mean_pos": [
+            -14.5811,
+            -8.644,
+            279.2198
+          ],
+          "mean_col": [
+            0.4915,
+            0.47254,
+            0.41825,
+            1.0
+          ],
+          "indices_sha16": "dddc5bc15bc6cb1a"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9744,
+          "triangle_count": 4872,
+          "bounds_min": [
+            -190.0,
+            -161.4635,
+            51.7693
+          ],
+          "bounds_max": [
+            190.0,
+            161.4635,
+            450.0
+          ],
+          "mean_pos": [
+            -9.9097,
+            -3.1096,
+            293.9344
+          ],
+          "mean_col": [
+            0.19847,
+            0.4219,
+            0.07425,
+            1.0
+          ],
+          "indices_sha16": "68edd703ea23109e"
+        }
+      ]
+    },
+    {
+      "species": "birch",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2541,
+          "triangle_count": 3710,
+          "bounds_min": [
+            -65.0324,
+            -54.2312,
+            0.0
+          ],
+          "bounds_max": [
+            63.9039,
+            47.4806,
+            185.3148
+          ],
+          "mean_pos": [
+            -1.5303,
+            6.7792,
+            123.245
+          ],
+          "mean_col": [
+            0.49592,
+            0.47679,
+            0.42201,
+            1.0
+          ],
+          "indices_sha16": "62e096ce337d5072"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11760,
+          "triangle_count": 5880,
+          "bounds_min": [
+            -75.0,
+            -62.7547,
+            17.7829
+          ],
+          "bounds_max": [
+            75.0,
+            62.7547,
+            190.0
+          ],
+          "mean_pos": [
+            -2.6265,
+            5.7866,
+            127.9719
+          ],
+          "mean_col": [
+            0.19925,
+            0.42283,
+            0.0746,
+            1.0
+          ],
+          "indices_sha16": "6f893e1c3eabe807"
+        }
+      ]
+    },
+    {
+      "species": "birch",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2107,
+          "triangle_count": 3388,
+          "bounds_min": [
+            -163.6103,
+            -136.1014,
+            0.0
+          ],
+          "bounds_max": [
+            167.9744,
+            141.9923,
+            428.9205
+          ],
+          "mean_pos": [
+            -16.6065,
+            17.6642,
+            273.1028
+          ],
+          "mean_col": [
+            0.49069,
+            0.47176,
+            0.41756,
+            1.0
+          ],
+          "indices_sha16": "d5d596ba51cba365"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10416,
+          "triangle_count": 5208,
+          "bounds_min": [
+            -190.0,
+            -164.797,
+            43.8056
+          ],
+          "bounds_max": [
+            190.0,
+            164.797,
+            450.0
+          ],
+          "mean_pos": [
+            -20.5791,
+            16.6382,
+            284.8887
+          ],
+          "mean_col": [
+            0.19879,
+            0.42219,
+            0.07439,
+            1.0
+          ],
+          "indices_sha16": "e15dfaa448245b91"
+        }
+      ]
+    },
+    {
+      "species": "willow",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2758,
+          "triangle_count": 4368,
+          "bounds_min": [
+            -62.0484,
+            -60.7837,
+            0.0
+          ],
+          "bounds_max": [
+            61.1298,
+            64.0602,
+            184.4201
+          ],
+          "mean_pos": [
+            -11.3179,
+            -3.1413,
+            110.7258
+          ],
+          "mean_col": [
+            0.17792,
+            0.0696,
+            0.01924,
+            1.0
+          ],
+          "indices_sha16": "556f9d9eeaeead59"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 13440,
+          "triangle_count": 6720,
+          "bounds_min": [
+            -71.5469,
+            -70.0253,
+            19.5443
+          ],
+          "bounds_max": [
+            72.119,
+            73.5313,
+            190.0
+          ],
+          "mean_pos": [
+            -13.2286,
+            -1.4671,
+            108.3201
+          ],
+          "mean_col": [
+            0.20033,
+            0.31563,
+            0.17038,
+            1.0
+          ],
+          "indices_sha16": "ef839748dbd075d2"
+        }
+      ]
+    },
+    {
+      "species": "willow",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2765,
+          "triangle_count": 4466,
+          "bounds_min": [
+            -160.5831,
+            -152.56,
+            0.0
+          ],
+          "bounds_max": [
+            168.3001,
+            157.3466,
+            423.9607
+          ],
+          "mean_pos": [
+            -25.0057,
+            -9.0379,
+            255.6504
+          ],
+          "mean_col": [
+            0.17766,
+            0.0695,
+            0.01921,
+            1.0
+          ],
+          "indices_sha16": "335f450ea91e1674"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 13888,
+          "triangle_count": 6944,
+          "bounds_min": [
+            -186.4961,
+            -177.6169,
+            35.1002
+          ],
+          "bounds_max": [
+            184.5621,
+            190.0,
+            450.0
+          ],
+          "mean_pos": [
+            -31.0129,
+            -3.2825,
+            250.787
+          ],
+          "mean_col": [
+            0.20057,
+            0.31591,
+            0.17059,
+            1.0
+          ],
+          "indices_sha16": "aa7d83fb94e6fdfc"
+        }
+      ]
+    },
+    {
+      "species": "willow",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2499,
+          "triangle_count": 3976,
+          "bounds_min": [
+            -51.0351,
+            -59.6155,
+            0.0
+          ],
+          "bounds_max": [
+            52.529,
+            65.2133,
+            183.6341
+          ],
+          "mean_pos": [
+            -1.7619,
+            12.7168,
+            114.8701
+          ],
+          "mean_col": [
+            0.17787,
+            0.06958,
+            0.01923,
+            1.0
+          ],
+          "indices_sha16": "ac05d35c67bf09f7"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 12208,
+          "triangle_count": 6104,
+          "bounds_min": [
+            -67.1928,
+            -75.0,
+            17.5468
+          ],
+          "bounds_max": [
+            67.1928,
+            75.0,
+            190.0
+          ],
+          "mean_pos": [
+            -1.7051,
+            12.1262,
+            112.955
+          ],
+          "mean_col": [
+            0.20075,
+            0.31616,
+            0.17075,
+            1.0
+          ],
+          "indices_sha16": "73b664b69c82c404"
+        }
+      ]
+    },
+    {
+      "species": "willow",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2723,
+          "triangle_count": 4340,
+          "bounds_min": [
+            -135.7309,
+            -155.8079,
+            0.0
+          ],
+          "bounds_max": [
+            137.8645,
+            148.6932,
+            429.852
+          ],
+          "mean_pos": [
+            -3.0234,
+            20.1451,
+            265.047
+          ],
+          "mean_col": [
+            0.17835,
+            0.06977,
+            0.01928,
+            1.0
+          ],
+          "indices_sha16": "03fea09175d26446"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 13552,
+          "triangle_count": 6776,
+          "bounds_min": [
+            -163.8867,
+            -190.0,
+            43.4108
+          ],
+          "bounds_max": [
+            163.8867,
+            186.8567,
+            450.0
+          ],
+          "mean_pos": [
+            -3.4359,
+            18.944,
+            260.6405
+          ],
+          "mean_col": [
+            0.1998,
+            0.31504,
+            0.16989,
+            1.0
+          ],
+          "indices_sha16": "f9dac6e5a8439e3c"
+        }
+      ]
+    },
+    {
+      "species": "magnolia",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2142,
+          "triangle_count": 3430,
+          "bounds_min": [
+            -48.5801,
+            -59.4468,
+            0.0
+          ],
+          "bounds_max": [
+            52.7879,
+            60.5011,
+            180.2712
+          ],
+          "mean_pos": [
+            -5.7917,
+            -4.9948,
+            113.348
+          ],
+          "mean_col": [
+            0.16281,
+            0.12245,
+            0.08863,
+            1.0
+          ],
+          "indices_sha16": "d8e5be8918caf1a8"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 9744,
+          "triangle_count": 4872,
+          "bounds_min": [
+            -64.4598,
+            -75.0,
+            17.3478
+          ],
+          "bounds_max": [
+            64.4598,
+            75.0,
+            190.0
+          ],
+          "mean_pos": [
+            -8.3376,
+            -2.2908,
+            123.7647
+          ],
+          "mean_col": [
+            0.10019,
+            0.36913,
+            0.09688,
+            1.0
+          ],
+          "indices_sha16": "68edd703ea23109e"
+        }
+      ]
+    },
+    {
+      "species": "magnolia",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2373,
+          "triangle_count": 3724,
+          "bounds_min": [
+            -136.9338,
+            -152.8069,
+            0.0
+          ],
+          "bounds_max": [
+            140.0734,
+            148.3891,
+            415.5943
+          ],
+          "mean_pos": [
+            -21.864,
+            -13.4004,
+            273.2634
+          ],
+          "mean_col": [
+            0.16465,
+            0.12384,
+            0.08963,
+            1.0
+          ],
+          "indices_sha16": "f3f464c3a9368363"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11536,
+          "triangle_count": 5768,
+          "bounds_min": [
+            -169.6384,
+            -190.0,
+            28.6046
+          ],
+          "bounds_max": [
+            169.6384,
+            190.0,
+            450.0
+          ],
+          "mean_pos": [
+            -26.5057,
+            -7.6831,
+            289.258
+          ],
+          "mean_col": [
+            0.10024,
+            0.36976,
+            0.09707,
+            1.0
+          ],
+          "indices_sha16": "507da6a82b0a8839"
+        }
+      ]
+    },
+    {
+      "species": "magnolia",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2688,
+          "triangle_count": 3864,
+          "bounds_min": [
+            -57.9326,
+            -62.1664,
+            0.0
+          ],
+          "bounds_max": [
+            61.1849,
+            60.779,
+            180.8858
+          ],
+          "mean_pos": [
+            3.7126,
+            0.8075,
+            112.5326
+          ],
+          "mean_col": [
+            0.16213,
+            0.12194,
+            0.08826,
+            1.0
+          ],
+          "indices_sha16": "c6cf8bf93c8f16a6"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11480,
+          "triangle_count": 5740,
+          "bounds_min": [
+            -73.6321,
+            -74.1787,
+            17.8897
+          ],
+          "bounds_max": [
+            73.6321,
+            75.0,
+            190.0
+          ],
+          "mean_pos": [
+            2.3068,
+            1.7254,
+            120.7676
+          ],
+          "mean_col": [
+            0.10016,
+            0.36943,
+            0.09702,
+            1.0
+          ],
+          "indices_sha16": "91b39b4eab29437c"
+        }
+      ]
+    },
+    {
+      "species": "magnolia",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2373,
+          "triangle_count": 3640,
+          "bounds_min": [
+            -160.234,
+            -156.2039,
+            0.0
+          ],
+          "bounds_max": [
+            162.131,
+            149.1102,
+            413.0516
+          ],
+          "mean_pos": [
+            -11.2856,
+            14.9545,
+            271.4043
+          ],
+          "mean_col": [
+            0.16417,
+            0.12348,
+            0.08937,
+            1.0
+          ],
+          "indices_sha16": "6751182804de0ab3"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10696,
+          "triangle_count": 5348,
+          "bounds_min": [
+            -190.0,
+            -185.5081,
+            35.7131
+          ],
+          "bounds_max": [
+            190.0,
+            185.5081,
+            450.0
+          ],
+          "mean_pos": [
+            -15.7897,
+            17.8099,
+            294.0089
+          ],
+          "mean_col": [
+            0.09972,
+            0.36846,
+            0.09665,
+            1.0
+          ],
+          "indices_sha16": "575a6362b8b20194"
+        }
+      ]
+    },
+    {
+      "species": "olive_tree",
+      "seed": 101,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2212,
+          "triangle_count": 3458,
+          "bounds_min": [
+            -63.0829,
+            -63.2502,
+            0.0
+          ],
+          "bounds_max": [
+            65.2416,
+            61.1662,
+            183.5206
+          ],
+          "mean_pos": [
+            -8.5071,
+            -8.4149,
+            125.0415
+          ],
+          "mean_col": [
+            0.16537,
+            0.12437,
+            0.09002,
+            1.0
+          ],
+          "indices_sha16": "a1321eca0b8fb0fe"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 10864,
+          "triangle_count": 5432,
+          "bounds_min": [
+            -75.0,
+            -71.7521,
+            28.6428
+          ],
+          "bounds_max": [
+            72.9985,
+            71.7521,
+            190.0
+          ],
+          "mean_pos": [
+            -9.522,
+            -6.4875,
+            132.3311
+          ],
+          "mean_col": [
+            0.20219,
+            0.31773,
+            0.17201,
+            1.0
+          ],
+          "indices_sha16": "8eb980a53355a6fb"
+        }
+      ]
+    },
+    {
+      "species": "olive_tree",
+      "seed": 101,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2450,
+          "triangle_count": 3892,
+          "bounds_min": [
+            -163.6901,
+            -152.3432,
+            0.0
+          ],
+          "bounds_max": [
+            160.6949,
+            150.7317,
+            432.4455
+          ],
+          "mean_pos": [
+            -28.8941,
+            -17.424,
+            293.7408
+          ],
+          "mean_col": [
+            0.16601,
+            0.12486,
+            0.09037,
+            1.0
+          ],
+          "indices_sha16": "c1d2d399ea6b0bbd"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 12544,
+          "triangle_count": 6272,
+          "bounds_min": [
+            -190.0,
+            -173.0563,
+            69.844
+          ],
+          "bounds_max": [
+            188.5908,
+            173.0563,
+            450.0
+          ],
+          "mean_pos": [
+            -27.8249,
+            -15.3796,
+            308.5283
+          ],
+          "mean_col": [
+            0.20134,
+            0.31679,
+            0.17125,
+            1.0
+          ],
+          "indices_sha16": "6d24030d589436ff"
+        }
+      ]
+    },
+    {
+      "species": "olive_tree",
+      "seed": 202,
+      "stage": "young",
+      "height_cm": 190.0,
+      "radius_cm": 75.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2142,
+          "triangle_count": 3304,
+          "bounds_min": [
+            -61.2236,
+            -62.3459,
+            0.0
+          ],
+          "bounds_max": [
+            63.1603,
+            59.4162,
+            179.6503
+          ],
+          "mean_pos": [
+            -7.8828,
+            5.4456,
+            121.216
+          ],
+          "mean_col": [
+            0.16579,
+            0.12469,
+            0.09025,
+            1.0
+          ],
+          "indices_sha16": "0c6956f2eb715e7f"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11032,
+          "triangle_count": 5516,
+          "bounds_min": [
+            -73.9754,
+            -75.0,
+            25.7101
+          ],
+          "bounds_max": [
+            73.9754,
+            72.0296,
+            190.0
+          ],
+          "mean_pos": [
+            -8.3007,
+            5.7166,
+            125.6409
+          ],
+          "mean_col": [
+            0.20218,
+            0.31768,
+            0.17201,
+            1.0
+          ],
+          "indices_sha16": "086da1296a520125"
+        }
+      ]
+    },
+    {
+      "species": "olive_tree",
+      "seed": 202,
+      "stage": "mature",
+      "height_cm": 450.0,
+      "radius_cm": 190.0,
+      "parts": [
+        {
+          "name": "wood",
+          "material_kind": "vc",
+          "vertex_count": 2163,
+          "triangle_count": 3402,
+          "bounds_min": [
+            -159.8402,
+            -160.7129,
+            0.0
+          ],
+          "bounds_max": [
+            156.137,
+            153.8392,
+            421.4033
+          ],
+          "mean_pos": [
+            -22.7251,
+            25.4313,
+            286.024
+          ],
+          "mean_col": [
+            0.16631,
+            0.12508,
+            0.09053,
+            1.0
+          ],
+          "indices_sha16": "e4f143b07fe3513c"
+        },
+        {
+          "name": "foliage",
+          "material_kind": "foliage",
+          "vertex_count": 11424,
+          "triangle_count": 5712,
+          "bounds_min": [
+            -181.4381,
+            -190.0,
+            66.6338
+          ],
+          "bounds_max": [
+            181.4381,
+            187.4604,
+            450.0
+          ],
+          "mean_pos": [
+            -17.7188,
+            27.4313,
+            296.604
+          ],
+          "mean_col": [
+            0.2024,
+            0.31797,
+            0.17219,
+            1.0
+          ],
+          "indices_sha16": "e077f00bf22603ff"
+        }
+      ]
+    }
+  ]
+}
