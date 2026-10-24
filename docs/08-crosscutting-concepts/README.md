@@ -4101,7 +4101,11 @@ normalizes each band alone, and `build_arrange_command` arranges each band of a
 layer's selection on the same split — `core.stacking.arrange` over that band's
 entries — and hands the command the layer renumbered ground surfaces first. A
 recorded step is always visible; at the edge of its band an item reports "already at
-front/back".
+front/back". **The rule this rests on:** any reader of a layer's stacking order goes
+through `_normalized_layer_order` or `_band_entries`, never `_stack_entries` over a
+whole layer — the second review round of the manual pass found exactly that
+disagreement (a perennial on an in-ground bed moved under a tree by an unrelated
+arrange).
 
 No caller ever builds `ArrangeItemsCommand` directly, or duplicates
 `build_arrange_command`'s layer-grouping logic. If you find yourself reaching

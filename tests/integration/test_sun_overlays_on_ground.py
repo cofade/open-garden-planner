@@ -372,18 +372,14 @@ class TestArrangeStaysInItsBand:
         plant.parent_bed_id = bed.item_id
         bed.add_child_id(plant.item_id)
         scene._update_items_z_order()
-        above_tree = plant.zValue() > tree.zValue()
+        assert plant.zValue() > tree.zValue(), "added after the tree: drawn over it"
         command, outcome = build_arrange_command(scene, [lawn2], ArrangeMode.SEND_TO_BACK)
         assert outcome is ArrangeOutcome.CHANGED
         view.command_manager.execute(command)
         assert lawn2.zValue() < lawn.zValue() < -500.0
-        assert (plant.zValue() > tree.zValue()) is above_tree, "the arrange of a lawn moved a plant"
+        assert plant.zValue() > tree.zValue(), "the arrange of a lawn moved a plant"
         command, outcome = build_arrange_command(scene, [plant], ArrangeMode.BRING_TO_FRONT)
-        if above_tree:
-            assert outcome is ArrangeOutcome.ALREADY_AT_FRONT and command is None
-        else:
-            view.command_manager.execute(command)
-            assert plant.zValue() > tree.zValue()
+        assert outcome is ArrangeOutcome.ALREADY_AT_FRONT and command is None
 
     def test_bring_to_front_on_a_plant_of_an_in_ground_bed_is_a_visible_step(self, view) -> None:
         """Senior review round 2: "Bring to Front" on such a plant under a table was

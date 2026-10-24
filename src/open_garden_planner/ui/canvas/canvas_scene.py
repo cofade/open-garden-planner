@@ -1027,7 +1027,10 @@ class CanvasScene(QGraphicsScene):
         (for the z-value refresh) and
         ``ui.canvas.arrange.build_arrange_command`` (which feeds it straight
         to :func:`core.stacking.arrange`). There must be exactly one way to
-        build entries.
+        build entries — and both callers build them per BAND
+        (:meth:`_band_entries`): a reader of a layer's stacking order goes through
+        :meth:`_normalized_layer_order` or :meth:`_band_entries`, never through
+        this method on a whole layer (that disagreed with the drawing, PR #584).
 
         *candidates*: the layer's top-level items, already computed via
         :meth:`_layer_top_level_items`. Pass it in when the caller already

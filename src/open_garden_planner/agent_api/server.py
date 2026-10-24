@@ -2019,7 +2019,10 @@ def build_server(
             never be arranged below its own bed — 'send_to_back'/
             'send_backward' on a lone plant stops just above its bed rather
             than reaching further down, which correctly reports as a refusal
-            ("already at back") when the plant is already there.
+            ("already at back") when the plant is already there. An
+            in-ground bed without a height moves alone, among the ground
+            surfaces: its plants are drawn in the other group and stay where
+            they are.
 
             Fails (raises, nothing changed) when the object is already at the
             front/back of its layer, or when bring_forward/send_backward finds
