@@ -29,18 +29,21 @@ Dated audit snapshots: [audit-2026-10.md](audits/2026-10/audit-2026-10.md) (numb
 | Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options. Build provenance attestation shipped (ADR-044) as a verifiable trust signal alongside the checksum; does not itself suppress SmartScreen/Defender (issue #356) or Norton `FileRepMalware[Misc]` (issue #358 — second AV vendor, same unsigned zero-reputation profile). Releases remain unsigned; signing options, including no-cost proposals, are under evaluation in [#375](https://github.com/cofade/open-garden-planner/issues/375). No option has been adopted, and no signed release has established effectiveness against these detections. FP path per vendor: Microsoft file-submission forms (#356), Norton portal `submissions.norton.com/reportfalsepositive` (#358; both portals are CAPTCHA-protected, so submissions are manual, not automatable by the maintainer). |
 | Large bundle size from PyInstaller | Medium | Low | Optimize includes, strip unused Qt modules |
 
-**Build-backend advisory, 2026-10-09; updated 2026-10-13 (A2 #454).** The first Dependabot
-scan of uv.lock reported
+**Build-backend advisory, 2026-10-09; updated 2026-10-13 (A2 #454) and 2026-10-24 (#585).**
+The first Dependabot scan of uv.lock reported
 [GHSA-h35f-9h28-mq5c](https://github.com/pypa/setuptools/security/advisories/GHSA-h35f-9h28-mq5c)
-against setuptools 82.0.0 (also present in the frozen artifact): a moderate Unicode-normalization bypass of MANIFEST.in
-exclusions when publishing macOS source distributions. GitHub identifies 83.0.0 as the first
-patched version. Applicability assessment: current CI uses Linux/Windows editable installs
-and publishes a Windows PyInstaller/NSIS installer; neither that build pipeline nor the app publishes macOS sdists. The waiver concerns the unused affected operation, not absence of setuptools from the executable.
-[Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
-remains open for a separately reviewed backend/lock update. The CI `Dependencies` matrix job
-(Linux and Windows) now runs `pip-audit` against the committed lock export
-(`uv export --locked --all-extras --group build`) on every push, with this single advisory
-recorded as `--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job. Both platforms
+against setuptools 82.0.0 (also present in the frozen artifact): a moderate
+Unicode-normalization bypass of MANIFEST.in exclusions when publishing macOS source
+distributions. The applicability assessment was that this pipeline publishes no macOS
+sdists, but the 2026-10-24 `pip-audit` run added new `filelock` advisories and
+[GHSA-xmj3-9gf7-h52w](https://github.com/pypa/setuptools/security/advisories/GHSA-xmj3-9gf7-h52w)
+against the same backend. **PR #585 bumps `setuptools` to 84.1.0 and `filelock` to 4.2.4**;
+`pip-audit` over the locked export now reports no known vulnerabilities, and the local
+venv, the lock and `pylock.toml` agree. [Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
+should close when the PR merges. The CI `Dependencies` matrix job (Linux and Windows) runs
+`pip-audit` against the committed lock export
+(`uv export --locked --all-extras --group build`) on every push, with the unrelated
+`PYSEC-2026-3447` recorded as `--ignore-vuln`; a new advisory fails the job. Both platforms
 run it because pip-audit evaluates markers for the running interpreter.
 
 Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
