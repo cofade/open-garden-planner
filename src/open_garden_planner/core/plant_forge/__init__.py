@@ -39,6 +39,16 @@ from ..scene3d.builders.plants import (
 from .assemble import PART_ACCENTS, PART_FOLIAGE, PART_WOOD, fit_forged_parts, silhouette_iou
 from .cache import DEFAULT_FORGE_CACHE, CacheKey, ForgeCache, make_cache_key
 from .foliage import RawGeo, concat_geo, empty_geo, micro_leaves, palette_leaf_colors
+from .herbaceous import (
+    GOLDEN_ANGLE,
+    build_forged_allium,
+    build_forged_feathery,
+    build_forged_flower,
+    build_forged_grass,
+    build_forged_ground,
+    build_forged_head,
+    build_forged_rosette,
+)
 from .lod import (
     LOD0,
     LOD0_MAX_DISTANCE_CM,
@@ -104,7 +114,21 @@ def forge_plant(
             return build_forged_shrub(traits, h, r, seed, lod=lod)
         if traits.archetype == "hedge":
             return build_forged_hedge(traits, h, r, seed, lod=lod)
-        # Archetypes scheduled for L3.3..L3.4 fall back to the fast v0 silhouette until forged
+        if traits.archetype == "rosette":
+            return build_forged_rosette(traits, h, r, seed, lod=lod)
+        if traits.archetype == "grass":
+            return build_forged_grass(traits, h, r, seed, lod=lod)
+        if traits.archetype == "feathery":
+            return build_forged_feathery(traits, h, r, seed, lod=lod)
+        if traits.archetype == "allium":
+            return build_forged_allium(traits, h, r, seed, lod=lod)
+        if traits.archetype == "head":
+            return build_forged_head(traits, h, r, seed, lod=lod)
+        if traits.archetype == "ground":
+            return build_forged_ground(traits, h, r, seed, lod=lod)
+        if traits.archetype == "flower":
+            return build_forged_flower(traits, h, r, seed, lod=lod)
+        # Archetypes scheduled for L3.4 fall back to the fast v0 silhouette until forged
         return build_silhouette(recipe_for(sprite), int(seed), h, r)
 
     if cache is None:
@@ -205,6 +229,7 @@ __all__ = [
     "CacheKey",
     "DEFAULT_FORGE_CACHE",
     "ForgeCache",
+    "GOLDEN_ANGLE",
     "LOD0",
     "LOD0_MAX_DISTANCE_CM",
     "LOD0_TRIANGLE_BUDGET",
@@ -221,9 +246,16 @@ __all__ = [
     "RawGeo",
     "Skeleton",
     "bark_linear_rgba",
+    "build_forged_allium",
     "build_forged_conifer",
+    "build_forged_feathery",
+    "build_forged_flower",
+    "build_forged_grass",
+    "build_forged_ground",
+    "build_forged_head",
     "build_forged_hedge",
     "build_forged_palm",
+    "build_forged_rosette",
     "build_forged_shrub",
     "build_forged_tree",
     "build_tree_foliage_from_skeleton",
