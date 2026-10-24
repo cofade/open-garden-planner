@@ -203,6 +203,50 @@ def test_a_union_that_would_enclosing_a_hole_is_refused(qtbot, monkeypatch) -> N
     assert view.command_manager.undo_depth == 0
 
 
+def test_a_result_over_the_polygon_vertex_cap_is_refused(qtbot, monkeypatch) -> None:
+    """A saved polygon above the loader's cap would vanish on reopen (#550).
+
+    ``ProjectManager`` refuses a polygon above ``MAX_POLYGON_VERTICES`` with a
+    log line, so a union that flattening pushes over the cap must never reach
+    the scene: the user would see it, save it, and lose it on the next open.
+    """
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtGui import QPainterPath, QPolygonF
+
+    from open_garden_planner.core import shape_boolean
+    from open_garden_planner.ui.canvas.items.polygon_item import (
+        MAX_POLYGON_VERTICES,
+    )
+
+    scene, view = _view(qtbot)
+    first = RectangleItem(0, 0, 100, 100)
+    second = RectangleItem(50, 0, 100, 100)
+    _add(scene, first, second)
+
+    contour = QPainterPath()
+    contour.addRect(0, 0, 150, 100)
+    over_cap = QPolygonF(
+        [
+            QPointF(float(index % 100), float(index // 100))
+            for index in range(MAX_POLYGON_VERTICES + 1)
+        ]
+    )
+    monkeypatch.setattr(
+        shape_boolean, "union_outline_many", lambda _paths: (contour, over_cap)
+    )
+    monkeypatch.setattr(
+        QMessageBox,
+        "question",
+        lambda *_args: pytest.fail("an over-cap result must be refused before confirmation"),
+    )
+
+    view.boolean_operation("union")
+
+    assert all(item.scene() is scene for item in (first, second))
+    assert not _polygons(scene)
+    assert view.command_manager.undo_depth == 0
+
+
 @pytest.mark.parametrize(
     "case", ["plant", "linked", "constrained", "locked", "different_data"]
 )

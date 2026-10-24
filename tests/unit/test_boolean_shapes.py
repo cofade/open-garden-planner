@@ -59,6 +59,14 @@ class TestItemToPainterPath:
         path = item_to_painter_path(item)
         assert path is not None
         assert not path.isEmpty()
+        # ``rect()``, not the shadow-inflated ``boundingRect()``: a boolean must
+        # see the circle the user sees (and the ellipse branch's rect), or
+        # every circle is 4 cm larger on each side (#550 review).
+        rect = path.boundingRect()
+        assert (rect.x(), rect.y(), rect.width(), rect.height()) == pytest.approx(
+            (25, 25, 50, 50), rel=1e-6
+        )
+        assert item.boundingRect().width() > item.rect().width()
 
     def test_ellipse_item(self, scene, qtbot) -> None:  # noqa: ARG002
         item = EllipseItem(10, 20, 100, 50)

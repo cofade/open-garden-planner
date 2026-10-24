@@ -4050,19 +4050,20 @@ scene order rather than by the original session's order.
 
 ### 8.25.4 Refresh rules
 
-**A single `CanvasScene.addItem` leaves a correctly ordered z immediately, but
-the pure derivation may run after the event-loop turn** (#450). An appended
-independent item gets its final z on the fixed `Z_POSITION_SCALE` grid inside
-its layer band; the first add of a layer in a turn (and any item that can
-re-order existing items — a pre-ranked re-add, a child, a bed with children, a
-linked plant, a roof ridge) runs `_refresh_layer_z` synchronously. One coalesced
-derivation then normalizes clamps and reorders (`flush_z_refresh()` settles it
-explicitly). `CommandManager.execute`/`register_applied`/`undo`/`redo` flush
-pending z before recording or navigating history. Both a full re-derivation and
-`flush_z_refresh()` invalidate the per-layer rank and provisional caches, so a
-later add reseeds from the real layer maximum. This is what makes 2 000 single
-adds cost a handful of derivations instead of 2 000 (the pre-#450 loop took
-45 s).
+**A single `CanvasScene.addItem` leaves the correct, final z immediately**
+(#450). An appended independent solid gets the next value on the fixed
+`Z_POSITION_SCALE` grid inside its layer band — exactly the value the
+derivation would assign it — so it is never re-derived; one derivation per
+layer serves a whole add loop. Any item that can re-order existing items — a
+pre-ranked re-add, a child, a bed with children, a linked plant, a roof ridge,
+or a ground surface (which sorts into its own band, §8.25.2) — runs
+`_refresh_layer_z` synchronously instead. Every derivation writes the
+per-layer provisional cache and the rank cache; a rank writer (arrange, move to
+layer, group/ungroup, relink) or a layer reorder invalidates both, so the next
+add reseeds from the real top rather than resurrecting a stale value. There is
+no deferred pass and no command-boundary flush: what `addItem` writes is final,
+which is why 2 000 single adds (and 2 000 single-item commands) cost one
+derivation, not 2 000 (the pre-#450 loop took 45 s).
 
 The bulk scopes remain the way to suspend even the remaining per-add work. Two
 ways to set `scene._suspend_z_refresh`:
@@ -4260,7 +4261,7 @@ The map's calibration, crop/mosaic math and existing cancellation outcomes are u
 
 ## 8.28 Bounded 2D canvas paint for crafted plans (#472, ADR-057)
 
-`PolygonItem.paint` sizes its work by a vertex bound, not by whatever a plan file happens to hold. `MAX_FULL_DETAIL_VERTICES = 256` is the full-detail budget: at or below it an unselected polygon paints exactly as it always did. Above it, an **interactive** paint draws the exact outline with a **cosmetic 1-px pen and `Qt.BrushStyle.NoBrush`** — and returns, skipping the shadow, grid and status overlays for that frame. "Interactive" is the item's **cache mode**, not Qt's `widget`: every cached paint receives `widget = 0`, and unselected canvas items are cached, so a `widget`-based guess never fires on the canvas (that was the first version's bug — it never degraded anything; see ADR-057). Every export, report, print and agent render path disables caches first, so those stay exact; a **selected** item is excluded and paints the exact fill, so editing sees the truth. The cosmetic pen is load-bearing: Qt strokes a wide solid pen by building a fill, so reusing the item's own pen would leave the degraded frame quadratic (measured 319 ms at 1,024 vertices against 4 ms cosmetic).
+`PolygonItem.paint` sizes its work by a vertex bound, not by whatever a plan file happens to hold. `MAX_FULL_DETAIL_VERTICES = 256` is the full-detail budget: at or below it an unselected polygon paints exactly as it always did. Above it, an **interactive** paint draws the exact outline with a **cosmetic 1-px pen and `Qt.BrushStyle.NoBrush`** — and returns, skipping the shadow, grid and status overlays for that frame. "Interactive" is the item's **cache mode**, not Qt's `widget`: every cached paint receives `widget = 0`, and unselected canvas items are cached, so a `widget`-based guess never fires on the canvas (that was the first version's bug — it never degraded anything; see ADR-057). Every export, report, print and agent render path disables caches first, so those stay exact; a **selected** item is excluded and paints the exact fill, so editing sees the truth. The cosmetic pen is load-bearing: Qt strokes a wide solid pen by building a fill, so reusing the item's own pen would leave the degraded frame quadratic (measured 319 ms at 1,024 vertices against 4 ms cosmetic). A **boolean union** result is subject to the same bound: it is selected when the command creates it (so the owner sees a filled result), and a result above 256 vertices draws the outline once deselected - FR-EDIT-19 says so, and the manual checklist re-checks the fill after clicking away.
 
 The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
 

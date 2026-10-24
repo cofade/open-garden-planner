@@ -28,7 +28,7 @@ import tomllib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, TextIO
 
 from packaging.markers import Marker
 
@@ -135,7 +135,7 @@ def _check(
 def warn_if_unpinned(
     lock_path: Path = DEFAULT_LOCK,
     *,
-    stream: object | None = None,
+    stream: TextIO | None = None,
     installed: Iterable[_Distribution] | None = None,
 ) -> list[EnvironmentProblem]:
     """Print a clear warning for every installed distribution that differs from the lock.

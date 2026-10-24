@@ -150,6 +150,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Shapes must touch or overlap': 'Las formas deben tocarse o superponerse',
         'Shapes must overlap for this operation': 'Las formas deben superponerse para esta operación',
         'The merged outline would contain a hole; keep the shapes separate': 'El contorno combinado contendría un hueco; mantenga las formas separadas',
+        'The result would have {count} vertices; the plan supports at most {limit}. Keep the shapes separate.': 'El resultado tendría {count} vértices; el plano admite como máximo {limit}. Mantenga las formas separadas.',
         'Shrub': 'Arbusto',
         'Swing': 'Columpio',
         'Table (Rectangular)': 'Mesa (rectangular)',

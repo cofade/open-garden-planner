@@ -49,7 +49,10 @@ def item_to_painter_path(item: QGraphicsItem) -> QPainterPath | None:
     elif isinstance(item, RectangleItem):
         local_path.addRect(item.rect())
     elif isinstance(item, CircleItem):
-        local_path.addEllipse(item.boundingRect())
+        # ``rect()``, never ``boundingRect()``: the latter includes the drop
+        # shadow, so a circle would boolean 4 cm wider on every side than the
+        # shape the user sees, and a circle+ellipse pair would disagree.
+        local_path.addEllipse(item.rect())
     elif isinstance(item, EllipseItem):
         local_path.addEllipse(item.rect())
     else:
@@ -95,15 +98,14 @@ def union_path_many(paths: list[QPainterPath]) -> QPainterPath | None:
 POINT_CONTACT_MERGE_CM = 0.01
 
 
-def boolean_union_many(paths: list[QPainterPath]) -> QPolygonF | None:
-    """Union every path, then flatten once. None when the result is degenerate.
+def union_outline_many(
+    paths: list[QPainterPath],
+) -> tuple[QPainterPath, QPolygonF] | None:
+    """Union every path ONCE, returning its contour and its flattened polygon.
 
-    Pairwise ``united()`` keeps holes and curved boundaries until the single
-    ``toFillPolygon()`` at the end; the old two-path union did the same for two.
-    A point-contact union is re-unioned after growing each shape by a hair, so
-    the result is one contour rather than separate subpaths whose flattening
-    draws a connector (a diagonal across corner-touching rectangles) and whose
-    self-touch defeats the polygon item's fill rule.
+    The contour still holds the subpath structure a hole test reads; the polygon
+    is what a ``PolygonItem`` can carry. A caller that must check for a hole
+    before flattening therefore pays for one union, not two (#550).
     """
     result = union_path_many(paths)
     if result is None:
@@ -115,7 +117,21 @@ def boolean_union_many(paths: list[QPainterPath]) -> QPolygonF | None:
         grown_result = union_path_many(grown)
         if grown_result is not None:
             result = grown_result
-    return result.toFillPolygon()
+    return result, result.toFillPolygon()
+
+
+def boolean_union_many(paths: list[QPainterPath]) -> QPolygonF | None:
+    """Union every path, then flatten once. None when the result is degenerate.
+
+    Pairwise ``united()`` keeps holes and curved boundaries until the single
+    ``toFillPolygon()`` at the end; the old two-path union did the same for two.
+    A point-contact union is re-unioned after growing each shape by a hair, so
+    the result is one contour rather than separate subpaths whose flattening
+    draws a connector (a diagonal across corner-touching rectangles) and whose
+    self-touch defeats the polygon item's fill rule.
+    """
+    union = union_outline_many(paths)
+    return None if union is None else union[1]
 
 
 def boolean_union(

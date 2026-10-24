@@ -1168,5 +1168,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
+  },
+  "592": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Every command refreshes every scene item: a one-item-per-command loop is still quadratic (lock badges + ground band)"
   }
 }

@@ -5262,14 +5262,16 @@ class CanvasView(QGraphicsView):
             all_paths_connected,
             boolean_intersect,
             boolean_subtract,
-            boolean_union_many,
             item_to_painter_path,
             path_has_hole,
             paths_overlap,
-            union_path_many,
+            union_outline_many,
         )
         from open_garden_planner.ui.canvas.items import GardenItemMixin
-        from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+        from open_garden_planner.ui.canvas.items.polygon_item import (
+            MAX_POLYGON_VERTICES,
+            PolygonItem,
+        )
 
         if operation not in ("union", "intersect", "subtract"):
             return
@@ -5355,15 +5357,21 @@ class CanvasView(QGraphicsView):
                     self.tr("Shapes must touch or overlap")
                 )
                 return
-            result_path = union_path_many(checked_paths)
-            if result_path is not None and path_has_hole(result_path):
-                self.set_status_message(
-                    self.tr(
-                        "The merged outline would contain a hole; keep the shapes separate"
+            # ONE union pass: its contour answers the hole test and its
+            # flattened polygon is the result (#550 review).
+            union = union_outline_many(checked_paths)
+            if union is not None:
+                result_path, result_poly = union
+                if path_has_hole(result_path):
+                    self.set_status_message(
+                        self.tr(
+                            "The merged outline would contain a hole; "
+                            "keep the shapes separate"
+                        )
                     )
-                )
-                return
-            result_poly = boolean_union_many(checked_paths)
+                    return
+            else:
+                result_poly = None
         else:
             if not paths_overlap(checked_paths[0], checked_paths[1]):
                 self.set_status_message(
@@ -5378,6 +5386,19 @@ class CanvasView(QGraphicsView):
         if result_poly is None:
             self.set_status_message(
                 self.tr("Boolean {op} produced an empty result").format(op=operation)
+            )
+            return
+
+        # A flattening can multiply the vertex count of curved inputs; the plan
+        # loader refuses a polygon above MAX_POLYGON_VERTICES, so an over-cap
+        # result would be created, saved and then silently dropped on reopen.
+        # Refuse it here, where the user can still split the selection (#550).
+        if result_poly.count() > MAX_POLYGON_VERTICES:
+            self.set_status_message(
+                self.tr(
+                    "The result would have {count} vertices; the plan supports "
+                    "at most {limit}. Keep the shapes separate."
+                ).format(count=result_poly.count(), limit=MAX_POLYGON_VERTICES)
             )
             return
 

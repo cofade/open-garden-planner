@@ -220,7 +220,7 @@ The sun study's shadow overlay (`-500`) and hours-of-sun map (`-450`) were place
 
 ### PF-CAN-24
 
-- **Rule:** Stacking z is still derived only from ranks, but the derivation may be deferred to the end of the event-loop turn. A provisional z must be strictly increasing and inside the layer band, an item that can re-order existing items (parent bed, children, roof ridge, pre-ranked re-add) keeps the synchronous derivation, and every command flushes pending z before it records history. The provisional cache holds a LAYER-BAND value, never the highest `zValue`: a ground surface's z lives in `GROUND_Z_RANGE`, so a ground-only layer must seed the next add from its band, and a ground surface's provisional value is mapped into the band at once.
+- **Rule:** Stacking z is derived only from ranks. An appended independent solid takes the derivation's own next fixed-grid value at add time (one derivation per layer, never one per add), a re-ordering add (parent bed, children, roof ridge, pre-ranked re-add, ground surface) re-derives synchronously, and the per-layer cache that seeds the next value holds a LAYER-BAND number, never the highest `zValue`, so a ground-only layer (whose z lives in `GROUND_Z_RANGE`) seeds the next solid correctly.
 - **Pinned by:** `tests/integration/test_canvas_z_batch.py`; `tests/unit/test_plant_bed_zorder.py`; `tests/integration/test_arrange_z_order.py`
 - **Source:** #450
 - **Status:** standing

@@ -1439,8 +1439,41 @@ translated startup error using the system locale and exits before the main windo
 
 **Consequences.** Saved files list ground surfaces first (the serializer writes display order; ranks are saved per item, so older versions reload the same ranks; the committed bench and edge-case fixtures were regenerated — a pure reorder). A ground surface's own label, badges and selection handles are children and lie under the overlays with it, and under any solid that overlaps them (the overlays take no clicks; a handle under a solid cannot be grabbed). Construction lines (`-10`) now draw over ground surfaces instead of hiding under them. A mixed group (a lawn grouped with a bench) keeps its lawn above the overlays, and is drawn over any top-level ground surface ranked above it — in 2D and in the 3D ground bake. The 3D ground bake follows the scene order, so a generic shape or a height-less standing object ranked under a surface now paints over it on the 3D ground as well (the two views agree). A plant on an in-ground bed sorts by its own rank among the layer's other items instead of next to its bed: a plan saved by an earlier build without being reloaded since can show such a plant under a tree it was drawn over (plans an earlier build loaded and re-saved carry clamp-ordered ranks and do not change), and giving that bed a height moves the plant back next to it. Pinned by `tests/integration/test_sun_overlays_on_ground.py` (export-pipeline pixels: a shadow and the heatmap change the lawn and leave the shed alone; the band follows a height, a type change, undo, layers and a reload).
 
-### ADR-043 addendum: the z derivation may be deferred, the rank writers do not change (#450, 2026-10-24)
- A loop of 2 000 single `CanvasScene.addItem` calls took 45 s because each add re-derived z for its whole layer. `addItem` now keeps the four-writer rank discipline unchanged and gives an appended independent item a strictly increasing z inside its layer's band on a **fixed** `Z_POSITION_SCALE` grid — the same value the derivation assigns for an append, so there is no provisional/final mismatch. One coalesced `_refresh_layer_z` still runs after the event-loop turn for clamping and reordering. An item that can re-order items already in the layer — a pre-ranked re-add, a child, a bed with children, a linked plant, a roof ridge — keeps the synchronous derivation, and `CommandManager.execute`/`register_applied`/`undo`/`redo` flush pending z before recording or navigating history. A full re-derivation and `flush_z_refresh()` both invalidate the per-layer rank and z caches, so a later add reseeds from the derivation's own top for that layer rather than resurrecting a stale value. That seed is a LAYER-BAND value, not the highest `zValue`: since the ground band (PR #584) a ground surface's z lives in `GROUND_Z_RANGE`, and seeding from it would put the next added item below the background (`test_canvas_z_batch.py::test_a_ground_surface_takes_its_band_before_the_deferred_refresh`). Measured on the dev box: 2 000 single adds went from 45 s to about 0.1 s, still about 0.1 s with 1 000–1 500 items already in the layer, with at most a handful of `_refresh_layer_z` calls; `tests/integration/test_canvas_z_batch.py` pins the call count, ordering, band membership, the layer-reorder case and the parent-bed synchronous case.
+### ADR-043 addendum: one z derivation per layer, never one per add (#450, 2026-10-24)
+
+**Context.** A loop of 2 000 single `CanvasScene.addItem` calls took 45 s because each add
+re-derived z for its whole layer, and the same O(n) derivation sat behind every command
+that added an item. The issue's acceptance is "adding n items costs time in proportion to
+n, whoever adds them".
+
+**Decision.** The four rank writers do not change, and the derivation stays the only z
+writer; what changes is how often it runs. An appended independent solid is given the
+derivation's own next value on a **fixed** `Z_POSITION_SCALE` grid inside its layer band
+(the divisor is a constant, not `n + 1`, which is what makes an append's value final). Any
+item that can re-order items already in the layer — a pre-ranked re-add, a child, a bed
+with children, a linked plant, a roof ridge, or a ground surface, which sorts into its own
+band — re-derives synchronously. There is no deferred pass and no command-boundary flush:
+what `addItem` writes is final, so a loop of any length, direct or one item per command,
+costs **one** derivation per layer. Every derivation reseeds the per-layer provisional
+cache with the top of its band-space order — a layer-band value, never the highest
+`zValue` — because since the ground band (PR #584) a ground surface's z lives in
+`GROUND_Z_RANGE`, and seeding from it would put the next added solids below the background.
+A rank writer or a layer reorder invalidates the rank and provisional caches.
+
+**Measurements (dev box, 2026-10-24).** 2 000 direct `addItem` calls: 45 s before, about
+0.1 s after, one `_refresh_layer_z` call, also with 1 000–1 500 items already in the
+layer. 1 000 one-item `CreateItemCommand` executions: 13.09 s before this addendum's final
+shape, 3.18 s after (2 000: 12.1 s), still one derivation for the whole loop; the residual is
+*not* z work — it is the per-command UI refresh that already existed (`update_dimension_lines`
+refreshing every item's lock badge, about 1.8 s of 3.1 s, and PR #584's O(items)
+`_restack_ground_changes`, about 1.0 s), each O(n) per command. A per-command loop is
+therefore still quadratic, but no longer because of the stacking derivation; the follow-up
+is tracked in #592.
+
+**Pins.** `tests/integration/test_canvas_z_batch.py` holds the call count (one for 2 000
+adds, one for 200 commands), ordering, uniqueness, band membership, the layer-reorder case,
+the parent-bed synchronous case, and `test_a_ground_surface_takes_its_band_at_once_and_seeds_from_it`
+for the merge with the ground band.
 
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
@@ -6809,21 +6842,22 @@ At b1faaa9 the chapter README was 3,432 lines and 532 KB. Its §11.4 ("Known Dev
 
 ### ADR-061 addendum: the index budget is raised, not met by shortening rules (#588, 2026-10-24)
 
-**Context.** PR #584 brought the `?11.4` index to 79,997 of its 80,000-byte budget (measured
+**Context.** PR #584 brought the §11.4 index to 79,997 of its 80,000-byte budget (measured
 newline-normalised, `test_pitfall_catalogue.py::test_size_budgets_hold`) and filed #588: the
 next index row in any area would fail the gate. The non-3D hardening package then needed
-three rows (PF-CAN-23, PF-CAN-24, PF-CI-13): 81,553 bytes. Under that pressure the rules had
-already been cut once in PR #584, and a review called that the wrong feedback loop ? a byte
-count that shapes the wording of a rule makes the rule incomplete.
+three new PF rows (PF-CAN-23, PF-CAN-24, PF-CI-13) plus PF-UI-28 and the `04b` area-table
+row — 1,815 bytes, taking the index to 81,812. Under that pressure the rules had already
+been cut once in PR #584, and a review called that the wrong feedback loop — a byte count
+that shapes the wording of a rule makes the rule incomplete.
 
 **Decision.** Of #588's three options (split the index per area, raise the budget with a
 stated reason, shorten the index format), this raises the chapter-README budget to 96,000
-bytes. The index inherently grows by one row per lesson ? a permanent addition, not a leak ?
-and the budget's job is to force the structural split before the file becomes unwieldy, not
-to compress what each lesson says. 96,000 leaves about 14 KB, roughly nine more entries at
-the observed 1.5 KB per package, so the next package does not reopen the question. The area
-files keep their 64 KB budgets; `04-ui-panels-dialogs.md` (63,440) is the next one to split.
-The test's comment says the budget is a maintenance trigger, not a target.
+bytes. The index inherently grows by one row per lesson — a permanent addition, not a leak
+— and the budget's job is to force the structural split before the file becomes unwieldy,
+not to compress what each lesson says. 96,000 leaves about 14 KB, roughly nine more entries
+at the observed 1.5 KB per package, so the next package does not reopen the question. The
+area files keep their 64 KB budgets; `04-ui-panels-dialogs.md` (63,440) is the next one to
+split. The test's comment says the budget is a maintenance trigger, not a target.
 
 **Consequences.** #588 stays open for the structural decision (a per-area index or a shorter
 row format), which this addendum does not make; the raise is the option it lists and buys

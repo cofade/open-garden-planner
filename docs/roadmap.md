@@ -2741,15 +2741,19 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 ### Parallel non-3D hardening (2026-10-24, draft PR)
 
 Built beside L2 without touching the 3D/sun/sim-clock stack: a styled line's walk
-is clipped to the visible viewport and budgeted (#450), `addItem` batches its z
-derivation across an event-loop turn with commands flushing it and the four rank
-writers unchanged, dense vertex-edit overlays are sampled in device pixels
-(#551), boolean union accepts a contact-connected selection of any size and
-ellipses (#550), Preferences scrolls its form and opens at content height (#569),
-and a local build compares the venv with `pylock.toml` (#538). #446 was closed
-with evidence: the whole-name/alias rule shipped in v1.30.18, and the three
-whole-word residues are the alias-table case the owner declined. §8.25 (deferred
-derivation), §8.9 (shared path clip), ADR-043 addendum, FR-EDIT-19, FR-UI-14.
+is clipped to the visible viewport and budgeted (#450), `addItem` gives an appended
+solid the derivation's own next fixed-grid z so one derivation serves a whole loop
+(and a one-item-per-command loop), dense vertex-edit overlays are sampled in device
+pixels (#551), boolean union accepts a contact-connected selection of any size and
+ellipses and refuses a result above the plan's polygon vertex cap (#550),
+Preferences scrolls its form and opens at content height (#569), and a local build
+compares the venv with `pylock.toml` (#538). #446 was closed with evidence: the
+whole-name/alias rule shipped in v1.30.18, and the three whole-word residues are the
+alias-table case the owner declined. Contributed content: @Sevoiger's personal-fork
+implementation informed #550/#551; #569 was reported by @jbuijgers (fork branch
+`fix/preferences-dialog-height`). §8.25 (one derivation per layer), §8.9 (shared
+path clip), ADR-043 and ADR-061 addenda, FR-EDIT-19, FR-UI-14; the residual
+per-command UI refresh is #592.
 The local full suite still carries the 24 pre-existing Windows-offscreen Plan &
 Sun layout failures tracked by #562; native Windows passes them.
 

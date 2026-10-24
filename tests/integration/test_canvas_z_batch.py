@@ -1,16 +1,15 @@
-"""Adding many items is one deferred z derivation, not one per item (#450)."""
+"""Adding many items derives z once, not once per item (#450)."""
 
 from __future__ import annotations
 
-from open_garden_planner.core.commands import MoveToLayerCommand
+from open_garden_planner.core.commands import CreateItemCommand, MoveToLayerCommand
 from open_garden_planner.models.layer import Layer
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import RectangleItem
 
 
-def test_two_thousand_single_adds_derive_z_a_handful_of_times(qtbot) -> None:
-    scene = CanvasScene(5000, 3000)
+def _spy_derivations(scene: CanvasScene) -> list:
     calls = []
     original = scene._refresh_layer_z
 
@@ -19,25 +18,58 @@ def test_two_thousand_single_adds_derive_z_a_handful_of_times(qtbot) -> None:
         return original(layer_id)
 
     scene._refresh_layer_z = spy  # type: ignore[method-assign]
+    return calls
+
+
+def test_two_thousand_single_adds_derive_z_once(qtbot) -> None:
+    scene = CanvasScene(5000, 3000)
+    calls = _spy_derivations(scene)
     items = [RectangleItem(index * 2, 0, 1, 1) for index in range(2000)]
     for item in items:
         scene.addItem(item)
 
-    # One synchronous derivation for the first item and one on the flush. A
-    # per-add derivation would be 2 000 calls (the reported 45 s regression).
-    assert len(calls) <= 10
-    assert items[-1].zValue() > items[0].zValue()
-    assert all(0.0 <= item.zValue() < 100.0 for item in items)
-
-    scene.flush_z_refresh()
-    assert len(calls) <= 10
-    assert scene._next_rank_cache == {}
+    # One synchronous derivation seeds the layer; every later append takes the
+    # next fixed-grid value, which is exactly what the derivation would assign.
+    # A per-add derivation would be 2 000 calls (the reported 45 s regression).
+    assert len(calls) == 1, len(calls)
     values = [item.zValue() for item in items]
-    assert all(0.0 <= value < 100.0 for value in values)
     assert values == sorted(values)
+    assert len(set(values)) == len(values)
+    assert all(0.0 <= value < 100.0 for value in values)
     # _refresh_layer_z is a derivation, never a rank writer: the ranks are
     # still exactly the distinct ones addItem assigned.
     assert len({item.stack_order for item in items}) == len(items)
+
+
+def test_a_command_that_adds_one_solid_derives_once_and_leaves_a_final_z(
+    qtbot,
+) -> None:
+    """The GUI's and the agent's one-item-per-command path is linear too (#450).
+
+    A command used to settle a deferred derivation by re-deriving the whole
+    layer, so N commands cost O(N^2) — the reported 52 s for 2 000. The fixed
+    grid makes an appended solid's value final at add time, so a command has
+    nothing to settle. A single derivation must therefore serve the whole loop,
+    and every item must already carry its final, distinct z.
+    """
+    scene = CanvasScene(5000, 3000)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    calls = _spy_derivations(scene)
+    layer_id = scene.active_layer.id
+
+    items = []
+    for index in range(200):
+        item = RectangleItem(index * 2, 0, 1, 1, layer_id=layer_id)
+        items.append(item)
+        view.command_manager.execute(CreateItemCommand(scene, item, "rectangle"))
+
+    assert len(calls) == 1, len(calls)
+    values = [item.zValue() for item in items]
+    assert values == sorted(values)
+    assert len(set(values)) == len(values)
+    assert all(0.0 <= value < 100.0 for value in values)
+    assert view.command_manager.undo_depth == len(items)
 
 
 def test_a_bed_with_existing_plants_still_refreshes_synchronously(qtbot) -> None:
@@ -60,14 +92,16 @@ def test_a_bed_with_existing_plants_still_refreshes_synchronously(qtbot) -> None
     assert plant.zValue() > bed.zValue()
 
 
-def test_clear_cancels_a_pending_deferred_refresh(qtbot) -> None:
+def test_clear_drops_the_provisional_and_rank_caches(qtbot) -> None:
     scene = CanvasScene(5000, 3000)
     scene.addItem(RectangleItem(0, 0, 10, 10))
     scene.addItem(RectangleItem(20, 0, 10, 10))
-    assert scene._z_refresh_timer.isActive()
+    assert scene._provisional_z
+    assert scene._next_rank_cache
+
     scene.clear()
-    assert not scene._z_refresh_timer.isActive()
     assert scene._provisional_z == {}
+    assert scene._next_rank_cache == {}
 
 
 def test_a_rank_writer_invalidates_the_next_rank_cache(qtbot) -> None:
@@ -87,7 +121,6 @@ def test_a_rank_writer_invalidates_the_next_rank_cache(qtbot) -> None:
     newest = RectangleItem(200, 0, 10, 10)
     newest.layer_id = target.id
     scene.addItem(newest)
-    scene.flush_z_refresh()
 
     ranks = [item.stack_order for item in (*originals, newest)]
     assert len(set(ranks)) == len(ranks), ranks
@@ -110,8 +143,8 @@ def test_a_layer_reorder_invalidates_a_stale_provisional_z(qtbot) -> None:
     assert second.zValue() > first.zValue()
 
 
-def test_a_ground_surface_takes_its_band_before_the_deferred_refresh(qtbot) -> None:
-    """A bulk add keeps a lawn under the sun overlays and the next item in band.
+def test_a_ground_surface_takes_its_band_at_once_and_seeds_from_it(qtbot) -> None:
+    """A ground surface is derived, not appended, and the next item is in band.
 
     The provisional cache holds a value in the LAYER's band, never the highest
     ``zValue``: a ground surface's z lives in ``GROUND_Z_RANGE`` (negative), so
@@ -123,18 +156,24 @@ def test_a_ground_surface_takes_its_band_before_the_deferred_refresh(qtbot) -> N
 
     scene = CanvasScene(5000, 3000)
     layer_id = scene.active_layer.id
-    # A load seeds the cache for every layer before any add.
-    scene._update_items_z_order()
+    low, high = GROUND_Z_RANGE
 
+    # A layer that already holds only ground surfaces after a load.
+    scene._update_items_z_order()
     lawn = RectangleItem(0, 0, 400, 400, object_type=ObjectType.LAWN, layer_id=layer_id)
     scene.addItem(lawn)
-    low, high = GROUND_Z_RANGE
     assert low < lawn.zValue() < high, lawn.zValue()
 
-    # A save/load boundary derives the layer, which now holds only ground
-    # surfaces: the next item must not be seeded from the lawn's negative z.
-    scene.flush_z_refresh()
-    solid = RectangleItem(500, 0, 10, 10, layer_id=layer_id)
+    # A second ground surface sorts inside the same band, not at its top.
+    path = RectangleItem(
+        500, 0, 100, 400, object_type=ObjectType.PATH, layer_id=layer_id
+    )
+    scene.addItem(path)
+    assert low < path.zValue() < high, path.zValue()
+    assert path.zValue() > lawn.zValue()
+
+    # The next solid is seeded from the band-space top, never a negative z.
+    solid = RectangleItem(700, 0, 10, 10, layer_id=layer_id)
     scene.addItem(solid)
     assert 0.0 <= solid.zValue() < 100.0, solid.zValue()
     assert solid.zValue() > lawn.zValue()
@@ -145,19 +184,10 @@ def test_a_large_existing_layer_still_batches_its_adds(qtbot) -> None:
     items = [RectangleItem(index, 0, 1, 1) for index in range(1000)]
     for item in items:
         scene.addItem(item)
-    scene.flush_z_refresh()
 
-    calls = []
-    original = scene._refresh_layer_z
-
-    def spy(layer_id):
-        calls.append(layer_id)
-        return original(layer_id)
-
-    scene._refresh_layer_z = spy  # type: ignore[method-assign]
+    calls = _spy_derivations(scene)
     for index in range(500):
         scene.addItem(RectangleItem(2000 + index, 0, 1, 1))
-    scene.flush_z_refresh()
 
-    assert len(calls) <= 10, len(calls)
+    assert calls == [], calls
     assert all(0.0 <= item.zValue() < 100.0 for item in scene.items())

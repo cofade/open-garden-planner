@@ -266,7 +266,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         ),
         "Boolean operations refuse plants, linked objects, constraints, and locked layers": (
             "Bool'sche Operationen lehnen Pflanzen, verknüpfte Objekte, "
-            "Abhängigkeiten und gesperrte Ebenen ab"
+            "Randbedingungen und gesperrte Ebenen ab"
         ),
         "The shapes contain different data; keep them separate or make their data consistent": (
             "Die Formen enthalten unterschiedliche Daten; getrennt lassen oder "
@@ -283,6 +283,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "The merged outline would contain a hole; keep the shapes separate": (
             "Die zusammengeführte Kontur würde ein Loch enthalten; "
             "die Formen getrennt lassen"
+        ),
+        "The result would have {count} vertices; the plan supports at most {limit}. "
+        "Keep the shapes separate.": (
+            "Das Ergebnis hätte {count} Knoten; der Plan unterstützt höchstens "
+            "{limit}. Die Formen getrennt lassen."
         ),
         "House": "Haus",
         "Garage/Shed": "Garage/Schuppen",

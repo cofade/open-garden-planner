@@ -19,7 +19,6 @@ from PyQt6.QtCore import (
     QPointF,
     QRectF,
     Qt,
-    QTimer,
     pyqtSignal,
 )
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPen
@@ -207,21 +206,16 @@ class CanvasScene(QGraphicsScene):
         # Suspends the per-add z-refresh during bulk inserts (issue #338)
         # -- see suspend_z_refresh().
         self._suspend_z_refresh = False
-        # Per-layer "next unused rank" cache. It covers one bulk scope or one
-        # event-loop turn; _flush_deferred_z_refresh() clears it.
+        # Per-layer "next unused rank" cache; a rank writer or a derivation
+        # clears it.
         self._next_rank_cache: dict[UUID | None, int] = {}
 
         # #450: a sequence of single addItem() calls used to sort every layer
-        # once per item. The first add of a layer in an event-loop turn runs the
-        # derivation once; later appended items get a strictly increasing
-        # provisional z above it, and one deferred derivation restores the
-        # exact values after the turn.
-        self._deferred_z_refresh_layers: set[UUID | None] = set()
+        # once per item. The derivation seeds this per-layer cache with the top
+        # of its band-space order, and an appended independent item's next
+        # fixed-grid value IS the derivation's value, so it is written once and
+        # never re-derived.
         self._provisional_z: dict[UUID | None, float] = {}
-        self._z_refresh_timer = QTimer(self)
-        self._z_refresh_timer.setSingleShot(True)
-        self._z_refresh_timer.setInterval(0)
-        self._z_refresh_timer.timeout.connect(self._flush_deferred_z_refresh)
 
     def _update_scene_rect(self) -> None:
         """Update the scene rect with padding for panning."""
@@ -406,12 +400,13 @@ class CanvasScene(QGraphicsScene):
                 )
                 self._next_rank_cache[layer_id] = max(base, rank)
             if not self._suspend_z_refresh:
-                # A pre-ranked or relationship-bearing item can change the
-                # order of items already in the layer (a bed lifts its
-                # children, a roof ridge sits above its owner), so it keeps
-                # the synchronous derivation. A newly appended independent
-                # item cannot, and gets the band top until the one deferred
-                # refresh (#450).
+                # A pre-ranked, relationship-bearing or ground item can change
+                # the order of items already in the layer (a bed lifts its
+                # children, a roof ridge sits above its owner, a ground surface
+                # sorts into its own band), so it keeps the synchronous
+                # derivation. A newly appended independent solid cannot: the
+                # next fixed-grid value is exactly what the derivation would
+                # assign it (#450).
                 if (
                     had_rank
                     or self._needs_synchronous_z_refresh(item)
@@ -430,8 +425,10 @@ class CanvasScene(QGraphicsScene):
                     step = 100.0 / stacking.Z_POSITION_SCALE
                     provisional = self._provisional_z[layer_id] + step
                     if band_base is not None and provisional > band_base + 100.0 - step:
-                        # The fixed scale supports ~16.7 million ranked items;
-                        # beyond that a derivation is the only safe answer.
+                        # The fixed grid supports ~16.7 million ranked items
+                        # per layer; past that the derivation's own cap at
+                        # Z_POSITION_SCALE - 1 applies deliberately instead of
+                        # letting two appends collide at the band top.
                         self._refresh_layer_z(layer_id)
                         provisional = self._provisional_z.get(
                             layer_id, band_base
@@ -440,15 +437,10 @@ class CanvasScene(QGraphicsScene):
                             provisional = min(
                                 provisional, band_base + 100.0 - step
                             )
-                    # The provisional value lives in the layer band; a ground
-                    # surface is drawn in GROUND_Z_RANGE like the derivation
-                    # does, so a bulk add does not lift it over the sun overlays
-                    # for the turn before the deferred refresh.
-                    item.setZValue(
-                        ground_z(provisional) if on_ground(item) else provisional
-                    )
+                    # This branch only takes a solid: a ground surface sorts
+                    # into its own band, so it took the derivation above.
+                    item.setZValue(provisional)
                     self._provisional_z[layer_id] = provisional
-                    self._schedule_z_refresh(layer_id)
 
     def _needs_synchronous_z_refresh(self, item: QGraphicsItem) -> bool:
         """Whether adding *item* can re-order items already in its layer.
@@ -456,9 +448,13 @@ class CanvasScene(QGraphicsScene):
         A plant linked to a bed, a bed with children, a roof ridge and its
         owner, and any child item are all clamped by
         :func:`core.stacking.normalize_order`; their arrival changes ranks
-        that already exist. A plain independent shape only appends.
+        that already exist. A ground surface sorts into ``GROUND_Z_RANGE``
+        ahead of every solid, so its band position is not the next index. A
+        plain independent solid only appends.
         """
         if item.parentItem() is not None:
+            return True
+        if on_ground(item):
             return True
         if getattr(item, "parent_bed_id", None) is not None:
             return True
@@ -478,36 +474,6 @@ class CanvasScene(QGraphicsScene):
         if layer is None:
             return None
         return float(layer.z_order * 100)
-
-    def _schedule_z_refresh(self, layer_id: UUID | None) -> None:
-        """Coalesce the pure z derivation into one run after this event-loop turn."""
-        self._deferred_z_refresh_layers.add(layer_id)
-        if not self._z_refresh_timer.isActive():
-            self._z_refresh_timer.start()
-
-    def _flush_deferred_z_refresh(self) -> None:
-        """Run the one deferred derivation for every layer touched this turn."""
-        self._z_refresh_timer.stop()
-        pending = self._deferred_z_refresh_layers
-        self._deferred_z_refresh_layers = set()
-        self._next_rank_cache = {}
-        self._provisional_z = {}
-        for layer_id in pending:
-            self._refresh_layer_z(layer_id)
-
-    def flush_z_refresh(self) -> None:
-        """Apply any pending deferred z derivation now, and drop rank caches.
-
-        Tests, export paths and any caller that needs *final* z values before
-        the event loop runs can call this; normal canvas painting does not.
-        The rank cache is invalidated even when nothing was pending, because a
-        command may have moved ranks without leaving a deferred refresh behind.
-        """
-        if self._deferred_z_refresh_layers or self._z_refresh_timer.isActive():
-            self._flush_deferred_z_refresh()
-        else:
-            self._next_rank_cache = {}
-            self._provisional_z = {}
 
     # Constraint dimension line management
 
@@ -974,8 +940,9 @@ class CanvasScene(QGraphicsScene):
     def _max_existing_rank(self, layer_id: UUID | None) -> int:
         """The highest ``stack_order`` currently used in *layer_id*, or 0.
 
-        One O(n) walk of the scene. See :meth:`_next_stack_order` for the
-        cached fast path used while a bulk add is suspended.
+        One O(n) walk of the scene, run only when the per-layer rank cache is
+        empty (the first unranked add after a derivation, a rank writer or a
+        bulk scope); :meth:`_next_stack_order` then serves every further add.
         """
         existing = [
             item.stack_order
@@ -1046,8 +1013,6 @@ class CanvasScene(QGraphicsScene):
             # Fresh (non-nested) scope: the one refresh on exit covers every
             # layer, so a pending deferred refresh (and the per-layer rank
             # cache -- see _next_stack_order()) starts over.
-            self._z_refresh_timer.stop()
-            self._deferred_z_refresh_layers.clear()
             self._next_rank_cache = {}
             self._provisional_z = {}
         try:
@@ -1063,8 +1028,6 @@ class CanvasScene(QGraphicsScene):
         ``finally`` block.
         """
         self._suspend_z_refresh = False
-        self._z_refresh_timer.stop()
-        self._deferred_z_refresh_layers.clear()
         self._next_rank_cache = {}
         self._provisional_z = {}
         if renumber:
@@ -1542,10 +1505,7 @@ class CanvasScene(QGraphicsScene):
         self._calibration_points.clear()
         self._calibration_image = None
         self._calibration_mode = False
-        # #450: no deferred callback may run against the items this call is
-        # about to destroy.
-        self._z_refresh_timer.stop()
-        self._deferred_z_refresh_layers.clear()
+        # #450: both caches describe items this call destroys.
         self._next_rank_cache = {}
         self._provisional_z = {}
         super().clear()

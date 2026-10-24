@@ -4041,6 +4041,8 @@ a term in a(1 − a) points straight at the destination alpha. Pins: the self-te
 **Symptom.** On a short display, Edit → Preferences clipped input text and
 collapsed several Agent API controls to zero height; the form needed about
 1137 px but the dialog's minimum was 550 x 400.
+**Reported by** @jbuijgers, with a fork branch
+(`fix/preferences-dialog-height`, commit 5bb91037) as the reproduction.
 **Wrong theories.** The theme's font sizes (measured at both 10 and 14 pt — the
 compression happened at both); the API-key widgets' own size policies (the plain
 line edits and combo boxes were compressed too).
@@ -4076,11 +4078,15 @@ existing `suspend_z_refresh` path measured 3.9 s.
 z for the whole layer per item. The canvas now intersects the exposed rect with
 the view's visible scene rect in item coordinates, grows it by the style's
 decoration reach, and passes it with a `WalkBudget`; exports clear the cache and
-keep full detail. `addItem` gives an appended independent item a strictly
-increasing in-band provisional z and coalesces the pure derivation after the
-turn; commands flush it before recording history.
+keep full detail. `addItem` gives an appended independent solid the derivation's
+own next value on a fixed `Z_POSITION_SCALE` grid - final, not provisional - so a
+loop of adds costs one derivation per layer, direct or one item per command;
+anything that can re-order the layer (a child, a bed, a roof ridge, a ground
+surface, a pre-ranked re-add) still derives synchronously. Credit: the dense-
+overlay half of the issue set (#551) and the N-shape boolean half (#550) follow
+@Sevoiger's implementation in a personal fork.
 **Lesson.** A cached paint's `exposedRect` is not the visible rect. Measure what
 the paint call actually receives before trusting a cache; share the clip+budget
-contract with the ground bake rather than adding a second walk; and when a pure
-derivation is batched, make the provisional values ordered and give every
-history entry a settle point.
+contract with the ground bake rather than adding a second walk; and when a
+derivation can be avoided, do the arithmetic that makes the value final instead
+of scheduling a second pass - a deferred pass is a second visible change.
