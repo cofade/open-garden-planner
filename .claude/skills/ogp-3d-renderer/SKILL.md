@@ -1128,8 +1128,27 @@ the whole render file on OpenGL (one row runs there: the ring's depth); pointer 
 
 ## 16. Analyze in 3D on the engine (L2)
 
-Concept: docs §8.29.10; decisions: ADR-063; lesson: PF-L3D-06. What the ENGINE taught
-(RTX 4070, Direct3D 11; WARP and OpenGL on the same machine, 2026-10-24):
+Concept: docs §8.29.10; decisions: ADR-063 (and its review addendum); lessons: PF-L3D-06,
+PF-L3D-07, PF-L3D-08. What the ENGINE taught (RTX 4070, Direct3D 11; WARP and OpenGL on
+the same machine, 2026-10-24):
+
+- **An Unshaded material goes through the exposure and the tone curve.** Its colour is
+  emitted, then multiplied by the mood's exposure (2.4 at night): an over-blended
+  "shadow" colour LIGHTENED the night garden by up to 44 grey levels. A shadow on the
+  ground must MULTIPLY the frame — `sourceBlend: DstColor`, `destinationBlend: Zero`
+  (the shade layer; measured darker in every mood, top-down the product exactly) — and
+  an overlay colour that must read the same in every mood is divided by the exposure in
+  its shader (`overlay.frag`, `uExposure`). The filmic curve still bends a saturated
+  hue: the arcs are built in pre-compensated colours (`ARC_ENGINE_RGBA`).
+- **A hidden or blended Model drops out of the shadow map.** `visible: false` and any
+  opacity took the cut roof's and the faded tree's shadows off the ground. A fragment
+  `discard` does not: the shadow pass does not run it — a screen door (`screen.frag`:
+  `screenDoor(FRAGCOORD.xy) >= uOpacity`, a 4 × 4 Bayer dither) keeps the part an opaque
+  caster; measured unchanged ground outside the footprints on D3D11 (GPU, WARP) and
+  OpenGL. `FRAGCOORD` works in a custom material's fragment shader on all three.
+- **A Model can switch materials by binding** — `materials: fade < 1.0 ? [screen] : [look]`
+  with both declared inside the Model: the look material stays bit-identical while
+  nothing fades (the L1 frames did not move).
 
 - **A blended CustomMaterial blends ALPHA too — keep it.** `sourceBlend: SrcAlpha` /
   `destinationBlend: OneMinusSrcAlpha` alone leave the frame's alpha at 1 − a(1 − a) and
@@ -1147,14 +1166,15 @@ Concept: docs §8.29.10; decisions: ADR-063; lesson: PF-L3D-06. What the ENGINE 
   VARYING** (`vColor = COLOR`, as `foliage.vert`): the lines' magenta came through
   exactly — (171, 9, 90) for the pin's linear colour in the truth view.
 - **Fading a part: a property per Model, not `Node.opacity`.** Each part Model has
-  `fade` (1 = as it is); a PrincipledMaterial takes it as `opacity` (blended below 1), a
-  CustomMaterial as `uOpacity` in `BASE_COLOR.a` with blend factors bound to
-  `uOpacity < 1` — opaque crowns stay in the opaque pass. A faded wall (vc) and a faded
-  crown (foliage) read the same pixel over the ground: (101, 69, 11) from (255, 5, 4)
-  at 0.22. `pickable: fade >= 1.0` — a faded occluder is clicked through.
-- **A binding hides a kind of part for every Model, born later included.**
-  `visible: !root.roofsHidden` on the roof Component: no iteration over Models, and a
-  roof built while Cutaway is on is born hidden (`tests/ui/test_view3d_analysis_host.py`).
+  `fade` (1 = as it is); below 1 a vc or roof part switches to the screen-door material
+  and foliage, grass and water discard in their own shaders — never a blend (above).
+  `pickable: fade >= 1.0` — a faded occluder is clicked through. `listParts()` reports
+  `drawn`, the share of pixels the ACTIVE material draws.
+- **A binding cuts a kind of part for every Model, born later included.**
+  `materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]` with
+  `uOpacity: root.roofsHidden ? 0.0 : fade`: no iteration over Models, a roof built while
+  Cutaway is on is born cut, and it still casts (`tests/ui/test_view3d_analysis_host.py`).
+  The vc walls bind `cullMode` to `roofsHidden` (their inner faces show).
 - **The drape lies 1.5 cm above the ground** (tiles at 0, meadow at −1): a 24-bit depth
   buffer at a 5 cm near plane resolves about 0.3 cm at 50 m and 1.2 cm at 100 m.
 
