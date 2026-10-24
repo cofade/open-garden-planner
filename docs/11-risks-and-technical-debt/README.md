@@ -37,11 +37,20 @@ exclusions when publishing macOS source distributions. GitHub identifies 83.0.0 
 patched version. Applicability assessment: current CI uses Linux/Windows editable installs
 and publishes a Windows PyInstaller/NSIS installer; neither that build pipeline nor the app publishes macOS sdists. The waiver concerns the unused affected operation, not absence of setuptools from the executable.
 [Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
-remains open for a separately reviewed backend/lock update. The CI `Dependencies` matrix job
+remained open for a separately reviewed backend/lock update — #571 is that update (below). The CI `Dependencies` matrix job
 (Linux and Windows) now runs `pip-audit` against the committed lock export
 (`uv export --locked --all-extras --group build`) on every push, with this single advisory
 recorded as `--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job. Both platforms
 run it because pip-audit evaluates markers for the running interpreter.
+
+**Update 2026-10-24 (#571, #572).** The job failed `master` (`50324280`) on
+[GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w) (setuptools
+< 84.1.0) and a re-run on six `filelock` 4.2.0 advisories (dev extra only). The build
+group pins setuptools **84.1.0** and the lock carries filelock 4.2.4: `pip-audit` finds
+no known vulnerability, and the `PYSEC-2026-3447` waiver above ended with it (84.1.0
+contains the 83.0.0 fix). CI waives nothing; a new waiver is justified here and named in
+`test_dependency_governance.py::WAIVERS`. Details and the frozen re-verification: §8.11.
+Lesson: PF-CI-12.
 
 Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
 **0.12.19** (`uv/Dockerfile` in dependabot-core, read 2026-10-13) while this project pins
@@ -207,6 +216,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-CI-09 | A version-only `pyproject.toml` edit makes `uv.lock` stale, so the version-sync chore refreshes the lock's project version offline together with both source version declarations. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-09) |  |
 | PF-CI-10 | Release version bump derives from the triggering merge commit SHA (via `scripts/resolve_release_pr.py` with commit pulls lookup, squash subject `(#N)` fallback, and exact label matching), never from `gh pr list --state merged` which sorts by creation date and ignores older-created PRs. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-10) |  |
 | PF-CI-11 | Windows executables, installers, and desktop shortcuts require multi-resolution `.ico` files containing all standard frames (16x16 to 256x256), and `SetCurrentProcessExplicitAppUserModelID` must be called before any GUI or WebEngine subsystem imports; an icon with only 16x16 leaves the Windows taskbar with a generic blank window icon. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-11) |  |
+| PF-CI-12 | The required `Dependencies` job audits against a live advisory database, so it can turn `master` red with no code change; answer with a targeted `uv lock --upgrade-package` per named package (never a full upgrade), and let CI waive only the advisories named in the governance test's `WAIVERS` and justified in §11.2. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-12) |  |
 | PF-TST-01 | A GUI-responsiveness test holds the real worker in flight with an Event and counts heartbeat ticks only while it runs on another thread, so the count cannot depend on compute duration. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-01) |  |
 | PF-TST-02 | A within-day simulation test sets the time of day as well as the date, such as noon via `set_time_of_day`, rather than inheriting the host clock, changing clock semantics or relaxing timeouts. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-02) |  |
 | PF-TST-03 | Every concrete placeable graphics item, `TextItem` included, round-trips through the `ProjectManager` serializer with exact dictionary equality, checked by one matrix over every item class. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-03) |  |

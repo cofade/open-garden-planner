@@ -3109,10 +3109,13 @@ dependency-update path a documented home:
    (`uv export --locked --all-extras --group build`) and runs `pip-audit` over it **on both
    matrix operating systems**, because pip-audit evaluates requirement markers against the
    running interpreter: the export is universal, so a Linux-only scan never sees the
-   Windows-only runtime dependency (`pywin32`, required by `mcp`). One exception is recorded
+   Windows-only runtime dependency (`pywin32`, required by `mcp`). One exception was recorded
    by ID: the `setuptools` advisory `PYSEC-2026-3447` (`GHSA-h35f-9h28-mq5c`), which only
-   affects publishing macOS source distributions — a thing this project does not do. Its fix
-   (83.0.0) stays reserved for a separately reviewed dependency PR (§11.2, AUD-054).
+   affects publishing macOS source distributions — a thing this project does not do. **It
+   ended on 2026-10-24** (#571, #572): the build group moved to setuptools 84.1.0 for
+   GHSA-xmj3-9gf7-h52w, which contains the 83.0.0 fix, and a waiver that matches nothing in
+   the lock would hide a widened advisory unreviewed. No advisory is waived now; a new waiver
+   is named in `tests/unit/test_dependency_governance.py::WAIVERS` and justified in §11.2.
 6. **Update automation: verified unavailable, manual fallback adopted.** Dependabot's uv
    ecosystem image ships uv **0.12.19** (`uv/Dockerfile` in dependabot-core, read
    2026-10-13) while this project pins `uv ==0.12.23`; a `required-version` mismatch makes
