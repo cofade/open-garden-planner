@@ -43,23 +43,14 @@ remained open for a separately reviewed backend/lock update — #571 is that upd
 recorded as `--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job. Both platforms
 run it because pip-audit evaluates markers for the running interpreter.
 
-**Update 2026-10-24 (#571, #572).** The job did its work: it failed `master` (run of
-2026-10-23, commit `50324280`) on [GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w)
-(low: a Windows path escape through `namespace_packages.txt` during a legacy wheel
-installation, setuptools < 84.1.0), and a local re-run then found six `filelock` 4.2.0
-advisories (fixed in 4.2.1; `filelock` is only in the dev extra, through
-`pip-audit` → `cachecontrol[filecache]`). The build group now pins setuptools **84.1.0**
-(the first patched version) and the lock carries filelock 4.2.4; `pip-audit` over the
-locked export reports no known vulnerability. 84.1.0 also contains the 83.0.0 fix for
-GHSA-h35f-9h28-mq5c, so the `PYSEC-2026-3447` waiver above ended with it (#572): a waiver
-that matches nothing in the lock would hide a widened advisory unreviewed. CI waives no
-advisory now; a new waiver is justified here and named in
-`tests/unit/test_dependency_governance.py::WAIVERS`. Dependabot alerts 1–5 (setuptools ×2,
-filelock ×3, all on `uv.lock`) close with the merge. The frozen bundle was rebuilt locally by the senior
-review (Windows, locked env, Python 3.11.9, `installer/build_installer.py --skip-nsis`, at
-`22a84111`): its inventory passes, the SBOM lists setuptools 84.1.0 (its vendored
-copies attributed to it), filelock is not in it, smoke and `--selftest` pass. Lesson:
-PF-CI-12.
+**Update 2026-10-24 (#571, #572).** The job failed `master` (`50324280`) on
+[GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w) (setuptools
+< 84.1.0) and a re-run on six `filelock` 4.2.0 advisories (dev extra only). The build
+group pins setuptools **84.1.0** and the lock carries filelock 4.2.4: `pip-audit` finds
+no known vulnerability, and the `PYSEC-2026-3447` waiver above ended with it (84.1.0
+contains the 83.0.0 fix). CI waives nothing; a new waiver is justified here and named in
+`test_dependency_governance.py::WAIVERS`. Details and the frozen re-verification: §8.11.
+Lesson: PF-CI-12.
 
 Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
 **0.12.19** (`uv/Dockerfile` in dependabot-core, read 2026-10-13) while this project pins
