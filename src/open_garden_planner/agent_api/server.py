@@ -412,9 +412,13 @@ def build_server(
     ) -> list[dict[str, Any]] | list[ObjectRef]:
         """List the plan's top-level objects, newest filters applied.
 
-        Objects are listed bottom→top in stacking order (layer order first,
-        then position within the layer) — the same order ObjectRef.stack_index
-        is computed from. (get_diagnostics is NOT in this order.)
+        Objects are listed bottom→top as drawn — the same order
+        ObjectRef.stack_index is computed from: first the ground surfaces
+        without a height (lawns, paths, terraces, driveways, ponds, in-ground
+        beds) of every layer, then everything else; each part in layer order,
+        then position within the layer. The ground surfaces lie under every
+        other object and under the sun study's shadows. (get_diagnostics is
+        NOT in this order.)
 
         Args:
             type: Optional filter — an ObjectType name ('TREE', 'RAISED_BED'), a
@@ -2003,12 +2007,22 @@ def build_server(
             single nearest object in its layer whose bounding box OVERLAPS it
             (a non-overlapping neighbour is skipped entirely).
 
+            A ground surface without a height (a lawn, path, terrace,
+            driveway, pond or in-ground bed) is always drawn below the other
+            objects, so it is arranged among the ground surfaces of its layer
+            only, and any other object among the rest only: at the edge of its
+            group an object is "already at front/back". The returned
+            stack_index says where it is drawn.
+
             A bed/container carries its contained plants along as one block
             (their relative order among themselves is kept), and a plant can
             never be arranged below its own bed — 'send_to_back'/
             'send_backward' on a lone plant stops just above its bed rather
             than reaching further down, which correctly reports as a refusal
-            ("already at back") when the plant is already there.
+            ("already at back") when the plant is already there. An
+            in-ground bed without a height moves alone, among the ground
+            surfaces: its plants are drawn in the other group and stay where
+            they are.
 
             Fails (raises, nothing changed) when the object is already at the
             front/back of its layer, or when bring_forward/send_backward finds

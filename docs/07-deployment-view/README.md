@@ -494,11 +494,23 @@ The runbook for acting on the monthly issue:
    those checks exist for.
 4. Open a reviewed PR. No auto-merge.
 
+**A security advisory between refreshes** (the `Dependencies` job is red on `master` with no
+code change — PF-CI-12): do NOT run the full `uv lock --upgrade` under that pressure, it
+moves every package. Move only what the advisory names: an exact pin where the project pins
+the package (the build group), then `uv lock --upgrade-package <name>` per package,
+re-export `pylock.toml` with `uv export` and exactly the arguments of
+`scripts/check_dependency_lock.py`'s `EXPORT_ARGS`, `python scripts/check_dependency_lock.py`,
+the CI `pip-audit` command over the export, and the frozen build (the bundle's inventory,
+smoke and `--selftest`) when the package is in the bundle. #571 is the worked example
+(setuptools 82.0.0 → 84.1.0, filelock 4.2.0 → 4.2.4, nothing else moved). Such a PR is a
+`fix(...)` when the shipped bundle changes — its release clears the advisory from the
+published SBOM — and a `chore(deps):` otherwise.
+
 The `Dependencies` matrix job (Linux and Windows) additionally audits the locked closure
-with `pip-audit` every run (`uv export --locked --all-extras --group build`, §7.4). The only
-recorded exception is the `setuptools` advisory `PYSEC-2026-3447` affecting unused macOS
-source-distribution publishing; the justification lives in
-§11.2 and the fix is reserved for a separately reviewed dependency PR.
+with `pip-audit` every run (`uv export --locked --all-extras --group build`, §7.4). No
+advisory is waived: the one former exception, the `setuptools` advisory `PYSEC-2026-3447`
+(unused macOS source-distribution publishing), ended on 2026-10-24 when setuptools 84.1.0
+fixed it (#571, #572; §11.2).
 
 ### PR Labels for Versioning
 

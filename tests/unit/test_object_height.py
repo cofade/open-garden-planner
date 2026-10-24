@@ -135,6 +135,44 @@ class TestDefaultTable:
         assert standing_base_cm(ObjectType.TRELLIS, tall) == 0.0
 
 
+class TestLiesOnGround:
+    """Manual pass of PR #584: a garden surface with no height lies UNDER the 2D sun
+    study's overlays (``canvas_scene.GROUND_Z_RANGE``)."""
+
+    def test_the_surface_names_are_real_types_without_a_default_height(self) -> None:
+        from open_garden_planner.core.object_height import GROUND_SURFACE_TYPE_NAMES
+        from open_garden_planner.core.object_types import ObjectType
+
+        enum_names = {member.name for member in ObjectType}
+        assert GROUND_SURFACE_TYPE_NAMES.issubset(enum_names)
+        for name in GROUND_SURFACE_TYPE_NAMES:
+            assert effective_height_cm(name, {}) is None, name
+
+    def test_a_surface_without_a_height_lies_on_the_ground(self) -> None:
+        from open_garden_planner.core.object_height import GROUND_SURFACE_TYPE_NAMES, lies_on_ground
+
+        for name in GROUND_SURFACE_TYPE_NAMES:
+            assert lies_on_ground(name, {}), name
+            assert lies_on_ground(name, None), name
+            assert not lies_on_ground(name, {METADATA_KEY: 30.0}), f"{name} with a height is a solid"
+
+    @pytest.mark.parametrize("name", ["TOOL_SHED", "RAISED_BED", "TREE", "PERENNIAL", "SHRUB",
+                                      "COLD_FRAME", "RAIN_BARREL", "PLANTER_POT", "PARASOL",
+                                      "GENERIC_RECTANGLE", "GENERIC_POLYGON", "GENERIC_TEXT",
+                                      "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN", "ROOF_RIDGE"])
+    def test_solids_standing_objects_shapes_and_notes_do_not(self, name: str) -> None:
+        """Senior review of the manual pass: a cold frame without a height sank under
+        the raised bed it stood on — standing objects and generic shapes stay put."""
+        from open_garden_planner.core.object_height import lies_on_ground
+
+        assert not lies_on_ground(name, {})
+
+    def test_no_type_does_not(self) -> None:
+        from open_garden_planner.core.object_height import lies_on_ground
+
+        assert not lies_on_ground(None, None)
+
+
 class TestValueGuards:
     @pytest.mark.parametrize("bad", [0, -5, 0.0, -0.1, True, False, "120", None])
     def test_invalid_explicit_values_ignored(self, bad) -> None:

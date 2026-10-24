@@ -32,6 +32,10 @@ from open_garden_planner.ui.icons import get_icon
 
 _ANIMATE_INTERVAL_MS = 200
 _ANIMATE_STEP_MINUTES = 10
+#: The shortest the two sliders get while the strip makes room to stay within two
+#: rows: German at 10 pt in an 800-px strip needs 80 px (measured with real fonts),
+#: and 10 px more leaves room for a platform font that runs wider.
+_MIN_SLIDER_WIDTH = 70
 
 
 def _editor_owner(edit: QDateTimeEdit) -> SunSimToolbar | None:
@@ -82,6 +86,36 @@ class _PlanTimeEdit(QTimeEdit):
 
     def stepEnabled(self) -> QAbstractSpinBox.StepEnabledFlag:
         return _editor_steps(self)
+
+
+class _TodayButton(QToolButton):
+    """Today, or Past / Future in its place while the plan date is elsewhere.
+
+    One width for all of its texts, so the controls after it never move while the
+    date does (owner manual pass of #386: a separate Past/Future label pushed the
+    month slider away from the pointer while it was dragged).
+    """
+
+    def __init__(self, texts: tuple[str, ...], parent: QWidget) -> None:
+        super().__init__(parent)
+        self._texts = texts
+
+    def sizeHint(self) -> QSize:
+        hint = super().sizeHint()
+        metrics = self.fontMetrics()
+
+        def width(text: str) -> int:
+            # measured as QToolButton::sizeHint measures it: a bounding rect, rounded
+            # up. horizontalAdvance rounds to nearest, and the difference moved the
+            # width by 1 px with fractional font metrics (125 % scaling, unhinted
+            # fonts) - invisible offscreen, where every advance is a whole box
+            return metrics.size(Qt.TextFlag.TextShowMnemonic, text).width()
+
+        # the style's padding around the current text, put around the widest one,
+        # plus one letter of room: the buffer the owner asked for
+        hint.setWidth(hint.width() - width(self.text())
+                      + max(width(text) for text in self._texts) + metrics.horizontalAdvance("M"))
+        return hint
 
 
 class _GroupFlow(QLayout):
@@ -198,11 +232,11 @@ class SunSimToolbar(QToolBar):
         self._date_edit.setMinimumWidth(self._date_edit.fontMetrics().horizontalAdvance("2000-00-00") + 48)
         self._date_edit.setToolTip(self.tr("Plan date: plant presence, growth and sunlight"))
         group.addWidget(self._date_edit)
-        self._today_button = self._button(self.tr("Today"), group)
+        self._today_button = _TodayButton((self.tr("Today"), self.tr("Past"), self.tr("Future")), self)
+        self._configure_button(self._today_button, self.tr("Today"), group)
+        # the text says where the plan date is; what the button does stays the same
+        self._today_button.setAccessibleName(self.tr("Go to today"))
         self._today_button.clicked.connect(lambda: self.date_requested.emit(date.today()))
-        self._state_label = QLabel(self)
-        self._state_label.setToolTip(self.tr("The plan date controls plant presence, growth and sunlight."))
-        group.addWidget(self._state_label)
 
         group = self._group()
         group.addWidget(QLabel(self.tr("Months"), self))
@@ -278,19 +312,28 @@ class SunSimToolbar(QToolBar):
 
     def _button(self, text: str, group: QHBoxLayout, *, checkable: bool = False) -> QToolButton:
         button = QToolButton(self)
+        self._configure_button(button, text, group, checkable=checkable)
+        return button
+
+    @staticmethod
+    def _configure_button(button: QToolButton, text: str, group: QHBoxLayout, *,
+                          checkable: bool = False) -> None:
         button.setText(text)
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         button.setCheckable(checkable)
         group.addWidget(button)
-        return button
 
     def resizeEvent(self, event: Any) -> None:
         super().resizeEvent(event)
         self._reflow()
 
+    def flow_width(self) -> int:
+        """The width the reflow fits the control groups into."""
+        return max(1, self.width() - 12)
+
     def _reflow(self) -> None:
         slider_width = 140 if self.width() < 1100 else 180
-        available = max(1, self.width() - 12)
+        available = self.flow_width()
         while True:
             for slider in (self._month_slider, self._slider):
                 slider.setFixedWidth(slider_width)
@@ -304,7 +347,7 @@ class SunSimToolbar(QToolBar):
                     layout.invalidate()
                     layout.activate()
                     widget.updateGeometry()
-            if self._flow.rows_for_width(available) <= 2 or slider_width <= 90:
+            if self._flow.rows_for_width(available) <= 2 or slider_width <= _MIN_SLIDER_WIDTH:
                 break
             slider_width -= 10
         height = self._flow.heightForWidth(available)
@@ -523,10 +566,16 @@ class SunSimToolbar(QToolBar):
         self._month_slider.setRange(low, high)
         self._month_slider.setValue(month_number(day))
         self._month_slider.blockSignals(False)
-        self._state_label.setText(self.tr("Past") if day < date.today() else
-                                  self.tr("Future") if day > date.today() else "")
-        self._state_label.setVisible(day != date.today())
-        self._today_button.setEnabled(day != date.today())
+        today = date.today()
+        if day < today:
+            text, tip = self.tr("Past"), self.tr("The plan date is in the past. Click to go back to today.")
+        elif day > today:
+            text, tip = self.tr("Future"), self.tr("The plan date is in the future. Click to go back to today.")
+        else:
+            text, tip = self.tr("Today"), self.tr("The plan date is today.")
+        self._today_button.setText(text)
+        self._today_button.setToolTip(tip)
+        self._today_button.setEnabled(day != today)
         count = sum(not self._scene.is_present(p) for p in plants)
         self._hidden_button.setText(self.tr("{count} hidden").format(count=count))
         self._hidden_button.setEnabled(count > 0)

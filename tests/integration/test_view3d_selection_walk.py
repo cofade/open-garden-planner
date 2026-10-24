@@ -217,7 +217,8 @@ def test_select_in_2d_click_in_3d_lock_the_layer_and_walk_through_the_gate(
     record = controller.sync.records[bed_id]
     assert card.isVisible() and card.title() == "Kitchen bed"
     assert card.value("Type:") == "Raised Bed"
-    assert card.value("Height:") == format_length(record.height_cm)
+    # v1 (L2.3): the height says where it comes from — a raised bed's usual height
+    assert card.value("Height:") == f"{format_length(record.height_cm)} (usual for the type)"
     assert card.value("Size:") == "4.00 m × 3.00 m"
     status_for_bed = window.selection_label.text()
     assert status_for_bed.startswith("1 object") and window.properties_panel._current_items == [bed]
@@ -239,8 +240,9 @@ def test_select_in_2d_click_in_3d_lock_the_layer_and_walk_through_the_gate(
     assert card.value("Scientific name:") == species["scientific_name"] != ""
     assert card.value("Bed:") == "Kitchen bed"
     assert card.value("Canopy diameter:") == format_length(2.0 * float(plant.params["radius_cm"]))
+    # v1 (L2.3): lavender's height is its species' maximum, and the card says so
     assert card.value("Height:") == ("not known" if plant.height_cm is None
-                                     else format_length(plant.height_cm))
+                                     else f"{format_length(plant.height_cm)} (species maximum)")
     in_3d = (window.selection_label.text(), list(window.properties_panel._current_items))
     scene.clearSelection()
     canvas_click(window, 800.0, 650.0)                 # the SAME selection made on the canvas

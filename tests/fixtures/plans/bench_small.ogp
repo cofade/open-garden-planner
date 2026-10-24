@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-10T22:26:51.542841+00:00"
+    "modified": "2026-10-24T10:33:59.805840+00:00"
   },
   "canvas": {
     "width": 2400.0,
@@ -123,6 +123,179 @@
       "fill_pattern": "WATER",
       "stroke_style": "SOLID",
       "stack_order": 4096
+    },
+    {
+      "type": "polyline",
+      "item_id": "6f379d61-5cd4-45dc-89fc-d306d18241a2",
+      "points": [
+        {
+          "x": 1000.0,
+          "y": 840.0
+        },
+        {
+          "x": 1400.0,
+          "y": 840.0
+        },
+        {
+          "x": 1560.0,
+          "y": 700.0
+        },
+        {
+          "x": 1560.0,
+          "y": 120.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Gravel path",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 14336
+    },
+    {
+      "type": "polyline",
+      "item_id": "1c888b79-e398-4c67-be7e-a6381477c1d4",
+      "points": [
+        {
+          "x": 700.0,
+          "y": 720.0
+        },
+        {
+          "x": 640.0,
+          "y": 600.0
+        },
+        {
+          "x": 560.0,
+          "y": 520.0
+        },
+        {
+          "x": 500.0,
+          "y": 420.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Stepping stones",
+      "stroke_color": "#ffa0a09b",
+      "stroke_width": 6.0,
+      "path_fence_style": "STEPPING_STONES",
+      "stack_order": 15360
+    },
+    {
+      "type": "polygon",
+      "item_id": "fab87235-87bd-4d6a-9270-6754e18cc663",
+      "points": [
+        {
+          "x": 60.0,
+          "y": 1100.0
+        },
+        {
+          "x": 120.0,
+          "y": 1100.0
+        },
+        {
+          "x": 120.0,
+          "y": 1540.0
+        },
+        {
+          "x": 60.0,
+          "y": 1540.0
+        }
+      ],
+      "object_type": "GARDEN_BED",
+      "name": "Herb strip",
+      "fill_color": "#ff8b5a2b",
+      "stroke_color": "#ff228b22",
+      "stroke_width": 2.5,
+      "fill_pattern": "SOIL",
+      "stroke_style": "SOLID",
+      "child_item_ids": [
+        "8562efa2-ebee-432b-897a-2ee3944fbbe4",
+        "227feac9-90a3-4a63-9ae1-b2395bfa21e3",
+        "cbcad18f-3928-446c-b204-cb2af6f29c3c",
+        "242eb70e-122e-4aed-a86d-82e9ef5558de",
+        "b5144c2c-cac1-44d0-beff-620563e41538"
+      ],
+      "stack_order": 16384
+    },
+    {
+      "type": "polygon",
+      "item_id": "631b710a-7547-48bd-a8a3-8bffae780502",
+      "points": [
+        {
+          "x": 180.0,
+          "y": 650.0
+        },
+        {
+          "x": 1000.0,
+          "y": 650.0
+        },
+        {
+          "x": 1000.0,
+          "y": 712.0
+        },
+        {
+          "x": 180.0,
+          "y": 712.0
+        }
+      ],
+      "object_type": "GARDEN_BED",
+      "name": "Perennial border",
+      "fill_color": "#ff8b5a2b",
+      "stroke_color": "#ff228b22",
+      "stroke_width": 2.5,
+      "fill_pattern": "SOIL",
+      "stroke_style": "SOLID",
+      "child_item_ids": [
+        "ca01f218-0797-4658-9650-77097c7ad7dc",
+        "dab35895-2202-4888-a876-cd6498656314",
+        "d539a51e-b46b-4476-b608-f9dff8654dfc",
+        "4421e7aa-0c3e-4c95-a9dd-578c54548b94",
+        "92a84ac7-8b93-4ca1-b64d-0014d18982d8",
+        "8b373789-0371-46ed-8147-2d786228e17b",
+        "a73bd9b7-8b9f-444f-8f73-a13cede40a53",
+        "93e93978-aea7-4ad1-9861-bda40ef3d768",
+        "a4008da6-bce7-452e-9432-2aee21c4e3ee",
+        "661c4530-9781-4ffb-b1d4-9c904b316118"
+      ],
+      "stack_order": 22528
+    },
+    {
+      "type": "polygon",
+      "item_id": "e61b38d0-7dbd-44c6-be13-4599dfffc107",
+      "points": [
+        {
+          "x": 90.0,
+          "y": 70.0
+        },
+        {
+          "x": 430.0,
+          "y": 60.0
+        },
+        {
+          "x": 460.0,
+          "y": 190.0
+        },
+        {
+          "x": 120.0,
+          "y": 210.0
+        }
+      ],
+      "object_type": "GARDEN_BED",
+      "name": "Flower bed",
+      "fill_color": "#ff8b5a2b",
+      "stroke_color": "#ff228b22",
+      "stroke_width": 2.5,
+      "fill_pattern": "SOIL",
+      "stroke_style": "SOLID",
+      "child_item_ids": [
+        "830f7bdb-f0c0-4d21-b8fe-ca95fb3d656f",
+        "f0aef766-243e-4613-b4bb-6c30e430f35d",
+        "027bbc77-bcca-445c-b8a9-b5f4d459f10a",
+        "ad27d072-dc1f-4f82-b85c-bd61a58d85cd",
+        "e675a4dd-1ded-425e-9244-56e6d4c83ea2",
+        "d365cbfa-c4be-4c08-b1b3-d91fbd4b9929"
+      ],
+      "stack_order": 33792
     },
     {
       "type": "polygon",
@@ -318,99 +491,6 @@
       "stroke_width": 5.0,
       "path_fence_style": "STONE_WALL",
       "stack_order": 13312
-    },
-    {
-      "type": "polyline",
-      "item_id": "6f379d61-5cd4-45dc-89fc-d306d18241a2",
-      "points": [
-        {
-          "x": 1000.0,
-          "y": 840.0
-        },
-        {
-          "x": 1400.0,
-          "y": 840.0
-        },
-        {
-          "x": 1560.0,
-          "y": 700.0
-        },
-        {
-          "x": 1560.0,
-          "y": 120.0
-        }
-      ],
-      "object_type": "PATH",
-      "name": "Gravel path",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 14336
-    },
-    {
-      "type": "polyline",
-      "item_id": "1c888b79-e398-4c67-be7e-a6381477c1d4",
-      "points": [
-        {
-          "x": 700.0,
-          "y": 720.0
-        },
-        {
-          "x": 640.0,
-          "y": 600.0
-        },
-        {
-          "x": 560.0,
-          "y": 520.0
-        },
-        {
-          "x": 500.0,
-          "y": 420.0
-        }
-      ],
-      "object_type": "PATH",
-      "name": "Stepping stones",
-      "stroke_color": "#ffa0a09b",
-      "stroke_width": 6.0,
-      "path_fence_style": "STEPPING_STONES",
-      "stack_order": 15360
-    },
-    {
-      "type": "polygon",
-      "item_id": "fab87235-87bd-4d6a-9270-6754e18cc663",
-      "points": [
-        {
-          "x": 60.0,
-          "y": 1100.0
-        },
-        {
-          "x": 120.0,
-          "y": 1100.0
-        },
-        {
-          "x": 120.0,
-          "y": 1540.0
-        },
-        {
-          "x": 60.0,
-          "y": 1540.0
-        }
-      ],
-      "object_type": "GARDEN_BED",
-      "name": "Herb strip",
-      "fill_color": "#ff8b5a2b",
-      "stroke_color": "#ff228b22",
-      "stroke_width": 2.5,
-      "fill_pattern": "SOIL",
-      "stroke_style": "SOLID",
-      "child_item_ids": [
-        "8562efa2-ebee-432b-897a-2ee3944fbbe4",
-        "227feac9-90a3-4a63-9ae1-b2395bfa21e3",
-        "cbcad18f-3928-446c-b204-cb2af6f29c3c",
-        "242eb70e-122e-4aed-a86d-82e9ef5558de",
-        "b5144c2c-cac1-44d0-beff-620563e41538"
-      ],
-      "stack_order": 16384
     },
     {
       "type": "circle",
@@ -752,48 +832,6 @@
       "plant_species": "thyme",
       "parent_bed_id": "fab87235-87bd-4d6a-9270-6754e18cc663",
       "stack_order": 21504
-    },
-    {
-      "type": "polygon",
-      "item_id": "631b710a-7547-48bd-a8a3-8bffae780502",
-      "points": [
-        {
-          "x": 180.0,
-          "y": 650.0
-        },
-        {
-          "x": 1000.0,
-          "y": 650.0
-        },
-        {
-          "x": 1000.0,
-          "y": 712.0
-        },
-        {
-          "x": 180.0,
-          "y": 712.0
-        }
-      ],
-      "object_type": "GARDEN_BED",
-      "name": "Perennial border",
-      "fill_color": "#ff8b5a2b",
-      "stroke_color": "#ff228b22",
-      "stroke_width": 2.5,
-      "fill_pattern": "SOIL",
-      "stroke_style": "SOLID",
-      "child_item_ids": [
-        "ca01f218-0797-4658-9650-77097c7ad7dc",
-        "dab35895-2202-4888-a876-cd6498656314",
-        "d539a51e-b46b-4476-b608-f9dff8654dfc",
-        "4421e7aa-0c3e-4c95-a9dd-578c54548b94",
-        "92a84ac7-8b93-4ca1-b64d-0014d18982d8",
-        "8b373789-0371-46ed-8147-2d786228e17b",
-        "a73bd9b7-8b9f-444f-8f73-a13cede40a53",
-        "93e93978-aea7-4ad1-9861-bda40ef3d768",
-        "a4008da6-bce7-452e-9432-2aee21c4e3ee",
-        "661c4530-9781-4ffb-b1d4-9c904b316118"
-      ],
-      "stack_order": 22528
     },
     {
       "type": "circle",
@@ -1361,44 +1399,6 @@
       "plant_species": "pansy",
       "parent_bed_id": "631b710a-7547-48bd-a8a3-8bffae780502",
       "stack_order": 32768
-    },
-    {
-      "type": "polygon",
-      "item_id": "e61b38d0-7dbd-44c6-be13-4599dfffc107",
-      "points": [
-        {
-          "x": 90.0,
-          "y": 70.0
-        },
-        {
-          "x": 430.0,
-          "y": 60.0
-        },
-        {
-          "x": 460.0,
-          "y": 190.0
-        },
-        {
-          "x": 120.0,
-          "y": 210.0
-        }
-      ],
-      "object_type": "GARDEN_BED",
-      "name": "Flower bed",
-      "fill_color": "#ff8b5a2b",
-      "stroke_color": "#ff228b22",
-      "stroke_width": 2.5,
-      "fill_pattern": "SOIL",
-      "stroke_style": "SOLID",
-      "child_item_ids": [
-        "830f7bdb-f0c0-4d21-b8fe-ca95fb3d656f",
-        "f0aef766-243e-4613-b4bb-6c30e430f35d",
-        "027bbc77-bcca-445c-b8a9-b5f4d459f10a",
-        "ad27d072-dc1f-4f82-b85c-bd61a58d85cd",
-        "e675a4dd-1ded-425e-9244-56e6d4c83ea2",
-        "d365cbfa-c4be-4c08-b1b3-d91fbd4b9929"
-      ],
-      "stack_order": 33792
     },
     {
       "type": "circle",

@@ -337,7 +337,9 @@ def list_objects(
 
     Objects are listed bottom→top in stacking order (layer order, then
     position within the layer) — the same order :attr:`ObjectRef.stack_index`
-    is computed from.
+    is computed from. The ground surfaces (``canvas_scene.on_ground``) come first,
+    layer by layer (``canvas_scene.GROUND_Z_RANGE``): they are drawn under everything
+    else.
     """
     layer_names = _layer_names_by_id(snapshot)
     stack_indices = _stack_indices(snapshot.get("objects") or [])

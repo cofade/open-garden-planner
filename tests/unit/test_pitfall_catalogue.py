@@ -22,7 +22,10 @@ PITFALLS = DOC / "pitfalls"
 ARCHIVE = DOC / "archive"
 
 #: The chapter README (the index carries one full rule per entry) must stay small enough to scan.
-README_MAX_BYTES = 80_000
+#: A maintenance trigger, not a target: the index grows one row per lesson, so the
+#: budget is raised when the next package's rows no longer fit rather than met by
+#: shortening rules (ADR-061 addendum "the index budget is raised", #588).
+README_MAX_BYTES = 96_000
 #: Area files. The UI area holds the most entries (22, with their full rules); a file over this is split by sub-area.
 PITFALL_MAX_BYTES = 64_000
 
@@ -327,10 +330,16 @@ def test_redirect_rows_match_the_legacy_field_of_their_entry() -> None:
             assert (number, entry_id) in rows, f"{entry_id} names {number}, which the redirect table lacks"
 
 
+def _stored_size(path: Path) -> int:
+    # newline-normalised: an autocrlf checkout holds a CR per line that the repository
+    # (and CI's checkout) does not, and a budget must not differ between them
+    return len(path.read_bytes().replace(b"\r\n", b"\n"))
+
+
 def test_size_budgets_hold() -> None:
-    assert README.stat().st_size <= README_MAX_BYTES, "README §11.4 index is too large"
+    assert _stored_size(README) <= README_MAX_BYTES, "README §11.4 index is too large"
     for file in sorted(PITFALLS.glob("*.md")):
-        assert file.stat().st_size <= PITFALL_MAX_BYTES, f"{file.name} is over budget"
+        assert _stored_size(file) <= PITFALL_MAX_BYTES, f"{file.name} is over budget"
 
 
 def test_no_legacy_numbered_headings_remain_outside_the_archive() -> None:

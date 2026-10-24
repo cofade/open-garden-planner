@@ -59,6 +59,8 @@ executable acceptance: undoable plant edits, centered species-width updates,
 consistent position-lock badges, labelled illustrative 3D height estimates and a
 location link beside Hours of Sun. See the [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#plant-details-follow-ups-552-557560--shipped-as-v13020-pr-566).
 
+Phase 17 L2, Analyze in 3D (#386), shipped in [v1.31.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.31.0) via [PR #584](https://github.com/cofade/open-garden-planner/pull/584) after owner acceptance: the 2D shadows or the hours-of-sun map draped on the 3D ground with a ground probe, the sun's path with a compass, a day sweep, a richer plant info card (height source, growth, measured sun, sowing and harvest windows), +1/+3/+10-year jumps with a before/after wipe, and a cutaway that takes roofs off and fades what hides the selection. See the [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l2-acceptance-highlights--analyze-in-3d-386-adr-063--shipped-v1310-pr-584).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

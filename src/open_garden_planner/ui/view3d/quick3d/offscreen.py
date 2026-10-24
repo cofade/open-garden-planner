@@ -59,10 +59,13 @@ from open_garden_planner.core.scene3d import (
     BuilderRegistry,
     GroundBaking,
     GroundSpec,
+    Mesh,
     Record,
     SceneSync,
     SunState,
+    engine_buffers,
 )
+from open_garden_planner.core.scene3d.xray import XRAY_OPACITY
 
 from . import qt_messages
 from .adapter import Quick3DSink
@@ -168,6 +171,9 @@ def render_records(
     selected: Iterable[str] = (),
     sky_light: bool = False,
     prefer_software: bool = False,
+    overlays: Mapping[str, Mesh] | None = None,
+    roofs_hidden: bool = False,
+    faded: Iterable[str] = (),
 ) -> OffscreenFrame:
     """Render ``records`` from ``shot`` under ``sun`` into an image of ``size``
     (logical pixels), through the real ``SceneSync`` → ``Quick3DSink`` path.
@@ -191,6 +197,10 @@ def render_records(
     what the self-test and every truth probe render. ``prefer_software=True``
     renders on the software adapter of the graphics API (WARP on Direct3D), where
     no sky is ever built: the two together are refused (``ValueError``).
+    ``overlays`` (L2): the analysis overlays by layer — ``"drape"``, ``"lines"`` —
+    as scene-frame meshes (``core.scene3d.drape`` / ``sun_path``); their shaders are
+    compiled only when one is shown. ``roofs_hidden`` / ``faded``: Cutaway's roofs
+    off and the items drawn faded (``core.scene3d.xray.XRAY_OPACITY``).
 
     Raises ``RenderError`` on a QML or shader error, when this backend cannot
     render 3D, when a Qt Quick window is shown in this process (module
@@ -233,6 +243,12 @@ def render_records(
             sync.apply(records, sun=sun, ground=ground)  # one transaction
             while sync.ground_pending:  # a baker with a time budget: a still picture
                 sync.continue_ground()  # shows the FINISHED ground, however many passes
+            for layer, mesh in (overlays or {}).items():  # the analysis overlays (L2)
+                host.set_overlay(layer, engine_buffers(mesh))
+            host.set_roofs_hidden(roofs_hidden)
+            faded_ids = frozenset(faded)
+            if faded_ids:
+                host.set_faded_items(faded_ids, XRAY_OPACITY)
             host.set_shot(shot)
             breakdown["scene_apply"] = (time.perf_counter() - mark) * 1000.0
             if sky_light:

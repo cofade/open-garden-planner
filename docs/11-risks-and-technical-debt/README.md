@@ -29,22 +29,28 @@ Dated audit snapshots: [audit-2026-10.md](audits/2026-10/audit-2026-10.md) (numb
 | Windows installer blocked by SmartScreen | Medium | Low | Document workaround, investigate signing options. Build provenance attestation shipped (ADR-044) as a verifiable trust signal alongside the checksum; does not itself suppress SmartScreen/Defender (issue #356) or Norton `FileRepMalware[Misc]` (issue #358 — second AV vendor, same unsigned zero-reputation profile). Releases remain unsigned; signing options, including no-cost proposals, are under evaluation in [#375](https://github.com/cofade/open-garden-planner/issues/375). No option has been adopted, and no signed release has established effectiveness against these detections. FP path per vendor: Microsoft file-submission forms (#356), Norton portal `submissions.norton.com/reportfalsepositive` (#358; both portals are CAPTCHA-protected, so submissions are manual, not automatable by the maintainer). |
 | Large bundle size from PyInstaller | Medium | Low | Optimize includes, strip unused Qt modules |
 
-**Build-backend advisory, 2026-10-09; updated 2026-10-13 (A2 #454) and 2026-10-24 (#585).**
-The first Dependabot scan of uv.lock reported
+**Build-backend advisory, 2026-10-09; updated 2026-10-13 (A2 #454).** The first Dependabot
+scan of uv.lock reported
 [GHSA-h35f-9h28-mq5c](https://github.com/pypa/setuptools/security/advisories/GHSA-h35f-9h28-mq5c)
-against setuptools 82.0.0 (also present in the frozen artifact): a moderate
-Unicode-normalization bypass of MANIFEST.in exclusions when publishing macOS source
-distributions. The applicability assessment was that this pipeline publishes no macOS
-sdists, but the 2026-10-24 `pip-audit` run added new `filelock` advisories and
-[GHSA-xmj3-9gf7-h52w](https://github.com/pypa/setuptools/security/advisories/GHSA-xmj3-9gf7-h52w)
-against the same backend. **PR #585 bumps `setuptools` to 84.1.0 and `filelock` to 4.2.4**;
-`pip-audit` over the locked export now reports no known vulnerabilities, and the local
-venv, the lock and `pylock.toml` agree. [Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
-should close when the PR merges. The CI `Dependencies` matrix job (Linux and Windows) runs
-`pip-audit` against the committed lock export
-(`uv export --locked --all-extras --group build`) on every push, with the unrelated
-`PYSEC-2026-3447` recorded as `--ignore-vuln`; a new advisory fails the job. Both platforms
+against setuptools 82.0.0 (also present in the frozen artifact): a moderate Unicode-normalization bypass of MANIFEST.in
+exclusions when publishing macOS source distributions. GitHub identifies 83.0.0 as the first
+patched version. Applicability assessment: current CI uses Linux/Windows editable installs
+and publishes a Windows PyInstaller/NSIS installer; neither that build pipeline nor the app publishes macOS sdists. The waiver concerns the unused affected operation, not absence of setuptools from the executable.
+[Dependabot alert 1](https://github.com/cofade/open-garden-planner/security/dependabot/1)
+remained open for a separately reviewed backend/lock update — #571 is that update (below). The CI `Dependencies` matrix job
+(Linux and Windows) now runs `pip-audit` against the committed lock export
+(`uv export --locked --all-extras --group build`) on every push, with this single advisory
+recorded as `--ignore-vuln PYSEC-2026-3447`; a new advisory fails the job. Both platforms
 run it because pip-audit evaluates markers for the running interpreter.
+
+**Update 2026-10-24 (#571, #572).** The job failed `master` (`50324280`) on
+[GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w) (setuptools
+< 84.1.0) and a re-run on six `filelock` 4.2.0 advisories (dev extra only). The build
+group pins setuptools **84.1.0** and the lock carries filelock 4.2.4: `pip-audit` finds
+no known vulnerability, and the `PYSEC-2026-3447` waiver above ended with it (84.1.0
+contains the 83.0.0 fix). CI waives nothing; a new waiver is justified here and named in
+`test_dependency_governance.py::WAIVERS`. Details and the frozen re-verification: §8.11.
+Lesson: PF-CI-12.
 
 Automated dependency PRs remain unavailable: Dependabot's uv ecosystem image ships uv
 **0.12.19** (`uv/Dockerfile` in dependabot-core, read 2026-10-13) while this project pins
@@ -142,8 +148,9 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-CAN-19 | A textured fill is recoloured as a luminance map so a pale colour reads, the loader restores the stored look attributes, and round-trip tests compare rendered pixels in a non-default colour. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-19) | 11.4.10 |
 | PF-CAN-20 | A canvas texture may be softened but never replaced by a flat fill at any zoom, and the negative pin must sample the item's own `shape()` interior, since a mask on background reads as texture. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-20) | 11.4.11 |
 | PF-CAN-21 | Every writer that sets an item's style attributes or its live pen and brush sets both through `core/item_look.py`, so `style_gaps(item)` stays empty for every item that does not paint a sprite. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-21) | 11.4.17 |
-| PF-CAN-22 | A cached paint's `option.exposedRect` is the item's WHOLE rect, not the visible part. A styled line intersects it with the view's visible scene rect, in item coordinates, and passes that clip plus a `WalkBudget` to the one `PathStylePaint` walk; an export or minimap render disables caches first and keeps full detail. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-22) |  |
-| PF-CAN-23 | Stacking z is still derived only from ranks, but the derivation may be deferred to the end of the event-loop turn. A provisional z must be strictly increasing and inside the layer band, an item that can re-order existing items (parent bed, children, roof ridge, pre-ranked re-add) keeps the synchronous derivation, and every command flushes pending z before it records history. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-23) |  |
+| PF-CAN-22 | The sun study's 2D overlays lie on the ground surfaces (`on_ground`, drawn in `GROUND_Z_RANGE` by `_refresh_layer_z`) and under everything else; Arrange stays in a band. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-22) |  |
+| PF-CAN-23 | A cached paint's `option.exposedRect` is the item's WHOLE rect, not the visible part. A styled line intersects it with the view's visible scene rect, in item coordinates, and passes that clip plus a `WalkBudget` to the one `PathStylePaint` walk; an export or minimap render disables caches first and keeps full detail. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-23) |  |
+| PF-CAN-24 | Stacking z is still derived only from ranks, but the derivation may be deferred to the end of the event-loop turn. A provisional z must be strictly increasing and inside the layer band, an item that can re-order existing items (parent bed, children, roof ridge, pre-ranked re-add) keeps the synchronous derivation, and every command flushes pending z before it records history. The provisional cache holds a LAYER-BAND value, never the highest `zValue`: a ground surface's z lives in `GROUND_Z_RANGE`, so a ground-only layer must seed the next add from its band, and a ground surface's provisional value is mapped into the band at once. | standing | [01](pitfalls/01-canvas-geometry.md#pf-can-24) |  |
 | PF-DOM-26 | A species name is matched as a whole name or alias - never as a substring - and the resolver that does it is the one rule the 2D renderer and the 3D plant builder share. | standing | [09](pitfalls/09-domain-solver.md#pf-dom-26) |  |
 | PF-LIF-01 | A teardown that stops a thread must confirm the thread is dead and escalate loudly when it is not; a bounded join that expires and only logs leaves a live thread to crash an unrelated test. | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-01) |  |
 | PF-LIF-02 | A Qt dialog never joins a network worker synchronously in `closeEvent()`; it cancels cooperatively, closes on the worker's terminal signal, and logs worker tracebacks only after scrubbing. | standing | [02](pitfalls/02-lifecycle-threads.md#pf-lif-02) |  |
@@ -213,7 +220,8 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-CI-09 | A version-only `pyproject.toml` edit makes `uv.lock` stale, so the version-sync chore refreshes the lock's project version offline together with both source version declarations. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-09) |  |
 | PF-CI-10 | Release version bump derives from the triggering merge commit SHA (via `scripts/resolve_release_pr.py` with commit pulls lookup, squash subject `(#N)` fallback, and exact label matching), never from `gh pr list --state merged` which sorts by creation date and ignores older-created PRs. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-10) |  |
 | PF-CI-11 | Windows executables, installers, and desktop shortcuts require multi-resolution `.ico` files containing all standard frames (16x16 to 256x256), and `SetCurrentProcessExplicitAppUserModelID` must be called before any GUI or WebEngine subsystem imports; an icon with only 16x16 leaves the Windows taskbar with a generic blank window icon. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-11) |  |
-| PF-CI-12 | A local frozen build must compare the build venv with `pylock.toml` and warn (strictly fail on request) when it holds a distribution the lock no longer pins. Removing a pin does not uninstall the package, and PyInstaller's hooks can collect its files even when the application never imports it. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-12) |  |
+| PF-CI-12 | The required `Dependencies` job audits against a live advisory database, so it can turn `master` red with no code change; answer with a targeted `uv lock --upgrade-package` per named package (never a full upgrade), and let CI waive only the advisories named in the governance test's `WAIVERS` and justified in §11.2. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-12) |  |
+| PF-CI-13 | A local frozen build must compare the build venv with `pylock.toml` and warn (strictly fail on request) when it holds a distribution the lock no longer pins. Removing a pin does not uninstall the package, and PyInstaller's hooks can collect its files even when the application never imports it. | standing | [06](pitfalls/06-ci-release-supply-chain.md#pf-ci-13) |  |
 | PF-TST-01 | A GUI-responsiveness test holds the real worker in flight with an Event and counts heartbeat ticks only while it runs on another thread, so the count cannot depend on compute duration. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-01) |  |
 | PF-TST-02 | A within-day simulation test sets the time of day as well as the date, such as noon via `set_time_of_day`, rather than inheriting the host clock, changing clock semantics or relaxing timeouts. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-02) |  |
 | PF-TST-03 | Every concrete placeable graphics item, `TextItem` included, round-trips through the `ProjectManager` serializer with exact dictionary equality, checked by one matrix over every item class. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-03) |  |
@@ -239,6 +247,8 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-TST-23 | Asking the OS for a free port and closing the socket is not a reservation, so one shared helper retries only the port-in-use failures and re-raises every other `RuntimeError` at once. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-23) |  |
 | PF-TST-24 | A measurement that travels in an attribute is a wall-clock assertion too: the perf-marker guard follows the carrier into the local support modules, scoped to the class that owns it, and a value that is only counted is not a duration. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-24) |  |
 | PF-TST-25 | A deterministic throttle test owns its clock origin and consumes any booked timer before manually invoking its slot. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-25) |  |
+| PF-TST-26 | Font-metric claims are measured on a real font engine; offscreen Qt on Windows draws every glyph as a whole-pixel box. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-26) |  |
+| PF-TST-27 | A probe that builds the app calls script_isolation's isolate_profile() and isolate() first; setDefaultFormat isolates nothing. | standing | [07](pitfalls/07-test-suite-hygiene.md#pf-tst-27) |  |
 | PF-API-01 | A CLI's success output is sanitised like its failure output before a label shows it, removing every ANSI escape, not only SGR, and the box glyphs that survive escape removal. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-01) |  |
 | PF-API-02 | A capability probe is tri-state, and an indeterminate answer never selects the more dangerous option: only a definitive absence of the flag may choose the legacy argv that fails silently. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-02) |  |
 | PF-API-03 | An empty or effectively empty config file is recognised before parsing, under the strict policy too, while one byte of junk still fails closed, because empty and unparseable are different failures. | standing | [08](pitfalls/08-agent-api-security.md#pf-api-03) |  |
@@ -321,6 +331,10 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-UI-27 | A bundled overlay that prioritises the database over the plan silently discards form edits; spin gestures coalesce into the pending command and history refreshes outrank focus guards. | standing | [04](pitfalls/04-ui-panels-dialogs.md#pf-ui-27) |  |
 | PF-UI-28 | A form taller than the screen scrolls in a `QScrollArea`; Save/Cancel stay outside it and the dialog opens at content height capped to the screen. | standing | [04b](pitfalls/04b-ui-forms.md#pf-ui-28) |  |
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](pitfalls/10-3d-engine-scene.md#pf-e3d-10) |  |
+| PF-L3D-06 | A blended custom material must keep the frame's alpha (`sourceAlphaBlend: Zero`, `destinationAlphaBlend: One`): with the colour factors on alpha too, a translucent overlay brightens the view by `a(1 − a)` of the window's white instead of darkening it. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-06) |  |
+| PF-L3D-07 | An unlit overlay passes through the mood's exposure, so a 3D shadow drape multiplies the frame and an overlay colour is divided by the exposure. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-07) |  |
+| PF-L3D-08 | A hidden or blended Model drops out of the shadow map, so a part that must keep casting while it fades or is cut is an opaque screen door (a fragment discard) that collapses in the AO depth pass. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-08) |  |
+| PF-L3D-09 | The 3D drape follows the shared Hours of Sun both ways, also when 3D opens with it on. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-09) |  |
 
 ### Redirect of legacy numbered IDs
 

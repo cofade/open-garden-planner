@@ -16,7 +16,7 @@ from __future__ import annotations
 from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core.object_types import ObjectType
-from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_scene import GROUND_Z_RANGE, CanvasScene
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 
 
@@ -28,6 +28,10 @@ def _make_scene_with_bed_and_plant(qtbot) -> tuple[CanvasScene, PolygonItem, Cir
         object_type=ObjectType.GARDEN_BED,
         layer_id=layer_id,
     )
+    # edged (a height): an in-ground bed without one lies in the ground band under every
+    # plant, and the clamp this file pins would never be what keeps the plant on top
+    # (senior review of the PR #584 manual pass) — the in-ground case has its own test
+    bed.metadata["object_height_cm"] = 20.0
     plant = CircleItem(
         center_x=200,
         center_y=200,
@@ -86,6 +90,7 @@ class TestPlantAboveBedAfterLink:
             object_type=ObjectType.GARDEN_BED,
             layer_id=layer_id,
         )
+        bed.metadata["object_height_cm"] = 20.0  # edged: in the plant's band (see fixture)
         scene.addItem(plant)
         scene.addItem(bed)
         plant.parent_bed_id = bed.item_id
@@ -112,20 +117,31 @@ class TestPlantAboveBedAfterLink:
     def test_unrelated_item_in_same_layer_is_unaffected(self, qtbot) -> None:
         scene, bed, plant = _make_scene_with_bed_and_plant(qtbot)
         layer_id = scene.active_layer.id
-        lawn = RectangleItem(
-            0, 500, 200, 100, object_type=ObjectType.LAWN, layer_id=layer_id
+        # a solid: a lawn now lies under every plant whatever its rank (manual pass of
+        # PR #584, GROUND_Z_RANGE) — the clamp question needs an item in the same band
+        table = RectangleItem(
+            0, 500, 200, 100, object_type=ObjectType.TABLE_RECTANGULAR, layer_id=layer_id
         )
-        scene.addItem(lawn)
+        scene.addItem(table)
 
         scene._update_items_z_order()
 
-        # lawn has no parent/child relationship with bed or plant, so the
+        # the table has no parent/child relationship with bed or plant, so the
         # clamp never touches it -- it keeps its own place in the stack
         # (the last item added, so it lands on top of both).
         assert plant.zValue() > bed.zValue()
-        assert lawn.zValue() > plant.zValue()
+        assert table.zValue() > plant.zValue()
         # And every z-value stays strictly inside the layer's band.
         layer = scene.get_layer_by_id(layer_id)
         assert layer is not None
-        for z in (bed.zValue(), plant.zValue(), lawn.zValue()):
+        for z in (bed.zValue(), plant.zValue(), table.zValue()):
             assert layer.z_order * 100 <= z < layer.z_order * 100 + 100
+
+    def test_a_plant_on_an_in_ground_bed_is_above_it_by_the_ground_band(self, qtbot) -> None:
+        """An in-ground bed without a height is a ground surface (PR #584 manual
+        pass): it lies in the ground band, under its plants whatever the ranks."""
+        scene, bed, plant = _make_scene_with_bed_and_plant(qtbot)
+        del bed.metadata["object_height_cm"]
+        scene._update_items_z_order()
+        assert GROUND_Z_RANGE[0] < bed.zValue() < GROUND_Z_RANGE[1]
+        assert plant.zValue() > bed.zValue()

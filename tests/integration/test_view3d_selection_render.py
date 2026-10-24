@@ -523,11 +523,14 @@ def test_ctrl_and_shift_toggle_and_a_plain_click_replaces_in_the_real_window(ws)
 
 def _diff_ring(run: Run, with_ring: dict[str, Any], without: dict[str, Any]) -> tuple[np.ndarray, float]:
     """Pixels that are ring-coloured in one frame and not in the other (the plan has a
-    pond: blue alone is not the ring)."""
+    pond: blue alone is not the ring) AND changed by more than noise: a shaded shed pixel
+    that read blue 117 in one frame and 118 in the other crossed the mask's threshold and
+    stood 226 px from the ring (GPU, 2026-10-24) — the ring changes a pixel by far more."""
     selected, dpr = _frame(run, with_ring)
     cleared, _ = _frame(run, without)
     assert selected.shape == cleared.shape
-    return mask_pixels(ring_mask(selected) & ~ring_mask(cleared)), dpr
+    changed = np.abs(selected.astype(np.int32) - cleared.astype(np.int32)).sum(axis=-1) > 24
+    return mask_pixels(ring_mask(selected) & ~ring_mask(cleared) & changed), dpr
 
 
 def test_the_ring_of_the_clicked_item_is_in_the_workspaces_frame(run: Run, ws) -> None:

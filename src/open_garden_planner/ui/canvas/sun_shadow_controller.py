@@ -66,7 +66,9 @@ STATE_NO_LOCATION = "no_location"
 STATE_NIGHT = "night"
 STATE_ACTIVE = "active"
 
-# Above the background image (-1000), below every layer item (>= 0).
+# Above the background image (-1000) and the ground surfaces (a lawn, a path, an
+# in-ground bed: ``canvas_scene.GROUND_Z_RANGE``), below every other layer item
+# (>= 0): a shadow lies ON the ground, under what casts it.
 _OVERLAY_Z = -500.0
 
 # Semi-transparent cool grey-blue — reads as shade over any ground color.
@@ -273,6 +275,9 @@ class SunShadowController(QObject):
     """
 
     state_changed = pyqtSignal(str)
+    #: The shadow the overlay paints changed (Phase 17 L2.1, #386): ``drape_polygons()``
+    #: has new polygons. The 3D drape listens — it never computes a shadow itself.
+    shadows_changed = pyqtSignal()
 
     def __init__(
         self,
@@ -296,6 +301,9 @@ class SunShadowController(QObject):
         self._overlay: SunShadowOverlayItem | None = None
         self._state = STATE_DISABLED
         self._last_key: tuple[Any, ...] | None = None
+        #: What the overlay paints, as plain polygons (scene cm): the shadows' union,
+        #: the whole canvas at night, nothing while it shows nothing.
+        self._polygons: tuple[tuple[tuple[float, float], ...], ...] = ()
         #: Effective overlay rebuilds — the #206-style recompute instrument.
         self.recompute_count = 0
         self._debounce = QTimer(self)
@@ -322,6 +330,19 @@ class SunShadowController(QObject):
     def sim_datetime_utc(self) -> datetime:
         """The sim instant in UTC — read from the clock, never a private copy."""
         return self._clock.utc
+
+    def drape_polygons(self) -> tuple[tuple[tuple[float, float], ...], ...]:
+        """The polygons the overlay paints right now (scene cm; even-odd: outers CCW,
+        holes CW) — the union of every caster's shadow, the whole canvas at night,
+        nothing while the overlay shows nothing. NOT yet cut at the canvas: the
+        overlay clips when it paints, and so does the 3D drape that lays these on the
+        ground (Phase 17 L2.1, ``core.scene3d.drape.shadow_drape``)."""
+        return self._polygons
+
+    def _publish(self, polygons: tuple[tuple[tuple[float, float], ...], ...]) -> None:
+        if polygons != self._polygons:
+            self._polygons = polygons
+            self.shadows_changed.emit()
 
     def set_enabled(self, enabled: bool) -> None:
         if enabled == self._enabled:
@@ -407,6 +428,7 @@ class SunShadowController(QObject):
         overlay.setVisible(True)
         self._last_key = key
         self.recompute_count += 1
+        self._publish(tuple(tuple((float(x), float(y)) for x, y in polygon) for polygon in polygons))
         self._set_state(STATE_ACTIVE)
 
     # ── internals ──────────────────────────────────────────────
@@ -452,6 +474,7 @@ class SunShadowController(QObject):
         if overlay is not None and overlay.isVisible():
             overlay.set_shadow_path(QPainterPath())
             overlay.setVisible(False)
+        self._publish(())
 
     def _canvas_rect(self) -> QRectF | None:
         """The garden canvas bounds in scene cm (None for a plain scene)."""
@@ -484,6 +507,9 @@ class SunShadowController(QObject):
         overlay.setVisible(True)
         self._last_key = night_key
         self.recompute_count += 1
+        left, top, right, bottom = (canvas_rect.left(), canvas_rect.top(), canvas_rect.right(),
+                                    canvas_rect.bottom())
+        self._publish((((left, top), (right, top), (right, bottom), (left, bottom)),))
 
     def _set_state(self, state: str) -> None:
         if state != self._state:

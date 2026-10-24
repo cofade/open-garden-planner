@@ -110,6 +110,36 @@ def test_a_layer_reorder_invalidates_a_stale_provisional_z(qtbot) -> None:
     assert second.zValue() > first.zValue()
 
 
+def test_a_ground_surface_takes_its_band_before_the_deferred_refresh(qtbot) -> None:
+    """A bulk add keeps a lawn under the sun overlays and the next item in band.
+
+    The provisional cache holds a value in the LAYER's band, never the highest
+    ``zValue``: a ground surface's z lives in ``GROUND_Z_RANGE`` (negative), so
+    seeding from it would drop the next added item below the background — the
+    merge of the ground band (PR #584) with the batched derivation (#450).
+    """
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.canvas_scene import GROUND_Z_RANGE
+
+    scene = CanvasScene(5000, 3000)
+    layer_id = scene.active_layer.id
+    # A load seeds the cache for every layer before any add.
+    scene._update_items_z_order()
+
+    lawn = RectangleItem(0, 0, 400, 400, object_type=ObjectType.LAWN, layer_id=layer_id)
+    scene.addItem(lawn)
+    low, high = GROUND_Z_RANGE
+    assert low < lawn.zValue() < high, lawn.zValue()
+
+    # A save/load boundary derives the layer, which now holds only ground
+    # surfaces: the next item must not be seeded from the lawn's negative z.
+    scene.flush_z_refresh()
+    solid = RectangleItem(500, 0, 10, 10, layer_id=layer_id)
+    scene.addItem(solid)
+    assert 0.0 <= solid.zValue() < 100.0, solid.zValue()
+    assert solid.zValue() > lawn.zValue()
+
+
 def test_a_large_existing_layer_still_batches_its_adds(qtbot) -> None:
     scene = CanvasScene(5000, 3000)
     items = [RectangleItem(index, 0, 1, 1) for index in range(1000)]

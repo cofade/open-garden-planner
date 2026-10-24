@@ -255,6 +255,12 @@ Three further rules, each gated, each worth understanding before touching this:
   "optimise" the names into a default argument, a module-level tuple or a
   `functools.partial` — `test_rebinding_the_names_redirects_new_stores` will stop
   you, and neither can they retarget an *existing* store (ADR-041).
+  **A script outside pytest gets none of this:** it isolates itself through
+  `scripts/script_isolation.py` (§8.10), a probe in a scratchpad included. A
+  throwaway QApplication name or `QSettings.setDefaultFormat()` redirects nothing:
+  the factory passes the module's names, and `QSettings(organization,
+  application)` always uses the native format. A review probe that relied on them
+  once switched off the owner's Welcome dialog (PF-TST-27).
 - **Prefer building a store at runtime over import time.** A module-level
   `_STORE = create_qsettings()` (or one in a class body, decorator or default
   argument) can be redirected by nothing at all once constructed.
@@ -558,7 +564,10 @@ settings names rebound to a key of the process, cleared at exit; and the stand-i
 climate and thumbnail caches live: Qt asks the shell). That stand-in is ONE function,
 `script_isolation.redirect_qt_locations`: `tests/conftest.py` loads `script_isolation` and
 installs the same one for the suite. Not at import: tests import the fixture generators into
-the pytest process, and a second redirection there would take its test key away.
+the pytest process, and a second redirection there would take its test key away. **A probe
+outside `scripts/`** - in a scratchpad or temp directory, an agent's included - is not read by
+the gate below and calls the helper itself, with the repository's `scripts/` on `sys.path`; one
+that did not switched off the owner's Welcome dialog (PF-TST-27).
 
 **Every script is read, not a list of them kept.** `tests/integration/test_script_isolation.py`
 parses every file under `scripts/`: one that imports the app or builds a Qt application either
@@ -634,6 +643,8 @@ def canvas(qtbot):
     return view
 ```
 
+**The startup Welcome dialog.** The suite silences it for every test, because its `exec()` is modal (PF-TST-11). The session fixture yields the real method, and `tests/integration/test_startup_welcome.py` puts it back for its own tests. Three things are stood in for there: `WelcomeDialog.exec` records instead of blocking (another modal - a Python-level `exec` or a static `QMessageBox` helper - fails the test), the recovery check, and the window's handlers for a picked plan, New and Open. So the startup timer, the settings read, the recent list and the dialog's wiring to the window run as in the product, not the opening of a plan. A spy marks the end of each window's `_startup_sequence`, so no assertion depends on the timer's length (PF-TST-25).
+
 ### Coordinate system reminder
 
 > **Framing note.** The "Y-down / (0,0) top-left" label below is Qt's *abstract*
@@ -662,6 +673,14 @@ def canvas(qtbot):
 ### CI
 
 Integration tests run automatically in CI (`ci.yml`) alongside unit and widget tests. Qt rendering uses `QT_QPA_PLATFORM=offscreen` — no display server required.
+
+**Fonts on the dev box (PF-TST-26).** On Windows the `offscreen` platform has no font database: Qt falls back to a box engine in which every glyph is as wide as the pixel size and every advance is a whole number (Verdana 9 pt "Today": 60 px, really 37 px). A width, a row count or a rounding claim measured there says nothing about real fonts. This is also why the Plan & Sun strip's layout tests fail locally and pass on CI's Linux, which has real fonts (#573). For real font metrics without a window on screen, run with `QT_QPA_PLATFORM=minimal:enable_fonts` (`tests/conftest.py` only sets `offscreen` as a default):
+
+```bash
+QT_QPA_PLATFORM="minimal:enable_fonts" venv/Scripts/python.exe -m pytest tests/integration/test_plan_sun_controls.py -n 0
+```
+
+Fractional advances, which 125 % display scaling and unhinted fonts produce, can be forced in a test at scale 1 with a fractional point size and `QFont.HintingPreference.PreferNoHinting`.
 
 ### Render tier (opt-in, Phase 17)
 
@@ -2006,11 +2025,21 @@ Windows) also runs `pip-audit` over the committed lock export
 group), so a finding is a finding in a shipped artifact, a build tool or a development tool
 that runs in CI; it runs on both platforms because pip-audit evaluates requirement markers
 for the running interpreter (the Windows-only `pywin32` is invisible to a Linux-only scan).
-One advisory is recorded as an explicit exception — the `setuptools` advisory affecting
-unused macOS source-distribution publishing,
-`PYSEC-2026-3447`, which only affects publishing macOS source distributions (justification in
-§11.2); its fix stays reserved for a separately reviewed dependency PR. Any new advisory
-fails the job.
+No advisory is waived; any advisory fails the job.
+
+*Fixed 2026-10-24 (#571, #572).* The job turned `master` red with no code change:
+[GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w) (setuptools
+< 84.1.0, low: a Windows path escape through `namespace_packages.txt` during a legacy wheel
+installation; setuptools is in the build group and in the frozen bundle), and a re-run hours
+later added six `filelock` 4.2.0 advisories (fixed in 4.2.1; dev extra only, through
+`pip-audit` → `cachecontrol[filecache]`). Mitigation: the build group pins setuptools
+**84.1.0** and a targeted `uv lock --upgrade-package setuptools --upgrade-package filelock`
+moved only those two packages (filelock to 4.2.4); the frozen bundle's inventory, SBOM,
+smoke and `--selftest` were re-verified in a local review build on the locked Python 3.11.9
+environment (the PR's `frozen-selftest.yml` run repeats it on CI). 84.1.0 also contains
+the 83.0.0 fix for GHSA-h35f-9h28-mq5c, so the one former waiver, `PYSEC-2026-3447`, ended
+with it (a waiver that matches nothing would hide a widened advisory unreviewed). Lesson:
+PF-CI-12.
 
 **Local use:**
 ```bash
@@ -3977,6 +4006,19 @@ the bands would need a second special-cased offset for one legacy edge case. `_u
 callers — it just now loops every layer (plus the `None` pseudo-layer) and
 calls `_refresh_layer_z` on each, instead of a single flat pass.
 
+**Ground surfaces take the same value moved below the sun study's overlays**
+(manual pass of PR #584). A lawn, path, terrace, driveway, pond or in-ground bed
+with no height of its own (`core.object_height.lies_on_ground`), or a group made
+only of those (`canvas_scene.on_ground`), gets `ground_z(z)` instead of `z`: a strictly increasing map of every real number
+into `GROUND_Z_RANGE = (-990, -510)` (`canvas_scene.py`). So a shadow (`-500`)
+and the hours-of-sun map (`-450`) lie ON the ground surfaces, under everything
+that stands on them, and the ground surfaces keep their order among themselves —
+by layer, then by rank — however many layers there are. Arrange works inside a band (8.25.5): a
+ground surface brought to the front is the front-most GROUND surface of its
+layer, still drawn under the layer's other items (the agent's `stack_index`, "as
+displayed", says so). Before, both overlays sat under every layer item and a
+lawn hid them.
+
 ### 8.25.3 The derive-only clamp
 
 `core.stacking.normalize_order` enforces two structural relationships,
@@ -3986,7 +4028,9 @@ rank:
 - A plant (`_parent_bed_id`) always renders immediately above its parent bed,
   **only when that bed is itself present in the same layer's list** — a bed
   in a different layer is ignored, and the plant sorts as an ordinary
-  top-level entry by its own rank.
+  top-level entry by its own rank. Since the ground band (8.25.2) the list is
+  one BAND of the layer: a plant on an in-ground bed is above it by the band and
+  sorts by its own rank among the layer's other items.
 - A `ROOF_RIDGE` always renders immediately above its owner polygon, under
   the identical same-layer-only condition.
 
@@ -4051,6 +4095,13 @@ in between — since the refresh runs on many paths unrelated to an explicit
 arrange (layer visibility toggle, opacity preview, any command's unrelated
 cleanup). Only the four writers in 8.25.1 ever touch `stack_order`.
 
+**A command can move an item between the bands** — a type change makes a shed a
+lawn, a group of lawns is made or broken. `CanvasScene._restack_ground_changes`
+refreshes each layer holding an item whose band no longer matches `on_ground`, after
+every executed, undone or redone command (`stack_changed`, wired in
+`set_command_manager`). It costs about 1 ms on 500 items and restacks nothing when
+nothing moved between the bands.
+
 Beyond `addItem`'s automatic refresh, an **explicit** refresh is needed
 wherever an item becomes top-level or gets re-linked to a parent without
 going through `addItem`: `GroupCommand.undo`/`UngroupCommand.execute` (members
@@ -4093,6 +4144,19 @@ happened. The four callers:
 4. `GardenPlannerApp._do_agent_arrange_object` — the Agent API's
    `arrange_object` tool (§8.19).
 
+**Arrange works inside a band** (manual pass of PR #584). Ranks order an item
+only among its own band (8.25.2). `CanvasScene._band_entries` is the ONE split of a
+layer into its bands, ground surfaces first: `_normalized_layer_order` (the drawing)
+normalizes each band alone, and `build_arrange_command` arranges each band of a
+layer's selection on the same split — `core.stacking.arrange` over that band's
+entries — and hands the command the layer renumbered ground surfaces first. A
+recorded step is always visible; at the edge of its band an item reports "already at
+front/back". **The rule this rests on:** any reader of a layer's stacking order goes
+through `_normalized_layer_order` or `_band_entries`, never `_stack_entries` over a
+whole layer — the second review round of the manual pass found exactly that
+disagreement (a perennial on an in-ground bed moved under a tree by an unrelated
+arrange).
+
 No caller ever builds `ArrangeItemsCommand` directly, or duplicates
 `build_arrange_command`'s layer-grouping logic. If you find yourself reaching
 for a second implementation, use this seam instead.
@@ -4105,9 +4169,10 @@ Every fixed-z overlay in the app, low to high, alongside the per-layer band
 | Band | z value(s) | What lives there |
 |------|-----------|-------------------|
 | Background image | `-1000` | `BackgroundImageItem` (satellite/reference photo) |
+| **Ground surfaces** | `(-990, -510)` (open interval, `GROUND_Z_RANGE`) | Document items that are `on_ground` (a lawn, path, terrace, driveway, pond or in-ground bed with no height, or a group of only those), their layer z mapped by `ground_z` (8.25.2) — under the two sun overlays |
 | Sun & shade shadow overlay | `-500` | `sun_shadow_controller.py`'s shadow-union overlay (US-E3) |
 | Hours-of-sun heatmap | `-450` (fill), `-449` (contour lines), `-448` (contour labels) | `sun_heatmap.py` overlay (US-E4) |
-| Construction geometry | `-10` | `ConstructionItem` — always below every regular item |
+| Construction geometry | `-10` | `ConstructionItem` — below every regular item except the ground surfaces, which it draws over (before the ground band it hid under a lawn) |
 | **Per-layer document items** | `layer.z_order * 100 + (0, 100)` (open interval) | Every ordinary document item, per-object stacking order within its layer (8.25.2) — this is the band #338 subdivides |
 | Dimension/constraint lines | `900` (line/witness), `901` (label/handle, `DIMENSION_LINE_Z + 1`) | `dimension_lines.py` |
 | Tool overlay highlights | `999` (corner-edit/trim highlight), `1000` (measure-tool line, on-top ellipse), `1003` (constraint-tool selected marker) | `core/tools/*` in-progress-gesture previews |
@@ -6738,6 +6803,110 @@ remain for whoever touches this area:
   artifact, as the Qt 3D import used to.
 
 
+### 8.29.10 Analyze in 3D — the 2D analysis on the ground, sun path, card v1, growth jump, Cutaway (L2)
+
+Decisions: ADR-063 (and its review addendum). Requirements: FR-3D-ANALYZE-01 … 08.
+Lessons: PF-L3D-06, PF-L3D-07, PF-L3D-08.
+
+**The rule: the 2D analysis is the truth, and the 3D view lays it on its ground.** The
+engine's shadow maps stay illustrative (ADR-048, criterion 8's scope note). Nothing
+of L2 computes a shadow or a sun hour a second time:
+
+```
+SunShadowController ──shadows_changed / drape_polygons()──┐
+SunHeatmapController ──computed(SunHoursMap) / result() / exposure_changed──┤
+LiveSunMap ──enabled_changed / set_enabled / is_current()──┤
+SimClock ──instant_changed / date_changed─────────────────┤
+                                                          ▼
+                      ui/view3d/analysis_controller.py  (engine-free; one per engine)
+                        core/scene3d/drape.py      shadow_drape · sun_hours_drape
+                        core/scene3d/sun_path.py   day_arc · dome_point · compass_mesh · probe_pin_mesh
+                        core/scene3d/xray.py       xray_scene · occluders (pick_oracle.cast_segment)
+                                                          │ engine_buffers (the one frame mapping)
+                                                          ▼
+                      Quick3DHost.set_overlay("shade" | "drape" | "lines") · set_roofs_hidden · set_faded_items
+                                                          │
+                      Garden.qml: shadeOverlay (multiplies) · drapeOverlay · linesOverlay
+                                  (one Model each, for the scene's life)
+                                  every part Model: fade → a screen door (screen.frag)
+                                  roof parts: cut → a screen door with nothing left; walls: no culling
+```
+
+**Modules.**
+
+| Module | Role |
+|---|---|
+| `core/scene3d/drape.py` | The shadow drape (the overlay's polygons cut at the plan, triangulated; a 5 cm raster for a region the triangulator refuses) and the hours-of-sun drape (one vertex per cell centre plus a clamped edge, the canvas's ramp in linear light, block-averaged beyond 262,144 vertices). Scene frame, 1.5 cm above the ground. |
+| `core/scene3d/sun_path.py` | One LOCAL day of the sun per arc (the clock's zone), cut at the horizon, solar noon found and inserted; `dome_point` — the one mapping to the dome; tubes, hour beads, the sun ball; the compass rose (ring, ticks, north arrow, letters from outlines); the probe pin. |
+| `core/scene3d/xray.py` | `ROOF_KIND`; the items a segment from the eye to nine points of each selected item's box passes through (box-culled, the pick oracle's triangle test) — a flat item's points lie on its posed footprint (`flat_targets`); roof parts are no occluders (Cutaway cuts them). |
+| `core/shade_aggregation.py` | `SunHoursMap` (a shown map as plain data: `minutes_at`, `minutes_through`), and per-sample shade masks kept with every run (packed bits, up to 64 MB). |
+| `ui/view3d/analysis_controller.py` | The drape mode, the sun path, the probe, the day sweep, Cutaway — paused while the pane is hidden, failures contained. |
+| `ui/view3d/analysis_modes.py` | `DrapeMode`, `JUMP_YEARS` — importable at start-up without an engine module (gate G1). |
+| `ui/view3d/growth_jump.py` | +N years on the ONE clock, "Back", and the two pictures of a before/after. |
+| `ui/view3d/wipe.py` | The before/after, in the view's place in the pane. |
+| `ui/view3d/compass_glyphs.py` | The four translated cardinal letters as outlines from the application font. |
+
+**What each piece holds to.**
+
+- *Overlays* are re-loaded into the ONE geometry of their Model (`ReloadableGeometry`,
+  as the selection ring since L1.8): a drape, a sun step or a probe creates and
+  destroys no Model and no texture (#531, #532). They are not items: the sink's
+  `clear()` leaves them; the controller re-sends them when the pane shows again.
+- *The overlays' blends.* The 2D shadows MULTIPLY the frame (the `"shade"` layer,
+  `DstColor` / `Zero`, a linear multiplier): a shadow darkens in every mood (PF-L3D-07).
+  The hours-of-sun map blends over; a blended custom material keeps the frame's alpha —
+  `sourceAlphaBlend: Zero`, `destinationAlphaBlend: One` — or the view's texture lets
+  the window's white through (PF-L3D-06). Every overlay but the shade divides its colour
+  by the exposure (`overlay.frag`), and the arcs are built in pre-compensated colours
+  (`ARC_ENGINE_RGBA`; the legend shows `ARC_RGBA`).
+- *A faded or cut part is a screen door* (`screen.frag`; `foliage_door.frag`,
+  `water_door.frag` — copies of the look shaders with the discard): an ordered dither
+  discards all but its share of the pixels, so it stays opaque, keeps casting its shadow
+  and needs no sorting, and it collapses in the depth pass ambient occlusion reads
+  (`#if QSSG_ENABLE_DEPTH_PASS`), which does not run the discard (PF-L3D-08). No part
+  blends or hides for X-ray or Cutaway; the look materials stay master's while nothing
+  fades.
+- *The drape is lifted 1.5 cm* (the meadow lies at −1, the tiles at 0): clear of the
+  ground's depth from every distance the orbit camera frames a garden at, and below
+  everything that stands on the ground.
+- *The sweep's map* is the shown map's own samples taken by their local time of day
+  (`SunHoursMap.sample_minutes_of_day`), summed incrementally as the sweep passes them
+  — the map samples a UTC civil day; at sunset it is the whole map in every zone.
+- *The probe* meets the drape's plane where the view ray through the click does
+  (`pick_oracle.perspective_ray`, the camera the view is shown from — the walker's in
+  walk mode); it reads `SunHoursMap.minutes_at` and `band_of` — only while the shared
+  Hours of Sun says the map is current (`is_current()`; a dated preview of a changed
+  plan reads `"updating"`, ADR-056). It needs no frame of
+  its own: it rides the click's one pick (`OrbitInput.ground_clicked`).
+- *X-ray* runs `XRAY_DELAY_MS` (150) after the camera, the selection or the records
+  last changed, over the meshes the sink holds (`Workspace._held_parts`, shared with
+  walk mode's world). A faded part is not pickable.
+- *The hours-of-sun state has one owner*, `LiveSunMap`: the 3D drape follows its
+  `enabled_changed` (off → "Nothing on the Ground", the menu follows) and choosing the
+  drape switches it on.
+- *The sweep gives the time back on every exit* — the end of the day, a stop, the
+  engine going, a date change (a turn later: the clock refuses a write from its own
+  notification) — except when the user set a time during it: theirs stays.
+- *Growth jump*: the before-picture in `jump`, the after-picture in the first
+  `applied` pass whose `Scene3DController.pass_date` is the new date — two frames per
+  jump, the only frames besides the click's pick (the frame-taker scan in
+  `test_view3d_workspace_widget.py` names both).
+- *The strip's control row wraps* (`workspace._WrapRow`): it asks for its widest
+  control, not the sum, so the Analyze button fits beside "Reset 3D View" and "Walk"
+  in a 455 px Split pane in every language.
+
+**Testing (§8.10).** The default tier holds the cores (`test_scene3d_drape.py`,
+`test_scene3d_sun_path.py`, `test_scene3d_xray.py`, `test_plant_card_facts.py`), the QML
+scene without a GPU (`tests/ui/test_view3d_analysis_host.py`) and the workflow with the
+REAL 2D analysis beside the workspace and a stand-in engine
+(`tests/integration/test_view3d_analysis.py`: each drape is compared with the 2D side's
+own polygons and map, byte for byte for the hours of sun). The render tier
+(`test_view3d_analysis_render.py`, opt-in) holds what only pixels show: the drape
+darkens, row 0 is south, north is up, fades let the ground through, the roof goes.
+The frozen `--selftest` draws a drape patch and a lines patch: both overlay shaders are
+compiled from the bundle and judged by colour. The Beauty Board renders each shot with
+the drapes, the sun path and Cutaway (`scripts/render_beauty_board.py --analysis`).
+
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 
 `core/item_look.py` owns `LineLook`, `capture_line_look`, `apply_line_look`,
@@ -6848,8 +7017,12 @@ lengths compact only when the flow's measured groups need it to fit two rows;
 group geometry is refreshed before measuring, including on wider platform fonts.
 Each row is measured before placement so all group layouts share the row's height
 and centre their controls vertically. Date/time fields use the same themed sizing.
-Past/Future gives context without repeating the date; the Today action itself
-indicates today, so there is no second Today label. Map status consumes space only
+The Today button says Past or Future in its own place while the plan date is
+elsewhere, at one width for all three texts (`_TodayButton.sizeHint`, each text
+measured as `QToolButton` measures it), so no control after it moves while the date
+does; a click goes back to today (ADR-062 addendum "Past/Future in the Today
+button": a separate label pushed the month slider under the dragging pointer). To keep
+the strip within two rows the sliders shrink, but no narrower than 70 px (`_MIN_SLIDER_WIDTH`). Map status consumes space only
 while needed: a completed current map shares the calendar's date, an updating map
 for that date says Updating, and an older preview retains its actual date. The
 hidden-plants menu follows the visible map controls without an empty reserved slot.

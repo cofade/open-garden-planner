@@ -517,12 +517,18 @@ def _silence_welcome_dialog():
     `qtbot.wait` even though both a conftest and a module fixture had written
     False beforehand); patching the method is airtight regardless of what the
     store says. `_disable_welcome_dialog` below still keeps the store honest.
+
+    It yields the real method: `tests/integration/test_startup_welcome.py` puts it
+    back for its tests, so the startup path itself is pinned (owner report on PR #584 -
+    with every test silenced, nothing would notice the dialog going missing).
     """
     from open_garden_planner.app.application import GardenPlannerApp
 
     original = GardenPlannerApp._show_welcome_dialog
+    # what is handed on must be the product's method, not an earlier patch of it
+    assert original.__qualname__ == "GardenPlannerApp._show_welcome_dialog", original
     GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
-    yield
+    yield original
     GardenPlannerApp._show_welcome_dialog = original  # type: ignore[method-assign]
 
 

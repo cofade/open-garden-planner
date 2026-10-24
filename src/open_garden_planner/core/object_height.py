@@ -113,6 +113,16 @@ _SOIL_PARENT_TYPE_NAMES = frozenset(
     {"GARDEN_BED", "RAISED_BED", "CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"}
 )
 
+#: The garden's surfaces: with no height of their own they ARE the ground the 2D sun
+#: study's shadows and hours of sun lie on (``lies_on_ground``). Not here: an object
+#: that stands up but has no height in the plan (a cold frame, a rain barrel, a
+#: parasol: it would sink under every solid, with no Height field to lift it back —
+#: senior review of the owner's manual pass), a generic shape (often a zone or a
+#: highlight placed by layer: an owner question), and annotations.
+GROUND_SURFACE_TYPE_NAMES = frozenset(
+    {"LAWN", "PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "GARDEN_BED"}
+)
+
 #: The soil of a BED lies this far below its rim. A modelling ASSUMPTION, not a
 #: datum of the plan: a bed has a height (its rim) and nothing says how full it
 #: is. ONE constant for the 3D bed meshes, the height a plant stands at and the
@@ -144,6 +154,8 @@ SOURCE_CURRENT = "current"
 SOURCE_SPECIES = "species"
 SOURCE_DEFAULT = "default"
 SOURCE_NONE = "none"
+#: ``height_source_at`` only: the height was GROWN for the date (``growth_model``).
+SOURCE_GROWN = "grown"
 
 
 def _type_name(object_type: Any) -> str:
@@ -335,11 +347,42 @@ def height_source(object_type: Any, metadata: dict[str, Any] | None) -> str:
     return SOURCE_NONE
 
 
+def height_source_at(object_type: Any, metadata: dict[str, Any] | None,
+                     at_date: date | None) -> str:
+    """``height_source`` for the height ``effective_height_cm(..., at_date)`` gives:
+    the same precedence, with ``SOURCE_GROWN`` where that height is a plant's
+    date-projected growth (Phase 17 L2.3, the 3D info card's "height with its
+    source"). Without a date it IS ``height_source``."""
+    if explicit_height_cm(metadata) is not None:
+        return SOURCE_CUSTOM
+    name = _type_name(object_type)
+    if name in _CONTAINER_TYPE_NAMES:
+        return SOURCE_CONTAINER
+    species_dict = (metadata or {}).get("plant_species")
+    if (at_date is not None and isinstance(species_dict, dict)
+            and grown_height_cm(species_dict, metadata, at_date, name) is not None):
+        return SOURCE_GROWN
+    return height_source(object_type, metadata)
+
+
 # Open structures (Package 3a, #308): no DEFAULT height — the shadow model
 # extrudes a solid footprint and these are mostly air — but the Height field
 # is offered so a user can opt a specific swing/pergola/hammock into the sun
 # study by hand. Without a default or an explicit value they cast nothing.
 _HEIGHT_FIELD_TYPES: frozenset[str] = frozenset({"SWING", "PERGOLA", "HAMMOCK"})
+
+
+def lies_on_ground(object_type: Any, metadata: dict[str, Any] | None) -> bool:
+    """Is this object a surface of the ground — a lawn, a path, a terrace, a driveway,
+    a pond or an in-ground bed (``GROUND_SURFACE_TYPE_NAMES``) with no height of its own?
+
+    The 2D canvas draws such a surface UNDER the sun study's overlays, so a shadow and
+    the hours-of-sun map lie on it as they lie on the ground (manual pass of PR #584;
+    ``ui/canvas/canvas_scene.GROUND_Z_RANGE``). A height — only stored metadata can
+    give these types one — makes it a solid that stands on the ground instead.
+    """
+    return (_type_name(object_type) in GROUND_SURFACE_TYPE_NAMES
+            and effective_height_cm(object_type, metadata) is None)
 
 
 def has_height_semantics(object_type: Any, metadata: dict[str, Any] | None) -> bool:

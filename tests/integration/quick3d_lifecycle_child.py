@@ -96,6 +96,10 @@ def _register_calls() -> None:
         "install_event_filter": lambda host, _part: host.install_event_filter(_input_watcher()),
         "release_cached_resources": lambda host, _part: host.release_cached_resources(),
         "set_selection_ring": lambda host, _part: host.set_selection_ring(None),
+        # the analysis overlays, Cutaway and X-ray (L2, #386)
+        "set_overlay": lambda host, _part: host.set_overlay("drape", None),
+        "set_roofs_hidden": lambda host, _part: host.set_roofs_hidden(True),
+        "set_faded_items": lambda host, _part: host.set_faded_items(frozenset()),
         "focus": lambda host, _part: host.focus(),
         "has_focus": lambda host, _part: host.has_focus(),
         # the three releases: legal on a closed host, and they do nothing there

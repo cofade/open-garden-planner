@@ -63,6 +63,7 @@ from open_garden_planner.core.shade_aggregation import (
     HeatmapGrid,
     IdentifiedCaster,
     SunExposureResult,
+    SunHoursMap,
     SunReceiver,
     compute_sun_exposure,
     daylight_samples,
@@ -71,9 +72,10 @@ from open_garden_planner.core.shadow_geometry import Polygon
 
 from .sun_exposure_snapshot import ExposureSnapshot, collect_exposure_snapshot
 
-#: Above the background image (−1000) and the shadow overlay (−500), below
-#: every layer item (≥ 0). Contour lines and their hour labels sit just above
-#: the fill, still behind user content.
+#: Above the background image (−1000), the ground surfaces (a lawn, a path, an
+#: in-ground bed: ``canvas_scene.GROUND_Z_RANGE``) and the shadow overlay (−500),
+#: below every other layer item (≥ 0): the map lies ON the ground. Contour lines and
+#: their hour labels sit just above the fill, still behind what stands on it.
 _HEATMAP_Z = -450.0
 _CONTOUR_Z = -449.0
 _LABEL_Z = -448.0
@@ -223,6 +225,10 @@ class SunHeatmapController(QObject):
     #: bool = success (False: cancelled / no location)
     finished = pyqtSignal(bool)
     exposure_changed = pyqtSignal()
+    #: The map the canvas shows changed (Phase 17 L2.1, #386): a ``SunHoursMap`` when
+    #: a computed map was published, None when the shown map went away (``clear``).
+    #: The 3D drape listens here; ``result()`` answers the same question at any time.
+    computed = pyqtSignal(object)
 
     def __init__(
         self,
@@ -256,6 +262,8 @@ class SunHeatmapController(QObject):
         self._contour_items: list[QGraphicsItem] = []
         #: Full daylight duration (min) of the last launched day — ramp scale.
         self._daylight_minutes: float = 0.0
+        #: The map the overlay shows, as plain data (``result()``); None: none shown.
+        self._shown: SunHoursMap | None = None
 
     # ── public API ─────────────────────────────────────────────
 
@@ -278,6 +286,13 @@ class SunHeatmapController(QObject):
     @property
     def computed_day(self) -> date | None:
         return self._computed_day
+
+    def result(self) -> SunHoursMap | None:
+        """The map the canvas shows, as plain data — None while none is shown (Phase 17
+        L2.1, #386). The SAME map: a stale one that ``invalidate_exposure`` leaves on
+        screen as a preview is still the result until it is cleared or replaced; the
+        3D drape lays exactly this on the ground, and the 3D probe reads its cells."""
+        return self._shown
 
     def heatmap_visible(self) -> bool:
         overlay = self._alive_overlay()
@@ -366,6 +381,9 @@ class SunHeatmapController(QObject):
             overlay.setVisible(False)
         self._clear_contours()
         self.exposure_changed.emit()
+        if self._shown is not None:
+            self._shown = None
+            self.computed.emit(None)
 
     def set_exposure_hint(self, text: str) -> None:
         overlay = self._alive_overlay()
@@ -433,6 +451,12 @@ class SunHeatmapController(QObject):
         self.displayed_snapshot = self.snapshot
         self.exposure_reason = "ready"
         self.exposure_changed.emit()
+        full = result if isinstance(result, SunExposureResult) else None
+        self._shown = SunHoursMap(
+            self._computed_day, grid, minutes, self._daylight_minutes, SAMPLE_STEP_MINUTES,
+            full.samples if full is not None else (),
+            full.sample_shade if full is not None else None)
+        self.computed.emit(self._shown)
 
     def _on_worker_finished(self) -> None:  # GUI thread
         worker = self._worker
@@ -494,7 +518,8 @@ class SunHeatmapController(QObject):
 
         Runtime-only ``QGraphicsPathItem`` / ``QGraphicsSimpleTextItem`` — not
         ``GardenItemMixin``, so ``project._serialize_item_core`` drops them, and
-        their negative z keeps them behind user content.
+        their negative z keeps them behind what stands on the ground (above the
+        ground surfaces, ``canvas_scene.GROUND_Z_RANGE``).
         """
         self._clear_contours()
         # Contour on a softened copy so the hour lines are smooth curves, not

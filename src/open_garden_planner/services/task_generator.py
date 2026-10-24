@@ -27,6 +27,7 @@ Urgency is *not* stored on a :class:`Task`; it is recomputed at render time via
 from __future__ import annotations
 
 import datetime
+import functools
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -214,6 +215,26 @@ def make_calendar_task_id(species_key: str, task_type: str, year: int) -> str:
 
 # ── Generators ───────────────────────────────────────────────────────────────
 
+def calendar_windows(
+    offset_of: Callable[[str], float | None], last_frost: datetime.date,
+) -> list[tuple[str, datetime.date, datetime.date]]:
+    """``(task_type, start, end)`` of every calendar window a species defines, for one
+    last-frost date — THE frost-relative window arithmetic (``generate_calendar_tasks``
+    and the 3D info card's sowing/harvest windows, Phase 17 L2.3, both call it).
+
+    ``offset_of(field)`` answers a species' week offset (``indoor_sow_start`` …,
+    ``harvest_end``; ``_CALENDAR_TASK_DEFS``) or None; a window needs both ends.
+    """
+    windows: list[tuple[str, datetime.date, datetime.date]] = []
+    for task_type, start_attr, end_attr in _CALENDAR_TASK_DEFS:
+        start_weeks, end_weeks = offset_of(start_attr), offset_of(end_attr)
+        if start_weeks is None or end_weeks is None:
+            continue
+        windows.append((task_type, last_frost + datetime.timedelta(weeks=start_weeks),
+                        last_frost + datetime.timedelta(weeks=end_weeks)))
+    return windows
+
+
 def generate_calendar_tasks(state: PlanState) -> list[Task]:
     """Calendar tasks from species week-offsets + the last-frost date."""
     if state.last_frost is None:
@@ -225,13 +246,8 @@ def generate_calendar_tasks(state: PlanState) -> list[Task]:
         removed = removals[row.species_key]
         if state.actionable_only and removed is not None and state.today >= removed:
             continue
-        for task_type, start_attr, end_attr in _CALENDAR_TASK_DEFS:
-            start_weeks = getattr(row, start_attr)
-            end_weeks = getattr(row, end_attr)
-            if start_weeks is None or end_weeks is None:
-                continue
-            start = last_frost + datetime.timedelta(weeks=start_weeks)
-            end = last_frost + datetime.timedelta(weeks=end_weeks)
+        for task_type, start, end in calendar_windows(
+                functools.partial(getattr, row), last_frost):
             if removed is not None:
                 if start >= removed:
                     continue

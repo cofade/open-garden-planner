@@ -611,8 +611,13 @@
   },
   "386": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L2 \"Analyze in 3D\": shadow and sun-hours drapes, sun path, info card, growth jump, cutaway (Phase 17)"
+  },
+  "387": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L3 \"Plant Forge\": procedural species models from the sprite recipes (Phase 17)"
   },
   "392": {
     "is_pr": false,
@@ -1009,6 +1014,11 @@
     "state": "CLOSED",
     "title": "Seven Properties-panel edits (grid, soil depth, container material/drainage/height, soil volume) are not undoable and do not mark the plan modified"
   },
+  "531": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: about 15-20 kB per destroyed Qt Quick 3D Model is never returned (date playback churns Models)"
+  },
   "532": {
     "is_pr": false,
     "state": "OPEN",
@@ -1133,5 +1143,30 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Preferences dialog compresses controls below their minimum height on short screens"
+  },
+  "571": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "CI: required Dependencies checks fail on master (setuptools GHSA-xmj3-9gf7-h52w, filelock 4.2.0)"
+  },
+  "572": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Remove the stale pip-audit waiver PYSEC-2026-3447 (setuptools is past 83.0.0)"
+  },
+  "573": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
+  },
+  "575": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
+  },
+  "584": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
   }
 }

@@ -44,6 +44,7 @@ Cover the following dimensions; only report findings, not the dimensions themsel
 
 - Use Bash for `git log`, `git diff`, `git show`, `git grep`, `gh pr view`, `gh pr diff`, file inspection.
 - Re-run the relevant test suites if you genuinely doubt a green claim. Doc-only changes get a smaller test footprint; behaviour changes need their tests run (`venv/Scripts/python.exe -m pytest tests/ -v`).
+- A probe script that builds the real app (`GardenPlannerApp`, `AppSettings`, a `ProjectManager`) isolates itself first with `scripts/script_isolation.py`: `isolate_profile()` before the first app import, `isolate()` before building anything, `scripts/` on `sys.path` (section 8.10). A throwaway QApplication name or `QSettings.setDefaultFormat()` isolates nothing, and the script then writes the owner's real settings (PF-TST-27: a review probe switched off the owner's Welcome dialog).
 - Read on specific files. You do not need to read every file — pick the ones at risk based on the diff. But always read enough that your P0/P1 claims are anchored to the actual current state, not to a guess.
 - For PRs: prefer the local diff if the branch is checked out; fall back to `gh pr diff` only when you don't have local access.
 
