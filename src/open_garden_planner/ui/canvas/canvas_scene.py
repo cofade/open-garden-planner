@@ -32,10 +32,40 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core import stacking
+from open_garden_planner.core.object_height import lies_on_ground
 from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.core.plan_timeline import plant_present
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.models.layer import Layer, create_default_layers
+
+#: The z band of the ground surfaces (``object_height.lies_on_ground``: a lawn, a
+#: path, a terrace, an in-ground bed with no height): above the background image
+#: (-1000), below the sun study's shadow overlay (-500) and hours-of-sun map (-450),
+#: so a shadow and the map lie ON them as on the ground. Every other layer item keeps
+#: its layer's band ``[z_order * 100, z_order * 100 + 100)`` above the overlays. Until
+#: the manual pass of PR #584 a lawn sat in its layer's band and hid both overlays.
+GROUND_Z_RANGE: tuple[float, float] = (-990.0, -510.0)
+
+
+def ground_z(layer_z: float) -> float:
+    """A layer-band z moved into ``GROUND_Z_RANGE``, its order kept: strictly
+    increasing, so ground surfaces stay stacked among themselves as their layers and
+    ranks say — across any number of layers (the map is bounded for every input)."""
+    low, high = GROUND_Z_RANGE
+    middle, half = (low + high) / 2.0, (high - low) / 2.0
+    return middle + half * layer_z / (abs(layer_z) + 1000.0)
+
+
+def on_ground(item: QGraphicsItem) -> bool:
+    """Whether ``item`` is drawn in ``GROUND_Z_RANGE``: a ground surface
+    (``object_height.lies_on_ground``), or a group whose every member is one — a
+    group is drawn in ONE slot, so a grouped lawn left in its layer's band hid the
+    sun overlays and lay over a path ranked above the group (review of the owner's
+    manual pass). A group that mixes surfaces and solids stays in its layer's band."""
+    if isinstance(item, QGraphicsItemGroup):
+        members = [child for child in item.childItems() if stacking.supports_stacking(child)]
+        return bool(members) and all(on_ground(child) for child in members)
+    return lies_on_ground(getattr(item, "object_type", None), getattr(item, "metadata", None))
 
 
 @dataclass
@@ -542,9 +572,12 @@ class CanvasScene(QGraphicsScene):
             return
         if previous is not None:
             with contextlib.suppress(RuntimeError, TypeError):
+                previous.stack_changed.disconnect(self._restack_ground_changes)
+            with contextlib.suppress(RuntimeError, TypeError):
                 previous.stack_changed.disconnect(self.note_plan_changed)
         self._command_manager = command_manager
         if command_manager is not None:
+            command_manager.stack_changed.connect(self._restack_ground_changes)
             command_manager.stack_changed.connect(self.note_plan_changed)
 
     @property
@@ -994,7 +1027,10 @@ class CanvasScene(QGraphicsScene):
         (for the z-value refresh) and
         ``ui.canvas.arrange.build_arrange_command`` (which feeds it straight
         to :func:`core.stacking.arrange`). There must be exactly one way to
-        build entries.
+        build entries — and both callers build them per BAND
+        (:meth:`_band_entries`): a reader of a layer's stacking order goes through
+        :meth:`_normalized_layer_order` or :meth:`_band_entries`, never through
+        this method on a whole layer (that disagreed with the drawing, PR #584).
 
         *candidates*: the layer's top-level items, already computed via
         :meth:`_layer_top_level_items`. Pass it in when the caller already
@@ -1040,23 +1076,46 @@ class CanvasScene(QGraphicsScene):
             )
         return entries
 
+    def _band_entries(
+        self,
+        layer_id: UUID | None,
+        candidates: list[QGraphicsItem] | None = None,
+    ) -> list[tuple[list[QGraphicsItem], list[stacking.StackEntry]]]:
+        """One layer's two bands, ground surfaces first (``on_ground``): each band's
+        top-level items in raw rank order and their raw ``StackEntry`` list.
+
+        The ONE split both orders are built from — the drawing
+        (:meth:`_normalized_layer_order`) and arrange
+        (``ui/canvas/arrange.build_arrange_command``) — so the two cannot disagree:
+        a ground surface is drawn under every other item whatever its rank, so a rank
+        orders an item only among its own band, and the derive-only clamp acts inside
+        a band (a plant on an in-ground bed is above it by the band; review round 2 of
+        the owner's manual pass found arrange and drawing apart exactly there).
+        """
+        if candidates is None:
+            candidates = self._layer_top_level_items(layer_id)
+        bands = []
+        for ground in (True, False):
+            members = [item for item in candidates if on_ground(item) is ground]
+            bands.append((members, self._stack_entries(layer_id, members)))
+        return bands
+
     def _normalized_layer_order(self, layer_id: UUID | None) -> list[QGraphicsItem]:
         """Bottom-to-top order for one layer's top-level items (issue #338).
 
-        Builds this layer's raw rank-ordered :class:`~core.stacking.StackEntry`
-        list via :meth:`_stack_entries`, passes it through
+        For each band of :meth:`_band_entries` — the ground surfaces first — passes
+        the raw rank-ordered :class:`~core.stacking.StackEntry` list through
         :func:`core.stacking.normalize_order` (which moves every plant to
         immediately above its parent bed and every ROOF_RIDGE to immediately
-        above its owner polygon, only when that parent is itself in this same
-        layer — the derive-only clamp), then maps the normalized entries back
-        to live items.
+        above its owner polygon, only when that parent is in the same band of
+        this same layer — the derive-only clamp), then maps the normalized
+        entries back to live items.
         """
-        candidates = self._layer_top_level_items(layer_id)
-        items_by_id = {self._stack_identity(item): item for item in candidates}
-        normalized = stacking.normalize_order(
-            self._stack_entries(layer_id, candidates)
-        )
-        return [items_by_id[entry.item_id] for entry in normalized]
+        order: list[QGraphicsItem] = []
+        for members, entries in self._band_entries(layer_id):
+            items_by_id = {self._stack_identity(item): item for item in members}
+            order.extend(items_by_id[entry.item_id] for entry in stacking.normalize_order(entries))
+        return order
 
     def _refresh_layer_z(self, layer_id: UUID | None) -> None:
         """Set every top-level item in *layer_id* to a derived z-value,
@@ -1066,6 +1125,10 @@ class CanvasScene(QGraphicsScene):
         ``layer_id=None`` is the pseudo-layer of items without a layer; its
         band is base 0 (where such items always rendered). An id that no
         longer resolves to a layer is left untouched.
+
+        A ground surface (``on_ground``) takes that value moved into
+        ``GROUND_Z_RANGE`` (``ground_z``): under the sun study's overlays, in
+        the same order among the ground surfaces of every layer.
         """
         if layer_id is None:
             base = 0
@@ -1079,11 +1142,30 @@ class CanvasScene(QGraphicsScene):
         if n == 0:
             return
         for i, item in enumerate(order):
-            item.setZValue(base + 100 * (i + 1) / (n + 1))
+            z = base + 100 * (i + 1) / (n + 1)
+            item.setZValue(ground_z(z) if on_ground(item) else z)
 
     def _update_items_z_order(self) -> None:
         """Refresh the derived z-value of every item in every layer."""
         for layer_id in self._stacking_layer_ids():
+            self._refresh_layer_z(layer_id)
+
+    def _restack_ground_changes(self) -> None:
+        """A command may have made an item a ground surface or a solid (a type
+        changed, a group made or broken, a height set): restack each layer whose
+        items' bands no longer say what they are. Runs after every executed, undone
+        or redone command (``set_command_manager``) — every writer of a type, a group
+        or a height in the app commits through one; O(items), about 1 ms on 500
+        items, and it restacks nothing when nothing moved between the bands."""
+        low, high = GROUND_Z_RANGE
+        stale = {
+            getattr(item, "layer_id", None)
+            for item in self.items()
+            if item.parentItem() is None
+            and stacking.supports_stacking(item)
+            and (low < item.zValue() < high) != on_ground(item)
+        }
+        for layer_id in stale:
             self._refresh_layer_z(layer_id)
 
     def get_layer_by_id(self, layer_id: UUID) -> Layer | None:

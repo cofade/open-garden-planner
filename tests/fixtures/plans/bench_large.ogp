@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-10T22:26:52.937903+00:00"
+    "modified": "2026-10-24T10:34:03.986431+00:00"
   },
   "canvas": {
     "width": 5000.0,
@@ -48,6 +48,462 @@
       "fill_pattern": "GRASS",
       "stroke_style": "SOLID",
       "stack_order": 1024
+    },
+    {
+      "type": "polyline",
+      "item_id": "a114c1ad-0b0e-4ac7-ae1c-5b1a1e86aaf5",
+      "points": [
+        {
+          "x": 360.0,
+          "y": 240.0
+        },
+        {
+          "x": 1000.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 19456
+    },
+    {
+      "type": "polyline",
+      "item_id": "3f262a2e-2931-4322-af79-bc1bd1087ab7",
+      "points": [
+        {
+          "x": 1060.0,
+          "y": 240.0
+        },
+        {
+          "x": 1700.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 31744
+    },
+    {
+      "type": "polyline",
+      "item_id": "bd2b1af3-0104-42a9-b46e-2c7644761eef",
+      "points": [
+        {
+          "x": 1760.0,
+          "y": 240.0
+        },
+        {
+          "x": 2400.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 44032
+    },
+    {
+      "type": "polyline",
+      "item_id": "7d743377-3ea5-43f2-abad-58c21f6aaca4",
+      "points": [
+        {
+          "x": 2460.0,
+          "y": 240.0
+        },
+        {
+          "x": 3100.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 56320
+    },
+    {
+      "type": "polyline",
+      "item_id": "8b49750b-9b30-460b-b0fa-10100dc61af4",
+      "points": [
+        {
+          "x": 3160.0,
+          "y": 240.0
+        },
+        {
+          "x": 3800.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 68608
+    },
+    {
+      "type": "polyline",
+      "item_id": "62cd9f47-5ac3-46b9-862d-3dca9077acad",
+      "points": [
+        {
+          "x": 3860.0,
+          "y": 240.0
+        },
+        {
+          "x": 4500.0,
+          "y": 240.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 80896
+    },
+    {
+      "type": "polyline",
+      "item_id": "68f20553-1786-4b41-ab9c-cab67838219b",
+      "points": [
+        {
+          "x": 360.0,
+          "y": 690.0
+        },
+        {
+          "x": 1000.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 93184
+    },
+    {
+      "type": "polyline",
+      "item_id": "42da30af-309c-4020-a206-868d813f0a25",
+      "points": [
+        {
+          "x": 1060.0,
+          "y": 690.0
+        },
+        {
+          "x": 1700.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 105472
+    },
+    {
+      "type": "polyline",
+      "item_id": "19a73daf-5998-425a-b29e-d8ff3afcf11b",
+      "points": [
+        {
+          "x": 1760.0,
+          "y": 690.0
+        },
+        {
+          "x": 2400.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 117760
+    },
+    {
+      "type": "polyline",
+      "item_id": "7367e46d-801e-41d0-9b56-37835dfa0e6f",
+      "points": [
+        {
+          "x": 2460.0,
+          "y": 690.0
+        },
+        {
+          "x": 3100.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 130048
+    },
+    {
+      "type": "polyline",
+      "item_id": "4c194e42-bf53-46d8-95af-40ce73e7cd12",
+      "points": [
+        {
+          "x": 3160.0,
+          "y": 690.0
+        },
+        {
+          "x": 3800.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 142336
+    },
+    {
+      "type": "polyline",
+      "item_id": "30916067-45d3-4af2-bea5-ea09e25b0751",
+      "points": [
+        {
+          "x": 3860.0,
+          "y": 690.0
+        },
+        {
+          "x": 4500.0,
+          "y": 690.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 154624
+    },
+    {
+      "type": "polyline",
+      "item_id": "ce62f3d1-bfb1-4da0-9fb7-100fee06c1f5",
+      "points": [
+        {
+          "x": 360.0,
+          "y": 1140.0
+        },
+        {
+          "x": 1000.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 166912
+    },
+    {
+      "type": "polyline",
+      "item_id": "6655e686-942b-4a39-93e2-5ddd37a02005",
+      "points": [
+        {
+          "x": 1060.0,
+          "y": 1140.0
+        },
+        {
+          "x": 1700.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 179200
+    },
+    {
+      "type": "polyline",
+      "item_id": "30336311-005f-4d09-a1f7-a20b9a600c29",
+      "points": [
+        {
+          "x": 1760.0,
+          "y": 1140.0
+        },
+        {
+          "x": 2400.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 191488
+    },
+    {
+      "type": "polyline",
+      "item_id": "b5a9e46e-d738-4ced-81a4-5be62963cb68",
+      "points": [
+        {
+          "x": 2460.0,
+          "y": 1140.0
+        },
+        {
+          "x": 3100.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 203776
+    },
+    {
+      "type": "polyline",
+      "item_id": "e2726c96-dd74-4d70-bcba-3bdf65ef2d47",
+      "points": [
+        {
+          "x": 3160.0,
+          "y": 1140.0
+        },
+        {
+          "x": 3800.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 216064
+    },
+    {
+      "type": "polyline",
+      "item_id": "3c88d45e-d9ce-4c30-bc28-932a1bc777af",
+      "points": [
+        {
+          "x": 3860.0,
+          "y": 1140.0
+        },
+        {
+          "x": 4500.0,
+          "y": 1140.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 228352
+    },
+    {
+      "type": "polyline",
+      "item_id": "501a17b2-34e3-479f-adbc-d139e64a3561",
+      "points": [
+        {
+          "x": 360.0,
+          "y": 1590.0
+        },
+        {
+          "x": 1000.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 240640
+    },
+    {
+      "type": "polyline",
+      "item_id": "ff3f61d7-a40c-4dd5-ad3e-a5c50247dd67",
+      "points": [
+        {
+          "x": 1060.0,
+          "y": 1590.0
+        },
+        {
+          "x": 1700.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 252928
+    },
+    {
+      "type": "polyline",
+      "item_id": "329374f5-7e00-4249-9cee-b73201d73d9f",
+      "points": [
+        {
+          "x": 1760.0,
+          "y": 1590.0
+        },
+        {
+          "x": 2400.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 265216
+    },
+    {
+      "type": "polyline",
+      "item_id": "1e38e99b-7458-4ae4-aeb9-e4a5fd7febdb",
+      "points": [
+        {
+          "x": 2460.0,
+          "y": 1590.0
+        },
+        {
+          "x": 3100.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 277504
+    },
+    {
+      "type": "polyline",
+      "item_id": "a12702fe-95a1-421a-a84c-3aabbf3d9a4b",
+      "points": [
+        {
+          "x": 3160.0,
+          "y": 1590.0
+        },
+        {
+          "x": 3800.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 289792
+    },
+    {
+      "type": "polyline",
+      "item_id": "ee208e45-e968-4874-917a-697500d578ca",
+      "points": [
+        {
+          "x": 3860.0,
+          "y": 1590.0
+        },
+        {
+          "x": 4500.0,
+          "y": 1590.0
+        }
+      ],
+      "object_type": "PATH",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 8.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 302080
     },
     {
       "type": "polygon",
@@ -885,25 +1341,6 @@
       "stack_order": 18432
     },
     {
-      "type": "polyline",
-      "item_id": "a114c1ad-0b0e-4ac7-ae1c-5b1a1e86aaf5",
-      "points": [
-        {
-          "x": 360.0,
-          "y": 240.0
-        },
-        {
-          "x": 1000.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 19456
-    },
-    {
       "type": "rectangle",
       "item_id": "1a32ec81-6fa0-4efa-b22c-b06c20eac901",
       "x": 1100.0,
@@ -1602,25 +2039,6 @@
       "stack_order": 30720
     },
     {
-      "type": "polyline",
-      "item_id": "3f262a2e-2931-4322-af79-bc1bd1087ab7",
-      "points": [
-        {
-          "x": 1060.0,
-          "y": 240.0
-        },
-        {
-          "x": 1700.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 31744
-    },
-    {
       "type": "rectangle",
       "item_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
       "x": 1800.0,
@@ -2317,25 +2735,6 @@
       "plant_species": "basil",
       "parent_bed_id": "beb67fb9-e19b-403c-875a-9e4c8465ae64",
       "stack_order": 43008
-    },
-    {
-      "type": "polyline",
-      "item_id": "bd2b1af3-0104-42a9-b46e-2c7644761eef",
-      "points": [
-        {
-          "x": 1760.0,
-          "y": 240.0
-        },
-        {
-          "x": 2400.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 44032
     },
     {
       "type": "rectangle",
@@ -3039,25 +3438,6 @@
       "stack_order": 55296
     },
     {
-      "type": "polyline",
-      "item_id": "7d743377-3ea5-43f2-abad-58c21f6aaca4",
-      "points": [
-        {
-          "x": 2460.0,
-          "y": 240.0
-        },
-        {
-          "x": 3100.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 56320
-    },
-    {
       "type": "rectangle",
       "item_id": "51cb1ccc-bceb-4157-b331-ff2aa0229e20",
       "x": 3200.0,
@@ -3759,25 +4139,6 @@
       "stack_order": 67584
     },
     {
-      "type": "polyline",
-      "item_id": "8b49750b-9b30-460b-b0fa-10100dc61af4",
-      "points": [
-        {
-          "x": 3160.0,
-          "y": 240.0
-        },
-        {
-          "x": 3800.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 68608
-    },
-    {
       "type": "rectangle",
       "item_id": "7a2e5d4e-f826-4cbb-b433-34a7bc350a68",
       "x": 3900.0,
@@ -4472,25 +4833,6 @@
       "stack_order": 79872
     },
     {
-      "type": "polyline",
-      "item_id": "62cd9f47-5ac3-46b9-862d-3dca9077acad",
-      "points": [
-        {
-          "x": 3860.0,
-          "y": 240.0
-        },
-        {
-          "x": 4500.0,
-          "y": 240.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 80896
-    },
-    {
       "type": "rectangle",
       "item_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
       "x": 400.0,
@@ -5182,25 +5524,6 @@
       "plant_species": "celery",
       "parent_bed_id": "699a6bb4-b3fc-4648-9a94-5906635a2520",
       "stack_order": 92160
-    },
-    {
-      "type": "polyline",
-      "item_id": "68f20553-1786-4b41-ab9c-cab67838219b",
-      "points": [
-        {
-          "x": 360.0,
-          "y": 690.0
-        },
-        {
-          "x": 1000.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 93184
     },
     {
       "type": "rectangle",
@@ -5897,25 +6220,6 @@
       "stack_order": 104448
     },
     {
-      "type": "polyline",
-      "item_id": "42da30af-309c-4020-a206-868d813f0a25",
-      "points": [
-        {
-          "x": 1060.0,
-          "y": 690.0
-        },
-        {
-          "x": 1700.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 105472
-    },
-    {
       "type": "rectangle",
       "item_id": "61a42583-28ef-4782-9c60-1364771f5aac",
       "x": 1800.0,
@@ -6603,25 +6907,6 @@
       "plant_species": "endive",
       "parent_bed_id": "61a42583-28ef-4782-9c60-1364771f5aac",
       "stack_order": 116736
-    },
-    {
-      "type": "polyline",
-      "item_id": "19a73daf-5998-425a-b29e-d8ff3afcf11b",
-      "points": [
-        {
-          "x": 1760.0,
-          "y": 690.0
-        },
-        {
-          "x": 2400.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 117760
     },
     {
       "type": "rectangle",
@@ -7314,25 +7599,6 @@
       "plant_species": "tomato",
       "parent_bed_id": "1f89826e-e335-4f50-8e27-00aef0370ad4",
       "stack_order": 129024
-    },
-    {
-      "type": "polyline",
-      "item_id": "7367e46d-801e-41d0-9b56-37835dfa0e6f",
-      "points": [
-        {
-          "x": 2460.0,
-          "y": 690.0
-        },
-        {
-          "x": 3100.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 130048
     },
     {
       "type": "rectangle",
@@ -8033,25 +8299,6 @@
       "stack_order": 141312
     },
     {
-      "type": "polyline",
-      "item_id": "4c194e42-bf53-46d8-95af-40ce73e7cd12",
-      "points": [
-        {
-          "x": 3160.0,
-          "y": 690.0
-        },
-        {
-          "x": 3800.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 142336
-    },
-    {
       "type": "rectangle",
       "item_id": "14c1e77c-7092-4dd1-971c-0cd2265fb1c8",
       "x": 3900.0,
@@ -8747,25 +8994,6 @@
       "stack_order": 153600
     },
     {
-      "type": "polyline",
-      "item_id": "30916067-45d3-4af2-bea5-ea09e25b0751",
-      "points": [
-        {
-          "x": 3860.0,
-          "y": 690.0
-        },
-        {
-          "x": 4500.0,
-          "y": 690.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 154624
-    },
-    {
       "type": "rectangle",
       "item_id": "2702055d-508c-42c8-ba6c-81d81b69e55d",
       "x": 400.0,
@@ -9455,25 +9683,6 @@
       "stack_order": 165888
     },
     {
-      "type": "polyline",
-      "item_id": "ce62f3d1-bfb1-4da0-9fb7-100fee06c1f5",
-      "points": [
-        {
-          "x": 360.0,
-          "y": 1140.0
-        },
-        {
-          "x": 1000.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 166912
-    },
-    {
       "type": "rectangle",
       "item_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
       "x": 1100.0,
@@ -10161,25 +10370,6 @@
       "plant_species": "onion",
       "parent_bed_id": "520e19d8-0f8e-4ada-bf88-ec2a78a76a48",
       "stack_order": 178176
-    },
-    {
-      "type": "polyline",
-      "item_id": "6655e686-942b-4a39-93e2-5ddd37a02005",
-      "points": [
-        {
-          "x": 1060.0,
-          "y": 1140.0
-        },
-        {
-          "x": 1700.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 179200
     },
     {
       "type": "rectangle",
@@ -10875,25 +11065,6 @@
       "plant_species": "bean (bush)",
       "parent_bed_id": "b4181153-98c9-48b3-82fd-0b464edf5bb1",
       "stack_order": 190464
-    },
-    {
-      "type": "polyline",
-      "item_id": "30336311-005f-4d09-a1f7-a20b9a600c29",
-      "points": [
-        {
-          "x": 1760.0,
-          "y": 1140.0
-        },
-        {
-          "x": 2400.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 191488
     },
     {
       "type": "rectangle",
@@ -11595,25 +11766,6 @@
       "stack_order": 202752
     },
     {
-      "type": "polyline",
-      "item_id": "b5a9e46e-d738-4ced-81a4-5be62963cb68",
-      "points": [
-        {
-          "x": 2460.0,
-          "y": 1140.0
-        },
-        {
-          "x": 3100.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 203776
-    },
-    {
       "type": "rectangle",
       "item_id": "b87413f6-7163-411c-8695-3dadb9baebde",
       "x": 3200.0,
@@ -12313,25 +12465,6 @@
       "stack_order": 215040
     },
     {
-      "type": "polyline",
-      "item_id": "e2726c96-dd74-4d70-bcba-3bdf65ef2d47",
-      "points": [
-        {
-          "x": 3160.0,
-          "y": 1140.0
-        },
-        {
-          "x": 3800.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 216064
-    },
-    {
       "type": "rectangle",
       "item_id": "5fa6395c-8d2d-47f7-8dc2-62e55f82b53c",
       "x": 3900.0,
@@ -13027,25 +13160,6 @@
       "stack_order": 227328
     },
     {
-      "type": "polyline",
-      "item_id": "3c88d45e-d9ce-4c30-bc28-932a1bc777af",
-      "points": [
-        {
-          "x": 3860.0,
-          "y": 1140.0
-        },
-        {
-          "x": 4500.0,
-          "y": 1140.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 228352
-    },
-    {
       "type": "rectangle",
       "item_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
       "x": 400.0,
@@ -13739,25 +13853,6 @@
       "plant_species": "spinach",
       "parent_bed_id": "fbf6f9c6-1604-4e8b-aa73-530fca17de38",
       "stack_order": 239616
-    },
-    {
-      "type": "polyline",
-      "item_id": "501a17b2-34e3-479f-adbc-d139e64a3561",
-      "points": [
-        {
-          "x": 360.0,
-          "y": 1590.0
-        },
-        {
-          "x": 1000.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 240640
     },
     {
       "type": "rectangle",
@@ -14458,25 +14553,6 @@
       "stack_order": 251904
     },
     {
-      "type": "polyline",
-      "item_id": "ff3f61d7-a40c-4dd5-ad3e-a5c50247dd67",
-      "points": [
-        {
-          "x": 1060.0,
-          "y": 1590.0
-        },
-        {
-          "x": 1700.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 252928
-    },
-    {
       "type": "rectangle",
       "item_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
       "x": 1800.0,
@@ -15173,25 +15249,6 @@
       "plant_species": "basil",
       "parent_bed_id": "70a59a35-522a-429f-9b9d-3afad8ddfef7",
       "stack_order": 264192
-    },
-    {
-      "type": "polyline",
-      "item_id": "329374f5-7e00-4249-9cee-b73201d73d9f",
-      "points": [
-        {
-          "x": 1760.0,
-          "y": 1590.0
-        },
-        {
-          "x": 2400.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 265216
     },
     {
       "type": "rectangle",
@@ -15895,25 +15952,6 @@
       "stack_order": 276480
     },
     {
-      "type": "polyline",
-      "item_id": "1e38e99b-7458-4ae4-aeb9-e4a5fd7febdb",
-      "points": [
-        {
-          "x": 2460.0,
-          "y": 1590.0
-        },
-        {
-          "x": 3100.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 277504
-    },
-    {
       "type": "rectangle",
       "item_id": "e6657f46-979e-4d83-becf-a485df5e3575",
       "x": 3200.0,
@@ -16615,25 +16653,6 @@
       "stack_order": 288768
     },
     {
-      "type": "polyline",
-      "item_id": "a12702fe-95a1-421a-a84c-3aabbf3d9a4b",
-      "points": [
-        {
-          "x": 3160.0,
-          "y": 1590.0
-        },
-        {
-          "x": 3800.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 289792
-    },
-    {
       "type": "rectangle",
       "item_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
       "x": 3900.0,
@@ -17326,25 +17345,6 @@
       "plant_species": "garlic",
       "parent_bed_id": "eff8c999-3208-4bcb-a3ed-1bdd663f56f7",
       "stack_order": 301056
-    },
-    {
-      "type": "polyline",
-      "item_id": "ee208e45-e968-4874-917a-697500d578ca",
-      "points": [
-        {
-          "x": 3860.0,
-          "y": 1590.0
-        },
-        {
-          "x": 4500.0,
-          "y": 1590.0
-        }
-      ],
-      "object_type": "PATH",
-      "stroke_color": "#ffb4aa96",
-      "stroke_width": 8.0,
-      "path_fence_style": "GRAVEL_PATH",
-      "stack_order": 302080
     },
     {
       "type": "circle",

@@ -614,6 +614,11 @@
     "state": "OPEN",
     "title": "L2 \"Analyze in 3D\": shadow and sun-hours drapes, sun path, info card, growth jump, cutaway (Phase 17)"
   },
+  "387": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L3 \"Plant Forge\": procedural species models from the sprite recipes (Phase 17)"
+  },
   "392": {
     "is_pr": false,
     "state": "OPEN",
@@ -801,7 +806,7 @@
   },
   "446": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant sprite lookup matches by substring: \"Lemon Balm\" is drawn as a lemon tree, \"Melon\" as an eggplant, \"Bean (Bush)\" as a climbing bean, \"Sweet Potato\" as a potato, a blank species as a rose"
   },
   "448": {
@@ -1004,6 +1009,11 @@
     "state": "CLOSED",
     "title": "Seven Properties-panel edits (grid, soil depth, container material/drainage/height, soil volume) are not undoable and do not mark the plan modified"
   },
+  "531": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: about 15-20 kB per destroyed Qt Quick 3D Model is never returned (date playback churns Models)"
+  },
   "532": {
     "is_pr": false,
     "state": "OPEN",
@@ -1066,7 +1076,7 @@
   },
   "552": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The FIXED constraint (US-7.21) is bypassed by the Properties panel X/Y fields"
   },
   "556": {
@@ -1076,22 +1086,22 @@
   },
   "557": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: use category-based visual heights for plants with unknown height"
   },
   "558": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant Details: editing maximum width does not update the 2D or 3D diameter"
   },
   "559": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plant Details: species and instance field edits bypass undo history"
   },
   "560": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Properties and Plant Details: focused text/numeric editors suppress history refresh"
   },
   "565": {
@@ -1101,7 +1111,32 @@
   },
   "566": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(#552,#557,#558,#559,#560): plant details undo, lock guard, estimated heights"
+  },
+  "571": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "CI: required Dependencies checks fail on master (setuptools GHSA-xmj3-9gf7-h52w, filelock 4.2.0)"
+  },
+  "572": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Remove the stale pip-audit waiver PYSEC-2026-3447 (setuptools is past 83.0.0)"
+  },
+  "573": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
+  },
+  "575": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
+  },
+  "584": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
   }
 }

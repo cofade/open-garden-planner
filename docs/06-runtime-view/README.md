@@ -398,9 +398,12 @@ changing project data or either undo/redo stack.
 
 ## 6.8 Sim clock fan-out (Phase 17 L1.0, ADR-053)
 
-One write path from the sun toolbar into the one `SimClock`, and one fan-out. A
+The sun toolbar's write path into the one `SimClock`, and one fan-out. A
 time-of-day change takes only the right-hand path; a date change takes both, the
-date path first.
+date path first. Since Phase 17 L2 (#386) the 3D view writes the clock in two more
+places, both the user's action: the day sweep (the time of day, sunrise → sunset,
+given back afterwards) and the growth jump (+1/+3/+10 years on the date, and "Back") —
+§6.10.
 
 ```mermaid
 flowchart TD
@@ -552,6 +555,62 @@ sequenceDiagram
 Nothing of 3D is built on that path when 3D was never opened (no engine import at all), and it
 ends with no Qt warning and no ERROR line in `app.log` in all three cases, from source and frozen
 (`tests/integration/test_view3d_workspace_render.py`, G5).
+
+## 6.10 Analyze in 3D: the drapes, the sweep, the jump (Phase 17 L2, ADR-063)
+
+**The drapes fan in from the 2D side.** Nothing computes twice: the 3D view lays the 2D
+side's own results on its ground, and the shared Hours of Sun has one owner.
+
+```mermaid
+flowchart LR
+    SC["SunShadowController<br/>shadows_changed · drape_polygons()"] --> AC
+    HM["SunHeatmapController<br/>computed(map) · exposure_changed"] --> AC
+    LS["LiveSunMap<br/>enabled_changed · is_current()"] --> AC
+    AC["AnalysisController<br/>(one per engine; paused while hidden)"]
+    AC -- "SHADOWS: shadow_drape" --> SH["set_overlay('shade')<br/>multiplies the frame"]
+    AC -- "SUN_HOURS: sun_hours_drape" --> DR["set_overlay('drape')<br/>blends over it"]
+    AC -- "probe: minutes_at + band<br/>(only while is_current())" --> CARD["the card's place<br/>below the view"]
+    LS -. "on (toolbar) / off (toolbar, document replaced)" .-> AC
+    AC -. "on: drape → Hours of Sun on the Ground<br/>off: → what lay there before;<br/>menu follows" .-> MENU["Analyze menu"]
+```
+
+The 3D drape follows the shared Hours of Sun both ways (owner manual pass of PR
+#584): switched on in the toolbar it replaces what lay on the 3D ground, switched off
+what lay there before comes back, and a 3D view opened while it is on lays it as soon
+as the pane shows (`connect_sources`).
+
+**The day sweep** (the user's "Sweep the Day"):
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant AC as AnalysisController
+    participant C as SimClock
+    participant H as Quick3DHost
+    U->>AC: start_sweep() — remembers the time of day
+    loop every 100 ms, 10 min of wall time
+        AC->>C: set_time_of_day(t) (marked as its own write)
+        C-->>AC: instant_changed
+        AC->>H: set_overlay('drape', the map summed to t, ≤ 65,536 vertices)
+    end
+    alt the day ends / the user stops it / the engine goes
+        AC->>C: set_time_of_day(remembered)
+        AC->>H: set_overlay('drape', the whole map)
+    else the user sets a time
+        C-->>AC: instant_changed (not its own write)
+        AC->>AC: ends — the user's time stays
+    else the date changes
+        C-->>AC: date_changed
+        AC->>AC: timer stopped; a turn later set_time_of_day(remembered)
+    end
+```
+
+**The growth jump** (+N years) takes exactly two frames, the user's action like the
+click's pick: `jump` stops a running sweep, grabs the before-picture and moves the
+clock's date; the pipeline's first pass that read the new date (`applied`) grabs the
+after-picture and the wipe shows both in the view's place. A date the user moves
+away from the target first drops the owed comparison; "Back" returns to the date
+before the first jump.
 
 ## Guild insertion and computed warning refresh
 

@@ -7,6 +7,80 @@ argument: "Optional: short description of the bug or area to instrument"
 
 # Verbose Debug Instrumentation
 
+## Case study: the startup Welcome dialog gone - a probe wrote the user's real settings (PR #584 manual pass 2)
+
+**Symptom.** The owner: the startup dialog for opening previous plans is missing, "a
+regression we fixed several times".
+**Wrong theory.** A code regression on the branch. The startup path was intact:
+`_startup_sequence` -> `_show_welcome_dialog`, which returned early on the setting.
+**Evidence.** `HKCU\Software\cofade\Open Garden Planner\startup`: `show_welcome =
+false`, the key last written 14:25:35 (RegQueryInfoKey), 4 s after the reviewer's
+`measure_strip.py` was saved. Three more scratchpad probes had the same defect;
+one write is evidenced.
+**Root cause.** The probes "isolated" with a throwaway QApplication name and
+`setDefaultFormat(IniFormat)`. `create_qsettings()` passes the module's own names to
+`QSettings(org, app)`, which always uses the registry. `scripts/script_isolation.py`
+existed, but its gate reads only `scripts/`.
+**Fix.** The key backed up, `show_welcome` restored and the recent list pruned to
+the owner's own plan. The startup test runs the real path without timed waits.
+PF-TST-27, §8.8/§8.10 and the reviewer definitions: a probe calls the helper.
+**Lesson.** A script that builds the app is a user of the real store unless it
+calls `script_isolation`. Check what a probe writes before running it.
+
+## Case study: a "constant" button width measured on a font engine that does not exist (PR #584 manual pass 2)
+
+**Symptom.** The owner: the strip's Past/Future label pushes the controls after it while
+the month slider is dragged. The fix, a Today button that says Past/Future in place at
+one width, passed its offscreen tests in every language and theme.
+**Wrong theory.** That offscreen widths are font widths. The ADR draft quoted the button
+as 48 / 108 px wider "at Verdana 9 pt", and #573's local strip failures were blamed on
+Verdana being present on Windows.
+**Evidence.** The senior review's probes: offscreen on Windows, "Today" = 60 px, "Hoy" =
+36, "Vergangenheit" = 156 - exactly 12 px a character in every family (a box engine,
+no font database). With `-platform windows` and `QT_SCALE_FACTOR=1.25` the width moved
+by 1 px in 378 of 480 font/size/language combinations; the strip's row estimate for
+German 10 pt at 800 px read three rows.
+**Root cause.** `horizontalAdvance` rounds to nearest; `QToolButton::sizeHint` measures
+`fontMetrics().size(Qt::TextShowMnemonic, ...)`, a rect rounded up. Box advances are
+whole, so offscreen could never show the difference, nor real widths.
+**Fix.** Measure each text as the widget does; slider floor 70 px. Tests: unhinted fonts
+at fractional sizes; themed narrow strip asserting the reflow's own estimate. Run with
+`QT_QPA_PLATFORM=minimal:enable_fonts` for real fonts, headless: all 41 strip tests pass.
+**Lesson.** Before writing a pixel number down, check which font engine produced it
+(PF-TST-26). Measure a widget's text with the widget's own measure.
+
+## Case study: Hours of Sun on in the toolbar, nothing on the 3D ground; shadows under a lawn (PR #584 manual pass)
+
+**Symptom.** The owner's screenshot: toolbar Hours of Sun on, the canvas showing its
+map, the 3D ground showing nothing. Separately, the 2D shadows and the map were hidden
+under a lawn ("objects of height = 0 like grass").
+**Wrong theories.** None adopted. Candidates measured before any change: the ultra
+preset (SSR, 8x MSAA), a 151k-vertex drape on a 50 x 30 m plan, Animate running, the
+drape grabbed but never presented, depth fighting with the lawn's ground tile.
+**Evidence.** An external probe drove the real `GardenPlannerApp` on the real engine at
+the owner's settings, printing `[386-DRAPE]` from monkeypatched controller methods:
+`_drape_mesh shown=(2031-03-24, 300, 500) -> (151604, 'verts')`, `root drapeVisible
+True`, and a desktop capture of the presented frame equal to `host.grab()`, both
+showing the drape, in every order (menu first, 2D Shadows first, toolbar first). The
+pipeline was sound, so the screenshot's state had to be "Nothing on the Ground" with
+the toolbar on — reachable only from the toolbar side. For 2D: overlays fixed at z -500
+/ -450, "below every layer item".
+**Root cause.** The 3D drape followed the shared switch going off, never going on. The
+2D overlays sat under every layer item, so anything flat drawn over the ground hid them.
+**Fix.** The drape follows both edges (off brings back what lay there before), and a
+3D view opened with Hours of Sun on lays it (PF-L3D-09). The garden's ground surfaces
+(a lawn, path, terrace, driveway, pond, in-ground bed without a height, and groups of
+only those) take a z band below the overlays, order kept (PF-CAN-22). Review of the
+first version found three more defects. Widening the rule to "everything without a
+height" sank a cold frame under its raised bed. Arrange still ranked over the whole
+layer, so a step could change nothing visible. Grouped lawns stayed above the
+overlays. Arrange now works inside a band, and a group of only surfaces takes the band.
+All probe code stayed in the scratchpad.
+**Lesson.** When a report contradicts a green suite, reproduce the user's exact state
+on the real artifact first. A sound pipeline turns the question into "which state
+shows this", and here the answer named the missing edge. When one property gets two
+orders (rank and drawing), check every surface that acts on one and shows the other.
+
 ## Case study: panel commit boundaries erased redo or lost notes (PR #566, 2026-10-23)
 
 **Symptom.** Immediate Save/Close omitted notes; pending Properties Name erased
@@ -870,9 +944,9 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: in the live session, both bed and plant had `zValue() == 0`. The plant was on top. After load, both still had `zValue() == 0` — but the bed was on top. So the *tie-break* between same-z items had flipped between sessions.
 
-**Root cause**: `ui/canvas/canvas_scene.py:355` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
+**Root cause**: `ui/canvas/canvas_scene.py:1117` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
 
-**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:925` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
+**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:1054` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
 
 **Lesson**: Identical zValues are a footgun across save/load boundaries because `QGraphicsScene` tie-breaks by *insertion order*, which is **not stable** between live mutation order and JSON-load order. Whenever a parent-child draw relationship matters, encode it explicitly via `parent.zValue() + 1` — never rely on "I inserted them in the right order, it'll just work". Pattern: anywhere `_update_items_z_order` touches multiple item categories, add an explicit ordering pass per parent-child relationship.
 
@@ -3910,3 +3984,54 @@ missing prerequisite where its dependent controls live. Pin the path regression
 before fixing it, and test cancel, zero coordinates, enabled-map recovery and
 new-document reset. Native locale/theme/width cases cover hint layout as well as
 normal map status. No solar math or animation policy changed.
+
+## Case study: the shadow drape still brightened the garden at night (#386, review round 1)
+
+**Symptom.** With the alpha fixed (the case below), the `ogp-3d-reviewer`'s board showed
+the shadow drape LIGHTENING what it covered — at night by +17.6 / +24.1 luma (max
++43.7) on 98–100 % of its pixels, at sunset on 89–97 %, at golden hour on 69 % over the
+engine's own shadow. Every gate of the first build was green: they all rendered a
+60–80° sun on lit ground.
+**Wrong theories.** The alpha bug again (refuted: alpha 255 in every frame); a wrong
+drape colour (refuted: the colour was the canvas's to the digit).
+**Evidence.** A per-mood probe of the same patch: the shown colour moved with the
+mood's EXPOSURE (2.4 at night, 1.15 at the golden anchor) — an Unshaded material's
+colour is emitted and then exposed and tone-mapped; wherever the lit ground was darker
+than that emission, a blend toward it lightened it. Top-down (exposure 1) it darkened.
+**Root cause/fix.** An overlay that means "shadow" cannot be a colour blended over the
+3D ground. A third overlay Model multiplies the frame (`DstColor` / `Zero`) by a linear
+multiplier: 0.74–0.83 of the lawn's luma from noon to night, never lighter; the render
+tier now asserts no pixel brightens in three moods. The other overlays divide their
+colour by the exposure.
+**Lesson.** Measure a look in every mood before calling it right; an overlay that is
+"the 2D colour" in a top-down truth view can be wrong in every perspective one.
+(PF-L3D-07; the same review found a blended or hidden part drops out of the shadow
+map — PF-L3D-08.)
+
+## Case study: a translucent shadow drape brightened the ground (#386, L2)
+
+**Symptom.** The first 3D shadow drape — the canvas's shadow blue (30, 41, 66) at
+alpha 110/255 over the lit meadow — read rgb(79, 107, 75) over a ground of
+rgb(25, 73, 11): LIGHTER than the ground it was meant to shade. The new self-test
+judge caught it on the GPU and on WARP alike; the lines overlay with the same
+shaders but opaque colours read exactly its colour.
+**Wrong theories.** Vertex colours not reaching the shader (refuted: opaque colours
+came through to the digit); a second sRGB conversion of the drape; drawing the drape
+before the ground tiles (refuted: the bare ground without tiles read the same).
+**Evidence.** A sweep of known colours through `render_records` measured the blend:
+black at a = 0.25 / 0.5 / 0.75 read (67, 102, 56) / (76, 100, 69) / (53, 65, 50);
+white at 0.5 read (204, 228, 197). Every value fits
+`a·src + (1 − a)·ground + 4·a(1 − a)·64`: a grey term proportional to a(1 − a), largest
+at a half — the signature of the DESTINATION ALPHA. With the colour factors applied to
+alpha too it becomes 1 − a(1 − a), and the View3D's texture, drawn over the window's
+white, lets a(1 − a)·255 through.
+**Root cause/fix.** `sourceBlend: SrcAlpha` / `destinationBlend: OneMinusSrcAlpha` on a
+CustomMaterial also blends alpha. Add `sourceAlphaBlend: Zero` /
+`destinationAlphaBlend: One`: black at 0.5 then reads exactly half the ground, the drape
+(16, 44, 12) — on Direct3D 11 (GPU, WARP) and OpenGL. The same rule went onto the
+foliage, grass and water materials that blend while X-ray fades them.
+**Lesson.** Measure a blend with several alphas and two source colours before trusting
+one translucent frame: one sample cannot tell a wrong colour from a wrong equation, and
+a term in a(1 − a) points straight at the destination alpha. Pins: the self-test judge
+(`selftest.judge_frame`, `TestJudge::test_a_drape_that_brightens_the_ground_fails`) and
+`tests/integration/test_view3d_analysis_render.py`. PF-L3D-06.

@@ -199,3 +199,13 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Source:** #441, #453, #470, #501, #502, #503, #523, #524, #525, #526, #527
 - **Status:** standing; narrative in [archive/07-l1-5-ground-bake.md](../archive/07-l1-5-ground-bake.md#2d-defects-the-bake-found)
 - **Legacy:** b1faaa9 README L2537 (legacy 11.4.17)
+
+### PF-CAN-22
+
+- **Rule:** The sun study's 2D overlays lie on the ground surfaces (`on_ground`, drawn in `GROUND_Z_RANGE` by `_refresh_layer_z`) and under everything else; Arrange stays in a band.
+- **Pinned by:** `tests/integration/test_sun_overlays_on_ground.py`; `tests/unit/test_object_height.py::TestLiesOnGround`
+- **Source:** PR #584 owner manual pass, ADR-043 addendum "ground surfaces lie under the sun study"
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The sun study's shadow overlay (`-500`) and hours-of-sun map (`-450`) were placed "below every layer item" in US-E3/E4, which reads well until a lawn is drawn: the owner's lawn hid both overlays entirely. A single overlay z cannot fix it — the layer bands interleave a lawn in one layer with a tree in another — so the ground surfaces move instead: an order-keeping map into a band under the overlays. Three things the first two cuts got wrong, each found by review: (1) the rule — "every object without a height" (the 3D view's ground rule) sank a cold frame under the raised bed it stood on, with no Height field to lift it back, so the band holds the garden's surfaces only; (2) Arrange still ranked over the whole layer, so a lawn stepped "forward" past a table and nothing moved; then, split by band while the drawing still normalized the whole layer, sending a lawn to the back moved a perennial on an in-ground bed under a tree — so ONE split (`CanvasScene._band_entries`) now feeds both the drawing and Arrange, and the layer is renumbered ground first; (3) a group is drawn in one slot, so a grouped lawn stayed above the overlays — a group of only surfaces now takes the band. The band follows reclassification after every command (a `plan_changed` hook was dropped: its `int` argument became `QTimer.start`'s delay). Saved files list ground surfaces first (display order). Lesson: two orders (rank and drawing) must come from one function, or a user acts on one and sees the other.

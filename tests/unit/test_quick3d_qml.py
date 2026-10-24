@@ -150,16 +150,77 @@ def test_every_part_component_is_a_pickable_model_with_the_tint_properties() -> 
     for block in blocks:
         name = block.split()[0]
         for needed in ("property string itemId", "property int partIndex", "property string kind",
-                       "property color tint", "property vector3d tintLinear", "pickable: true",
-                       "receivesShadows: true", "property bool retired: false"):
+                       "property color tint", "property vector3d tintLinear",
+                       "receivesShadows: true", "property bool retired: false",
+                       # L2.4 (X-ray): pickable unless it fades as an occluder of the selection
+                       "property real fade: 1.0", "pickable: fade >= 1.0"):
             assert needed in block, (name, needed)
     # a custom shader takes the LINEAR tint as a uniform — read from the scene, which
     # is the one place that says which kinds have a shader of their own
     custom = {block.split()[0] for block in blocks if "CustomMaterial" in block}
-    assert custom == {PART_COMPONENTS[kind] for kind in ("water", "foliage", "grass")}
+    # vc and roof carry a custom screen door beside their principled look (L2.4)
+    assert custom == {PART_COMPONENTS[kind] for kind in ("water", "foliage", "grass", "vc", "roof")}
     for block in blocks:
         if "CustomMaterial" in block:
             assert "property vector3d uTint: tintLinear" in block, block.split()[0]
+
+
+def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
+    """L2.4, 3D review of #386: a blended or hidden part drops out of the shadow map —
+    Cutaway took the house's shadow off the lawn and X-ray a faded tree's. So no part
+    material blends for a fade (glass alone blends, as it always did) and no roof hides:
+    a faded part DISCARDS pixels (a screen door, still opaque), a cut roof discards all
+    of them, and both keep casting their shadows. The principled look stays the material
+    while nothing fades, so the L1 frames do not change."""
+    code = _scene()
+    blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]
+              if block.split()[0].endswith("Part")}
+    for name, block in blocks.items():
+        if name == "glassPart":
+            continue
+        assert "sourceBlend" not in block and "opacity: fade" not in block, name
+        assert "visible:" not in block, name     # nothing hides a part to cut or fade it
+    assert "materials: fade < 1.0 ? [vcScreen] : [vcLook]" in blocks["vcPart"]
+    for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
+                       ("grassPart", "grassDoor")):
+        assert f"materials: fade < 1.0 ? [{door}] : [" in blocks[name], name
+    # every screen door collapses in the depth pass (ambient occlusion's depth texture
+    # does not run the discard: a cut roof left a ghost — 3D review round 2)
+    assert blocks["vcPart"].count('vertexShader: "screen.vert"') == 1
+    assert blocks["roofPart"].count('vertexShader: "screen.vert"') == 1
+    assert blocks["waterPart"].count('vertexShader: "screen.vert"') == 1
+    assert 'vertexShader: "foliage_door.vert"' in blocks["foliagePart"]
+    assert 'vertexShader: "grass_door.vert"' in blocks["grassPart"]
+    for name in ("screen.vert", "foliage_door.vert", "grass_door.vert"):
+        source = (QML_DIR / name).read_text(encoding="utf-8")
+        assert "#if QSSG_ENABLE_DEPTH_PASS" in source and "if (uOpacity < 1.0)" in source, name
+    assert "materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]" in blocks["roofPart"]
+    assert "property real uOpacity: root.roofsHidden ? 0.0 : fade" in blocks["roofPart"]
+    assert "pickable: fade >= 1.0 && !root.roofsHidden" in blocks["roofPart"]
+    # the roofless house reads as a room: its walls drop back-face culling
+    assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 2
+    for name in ("screen.frag", "foliage_door.frag", "water_door.frag"):
+        source = (QML_DIR / name).read_text(encoding="utf-8")
+        assert "screenDoor(FRAGCOORD.xy) >= uOpacity" in source and "discard;" in source, name
+        assert "BASE_COLOR = vec4(" in source and ", 1.0);" in source, name   # never translucent
+    # the LOOK shaders carry no discard: nothing changes while no part fades (a discard
+    # costs early depth testing on the heaviest fragment load - senior review round 2)
+    for name in ("foliage.frag", "water.frag"):
+        assert "discard" not in (QML_DIR / name).read_text(encoding="utf-8"), name
+
+
+@pytest.mark.parametrize("look", ["foliage.frag", "water.frag"])
+def test_a_door_shader_is_its_look_shader_with_the_screen_door_added(look: str) -> None:
+    """Drift guard: ``*_door.frag`` is a COPY of its look shader plus the screen-door
+    block and the discard — a fix to the look that misses its door shows here."""
+    source = (QML_DIR / look).read_text(encoding="utf-8")
+    door = (QML_DIR / look.replace(".frag", "_door.frag")).read_text(encoding="utf-8")
+    start = door.index("// The screen door of a faded part")
+    end = door.index("void MAIN()")
+    stripped = door[:start] + door[end:]
+    stripped = stripped.replace(
+        "    if (screenDoor(FRAGCOORD.xy) >= uOpacity)\n        discard;\n", "", 1)
+    assert stripped == source
 
 
 def test_a_destroyed_model_is_retired_not_merely_hidden() -> None:
@@ -188,13 +249,47 @@ def test_the_wind_shaders_move_nothing_at_rest(shader: str) -> None:
     assert re.search(r"property real windTime:\s*0\s*$", _scene(), re.MULTILINE)
 
 
+
+def _overlay_block(code: str, model_id: str) -> str:
+    start = code.index(f"id: {model_id}")
+    return code[start:code.index("Model {", start) if "Model {" in code[start:] else len(code)]
+
+
+def test_the_overlays_blend_as_their_layer_says() -> None:
+    """3D review of #386 (PF-L3D-06): the 2D shadows MULTIPLY the frame (darker in every
+    mood — blended over, the unlit shadow colour went through night's exposure and
+    brightened the night garden); the hours-of-sun map blends over it keeping the
+    frame's alpha; the lines are opaque. Every overlay but the shade divides its colour
+    by the exposure, so it reads the same from noon to night."""
+    code = _scene()
+    shade, drape, lines = (_overlay_block(code, name) for name in
+                           ("shadeOverlay", "drapeOverlay", "linesOverlay"))
+    assert "sourceBlend: CustomMaterial.DstColor" in shade
+    assert "destinationBlend: CustomMaterial.Zero" in shade
+    assert "property real uExposure: 1.0" in shade
+    assert "sourceBlend: CustomMaterial.SrcAlpha" in drape
+    assert "destinationBlend: CustomMaterial.OneMinusSrcAlpha" in drape
+    for block in (shade, drape):
+        assert "sourceAlphaBlend: CustomMaterial.Zero" in block        # the frame's alpha stays
+        assert "destinationAlphaBlend: CustomMaterial.One" in block
+        assert "depthDrawMode: Material.NeverDepthDraw" in block
+    assert "Blend" not in lines
+    for block in (drape, lines):
+        assert "property real uExposure: root.topDown ? 1.0 : root.exposure" in block
+    overlay = (QML_DIR / "overlay.frag").read_text(encoding="utf-8")
+    assert "FRAGCOLOR = vec4(vColor.rgb / uExposure, vColor.a);" in overlay
+
 def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> None:
     """A shader the scene names but the bundle lacks only fails when a Model uses it —
     in front of a user. The data loop of ``installer/ogp.spec`` ships this directory."""
     named = set(re.findall(r'(?:vertexShader|fragmentShader):\s*"([^"]+)"', _scene()))
     shipped = {path.name for path in QML_DIR.iterdir() if path.suffix in (".frag", ".vert")}
     assert named == shipped == {"foliage.vert", "foliage.frag", "grass.vert", "water.frag",
-                                "ring.vert", "ring.frag"}   # the selection ring: L1.8
+                                "ring.vert", "ring.frag",           # the selection ring: L1.8
+                                "overlay.vert", "overlay.frag",     # the analysis overlays: L2
+                                "screen.frag", "screen.vert",       # X-ray and Cutaway: L2.4
+                                "foliage_door.frag", "water_door.frag",
+                                "foliage_door.vert", "grass_door.vert"}
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {"Garden.qml"}
 
 
@@ -338,3 +433,18 @@ def test_the_scene_obeys_the_measured_engine_rules() -> None:
     assert "rotation: root.sunRotation" in code, "the sun is oriented by a quaternion from Python"
     assert not re.search(r"sharpnessAmount:\s*0\.0*[1-9]", code), "no sharpening (spike: speckles)"
     assert "function destroyPart" in code and "part.geometry = null" in code
+
+
+
+@pytest.mark.parametrize("look", ["foliage.vert", "grass.vert"])
+def test_a_door_vertex_shader_is_its_look_shader_with_the_collapse_added(look: str) -> None:
+    """Drift guard: ``*_door.vert`` is a COPY of the wind shader plus a two-line header
+    and the depth-pass collapse after POSITION — a fix to the wind that misses its door
+    shows here."""
+    source = (QML_DIR / look).read_text(encoding="utf-8")
+    door = (QML_DIR / look.replace(".vert", "_door.vert")).read_text(encoding="utf-8")
+    body = door.split("\n", 2)[2]   # the two header lines
+    collapse = ("    // the screen door's depth-pass collapse (screen.vert): no ghost in the AO depth\n"
+                "#if QSSG_ENABLE_DEPTH_PASS\n    if (uOpacity < 1.0)\n        POSITION = vec4(0.0);\n"
+                "#endif\n")
+    assert body.replace(collapse, "", 1) == source

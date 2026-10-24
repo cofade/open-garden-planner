@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
 # Construction geometry visual style
 _CONSTRUCTION_COLOR = QColor(30, 130, 220)       # Light blue
 _CONSTRUCTION_PEN_WIDTH = 1.2
-_CONSTRUCTION_Z_VALUE = -10.0  # Below all regular items
+_CONSTRUCTION_Z_VALUE = -10.0  # Below all regular items but the ground surfaces (GROUND_Z_RANGE)
 
 
 class ConstructionLineItem(QGraphicsLineItem):

@@ -437,9 +437,20 @@ class Scene3DController(QObject):
         return len(self._skipped) + len(self._failures)
 
     @property
+    def pass_date(self) -> date | None:
+        """The plan date the last records pass read (None before the first): the
+        growth jump's after-picture waits for the pass that read ITS date (L2.3)."""
+        return self._pass_date
+
+    @property
     def last_error(self) -> str | None:
         """Why the last pass was given up; None once a pass went through."""
         return self._last_error
+
+    def plan_size(self) -> tuple[float, float]:
+        """The plan rectangle's width (east) and depth (north), cm — what the analysis
+        overlays of L2 lie on."""
+        return self._plan_size()
 
     def plan_bounds(self) -> Bounds:
         """The plan rectangle and the highest thing standing on it (applied records)."""

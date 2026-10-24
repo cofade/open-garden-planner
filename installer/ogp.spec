@@ -201,6 +201,17 @@ a = Analysis(
         "open_garden_planner.ui.view3d.walk_mode",
         "open_garden_planner.core.scene3d.selection",
         "open_garden_planner.core.scene3d.walk",
+        # Analyze in 3D (ADR-063, L2): the analysis controller, the growth jump and its
+        # wipe are imported when the 3D pane is first built; the compass letters and
+        # the Qt-free drape / sun path / X-ray cores come with them.
+        "open_garden_planner.ui.view3d.analysis_controller",
+        "open_garden_planner.ui.view3d.analysis_modes",
+        "open_garden_planner.ui.view3d.compass_glyphs",
+        "open_garden_planner.ui.view3d.growth_jump",
+        "open_garden_planner.ui.view3d.wipe",
+        "open_garden_planner.core.scene3d.drape",
+        "open_garden_planner.core.scene3d.sun_path",
+        "open_garden_planner.core.scene3d.xray",
         "open_garden_planner.app.win32_taskbar",
         "ezdxf",
         "ezdxf.xclip",

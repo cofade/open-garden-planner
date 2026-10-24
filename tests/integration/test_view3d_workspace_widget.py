@@ -97,6 +97,23 @@ class FakeHost:
         self.looks: list[Any] = []
         self.skies: list[Any] = []
         self.wind: list[str] = []
+        #: The analysis (L2): overlays by layer (the last mesh; None: hidden), the
+        #: Cutaway switch and the faded items, as last told.
+        self.overlays: dict[str, Any] = {}
+        self.overlay_calls: list[tuple[str, bool]] = []
+        self.roofs_hidden = False
+        self.faded: frozenset[str] = frozenset()
+
+    def set_overlay(self, layer: str, mesh: Any) -> None:
+        self.overlays[layer] = mesh
+        self.overlay_calls.append((layer, mesh is not None))
+
+    def set_roofs_hidden(self, hidden: bool) -> None:
+        self.roofs_hidden = hidden
+
+    def set_faded_items(self, item_ids: Any, opacity: float = 1.0) -> None:
+        self.faded = frozenset(item_ids)
+        self.fade_opacity = opacity
 
     def set_look(self, look: Any) -> None:
         self.looks.append(look)
@@ -178,7 +195,8 @@ class Bench:
     """A window with the workspace in it, the engine replaced at the seam."""
 
     def __init__(self, view: CanvasView, qtbot: Any, folder: Path, *,
-                 fail_first: Exception | None = None, ui_state: Any = None) -> None:
+                 fail_first: Exception | None = None, ui_state: Any = None,
+                 location: Any = None) -> None:
         self.view, self.qtbot, self.folder = view, qtbot, folder
         self.scene, self.commands = view.scene(), view.command_manager
         self.clock = SimClock(NOON)
@@ -192,7 +210,10 @@ class Bench:
         layout.setContentsMargins(0, 0, 0, 0)
         self.guard = Init3DGuard(folder, pid=ME, is_running=lambda _pid: False)
         self.workspace = Workspace(view, engine_factory=self._factory, guard=self.guard)
-        self.workspace.connect_plan(self.scene, self.clock, lambda: None, self.commands, ui_state)
+        #: The garden's location (L2's analysis needs one); None: the plan has none.
+        self.location = location
+        self.workspace.connect_plan(self.scene, self.clock, lambda: self.location, self.commands,
+                                    ui_state)
         layout.addWidget(self.workspace)
         # The canvas view now lives in this window, and pytest-qt holds the widgets it
         # closes WEAKLY, before any fixture is torn down. A Bench that is a local of the
@@ -680,10 +701,14 @@ def test_ground_passes_neither_restart_the_sky_timer_nor_postpone_the_release(
 FRAME_TAKERS = frozenset({"grab", "grabWindow", "grabFramebuffer", "wait_ready", "pick", "project"})
 WORKSPACE_MODULES = ("workspace.py", "sync_controller.py", "orbit_input.py",
                      "problems_dialog.py", "init_guard.py",
-                     "selection_bridge.py", "info_card.py", "walk_mode.py")  # L1.8's three
-#: The ONE frame-taking call the workspace makes, by name and by place (L1.8): the
-#: click handler of the 3D view picks — a user's own action, once per click.
+                     "selection_bridge.py", "info_card.py", "walk_mode.py",  # L1.8's three
+                     "analysis_controller.py", "analysis_modes.py", "growth_jump.py",
+                     "wipe.py", "compass_glyphs.py")                        # L2's five
+#: The frame-taking calls the workspace makes, by name and by place — each a user's own
+#: action: the click handler of the 3D view picks, once per click (L1.8); a growth jump
+#: takes its before and its after picture (L2.3, ``growth_jump._grab``).
 THE_CLICK = ("orbit_input.py", "_release", "pick")
+THE_JUMP = ("growth_jump.py", "_grab", "grab")
 
 
 def test_no_steady_path_takes_a_frame_from_the_live_view(
@@ -751,7 +776,15 @@ def test_the_workspaces_modules_never_ask_a_host_for_a_frame() -> None:
         calls = sum(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                     and node.func.attr in FRAME_TAKERS for node in ast.walk(tree))
         assert calls == sum(1 for hit in found if hit[0] == name), f"{name}: a call at module level"
-    assert found == [THE_CLICK]
+    assert sorted(found) == sorted([THE_CLICK, THE_JUMP])
+    # … and the jump's picture is taken from the jump itself and from the pass that
+    # completes it — never from a timer, a move or anything that runs by itself
+    jump = ast.parse((folder / "growth_jump.py").read_text(encoding="utf-8"))
+    grabbers = sorted(function.name for function in ast.walk(jump)
+                      if isinstance(function, ast.FunctionDef) and any(
+                          isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                          and node.func.attr == "_grab" for node in ast.walk(function)))
+    assert grabbers == ["jump", "on_applied"]
     # … and the click is a RELEASE handler: no move, wheel or key handler reaches it
     orbit = ast.parse((folder / "orbit_input.py").read_text(encoding="utf-8"))
     callers = sorted(function.name for function in ast.walk(orbit)

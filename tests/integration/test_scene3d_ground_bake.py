@@ -843,7 +843,9 @@ class TestAnEditSession:
         tick("move a solid", ground=False)  # the ground does not know the house
         # two new items on the active layer (the fixture's own items have none, and
         # an item without a layer cannot be arranged)
-        mulch = RectangleItem(1000.0, 380.0, 260.0, 180.0, object_type=ObjectType.GENERIC_RECTANGLE)
+        # an in-ground bed under mulch: two ground surfaces, so Arrange orders them
+        # (it orders an item only among its own band, PR #584 manual pass)
+        mulch = RectangleItem(1000.0, 380.0, 260.0, 180.0, object_type=ObjectType.GARDEN_BED)
         style(mulch, FillPattern.MULCH, None)
         terrace = RectangleItem(900.0, 300.0, 280.0, 190.0, object_type=ObjectType.TERRACE_PATIO)
         on_layer(scene, mulch, terrace)

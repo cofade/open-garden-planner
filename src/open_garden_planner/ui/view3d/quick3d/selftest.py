@@ -19,6 +19,17 @@ the artifact it runs in: can THIS build render the garden? It
    lawn, painted into twelve ground tiles over as many passes (a budget of 0 —
    at least one tile a pass), uploaded as textures — and the judge finds the
    lawn's colour where the lawn lies.
+5. shows two analysis overlays of L2 (#386) — a patch of the 2D shadow drape
+   (``core.scene3d.drape.shadow_drape``, the product's own builder) on the shade
+   layer and a patch on the lines overlay — so ``overlay.vert`` / ``overlay.frag``
+   are compiled from the bundle too: the shade must darken the ground towards the
+   canvas's shadow blue (it multiplies the frame), the lines patch must be its unlit
+   colour;
+6. fades four more cubes as X-ray occluders (L2.4) — a built part, a crown, grass
+   and a pond — so every screen-door shader (``screen.frag`` / ``.vert``,
+   ``foliage_door.frag`` / ``.vert``, ``grass_door.vert``, ``water_door.frag``) is
+   compiled from the bundle as well: some, but not most, of each cube's pixels must be
+   its colour.
 
 A QML error, a shader that does not compile, a frame that fails the judge or an
 exception fails the self-test. So does a hang: a watchdog dumps every thread's
@@ -57,7 +68,11 @@ from open_garden_planner.core.scene3d import (
     Transform,
     prism_mesh,
 )
+from open_garden_planner.core.scene3d.color import srgb8_to_linear
+from open_garden_planner.core.scene3d.drape import shadow_drape
+from open_garden_planner.core.scene3d.mesh import Mesh
 from open_garden_planner.core.scene3d.selection import RING_WIDTH_PX
+from open_garden_planner.core.scene3d.sun_path import COMPASS_LIFT_CM, PIN_RGBA
 
 from .runlog import RenderLog, watchdog
 from .shots import TopDownShot, top_down_pixel
@@ -125,6 +140,29 @@ _SWATCHES: Final = {kind: _at(-150.0 + 75.0 * index, -105.0, _SWATCH_SIDE, _SWAT
 
 #: The footprint the selection ring runs round.
 RING_REGION: Final = _SWATCHES[SELECTED[0]]
+#: The analysis overlays' patches (L2): in the east, clear of the box's shadow. Measured
+#: 2026-10-24 (RTX 4070 and WARP alike): lit ground rgb(25, 73, 11), the shade over it
+#: rgb(15, 45, 10) — luma 0.62 of the ground's (the top-down frame is linear: that is the
+#: multiplier itself), blue/green 0.22 against 0.15 —
+#: and the lines patch rgb(171, 9, 90), the pin's colour in linear light. A shade that
+#: brightened the ground (a blend that let the window's white through read
+#: rgb(79, 107, 75)) fails, and so does a missing one.
+DRAPE_PATCH: Final = _at(165.0, 0.0, 40.0, 40.0)
+LINES_PATCH: Final = _at(165.0, 80.0, 30.0, 30.0)
+#: The cubes drawn as X-ray occluders (screen doors of ``XRAY_OPACITY``), one per
+#: screen-door shader: low (10 cm), in the lit west between the swatches and the lit
+#: ground, clear of every other item and of each other's shadows (pinned by
+#: ``tests/unit/test_quick3d_selftest.py``: the first placement overlapped a swatch,
+#: whose pixels read 39 % and 53 %). Measured 2026-10-24: 25 % of each
+#: cube's sampled pixels in its colour, GPU and WARP alike.
+FADED_CUBES: Final = {"screen": (_at(-170.0, -55.0, 24.0, 24.0), "vc"),
+                      "screen_foliage": (_at(-130.0, -55.0, 24.0, 24.0), "foliage"),
+                      "screen_grass": (_at(-170.0, -15.0, 24.0, 24.0), "grass"),
+                      "screen_water": (_at(-130.0, -15.0, 24.0, 24.0), "water")}
+FADED: Final = tuple(FADED_CUBES)
+#: The share of a faded cube's sampled pixels in its colour must lie in this range: a
+#: cube drawn whole (no screen door: all of them) or not at all fails.
+FADED_SHARE: Final = (0.08, 0.5)
 
 #: Where the judge looks. Each patch lies well inside what it samples; the shadow
 #: patch is inside the analytic 2D shadow of the box for ``SUN`` and outside the
@@ -134,6 +172,10 @@ REGIONS: Final[dict[str, Region]] = {
     "lit ground": _at(-150.0, 60.0, 40.0, 60.0),
     "shadow": _at(60.0, 85.0, 15.0, 15.0),
     "lawn": _at(-150.0, 125.0, 30.0, 14.0),
+    "shade": Region(DRAPE_PATCH.east_cm, DRAPE_PATCH.north_cm, 20.0, 20.0),
+    "lines": Region(LINES_PATCH.east_cm, LINES_PATCH.north_cm, 14.0, 14.0),
+    **{item_id: Region(patch.east_cm, patch.north_cm, 14.0, 14.0)
+       for item_id, (patch, _kind) in FADED_CUBES.items()},
     **{kind: Region(region.east_cm, region.north_cm, 20.0, 20.0)
        for kind, region in _SWATCHES.items()},
 }
@@ -165,10 +207,32 @@ def records() -> dict[str, Record]:
     """The self-test scene: the box, one low swatch per other material kind, and a
     flat lawn on the ground."""
     scene = {"box": _item("box", _BOX, 100.0, BOX_TINT, "vc")}
+    for item_id, (patch, kind) in FADED_CUBES.items():
+        scene[item_id] = _item(item_id, patch, 10.0, BOX_TINT if kind == "vc" else SWATCH_TINT, kind)
     for kind, region in _SWATCHES.items():
         scene[kind] = _item(kind, region, 30.0, SWATCH_TINT, kind)
     scene["lawn"] = _lawn()
     return scene
+
+
+def _corners(region: Region) -> list[tuple[float, float]]:
+    half_w, half_d = region.width_cm / 2.0, region.depth_cm / 2.0
+    return [(region.east_cm - half_w, region.north_cm - half_d),
+            (region.east_cm + half_w, region.north_cm - half_d),
+            (region.east_cm + half_w, region.north_cm + half_d),
+            (region.east_cm - half_w, region.north_cm + half_d)]
+
+
+def overlays() -> dict[str, Mesh]:
+    """The analysis overlays the self-test shows (module docstring, point 5): the 2D
+    shadow drape through the product's builder on the shade layer, the lines as one
+    flat patch in the pin's colour."""
+    corners = _corners(LINES_PATCH)
+    lines = Mesh.from_arrays(
+        [(x, y, COMPASS_LIFT_CM) for x, y in corners], [(0.0, 0.0, 1.0)] * 4,
+        [srgb8_to_linear(PIN_RGBA)] * 4, [(0.0, 0.0)] * 4, [(0, 1, 2), (0, 2, 3)])
+    return {"shade": shadow_drape([_corners(DRAPE_PATCH)], GROUND.width_cm, GROUND.depth_cm),
+            "lines": lines}
 
 
 def _builder(record: Record) -> tuple[MeshPart, ...]:
@@ -188,15 +252,29 @@ def registry() -> BuilderRegistry:
 # ── the judge: a pure function of the pixels ─────────────────────────────────
 
 
-def _mean(rgba: NDArray[np.uint8], region: Region, ratio: float) -> NDArray[np.float64]:
+def _patch(rgba: NDArray[np.uint8], region: Region, ratio: float) -> NDArray[np.float64]:
+    """The region's pixels, ``(n, 3)``."""
     height, width = rgba.shape[:2]
     left, top = top_down_pixel(region.east_cm - region.width_cm / 2,
                                region.north_cm + region.depth_cm / 2, SHOT, (width, height), ratio)
     right, bottom = top_down_pixel(region.east_cm + region.width_cm / 2,
                                    region.north_cm - region.depth_cm / 2, SHOT, (width, height), ratio)
     patch = rgba[int(np.ceil(top)):int(np.floor(bottom)), int(np.ceil(left)):int(np.floor(right)), :3]
-    mean: NDArray[np.float64] = patch.reshape(-1, 3).astype(np.float64).mean(axis=0)
+    pixels: NDArray[np.float64] = patch.reshape(-1, 3).astype(np.float64)
+    return pixels
+
+
+def _mean(rgba: NDArray[np.uint8], region: Region, ratio: float) -> NDArray[np.float64]:
+    mean: NDArray[np.float64] = _patch(rgba, region, ratio).mean(axis=0)
     return mean
+
+
+def _tinted_share(rgba: NDArray[np.uint8], region: Region, ratio: float) -> float:
+    """The share of the region's pixels in a red tint (the box's and the swatches' —
+    the swatch test, per pixel)."""
+    pixels = _patch(rgba, region, ratio)
+    red, green, blue = pixels[:, 0], pixels[:, 1], pixels[:, 2]
+    return float(((red > 40) & (red > 2 * green) & (red > 2 * blue)).mean()) if len(pixels) else 0.0
 
 
 def ring_band(shape: tuple[int, ...], ratio: float) -> NDArray[np.bool_]:
@@ -265,6 +343,20 @@ def judge_frame(rgba: NDArray[np.uint8], device_pixel_ratio: float = 1.0) -> lis
     lawn = _mean(rgba, REGIONS["lawn"], device_pixel_ratio)
     if not (lawn[2] > 40 and lawn[2] > 1.5 * lawn[0] and lawn[2] > 1.5 * lawn[1]):
         problems.append(f"the baked ground does not show the lawn: {_shown(lawn)}")
+    shade = _mean(rgba, REGIONS["shade"], device_pixel_ratio)
+    if not (_luma(shade) < 0.85 * _luma(lit)
+            and shade[2] / max(shade[1], 1.0) > 1.05 * lit[2] / max(lit[1], 1.0)):
+        problems.append(f"the shadow drape did not darken the ground towards its blue: "
+                        f"{_shown(shade)} vs the lit ground {_shown(lit)}")
+    for item_id, (_patch, kind) in FADED_CUBES.items():
+        share = _tinted_share(rgba, REGIONS[item_id], device_pixel_ratio)
+        if not FADED_SHARE[0] <= share <= FADED_SHARE[1]:
+            problems.append(f"the faded {kind} cube is not a screen door: {share:.0%} of its "
+                            f"pixels are its colour (expected {FADED_SHARE[0]:.0%}-"
+                            f"{FADED_SHARE[1]:.0%})")
+    lines = _mean(rgba, REGIONS["lines"], device_pixel_ratio)
+    if not (lines[0] > 1.5 * lines[1] and lines[2] > 1.5 * lines[1] and lines[0] > 60):
+        problems.append(f"the lines overlay did not draw in its colour: {_shown(lines)}")
     share = _ring_share(rgba, device_pixel_ratio)
     if share < RING_SHARE:
         problems.append(f"the selection ring did not draw round the {SELECTED[0]} swatch: "
@@ -340,7 +432,8 @@ def _render(log: RenderLog, qml_dir: Path | None) -> Rendered:
     baker = GroundBaker(budget_s=0.0, tile_px=GROUND_TILE_PX)
     frame = render_records(records(), shot=SHOT, sun=SUN, ground=GROUND, size=SIZE,
                            registry=registry(), qml_dir=qml_dir, log=log, graphics_info=True,
-                           ground_baker=baker, selected=SELECTED)
+                           ground_baker=baker, selected=SELECTED, overlays=overlays(),
+                           faded=FADED)
     return Rendered(frame.rgba(), frame.device_pixel_ratio, frame.graphics_api, frame.adapter,
                     frame.open_ms, dict(frame.qt.get("counts", {})),
                     tuple(f"{item_id}: {error}" for item_id, error in frame.build_failures.items()),
@@ -414,7 +507,8 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                 say(True, f"Qt Quick 3D frame {width}x{height} on {where} in "
                           f"{rendered.open_ms:.0f} ms (Garden.qml, {len(SWATCH_KINDS) + 1} materials, "
                           f"a baked ground of {rendered.ground_tiles} tiles in "
-                          f"{rendered.ground_tiles_painted} tile paints, the selection ring)")
+                          f"{rendered.ground_tiles_painted} tile paints, the selection ring, "
+                          f"the shade and the lines overlays, four screen doors)")
         except Exception as exc:  # noqa: BLE001 - a QML or shader error arrives here
             say(False, f"Qt Quick 3D render -> {type(exc).__name__}: {exc}")
     ok = all(line.startswith("  OK  ") for line in lines)

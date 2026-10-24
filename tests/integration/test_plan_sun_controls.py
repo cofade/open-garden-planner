@@ -1,7 +1,7 @@
 """Combined date/time controls, accurate live-map previews and export readiness."""
 
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from threading import Event, get_ident
 
 import numpy as np
@@ -437,7 +437,7 @@ def test_month_day_clamping_time_edit_animation_and_today(win):
     bar._today_button.click()
     assert win._sim_clock.plan_date == date.today()
     assert win._sim_clock.time_of_day == time(15, 27)
-    assert bar._state_label.isHidden()
+    assert bar._today_button.text() == bar.tr("Today") and not bar._today_button.isEnabled()
 
 
 @pytest.mark.parametrize("theme", ["dark", "light"])
@@ -464,8 +464,13 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         win.resize(width, 800)
         win.show()
         qtbot.wait(60)
+        # a size set before the first show did not hold on CI's Linux runner (the
+        # "1284" variants ran at 796 px): set it again once shown, and check it held
+        win.resize(width, 800)
+        qtbot.wait(20)
+        assert win.width() == width, (win.width(), width)
         bar = win._sun_toolbar
-        assert bar._state_label.isHidden()  # Today is already the directly accessible action.
+        assert bar._today_button.text() == bar.tr("Today")  # the button itself says where the date is
         assert bar._date_edit.height() == bar._time_edit.height()
         assert bar._map_label.isHidden()
         for group_index in range(bar._flow.count()):
@@ -477,7 +482,11 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         month_centre = bar._month_slider.mapTo(bar, bar._month_slider.rect().center()).y()
         time_centre = bar._slider.mapTo(bar, bar._slider.rect().center()).y()
         if width == 1284:
-            assert abs(month_centre - time_centre) <= 1
+            # the measured groups, so a CI failure says how far the row is over
+            assert abs(month_centre - time_centre) <= 1, (
+                [bar._flow.itemAt(i).widget().sizeHint().width() for i in range(bar._flow.count())],
+                bar.flow_width(), bar._today_button.width(), bar.font().family(),
+                bar.font().pointSizeF(), bar.logicalDpiX())
 
         assert bar._location_button.isVisible() == (not located)
         if not located:
@@ -513,7 +522,7 @@ def test_themed_strip_centres_controls_and_uses_status_space_only_when_needed(qt
         qtbot.wait(20)
         assert bar._map_label.isHidden()
         win._sim_clock.set_date(old_day)
-        assert bar._state_label.isVisible() and bar._state_label.text() == bar.tr("Past")
+        assert bar._today_button.text() == bar.tr("Past") and bar._today_button.isEnabled()
     finally:
         load_translator(app, "en")
         apply_theme(app, original_theme)
@@ -536,16 +545,24 @@ def test_groups_wrap_without_clipping_and_calendar_fits(win, qtbot, width):
         assert len(rows) == 1
 
 
+@pytest.mark.parametrize("theme", [None, "dark"])
 @pytest.mark.parametrize("language", ["de", "es"])
 @pytest.mark.parametrize("font_points", [9, 10])
-def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_points):
+def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_points, theme):
+    # themed too: the theme's padding put German at 10 pt on a third row once the
+    # Today button made room for "Vergangenheit" (PR #584 review)
     from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
 
     app = QApplication.instance()
     original_font = app.font()
+    original_stylesheet = app.styleSheet()
+    original_theme = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
     try:
         app.setFont(QFont("Verdana", font_points))
         assert load_translator(app, language)
+        if theme is not None:
+            apply_theme(app, ThemeMode(theme))
         win = GardenPlannerApp()
         qtbot.addWidget(win)
         win.resize(800, 800)
@@ -559,6 +576,8 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_
         assert len({group.y() for group in groups}) == 2, [
             (group.width(), group.sizeHint().width(), group.y()) for group in groups]
         assert all(bar._content.rect().contains(group.geometry()) for group in groups)
+        # the reflow's own criterion, not only the layout's slack beyond it
+        assert bar._flow.rows_for_width(bar.flow_width()) <= 2, bar._month_slider.width()
         win.resize(1650, 800)
         qtbot.wait(50)
         assert len({group.y() for group in groups}) == 1
@@ -569,6 +588,108 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_
         assert all(bar._content.rect().contains(group.geometry()) for group in groups)
     finally:
         app.setFont(original_font)
+        load_translator(app, "en")
+        if theme is not None:
+            apply_theme(app, original_theme)
+            app.setStyleSheet(original_stylesheet)
+
+
+@pytest.mark.parametrize("theme", ["dark", "light"])
+@pytest.mark.parametrize("language", ["en", "de", "es"])
+def test_today_button_says_past_or_future_in_place_and_nothing_after_it_moves(qtbot, theme, language):
+    """Owner manual pass of #386: a separate Past/Future label changed width as the
+    date moved and pushed the controls after it, the month slider being dragged
+    included. The Today button says it in its own place, at one width."""
+    from PyQt6.QtWidgets import QToolButton
+
+    from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
+
+    app = QApplication.instance()
+    original_stylesheet = app.styleSheet()
+    original_theme = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
+    try:
+        assert load_translator(app, language)
+        apply_theme(app, ThemeMode(theme))
+        get_settings().show_welcome_on_startup = False
+        win = GardenPlannerApp()
+        qtbot.addWidget(win)
+        win._sim_clock.set_date(date.today())
+        win.resize(1284, 800)
+        win.show()
+        qtbot.wait(60)
+        win.resize(1284, 800)  # once shown: a size set before did not hold on CI's Linux
+        qtbot.wait(20)
+        assert win.width() == 1284, win.width()
+        bar = win._sun_toolbar
+        button = bar._today_button
+        width, slider_x = button.width(), bar._month_slider.mapTo(bar, QPoint()).x()
+        assert button.text() == bar.tr("Today") and not button.isEnabled()
+        now = bar._month_slider.value()
+        # the scrub the owner made: across today and back, by the month slider
+        for month, text in ((now - 1, bar.tr("Past")), (now + 3, bar.tr("Future")),
+                            (now - 12, bar.tr("Past")), (now, bar.tr("Today"))):
+            bar._month_slider.setValue(month)
+            qtbot.wait(20)
+            assert button.text() == text
+            assert button.isEnabled() == (text != bar.tr("Today"))
+            assert button.width() == width, text
+            assert bar._month_slider.mapTo(bar, QPoint()).x() == slider_x, text
+        assert win._sim_clock.plan_date == date.today()
+        for text in (bar.tr("Today"), bar.tr("Past"), bar.tr("Future")):
+            probe = QToolButton(bar)  # the same style: the plain size of this one text
+            probe.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+            probe.setText(text)
+            probe.ensurePolished()
+            assert probe.sizeHint().width() < width, text
+            probe.deleteLater()
+        win._sim_clock.set_date(date(date.today().year + 2, 6, 1))
+        assert button.text() == bar.tr("Future")
+        assert button.toolTip() == bar.tr("The plan date is in the future. Click to go back to today.")
+        button.click()
+        assert win._sim_clock.plan_date == date.today()
+        assert button.text() == bar.tr("Today") and not button.isEnabled()
+    finally:
+        load_translator(app, "en")
+        apply_theme(app, original_theme)
+        app.setStyleSheet(original_stylesheet)
+
+
+@pytest.mark.parametrize("language", ["en", "de", "es"])
+def test_today_button_width_holds_with_fractional_font_metrics(qtbot, language):
+    """Qt measures a tool button's text as a bounding rect rounded up. The one width
+    must be built from that measure, or fractional metrics move it by 1 px (PR #584
+    review: 378 of 480 font/scale/language combinations did with horizontalAdvance).
+    Unhinted fonts at fractional sizes give fractional advances on a real font engine;
+    the offscreen platform's box engine has only whole ones, so a run there proves
+    little - run with QT_QPA_PLATFORM=minimal:enable_fonts for real fonts, headless."""
+    from PyQt6.QtGui import QFontMetrics
+
+    from open_garden_planner.core.i18n import load_translator
+    from open_garden_planner.ui.widgets.sun_sim_toolbar import SunSimToolbar
+
+    box = QFontMetrics(QFont("Verdana", 9))
+    if box.horizontalAdvance("i") == box.horizontalAdvance("W"):
+        pytest.skip("box font engine (offscreen on Windows): every advance is whole, nothing to measure")
+    app = QApplication.instance()
+    try:
+        assert load_translator(app, language)
+        bar = SunSimToolbar()
+        qtbot.addWidget(bar)
+        button = bar._today_button
+        now = datetime.now().replace(second=0, microsecond=0)
+        for family in ("Verdana", "Segoe UI", "DejaVu Sans", "Arial"):
+            for points in (8.25, 8.5, 9.0, 9.5, 10.5):
+                font = QFont(family)
+                font.setPointSizeF(points)
+                font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+                button.setFont(font)
+                widths = {}
+                for days in (0, -40, 40):
+                    bar.set_datetime_local(now + timedelta(days=days))
+                    widths[button.text()] = button.sizeHint().width()
+                assert len(widths) == 3 and len(set(widths.values())) == 1, (family, points, widths)
+    finally:
         load_translator(app, "en")
 
 

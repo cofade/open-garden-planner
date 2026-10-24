@@ -219,34 +219,58 @@ def cast_all(scene: PickScene, ray: Ray) -> tuple[RayHit, ...]:
     return _cast(scene, ray, every_item=True)
 
 
-def _cast(scene: PickScene, ray: Ray, *, every_item: bool) -> tuple[RayHit, ...]:
+def cast_segment(scene: PickScene, origin: Sequence[float] | _F64, end: Sequence[float] | _F64, *,
+                 rows: NDArray[np.int64] | None = None) -> tuple[RayHit, ...]:
+    """Every item the SEGMENT from ``origin`` to ``end`` passes through before it
+    reaches ``end`` — nearest first, one hit per item (L2.4's X-ray, ``xray.py``).
+    ``rows``: only these triangle rows of ``scene`` are tested (the caller's
+    bounding-box cull); None tests every triangle. A degenerate segment meets nothing."""
+    start = np.array(origin, np.float64)
+    stop = np.array(end, np.float64)
+    length = float(np.linalg.norm(stop - start))
+    if not length > _MIN_DISTANCE_CM or not math.isfinite(length):
+        return ()
+    ray = Ray((float(start[0]), float(start[1]), float(start[2])),
+              _unit(tuple((stop - start) / length)))
+    return _cast(scene, ray, every_item=True, rows=rows, max_distance=length)
+
+
+def _cast(scene: PickScene, ray: Ray, *, every_item: bool, rows: NDArray[np.int64] | None = None,
+          max_distance: float = math.inf) -> tuple[RayHit, ...]:
     if not scene.triangle_count:
         return ()
+    corner, edge1, edge2 = scene.corner, scene.edge1, scene.edge2
+    if rows is not None:
+        if not len(rows):
+            return ()
+        corner, edge1, edge2 = corner[rows], edge1[rows], edge2[rows]
     origin = np.array(ray.origin, np.float64)
     direction = np.array(ray.direction, np.float64)
-    p = np.cross(direction, scene.edge2)
-    det = np.einsum("ij,ij->i", scene.edge1, p)
+    p = np.cross(direction, edge2)
+    det = np.einsum("ij,ij->i", edge1, p)
     usable = np.abs(det) > _PARALLEL
     inverse = 1.0 / np.where(usable, det, 1.0)
-    to_origin = origin - scene.corner
+    to_origin = origin - corner
     u = np.einsum("ij,ij->i", to_origin, p) * inverse
-    q = np.cross(to_origin, scene.edge1)
+    q = np.cross(to_origin, edge1)
     v = (q @ direction) * inverse
-    distance = np.einsum("ij,ij->i", scene.edge2, q) * inverse
+    distance = np.einsum("ij,ij->i", edge2, q) * inverse
     met = (usable & (u >= -_EDGE_SLACK) & (v >= -_EDGE_SLACK) & (u + v <= 1.0 + _EDGE_SLACK)
-           & (distance > _MIN_DISTANCE_CM))
+           & (distance > _MIN_DISTANCE_CM) & (distance < max_distance))
     if not met.any():
         return ()
-    rows = np.flatnonzero(met)
-    rows = rows[np.argsort(distance[rows], kind="stable")]
+    local = np.flatnonzero(met)
+    local = local[np.argsort(distance[local], kind="stable")]
+    # ``local`` indexes the tested triangles; ``rows[local]`` names them in ``scene``
+    found = local if rows is None else rows[local]
     hits: list[RayHit] = []
     seen: set[int] = set()
-    for row in rows.tolist():
+    for here, row in zip(local.tolist(), found.tolist(), strict=True):
         item = int(scene.item[row])
         if item in seen:
             continue
         seen.add(item)
-        reach = float(distance[row])
+        reach = float(distance[here])
         point = origin + reach * direction
         hits.append(RayHit(scene.item_ids[item], int(scene.part[row]),
                            (float(point[0]), float(point[1]), float(point[2])), reach))

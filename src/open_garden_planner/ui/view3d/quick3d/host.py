@@ -185,6 +185,11 @@ _LONGEST_WAIT_S: Final = 86_400.0
 #: distance are centimetres; the engine culls by the bounds it is told. So the ring's
 #: bounds are this much wider than its mesh on every side (L1.8).
 RING_BOUNDS_MARGIN_CM: Final = 500.0
+#: The analysis overlays of L2 (#386) — layer → the scene property that shows it.
+#: ``"shade"`` multiplies the frame under it (the 2D shadows), ``"drape"`` blends over
+#: it (the hours-of-sun map), ``"lines"`` is opaque (``Garden.qml``).
+OVERLAY_LAYERS: Final = {"shade": "shadeVisible", "drape": "drapeVisible",
+                         "lines": "linesVisible"}
 #: Qt sizes a render target as ``qRound(logical × ratio)`` per side: the RIGHT frame is
 #: at most half a device pixel off ``logical × ratio``. The rest is the float error of
 #: that product (3000 × 1.1 is not exact; a neighbour's frame is at least 0.1 px further).
@@ -246,6 +251,11 @@ class EnginePart:
     casts_shadow: bool
     has_geometry: bool
     visible: bool
+    #: 1.0, or how opaque the part is drawn while it fades as an occluder (L2.4)
+    fade: float = 1.0
+    #: The share of its pixels the part's ACTIVE material draws: 1 for its look, the
+    #: screen door's opacity while it fades, 0 for a roof Cutaway cuts (L2.4)
+    drawn: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,17 +286,20 @@ class HostHealth:
 
 
 class _Part:
-    """The handle of one engine Model: the Model and the geometry only it uses.
+    """The handle of one engine Model: the Model and the geometry only it uses, and
+    whose part it is (the X-ray of L2.4 fades parts by item).
 
     The HOST owns both (``Quick3DHost._parts``); a sink holds handles as names.
     """
 
-    __slots__ = ("geometry", "kind", "model")
+    __slots__ = ("geometry", "item_id", "kind", "model")
 
-    def __init__(self, model: QObject, geometry: BufferGeometry, kind: str) -> None:
+    def __init__(self, model: QObject, geometry: BufferGeometry, kind: str,
+                 item_id: str = "") -> None:
         self.model: QObject | None = model
         self.geometry: BufferGeometry | None = geometry
         self.kind = kind
+        self.item_id = item_id
 
     def forget(self) -> None:
         self.model = None
@@ -398,6 +411,11 @@ class Quick3DHost:
                  prefer_software: bool = False) -> None:
         self._log: Callable[..., None] = log if log is not None else (lambda *_a, **_k: None)
         self._parts: set[_Part] = set()  # THE owner of every Model and geometry
+        #: The analysis overlays' geometries by layer (L2, ``set_overlay``), and the
+        #: items whose parts are drawn faded with their opacity (``set_faded_items``).
+        self._overlays: dict[str, ReloadableGeometry] = {}
+        self._faded: frozenset[str] = frozenset()
+        self._fade_opacity = 1.0
         #: The look on screen, and the sun the pipeline sent last (engine frame; None:
         #: no sun, or it is down). Together they decide the key light (``_apply_light``).
         self._shown_look: LookSpec = NEUTRAL_DAY   # the scene file's own defaults
@@ -547,11 +565,14 @@ class Quick3DHost:
             raise EngineError(
                 f"the scene created no Model for part {spec.part_index} ({spec.kind}) "
                 f"of item {spec.item_id!r}")
-        part = _Part(model, geometry, spec.kind)
+        part = _Part(model, geometry, spec.kind, spec.item_id)
         self._parts.add(part)
         try:
             self.pose_part(part, pose)
             self.tint_part(part, tint_rgba)
+            if spec.item_id in self._faded:
+                # a part rebuilt while its item fades (L2.4) is born faded
+                _set(model, "fade", self._fade_opacity)
         except Exception:
             self._destroy(part)  # never a Model on screen that no caller holds a handle to
             raise
@@ -703,6 +724,73 @@ class Quick3DHost:
             geometry.load(ring, RING_BOUNDS_MARGIN_CM)
         self.ring_loads += 1
         _set(self._root, "selectionVisible", True)
+
+    # ── the analysis overlays, Cutaway and X-ray (L2, #386) ──────────────────
+
+    #: How often an overlay's data was loaded into the engine (the gates read it).
+    overlay_loads = 0
+
+    def set_overlay(self, layer: str, mesh: EngineBuffers | None) -> None:
+        """Show ``mesh`` (engine frame) as the analysis overlay ``layer`` — ``"shade"``
+        (the 2D shadows on the ground: its vertex colour MULTIPLIES the frame),
+        ``"drape"`` (the hours-of-sun map, blended over) or ``"lines"`` (the sun path,
+        the compass, the probe's pin) — or hide it (None).
+
+        Like the selection ring: ``Garden.qml`` declares ONE Model per layer for the
+        life of the scene, and this loads new vertex data into the one geometry that
+        Model has — an analysis change creates and destroys no engine object (Qt keeps
+        state for every Model it once drew, and about 15 to 20 kB per destroyed Model
+        for good, ADR-060). The overlays are not items: the sink's ``clear()`` leaves
+        them as it leaves the sky, and the analysis controller says what they show.
+        """
+        self._open("set_overlay")
+        if layer not in OVERLAY_LAYERS:
+            raise EngineError(f"no analysis overlay {layer!r} (one of {OVERLAY_LAYERS})")
+        visible = OVERLAY_LAYERS[layer]
+        if mesh is None or mesh.is_empty:
+            _set(self._root, visible, False)
+            return
+        overlays = self._overlays
+        geometry = overlays.get(layer)
+        if geometry is None or sip.isdeleted(geometry):
+            model = self._call("overlayModel", layer)
+            try:
+                geometry = ReloadableGeometry(model)
+            except TypeError as error:
+                raise EngineError(f"the scene's {layer} overlay is no 3D object ({error})") from error
+            geometry.load(mesh)
+            if self._call("setOverlayGeometry", layer, geometry) is not True:
+                raise EngineError(f"the scene refused the {layer} overlay's geometry")
+            overlays[layer] = geometry
+        else:
+            geometry.load(mesh)
+        self.overlay_loads += 1
+        _set(self._root, visible, True)
+
+    def set_roofs_hidden(self, hidden: bool) -> None:
+        """Cutaway (L2.4): hide every roof part — one property of the scene, bound by
+        each roof Model, so a roof built while it is on is born hidden too."""
+        self._open("set_roofs_hidden")
+        _set(self._root, "roofsHidden", bool(hidden))
+
+    def set_faded_items(self, item_ids: frozenset[str] | set[str], opacity: float = 1.0) -> None:
+        """X-ray (L2.4): draw every part of ``item_ids`` at ``opacity`` (blended, and not
+        pickable: a click meets what is behind), every other part as it is. Parts a
+        later ``create_part`` builds for a faded item are born faded."""
+        self._open("set_faded_items")
+        if not 0.0 <= opacity <= 1.0:
+            raise ValueError(f"opacity must lie in [0, 1], got {opacity!r}")
+        wanted = frozenset(str(item_id) for item_id in item_ids)
+        changed = wanted ^ self._faded if opacity == self._fade_opacity else wanted | self._faded
+        self._faded, self._fade_opacity = wanted, float(opacity)
+        for part in self._parts:
+            if part.model is not None and part.item_id in changed:
+                _set(part.model, "fade", self._fade_opacity if part.item_id in wanted else 1.0)
+
+    @property
+    def faded_items(self) -> frozenset[str]:
+        """The items whose parts are drawn faded (X-ray, L2.4)."""
+        return self._faded
 
     # ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -1108,7 +1196,7 @@ class Quick3DHost:
             yaw_deg=float(row["yaw"]),
             tint_rgb=(round(row["r"] * 255.0), round(row["g"] * 255.0), round(row["b"] * 255.0)),
             casts_shadow=bool(row["casts"]), has_geometry=bool(row["geometry"]),
-            visible=bool(row["visible"]),
+            visible=bool(row["visible"]), fade=float(row["fade"]), drawn=float(row["drawn"]),
         ) for row in rows]
 
     def scene_property(self, name: str) -> Any:
