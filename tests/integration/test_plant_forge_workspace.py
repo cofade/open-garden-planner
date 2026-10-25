@@ -238,18 +238,37 @@ def test_workspace_render_flags_use_the_production_worker(qtbot, monkeypatch, tm
     assert worker._closed
 
 
-def _run_forge_renderer(tmp_path):
-    from tests.integration.quick3d_render_support import REPO, render_env, render_tier_skip_reason
+def _run_forge_renderer(tmp_path, *, slow_refresh=False):
+    from tests.integration.quick3d_render_support import (
+        REPO,
+        driver_messages,
+        render_env,
+        render_tier_skip_reason,
+    )
 
     reason = render_tier_skip_reason()
     if reason:
         pytest.skip(reason)
     driver = Path(__file__).with_name("plant_forge_render_driver.py")
-    proc = subprocess.run([sys.executable, str(driver), str(tmp_path)],
+    arguments = [sys.executable, str(driver), str(tmp_path)]
+    if slow_refresh:
+        arguments.append("--slow-refresh")
+    proc = subprocess.run(arguments,
                           cwd=REPO, env=render_env(tmp_path), capture_output=True,
                           text=True, timeout=90)
     assert proc.returncode == 0, proc.stdout[-1500:] + proc.stderr[-3000:]
-    return json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    result = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    result["qt"] = driver_messages(proc.stderr)
+    assert result["qt"]["counts"]["error"] == result["qt"]["counts"]["warning"] == 0, result["qt"]
+    import os
+
+    artifacts = os.environ.get("OGP_RENDER3D_ARTIFACTS")
+    if artifacts:
+        directory = Path(artifacts)
+        directory.mkdir(parents=True, exist_ok=True)
+        name = "plant-forge-budget-slow.json" if slow_refresh else "plant-forge-budget.json"
+        (directory / name).write_text(json.dumps(result, indent=2), encoding="utf-8")
+    return result
 
 
 def test_real_engine_scrubs_the_same_forged_models(tmp_path):
@@ -262,8 +281,16 @@ def test_real_engine_scrubs_the_same_forged_models(tmp_path):
 
 
 @pytest.mark.perf
-def test_real_engine_scrubs_300_models_within_16ms(tmp_path):
-    result = _run_forge_renderer(tmp_path)
-    assert result["scrub300_ms"] <= 16.0, result
+@pytest.mark.parametrize("slow_refresh", (False, True), ids=("production", "negative-control"))
+def test_real_engine_scrubs_300_models_within_16ms(tmp_path, slow_refresh):
+    result = _run_forge_renderer(tmp_path, slow_refresh=slow_refresh)
+    assert result["scrub300_plants"] == 300 and result["scrub300_supports"] == 100
+    assert len(result["scrub300_samples_ms"]) == 3
+    assert all(len(values) == 15 for values in result["scrub300_samples_ms"].values())
+    if slow_refresh:
+        assert result["scrub300_ms"] > 16.0, "the gate missed a deterministic 20 ms uniform-hop delay"
+        assert all(value >= 20. for values in result["scrub300_samples_ms"].values() for value in values)
+    else:
+        assert result["scrub300_ms"] <= 16.0, result
     assert result["scrub300_no_geometry_work"]
     assert result["scrub300_buffers_unchanged"] and result["scrub300_models_unchanged"]

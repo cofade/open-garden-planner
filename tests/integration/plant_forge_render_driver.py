@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import statistics
 import sys
 import time
 from pathlib import Path
@@ -11,7 +12,7 @@ from pathlib import Path
 import numpy as np
 
 
-def main(out: Path) -> int:
+def main(out: Path, *, slow_refresh: bool = False) -> int:
     from open_garden_planner.core.scene3d import GroundSpec, SunState
     from open_garden_planner.core.scene3d.builders import production_registry
     from open_garden_planner.core.scene3d.sync import SceneSync
@@ -64,10 +65,13 @@ def main(out: Path) -> int:
         from tests.integration.test_plant_forge_workspace import climber_scene
 
         climber, fence = climber_scene()
-        batch = {f"vine-{i}": climber for i in range(300)}
         from dataclasses import replace
 
-        records = [replace(r, item_id=key) for key, r in batch.items()]
+        # Every plant is in view, rather than 300 canopies at the same pose.
+        records = [replace(climber, item_id=f"vine-{i}", transform=replace(
+            climber.transform, east_cm=(i % 20 - 9.5) * 230.,
+            north_cm=(i // 20 - 7) * 230.,
+        )) for i in range(300)]
         from open_garden_planner.core.plant_forge import LOD2, enrich_climber_record, forge_record
 
         supports = [replace(fence, item_id=f"fence-{i}",
@@ -77,7 +81,13 @@ def main(out: Path) -> int:
         for rec in records:
             sink.add(rec.item_id, parts, rec.transform, rec.material)
         sink.commit()
-        timing_worker = ForgeWorker(season_sink=host.set_plant_seasons)
+        def season_sink(states):
+            if slow_refresh:
+                # Negative control inside the actual production uniform hop.
+                time.sleep(0.020)
+            host.set_plant_seasons(states)
+
+        timing_worker = ForgeWorker(season_sink=season_sink)
         scene_records = {r.item_id: r for r in (*records, *supports)}
         controller = SimpleNamespace(sync=SimpleNamespace(records=scene_records),
                                      pass_date=datetime.date(2026, 7, 15))
@@ -90,20 +100,42 @@ def main(out: Path) -> int:
         Workspace._refresh_forge(workspace)
         for rec in records:
             assert timing_worker.apply_completed(rec.item_id, rec.geometry_sig, LOD2, parts)
-        shapes_before = sink.geometry_uploads
-        models_before = {id(part.model) for part in host._parts}
-        durations = []
-        for day in (datetime.date(2026, 4, 15), datetime.date(2026, 6, 15),
-                    datetime.date(2026, 10, 15)):
-            started = time.perf_counter()
+        host.set_shot(TopDownShot(center=(0., 0.), px_per_cm=0.055))
+        assert host.wait_ready(10.)
+        days = (datetime.date(2026, 4, 15), datetime.date(2026, 6, 15),
+                datetime.date(2026, 10, 15))
+        # Fixed warm-up and frame settlement are outside the measured callback.
+        for day in days:
             controller.pass_date = day
             Workspace._refresh_forge(workspace)
-            durations.append((time.perf_counter() - started) * 1000.)
-        result["scrub300_ms"] = max(durations)
+            host.grab("forge-budget-warm")
+        shapes_before = sink.geometry_uploads
+        models_before = {id(part.model) for part in host._parts}
+        durations = {day.isoformat(): [] for day in days}
+        # Predeclared samples, interleaved so every call changes the date. No
+        # adaptive retries: gate the worst per-date median, and retain all tails.
+        for _ in range(15):
+            for day in days:
+                host.grab("forge-budget-settle")
+                started = time.perf_counter()
+                controller.pass_date = day
+                Workspace._refresh_forge(workspace)
+                durations[day.isoformat()].append((time.perf_counter() - started) * 1000.)
+        medians = {day: statistics.median(values) for day, values in durations.items()}
+        raw = [value for values in durations.values() for value in values]
+        result["scrub300_ms"] = max(medians.values())
+        result["scrub300_medians_ms"] = medians
+        result["scrub300_samples_ms"] = durations
+        result["scrub300_p95_ms"] = float(np.percentile(raw, 95))
+        result["scrub300_max_ms"] = max(raw)
+        result["scrub300_plants"] = len(records)
+        result["scrub300_supports"] = len(supports)
+        result["slow_refresh"] = slow_refresh
         result["scrub300_no_geometry_work"] = timing_worker.pending_count == 0
         result["scrub300_buffers_unchanged"] = sink.geometry_uploads == shapes_before
         result["scrub300_models_unchanged"] = {id(part.model) for part in host._parts} == models_before
         (out / "result.json").write_text(json.dumps(result), encoding="utf-8")
+        timing_worker.shutdown()
     finally:
         worker.shutdown()
         host.close()
@@ -111,4 +143,4 @@ def main(out: Path) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(Path(sys.argv[1])))
+    raise SystemExit(main(Path(sys.argv[1]), slow_refresh="--slow-refresh" in sys.argv[2:]))

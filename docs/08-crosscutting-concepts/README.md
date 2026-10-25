@@ -6950,6 +6950,17 @@ exact calendar dates, winter wood bounds and sparse tall crowns. They live in
 `test_plant_art.py` and `test_object_sprite_conformance.py` unit files.
 The production Beauty Board and frozen self-test also exercise forged models.
 
+The 300-plant / 100-support callback budget is **typical per-date wall time**,
+not an absolute operating-system scheduling deadline. The render driver places
+all plants in view on a grid, warms the three dates and settles frames outside
+timing. It takes exactly 15 interleaved observations per date (April, June,
+October), once, and gates the worst date median at **16.0 ms**. Every raw sample,
+per-date median, combined p95 and maximum, and the actual graphics adapter are
+published in the render artifacts. No adaptive retries select a passing round.
+A negative control adds 20 ms inside the production uniform hop and must fail
+the same budget. Geometry-job and Model/buffer-churn checks are independent.
+The mixed-species phenology unit budget remains an additional gate.
+
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 
