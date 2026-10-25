@@ -1,9 +1,4 @@
 {
-  "114": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
-  },
   "12": {
     "is_pr": true,
     "state": "MERGED",
@@ -13,6 +8,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "refine(US-4): Improve Plant Details panel layout and date picker"
+  },
+  "114": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
   },
   "161": {
     "is_pr": false,
@@ -819,6 +819,11 @@
     "state": "CLOSED",
     "title": "Duplicate requirement id in the docs: FR-AGENT-27 is used twice in docs/functional-requirements.md"
   },
+  "450": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "The 2D canvas has two unbounded costs a large or crafted plan can hit: path-style painting along the whole line and a z-order refresh per added item"
+  },
   "453": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1044,6 +1049,11 @@
     "state": "CLOSED",
     "title": "L1.10 leftovers: dead OGP_QUICK3D in the workspace gate, unused walk.svg, a stale-DPR Qt warning"
   },
+  "538": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Local frozen build bundles packages the lock no longer pins (Qt 3D DLLs after L1.10)"
+  },
   "539": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1073,6 +1083,16 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix: restore line appearance undo and contain styled paint"
+  },
+  "550": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Boolean operations accept exactly two shapes, refuse touching ones, and cannot use an ellipse at all"
+  },
+  "551": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Vertex editing a dense polygon creates four scene items per vertex - 1,000+ items for a 255-vertex shape"
   },
   "552": {
     "is_pr": false,
@@ -1104,6 +1124,11 @@
     "state": "CLOSED",
     "title": "Properties and Plant Details: focused text/numeric editors suppress history refresh"
   },
+  "562": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Windows offscreen Plan & Sun layout checks depend on font discovery and test order"
+  },
   "565": {
     "is_pr": true,
     "state": "MERGED",
@@ -1113,6 +1138,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#552,#557,#558,#559,#560): plant details undo, lock guard, estimated heights"
+  },
+  "569": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Preferences dialog compresses controls below their minimum height on short screens"
   },
   "571": {
     "is_pr": false,
@@ -1138,6 +1168,16 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
+  },
+  "585": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#450,#551,#550,#569,#538,#446): non-3D hardening batch"
+  },
+  "592": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Every command refreshes every scene item: a one-item-per-command loop is still quadratic (lock badges + ground band)"
   },
   "593": {
     "is_pr": true,

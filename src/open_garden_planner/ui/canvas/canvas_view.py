@@ -693,6 +693,22 @@ class CanvasView(QGraphicsView):
         # Translate to put origin at bottom-left after flip
         transform.translate(0, -self._canvas_scene.height_cm)
         self.setTransform(transform)
+        self._refresh_dense_vertex_overlays()
+
+    def scrollContentsBy(self, dx: int, dy: int) -> None:
+        """Keep a dense vertex-edit sample tied to the visible viewport pixels."""
+        super().scrollContentsBy(dx, dy)
+        self._refresh_dense_vertex_overlays()
+
+    def _refresh_dense_vertex_overlays(self) -> None:
+        """Ask every selected item with a bounded overlay to re-sample (#551)."""
+        scene = self.scene()
+        if scene is None:
+            return
+        for item in scene.selectedItems():
+            refresh = getattr(item, "refresh_vertex_edit_overlay", None)
+            if callable(refresh):
+                refresh()
 
     # Properties
 
@@ -5225,53 +5241,180 @@ class CanvasView(QGraphicsView):
         )
 
     def boolean_operation(self, operation: str) -> None:
-        """Apply a boolean operation (union/intersect/subtract) on two selected shapes."""
+        """Apply union (any count) or intersect/subtract (exactly two) shapes.
+
+        Union also accepts shapes that merely touch: a fence line of three beds
+        laid edge to edge is the ordinary case. Intersection and subtraction
+        keep requiring a real overlap because their result is ambiguous for a
+        contact-only pair (#550).
+        """
+        from copy import deepcopy
+
         from PyQt6.QtGui import QColor, QPen
         from PyQt6.QtWidgets import QMessageBox
 
+        from open_garden_planner.core.item_look import copy_visual_style
+        from open_garden_planner.core.object_types import (
+            get_valid_types_for_shape,
+            is_plant_type,
+        )
         from open_garden_planner.core.shape_boolean import (
+            all_paths_connected,
             boolean_intersect,
             boolean_subtract,
-            boolean_union,
             item_to_painter_path,
+            path_has_hole,
+            paths_overlap,
+            union_outline_many,
         )
         from open_garden_planner.ui.canvas.items import GardenItemMixin
-        from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+        from open_garden_planner.ui.canvas.items.polygon_item import (
+            MAX_POLYGON_VERTICES,
+            PolygonItem,
+        )
 
-        selected = self.scene().selectedItems()
-        if len(selected) != 2:
-            self.set_status_message(
-                self.tr("Select exactly two shapes for boolean operation")
-            )
+        if operation not in ("union", "intersect", "subtract"):
             return
 
-        item_a, item_b = selected[0], selected[1]
-
-        path_a = item_to_painter_path(item_a)
-        path_b = item_to_painter_path(item_b)
-        if path_a is None or path_b is None:
+        selected = self.scene().selectedItems()
+        if len(selected) < 2 or (operation != "union" and len(selected) != 2):
             self.set_status_message(
                 self.tr(
-                    "Boolean operations require closed shapes (polygon, rectangle, or circle)"
+                    "Select at least two shapes "
+                    "(intersection and subtraction need exactly two)"
                 )
             )
             return
 
-        if not path_a.intersects(path_b):
+        # Refuse before anything is mutated. A linked subject would lose its
+        # botanical identity, a constrained one would silently break the
+        # relation, and a sprite's picture cannot survive flattening to a
+        # polygon.
+        for item in selected:
+            if not isinstance(item, GardenItemMixin):
+                continue
+            layer = (
+                self._canvas_scene.get_layer_by_id(item.layer_id)
+                if item.layer_id
+                else None
+            )
+            constraints = (
+                self._canvas_scene.constraint_graph.get_item_constraints(item.item_id)
+                if item.item_id is not None
+                else []
+            )
+            if (
+                is_plant_type(item.object_type)
+                or item.paints_sprite
+                or item.parent_bed_id is not None
+                or item.has_children
+                or item.parentItem() is not None
+                or constraints
+                or (layer is not None and layer.locked)
+                or any(
+                    key in item.metadata
+                    for key in ("plant_species", "guild", "ridge_item_id")
+                )
+            ):
+                self.set_status_message(
+                    self.tr(
+                        "Boolean operations refuse plants, linked objects, "
+                        "constraints, and locked layers"
+                    )
+                )
+                return
+
+        # A union produces ONE item, so every subject must already agree on the
+        # layer it will live on. Picking one arbitrarily (Qt does not define
+        # selectedItems() order) would move objects across layers unannounced.
+        # After the per-item refusals, so a plant on another layer reports the
+        # more specific reason.
+        layer_ids = {
+            getattr(item, "layer_id", None)
+            for item in selected
+            if isinstance(item, GardenItemMixin)
+        }
+        if len(layer_ids) > 1:
             self.set_status_message(
-                self.tr("Shapes must overlap for boolean operations")
+                self.tr("All shapes must be on the same layer")
             )
             return
 
-        ops = {
-            "union": boolean_union,
-            "intersect": boolean_intersect,
-            "subtract": boolean_subtract,
-        }
-        result_poly = ops[operation](path_a, path_b)
+        # Whose opaque data wins when two subjects disagree is a product
+        # decision; refuse rather than silently pick one.
+        payloads = [
+            item.metadata
+            for item in selected
+            if isinstance(item, GardenItemMixin) and item.metadata
+        ]
+        if payloads and any(payload != payloads[0] for payload in payloads[1:]):
+            self.set_status_message(
+                self.tr(
+                    "The shapes contain different data; keep them separate or "
+                    "make their data consistent"
+                )
+            )
+            return
+
+        paths = [item_to_painter_path(item) for item in selected]
+        if any(path is None for path in paths):
+            self.set_status_message(
+                self.tr(
+                    "Boolean operations require closed shapes "
+                    "(polygon, rectangle, circle, or ellipse)"
+                )
+            )
+            return
+        checked_paths = [path for path in paths if path is not None]
+
+        if operation == "union":
+            if not all_paths_connected(checked_paths):
+                self.set_status_message(
+                    self.tr("Shapes must touch or overlap")
+                )
+                return
+            # ONE union pass: its contour answers the hole test and its
+            # flattened polygon is the result (#550 review).
+            union = union_outline_many(checked_paths)
+            if union is not None:
+                result_path, result_poly = union
+                if path_has_hole(result_path):
+                    self.set_status_message(
+                        self.tr(
+                            "The merged outline would contain a hole; "
+                            "keep the shapes separate"
+                        )
+                    )
+                    return
+            else:
+                result_poly = None
+        else:
+            if not paths_overlap(checked_paths[0], checked_paths[1]):
+                self.set_status_message(
+                    self.tr("Shapes must overlap for this operation")
+                )
+                return
+            if operation == "intersect":
+                result_poly = boolean_intersect(checked_paths[0], checked_paths[1])
+            else:
+                result_poly = boolean_subtract(checked_paths[0], checked_paths[1])
+
         if result_poly is None:
             self.set_status_message(
                 self.tr("Boolean {op} produced an empty result").format(op=operation)
+            )
+            return
+
+        # A flattening can multiply the vertex count of curved inputs; the plan
+        # loader refuses a polygon above MAX_POLYGON_VERTICES, so an over-cap
+        # result would be created, saved and then silently dropped on reopen.
+        # Refuse it here, where the user can still split the selection (#550).
+        if result_poly.count() > MAX_POLYGON_VERTICES:
+            self.set_status_message(
+                self.tr(
+                    "The result would have {count} vertices; the plan supports "
+                    "at most {limit}. Keep the shapes separate."
+                ).format(count=result_poly.count(), limit=MAX_POLYGON_VERTICES)
             )
             return
 
@@ -5296,17 +5439,35 @@ class CanvasView(QGraphicsView):
         if answer != QMessageBox.StandardButton.Ok:
             return
 
-        # Create result PolygonItem
+        # Carry the source's appearance through the one look-copy path and its
+        # opaque metadata through a copy, so the result survives save/reopen.
         result_item = PolygonItem.from_polygon(result_poly)
-
-        # Inherit layer from item_a
-        if isinstance(item_a, GardenItemMixin) and item_a.layer_id:
-            result_item.layer_id = item_a.layer_id
+        source = next(
+            (
+                item
+                for item in selected
+                if isinstance(item, GardenItemMixin) and item.metadata
+            ),
+            selected[0],
+        )
+        if isinstance(source, GardenItemMixin):
+            if source.object_type in get_valid_types_for_shape("polygon"):
+                result_item.object_type = source.object_type
+            result_item.name = source.name
+            result_item.layer_id = source.layer_id
+            result_item.metadata.update(deepcopy(source.metadata))
+            copy_visual_style(source, result_item)
+            result_item.update()
 
         from open_garden_planner.core import BooleanShapeCommand
 
         command = BooleanShapeCommand(
-            self.scene(), item_a, item_b, result_item, operation
+            self.scene(),
+            selected[0],
+            selected[1],
+            result_item,
+            operation,
+            additional_items=selected[2:],
         )
         self._command_manager.execute(command)
 

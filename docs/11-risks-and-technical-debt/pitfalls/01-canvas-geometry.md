@@ -209,3 +209,19 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Legacy:** none (new entry)
 
 The sun study's shadow overlay (`-500`) and hours-of-sun map (`-450`) were placed "below every layer item" in US-E3/E4, which reads well until a lawn is drawn: the owner's lawn hid both overlays entirely. A single overlay z cannot fix it — the layer bands interleave a lawn in one layer with a tree in another — so the ground surfaces move instead: an order-keeping map into a band under the overlays. Three things the first two cuts got wrong, each found by review: (1) the rule — "every object without a height" (the 3D view's ground rule) sank a cold frame under the raised bed it stood on, with no Height field to lift it back, so the band holds the garden's surfaces only; (2) Arrange still ranked over the whole layer, so a lawn stepped "forward" past a table and nothing moved; then, split by band while the drawing still normalized the whole layer, sending a lawn to the back moved a perennial on an in-ground bed under a tree — so ONE split (`CanvasScene._band_entries`) now feeds both the drawing and Arrange, and the layer is renumbered ground first; (3) a group is drawn in one slot, so a grouped lawn stayed above the overlays — a group of only surfaces now takes the band. The band follows reclassification after every command (a `plan_changed` hook was dropped: its `int` argument became `QTimer.start`'s delay). Saved files list ground surfaces first (display order). Lesson: two orders (rank and drawing) must come from one function, or a user acts on one and sees the other.
+
+### PF-CAN-23
+
+- **Rule:** A cached paint's `option.exposedRect` is the item's WHOLE rect, not the visible part. A styled line intersects it with the view's visible scene rect, in item coordinates, and passes that clip plus a `WalkBudget` to the one `PathStylePaint` walk; an export or minimap render disables caches first and keeps full detail.
+- **Pinned by:** `tests/integration/test_path_style_paint_bound.py`; `tests/unit/test_minimap_widget.py`
+- **Source:** #450
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+### PF-CAN-24
+
+- **Rule:** Stacking z is derived only from ranks. An appended independent solid takes the derivation's own next fixed-grid value at add time (one derivation per layer, never one per add), a re-ordering add (parent bed, children, roof ridge, pre-ranked re-add, ground surface) re-derives synchronously, and the per-layer cache that seeds the next value holds a LAYER-BAND number, never the highest `zValue`, so a ground-only layer (whose z lives in `GROUND_Z_RANGE`) seeds the next solid correctly.
+- **Pinned by:** `tests/integration/test_canvas_z_batch.py`; `tests/unit/test_plant_bed_zorder.py`; `tests/integration/test_arrange_z_order.py`
+- **Source:** #450
+- **Status:** standing
+- **Legacy:** none (new entry)

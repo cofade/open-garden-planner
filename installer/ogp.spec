@@ -86,8 +86,14 @@ from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 # hand-typed list, so a new dependency appears automatically.
 if str(SPECPATH) not in sys.path:
     sys.path.insert(0, str(SPECPATH))
+from build_environment import warn_if_unpinned  # noqa: E402
 from runtime_closure import runtime_distribution_names  # noqa: E402
 from frozen_inventory import MANIFEST_NAME, collected_metadata, write_manifest  # noqa: E402
+
+# #538: a local build must say when the venv holds a distribution the lock no
+# longer pins (the retired 3D wheels survived exactly this way after L1.10).
+# Advisory here; `python -m installer.build_environment --strict` is the gate form.
+warn_if_unpinned()
 
 # The project's own metadata and build-time-only helpers are not third-party.
 _EXCLUDED_METADATA = {"open-garden-planner", "pyinstaller-hooks-contrib"}

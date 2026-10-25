@@ -169,3 +169,11 @@ bootstrap pin must be checked against hosted update tooling as well as installat
 - **Legacy:** none
 
 **A live advisory database fails a required check with no code change (#571, 2026-10-24).** `master` (`50324280`) went red on `Dependencies (ubuntu-latest)` and `Dependencies (windows-latest)` — both required — on GHSA-xmj3-9gf7-h52w (setuptools < 84.1.0), so no PR could pass branch protection. CI at 22:12Z on 2026-10-23 saw one advisory; a local run of the same command hours later saw seven (six more in `filelock` 4.2.0, a dev-only package reached through `pip-audit` → `cachecontrol[filecache]`). Dependabot could not open the fix: its uv (0.12.19) is older than the project's `==0.12.23` pin (the 2026-10-09 note under PF-CI-09). Resolution: pin the build group's setuptools to the first patched version and move only the named packages with `uv lock --upgrade-package` (the deployment view's runbook now has this path), re-export `pylock.toml`, re-run `pip-audit` and rebuild the frozen bundle. The fix also covered the advisory behind the one standing waiver (`PYSEC-2026-3447`, fixed in 83.0.0), so the waiver ended too: a waiver that matches nothing would hide that advisory if its range were ever widened. `test_dependency_governance.py::WAIVERS` now names every allowed waiver (none): the test requires CI's whole `pip-audit` command line to be the plain command plus exactly those waivers, so neither an abbreviated `--ignore` nor `|| true` slips in. It does not check that a waived advisory still matches the lock — ending a waiver whose advisory was fixed stays a review duty (the 2026-10-24 case was found by reading the audit output).
+
+### PF-CI-13
+
+- **Rule:** A local frozen build must compare the build venv with `pylock.toml` and warn (strictly fail on request) when it holds a distribution the lock no longer pins. Removing a pin does not uninstall the package, and PyInstaller's hooks can collect its files even when the application never imports it.
+- **Pinned by:** `tests/unit/test_build_environment.py`
+- **Source:** #538
+- **Status:** standing
+- **Legacy:** none (new entry)

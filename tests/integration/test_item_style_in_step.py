@@ -883,7 +883,7 @@ DERIVING: dict[str, dict[str, str]] = {
     "ui/canvas/canvas_view.py": {
         "paste": "clipboard", "duplicate_selected": "duplicate", "create_linear_array": "arrays",
         "create_grid_array": "arrays", "create_circular_array": "arrays",
-        "create_array_along_path": "arrays",
+        "create_array_along_path": "arrays", "boolean_operation": "boolean merge",
     },
 }
 
