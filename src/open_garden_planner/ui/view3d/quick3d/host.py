@@ -91,7 +91,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, cast
@@ -164,6 +164,8 @@ from .shots import PerspectiveShot, Shot, TopDownShot
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QWidget
+
+    from open_garden_planner.core.phenology import PhenologyState
 
 QML_DIR: Final = Path(__file__).resolve().parent / "qml"
 SCENE_FILE: Final = "Garden.qml"
@@ -568,6 +570,8 @@ class Quick3DHost:
         part = _Part(model, geometry, spec.kind, spec.item_id)
         self._parts.add(part)
         try:
+            _set(model, "partName", spec.name)
+            self._call("applyPlantSeason", model)
             self.pose_part(part, pose)
             self.tint_part(part, tint_rgba)
             if spec.item_id in self._faded:
@@ -683,6 +687,17 @@ class Quick3DHost:
         state shows the new scene with its next frame anyway."""
         if self._open("request_frame") is HostState.LIVE:
             self._view.update()
+
+    def set_plant_seasons(self, states: Mapping[str, PhenologyState]) -> None:
+        """Update seasonal material values in one QML hop, with no Model/geometry churn."""
+        self._open("set_plant_seasons")
+        values = {
+            item_id: [state.leaf_density, *state.foliage_tint_linear,
+                      state.bloom, state.ripeness, state.snow, *state.accent_tint_linear]
+            for item_id, state in states.items()
+        }
+        self._call("setPlantSeasons", values)
+        self.request_frame()
 
     # ── the selection ring (L1.8, ADR-060) ───────────────────────────────────
 

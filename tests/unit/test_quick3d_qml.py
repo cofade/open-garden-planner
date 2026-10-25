@@ -162,7 +162,7 @@ def test_every_part_component_is_a_pickable_model_with_the_tint_properties() -> 
     assert custom == {PART_COMPONENTS[kind] for kind in ("water", "foliage", "grass", "vc", "roof")}
     for block in blocks:
         if "CustomMaterial" in block:
-            assert "property vector3d uTint: tintLinear" in block, block.split()[0]
+            assert re.search(r"property vector3d uTint: (?:tintLinear|Qt.vector3d\(tintLinear.x \* seasonTint.x, tintLinear.y \* seasonTint.y, tintLinear.z \* seasonTint.z\))", block), block.split()[0]
 
 
 def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:

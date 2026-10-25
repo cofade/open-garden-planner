@@ -107,7 +107,7 @@ The living register (ADR-047). Every row has a status; P0/P1 rows link their iss
 
 ## 11.4 Known Development Pitfalls
 
-Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN>`) is permanent (ADR-061): retired and pointer entries keep theirs. Standing rules live in the numbered files under [pitfalls/](pitfalls/); incident narratives and retired work are verbatim under [archive/](archive/). Each entry names the test that pins it, or says why it has none.
+Permanent IDs survive retirement (ADR-061). [Pitfalls](pitfalls/) hold rules and test pins; [archives](archive/) preserve narratives. An unpinned entry explains why.
 
 | Area | File | Scope |
 |---|---|---|
@@ -335,6 +335,7 @@ Every lesson the project paid for, one entry each. An entry's ID (`PF-<AREA>-<NN
 | PF-L3D-07 | An unlit overlay passes through the mood's exposure, so a 3D shadow drape multiplies the frame and an overlay colour is divided by the exposure. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-07) |  |
 | PF-L3D-08 | A hidden or blended Model drops out of the shadow map, so a part that must keep casting while it fades or is cut is an opaque screen door (a fragment discard) that collapses in the AO depth pass. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-08) |  |
 | PF-L3D-09 | The 3D drape follows the shared Hours of Sun both ways, also when 3D opens with it on. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-09) |  |
+| PF-L3D-10 | Render production plants and verify final seasonal bounds. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-10) |  |
 
 ### Redirect of legacy numbered IDs
 

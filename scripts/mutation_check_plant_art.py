@@ -81,7 +81,8 @@ def one(label: str, path: str, old: str, new: str, tests: tuple[str, ...]) -> Mu
 MUTANTS: tuple[Mutant, ...] = (
     # ── the sprite rule and the tables (core/plant_art) ──────────────────────
     one("the species sprite is never used", RESOLVE,
-        "    for stem in species_candidates(species):", "    for stem in ():", ART),
+        "    for stem in ([] if category_alias else species_candidates(species)):",
+        "    for stem in ():", ART),
     one("a name that CONTAINS a key is not matched", RESOLVE,
         "if key_words <= words)", "if False)", ART),
     one("a key that CONTAINS the name is not matched", RESOLVE,

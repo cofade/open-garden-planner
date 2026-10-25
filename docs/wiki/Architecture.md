@@ -66,3 +66,8 @@ coordinates are missing, opening the existing location dialog. It also unifies
 position-lock badges across object menus. Shipped after owner executable
 acceptance in [PR #566](https://github.com/cofade/open-garden-planner/pull/566);
 see [the implementation contract](https://github.com/cofade/open-garden-planner/blob/master/docs/08-crosscutting-concepts/README.md#832-panel-edit-boundaries-and-position-locks-552-558560).
+
+Plant Forge (L3, draft PR #593) adds shared sprite traits, procedural species
+meshes, camera LOD and background upgrades. Its seasonal material state uses
+the same recorded frost-relative harvest calendar as tasks; flower and fruit
+parts are independent. See the [Plant Forge decision](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-064-plant-forge--procedural-3d-species-models-from-the-2d-sprite-recipes-lods-and-phenology-387).

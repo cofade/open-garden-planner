@@ -168,3 +168,58 @@ class TestDeterminism:
             if not path.exists() or path.read_text(encoding="utf-8") != text
         ]
         assert not drift, f"object sprites drifted from generator output: {sorted(drift)}"
+
+    def test_regenerated_bytes_equal_committed_svg_bytes(self) -> None:
+        """L3.0 byte gate: every generated object SVG matches the committed file byte for byte."""
+        generated = _GEN.generate_all()
+        assert len(generated) == len(ALL_SVGS)
+        for path, text in generated.items():
+            committed = path.read_bytes().replace(b"\r\n", b"\n")
+            assert committed == text.encode("utf-8"), f"{path.name}: byte mismatch"
+
+
+class TestObjectArtPackage:
+    """L3.0 (#387): ``core/object_art/materials.py`` is stdlib-only and is the single
+    home of ``MATERIALS``, ``EMBER``, ``FLAME`` and ``mat``."""
+
+    def test_package_is_stdlib_only(self) -> None:
+        import sys
+
+        from open_garden_planner.core import object_art
+        from tests.unit.test_scene3d_contract import _imports
+
+        package_dir = Path(object_art.__file__).parent
+        modules = sorted(package_dir.rglob("*.py"))
+        assert {p.name for p in modules} >= {"__init__.py", "materials.py"}
+        stdlib = set(sys.stdlib_module_names) | {"__future__"}
+        own = "open_garden_planner.core.object_art"
+        for mod_path in modules:
+            for name in _imports(mod_path):
+                assert name.split(".")[0] in stdlib or name == own or name.startswith(own + "."), (
+                    f"{mod_path.name} imports {name}"
+                )
+
+    def test_generator_shares_materials_module(self) -> None:
+        from open_garden_planner.core.object_art import materials
+
+        fresh_gen = _load_generator()
+        assert fresh_gen.MATERIALS == materials.MATERIALS
+        assert fresh_gen.EMBER == materials.EMBER
+        assert fresh_gen.FLAME == materials.FLAME
+        assert fresh_gen.TONE_KEYS == materials.TONE_KEYS
+        for mat_name, tones in materials.MATERIALS.items():
+            assert tuple(tones) == materials.TONE_KEYS, mat_name
+
+    def test_generator_runs_without_qt_or_numpy(self) -> None:
+        import subprocess
+        import sys
+
+        code = (
+            "import runpy, sys; "
+            "sys.modules['PyQt6'] = None; "
+            "sys.modules['numpy'] = None; "
+            f"sys.argv = [{str(SCRIPT)!r}, '--check']; "
+            f"runpy.run_path({str(SCRIPT)!r}, run_name='__main__')"
+        )
+        proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
+        assert proc.returncode == 0, proc.stderr or proc.stdout

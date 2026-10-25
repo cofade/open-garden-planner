@@ -100,6 +100,7 @@ def _register_calls() -> None:
         "set_overlay": lambda host, _part: host.set_overlay("drape", None),
         "set_roofs_hidden": lambda host, _part: host.set_roofs_hidden(True),
         "set_faded_items": lambda host, _part: host.set_faded_items(frozenset()),
+        "set_plant_seasons": lambda host, _part: host.set_plant_seasons({}),
         "focus": lambda host, _part: host.focus(),
         "has_focus": lambda host, _part: host.has_focus(),
         # the three releases: legal on a closed host, and they do nothing there

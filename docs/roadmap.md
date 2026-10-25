@@ -2724,11 +2724,39 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L0 | **Proof of Beauty** — ADR-048 criteria committed before measuring; deterministic bench plans; dormant `--spike-q3d` renderer with sky, soft shadows, procedural trees/plants/roofs/fences; measurements M1–M12 in the container and the frozen Windows exe; Beauty Board; agents + skills. **GO 2026-10-05 (owner GPU run in ADR-048 entry 19); evidence tooling deleted.** | [#384](https://github.com/cofade/open-garden-planner/issues/384) |
 | ✅ | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 ✅ sim clock shipped v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)); L1.1–L1.10 ✅ shipped v1.30.14 ([PR #484](https://github.com/cofade/open-garden-planner/pull/484))** — see below | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
 | ✅ | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **✅ shipped v1.31.0 ([PR #584](https://github.com/cofade/open-garden-planner/pull/584)) after owner acceptance (ADR-063, FR-3D-ANALYZE-01 … 08)** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
-| 📋 | L3 | **Plant Forge** — procedural species models from the sprite recipes, LODs, phenology | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
+| 🚧 | L3 | **Plant Forge** — implemented in draft PR #593; owner acceptance pending (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | 📋 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
+
+### L3 acceptance highlights — Plant Forge (#387, ADR-064) — draft PR #593
+
+- **L3.0:** Shared traits cover 123 recipes in 13 archetypes. Object SVG material
+  tables have one stdlib-only home with byte-conformance checks. Exact Lemon Balm
+  aliases now select the herb sprite; melon/flax keep their corrected fallbacks.
+- **L3.1–L3.3:** Skeleton/tube/leaf builders cover broadleaf trees, conifers,
+  palms, shrubs, hedges and herbaceous forms. LOD caps are 25,000/6,000/800 at
+  18/45 m thresholds; cache bounds 256 entries/64 MiB. Crown area drives leaf
+  cover at every LOD. Bare structural wood remains grounded at full height.
+- **L3.4:** Climbers prefer a trellis parent, then a nearby structure within 50 cm
+  of the canopy edge, then a bamboo tripod. Local finite support guides preserve
+  physical contact when reachable within the canopy, including rotated plants
+  and supports; farther supports cannot enlarge the recorded footprint.
+- **L3.5–L3.6:** Background synthesis admits only current document/geometry/LOD
+  results. Orbit and walk update LOD. Seasons update existing Models, with
+  independent flower, fruit and tuber controls. Exact harvest days share the
+  task calendar and local frost dates. Render gates and the Beauty Board exercise
+  the production forge. PR #593 review fixes are pinned by workspace, calendar,
+  coverage and winter-height regressions. Owner beauty/manual acceptance remains.
+  Support discovery runs on the synthesis thread and reuses exact structural
+  dependencies on date changes. The 300-plant / 100-support render timing gate
+  calls the production workspace refresh and checks zero geometry work/churn.
+
+Cold synthesis measurement: 123 recipes, height 420 cm / radius 180 cm / seed 303, median of
+three builds per recipe on Python 3.11: median 3.69 ms, p90 13.07 ms, maximum 23.01 ms;
+warm median 0.0012 ms. Synthesis excludes engine uploads and presentation.
+
 
 ### L2 acceptance highlights — Analyze in 3D (#386, ADR-063) — **shipped v1.31.0, PR #584**
 

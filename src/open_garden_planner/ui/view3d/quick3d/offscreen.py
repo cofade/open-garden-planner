@@ -43,6 +43,7 @@ What it guarantees:
 from __future__ import annotations
 
 import contextlib
+import datetime
 import sys
 import time
 from collections.abc import Callable, Iterable, Mapping
@@ -155,6 +156,31 @@ def _silent(_phase: str, **_fields: Any) -> None:
     """The default log: nothing. A library call does not write to stdout."""
 
 
+def forge_scene_plants(
+    sink: Quick3DSink,
+    host: Quick3DHost,
+    records: Mapping[str, Record],
+    *,
+    plant_date: datetime.date,
+    latitude_deg: float = 52.0,
+    frost_dates: Mapping[str, object] | None = None,
+) -> int:
+    """Complete the same forge/season upgrade for a still frame or FPS probe."""
+    from ....core.plant_forge import LOD0, ForgeCache
+    from ..forge_worker import ForgeWorker
+
+    worker = ForgeWorker(sink, cache=ForgeCache(), season_sink=host.set_plant_seasons)
+    try:
+        worker.submit_snapshot(records.values(), force_lod=LOD0, plan_date=plant_date,
+                               latitude_deg=latitude_deg, frost_dates=frost_dates)
+        expected = worker.pending_count
+        if len(worker.drain()) != expected:
+            raise RenderError("Plant Forge did not upgrade every plant in the rendered snapshot")
+        return expected
+    finally:
+        worker.shutdown()
+
+
 def render_records(
     records: Mapping[str, Record],
     *,
@@ -174,6 +200,9 @@ def render_records(
     overlays: Mapping[str, Mesh] | None = None,
     roofs_hidden: bool = False,
     faded: Iterable[str] = (),
+    plant_date: datetime.date | None = None,
+    latitude_deg: float = 52.0,
+    frost_dates: Mapping[str, object] | None = None,
 ) -> OffscreenFrame:
     """Render ``records`` from ``shot`` under ``sun`` into an image of ``size``
     (logical pixels), through the real ``SceneSync`` → ``Quick3DSink`` path.
@@ -243,6 +272,9 @@ def render_records(
             sync.apply(records, sun=sun, ground=ground)  # one transaction
             while sync.ground_pending:  # a baker with a time budget: a still picture
                 sync.continue_ground()  # shows the FINISHED ground, however many passes
+            if plant_date is not None:
+                forge_scene_plants(sink, host, records, plant_date=plant_date,
+                                   latitude_deg=latitude_deg, frost_dates=frost_dates)
             for layer, mesh in (overlays or {}).items():  # the analysis overlays (L2)
                 host.set_overlay(layer, engine_buffers(mesh))
             host.set_roofs_hidden(roofs_hidden)

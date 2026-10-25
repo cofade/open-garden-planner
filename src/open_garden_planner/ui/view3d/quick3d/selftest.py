@@ -50,6 +50,7 @@ import importlib
 import os
 import time
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Final
 
@@ -163,6 +164,7 @@ FADED: Final = tuple(FADED_CUBES)
 #: The share of a faded cube's sampled pixels in its colour must lie in this range: a
 #: cube drawn whole (no screen door: all of them) or not at all fails.
 FADED_SHARE: Final = (0.08, 0.5)
+FORGE_PATCH: Final = Region(285.0, 105.0, 20.0, 20.0)
 
 #: Where the judge looks. Each patch lies well inside what it samples; the shadow
 #: patch is inside the analytic 2D shadow of the box for ``SUN`` and outside the
@@ -174,6 +176,7 @@ REGIONS: Final[dict[str, Region]] = {
     "lawn": _at(-150.0, 125.0, 30.0, 14.0),
     "shade": Region(DRAPE_PATCH.east_cm, DRAPE_PATCH.north_cm, 20.0, 20.0),
     "lines": Region(LINES_PATCH.east_cm, LINES_PATCH.north_cm, 14.0, 14.0),
+    "forge": FORGE_PATCH,
     **{item_id: Region(patch.east_cm, patch.north_cm, 14.0, 14.0)
        for item_id, (patch, _kind) in FADED_CUBES.items()},
     **{kind: Region(region.east_cm, region.north_cm, 20.0, 20.0)
@@ -212,6 +215,12 @@ def records() -> dict[str, Record]:
     for kind, region in _SWATCHES.items():
         scene[kind] = _item(kind, region, 30.0, SWATCH_TINT, kind)
     scene["lawn"] = _lawn()
+    scene["forge"] = Record(
+        item_id="forge", kind="TREE", shape="circle", footprints=(_ring(30.0, 30.0),),
+        transform=Transform(east_cm=FORGE_PATCH.east_cm, north_cm=FORGE_PATCH.north_cm),
+        material=Material("TREE"), height_cm=25.0,
+        params=Params({"seed": "forge", "radius_cm": 15.0, "sprite_species": "birch"}),
+    )
     return scene
 
 
@@ -348,7 +357,7 @@ def judge_frame(rgba: NDArray[np.uint8], device_pixel_ratio: float = 1.0) -> lis
             and shade[2] / max(shade[1], 1.0) > 1.05 * lit[2] / max(lit[1], 1.0)):
         problems.append(f"the shadow drape did not darken the ground towards its blue: "
                         f"{_shown(shade)} vs the lit ground {_shown(lit)}")
-    for item_id, (_patch, kind) in FADED_CUBES.items():
+    for item_id, (_cube, kind) in FADED_CUBES.items():
         share = _tinted_share(rgba, REGIONS[item_id], device_pixel_ratio)
         if not FADED_SHARE[0] <= share <= FADED_SHARE[1]:
             problems.append(f"the faded {kind} cube is not a screen door: {share:.0%} of its "
@@ -361,6 +370,9 @@ def judge_frame(rgba: NDArray[np.uint8], device_pixel_ratio: float = 1.0) -> lis
     if share < RING_SHARE:
         problems.append(f"the selection ring did not draw round the {SELECTED[0]} swatch: "
                         f"{share:.0%} of its band is in the ring's colour")
+    pixels = _patch(rgba, FORGE_PATCH, device_pixel_ratio)
+    if float((np.max(np.abs(pixels - lit), axis=1) > 10.0).mean()) < 0.15:
+        problems.append("the forged tree did not draw: its patch is bare ground")
     return problems
 
 
@@ -433,7 +445,7 @@ def _render(log: RenderLog, qml_dir: Path | None) -> Rendered:
     frame = render_records(records(), shot=SHOT, sun=SUN, ground=GROUND, size=SIZE,
                            registry=registry(), qml_dir=qml_dir, log=log, graphics_info=True,
                            ground_baker=baker, selected=SELECTED, overlays=overlays(),
-                           faded=FADED)
+                           faded=FADED, plant_date=date(2026, 7, 15))
     return Rendered(frame.rgba(), frame.device_pixel_ratio, frame.graphics_api, frame.adapter,
                     frame.open_ms, dict(frame.qt.get("counts", {})),
                     tuple(f"{item_id}: {error}" for item_id, error in frame.build_failures.items()),

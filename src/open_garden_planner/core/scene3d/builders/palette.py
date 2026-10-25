@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
+from ...object_art.materials import MATERIALS
 from ..color import Rgba, srgb8_to_linear
 
 #: Vertex colour of a ``tinted`` part: the sink multiplies it with the item's tint.
@@ -58,8 +59,8 @@ class PaletteColor:
         return srgb8_to_linear(self.rgba8)
 
 
-def _sprite(name: str, hex_color: str, material: str, tone: str) -> PaletteColor:
-    value = hex_color.lstrip("#")
+def _sprite(name: str, _hex_color: str, material: str, tone: str) -> PaletteColor:
+    value = MATERIALS[material][tone].lstrip("#")
     srgb = (int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16))
     return PaletteColor(name, srgb, SOURCE_OBJECT_SPRITES, material, tone)
 

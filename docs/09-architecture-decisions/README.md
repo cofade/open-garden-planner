@@ -2702,7 +2702,7 @@ statement that was one measurement short.
 
 | Question (review round 5) | Measured (Qt 6.11, Direct3D 11 on an RTX 4070 and on WARP; ratios set with `QT_SCALE_FACTOR` on a 100 % screen) |
 |---|---|
-| How does Qt size a render target at a fractional ratio? | `QSize(logical) * ratio` — `qRound` per side, half a pixel up: a 442 px pane at 1.25 has a 553 px frame (552.5), a 443 px pane a 554 px one (553.75), a 447 px pane at 1.5 a 671 px one. The reviewer: 161 of 161 sizes at 1.25, 1.5 and 1.75 within 0.5 px |
+| How does Qt size a render target at a fractional ratio? | `QSize(logical) * ratio` — `qRound` per side, half a pixel up: a 442 px pane at 1.25 has a 553 px frame (552.5), a 443 px pane a 554 px one (553.76), a 447 px pane at 1.5 a 671 px one. The reviewer: 161 of 161 sizes at 1.25, 1.5 and 1.75 within 0.5 px |
 | "Less than one pixel off" at 125 % | the pane made one logical pixel wider, 442 → 443, with the render target behind (the no-paint filter): `grab()` handed out the 553 px frame and `pick()` answered with the old viewport — on the GPU and on WARP (the reviewer). In the arithmetic 750 of 11,993 neighbour frames passed at 1.25, and every ratio strictly between 1 and 1.5 had some; 1.0, 1.5 and above had none |
 | The half-pixel rule | every logical width from 2 to 3000 at 1.0, 1.1, 1.2, 1.25, 1.3, 1.4, 1.5, 1.75, 2.0, 2.25, 2.5 and 3.0, against `QSize * ratio` asked of Qt: 0 of 2,999 right frames refused and 0 of 11,993 neighbour frames accepted, at each of the twelve. On a real window at 1.25: 442 → 443 and 446 → 447 px with the target behind — a raw grab is 553 and 558 px wide, the pane's own frame 554 and 559 — refused by `grab()`, `pick()` and `project()`, on Direct3D 11 (GPU, WARP) and on xcb + OpenGL alike; the reviewer's probe: 0 of 12 handed out (it was 1 of 13) |
 | `pick()` / `project()` while the render target is behind | before: 200 `project()` took 200 frames, all refused — 2.0 ms each on the GPU, 4.1 ms on WARP; 13 and 33 ms a frame at 2560 × 1369 (the reviewer). Now: 200 `project()` take ONE frame — 0.06 ms a call, 12 ms for the tick where it was 399 ms — and the 200 `pick()` after them none (0.013 ms a call), on the GPU |
@@ -7319,3 +7319,79 @@ started from "Nothing on the Ground" before. Pinned by
 and `::test_3d_opened_with_hours_of_sun_already_on_shows_it_on_the_ground` (both fail
 without the change). The same pass found the 2D overlays hidden under lawns: ADR-043's
 addendum "ground surfaces lie under the sun study".
+
+---
+
+## ADR-064: Plant Forge — Procedural 3D Species Models from the 2D Sprite Recipes, LODs and Phenology (#387)
+
+**Status:** Accepted implementation; owner beauty/manual acceptance pending (PR #593).
+**Date:** 2026-10-25
+**Context:** L3 replaces the first silhouettes with procedural species models,
+while preserving plan dimensions, responsive navigation and a shared local date.
+The implementation contains 123 recipes in 13 archetypes; the initial PR text's
+128 recipes, 16 habits, invented trait APIs and smaller triangle limits were
+incorrect and are replaced here by executable contracts.
+
+**Decision:**
+
+1. **One art source.** Frozen `Traits3D` combines crown, branching, leaf and
+   illustrative seasonal traits from the existing recipes. The exact Lemon Balm /
+   Melissa officinalis alias resolves to the herb category before word matching
+   (L3.0 explicitly requests this correction; the earlier #446 decision had left
+   it unresolved). Melon and flax keep the already-correct category fallbacks.
+   `core/object_art/materials.py` supplies the unchanged object SVG colour tables.
+2. **Qt-free synthesis.** `core/plant_forge/` uses stdlib and NumPy for
+   space-colonisation skeletons, parallel-transport tubes, geometric micro-leaves,
+   tiered conifers, palms, shrubs, hedges, herbaceous forms and climbers. Total
+   triangle caps are 25,000 / 6,000 / 800 at LOD0/1/2, as issue #387 requires;
+   distance thresholds are 18/45 m. Foliage counts derive from crown area with
+   target coverage 1.6; capped distant crowns receive larger leaves. Deciduous
+   structural wood keeps its base and full height independently of foliage.
+3. **Bounded instance cache.** The LRU stores fully sized, seeded immutable meshes,
+   at most 256 entries and 64 MiB of array data. It is not a unit-template cache.
+   Local cold synthesis across all 123 recipes (height 420 cm / radius 180 cm / seed 303,
+   median of three per recipe, Python 3.11) measured median 3.69 / p90 13.07 / maximum 23.01 ms;
+   warm median 0.0012 ms. A disk cache is unnecessary against the issue's median
+   150 ms budget. These numbers exclude GUI uploads and presentation.
+4. **Background synthesis, main-thread admission.** The workspace retains the
+   existing first silhouettes and uses a one-job executor for upgrades. A GUI
+   timer admits only a current document epoch, geometry signature and LOD.
+   Controller recovery invalidates applied upgrades; orbit and walk camera
+   movement update visibility/distance ordering and LOD. Render flags never
+   disable this production feature. The Beauty Board uses the same forge and
+   seasonal path, rather than silently rendering the old registry alone.
+5. **Support precedence.** A climber first uses its trellis parent; otherwise the
+   nearest fence/wall/pergola/trellis within 50 cm of its canopy edge, accounting
+   for path width, then a three-pole bamboo tripod. Supports are transient record
+   inputs, not saved plan mutations. The guide carries the finite segment in the
+   plant's local frame, its physical width and relative height/base. Vines reach
+   a support within the recorded canopy; a farther support supplies direction
+   without enlarging the footprint to invent contact. Resolution runs with
+   synthesis on the worker thread. Exact support/plant geometry dependencies
+   invalidate its cache and reject older in-flight guides; date-only updates
+   reuse them, retaining current plant height and seed.
+6. **Stable seasonal geometry.** Flowers, fruits/pods and tubers are separate
+   parts. Foliage density/tint/snow, bloom and ripeness update persistent Models
+   without mesh copies on season-only changes. Leaf collapse removes seasonal
+   shadows too; X-ray retains its independent screen-door shadow policy.
+   `core/calendar_windows.py` owns exact frost-relative arithmetic, re-exported
+   at the old task-generator API; phenology reads instance harvest offsets and
+   the plan's frost dates across all contributing anchor years. Hemisphere
+   shifting applies to illustrative seasonal cycles, never to recorded local
+   frost dates. Plant existence remains #315's shared clock/lifetime rule.
+
+**Alternatives rejected:** GUI timer batches still block the GUI during synthesis
+(measured six-apple batch 116.6 ms). Replacing meshes on a date step defeats the
+16 ms scrub contract. A merged accent mesh cannot hide spring fruit independently
+of blossom. A render-only feature bypass makes green gates irrelevant to shipping.
+A disk cache adds persistence/versioning costs without the measured need.
+
+**Consequences:** No external asset or runtime dependency, plan format change, or
+new persistent setting. The old silhouettes remain a temporary first view.
+Acceptance uses the production workspace, real engine seasonal tests, 40 mesh
+references, calendar/geometry regressions and an independently rendered board.
+The 300-plant date budget calls the workspace's actual refresh path with 100
+supports, including queue admission and QML updates, rather than timing only
+the phenology evaluator. It also asserts unchanged Models/buffers and no new jobs.
+The owner still judges final beauty and interactive use before merge.
+

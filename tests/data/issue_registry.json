@@ -1,9 +1,4 @@
 {
-  "114": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
-  },
   "12": {
     "is_pr": true,
     "state": "MERGED",
@@ -13,6 +8,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "refine(US-4): Improve Plant Details panel layout and date picker"
+  },
+  "114": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
   },
   "161": {
     "is_pr": false,
@@ -1178,5 +1178,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Every command refreshes every scene item: a one-item-per-command loop is still quadratic (lock badges + ground band)"
+  },
+  "593": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(3D): Phase 17 L3 Plant Forge: procedural species models from sprite recipes (#387)"
   }
 }

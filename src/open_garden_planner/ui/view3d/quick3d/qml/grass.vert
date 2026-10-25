@@ -16,6 +16,9 @@ void MAIN()
     float rest = smoothstep(0.0, 2.0, uTime);
     VERTEX.x += sin(uTime * 2.3 + ph + wp.x * 0.02) * uWind * w * gust * rest;
     VERTEX.z += cos(uTime * 1.7 + ph + wp.z * 0.02) * uWind * 0.5 * w * gust * rest;
+    // Every vertex of a leaf shares UV.y: collapse whole leaves, including shadows.
+    if (UV0.y >= uLeafDensity)
+        VERTEX = vec3(0.0);
     vColor = COLOR;
     POSITION = MODELVIEWPROJECTION_MATRIX * vec4(VERTEX, 1.0);
 }

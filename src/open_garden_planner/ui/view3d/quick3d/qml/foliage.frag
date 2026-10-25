@@ -4,6 +4,7 @@ VARYING vec4 vColor;
 void MAIN()
 {
     BASE_COLOR = vec4(vColor.rgb * uTint, 1.0);
+    BASE_COLOR.rgb = mix(BASE_COLOR.rgb, vec3(0.68, 0.71, 0.75), uSnow * max(NORMAL.y, 0.0));
     ROUGHNESS = 0.82;
     METALNESS = 0.0;
     SPECULAR_AMOUNT = 0.25;

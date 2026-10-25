@@ -726,3 +726,24 @@ restore operation used by both Properties and context-menu commands. It imports
 no UI module. The shared `path_style_paint` module owns both style painting and
 its conservative geometric reach, consumed by the canvas and ground baker.
 See crosscutting section 8.30 and the ADR-059 addendum for the contracts.
+
+## Plant Forge: procedural 3D species models and phenology (L3, #387, ADR-064)
+
+`core/plant_art/traits3d.py` supplies frozen `Traits3D`, `CrownTraits`,
+`BranchingTraits` and `LeafTraits` for the 108 species and 15 category recipes
+in 13 archetypes. The shared resolver gives Lemon Balm its exact herb alias
+before word matching. `core/object_art/materials.py` owns the object SVGs'
+`MATERIALS`, `EMBER` and `FLAME` tables; 3D palette readers use that same source.
+Both art packages remain stdlib-only.
+
+`core/plant_forge/` builds skeletons, tubes, geometric leaves, climbers and
+separate flower, fruit/pod and tuber parts. Its cache stores fully sized,
+seeded immutable meshes, bounded by 256 entries and 64 MiB of array data.
+`core/phenology.py` evaluates date, hemisphere and recorded harvest windows;
+`core/calendar_windows.py` owns the frost-relative arithmetic, re-exported by
+`services/task_generator.py` for existing callers. These modules are Qt-free.
+
+`ui/view3d/forge_worker.py` queues visible plants first and synthesizes one
+plant at a time off the GUI thread. The workspace admits current completions,
+updates LOD on orbit/walk movement and sends seasonal values to persistent
+Models. Scene recovery invalidates remembered upgrades. See ADR-064.

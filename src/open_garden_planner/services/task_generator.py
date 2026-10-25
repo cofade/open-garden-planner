@@ -34,6 +34,7 @@ from typing import Any
 
 from PyQt6.QtCore import QCoreApplication
 
+from open_garden_planner.core.calendar_windows import calendar_windows as calendar_windows
 from open_garden_planner.core.frost_dates import parse_frost
 from open_garden_planner.core.plan_timeline import instance_date, plant_present
 from open_garden_planner.models.propagation import PropagationPlan, compute_propagation_plan
@@ -190,13 +191,6 @@ def _parse_iso(value: str) -> datetime.date | None:
         return None
 
 
-_CALENDAR_TASK_DEFS: tuple[tuple[str, str, str], ...] = (
-    ("indoor_sow", "indoor_sow_start", "indoor_sow_end"),
-    ("direct_sow", "direct_sow_start", "direct_sow_end"),
-    ("transplant", "transplant_start", "transplant_end"),
-    ("harvest", "harvest_start", "harvest_end"),
-)
-
 _PROPAGATION_STEP_IDS: tuple[str, ...] = ("prick_out", "harden_off")
 
 
@@ -214,26 +208,6 @@ def make_calendar_task_id(species_key: str, task_type: str, year: int) -> str:
 
 
 # ── Generators ───────────────────────────────────────────────────────────────
-
-def calendar_windows(
-    offset_of: Callable[[str], float | None], last_frost: datetime.date,
-) -> list[tuple[str, datetime.date, datetime.date]]:
-    """``(task_type, start, end)`` of every calendar window a species defines, for one
-    last-frost date — THE frost-relative window arithmetic (``generate_calendar_tasks``
-    and the 3D info card's sowing/harvest windows, Phase 17 L2.3, both call it).
-
-    ``offset_of(field)`` answers a species' week offset (``indoor_sow_start`` …,
-    ``harvest_end``; ``_CALENDAR_TASK_DEFS``) or None; a window needs both ends.
-    """
-    windows: list[tuple[str, datetime.date, datetime.date]] = []
-    for task_type, start_attr, end_attr in _CALENDAR_TASK_DEFS:
-        start_weeks, end_weeks = offset_of(start_attr), offset_of(end_attr)
-        if start_weeks is None or end_weeks is None:
-            continue
-        windows.append((task_type, last_frost + datetime.timedelta(weeks=start_weeks),
-                        last_frost + datetime.timedelta(weeks=end_weeks)))
-    return windows
-
 
 def generate_calendar_tasks(state: PlanState) -> list[Task]:
     """Calendar tasks from species week-offsets + the last-frost date."""

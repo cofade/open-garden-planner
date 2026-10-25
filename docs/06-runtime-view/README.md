@@ -767,3 +767,26 @@ stack signals mark the plan dirty and invalidate the 3D snapshot. A preset is
 applied when selected, not while restoring history. Geometry notifications precede
 pen/preset mutation so Qt can retire the old scene/cache bounds. Panel destruction
 does not invalidate the command callback. See crosscutting section 8.30.
+
+## Plant Forge progressive upgrade and seasonal phenology (L3, #387, ADR-064)
+
+`Scene3DController` first applies the existing fast silhouettes. After an applied
+snapshot, `Workspace._on_applied` submits the current records, camera eye/forward,
+plan date, latitude and frost dates to `ForgeWorker.submit_snapshot`. Climber
+support is enriched from that same snapshot. The queue orders front-facing
+plants before those behind the camera, then by eye distance.
+
+The production worker synthesizes one plant on an executor thread; a GUI timer
+polls the result and alone writes the engine sink. A document epoch and current
+geometry/LOD checks reject superseded work. A replaced/reset silhouette
+invalidates the worker's remembered upgrade. Closing stops admission without
+waiting on synthesis in the GUI; hiding pauses application. Orbit and walk
+camera changes requeue distance LOD without requiring a plan edit.
+
+A date-only seasonal change sends foliage density/tint/snow and independent
+flower/fruit state to existing Models. Seasonal leaf removal also removes its
+shadow; X-ray fading retains its separate shadow-preservation policy. Growth
+changes still rebuild geometry through the shared controller. Harvest uses the
+instance snapshot's week offsets and the shared day-level calendar calculation,
+including frost anchors in other years. Southern latitude shifts illustrative
+seasonal months, never already-local recorded frost dates.

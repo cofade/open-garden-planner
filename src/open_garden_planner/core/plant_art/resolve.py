@@ -18,14 +18,11 @@ eggplant ("melon" is inside "solanum melongena"), a scientific name as a rose
 another plant's name as that other plant ("peach_tree" as a pea), and a
 whitespace-only species as a rose (the empty string is inside every key).
 
-The name is now matched as a WHOLE name or alias, and a name no sprite knows
-falls back to the plant's category sprite. **Three of the issue's examples
-survive that fix** - "Lemon Balm", "Bean (Bush)" and "Sweet Potato" still take
-a fruit or vegetable sprite, because their names contain a whole word that is
-another plant's name ("lemon", "bean", "potato"). Fixing those needs a curated
-alias table, which the owner declined; the residue is pinned in
-``tests/unit/test_plant_art.py``, so that a later change to the rule has to say
-so.
+The name is matched as a WHOLE name or alias. Exact category aliases precede
+word matching (#387): Lemon Balm / Melissa officinalis uses the herb recipe,
+so the word "lemon" cannot turn that herb into a citrus tree. Bean (Bush) and
+Sweet Potato retain their existing species recipes; those broader art changes
+remain outside L3's three resolver examples.
 
 ``tests/fixtures/plant_art/sprite_resolution_golden.json`` holds 1,562 answers
 of the resolver — the golden is regenerated from the rule, and
@@ -73,6 +70,13 @@ DEFAULT_CATEGORY: Final[dict[str, str]] = {
 #: The object types that are plants. ``plant_renderer.is_plant_type`` answers from
 #: the same table (drift-guarded in ``tests/unit/test_plant_art.py``).
 PLANT_KINDS: Final[frozenset[str]] = frozenset(DEFAULT_CATEGORY)
+
+# Exact aliases precede word matching. Lemon balm has no species recipe, so
+# its herb silhouette is preferable to the unrelated lemon tree (#387).
+EXACT_CATEGORY_ALIASES: Final[dict[str, str]] = {
+    "lemon balm": "herb",
+    "melissa officinalis": "herb",
+}
 
 #: ``PlantCategory`` name → sprite file stem under ``resources/plants/categories``
 #: (and the key of its recipe in ``recipes.CATEGORIES``).
@@ -442,7 +446,10 @@ def resolve_sprite(
         sprite = SpriteRef(group, name)
         return sprite if available is None or available(sprite) else None
 
-    for stem in species_candidates(species):
+    category_alias = EXACT_CATEGORY_ALIASES.get(_normalise(species))
+    if category_alias and (found := usable(GROUP_CATEGORIES, category_alias)) is not None:
+        return found
+    for stem in ([] if category_alias else species_candidates(species)):
         if (found := usable(GROUP_SPECIES, stem)) is not None:
             return found
     for category_name in (category, default):

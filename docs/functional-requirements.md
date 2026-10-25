@@ -705,6 +705,37 @@ Analyze in 3D (L2, #386, ADR-063). One "Analyze" menu in the 3D pane's strip.
 
 Acceptance (L2): `tests/integration/test_view3d_analysis.py` (§8.10 — the workflow with the real 2D shadow overlay and the real heatmap worker beside the workspace: each drape against the 2D side's own polygons and map, the probe's ground point against the camera's own target, the sweep step by step to the whole map, the card's facts, two pictures per jump, 29 February, Cutaway's fades, hidden and shown, a new document), `tests/unit/test_scene3d_drape.py`, `tests/unit/test_scene3d_sun_path.py` (the noon point IS `solar_position` at the day's highest sun), `tests/unit/test_scene3d_xray.py`, `tests/unit/test_plant_card_facts.py`, `tests/ui/test_view3d_analysis_host.py` (no analysis change creates or destroys an engine object), on a real graphics device `tests/integration/test_view3d_analysis_render.py` (GPU, WARP, OpenGL: the shadows darken in every mood, faded and cut parts keep their shadows) and the frozen `--selftest` (the overlay and the screen-door shaders compiled from the bundle and judged).
 
+Plant Forge: procedural species models, LODs and phenology (L3, #387, ADR-064).
+
+- **FR-3D-FORGE-01:** All 123 sprite recipes (108 species and 15 categories)
+  have procedural 3D models in 13 archetypes, using shared art traits and no
+  external models. Known heights remain within 3% and crown spread within 10%;
+  winter structural wood retains ground contact and recorded height.
+- **FR-3D-FORGE-02:** Total triangle caps are 25,000/6,000/800 at distance LODs
+  up to 18 m / up to 45 m / beyond 45 m. A256-entry, 64 MiB LRU bounds mesh storage.
+- **FR-3D-FORGE-03:** Initial silhouettes precede background synthesis. Camera
+  movement updates LOD without an edit; stale document/geometry completions are
+  refused. Recovery restores progressive upgrades.
+- **FR-3D-FORGE-04:** Climbers prefer their trellis parent, then a structure
+  within 50 cm of the canopy edge, then a three-pole bamboo tripod.
+- **FR-3D-FORGE-05:** Separate flower, fruit/pod and tuber geometry permits
+  independent bloom and ripeness. Recorded harvest windows follow the shared
+  day-level task calendar and the plan's local frost dates.
+- **FR-3D-FORGE-06:** Existing Models respond to seasonal date changes through
+  shader/material values. Deciduous leaves and their shadows disappear in
+  winter, evergreens retain foliage; illustrative seasons shift in the southern
+  hemisphere. Plant existence stays on the shared lifetime rule.
+
+Acceptance: `tests/integration/test_plant_forge.py`,
+`tests/integration/test_plant_forge_workspace.py`,
+`tests/integration/test_plant_forge_calendar.py`, `tests/unit/test_plant_forge_review.py`,
+`tests/unit/test_plant_forge_l31.py` through `test_plant_forge_l34.py`,
+`tests/unit/test_phenology.py`, `tests/unit/test_plant_art.py`,
+`tests/unit/test_object_sprite_conformance.py` and the 40 golden tree references.
+The production Beauty Board, actual engine seasonal checks and owner acceptance
+complete the evidence.
+
+
 ## FR-34: Plan timeline and plant lifetimes (US-F4, #315)
 
 - **FR-TIMELINE-01:** One shared local plan date controls month scrubbing, Today,

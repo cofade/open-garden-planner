@@ -117,6 +117,7 @@ if TYPE_CHECKING:
     from open_garden_planner.core.sim_clock import SimClock
 
     from .analysis_controller import AnalysisController, ProbeResult
+    from .forge_worker import ForgeWorker
     from .growth_jump import GrowthJump
     from .info_card import CardSubject, View3DCardSlot, View3DInfoCard
     from .look_controller import LookController
@@ -443,6 +444,7 @@ class Workspace(QWidget):
         self._pane: _Pane3D | None = None
         self._host: EngineHost | None = None
         self._controller: Scene3DController | None = None
+        self._forge_worker: ForgeWorker | None = None  # Plant Forge progressive upgrader (L3)
         self._look: LookController | None = None   # the look of the view (L1.4)
         self._input: OrbitInput | None = None
         self._problems_dialog: View3DProblemsDialog | None = None
@@ -480,6 +482,9 @@ class Workspace(QWidget):
         self._build_timer = QTimer(self)
         self._build_timer.setSingleShot(True)
         self._build_timer.timeout.connect(self._begin_build)
+        self._forge_timer = QTimer(self)
+        self._forge_timer.setSingleShot(True)
+        self._forge_timer.timeout.connect(self._step_forge)
 
         self._build_actions()
         self._init_selection_and_walk()  # L1.8: its state and the Walk action
@@ -845,6 +850,18 @@ class Workspace(QWidget):
             return
         self._host, self._controller, self._input = host, controller, orbit
         self._look = look
+        if self.engine_factory is quick3d_engine:
+            from ...core.plant_forge import ForgeCache
+            from .forge_worker import ForgeWorker
+
+            # Render gates use the production path too. The private cache belongs
+            # exclusively to this worker's synthesis thread.
+            self._forge_worker = ForgeWorker(
+                sink, cache=ForgeCache(max_entries=256), background=True,
+                season_sink=getattr(host, "set_plant_seasons", None),
+            )
+        else:
+            self._forge_worker = None
         orbit.moved.connect(self._start_camera)
         orbit.reset_requested.connect(self.reset_view)
         self._wire_selection(host, orbit, controller)  # L1.8: the click, the ring, the card
@@ -886,6 +903,7 @@ class Workspace(QWidget):
             return
         if not showing:
             self._drop_held_build()
+            self._forge_timer.stop()
             controller.set_active(False)
             self._health_timer.stop()
             self._camera_timer.stop()
@@ -900,6 +918,8 @@ class Workspace(QWidget):
         self._health_timer.start(HEALTH_SLOW_MS if self._first_frame_seen else HEALTH_FAST_MS)
         self._apply_camera()
         self._start_camera()
+        if self._forge_worker is not None and self._forge_worker.pending_count:
+            self._forge_timer.start(10)
         if controller.active or self._build_pending:
             return
         if controller.dirty:
@@ -1024,6 +1044,12 @@ class Workspace(QWidget):
         except Exception:  # noqa: BLE001 - the health poll reports a host that died
             _LOG.debug("3D workspace: the camera could not be set", exc_info=True)
         self._schedule_xray()  # L2.4: the occluders follow the camera once it rests
+        worker = self._forge_worker
+        if worker is not None:
+            forward = (float(target[0] - eye[0]), float(target[1] - eye[1]), float(target[2] - eye[2]))
+            worker.update_camera(eye, forward)
+            if worker.pending_count and self._pane_is_showing():
+                self._forge_timer.start(10)
 
     def _start_camera(self) -> None:
         if self._camera.moving and self._pane_is_showing() and not self._camera_timer.isActive():
@@ -1065,6 +1091,9 @@ class Workspace(QWidget):
             return
         self.set_walking(False)  # L1.8: the walker's world is gone with the document
         self._analysis_document_changed()  # L2: the probe, the sweep, the jump, the wipe
+        self._forge_timer.stop()
+        if self._forge_worker is not None:
+            self._forge_worker.clear()
         controller.document_changed()
         # … and so is what was selected. NOT read from the scene: the old items are
         # still in it (and still selected) when the signal comes. The new document
@@ -1081,6 +1110,7 @@ class Workspace(QWidget):
         if self._analysis is not None:
             self._analysis.location_changed()  # L2: the sun path is the place's
             self._update_legend()
+        self._refresh_forge()
 
     def _on_applied(self, report: TickReport) -> None:
         # A pass went through: the build is over, and so is a failed update. What the
@@ -1102,6 +1132,51 @@ class Workspace(QWidget):
         self._retired += report.retired
         if self._retired >= RELEASE_NOW_RETIRED:
             self._release_engine_caches()  # a flood: not worth waiting for quiet
+        if report.snapshot and self._forge_worker is not None:
+            worker = self._forge_worker
+            if report.recovered and self._controller is not None:
+                worker.invalidate(self._controller.sync.records)
+            else:
+                worker.invalidate((*report.changes.added, *report.changes.geometry))
+            self._refresh_forge()
+
+    def _refresh_forge(self) -> None:
+        worker, controller = self._forge_worker, self._controller
+        if worker is None or controller is None:
+            return
+        loc = self._location()
+        lat = loc.get("latitude") if isinstance(loc, Mapping) else None
+        frost = loc.get("frost_dates") if isinstance(loc, Mapping) else None
+        eye, target, _fov = self._camera_now()
+        forward = (float(target[0] - eye[0]), float(target[1] - eye[1]), float(target[2] - eye[2]))
+        worker.submit_snapshot(
+            controller.sync.records.values(), camera_pos=eye, camera_forward=forward,
+            plan_date=controller.pass_date,
+            latitude_deg=float(lat) if isinstance(lat, (int, float)) else 52.52,
+            frost_dates=frost if isinstance(frost, Mapping) else None,
+        )
+        if worker.pending_count and self._pane_is_showing():
+            self._forge_timer.start(10)
+
+    def _step_forge(self) -> None:
+        """Upgrade up to a small slice of visible plants to forged 3D models per event-loop turn."""
+        worker = self._forge_worker
+        if worker is None or not self._pane_is_showing() or self._controller is None:
+            return
+        try:
+            upgraded = worker.step(max_items=1)
+        except Exception as error:  # recover through SceneSync's one reset path
+            _log_failure("Plant Forge could not update the 3D view", error)
+            worker.clear()
+            self._controller.reset()
+            return
+        if upgraded:
+            self._applied_at = _now()
+            self._retired += len(upgraded)
+            if self._retired >= RELEASE_NOW_RETIRED:
+                self._release_engine_caches()
+        if worker.pending_count > 0 and self._pane_is_showing():
+            self._forge_timer.start(10)
 
     def _release_engine_caches(self) -> None:
         """Tell the engine to let go of the graphics state Qt keeps for Models that
@@ -1344,6 +1419,10 @@ class Workspace(QWidget):
         self._unwire_analysis()   # L2: its timers and its sources
         self._camera_timer.stop()
         self._health_timer.stop()
+        self._forge_timer.stop()
+        if self._forge_worker is not None:
+            self._forge_worker.shutdown()
+            self._forge_worker = None
         self._drop_held_build()
         self._retired = 0  # the host goes, and what it cached with it
         self._notices.clear()  # … and whatever the status line said about it
