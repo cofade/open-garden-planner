@@ -327,6 +327,34 @@ def test_a_transform_change_invalidates_the_dense_sample(view) -> None:
     assert not _dense_sample_covers_view(item)
 
 
+def test_a_parent_transform_invalidates_the_dense_sample(view) -> None:
+    """The pose key includes the parent chain, not only the child's own pose (#594)."""
+    from PyQt6.QtWidgets import QGraphicsItemGroup
+
+    item = _dense_polygon(255)
+    group = QGraphicsItemGroup()
+    view.scene().addItem(group)
+    group.addToGroup(item)
+    _show(view, item, zoom=1.0, center=QPointF(200, 200))
+    item.enter_vertex_edit_mode()
+    assert _dense_sample_covers_view(item)
+    group.setRotation(30.0)
+    assert item.rotation() == 0.0 and item.scale() == 1.0
+    assert not _dense_sample_covers_view(item)
+
+
+def test_a_transform_origin_change_invalidates_the_dense_sample(view) -> None:
+    """The pose key includes ``transformOriginPoint``, which moves a rotated item (#594)."""
+    item = _dense_polygon(255)
+    view.scene().addItem(item)
+    item.setRotation(20.0)
+    _show(view, item, zoom=1.0, center=QPointF(200, 200))
+    item.enter_vertex_edit_mode()
+    assert _dense_sample_covers_view(item)
+    item.setTransformOriginPoint(QPointF(10.0, 10.0))
+    assert not _dense_sample_covers_view(item)
+
+
 def test_drag_handle_survives_a_refresh_and_undoes_once(view) -> None:
     item = _dense_polygon()
     view.scene().addItem(item)
