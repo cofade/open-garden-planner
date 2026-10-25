@@ -40,6 +40,12 @@ material update is now an actual render-tier perf assertion, separate from the
 non-timing render check. A further regression keeps fruit tint changing while
 the same plant also flowers; only the fruit Model receives that tint.
 
+The final FPS instrument still had a separate legacy builder path. Both still
+frames and the FPS probe now call `forge_scene_plants`; the FPS metrics expose
+61 forged plants / 212 parts. A source gate pins both calls and date inputs.
+A session presenting zero frames cannot establish FPS; report readback costs
+separately and leave presented FPS to owner hardware acceptance.
+
 **Lesson.** A render gate must execute the shipping path. Measure the final
 seasonal structure and actual Model update, not a pre-removal fit or evaluator.
 

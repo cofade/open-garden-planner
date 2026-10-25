@@ -2748,7 +2748,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   the production forge. PR #593 review fixes are pinned by workspace, calendar,
   coverage and winter-height regressions. Owner beauty/manual acceptance remains.
 
-Cold synthesis measurement:123 recipes,height 420 cm / radius 180 cm / seed 303, median of
+Cold synthesis measurement: 123 recipes, height 420 cm / radius 180 cm / seed 303, median of
 three builds per recipe on Python 3.11: median 3.76 ms, p90 13.15 ms, maximum 23.23 ms;
 warm median 0.0013 ms. Synthesis excludes engine uploads and presentation.
 
