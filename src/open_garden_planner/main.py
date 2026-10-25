@@ -90,8 +90,10 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
     block below: exercise the REAL artifact's lazily-loaded parts — the Agent API
     server binds a port, the A1 checks run, and the 3D engine (Qt Quick 3D) loads
     its scene from the bundle and RENDERS a frame, which fails on a mismatched or
-    missing Qt Quick 3D library as the #277 import did. Returns non-zero on any
-    failure so a broken frozen build fails the release instead of shipping.
+    missing Qt Quick 3D library as the #277 import did. It also checks the version the
+    build reports against OGP_EXPECTED_VERSION when the workflow sets it (PF-CI-15).
+    Returns non-zero on any failure so a broken frozen build fails the release instead
+    of shipping.
 
     A windowed (console=False) frozen exe is given no CONSOLE, so when it is
     launched detached -- `Start-Process -Wait -PassThru`, what CI does -- it has
@@ -100,6 +102,29 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
     below are visible; that is the local/dev case.
     """
     ok = True
+
+    # --- version (PF-CI-15, #596) -----------------------------------------
+    #
+    # About is read only by hand, so the frozen gate would pass a bundle whose
+    # About reports a tracked stale version (the #596 manual finding). A direct
+    # build checks the shape; the release and pull-request workflows also pass
+    # the version they are building in OGP_EXPECTED_VERSION.
+    try:
+        from open_garden_planner.services.update_checker import get_current_version
+
+        version = get_current_version()
+        parts = version.split(".")
+        if len(parts) != 3 or not all(part.isascii() and part.isdigit() for part in parts):
+            raise AssertionError(f"version {version!r} is not X.Y.Z")
+        expected = os.environ.get("OGP_EXPECTED_VERSION", "").strip()
+        if expected and version != expected:
+            raise AssertionError(f"version {version!r} != OGP_EXPECTED_VERSION {expected!r}")
+        if log is not None:
+            log("selftest_version", version=version, expected=expected or "not set")
+        print(f"  OK   version {version}")
+    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+        ok = False
+        print(f"  FAIL version selftest -> {exc!r}")
 
     # --- Agent API embedded server (issue #291) ---------------------------
     #

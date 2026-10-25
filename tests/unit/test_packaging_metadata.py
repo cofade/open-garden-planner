@@ -1,4 +1,8 @@
-"""PEP 639 license metadata for the project itself (#574).
+"""Packaging metadata: PEP 639 license terms and the frozen version artifact.
+
+#574 fixed the license table; #596 fixed the stale ``_version.py`` that made a
+direct PyInstaller build's About report 1.2.0. Both are properties of the
+built artifact, so they are pinned here next to the spec that ships them.
 
 setuptools 82/84 warns that ``project.license = {text = ...}`` and the
 ``License ::`` classifier are deprecated (due 2027-02-18), and an isolated build
@@ -73,6 +77,23 @@ def test_the_frozen_spec_bundles_a_generated_version_module() -> None:
         r'\[\s*"open_garden_planner\._version"\s*\]\s*if GENERATED_VERSION_MODULE\.exists\(\)',
         spec,
     ), "a release build must bundle the dynamically imported version module"
+
+
+def test_the_build_writes_then_removes_the_generated_version_module(tmp_path, monkeypatch) -> None:
+    """The file is written for exactly one PyInstaller run (PF-CI-15).
+
+    If a release build left it behind, a later direct build would bundle the
+    release version and report it in About.
+    """
+    from installer import build_installer
+
+    monkeypatch.setattr(build_installer, "ROOT", tmp_path)
+    written = build_installer._write_version_module("9.9.9")
+    assert written == tmp_path / "src" / "open_garden_planner" / "_version.py"
+    assert '__version__ = "9.9.9"' in written.read_text(encoding="utf-8")
+
+    build_installer._remove_version_module()
+    assert not written.exists()
 
 
 def test_license_is_an_spdx_expression() -> None:

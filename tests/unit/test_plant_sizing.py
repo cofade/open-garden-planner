@@ -134,3 +134,17 @@ def test_sizing_for_item_without_species_metadata() -> None:
     s = sizing_for_item(item)
     assert s.db_max_spread_cm is None
     assert s.effective_spacing_radius_cm is None
+
+# --- drop diameter: species spread, else the gallery default ----------------
+
+
+def test_drop_diameter_uses_the_species_spread_or_the_type_default() -> None:
+    from open_garden_planner.core.plant_sizing import species_drop_diameter_cm
+
+    assert species_drop_diameter_cm({"max_spread_cm": 600.0}, "TREE") == pytest.approx(600.0)
+    assert species_drop_diameter_cm(None, "TREE") == pytest.approx(200.0)
+    assert species_drop_diameter_cm({}, "SHRUB") == pytest.approx(100.0)
+    assert species_drop_diameter_cm({"max_spread_cm": 0}, "PERENNIAL") == pytest.approx(60.0)
+    # The bool trap: True must not become a 1 cm spread.
+    assert species_drop_diameter_cm({"max_spread_cm": True}, "TREE") == pytest.approx(200.0)
+

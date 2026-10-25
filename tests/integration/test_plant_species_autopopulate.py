@@ -105,7 +105,7 @@ class TestGalleryDropAutopopulate:
         unnaturally slim. The Plant Database and Plant Lists drops already size
         by ``max_spread_cm``.
         """
-        _drop(canvas, "gallery:TREE:species=Apple Tree:category=fruit")
+        _drop(canvas, "gallery:TREE:species=apple tree:category=ROUND_DECIDUOUS")
 
         item = _find_circle(canvas)
         assert item is not None

@@ -3340,17 +3340,18 @@ build bundled a tracked file last written on 2026-03-01. The 2026-10 audit had a
 recorded the three disagreeing version sources as AUD-072.
 
 **Decision.** `_version.py` is a build artifact. It is removed from the repository and
-gitignored; `build_installer.py` writes it for a release (the release version may lead
-`pyproject.toml` until the sync), and a direct PyInstaller build has no such file, so the
-frozen app falls back to `__version__`. The module is read with
+gitignored; `build_installer.py` writes it before PyInstaller (the release version may lead
+`pyproject.toml` until the sync) and deletes it in a `finally` afterwards, and a direct
+PyInstaller build has no such file, so the frozen app falls back to `__version__`. The module is read with
 `importlib.import_module` so type checkers do not require a tracked file; that removes the
 static import edge PyInstaller followed, so `installer/ogp.spec` lists
 `open_garden_planner._version` as a hidden import when the file exists. Either build path
 reports a version, and neither can report a tracked stale one.
-**Evidence.** `tests/unit/test_packaging_metadata.py` pins the fallback (`sys.frozen` + no
-module), the release direction (a module whose `__version__` differs from the package's
-wins) and the spec's conditional hidden import. The rebuilt direct exe's About reports
-1.31.1. The release path is unchanged: `build_installer.py` still writes the module before
+**Evidence.** `tests/unit/test_packaging_metadata.py` pins the write/remove pair, the
+fallback (`sys.frozen` + no module), the release direction (a module whose `__version__`
+differs from the package's wins) and the spec's conditional hidden import; `--selftest`
+checks the frozen version against `OGP_EXPECTED_VERSION`. The rebuilt direct exe's About
+reports 1.31.1. The release path is unchanged: `build_installer.py` still writes the module before
 PyInstaller, and the frozen bundle includes it. No runtime dependency, `.ogp` field or
 product behaviour changes.
 

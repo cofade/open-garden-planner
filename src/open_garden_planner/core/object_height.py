@@ -262,7 +262,6 @@ def effective_height_cm(
     return resolve_height(object_type, metadata, at_date)[0]
 
 
-
 def soil_surface_cm(object_type: Any, height_cm: float | None) -> float:
     """Height above ground of the soil in a soil parent of that type, ``height_cm``
     tall. 0.0 without a usable height: none at all (an in-ground bed), not

@@ -45,7 +45,7 @@ jobs:
     name: Frozen self-test (windows-latest)
     runs-on: windows-latest
     # EVERY step below has a limit of its own, and this one is larger than their
-    # sum (62 minutes): the job's limit must never be what ends a step, or the
+    # sum (63 minutes): the job's limit must never be what ends a step, or the
     # step that prints the log would not get its turn. Pinned, with the sum, by
     # tests/unit/test_quick3d_packaging.py.
     timeout-minutes: 70
@@ -55,6 +55,17 @@ jobs:
 
       - uses: ./.github/actions/setup-locked-env
         timeout-minutes: 10
+
+      # The version this pull-request bundle must report. `build_installer.py`
+      # writes `_version.py` from pyproject.toml and removes it after
+      # PyInstaller; the exe keeps the module in its bundle, so `--selftest`
+      # can compare it with this value (PF-CI-15).
+      - name: Read the version this bundle will report
+        shell: pwsh
+        timeout-minutes: 1
+        run: |
+          $version = python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])"
+          "OGP_EXPECTED_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       # The release recipe, not a copy of it: the same script, the same spec, the
       # same `PyInstaller --noconfirm --clean`; without NSIS no installer is built.

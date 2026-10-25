@@ -72,7 +72,7 @@ PF-CI-14 records the incident (the 2027-02-18 deprecation warning).
 
 **The frozen version module is generated, not tracked (#596).** `installer/build_installer.py`
 writes `src/open_garden_planner/_version.py` with the release version (which may lead
-`pyproject.toml` until the sync) and the path is gitignored. A direct
+`pyproject.toml` until the sync), removes it after PyInstaller, and the path is gitignored. A direct
 `python -m PyInstaller installer/ogp.spec` build has no such file, so the frozen app falls
 back to `open_garden_planner.__version__`. A tracked stale `_version.py` (1.2.0) made a
 direct build's About report 1.2.0 while the manifest said 1.31.1; PF-CI-15 records it. The
@@ -310,8 +310,8 @@ that gap:
 |---|---|
 | Triggers | `workflow_dispatch`, and pull requests to `master` that touch shipped code: `src/open_garden_planner/**`, `installer/**`, `pyproject.toml`, `uv.lock`, `pylock.toml`, the workflow itself, `release.yml` or `.github/actions/setup-locked-env/**`. The whole package, not only the 3D engine: `--selftest` also exercises `core/scene3d` and the Agent API, and the rule is "build and verify the exe before every merge" |
 | Runner, environment | `windows-latest`, the shared locked setup, `permissions: contents: read`, no action `ci.yml` does not use |
-| Build | the release recipe, not a copy: `python installer/build_installer.py --skip-nsis` (the same script, spec and PyInstaller flags; no installer). One difference: `release.yml` passes `--version`, this does not, so the script writes `_version.py` with its default and **the pull-request bundle calls itself v1.0.0** |
-| Checks | the 8-second smoke (exit code 124, and only 124, passes), then `--selftest` and the step that prints its log — both with the SAME scripts as `release.yml` (a test pins the texts as identical) |
+| Build | the release recipe, not a copy: `python installer/build_installer.py --skip-nsis` (the same script, spec and PyInstaller flags; no installer). One difference: `release.yml` passes `--version`, this does not, so the script writes `_version.py` from `pyproject.toml` and **the pull-request bundle calls itself the last synced version** (1.31.1 at the time of writing, not the release a merge would produce) |
+| Checks | the 8-second smoke (exit code 124, and only 124, passes), then `--selftest` and the step that prints its log — both with the SAME scripts as `release.yml` (a test pins the texts as identical); the selftest also compares the frozen version with `OGP_EXPECTED_VERSION`, set from `pyproject.toml` by the step before the build |
 | Limits | EVERY step has one — checkout 5, environment 10, build 30, smoke 5, self-test 10, log 2: 62 minutes together — and the job's, 70, is larger than their sum. A job limit that ends a step also ends the step that prints the log; the first version's three step limits added up to exactly its job's 45 (a test pins the inequality) |
 | Cost | one Windows build per push to such a pull request. Not measured yet (the workflow has not run); a release run, which also builds the installer, takes 9–13 minutes |
 | Protection | NOT a required check: a required check that a path filter skips never reports, and would block every pull request it does not run on |

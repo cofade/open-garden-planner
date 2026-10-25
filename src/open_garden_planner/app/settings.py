@@ -114,7 +114,6 @@ def _unsafe_production_settings_reason() -> str | None:
     return None
 
 
-
 def _secure_linux_settings(path: Path) -> None:
     """Create or migrate an owner-only regular file, without changing its data."""
     try:
@@ -168,7 +167,6 @@ def create_qsettings() -> QSettings:
     if sys.platform.startswith("linux"):
         _secure_linux_settings(Path(settings.fileName()))
     return settings
-
 
 
 def _finite_float(value: object) -> float | None:

@@ -1134,16 +1134,6 @@
     "state": "CLOSED",
     "title": "Preferences dialog compresses controls below their minimum height on short screens"
   },
-  "571": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "CI: required Dependencies checks fail on master (setuptools GHSA-xmj3-9gf7-h52w, filelock 4.2.0)"
-  },
-  "572": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Remove the stale pip-audit waiver PYSEC-2026-3447 (setuptools is past 83.0.0)"
-  },
   "573": {
     "is_pr": false,
     "state": "OPEN",
@@ -1153,11 +1143,6 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "pyproject license metadata is deprecated by setuptools (due 2027-02-18)"
-  },
-  "575": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
   },
   "581": {
     "is_pr": false,
