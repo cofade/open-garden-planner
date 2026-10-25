@@ -15246,7 +15246,7 @@ Detalles: {error}</translation>
     <context>
         <name>main</name>
         <message>
-            <location filename="../../main.py" line="416" />
+            <location filename="../../main.py" line="408" />
             <source>An unexpected error occurred. The application will keep running so you can save your work.
 
 Details: {error}</source>
@@ -15271,7 +15271,7 @@ El archivo debe pertenecer a su cuenta de usuario con acceso exclusivo de lectur
             <translation>Error de acceso a la configuración</translation>
         </message>
         <message>
-            <location filename="../../main.py" line="415" />
+            <location filename="../../main.py" line="407" />
             <source>Unexpected Error</source>
             <translation>Error inesperado</translation>
         </message>

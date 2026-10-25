@@ -15473,7 +15473,7 @@ Details: {error}</translation>
     <context>
         <name>main</name>
         <message>
-            <location filename="../../main.py" line="416" />
+            <location filename="../../main.py" line="408" />
             <source>An unexpected error occurred. The application will keep running so you can save your work.
 
 Details: {error}</source>
@@ -15498,7 +15498,7 @@ The file must be owned by your account with owner-only read and write access. Co
             <translation>Settings Access Error</translation>
         </message>
         <message>
-            <location filename="../../main.py" line="415" />
+            <location filename="../../main.py" line="407" />
             <source>Unexpected Error</source>
             <translation>Unexpected Error</translation>
         </message>
