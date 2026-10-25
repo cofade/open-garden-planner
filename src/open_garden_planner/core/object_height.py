@@ -193,13 +193,53 @@ def _measured_height_cm(
     return current_height_from_metadata(metadata)
 
 
-def _species_height_cm(metadata: dict[str, Any] | None) -> float | None:
-    if not metadata:
-        return None
-    species = metadata.get("plant_species")
-    if not isinstance(species, dict):
-        return None
-    return _positive_number(species.get("max_height_cm"))
+def resolve_height(
+    object_type: Any,
+    metadata: dict[str, Any] | None,
+    at_date: date | None = None,
+) -> tuple[float | None, str]:
+    """The ONE precedence ladder: ``(effective height, source)`` (#581).
+
+    explicit ``object_height_cm`` > container fill > date-projected growth >
+    measured current height > species max height > per-type default > None.
+    ``effective_height_cm`` returns the height, ``height_source`` and
+    ``height_source_at`` the source; all three are projections of this tuple, so
+    the ladder is changed in exactly one place.
+
+    ``at_date`` (US-E8): a plant with a species, a planting date and a measured
+    current height resolves to its date-projected height via
+    ``core/growth_model`` (linear current→max over years-to-maturity), and its
+    source is ``SOURCE_GROWN``. Without a date the growth branch is skipped.
+    """
+    explicit = explicit_height_cm(metadata)
+    if explicit is not None:
+        return explicit, SOURCE_CUSTOM
+    name = _type_name(object_type)
+    if name in _CONTAINER_TYPE_NAMES:
+        # KNOWN SIMPLIFICATION (flag for US-E3 shadows): without an explicit
+        # override, the soil *fill* height stands in for the above-ground
+        # height — a 30 cm-fill pot on 60 cm legs shadows as 30 cm until the
+        # user sets one. There is no separate above-ground source to draw
+        # from in this slice; revisit when shadow accuracy matters (#258).
+        return container_height_cm(metadata if metadata else None), SOURCE_CONTAINER
+    species_dict = (metadata or {}).get("plant_species")
+    if isinstance(species_dict, dict) and at_date is not None:
+        grown = grown_height_cm(species_dict, metadata, at_date, name)
+        if grown is not None:
+            return grown, SOURCE_GROWN
+    # Outside the SPECIES branch (a plant whose species lookup missed still
+    # has a real measured height) but gated on the plant TYPE, so the rule
+    # can never silently change height resolution for some future non-plant
+    # that happens to acquire ``plant_instance`` metadata.
+    current = _measured_height_cm(name, species_dict, metadata)
+    if current is not None:
+        return current, SOURCE_CURRENT
+    if isinstance(species_dict, dict):
+        mature = _positive_number(species_dict.get("max_height_cm"))
+        if mature is not None:
+            return mature, SOURCE_SPECIES
+    default = DEFAULT_HEIGHTS_CM.get(name)
+    return default, SOURCE_DEFAULT if default is not None else SOURCE_NONE
 
 
 def effective_height_cm(
@@ -209,44 +249,18 @@ def effective_height_cm(
 ) -> float | None:
     """Resolve the effective above-ground height in cm (see precedence above).
 
-    ``at_date`` (US-E8): when given, a plant WITH a species, a planting
-    date AND a measured current height resolves to its DATE-PROJECTED
-    height via ``core/growth_model`` (linear current→max over
-    years-to-maturity) — so shadows (US-E3/E4) and the 3D view (US-E6)
-    automatically see the grown size. Independently of any date, a plant's
-    measured ``current_height_cm`` (if set) drives the height ahead of the
-    species mature max — the owner-chosen "current height anchors it" rule.
-    An explicit ``object_height_cm`` override still wins; un-measured
-    plants and non-plants keep the mature/default height as before.
+    A projection of :func:`resolve_height` (#581). ``at_date`` (US-E8): when
+    given, a plant WITH a species, a planting date AND a measured current height
+    resolves to its DATE-PROJECTED height via ``core/growth_model`` (linear
+    current→max over years-to-maturity) — so shadows (US-E3/E4) and the 3D view
+    (US-E6) automatically see the grown size. Independently of any date, a
+    plant's measured ``current_height_cm`` (if set) drives the height ahead of
+    the species mature max — the owner-chosen "current height anchors it" rule.
+    An explicit ``object_height_cm`` override still wins; un-measured plants and
+    non-plants keep the mature/default height as before.
     """
-    explicit = explicit_height_cm(metadata)
-    if explicit is not None:
-        return explicit
-    name = _type_name(object_type)
-    if name in _CONTAINER_TYPE_NAMES:
-        # KNOWN SIMPLIFICATION (flag for US-E3 shadows): without an explicit
-        # override, the soil *fill* height stands in for the above-ground
-        # height — a 30 cm-fill pot on 60 cm legs shadows as 30 cm until the
-        # user sets one. There is no separate above-ground source to draw
-        # from in this slice; revisit when shadow accuracy matters (#258).
-        return container_height_cm(metadata if metadata else None)
-    species_dict = (metadata or {}).get("plant_species")
-    if isinstance(species_dict, dict) and at_date is not None:
-        grown = grown_height_cm(species_dict, metadata, at_date, name)
-        if grown is not None:
-            return grown
-    # Outside the SPECIES branch (a plant whose species lookup missed still
-    # has a real measured height) but gated on the plant TYPE, so the rule
-    # can never silently change height resolution for some future non-plant
-    # that happens to acquire ``plant_instance`` metadata.
-    current = _measured_height_cm(name, species_dict, metadata)
-    if current is not None:
-        return current
-    if isinstance(species_dict, dict):
-        mature = _positive_number(species_dict.get("max_height_cm"))
-        if mature is not None:
-            return mature
-    return DEFAULT_HEIGHTS_CM.get(name)
+    return resolve_height(object_type, metadata, at_date)[0]
+
 
 
 def soil_surface_cm(object_type: Any, height_cm: float | None) -> float:
@@ -326,25 +340,11 @@ def height_source(object_type: Any, metadata: dict[str, Any] | None) -> str:
     """Which precedence rule produced ``effective_height_cm``.
 
     Returns one of SOURCE_CUSTOM / SOURCE_CONTAINER / SOURCE_CURRENT /
-    SOURCE_SPECIES / SOURCE_DEFAULT / SOURCE_NONE — drives the
-    properties-panel tooltip. Mirrors ``effective_height_cm``'s static
-    (date-independent) precedence.
+    SOURCE_SPECIES / SOURCE_DEFAULT / SOURCE_NONE — drives the properties-panel
+    tooltip. A projection of :func:`resolve_height`'s static (date-independent)
+    precedence (#581).
     """
-    if explicit_height_cm(metadata) is not None:
-        return SOURCE_CUSTOM
-    name = _type_name(object_type)
-    if name in _CONTAINER_TYPE_NAMES:
-        return SOURCE_CONTAINER
-    if (
-        _measured_height_cm(name, (metadata or {}).get("plant_species"), metadata)
-        is not None
-    ):
-        return SOURCE_CURRENT
-    if _species_height_cm(metadata) is not None:
-        return SOURCE_SPECIES
-    if name in DEFAULT_HEIGHTS_CM:
-        return SOURCE_DEFAULT
-    return SOURCE_NONE
+    return resolve_height(object_type, metadata)[1]
 
 
 def height_source_at(object_type: Any, metadata: dict[str, Any] | None,
@@ -352,17 +352,9 @@ def height_source_at(object_type: Any, metadata: dict[str, Any] | None,
     """``height_source`` for the height ``effective_height_cm(..., at_date)`` gives:
     the same precedence, with ``SOURCE_GROWN`` where that height is a plant's
     date-projected growth (Phase 17 L2.3, the 3D info card's "height with its
-    source"). Without a date it IS ``height_source``."""
-    if explicit_height_cm(metadata) is not None:
-        return SOURCE_CUSTOM
-    name = _type_name(object_type)
-    if name in _CONTAINER_TYPE_NAMES:
-        return SOURCE_CONTAINER
-    species_dict = (metadata or {}).get("plant_species")
-    if (at_date is not None and isinstance(species_dict, dict)
-            and grown_height_cm(species_dict, metadata, at_date, name) is not None):
-        return SOURCE_GROWN
-    return height_source(object_type, metadata)
+    source"). Without a date it IS ``height_source``. A projection of
+    :func:`resolve_height` (#581)."""
+    return resolve_height(object_type, metadata, at_date)[1]
 
 
 # Open structures (Package 3a, #308): no DEFAULT height — the shadow model
