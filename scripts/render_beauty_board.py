@@ -926,6 +926,7 @@ class Board:
         from open_garden_planner.core.scene3d.builders import production_registry
         from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
         from open_garden_planner.ui.view3d.quick3d.host import Quick3DHost
+        from open_garden_planner.ui.view3d.quick3d.offscreen import forge_scene_plants
 
         def pump(duration_s: float) -> None:
             end = time.perf_counter() + duration_s
@@ -957,8 +958,17 @@ class Board:
         self.metrics["frame_rate"] = {"shot": shot.name, "seconds": seconds, "size": list(self.size),
                                       "software": self.software, "presets": table}
         try:
-            sync = SceneSync(Quick3DSink(host), production_registry())
+            sink = Quick3DSink(host)
+            sync = SceneSync(sink, production_registry())
             sync.apply(records, sun=sun, ground=self.plan_ground())
+            while sync.ground_pending:
+                sync.continue_ground()
+            self.metrics["frame_rate"]["forged_plants"] = forge_scene_plants(
+                sink, host, records, plant_date=self.snapshot_day(records),
+                latitude_deg=float(self.location.get("latitude", 52.0)),
+                frost_dates=self.location.get("frost_dates"),
+            )
+            self.metrics["frame_rate"]["parts"] = host.part_count()
             host.set_camera(shot.eye, shot.target, shot.fov_deg)
             host.set_look(look_for(sun, presets[0]))
             if not self.software:
