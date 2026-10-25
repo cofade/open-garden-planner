@@ -6923,8 +6923,8 @@ in one stdlib-only material table; the SVG byte-conformance gate preserves them.
 18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds fully
 sized/seeded meshes at most 256 entries and 64 MiB of array data. No disk cache:
 a local Python 3.11 run over all 123 recipes at height 420 cm, radius 180 cm,
-seed 303 (median of three builds per recipe) measured cold median 3.76 ms,
-p90 13.15 ms, maximum 23.23 ms and warm median 0.0013 ms. These describe synthesis,
+seed 303 (median of three builds per recipe) measured cold median 3.69 ms,
+p90 13.07 ms, maximum 23.01 ms and warm median 0.0012 ms. These describe synthesis,
 not first-frame or presentation latency. The acceptance budget is median 150 ms.
 
 Foliage area follows crown surface area (target 1.6); lower counts receive larger
