@@ -2713,7 +2713,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ---
 
-## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1 complete
+## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L3 complete
 
 **Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 
@@ -2724,13 +2724,13 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L0 | **Proof of Beauty** — ADR-048 criteria committed before measuring; deterministic bench plans; dormant `--spike-q3d` renderer with sky, soft shadows, procedural trees/plants/roofs/fences; measurements M1–M12 in the container and the frozen Windows exe; Beauty Board; agents + skills. **GO 2026-10-05 (owner GPU run in ADR-048 entry 19); evidence tooling deleted.** | [#384](https://github.com/cofade/open-garden-planner/issues/384) |
 | ✅ | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 ✅ sim clock shipped v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)); L1.1–L1.10 ✅ shipped v1.30.14 ([PR #484](https://github.com/cofade/open-garden-planner/pull/484))** — see below | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
 | ✅ | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **✅ shipped v1.31.0 ([PR #584](https://github.com/cofade/open-garden-planner/pull/584)) after owner acceptance (ADR-063, FR-3D-ANALYZE-01 … 08)** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
-| 🚧 | L3 | **Plant Forge** — implemented in draft PR #593; owner acceptance pending (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
+| ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | 📋 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
-### L3 acceptance highlights — Plant Forge (#387, ADR-064) — draft PR #593
+### L3 acceptance highlights — Plant Forge (#387, ADR-064) — **shipped v1.32.0, PR #593**
 
 - **L3.0:** Shared traits cover 123 recipes in 13 archetypes. Object SVG material
   tables have one stdlib-only home with byte-conformance checks. Exact Lemon Balm
@@ -2748,7 +2748,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   independent flower, fruit and tuber controls. Exact harvest days share the
   task calendar and local frost dates. Render gates and the Beauty Board exercise
   the production forge. PR #593 review fixes are pinned by workspace, calendar,
-  coverage and winter-height regressions. Owner beauty/manual acceptance remains.
+  coverage and winter-height regressions. Owner beauty/manual acceptance passed.
   Support discovery runs on the synthesis thread and reuses exact structural
   dependencies on date changes. The 300-plant / 100-support render timing gate
   calls the production workspace refresh and checks zero geometry work/churn.
@@ -2756,6 +2756,17 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 Cold synthesis measurement: 123 recipes, height 420 cm / radius 180 cm / seed 303, median of
 three builds per recipe on Python 3.11: median 3.69 ms, p90 13.07 ms, maximum 23.01 ms;
 warm median 0.0012 ms. Synthesis excludes engine uploads and presentation.
+
+**Delivery (25 October 2026):** [v1.32.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.32.0)
+shipped via [PR #593](https://github.com/cofade/open-garden-planner/pull/593), merge
+`bdaecb21`, after the owner confirmed all executable checks passed. Local validation:
+18,340 source tests passed (249 skipped), 115 timing tests passed, 142 render tests
+passed (one expected platform-control failure), and both frozen checks passed
+(smoke exit 124, detached self-test exit 0). Independent 3D and senior reviews ended
+without outstanding findings; all 23 feature-head CI checks passed before protected
+merge. The matching Release workflow passed, including provenance attestation.
+Automation did not establish presented FPS; the owner accepted interactive use on
+the active display. Existing ground-texture/wind issues #532/#534 remain separate.
 
 
 ### L2 acceptance highlights — Analyze in 3D (#386, ADR-063) — **shipped v1.31.0, PR #584**

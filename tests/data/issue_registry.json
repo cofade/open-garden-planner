@@ -616,8 +616,13 @@
   },
   "387": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L3 \"Plant Forge\": procedural species models from the sprite recipes (Phase 17)"
+  },
+  "388": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L4 \"Built world complete\": roof styles, paths, glass, 24 object builders, water and lawn (Phase 17)"
   },
   "392": {
     "is_pr": false,
@@ -1181,7 +1186,7 @@
   },
   "593": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(3D): Phase 17 L3 Plant Forge: procedural species models from sprite recipes (#387)"
   }
 }

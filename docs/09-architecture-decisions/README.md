@@ -7324,7 +7324,7 @@ addendum "ground surfaces lie under the sun study".
 
 ## ADR-064: Plant Forge — Procedural 3D Species Models from the 2D Sprite Recipes, LODs and Phenology (#387)
 
-**Status:** Accepted implementation; owner beauty/manual acceptance pending (PR #593).
+**Status:** Accepted; shipped in v1.32.0 after owner acceptance (PR #593).
 **Date:** 2026-10-25
 **Context:** L3 replaces the first silhouettes with procedural species models,
 while preserving plan dimensions, responsive navigation and a shared local date.
@@ -7393,5 +7393,6 @@ references, calendar/geometry regressions and an independently rendered board.
 The 300-plant date budget calls the workspace's actual refresh path with 100
 supports, including queue admission and QML updates, rather than timing only
 the phenology evaluator. It also asserts unchanged Models/buffers and no new jobs.
-The owner still judges final beauty and interactive use before merge.
+The owner approved final beauty and interactive use on 25 October 2026. PR #593
+merged under protection and its exact merge commit was released as v1.32.0.
 
