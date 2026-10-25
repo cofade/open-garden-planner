@@ -747,4 +747,3 @@ seeded immutable meshes, bounded by 256 entries and 64 MiB of array data.
 plant at a time off the GUI thread. The workspace admits current completions,
 updates LOD on orbit/walk movement and sends seasonal values to persistent
 Models. Scene recovery invalidates remembered upgrades. See ADR-064.
-

@@ -372,3 +372,13 @@ class TestL35Scrubbing300PlantsPerformance:
         assert len(batch_states) == 300
         assert batch_ms <= 16.0, f"Batch evaluation of 300 plants took {batch_ms:.2f} ms > 16 ms"
 
+
+def test_fruit_ripeness_tint_changes_while_the_plant_is_also_flowering():
+    tomato = SpriteRef("species", "tomato")
+    early = evaluate_phenology(tomato, datetime.date(2026, 7, 4),
+                               last_frost=datetime.date(2026, 4, 25))
+    late = evaluate_phenology(tomato, datetime.date(2026, 7, 28),
+                              last_frost=datetime.date(2026, 4, 25))
+    assert early.bloom > 0 and late.bloom > 0
+    assert early.accent_tint_linear != late.accent_tint_linear
+

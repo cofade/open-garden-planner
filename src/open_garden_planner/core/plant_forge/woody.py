@@ -59,11 +59,16 @@ def build_forged_conifer(
         sides = 5
     else:
         n_tiers = 4
-        branches_per_tier = 4
+        branches_per_tier = 2
         needles_per_branch = 4
         sides = 4
 
     trunk_share = max(traits.crown.trunk_share, 0.10)
+    crown_height = height_cm * (0.95 - trunk_share)
+    # A fixed nine tiers leaves metre-long gaps in a tall/narrow spruce.
+    # Preserve the cone's vertical continuity without changing its dimensions.
+    n_tiers = max(n_tiers, min(32, math.ceil(crown_height / max(radius_cm * 0.35, 1.0))))
+    tier_step_cm = crown_height / max(n_tiers - 1, 1)
     lean_az = float(rng.uniform(0.0, 2.0 * math.pi))
     lean_r = float(rng.uniform(0.05, 0.16)) * radius_cm
     apex_xy = np.array([math.cos(lean_az) * lean_r, math.sin(lean_az) * lean_r], dtype=np.float64)
@@ -89,7 +94,8 @@ def build_forged_conifer(
 
     # Seed-perturbed tier heights so two conifers have distinct tier silhouettes
     base_t = np.linspace(0.0, 1.0, n_tiers)
-    tier_t = np.clip(base_t + rng.uniform(-0.055, 0.055, size=n_tiers), 0.02, 0.98)
+    jitter_share = 0.18 / max(n_tiers - 1, 1)
+    tier_t = np.clip(base_t + rng.uniform(-jitter_share, jitter_share, size=n_tiers), 0.0, 1.0)
     tier_t.sort()
     tier_t[0] = 0.0
     tier_t[-1] = 1.0
@@ -142,7 +148,9 @@ def build_forged_conifer(
             s_steps = np.linspace(0.25, 1.0, needles_per_branch)[:, None]
             pts = start[None, :] * (1.0 - s_steps) + end[None, :] * s_steps
             jitter = rng.normal(0.0, b_len * 0.12, size=(needles_per_branch, 3))
-            jitter[:, 2] *= 0.55
+            jitter[:, 2] = rng.normal(
+                0.0, max(b_len * 0.066, tier_step_cm * 0.25), size=needles_per_branch,
+            )
             pts = pts + jitter
             leaf_anchors.append(pts)
             b_dir = normalize_vec((end - start)[None, :])[0]

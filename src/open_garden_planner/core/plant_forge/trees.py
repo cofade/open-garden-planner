@@ -60,6 +60,18 @@ def build_tree_foliage_from_skeleton(
     # A tall crown can have very few terminal twigs. Sampling its seeded lobe
     # envelope prevents those few tips becoming isolated leaf pom-poms.
     leaf_pts = _sample_crown_attractors(total_leaves, height_cm, radius_cm, traits.crown, rng)
+    # The silhouette's lobes must also cover the actual woody skeleton. A
+    # separate random envelope alone can leave whole lateral twigs exposed.
+    # Include every affordable tip exactly once, then surround those tips with
+    # distributed leaves while retaining a third of the broad crown envelope.
+    tip_count = min(len(tips), total_leaves)
+    leaf_pts[:tip_count] = skeleton.positions[tips[:tip_count]]
+    anchored = max(tip_count, int(total_leaves * 0.65))
+    if anchored > tip_count:
+        selected = rng.integers(0, len(tips), size=anchored - tip_count)
+        leaf_pts[tip_count:anchored] = skeleton.positions[tips[selected]] + rng.normal(
+            0.0, base_len * 0.48, size=(anchored - tip_count, 3),
+        )
 
     crown_z = height_cm * (0.5 * traits.crown.trunk_share + 0.52)
     crown_center = np.array([0.0, 0.0, crown_z], dtype=np.float64)

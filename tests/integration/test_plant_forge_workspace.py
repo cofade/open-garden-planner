@@ -127,7 +127,7 @@ def test_workspace_render_flags_use_the_production_worker(qtbot, monkeypatch, tm
     assert worker._closed
 
 
-def test_real_engine_scrubs_the_same_forged_models(tmp_path):
+def _run_forge_renderer(tmp_path):
     from tests.integration.quick3d_render_support import REPO, render_env, render_tier_skip_reason
 
     reason = render_tier_skip_reason()
@@ -138,9 +138,19 @@ def test_real_engine_scrubs_the_same_forged_models(tmp_path):
                           cwd=REPO, env=render_env(tmp_path), capture_output=True,
                           text=True, timeout=90)
     assert proc.returncode == 0, proc.stdout[-1500:] + proc.stderr[-3000:]
-    result = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    return json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+
+
+def test_real_engine_scrubs_the_same_forged_models(tmp_path):
+    result = _run_forge_renderer(tmp_path)
     assert result["summer"] == result["summer_again"] == 1.
     assert result["winter"] == 0.
     assert result["changed_channels"] > 3000
     assert result["restored_equal"]
     assert result["uploads_unchanged"] and result["models_unchanged"]
+
+
+@pytest.mark.perf
+def test_real_engine_scrubs_300_models_within_16ms(tmp_path):
+    result = _run_forge_renderer(tmp_path)
+    assert result["scrub300_ms"] <= 16.0, result

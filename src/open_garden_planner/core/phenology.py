@@ -343,7 +343,7 @@ def _evaluate_cached(
         accent_opacity = 1.0
 
     # Unripe fruits tint slightly greener when ripeness is early (`0 < ripeness < 1`)
-    if has_fruit_or_pod and ripeness > 0.0 and ripeness < 0.95 and bloom == 0.0:
+    if has_fruit_or_pod and 0.0 < ripeness < 0.95:
         unripe_mix = 1.0 - ripeness
         at_r = 1.0 - 0.25 * unripe_mix
         at_g = 1.0

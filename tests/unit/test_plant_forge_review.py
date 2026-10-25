@@ -83,3 +83,69 @@ def test_tall_crowns_retain_foliage_coverage_at_every_lod(species, height, radiu
     # The review's sparse crowns read .077..315. The measured style target is
     # 1.6; allow fitting/overlap to reduce area, but never back to those poles.
     assert area / surface >= 0.8
+
+
+def test_structural_fitting_keeps_a_leaf_joint_on_its_branch():
+    from open_garden_planner.core.plant_forge.assemble import fit_forged_parts
+    from open_garden_planner.core.plant_forge.foliage import RawGeo, empty_geo
+
+    def triangle(points):
+        return RawGeo(np.array(points, dtype=np.float32),
+                      np.tile([0., 1., 0.], (3, 1)).astype(np.float32),
+                      np.ones((3, 4), np.float32), np.zeros((3, 2), np.float32),
+                      np.array([[0, 1, 2]], np.uint32))
+
+    wood = triangle([[0, 0, 0], [0, 0, 100], [10, 0, 50]])
+    leaves = triangle([[10, 0, 50], [20, 0, 150], [-20, 10, 100]])
+    parts = fit_forged_parts(wood, leaves, empty_geo(), 100, 50, structural_height=True)
+    assert parts[0].mesh.positions[2, 2] == pytest.approx(parts[1].mesh.positions[0, 2])
+
+
+@pytest.mark.parametrize("species", ["apple_tree", "cherry_tree", "birch"])
+@pytest.mark.parametrize("lod", [0, 1, 2])
+def test_summer_foliage_reaches_real_terminal_twigs(species, lod):
+    from open_garden_planner.core.plant_art import traits_for
+    from open_garden_planner.core.plant_forge.lod import lod_skeleton_budget
+    from open_garden_planner.core.plant_forge.skeleton import grow_skeleton
+    from open_garden_planner.core.plant_forge.trees import build_tree_foliage_from_skeleton
+    from open_garden_planner.core.plant_forge.tube import limb_tubes
+
+    traits = traits_for(SpriteRef("species", species))
+    rng = np.random.default_rng(77)
+    nodes, attractors, sides = lod_skeleton_budget(lod, traits.branching.attractors)
+    skeleton = grow_skeleton(400, 150, traits.crown, traits.branching, rng,
+                             max_nodes=nodes, attractors=attractors)
+    wood = limb_tubes(skeleton, sides=sides, color_rgba=(.2, .1, .05, 1.))
+    foliage = build_tree_foliage_from_skeleton(skeleton, traits, 400, 150, rng,
+                                              lod, wood.triangle_count)
+    terminals = np.ones(len(skeleton.positions), dtype=bool)
+    terminals[skeleton.parents[1:]] = False
+    twigs = skeleton.positions[terminals]
+    # Every diamond's first vertex is its attachment point. A separately
+    # randomized crown can be dense while missing these woody endpoints.
+    attachments = foliage.pos[::4]
+    distances = np.linalg.norm(twigs[:, None, :] - attachments[None, :, :], axis=2)
+    assert float(distances.min(axis=1).max()) < .001
+
+
+@pytest.mark.parametrize("lod", [0, 1, 2])
+@pytest.mark.parametrize("seed", [77, 101, 202])
+def test_tall_spruce_crown_has_no_long_bare_tier_gap(lod, seed):
+    from PIL import Image, ImageDraw
+
+    parts = forge_plant(SpriteRef("species", "spruce"), 877, 127, seed=seed, lod=lod, cache=None)
+    foliage = next(part.mesh for part in parts if part.name == "foliage")
+    # Rasterize complete side-projected triangles, not their vertices or a
+    # sparse barycentric sample. Inspect the middle65% of the actual crown.
+    image = Image.new("1", (256, 512))
+    draw = ImageDraw.Draw(image)
+    projected = foliage.positions[:, [0, 2]] * [255 / 254, 511 / 877] + [127.5, 0]
+    for triangle in foliage.indices:
+        draw.polygon([tuple(point) for point in projected[triangle]], fill=1)
+    widths = np.asarray(image).sum(axis=1)
+    narrow = widths[int(512 * .2):int(512 * .85)] < 20
+    transitions = np.flatnonzero(np.diff(np.r_[False, narrow, False]))
+    runs = transitions[1::2] - transitions[::2]
+    # A vertical run of20px is34cm at this recorded877cm height. The original
+    # separated pom-poms left32..72px of almost naked pole between tiers.
+    assert max(runs, default=0) <= 20

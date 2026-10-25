@@ -182,11 +182,11 @@ Item {
     function applyPlantSeason(part) {
         var state = plantSeasons[part.itemId]
         var foliage = part.kind === "foliage" || part.kind === "grass"
-        var accent = part.partName === "flowers" || part.partName === "fruits" || part.partName === "tubers"
+        var fruit = part.partName === "fruits"
         part.seasonDensity = state && foliage ? state[0] : 1.0
         part.seasonSnow = state && foliage ? state[6] : 0.0
         part.seasonTint = state && foliage ? Qt.vector3d(state[1], state[2], state[3]) :
-                          state && accent ? Qt.vector3d(state[7], state[8], state[9]) : Qt.vector3d(1, 1, 1)
+                          state && fruit ? Qt.vector3d(state[7], state[8], state[9]) : Qt.vector3d(1, 1, 1)
         part.seasonOpacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
                              part.partName === "fruits" ? (state[5] > 0.0 ? 1.0 : 0.0) : 1.0
         // Seasonal absence removes its shadow too. X-ray's independent fade keeps it.

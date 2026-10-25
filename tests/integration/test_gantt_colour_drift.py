@@ -54,14 +54,9 @@ TOMATO = {
 
 def _generated_task_types() -> set[str]:
     """Every task type the shared generator can emit for a calendar window."""
-    from open_garden_planner.services import task_generator as tg
+    from open_garden_planner.core.calendar_windows import CALENDAR_TASK_DEFS
 
-    defs = getattr(tg, "_CALENDAR_TASK_DEFS", None)
-    assert defs is not None, (
-        "task_generator no longer exposes _CALENDAR_TASK_DEFS, so this drift "
-        "guard can no longer be derived — update it rather than deleting it"
-    )
-    return {task_type for task_type, *_rest in defs}
+    return {task_type for task_type, *_rest in CALENDAR_TASK_DEFS}
 
 
 class TestGanttColoursTrackTheGenerator:

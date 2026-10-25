@@ -17,11 +17,15 @@ import script_isolation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+if __name__ == "__main__":
+    script_isolation.isolate_profile()
+
+from open_garden_planner.core.plant_art import CATEGORIES, SPECIES, SpriteRef  # noqa: E402
+from open_garden_planner.core.plant_forge import ForgeCache, forge_plant  # noqa: E402
+
 
 def main() -> int:
     script_isolation.isolate()
-    from open_garden_planner.core.plant_art import CATEGORIES, SPECIES, SpriteRef
-    from open_garden_planner.core.plant_forge import ForgeCache, forge_plant
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
@@ -59,5 +63,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    script_isolation.isolate_profile()
     raise SystemExit(main())

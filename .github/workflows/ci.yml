@@ -341,6 +341,15 @@ jobs:
       - name: Render tier (Windows -- Direct3D 11 on WARP)
         if: runner.os == 'Windows'
         run: python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py tests/integration/test_plant_forge_workspace.py -v -n 0
+      - name: Plant seasonal update budget (Linux)
+        if: runner.os == 'Linux'
+        env:
+          QSG_RHI_BACKEND: opengl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_plant_forge_workspace.py::test_real_engine_scrubs_300_models_within_16ms -m perf -n 0
+      - name: Plant seasonal update budget (Windows)
+        if: runner.os == 'Windows'
+        run: python -m pytest tests/integration/test_plant_forge_workspace.py::test_real_engine_scrubs_300_models_within_16ms -m perf -n 0
       - name: Upload frames, results and logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

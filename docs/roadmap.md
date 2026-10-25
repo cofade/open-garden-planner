@@ -2730,27 +2730,27 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
-### L3 acceptance highlights ? Plant Forge (#387, ADR-064) ? draft PR #593
+### L3 acceptance highlights — Plant Forge (#387, ADR-064) — draft PR #593
 
-- **L3.0:** Shared traits cover123 recipes in13 archetypes. Object SVG material
+- **L3.0:** Shared traits cover 123 recipes in 13 archetypes. Object SVG material
   tables have one stdlib-only home with byte-conformance checks. Exact Lemon Balm
   aliases now select the herb sprite; melon/flax keep their corrected fallbacks.
-- **L3.1?L3.3:** Skeleton/tube/leaf builders cover broadleaf trees, conifers,
-  palms, shrubs, hedges and herbaceous forms. LOD caps are25,000/6,000/800 at
-  18/45 m thresholds; cache bounds256 entries/64 MiB. Crown area drives leaf
+- **L3.1–L3.3:** Skeleton/tube/leaf builders cover broadleaf trees, conifers,
+  palms, shrubs, hedges and herbaceous forms. LOD caps are 25,000/6,000/800 at
+  18/45 m thresholds; cache bounds 256 entries/64 MiB. Crown area drives leaf
   cover at every LOD. Bare structural wood remains grounded at full height.
-- **L3.4:** Climbers prefer a trellis parent, then a nearby structure within50 cm
+- **L3.4:** Climbers prefer a trellis parent, then a nearby structure within 50 cm
   of the canopy edge, then a bamboo tripod.
-- **L3.5?L3.6:** Background synthesis admits only current document/geometry/LOD
+- **L3.5–L3.6:** Background synthesis admits only current document/geometry/LOD
   results. Orbit and walk update LOD. Seasons update existing Models, with
   independent flower, fruit and tuber controls. Exact harvest days share the
   task calendar and local frost dates. Render gates and the Beauty Board exercise
   the production forge. PR #593 review fixes are pinned by workspace, calendar,
   coverage and winter-height regressions. Owner beauty/manual acceptance remains.
 
-Cold synthesis measurement:123 recipes,height420/radius180/seed303, median of
-three builds per recipe on Python3.11: median3.75 ms,p9012.64 ms,max21.19 ms;
-warm median0.0013 ms. Synthesis excludes engine uploads and presentation.
+Cold synthesis measurement:123 recipes,height 420 cm / radius 180 cm / seed 303, median of
+three builds per recipe on Python 3.11: median 3.76 ms, p90 13.15 ms, maximum 23.23 ms;
+warm median 0.0013 ms. Synthesis excludes engine uploads and presentation.
 
 
 ### L2 acceptance highlights — Analyze in 3D (#386, ADR-063) — **shipped v1.31.0, PR #584**

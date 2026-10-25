@@ -73,6 +73,12 @@ def fit_forged_parts(
     all_pos = np.concatenate([g.pos for _, _, g in non_empty], axis=0)
     z_min = float(all_pos[:, 2].min())
     z_max = float(all_pos[:, 2].max())
+    if structural_height and wood.vertex_count:
+        # The structural skeleton owns the common frame. Scaling wood alone
+        # moves the twigs away from their leaves and exposes bare summer spikes.
+        # Leaves beyond that frame are trimmed at the final ground/top bounds.
+        z_min = float(wood.pos[:, 2].min())
+        z_max = float(wood.pos[:, 2].max())
     z_span = max(z_max - z_min, 1e-4)
     sz = float(height_cm) / z_span
 
@@ -97,14 +103,6 @@ def fit_forged_parts(
     for name, mat, geo in non_empty:
         p = geo.pos.copy()
         p[:, 2] = (p[:, 2] - z_min) * sz
-        part_sz = sz
-        if name == PART_WOOD and structural_height:
-            # A leaf-off tree must keep its ground anchor and recorded top.
-            # A low leaf must never lift the entire winter skeleton above soil.
-            wood_floor = float(geo.pos[:, 2].min())
-            wood_span = max(float(geo.pos[:, 2].max()) - wood_floor, 1e-4)
-            part_sz = float(height_cm) / wood_span
-            p[:, 2] = (geo.pos[:, 2] - wood_floor) * part_sz
         # Smoothly blend horizontal centring above ground so trunk base doesn't jump off-centre
         if name == PART_WOOD:
             collar = np.clip(p[:, 2] / max(float(height_cm) * 0.18, 1e-3), 0.0, 1.0)
@@ -132,9 +130,7 @@ def fit_forged_parts(
             geo.uv[:, 0] = np.clip(geo.pos[:, 2] / max(float(height_cm), 1e-6), 0.0, 1.0)
             geo.uv[:, 1] = np.clip(geo.uv[:, 1], 0.0, 0.999999)
 
-        part_inv_scale = inv_scale.copy()
-        part_inv_scale[2] = 1.0 / max(part_sz, 1e-5)
-        scaled_nrm = normalize_vec(geo.nrm * part_inv_scale[None, :]).astype(np.float32)
+        scaled_nrm = normalize_vec(geo.nrm * inv_scale[None, :]).astype(np.float32)
         if mat == "vc":
             geo.nrm = _fix_vc_flat_normals(geo.pos, scaled_nrm, geo.tri)
         else:

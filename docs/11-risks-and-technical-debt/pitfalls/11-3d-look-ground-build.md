@@ -86,7 +86,7 @@ Review round 1 made the drape follow the shared Hours of Sun going OFF (a docume
 
 ### PF-L3D-10
 
-- **Rule:** Exercise the production forge in render gates, keep seasonal geometry stable, and measure structural bounds after seasonal foliage disappears.
+- **Rule:** Render production plants and verify final seasonal bounds.
 - **Pinned by:** `tests/unit/test_plant_forge_review.py::test_winter_skeleton_keeps_ground_and_height`; `tests/unit/test_plant_forge_review.py::test_tall_crowns_retain_foliage_coverage_at_every_lod`; `tests/integration/test_plant_forge_workspace.py::test_workspace_render_flags_use_the_production_worker`; `tests/integration/test_plant_forge_calendar.py::test_instance_harvest_and_task_calendar_agree_across_years`
 - **Source:** #387, PR #593, ADR-064
 - **Status:** standing

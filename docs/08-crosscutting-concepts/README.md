@@ -6870,7 +6870,7 @@ The frozen `--selftest` draws a drape patch and a lines patch: both overlay shad
 compiled from the bundle and judged by colour. The Beauty Board renders each shot with
 the drapes, the sun path and Cutaway (`scripts/render_beauty_board.py --analysis`).
 
-### 8.29.11 Plant Forge ? procedural 3D species models, LODs and phenology (L3, #387, ADR-064)
+### 8.29.11 Plant Forge — procedural 3D species models, LODs and phenology (L3, #387, ADR-064)
 
 All 123 sprite recipes (108 species, 15 categories) feed the same resolver and
 `Traits3D` table in 2D and 3D. The forge covers 13 archetypes: canopy, conifer,
@@ -6882,8 +6882,8 @@ in one stdlib-only material table; the SVG byte-conformance gate preserves them.
 18 m use LOD0, up to 45 m use LOD1, beyond that LOD2. `ForgeCache` holds fully
 sized/seeded meshes at most 256 entries and 64 MiB of array data. No disk cache:
 a local Python 3.11 run over all 123 recipes at height 420 cm, radius 180 cm,
-seed 303 (median of three builds per recipe) measured cold median 3.75 ms,
-p90 12.64 ms, maximum 21.19 ms and warm median 0.0013 ms. These describe synthesis,
+seed 303 (median of three builds per recipe) measured cold median 3.76 ms,
+p90 13.15 ms, maximum 23.23 ms and warm median 0.0013 ms. These describe synthesis,
 not first-frame or presentation latency. The acceptance budget is median 150 ms.
 
 Foliage area follows crown surface area (target 1.6); lower counts receive larger

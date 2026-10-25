@@ -2666,7 +2666,7 @@ statement that was one measurement short.
 
 | Question (review round 5) | Measured (Qt 6.11, Direct3D 11 on an RTX 4070 and on WARP; ratios set with `QT_SCALE_FACTOR` on a 100 % screen) |
 |---|---|
-| How does Qt size a render target at a fractional ratio? | `QSize(logical) * ratio` — `qRound` per side, half a pixel up: a 442 px pane at 1.25 has a 553 px frame (552.5), a 443 px pane a 554 px one (553.75), a 447 px pane at 1.5 a 671 px one. The reviewer: 161 of 161 sizes at 1.25, 1.5 and 1.75 within 0.5 px |
+| How does Qt size a render target at a fractional ratio? | `QSize(logical) * ratio` — `qRound` per side, half a pixel up: a 442 px pane at 1.25 has a 553 px frame (552.5), a 443 px pane a 554 px one (553.76), a 447 px pane at 1.5 a 671 px one. The reviewer: 161 of 161 sizes at 1.25, 1.5 and 1.75 within 0.5 px |
 | "Less than one pixel off" at 125 % | the pane made one logical pixel wider, 442 → 443, with the render target behind (the no-paint filter): `grab()` handed out the 553 px frame and `pick()` answered with the old viewport — on the GPU and on WARP (the reviewer). In the arithmetic 750 of 11,993 neighbour frames passed at 1.25, and every ratio strictly between 1 and 1.5 had some; 1.0, 1.5 and above had none |
 | The half-pixel rule | every logical width from 2 to 3000 at 1.0, 1.1, 1.2, 1.25, 1.3, 1.4, 1.5, 1.75, 2.0, 2.25, 2.5 and 3.0, against `QSize * ratio` asked of Qt: 0 of 2,999 right frames refused and 0 of 11,993 neighbour frames accepted, at each of the twelve. On a real window at 1.25: 442 → 443 and 446 → 447 px with the target behind — a raw grab is 553 and 558 px wide, the pane's own frame 554 and 559 — refused by `grab()`, `pick()` and `project()`, on Direct3D 11 (GPU, WARP) and on xcb + OpenGL alike; the reviewer's probe: 0 of 12 handed out (it was 1 of 13) |
 | `pick()` / `project()` while the render target is behind | before: 200 `project()` took 200 frames, all refused — 2.0 ms each on the GPU, 4.1 ms on WARP; 13 and 33 ms a frame at 2560 × 1369 (the reviewer). Now: 200 `project()` take ONE frame — 0.06 ms a call, 12 ms for the tick where it was 399 ms — and the 200 `pick()` after them none (0.013 ms a call), on the GPU |
@@ -7262,7 +7262,7 @@ addendum "ground surfaces lie under the sun study".
 
 ---
 
-## ADR-064: Plant Forge ? Procedural 3D Species Models from the 2D Sprite Recipes, LODs and Phenology (#387)
+## ADR-064: Plant Forge — Procedural 3D Species Models from the 2D Sprite Recipes, LODs and Phenology (#387)
 
 **Status:** Accepted implementation; owner beauty/manual acceptance pending (PR #593).
 **Date:** 2026-10-25
@@ -7289,9 +7289,9 @@ incorrect and are replaced here by executable contracts.
    structural wood keeps its base and full height independently of foliage.
 3. **Bounded instance cache.** The LRU stores fully sized, seeded immutable meshes,
    at most 256 entries and 64 MiB of array data. It is not a unit-template cache.
-   Local cold synthesis across all 123 recipes (height420/radius180/seed303,
-   median of three per recipe, Python3.11) measured median3.75/p9012.64/max21.19 ms;
-   warm median0.0013 ms. A disk cache is unnecessary against the issue's median
+   Local cold synthesis across all 123 recipes (height 420 cm / radius 180 cm / seed 303,
+   median of three per recipe, Python 3.11) measured median 3.76 / p90 13.15 / maximum 23.23 ms;
+   warm median 0.0013 ms. A disk cache is unnecessary against the issue's median
    150 ms budget. These numbers exclude GUI uploads and presentation.
 4. **Background synthesis, main-thread admission.** The workspace retains the
    existing first silhouettes and uses a one-job executor for upgrades. A GUI
@@ -7301,7 +7301,7 @@ incorrect and are replaced here by executable contracts.
    disable this production feature. The Beauty Board uses the same forge and
    seasonal path, rather than silently rendering the old registry alone.
 5. **Support precedence.** A climber first uses its trellis parent; otherwise the
-   nearest fence/wall/pergola/trellis within50 cm of its canopy edge, accounting
+   nearest fence/wall/pergola/trellis within 50 cm of its canopy edge, accounting
    for path width, then a three-pole bamboo tripod. Supports are transient record
    inputs, not saved plan mutations.
 6. **Stable seasonal geometry.** Flowers, fruits/pods and tubers are separate
@@ -7315,7 +7315,7 @@ incorrect and are replaced here by executable contracts.
    frost dates. Plant existence remains #315's shared clock/lifetime rule.
 
 **Alternatives rejected:** GUI timer batches still block the GUI during synthesis
-(measured six-apple batch116.6 ms). Replacing meshes on a date step defeats the
+(measured six-apple batch 116.6 ms). Replacing meshes on a date step defeats the
 16 ms scrub contract. A merged accent mesh cannot hide spring fruit independently
 of blossom. A render-only feature bypass makes green gates irrelevant to shipping.
 A disk cache adds persistence/versioning costs without the measured need.
