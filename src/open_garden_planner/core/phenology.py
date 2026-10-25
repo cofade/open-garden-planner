@@ -11,7 +11,7 @@ a given `plan_date` and `latitude_deg`:
   is `1.0` and `autumn_color` is `0.0` on every day of the year in both
   hemispheres.
 - **Existence boundary (`#315`)**: Whether a plant exists at all on `plan_date`
-  is decided exclusively by `#315` (`core.plant_lifetimes`); this module only
+  is decided exclusively by `#315` (`core.plan_timeline`); this module only
   evaluates seasonal appearance for existing plants and never hides or removes
   a plant item.
 - **60 fps date scrub**: Scrubbing 300 plants across dates updates shader/material

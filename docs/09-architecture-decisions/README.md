@@ -2702,7 +2702,7 @@ statement that was one measurement short.
 
 | Question (review round 5) | Measured (Qt 6.11, Direct3D 11 on an RTX 4070 and on WARP; ratios set with `QT_SCALE_FACTOR` on a 100 % screen) |
 |---|---|
-| How does Qt size a render target at a fractional ratio? | `QSize(logical) * ratio` — `qRound` per side, half a pixel up: a 442 px pane at 1.25 has a 553 px frame (552.5), a 443 px pane a 554 px one (553.76), a 447 px pane at 1.5 a 671 px one. The reviewer: 161 of 161 sizes at 1.25, 1.5 and 1.75 within 0.5 px |
+| How does Qt size a render target at a fractional ratio? | `QSize(logical) * ratio` — `qRound` per side, half a pixel up: a 442 px pane at 1.25 has a 553 px frame (552.5), a 443 px pane a 554 px one (553.69), a 447 px pane at 1.5 a 671 px one. The reviewer: 161 of 161 sizes at 1.25, 1.5 and 1.75 within 0.5 px |
 | "Less than one pixel off" at 125 % | the pane made one logical pixel wider, 442 → 443, with the render target behind (the no-paint filter): `grab()` handed out the 553 px frame and `pick()` answered with the old viewport — on the GPU and on WARP (the reviewer). In the arithmetic 750 of 11,993 neighbour frames passed at 1.25, and every ratio strictly between 1 and 1.5 had some; 1.0, 1.5 and above had none |
 | The half-pixel rule | every logical width from 2 to 3000 at 1.0, 1.1, 1.2, 1.25, 1.3, 1.4, 1.5, 1.75, 2.0, 2.25, 2.5 and 3.0, against `QSize * ratio` asked of Qt: 0 of 2,999 right frames refused and 0 of 11,993 neighbour frames accepted, at each of the twelve. On a real window at 1.25: 442 → 443 and 446 → 447 px with the target behind — a raw grab is 553 and 558 px wide, the pane's own frame 554 and 559 — refused by `grab()`, `pick()` and `project()`, on Direct3D 11 (GPU, WARP) and on xcb + OpenGL alike; the reviewer's probe: 0 of 12 handed out (it was 1 of 13) |
 | `pick()` / `project()` while the render target is behind | before: 200 `project()` took 200 frames, all refused — 2.0 ms each on the GPU, 4.1 ms on WARP; 13 and 33 ms a frame at 2560 × 1369 (the reviewer). Now: 200 `project()` take ONE frame — 0.06 ms a call, 12 ms for the tick where it was 399 ms — and the 200 `pick()` after them none (0.013 ms a call), on the GPU |
@@ -7350,8 +7350,8 @@ incorrect and are replaced here by executable contracts.
 3. **Bounded instance cache.** The LRU stores fully sized, seeded immutable meshes,
    at most 256 entries and 64 MiB of array data. It is not a unit-template cache.
    Local cold synthesis across all 123 recipes (height 420 cm / radius 180 cm / seed 303,
-   median of three per recipe, Python 3.11) measured median 3.76 / p90 13.15 / maximum 23.23 ms;
-   warm median 0.0013 ms. A disk cache is unnecessary against the issue's median
+   median of three per recipe, Python 3.11) measured median 3.69 / p90 13.07 / maximum 23.01 ms;
+   warm median 0.0012 ms. A disk cache is unnecessary against the issue's median
    150 ms budget. These numbers exclude GUI uploads and presentation.
 4. **Background synthesis, main-thread admission.** The workspace retains the
    existing first silhouettes and uses a one-job executor for upgrades. A GUI

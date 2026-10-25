@@ -2754,8 +2754,8 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   calls the production workspace refresh and checks zero geometry work/churn.
 
 Cold synthesis measurement: 123 recipes, height 420 cm / radius 180 cm / seed 303, median of
-three builds per recipe on Python 3.11: median 3.76 ms, p90 13.15 ms, maximum 23.23 ms;
-warm median 0.0013 ms. Synthesis excludes engine uploads and presentation.
+three builds per recipe on Python 3.11: median 3.69 ms, p90 13.07 ms, maximum 23.01 ms;
+warm median 0.0012 ms. Synthesis excludes engine uploads and presentation.
 
 
 ### L2 acceptance highlights — Analyze in 3D (#386, ADR-063) — **shipped v1.31.0, PR #584**
