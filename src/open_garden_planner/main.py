@@ -1,6 +1,7 @@
 """Main entry point for Open Garden Planner."""
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -8,6 +9,14 @@ from typing import TYPE_CHECKING, Any, cast
 from dotenv import load_dotenv
 
 WINDOWS_APP_ID = "cofade.opengardenplanner.app"
+
+# This is the product's own entry point, so it is allowed to open the owner's
+# real settings store even when launched from an agent/tooling shell (#587,
+# ADR-041 addendum). Keep the name in sync with app.settings.PRODUCT_PROCESS_ENV;
+# tests/unit/test_settings_isolation_guard.py pins it. A probe that builds an
+# application directly does not come through here and is refused unless it calls
+# scripts/script_isolation.isolate() first.
+os.environ["OGP_PRODUCT_PROCESS"] = "1"
 
 # Windows-specific taskbar icon support: Tell Windows this is a distinct app
 # (not generic Python) for taskbar icon grouping. MUST be called before creating
