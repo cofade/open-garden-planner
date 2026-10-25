@@ -29,6 +29,14 @@ if TYPE_CHECKING:
 class Command(ABC):
     """Abstract base class for all undoable commands."""
 
+    #: Whether executing or undoing this command can change an item's ground band
+    #: (``canvas_scene.on_ground``: its object type, height metadata, or group
+    #: membership). ``CanvasScene._restack_ground_changes`` skips its O(items)
+    #: scan for a command that says ``False``; a command that can reclassify
+    #: anything must leave this True (the default), or a lawn can stay in the
+    #: solid band (#592).
+    changes_ground_band: bool = True
+
     @property
     @abstractmethod
     def description(self) -> str:
@@ -71,6 +79,17 @@ class CommandManager(QObject):
         self._undo_stack: list[Command] = []
         self._redo_stack: list[Command] = []
         self._preparing_history = False
+        self._last_command: Command | None = None
+
+    @property
+    def last_command(self) -> Command | None:
+        """The command whose execute/undo/redo just emitted ``stack_changed``.
+
+        Set immediately before the signal, so a ``stack_changed`` slot can ask
+        what changed (``CanvasScene._restack_ground_changes`` does, #592).
+        ``None`` before the first command and after ``clear()``.
+        """
+        return self._last_command
 
     def _prepare_history(self) -> bool:
         """Commit active editors before selecting a history entry (#560)."""
@@ -95,6 +114,7 @@ class CommandManager(QObject):
         had_redo = len(self._redo_stack) > 0
         self._redo_stack.clear()
 
+        self._last_command = command
         self.can_undo_changed.emit(True)
         if had_redo:
             self.can_redo_changed.emit(False)
@@ -117,6 +137,7 @@ class CommandManager(QObject):
         had_redo = len(self._redo_stack) > 0
         self._redo_stack.clear()
 
+        self._last_command = command
         self.can_undo_changed.emit(True)
         if had_redo:
             self.can_redo_changed.emit(False)
@@ -134,6 +155,7 @@ class CommandManager(QObject):
         command.undo()
         self._redo_stack.append(command)
 
+        self._last_command = command
         self.can_undo_changed.emit(len(self._undo_stack) > 0)
         self.can_redo_changed.emit(True)
         self.stack_changed.emit()
@@ -156,6 +178,7 @@ class CommandManager(QObject):
             raise
         self._undo_stack.append(command)
 
+        self._last_command = command
         self.can_undo_changed.emit(True)
         self.can_redo_changed.emit(len(self._redo_stack) > 0)
         self.stack_changed.emit()
@@ -165,6 +188,7 @@ class CommandManager(QObject):
         """Clear all undo/redo history."""
         self._undo_stack.clear()
         self._redo_stack.clear()
+        self._last_command = None
         self.can_undo_changed.emit(False)
         self.can_redo_changed.emit(False)
 
@@ -3107,3 +3131,36 @@ class DeleteManualTaskCommand(Command):
 
     def undo(self) -> None:
         self._pm.restore_manual_task(self._task_id, self._prior_dict)
+
+
+# Commands whose effect cannot change an item's ground band (#592). Every one of
+# them moves, resizes, rotates, edits vertices/curves, copies, links/reparents,
+# or changes constraints: ``canvas_scene.on_ground`` reads the item's object
+# type, height metadata and group membership, none of which these touch. The
+# base default stays True, so a future command is safe until it says otherwise;
+# Create/Delete/Group/Ungroup/Boolean/ChangeProperty deliberately keep the scan.
+_GROUND_BAND_NEUTRAL_COMMANDS: tuple[type[Command], ...] = (
+    CreateItemCommand,
+    CreateItemsCommand,
+    MoveItemsCommand,
+    AlignItemsCommand,
+    ResizeItemCommand,
+    RotateItemCommand,
+    MoveVertexCommand,
+    SetCurveGeometryCommand,
+    AddVertexCommand,
+    DeleteVertexCommand,
+    MultiVertexMoveCommand,
+    LinearArrayCommand,
+    GridArrayCommand,
+    CircularArrayCommand,
+    ArrayAlongPathCommand,
+    MirrorItemsCommand,
+    SetParentBedCommand,
+    AddConstraintCommand,
+    RemoveConstraintCommand,
+    EditConstraintDistanceCommand,
+)
+for _ground_band_neutral in _GROUND_BAND_NEUTRAL_COMMANDS:
+    _ground_band_neutral.changes_ground_band = False  # type: ignore[misc]
+
