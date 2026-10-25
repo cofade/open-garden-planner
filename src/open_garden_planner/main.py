@@ -10,14 +10,6 @@ from dotenv import load_dotenv
 
 WINDOWS_APP_ID = "cofade.opengardenplanner.app"
 
-# This is the product's own entry point, so it is allowed to open the owner's
-# real settings store even when launched from an agent/tooling shell (#587,
-# ADR-041 addendum). Keep the name in sync with app.settings.PRODUCT_PROCESS_ENV;
-# tests/unit/test_settings_isolation_guard.py pins it. A probe that builds an
-# application directly does not come through here and is refused unless it calls
-# scripts/script_isolation.isolate() first.
-os.environ["OGP_PRODUCT_PROCESS"] = "1"
-
 # Windows-specific taskbar icon support: Tell Windows this is a distinct app
 # (not generic Python) for taskbar icon grouping. MUST be called before creating
 # any UI or importing GUI engines (like WebEngine) so the AUMID is established early.
@@ -425,6 +417,14 @@ def _install_excepthook() -> None:
 
 def main() -> int:
     """Run the Open Garden Planner application."""
+    # This is the product's own entry point, so it is allowed to open the owner's
+    # real settings store even when launched from an agent/tooling shell (#587,
+    # ADR-041 addendum). Keep the name in sync with
+    # app.settings.PRODUCT_PROCESS_ENV; tests/unit/test_settings_isolation_guard.py
+    # pins it. Set HERE, not at module import: a probe that imports `main` for a
+    # helper must not inherit the product's permission. A probe that builds an
+    # application directly is refused unless it calls script_isolation first.
+    os.environ["OGP_PRODUCT_PROCESS"] = "1"
     # The process that supervises a running self-test (runlog.py). FIRST: its
     # arguments name what it supervises, and nothing of them may start anything else.
     if _SUPERVISOR_FLAG in sys.argv:
