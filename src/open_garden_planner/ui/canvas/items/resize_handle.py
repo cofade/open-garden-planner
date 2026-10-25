@@ -1742,6 +1742,59 @@ def _visible_viewport_rect(view: Any, margin: float) -> QRectF:
     return QRectF(view.viewport().rect()).adjusted(-margin, -margin, margin, margin)
 
 
+def _dense_sample_view(item: Any) -> Any | None:
+    """The first view of *item*'s scene, or None (a bare scene in a unit test)."""
+    scene = item.scene()
+    views = scene.views() if scene is not None else []
+    return views[0] if views else None
+
+
+def _visible_scene_rect(view: Any | None) -> QRectF | None:
+    """The viewport in SCENE coordinates, or None without a viewport."""
+    if view is None or view.viewport() is None:
+        return None
+    return view.mapToScene(view.viewport().rect()).boundingRect()
+
+
+def _dense_sample_covers_view(item: Any) -> bool:
+    """Whether the last dense sample already covers the current viewport (#594).
+
+    The sample's candidate set was the viewport grown by half a viewport in each
+    direction. If the new viewport lies inside that scene region, every vertex
+    now visible was a candidate when the sample was taken. A pan only translates
+    the points, so the chosen indices keep their pairwise screen spacing; the
+    sample is still valid. Re-sampling every scrollbar step is what cost ~100 ms
+    on a 16 384-vertex outline.
+    """
+    cached = getattr(item, "_dense_sample_scene_rect", None)
+    sampled_zoom = getattr(item, "_dense_sample_zoom", None)
+    view = _dense_sample_view(item)
+    if cached is None or sampled_zoom is None or view is None:
+        return False
+    if abs(sampled_zoom - abs(view.transform().m11())) > 1e-9:
+        return False
+    current = _visible_scene_rect(view)
+    return current is not None and cached.contains(current)
+
+
+def _remember_dense_sample(item: Any) -> None:
+    """Record the scene region the current dense sample covers (see above)."""
+    view = _dense_sample_view(item)
+    current = _visible_scene_rect(view)
+    if view is None or current is None:
+        return
+    margin_x = current.width() / 2.0
+    margin_y = current.height() / 2.0
+    item._dense_sample_scene_rect = current.adjusted(-margin_x, -margin_y, margin_x, margin_y)
+    item._dense_sample_zoom = abs(view.transform().m11())
+
+
+def _forget_dense_sample(item: Any) -> None:
+    """Drop the sample cache (a non-dense outline, or leaving edit mode)."""
+    item._dense_sample_scene_rect = None
+    item._dense_sample_zoom = None
+
+
 def _dense_overlay_indices(
     item: Any, points: list[tuple[int, QPointF]]
 ) -> list[int]:
@@ -1889,6 +1942,10 @@ class VertexEditMixin:
                 point = _map_to_scene(self, polygon.at(i))
                 handle.setToolTip(_format_coordinate(point.x(), point.y()))
             self._vertex_handles.append(handle)
+        if dense:
+            _remember_dense_sample(self)
+        else:
+            _forget_dense_sample(self)
 
     def _remove_vertex_handles(self) -> None:
         """Remove all vertex handles."""
@@ -1953,7 +2010,13 @@ class VertexEditMixin:
         self._midpoint_handles = []
 
     def refresh_vertex_edit_overlay(self) -> None:
-        """Re-sample a dense outline after a zoom or pan; never during a drag."""
+        """Re-sample a dense outline after a zoom or pan; never during a drag.
+
+        A pan that stays inside the sampled scene region does not re-sample
+        (#594): every now-visible vertex was already a candidate, and translation
+        keeps the chosen indices' pairwise screen spacing. A zoom, or a pan beyond
+        the region, samples again.
+        """
         if not getattr(self, "_is_vertex_edit_mode", False):
             return
         if self._get_vertex_count() <= MAX_ANNOTATED_VERTICES:
@@ -1962,6 +2025,8 @@ class VertexEditMixin:
             getattr(handle, "_is_dragging", False)
             for handle in [*self._vertex_handles, *self._midpoint_handles]
         ):
+            return
+        if _dense_sample_covers_view(self):
             return
         self._create_vertex_handles()
         self._create_midpoint_handles()
@@ -2979,6 +3044,10 @@ class PolylineVertexEditMixin:
                 point = _map_to_scene(self, points[i])
                 handle.setToolTip(_format_coordinate(point.x(), point.y()))
             self._vertex_handles.append(handle)
+        if dense:
+            _remember_dense_sample(self)
+        else:
+            _forget_dense_sample(self)
 
     def _remove_vertex_handles(self) -> None:
         """Remove all vertex handles."""
@@ -3043,7 +3112,11 @@ class PolylineVertexEditMixin:
         self._midpoint_handles = []
 
     def refresh_vertex_edit_overlay(self) -> None:
-        """Re-sample a dense path after a zoom or pan; never during a drag."""
+        """Re-sample a dense path after a zoom or pan; never during a drag.
+
+        A pan that stays inside the sampled scene region does not re-sample
+        (#594); a zoom, or a pan beyond the region, samples again.
+        """
         if not getattr(self, "_is_vertex_edit_mode", False):
             return
         if len(getattr(self, "_points", ())) <= MAX_ANNOTATED_VERTICES:
@@ -3052,6 +3125,8 @@ class PolylineVertexEditMixin:
             getattr(handle, "_is_dragging", False)
             for handle in [*self._vertex_handles, *self._midpoint_handles]
         ):
+            return
+        if _dense_sample_covers_view(self):
             return
         self._create_vertex_handles()
         self._create_midpoint_handles()

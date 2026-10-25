@@ -214,6 +214,51 @@ def test_visible_midpoint_with_both_endpoints_offscreen_is_insertable(view) -> N
     assert len(item._points) == 255
 
 
+def test_a_pan_inside_the_sampled_region_does_not_resample(view, monkeypatch) -> None:
+    """A scrollbar step must not walk every vertex of a 16 384-vertex outline (#594).
+
+    #551 caps the overlay at 128 handles, but ``scrollContentsBy`` re-sampled the
+    whole outline to decide which; the senior review of PR #585 measured ~100 ms
+    per scrollbar step. The sample is reused while the viewport stays inside the
+    scene region it was taken over, and re-taken when it leaves.
+    """
+    from open_garden_planner.ui.canvas.items import resize_handle
+
+    item = _dense_polygon(16_384)
+    view.scene().addItem(item)
+    _show(view, item, zoom=1.0, center=QPointF(200, 200))
+    item.setSelected(True)
+    item.enter_vertex_edit_mode()
+
+    calls: list[int] = []
+    original = resize_handle._dense_overlay_indices
+
+    def spy(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(resize_handle, "_dense_overlay_indices", spy)
+
+    bar = view.horizontalScrollBar()
+    start = bar.value()
+    for step in range(1, 11):
+        bar.setValue(start + step * 2)
+        view.repaint()
+        QApplication.processEvents()
+    assert calls == [], "a small scroll re-sampled the dense outline"
+
+    # A pan beyond the sampled region re-samples.
+    view.centerOn(QPointF(3000, 2500))
+    view.repaint()
+    QApplication.processEvents()
+    assert calls
+
+    # Zoom always re-samples: the pixel spacing changed.
+    calls.clear()
+    _show(view, item, zoom=2.0, center=QPointF(200, 200))
+    assert calls
+
+
 def test_drag_handle_survives_a_refresh_and_undoes_once(view) -> None:
     item = _dense_polygon()
     view.scene().addItem(item)
