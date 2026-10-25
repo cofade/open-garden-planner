@@ -1,4 +1,4 @@
-﻿"""A command refreshes only what it can change (#592).
+"""A command refreshes only what it can change (#592).
 
 The measured defect: an agent creating objects one call at a time paid
 O(items) per command even after #450 made the z derivation one-per-layer. Two
