@@ -238,7 +238,7 @@ A 600-command loop of one-item `CreateItemCommand`s produced 360 600 `refresh_lo
 
 ### PF-CAN-26
 
-- **Rule:** A dense vertex-edit overlay stays sampled while the viewport remains inside the scene region the sample was taken over; a pan only translates the points, so the chosen indices keep their pairwise screen spacing. Re-sample on a zoom change or when the viewport leaves that region. Re-sampling on every `scrollContentsBy` walks every vertex.
+- **Rule:** A dense vertex-edit overlay stays sampled while the viewport remains inside the scene region the sample was taken over; a pan only translates the points, so the chosen indices keep their pairwise screen spacing. Re-sample on a zoom change, when the item's pose or geometry changes, or when the viewport leaves that region. Re-sampling on every `scrollContentsBy` walks every vertex.
 - **Pinned by:** `tests/integration/test_dense_polygon_edit.py::test_a_pan_inside_the_sampled_region_does_not_resample`
 - **Source:** #594
 - **Status:** standing

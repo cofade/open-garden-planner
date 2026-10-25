@@ -1771,10 +1771,18 @@ def _dense_candidate_scene_rect(view: Any | None) -> QRectF | None:
     return view.mapToScene(visible).boundingRect()
 
 
-def _dense_sample_pose(item: Any) -> tuple[float, float, float, float]:
-    """The item pose the sample's candidate set was taken at (#594)."""
-    position = item.scenePos()
-    return (position.x(), position.y(), float(item.rotation()), float(item.scale()))
+def _dense_sample_pose(item: Any) -> tuple[float, ...]:
+    """The full scene transform the sample's candidate set was taken at (#594).
+
+    ``sceneTransform`` includes position, rotation, scale, ``transformOriginPoint``
+    and the parent chain — every pose change that can move a vertex on screen,
+    including a group child whose own ``pos``/``rotation``/``scale`` do not move.
+    """
+    transform = item.sceneTransform()
+    return (
+        transform.m11(), transform.m12(), transform.m21(), transform.m22(),
+        transform.dx(), transform.dy(),
+    )
 
 
 def _dense_sample_covers_view(item: Any) -> bool:

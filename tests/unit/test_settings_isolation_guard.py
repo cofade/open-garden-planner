@@ -124,17 +124,39 @@ def test_the_product_marker_is_set_inside_main_not_at_import() -> None:
 
     main_path = Path(settings_module.__file__).parent.parent / "main.py"
     source = main_path.read_text(encoding="utf-8")
-    marker = f'os.environ["{settings_module.PRODUCT_PROCESS_ENV}"]'
-    lines = [line for line in source.splitlines() if marker in line]
-    assert len(lines) == 1, lines
     tree = ast.parse(source)
+
+    def sets_product_marker(node: ast.AST) -> bool:
+        """An actual ``os.environ["OGP_PRODUCT_PROCESS"] = "1"`` statement."""
+        if not isinstance(node, ast.Assign):
+            return False
+        if not (isinstance(node.value, ast.Constant) and node.value.value == "1"):
+            return False
+        for target in node.targets:
+            if not isinstance(target, ast.Subscript):
+                continue
+            value = target.value
+            if (
+                isinstance(value, ast.Attribute)
+                and value.attr == "environ"
+                and isinstance(value.value, ast.Name)
+                and value.value.id == "os"
+                and isinstance(target.slice, ast.Constant)
+                and target.slice.value == settings_module.PRODUCT_PROCESS_ENV
+            ):
+                return True
+        return False
+
     main_fn = next(
         node for node in tree.body
         if isinstance(node, ast.FunctionDef) and node.name == "main"
     )
-    marker_line = next(
-        number for number, line in enumerate(source.splitlines(), 1) if marker in line
+    inside_main = {id(node) for node in ast.walk(main_fn)}
+    assert any(sets_product_marker(node) for node in ast.walk(main_fn)), (
+        "main() no longer sets the product marker"
     )
-    assert main_fn.lineno <= marker_line <= main_fn.end_lineno, (
-        "the product marker must be set inside main(), not at module import"
-    )
+    assert not any(
+        sets_product_marker(node)
+        for node in ast.walk(tree)
+        if id(node) not in inside_main
+    ), "the product marker must not be set outside main()"

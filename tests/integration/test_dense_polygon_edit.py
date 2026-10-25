@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtGui import QTransform
 from PyQt6.QtWidgets import QApplication, QGraphicsSceneMouseEvent
 
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -14,6 +15,7 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 from open_garden_planner.ui.canvas.items.resize_handle import (
     MAX_DENSE_VERTEX_HANDLES,
+    _dense_sample_covers_view,
     _format_coordinate,
     _visible_viewport_rect,
 )
@@ -283,6 +285,46 @@ def test_a_pan_inside_the_sampled_region_does_not_resample(view, monkeypatch, ki
     calls.clear()
     _show(view, item, zoom=2.0, center=centre)
     assert calls
+
+
+def test_a_polygon_resize_in_edit_mode_updates_its_handles(view) -> None:
+    """Undo/redo of a polygon resize must not leave stale vertex handles (#594)."""
+    from open_garden_planner.ui.canvas.items.polygon_item import polygon_resize_apply
+
+    item = _dense_polygon(255)
+    view.scene().addItem(item)
+    _show(view, item, zoom=1.0, center=QPointF(200, 200))
+    item.enter_vertex_edit_mode()
+    polygon = item.polygon()
+    vertices = [
+        {
+            "x": polygon.at(i).x() * 0.9 + 20.0,
+            "y": polygon.at(i).y() * 0.9 + 20.0,
+        }
+        for i in range(polygon.count())
+    ]
+    polygon_resize_apply(item, {
+        "vertices": vertices,
+        "pos_x": item.pos().x(),
+        "pos_y": item.pos().y(),
+    })
+    assert item.polygon().count() == len(vertices)
+    assert all(
+        handle.pos() == item.polygon().at(handle.vertex_index)
+        for handle in item._vertex_handles
+    )
+    assert not _dense_sample_covers_view(item)
+
+
+def test_a_transform_change_invalidates_the_dense_sample(view) -> None:
+    """The pose key is the full scene transform, not only pos/rotation/scale (#594)."""
+    item = _dense_polygon(255)
+    view.scene().addItem(item)
+    _show(view, item, zoom=1.0, center=QPointF(200, 200))
+    item.enter_vertex_edit_mode()
+    assert _dense_sample_covers_view(item)
+    item.setTransform(QTransform().translate(5.0, 0.0))
+    assert not _dense_sample_covers_view(item)
 
 
 def test_drag_handle_survives_a_refresh_and_undoes_once(view) -> None:
