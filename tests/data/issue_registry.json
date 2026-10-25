@@ -821,7 +821,7 @@
   },
   "450": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The 2D canvas has two unbounded costs a large or crafted plan can hit: path-style painting along the whole line and a z-order refresh per added item"
   },
   "453": {
@@ -1051,7 +1051,7 @@
   },
   "538": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Local frozen build bundles packages the lock no longer pins (Qt 3D DLLs after L1.10)"
   },
   "539": {
@@ -1086,12 +1086,12 @@
   },
   "550": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Boolean operations accept exactly two shapes, refuse touching ones, and cannot use an ellipse at all"
   },
   "551": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Vertex editing a dense polygon creates four scene items per vertex - 1,000+ items for a 255-vertex shape"
   },
   "552": {
@@ -1141,7 +1141,7 @@
   },
   "569": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Preferences dialog compresses controls below their minimum height on short screens"
   },
   "571": {
@@ -1168,6 +1168,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
+  },
+  "585": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#450,#551,#550,#569,#538,#446): non-3D hardening batch"
   },
   "592": {
     "is_pr": false,
