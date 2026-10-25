@@ -70,6 +70,15 @@ The `[build-system] requires` floor is `setuptools>=77`, because an isolated
 group's `84.1.0` pin. `tests/unit/test_packaging_metadata.py` pins all four facts;
 PF-CI-14 records the incident (the 2027-02-18 deprecation warning).
 
+**The frozen version module is generated, not tracked (#596).** `installer/build_installer.py`
+writes `src/open_garden_planner/_version.py` with the release version (which may lead
+`pyproject.toml` until the sync) and the path is gitignored. A direct
+`python -m PyInstaller installer/ogp.spec` build has no such file, so the frozen app falls
+back to `open_garden_planner.__version__`. A tracked stale `_version.py` (1.2.0) made a
+direct build's About report 1.2.0 while the manifest said 1.31.1; PF-CI-15 records it. The
+read is dynamic, so the spec lists `open_garden_planner._version` as a hidden import when
+the file exists; without that a release exe would report the previous synced version.
+
 **The gate build — test tooling, never shipped (Phase 17 L1.3).**
 `installer/workspace_gate.spec` builds `OpenGardenPlannerGate.exe`: the product recipe (it
 executes the text of `ogp.spec`) plus ONE PyInstaller runtime hook,

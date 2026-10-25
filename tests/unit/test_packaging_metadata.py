@@ -9,11 +9,70 @@ the build group's pin. The manifest is therefore an SPDX expression plus
 
 from __future__ import annotations
 
+import re
+import sys
 import tomllib
 from pathlib import Path
 
+import open_garden_planner
+
 ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+
+def test_the_generated_version_module_is_a_build_artifact() -> None:
+    """The stale tracked `_version.py` 1.2.0 made a direct PyInstaller About say 1.2.0.
+
+    `build_installer.py` writes the module for a release; a direct PyInstaller
+    build has none, so the frozen app falls back to `__version__`.
+    """
+    assert open_garden_planner.__version__ == PYPROJECT["project"]["version"]
+    assert "src/open_garden_planner/_version.py" in (ROOT / ".gitignore").read_text(
+        encoding="utf-8"
+    )
+    from open_garden_planner.services.update_checker import get_current_version
+
+    assert get_current_version() == open_garden_planner.__version__
+
+
+def test_the_frozen_version_falls_back_without_the_generated_module(monkeypatch) -> None:
+    from open_garden_planner.services.update_checker import get_current_version
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setitem(sys.modules, "open_garden_planner._version", None)
+    assert get_current_version() == open_garden_planner.__version__
+
+
+def test_the_frozen_release_reads_the_version_module_it_wrote(monkeypatch) -> None:
+    """The release path still wins: ``build_installer.py`` writes the release version.
+
+    It may lead ``pyproject.toml`` until the automatic version-sync PR, so a
+    frozen release build must report the module, not ``__version__``.
+    """
+    from types import ModuleType
+
+    from open_garden_planner.services.update_checker import get_current_version
+
+    module = ModuleType("open_garden_planner._version")
+    module.__version__ = "9.9.9"
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setitem(sys.modules, "open_garden_planner._version", module)
+    assert get_current_version() == "9.9.9"
+
+
+def test_the_frozen_spec_bundles_a_generated_version_module() -> None:
+    """PyInstaller sees only STATIC imports; the dynamic read needs the spec to list it.
+
+    `build_installer.py` writes `_version.py` before PyInstaller runs, and a
+    release build must therefore add it as a hidden import when it exists. A
+    direct build has no file, so the entry is conditional.
+    """
+    spec = (ROOT / "installer" / "ogp.spec").read_text(encoding="utf-8")
+    assert 'GENERATED_VERSION_MODULE = SRC / "open_garden_planner" / "_version.py"' in spec
+    assert re.search(
+        r'\[\s*"open_garden_planner\._version"\s*\]\s*if GENERATED_VERSION_MODULE\.exists\(\)',
+        spec,
+    ), "a release build must bundle the dynamically imported version module"
 
 
 def test_license_is_an_spdx_expression() -> None:

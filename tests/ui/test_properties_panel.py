@@ -1,7 +1,9 @@
 """Tests for properties panel."""
 
 from PyQt6.QtCore import QPointF
+from PyQt6.QtWidgets import QFormLayout
 
+from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
@@ -514,4 +516,44 @@ class TestContainerProperties:
         after = effective_text()
         assert before and after and before != after, (
             f"Effective volume did not refresh on footprint change: {before!r} -> {after!r}"
+        )
+
+
+class TestObjectHeightField:
+    """The height field shares the soil-depth width and its source tooltip updates (#596)."""
+
+    @staticmethod
+    def _fields(panel: PropertiesPanel) -> dict[str, object]:
+        fields: dict[str, object] = {}
+        for row in range(panel._form_layout.rowCount()):
+            label = panel._form_layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            field = panel._form_layout.itemAt(row, QFormLayout.ItemRole.FieldRole)
+            if label and field and label.widget() and field.widget():
+                fields[label.widget().text()] = field.widget()
+        return fields
+
+    def test_width_and_source_tooltip_follow_an_explicit_edit(self, qtbot) -> None:
+        item = RectangleItem(0, 0, 400, 250)
+        item.object_type = ObjectType.RAISED_BED
+        panel = PropertiesPanel(CommandManager())
+        qtbot.addWidget(panel)
+        panel.set_selected_items([item])
+        panel.resize(450, 900)
+        panel.show()
+        qtbot.wait(30)
+
+        fields = self._fields(panel)
+        assert fields["Object height:"].width() == fields["Soil depth:"].width()
+
+        fields["Object height:"].setValue(70.0)
+        qtbot.wait(30)
+        height = self._fields(panel)["Object height:"]
+        assert "Custom height" in height.toolTip()
+
+        height.setValue(0.0)
+        qtbot.wait(30)
+        height = self._fields(panel)["Object height:"]
+        assert (
+            "Default for this object type" in height.toolTip()
+            or "No height" in height.toolTip()
         )

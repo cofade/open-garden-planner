@@ -1978,6 +1978,20 @@ class CanvasView(QGraphicsView):
         if tool_type in (TT.TREE, TT.SHRUB, TT.PERENNIAL):
             size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
             default_diameter = size_map.get(tool_type, 100.0)
+            # A gallery entry that names a known species is planted at its real
+            # mature spread, exactly like a Plant Database or Plant Lists drop
+            # (`build_species_plant`). The fixed default above is only for an
+            # unknown/custom name: an 8 m apple tree dropped 2 m wide made the
+            # 3D tree unnaturally slim while its height came from the species
+            # (#596).
+            if species:
+                from open_garden_planner.core.plant_sizing import db_spacing_radius_cm
+                from open_garden_planner.services.bundled_species_db import lookup_species
+
+                record = lookup_species(species)
+                db_radius = db_spacing_radius_cm(record) if record is not None else None
+                if db_radius is not None:
+                    default_diameter = db_radius * 2.0
 
             obj_map = {
                 TT.TREE: ObjectType.TREE,

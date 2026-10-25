@@ -6,6 +6,7 @@ Uses only stdlib (urllib) — no extra dependencies.
 """
 
 import contextlib
+import importlib
 import json
 import logging
 import re
@@ -105,16 +106,18 @@ def parse_release_info(data: dict[str, Any]) -> ReleaseInfo:
 def get_current_version() -> str:
     """Return the running application version string.
 
-    When running from a PyInstaller bundle (``sys.frozen``), reads from the
-    ``_version`` module written at build time.  Otherwise falls back to the
-    package ``__version__``.
+    A release build writes an ``open_garden_planner._version`` module (the
+    version it is producing may lead ``pyproject.toml`` until the sync), and
+    the frozen app reads it. The module is a build artifact and is not tracked,
+    so a direct PyInstaller build has none and falls back to the package
+    ``__version__``. It is imported dynamically because the static import makes
+    type checkers expect a tracked module (#596).
     """
     if getattr(sys, "frozen", False):
         try:
-            from open_garden_planner import _version
-
-            return str(_version.__version__)
-        except ImportError:
+            module = importlib.import_module("open_garden_planner._version")
+            return str(module.__version__)
+        except (ImportError, AttributeError):
             pass
     from open_garden_planner import __version__
 

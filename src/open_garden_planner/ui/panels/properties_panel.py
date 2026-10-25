@@ -74,6 +74,10 @@ _TEXT_PROPERTY_LABELS = {
     "italic": "italic",
 }
 
+#: Shared width of the paired numeric fields (soil depth, object height).
+#: The height field once expanded across the whole panel (#596 manual pass).
+NUMERIC_FIELD_WIDTH = 120
+
 # Free-text fields (Name, Text Content) live-update the item on every keystroke
 # but only commit ONE undo command per typing burst. The command is committed
 # after the user pauses for this long, or immediately on focus-out — whichever
@@ -1323,6 +1327,7 @@ class PropertiesPanel(QWidget):
         depth_spin = QSpinBox()
         depth_spin.setRange(1, 200)
         depth_spin.setSuffix(" cm")
+        depth_spin.setFixedWidth(NUMERIC_FIELD_WIDTH)
         depth_spin.setValue(int(item.metadata.get("soil_depth_cm", 30)))
         depth_spin.setToolTip(self.tr("Fill depth used to calculate soil volume in the Shopping List"))
 
@@ -1577,7 +1582,7 @@ class PropertiesPanel(QWidget):
         # Non-empty special-value text — an empty string DISABLES the feature
         # (the #231/#232 Qt trap).
         height_spin.setSpecialValueText(self.tr("Auto"))
-        height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        height_spin.setFixedWidth(NUMERIC_FIELD_WIDTH)
         height_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         source_texts = {
@@ -1594,10 +1599,17 @@ class PropertiesPanel(QWidget):
             s.setValue(effective if effective is not None else 0.0)
             s.setToolTip(source_texts[oh.height_source(it.object_type, it.metadata)])
 
+        def update_height_source() -> None:
+            height_spin.setToolTip(
+                source_texts[oh.height_source(item.object_type, item.metadata)]
+            )
+
+        def on_height_changed(val: float) -> None:
+            self._on_object_height_changed(item, val)
+            update_height_source()
+
         refresh_height()
-        height_spin.valueChanged.connect(
-            lambda val, it=item: self._on_object_height_changed(it, val)
-        )
+        height_spin.valueChanged.connect(on_height_changed)
         self._form_layout.addRow(self.tr("Object height:"), height_spin)
         self._register_refresh(height_spin, refresh_height)
 

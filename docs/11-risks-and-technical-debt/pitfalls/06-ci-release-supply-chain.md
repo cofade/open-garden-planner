@@ -187,3 +187,13 @@ bootstrap pin must be checked against hosted update tooling as well as installat
 - **Legacy:** none (new entry)
 
 setuptools 82/84 emits `SetuptoolsDeprecationWarning` with a 2027-02-18 due date for a `{text = ...}` license table and for a license classifier beside an SPDX expression. The wheel built without isolation and with `uv build` now carries `Metadata-Version: 2.4`, `License-Expression: GPL-3.0-or-later`, `License-File: LICENSE`, and the LICENSE itself under `dist-info/licenses/`, with no warning. The floor matters because an isolated `pip install .` resolves the newest setuptools regardless of the build group.
+
+### PF-CI-15
+
+- **Rule:** `_version.py` is a build artifact, not source: `build_installer.py` writes it for a release and the path is gitignored. A direct `python -m PyInstaller installer/ogp.spec` build has no such file, and the frozen app must fall back to `open_garden_planner.__version__`. A tracked stale `_version.py` lets a green build show the wrong version in About. The read is DYNAMIC, so PyInstaller cannot discover it: the spec lists `open_garden_planner._version` as a hidden import only when the file exists, or a release exe would report the previous synced version.
+- **Pinned by:** `tests/unit/test_packaging_metadata.py`
+- **Source:** #596 manual pass (AUD-072)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The About dialog in a direct PyInstaller build said **1.2.0** while `pyproject.toml` and `__init__.py` said 1.31.1. The cause was a tracked `_version.py` from 2026-03-01 that `build_installer.py` overwrote only on the release path; the direct gate bundled the stale file. The freeze/fallback path is pinned by monkeypatching `sys.frozen` and removing `open_garden_planner._version` from `sys.modules`; the release direction is pinned by injecting a module whose `__version__` differs from the package's. `installer/ogp.spec` grew the conditional hidden import in the same change, because the dynamic import removed the static edge PyInstaller used to follow; `test_packaging_metadata.py` pins the spec line too.

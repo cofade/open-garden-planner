@@ -514,11 +514,6 @@
     "state": "CLOSED",
     "title": "US-D2.7: get_history - expose the undo/redo stack to the agent (Package D2, epic #237)"
   },
-  "363": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Two contact links in ISSUE_TEMPLATE config point at non-existent templates (bug_report.md, feature_request.md)"
-  },
   "364": {
     "is_pr": false,
     "state": "CLOSED",
@@ -553,11 +548,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-D3.1,D2.7): agent domain-intelligence tools + get_history"
-  },
-  "371": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#364,#363): recompute the HOUSE roof ridge instead of re-projecting it"
   },
   "372": {
     "is_pr": false,
@@ -616,7 +606,7 @@
   },
   "387": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L3 \"Plant Forge\": procedural species models from the sprite recipes (Phase 17)"
   },
   "392": {
@@ -1199,9 +1189,19 @@
     "state": "OPEN",
     "title": "Every command refreshes every scene item: a one-item-per-command loop is still quadratic (lock badges + ground band)"
   },
+  "593": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(3D): Phase 17 L3 Plant Forge: procedural species models from sprite recipes (#387)"
+  },
   "594": {
     "is_pr": false,
     "state": "OPEN",
     "title": "A selected 16,384-vertex polygon re-samples its vertex overlay on every scrollbar step (~100 ms)"
+  },
+  "596": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#562,#573,#574,#581,#587,#590,#592,#594): non-3D follow-up hardening batch 2"
   }
 }

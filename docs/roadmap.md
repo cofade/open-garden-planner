@@ -2828,6 +2828,17 @@ the file is **78/78** on the dev box and the full suite is green; the root cause
 was the box font engine. `docs/08` §8.8/§8.9/§8.10/§8.25, the five ADR addenda, FR-EDIT-20,
 PF-CAN-25/26, PF-TST-28/29 and PF-CI-14 record the rules.
 
+**Owner manual pass (2026-10-25) added three fixes to the same draft PR.**
+Help → About reported **1.2.0** in a direct PyInstaller build because a tracked, stale
+`_version.py` shadowed `__version__`; the module is now a gitignored build artifact,
+read dynamically, with a `__version__` fallback and a conditional PyInstaller hidden
+import (PF-CI-15, ADR-050 addendum). The Properties **Object height** field now shares
+the soil-depth width and refreshes its source tooltip on every edit
+(`NUMERIC_FIELD_WIDTH`). A gallery drop of a **named** species now adopts
+`max_spread_cm` like the Plant Database and Plant Lists drops, so an 8 m apple tree is
+no longer 2 m wide in 3D; the display rule for a plant the owner resized is unchanged
+(FR-PLANT-15).
+
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-053) — **shipped v1.29.10, [PR #429](https://github.com/cofade/open-garden-planner/pull/429)**
 
 - **One moment for the whole app.** `core/sim_clock.SimClock` (Qt-free) is owned by `GardenPlannerApp`. The sun toolbar is a view of it (it writes edits and mirrors the clock back silently). The shadow overlay reads it (`utc` for the sun, `plan_date` for growth), and the heatmap request and the 3D view read it too. It is not persisted, and every session starts at "now" (FR-SUN-04).
