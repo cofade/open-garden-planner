@@ -2752,6 +2752,10 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   Support discovery runs on the synthesis thread and reuses exact structural
   dependencies on date changes. The 300-plant / 100-support render timing gate
   calls the production workspace refresh and checks zero geometry work/churn.
+  Finalization corrected its sampling protocol: the unchanged 16.0 ms threshold
+  applies to the worst per-date median of 15 fixed, interleaved wall-time samples;
+  raw samples and tails remain visible, and a 20 ms negative control proves rejection
+  (ADR-064, section 8.29.11).
 
 Cold synthesis measurement: 123 recipes, height 420 cm / radius 180 cm / seed 303, median of
 three builds per recipe on Python 3.11: median 3.69 ms, p90 13.07 ms, maximum 23.01 ms;

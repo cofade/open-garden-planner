@@ -7396,3 +7396,16 @@ the phenology evaluator. It also asserts unchanged Models/buffers and no new job
 The owner approved final beauty and interactive use on 25 October 2026. PR #593
 merged under protection and its exact merge commit was released as v1.32.0.
 
+**Finalization benchmark correction (PR #597).** An unchanged-head Windows job
+read 16.8508 ms against 16 ms while its matching PR job passed. Five independent
+local WARP runs ranged from 10.59 to 24.21 ms under the original maximum-of-three
+statistic. Settled collocated controls read 17.49/16.33 ms; grid controls read
+13.67/14.93 ms. These observations establish variance and an unrepresentative
+fixture, but do not prove render contention or a production regression.
+Following the existing NFR median protocol, the gate now establishes typical
+per-date callback cost with one fixed set of 15 interleaved samples per date,
+retaining the 16.0 ms threshold. Section 8.29.11 defines the protocol, raw/tail
+reporting and injected 20 ms negative control. The statistical guarantee has
+changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
+This correction changes tests and documentation, not the released runtime.
+

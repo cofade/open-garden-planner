@@ -1188,5 +1188,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(3D): Phase 17 L3 Plant Forge: procedural species models from sprite recipes (#387)"
+  },
+  "597": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "chore: sync version to v1.32.0 after PR #593"
   }
 }
