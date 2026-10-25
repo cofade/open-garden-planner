@@ -46,6 +46,19 @@ frames and the FPS probe now call `forge_scene_plants`; the FPS metrics expose
 A session presenting zero frames cannot establish FPS; report readback costs
 separately and leave presented FPS to owner hardware acceptance.
 
+**Support follow-up.** A jasmine whose fence face lay 40 cm from its centre
+reached only 26.6055 cm toward it, leaving 13.3945 cm of air at three rotations.
+The guide retained orientation but discarded position and side. Finite local
+segments, width and relative height now train reachable vines into the support
+without recentering them away again. A 540-build sweep retained height, canopy
+and all LOD budgets; the reproduced wood reaches 43.51 cm toward the 40 cm face.
+The first production timing probe then exposed 73.7–83.4 ms for 300 climbers and
+10 fences, rising to 518–617 ms with 100 fences: the GUI repeated support
+discovery on every date. Move discovery into the synthesis job, cache only its
+guide against exact structural inputs, and reject obsolete in-flight results.
+The real 300-Model / 100-support workspace refresh now passes 16 ms with no
+new geometry work; the old evaluator-only route could not establish that claim.
+
 **Lesson.** A render gate must execute the shipping path. Measure the final
 seasonal structure and actual Model update, not a pre-removal fit or evaluator.
 

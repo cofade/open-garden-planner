@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 import threading
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,116 @@ def sink_for(record: Record) -> RecordingSink:
     sink.add(record.item_id, (), record.transform, record.material)
     sink.commit()
     return sink
+
+
+def climber_scene():
+    plant = replace(tree("jasmine"), kind="SHRUB", params=Params({
+        "seed": "jasmine", "radius_cm": 100., "sprite_species": "Jasmine",
+    }))
+    fence = Record(item_id="fence", kind="FENCE", name="Fence", shape="polyline",
+                   footprints=(), transform=Transform(),
+                   path=((-200., 90.), (200., 90.)), path_width_cm=10.,
+                   height_cm=200., material=Material("wood"))
+    return plant, fence
+
+
+def test_support_discovery_runs_on_the_background_thread(qtbot, monkeypatch):
+    from open_garden_planner.core.plant_forge import climbers
+    plant, fence = climber_scene()
+    calls = []
+    original = climbers.resolve_climber_support
+
+    def observed(*args, **kwargs):
+        calls.append(threading.get_ident())
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(climbers, "resolve_climber_support", observed)
+    worker = ForgeWorker(sink_for(plant), cache=ForgeCache(), background=True)
+    try:
+        worker.submit_snapshot([plant, fence], force_lod=LOD2)
+        assert calls == [], "support discovery held the GUI during snapshot admission"
+        worker.step()
+        qtbot.waitUntil(lambda: bool(worker.step()) or worker.pending_count == 0)
+        assert calls and threading.get_ident() not in calls
+    finally:
+        worker.shutdown()
+
+
+def test_date_only_snapshot_reuses_support_discovery(monkeypatch):
+    from open_garden_planner.core.plant_forge import climbers
+    plant, fence = climber_scene()
+    worker = ForgeWorker(sink_for(plant), cache=ForgeCache())
+    worker.submit_snapshot([plant, fence], force_lod=LOD2, plan_date=datetime.date(2026, 6, 21))
+    worker.drain()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("date-only snapshot repeated structural support discovery")
+
+    monkeypatch.setattr(climbers, "resolve_climber_support", forbidden)
+    worker.submit_snapshot([plant, fence], force_lod=LOD2, plan_date=datetime.date(2026, 10, 21))
+    assert worker.pending_count == 0
+
+
+def test_cached_support_keeps_new_height_and_seed(monkeypatch):
+    from open_garden_planner.core.plant_forge import climbers
+    plant, fence = climber_scene()
+    resolutions, built = [], []
+    resolve = climbers.resolve_climber_support
+
+    def observed(*args, **kwargs):
+        resolutions.append(True)
+        return resolve(*args, **kwargs)
+
+    def capture(record, **kwargs):
+        built.append((record.height_cm, record.params["seed"], record.params["climber_support"]))
+        return ()
+
+    monkeypatch.setattr(climbers, "resolve_climber_support", observed)
+    monkeypatch.setattr(module, "forge_record", capture)
+    worker = ForgeWorker(sink_for(plant), cache=None)
+    worker.submit_snapshot([plant, fence], force_lod=LOD2)
+    worker.drain()
+    changed = replace(plant, height_cm=500., params=Params(dict(plant.params, seed="new-seed")))
+    worker.submit_snapshot([changed, fence], force_lod=LOD2)
+    worker.drain()
+    assert len(resolutions) == 1
+    assert [(height, seed) for height, seed, _support in built] == [(400., "jasmine"), (500., "new-seed")]
+    assert built[0][2] == built[1][2]
+
+
+def test_a_support_move_rejects_an_inflight_result_with_unchanged_plant_geometry(qtbot, monkeypatch):
+    plant, fence = climber_scene()
+    sink = sink_for(plant)
+    entered, release = threading.Event(), threading.Event()
+    original = module.forge_record
+    builds = []
+
+    def held(record, **kwargs):
+        builds.append(record.params["climber_support"])
+        if len(builds) == 1:
+            entered.set()
+            assert release.wait(5)
+        return original(record, **kwargs)
+
+    monkeypatch.setattr(module, "forge_record", held)
+    worker = ForgeWorker(sink, cache=ForgeCache(), background=True)
+    try:
+        worker.submit_snapshot([plant, fence], force_lod=LOD2)
+        worker.step()
+        qtbot.waitUntil(entered.is_set)
+        moved = replace(fence, transform=Transform(0., -180.))
+        worker.submit_snapshot([plant, moved], force_lod=LOD2)
+        release.set()
+        qtbot.waitUntil(lambda: worker._flight[2].done())
+        assert worker.step() == []
+        assert sink.item(plant.item_id).parts == ()
+        qtbot.waitUntil(lambda: bool(worker.step()) or worker.pending_count == 0)
+        assert len(builds) == 2 and builds[0] != builds[1]
+        wood = next(p.mesh for p in sink.item(plant.item_id).parts if p.name == "wood")
+        assert float(wood.positions[:, 1].mean()) < 0
+    finally:
+        release.set()
+        worker.shutdown()
 
 
 def test_background_forge_does_not_hold_the_gui_and_rejects_replaced_document(qtbot, monkeypatch):
@@ -154,3 +265,5 @@ def test_real_engine_scrubs_the_same_forged_models(tmp_path):
 def test_real_engine_scrubs_300_models_within_16ms(tmp_path):
     result = _run_forge_renderer(tmp_path)
     assert result["scrub300_ms"] <= 16.0, result
+    assert result["scrub300_no_geometry_work"]
+    assert result["scrub300_buffers_unchanged"] and result["scrub300_models_unchanged"]

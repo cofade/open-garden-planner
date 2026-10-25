@@ -99,3 +99,7 @@ an evaluator-only timing test missed each seam. The workspace now synthesizes
 off the GUI thread, invalidates upgrades on recovery and updates persistent
 seasonal Models. Independent wood bounds, area-based foliage and separate accent
 parts pin visible truth; harvest reuses exact shared calendar windows.
+Climber guides retain actual finite support geometry: orientation alone left a
+13.3945 cm gap to a reachable fence. Support discovery runs on the worker and
+reuses structural dependencies; the production workspace timing gate includes
+300 climbers and 100 supports, rather than bypassing admission with an evaluator.

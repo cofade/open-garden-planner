@@ -59,6 +59,7 @@ def fit_forged_parts(
     radius_cm: float,
     *,
     structural_height: bool = False,
+    preserve_horizontal_frame: bool = False,
 ) -> tuple[MeshPart, ...]:
     """Fit ``(wood, foliage, accents)`` to ``height_cm`` and ``radius_cm`` and wrap as ``MeshPart``s."""
     raw_list = [
@@ -95,6 +96,11 @@ def fit_forged_parts(
     xy_span = max(span_x, span_y, 1e-4)
     target_diameter = 2.0 * float(radius_cm)
     sxy = target_diameter / xy_span
+    if preserve_horizontal_frame:
+        # A trained climber already occupies a measured support plane relative
+        # to its anchor. Recentering or uniformly scaling it loses that plane.
+        cx = cy = 0.0
+        sxy = 1.0
     inv_scale = np.array([1.0 / max(sxy, 1e-5), 1.0 / max(sxy, 1e-5), 1.0 / max(sz, 1e-5)], dtype=np.float32)
 
     limit_r = float(radius_cm) * REACH_MAX

@@ -12,7 +12,7 @@ import numpy as np
 
 
 def main(out: Path) -> int:
-    from open_garden_planner.core.scene3d import GroundSpec, RecordingSink, SunState
+    from open_garden_planner.core.scene3d import GroundSpec, SunState
     from open_garden_planner.core.scene3d.builders import production_registry
     from open_garden_planner.core.scene3d.sync import SceneSync
     from open_garden_planner.ui.view3d.forge_worker import ForgeWorker
@@ -56,27 +56,53 @@ def main(out: Path) -> int:
         result["restored_equal"] = bool(np.array_equal(images[0], images[2]))
         result["uploads_unchanged"] = sink.geometry_uploads == shapes
         result["models_unchanged"] = {id(part.model) for part in host._parts} == model_ids
-        # Three hundred real plant Models receive the values through one QML call.
-        batch = {f"tree-{i}": record for i in range(300)}
+        # Measure the production workspace admission route, including support
+        # dependencies: the old evaluator-only probe missed a 500 ms search.
+        from types import SimpleNamespace
+
+        from open_garden_planner.ui.view3d.workspace import Workspace
+        from tests.integration.test_plant_forge_workspace import climber_scene
+
+        climber, fence = climber_scene()
+        batch = {f"vine-{i}": climber for i in range(300)}
         from dataclasses import replace
 
         records = [replace(r, item_id=key) for key, r in batch.items()]
-        from open_garden_planner.core.plant_forge import LOD2, forge_record
+        from open_garden_planner.core.plant_forge import LOD2, enrich_climber_record, forge_record
 
-        parts = forge_record(record, lod=LOD2)
+        supports = [replace(fence, item_id=f"fence-{i}",
+                            transform=replace(fence.transform, north_cm=i * 20.)) for i in range(100)]
+        parts = forge_record(enrich_climber_record(climber, supports), lod=LOD2)
         sink.begin()
         for rec in records:
             sink.add(rec.item_id, parts, rec.transform, rec.material)
         sink.commit()
-        timing_worker = ForgeWorker(RecordingSink(), season_sink=host.set_plant_seasons)
-        timing_worker.submit_snapshot(records)
+        timing_worker = ForgeWorker(season_sink=host.set_plant_seasons)
+        scene_records = {r.item_id: r for r in (*records, *supports)}
+        controller = SimpleNamespace(sync=SimpleNamespace(records=scene_records),
+                                     pass_date=datetime.date(2026, 7, 15))
+        workspace = SimpleNamespace(
+            _forge_worker=timing_worker, _controller=controller,
+            _location=lambda: {"latitude": 52., "frost_dates": {}},
+            _camera_now=lambda: ((0., 0., 10000.), (0., 0., 0.), 45.),
+            _pane_is_showing=lambda: False,
+        )
+        Workspace._refresh_forge(workspace)
+        for rec in records:
+            assert timing_worker.apply_completed(rec.item_id, rec.geometry_sig, LOD2, parts)
+        shapes_before = sink.geometry_uploads
+        models_before = {id(part.model) for part in host._parts}
         durations = []
         for day in (datetime.date(2026, 4, 15), datetime.date(2026, 6, 15),
                     datetime.date(2026, 10, 15)):
             started = time.perf_counter()
-            timing_worker.scrub_date(day)
+            controller.pass_date = day
+            Workspace._refresh_forge(workspace)
             durations.append((time.perf_counter() - started) * 1000.)
         result["scrub300_ms"] = max(durations)
+        result["scrub300_no_geometry_work"] = timing_worker.pending_count == 0
+        result["scrub300_buffers_unchanged"] = sink.geometry_uploads == shapes_before
+        result["scrub300_models_unchanged"] = {id(part.model) for part in host._parts} == models_before
         (out / "result.json").write_text(json.dumps(result), encoding="utf-8")
     finally:
         worker.shutdown()

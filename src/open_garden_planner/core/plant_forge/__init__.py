@@ -62,6 +62,8 @@ from .climbers import (
     SUPPORT_PERGOLA,
     SUPPORT_TRELLIS,
     build_forged_climber,
+    climber_support_signature,
+    enrich_climber_record,
     enrich_climber_records,
     resolve_climber_support,
 )
@@ -260,6 +262,9 @@ def forge_record(
             "azimuth_deg": float(s1) if isinstance(s1, (int, float, str)) else 0.0,
             "distance_cm": float(s2) if isinstance(s2, (int, float, str)) else 0.0,
         }
+        if len(support) >= 10:
+            support_map = dict(support_map, segment_cm=support[3:7],
+                               width_cm=support[7], height_cm=support[8], base_cm=support[9])
     else:
         support_map = None
     return forge_plant(
@@ -327,6 +332,7 @@ __all__ = [
     "build_blossom_accents",
     "build_forged_allium",
     "build_forged_climber",
+    "climber_support_signature",
     "build_forged_conifer",
     "build_forged_feathery",
     "build_forged_flower",
@@ -347,6 +353,7 @@ __all__ = [
     "cylinder_geo",
     "empty_geo",
     "enrich_climber_records",
+    "enrich_climber_record",
     "fit_forged_parts",
     "forge_plant",
     "forge_record",

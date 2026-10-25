@@ -17,23 +17,26 @@ import logging
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ...core.phenology import (
     DEFAULT_LATITUDE_DEG,
     PhenologyState,
     evaluate_phenology_for_records,
 )
-from ...core.plant_art import PLANT_KINDS
+from ...core.plant_art import PLANT_KINDS, traits_for
 from ...core.plant_forge import (
     DEFAULT_FORGE_CACHE,
+    PARAM_CLIMBER_SUPPORT,
     ForgeCache,
-    enrich_climber_records,
+    climber_support_signature,
+    enrich_climber_record,
     forge_record,
     select_lod,
     validate_lod,
 )
-from ...core.scene3d import EngineSink, MeshPart, Record
+from ...core.scene3d import EngineSink, MeshPart, Params, ParamValue, Record
+from ...core.scene3d.builders.plants import plant_sprite
 
 _log = logging.getLogger(__name__)
 
@@ -79,6 +82,12 @@ class ForgeWorker:
         self._phenology: dict[str, PhenologyState] = {}
         self._plan_date: datetime.date | None = None
         self._latitude_deg: float = DEFAULT_LATITUDE_DEG
+        self._scene_records: tuple[Record, ...] = ()
+        self._support_inputs: object = None
+        self._support_generation = 0
+        # Only the synthesis thread reads/writes these resolution caches.
+        self._resolved_input_key: object = None
+        self._resolved_supports: dict[str, tuple[object, ParamValue | None]] = {}
 
     @property
     def pending_count(self) -> int:
@@ -118,6 +127,9 @@ class ForgeWorker:
         self._applied_state.clear()
         self._pending.clear()
         self._phenology.clear()
+        self._scene_records = ()
+        self._support_inputs = None
+        self._support_generation += 1
         self._epoch += 1
         if self._season_sink is not None:
             self._season_sink({})
@@ -160,9 +172,36 @@ class ForgeWorker:
         lod = self._force_lod if self._force_lod is not None else select_lod(dist)
         return visible, dist, lod
 
-    def _season_key(self, _item_id: str) -> object:
-        # Appearance is applied to existing Models, never a geometry cache key.
-        return None
+    @staticmethod
+    def _is_climber(record: Record) -> bool:
+        sprite = plant_sprite(record)
+        return sprite is not None and traits_for(sprite).archetype == "climber"
+
+    def _structure_key(self, item_id: str) -> object:
+        # Appearance never enters a geometry key. Support dependencies do.
+        record = self._latest_records.get(item_id)
+        return self._support_generation if record is not None and self._is_climber(record) else None
+
+    def _forge_one(
+        self, record: Record, lod: int, scene_records: tuple[Record, ...], support_inputs: object,
+    ) -> tuple[MeshPart, ...]:
+        """Resolve structural support and synthesize together, off the GUI thread."""
+        if self._is_climber(record):
+            if support_inputs != self._resolved_input_key:
+                self._resolved_input_key = support_inputs
+                self._resolved_supports.clear()
+            plant_key = climber_support_signature((record,))
+            cached = self._resolved_supports.get(record.item_id)
+            if cached is None or cached[0] != plant_key:
+                enriched = enrich_climber_record(record, scene_records)
+                support = enriched.params.get(PARAM_CLIMBER_SUPPORT)
+                self._resolved_supports[record.item_id] = plant_key, support
+                record = enriched
+            else:
+                support = cached[1]
+                if support is not None and PARAM_CLIMBER_SUPPORT not in record.params:
+                    record = replace(record, params=Params({**record.params, PARAM_CLIMBER_SUPPORT: support}))
+        return forge_record(record, lod=lod, cache=self._cache)
 
     def submit_record(self, record: Record, *, lod: int | None = None) -> None:
         """Submit or supersede a single plant ``record`` (`latest wins`)."""
@@ -173,7 +212,7 @@ class ForgeWorker:
         visible, dist, auto_lod = self._score_record(record)
         chosen_lod = validate_lod(lod) if lod is not None else auto_lod
         sig = record.geometry_sig
-        s_key = self._season_key(record.item_id)
+        s_key = self._structure_key(record.item_id)
 
         if self._applied_state.get(record.item_id) == (sig, chosen_lod, s_key):
             self._pending.pop(record.item_id, None)
@@ -226,8 +265,14 @@ class ForgeWorker:
         self._plan_date = plan_date
         self._latitude_deg = float(latitude_deg)
 
-        enriched = enrich_climber_records(records)
-        plant_records = {r.item_id: r for r in enriched if r.kind in PLANT_KINDS}
+        scene_records = tuple(records)
+        support_inputs = climber_support_signature(scene_records)
+        if support_inputs != self._support_inputs:
+            self._support_inputs = support_inputs
+            self._support_generation += 1
+            self._epoch += 1  # an old support result cannot enter a new structural scene
+        self._scene_records = scene_records
+        plant_records = {r.item_id: r for r in scene_records if r.kind in PLANT_KINDS}
 
         if plan_date is not None:
             self._phenology = dict(
@@ -311,7 +356,7 @@ class ForgeWorker:
             self._sink.replace_geometry(item_id, tuple(parts))
             self._sink.commit()
         self._pending.pop(item_id, None)
-        self._applied_state[item_id] = (geometry_sig, lod, self._season_key(item_id))
+        self._applied_state[item_id] = (geometry_sig, lod, self._structure_key(item_id))
         return True
 
     def step(self, max_items: int = 1) -> list[str]:
@@ -333,12 +378,12 @@ class ForgeWorker:
             if latest is None or latest.geometry_sig != job.geometry_sig:
                 continue
             try:
-                parts = forge_record(latest, lod=job.lod, cache=self._cache)
+                parts = self._forge_one(latest, job.lod, self._scene_records, self._support_inputs)
             except Exception:
                 _log.exception("Plant Forge failed for item %s", item_id)
                 continue
             upgraded.append(
-                (item_id, parts, job.geometry_sig, job.lod, self._season_key(item_id))
+                (item_id, parts, job.geometry_sig, job.lod, self._structure_key(item_id))
             )
 
         if not upgraded:
@@ -374,7 +419,9 @@ class ForgeWorker:
         if self._pending and self._executor is not None:
             item_id = self.pending_order()[0]
             job = self._pending.pop(item_id)
-            future = self._executor.submit(forge_record, job.record, lod=job.lod, cache=self._cache)
+            future = self._executor.submit(
+                self._forge_one, job.record, job.lod, self._scene_records, self._support_inputs,
+            )
             self._flight = job, self._epoch, future
         return applied
 

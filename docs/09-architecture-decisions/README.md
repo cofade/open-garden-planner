@@ -7363,7 +7363,13 @@ incorrect and are replaced here by executable contracts.
 5. **Support precedence.** A climber first uses its trellis parent; otherwise the
    nearest fence/wall/pergola/trellis within 50 cm of its canopy edge, accounting
    for path width, then a three-pole bamboo tripod. Supports are transient record
-   inputs, not saved plan mutations.
+   inputs, not saved plan mutations. The guide carries the finite segment in the
+   plant's local frame, its physical width and relative height/base. Vines reach
+   a support within the recorded canopy; a farther support supplies direction
+   without enlarging the footprint to invent contact. Resolution runs with
+   synthesis on the worker thread. Exact support/plant geometry dependencies
+   invalidate its cache and reject older in-flight guides; date-only updates
+   reuse them, retaining current plant height and seed.
 6. **Stable seasonal geometry.** Flowers, fruits/pods and tubers are separate
    parts. Foliage density/tint/snow, bloom and ripeness update persistent Models
    without mesh copies on season-only changes. Leaf collapse removes seasonal
@@ -7384,5 +7390,8 @@ A disk cache adds persistence/versioning costs without the measured need.
 new persistent setting. The old silhouettes remain a temporary first view.
 Acceptance uses the production workspace, real engine seasonal tests, 40 mesh
 references, calendar/geometry regressions and an independently rendered board.
+The 300-plant date budget calls the workspace's actual refresh path with 100
+supports, including queue admission and QML updates, rather than timing only
+the phenology evaluator. It also asserts unchanged Models/buffers and no new jobs.
 The owner still judges final beauty and interactive use before merge.
 

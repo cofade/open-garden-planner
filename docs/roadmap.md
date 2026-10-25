@@ -2740,13 +2740,18 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   18/45 m thresholds; cache bounds 256 entries/64 MiB. Crown area drives leaf
   cover at every LOD. Bare structural wood remains grounded at full height.
 - **L3.4:** Climbers prefer a trellis parent, then a nearby structure within 50 cm
-  of the canopy edge, then a bamboo tripod.
+  of the canopy edge, then a bamboo tripod. Local finite support guides preserve
+  physical contact when reachable within the canopy, including rotated plants
+  and supports; farther supports cannot enlarge the recorded footprint.
 - **L3.5–L3.6:** Background synthesis admits only current document/geometry/LOD
   results. Orbit and walk update LOD. Seasons update existing Models, with
   independent flower, fruit and tuber controls. Exact harvest days share the
   task calendar and local frost dates. Render gates and the Beauty Board exercise
   the production forge. PR #593 review fixes are pinned by workspace, calendar,
   coverage and winter-height regressions. Owner beauty/manual acceptance remains.
+  Support discovery runs on the synthesis thread and reuses exact structural
+  dependencies on date changes. The 300-plant / 100-support render timing gate
+  calls the production workspace refresh and checks zero geometry work/churn.
 
 Cold synthesis measurement: 123 recipes, height 420 cm / radius 180 cm / seed 303, median of
 three builds per recipe on Python 3.11: median 3.76 ms, p90 13.15 ms, maximum 23.23 ms;
