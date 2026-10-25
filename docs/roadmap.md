@@ -2786,7 +2786,7 @@ in the follow-up batch below.
 
 ### Non-3D follow-up hardening, batch 2 (2026-10-25, draft PR)
 
-Six items from the review ledger of L2 (#584) and the non-3D batch (#585), built
+Seven work items from the review ledger of L2 (#584) and the non-3D batch (#585), built
 without touching the 3D/forge stack, the sun model or serialization:
 
 - **Test signal (#562, #573).** Windows' `offscreen` Qt has no font database, so
@@ -2824,8 +2824,8 @@ without touching the 3D/forge stack, the sun model or serialization:
   three syncs in a row left stale.
 
 The local full suite no longer carries the Windows-offscreen Plan & Sun failures:
-all 24 (20 in a single file plus the four theme/order variants) were the box font
-engine. `docs/08` §8.8/§8.9/§8.10/§8.25, the four ADR addenda, FR-EDIT-20,
+the file is **78/78** on the dev box and the full suite is green; the root cause
+was the box font engine. `docs/08` §8.8/§8.9/§8.10/§8.25, the five ADR addenda, FR-EDIT-20,
 PF-CAN-25/26, PF-TST-28/29 and PF-CI-14 record the rules.
 
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-053) — **shipped v1.29.10, [PR #429](https://github.com/cofade/open-garden-planner/pull/429)**
