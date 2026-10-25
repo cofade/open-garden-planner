@@ -2743,7 +2743,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 Built beside L2 without touching the 3D/sun/sim-clock stack: a styled line's walk
 is clipped to the visible viewport and budgeted (#450), `addItem` gives an appended
 solid the derivation's own next fixed-grid z so one derivation serves a whole loop
-(and a one-item-per-command loop), dense vertex-edit overlays are sampled in device
+(and a one-item-per-command loop), dense vertex-edit overlays are sampled in viewport
 pixels (#551), boolean union accepts a contact-connected selection of any size and
 ellipses and refuses a result above the plan's polygon vertex cap (#550),
 Preferences scrolls its form and opens at content height (#569), and a local build

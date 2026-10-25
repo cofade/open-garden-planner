@@ -1730,21 +1730,16 @@ MAX_DENSE_VERTEX_HANDLES = 128
 DENSE_HANDLE_SPACING_PX = 24.0
 
 
-def _visible_device_rect(view: Any, margin: float) -> QRectF:
-    """The view's viewport in DEVICE pixels, grown by *margin* device pixels.
+def _visible_viewport_rect(view: Any, margin: float) -> QRectF:
+    """The view's viewport in VIEWPORT (logical) pixels, grown by *margin*.
 
-    ``QWidget.rect()`` is in logical (device-independent) pixels while
-    ``deviceTransform`` maps to physical device pixels, so a high-DPI screen
-    would otherwise sample only the top-left ``1 / ratio`` of the viewport.
+    ``deviceTransform`` is ``sceneTransform * viewportTransform`` on this Qt
+    (6.11): it does NOT apply the device-pixel ratio, so both sides of the
+    comparison are viewport pixels. Scaling this rect by the DPR (the first
+    version of this helper did) samples up to a whole viewport beyond the edge
+    on a high-DPI screen (senior review of PR #585, round 5).
     """
-    rect = QRectF(view.viewport().rect())
-    ratio = view.devicePixelRatioF()
-    return QRectF(
-        rect.x() * ratio,
-        rect.y() * ratio,
-        rect.width() * ratio,
-        rect.height() * ratio,
-    ).adjusted(-margin, -margin, margin, margin)
+    return QRectF(view.viewport().rect()).adjusted(-margin, -margin, margin, margin)
 
 
 def _dense_overlay_indices(
@@ -1765,7 +1760,7 @@ def _dense_overlay_indices(
         return [index for index, _point in points[::step]][:MAX_DENSE_VERTEX_HANDLES]
     view = views[0]
     transform = item.deviceTransform(view.viewportTransform())
-    visible = _visible_device_rect(view, DENSE_HANDLE_SPACING_PX)
+    visible = _visible_viewport_rect(view, DENSE_HANDLE_SPACING_PX)
     spacing = DENSE_HANDLE_SPACING_PX
     cells: dict[tuple[int, int], list[QPointF]] = {}
     indices: list[int] = []

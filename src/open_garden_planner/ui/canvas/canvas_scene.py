@@ -1253,11 +1253,12 @@ class CanvasScene(QGraphicsScene):
 
         A full re-derivation also invalidates the per-layer rank cache and any
         provisional values: a sweep caller (arrange, move-to-layer, add/delete/
-        reorder layers) may have moved items above what the cache recorded, so
-        the next ``addItem`` must reseed from this derivation's own top for the
-        layer again (#450). Grouping and relinking refresh one layer instead
-        (``_refresh_layer_z``), which reseeds that layer's entry without a
-        sweep.
+        reorder layers, and the flatten direction of group/ungroup) may have
+        moved items above what the cache recorded, so the next ``addItem`` must
+        reseed from this derivation's own top for the layer again (#450). The
+        group-forming direction relies on ``addItem``'s append, and relinking
+        refreshes one layer (``_refresh_layer_z``, or this sweep when the item
+        has no layer), which reseeds that layer's entry.
         """
         self._next_rank_cache = {}
         self._provisional_z = {}
