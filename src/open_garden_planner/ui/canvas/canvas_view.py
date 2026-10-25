@@ -696,7 +696,7 @@ class CanvasView(QGraphicsView):
         self._refresh_dense_vertex_overlays()
 
     def scrollContentsBy(self, dx: int, dy: int) -> None:
-        """Keep a dense vertex-edit sample tied to the visible device pixels."""
+        """Keep a dense vertex-edit sample tied to the visible viewport pixels."""
         super().scrollContentsBy(dx, dy)
         self._refresh_dense_vertex_overlays()
 
