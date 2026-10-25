@@ -46,6 +46,8 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Final
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
@@ -127,6 +129,40 @@ class WalkBudget:
         self.dashes -= count
         self.dashes_spent += count
         return True
+
+#: A caller that paints a whole scene into a SMALL surface (the minimap) may
+#: cap every styled walk for the duration of that render. The cap applies only
+#: to non-interactive paints; exports that want full detail do not set it.
+_RENDER_WALK_CAP: ContextVar[tuple[int, int, int] | None] = ContextVar(
+    "ogp_page_walk_cap", default=None
+)
+
+
+@contextmanager
+def temporary_walk_cap(
+    elements: int = 4_096, steps: int = 8_192, dashes: int = 8_192
+) -> Iterator[None]:
+    """Bound styled-path walks for a whole-scene render into a small image.
+
+    The minimap renders the entire plan into 240 x 160 px every 100 ms; walking
+    a 19 km path's 475 001 elements there is pure waste. The cap keeps the
+    pattern visible near the start of the line and truncates the rest, while a
+    normal export (no context) still gets every element. Each styled item gets
+    a FRESH budget from these limits, so a second path is not starved by the
+    first one's elements.
+    """
+    token = _RENDER_WALK_CAP.set((elements, steps, dashes))
+    try:
+        yield
+    finally:
+        _RENDER_WALK_CAP.reset(token)
+
+
+def current_render_walk_cap() -> WalkBudget | None:
+    """A fresh whole-scene render budget for one item, or None for an ordinary paint."""
+    limits = _RENDER_WALK_CAP.get()
+    return None if limits is None else WalkBudget(*limits)
+
 
 Element = tuple[QPointF, float, float, float, float]
 """``(point, dir_x, dir_y, normal_x, normal_y)`` — one place along the line."""

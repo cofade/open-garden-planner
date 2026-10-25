@@ -944,9 +944,9 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: in the live session, both bed and plant had `zValue() == 0`. The plant was on top. After load, both still had `zValue() == 0` — but the bed was on top. So the *tie-break* between same-z items had flipped between sessions.
 
-**Root cause**: `ui/canvas/canvas_scene.py:1117` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
+**Root cause**: `ui/canvas/canvas_scene.py:1214` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
 
-**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:1054` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
+**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:1151` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
 
 **Lesson**: Identical zValues are a footgun across save/load boundaries because `QGraphicsScene` tie-breaks by *insertion order*, which is **not stable** between live mutation order and JSON-load order. Whenever a parent-child draw relationship matters, encode it explicitly via `parent.zValue() + 1` — never rely on "I inserted them in the right order, it'll just work". Pattern: anywhere `_update_items_z_order` touches multiple item categories, add an explicit ordering pass per parent-child relationship.
 
@@ -1011,7 +1011,7 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: tracing `_update_soil_mismatches` showed it ran on every soil-test save and every position change *during* the drag, but never *after* the parent-link mutation that completes the drop. Cross-referenced with Qt docs: `QGraphicsScene.changed` is described as "emitted when the scene changes", which everyone reads as "any state change". It is not — it's "any *visual* change". Python attribute writes don't trigger it.
 
-**Root cause**: `ui/canvas/canvas_view.py:901` `_on_scene_changed_for_soil` — the debounce that drives soil-mismatch refresh is wired exclusively to `scene.changed`. After a drag, `_update_plant_bed_relationships` calls `SetParentBedCommand` which mutates `parent_bed_id` and `_child_item_ids` — plain attribute writes that emit no Qt signal and trigger no scene-rect invalidation. The 500 ms timer never restarts for the parent-link change. The next genuine scene change (e.g. the user editing pH) is what finally refreshes — explaining why steps 4 and 6 of the repro work and steps 3 and 5 don't.
+**Root cause**: `ui/canvas/canvas_view.py:936` `_on_scene_changed_for_soil` — the debounce that drives soil-mismatch refresh is wired exclusively to `scene.changed`. After a drag, `_update_plant_bed_relationships` calls `SetParentBedCommand` which mutates `parent_bed_id` and `_child_item_ids` — plain attribute writes that emit no Qt signal and trigger no scene-rect invalidation. The 500 ms timer never restarts for the parent-link change. The next genuine scene change (e.g. the user editing pH) is what finally refreshes — explaining why steps 4 and 6 of the repro work and steps 3 and 5 don't.
 
 **Fix**: Add `trigger_soil_mismatch_refresh(scene)` (commands.py) that walks `scene.views()` and calls `refresh_soil_mismatches()` on the canvas. Call it from `SetParentBedCommand.execute/undo` so every attach/detach call site (drag, properties-panel "Unlink", future) stays in sync. Bonus catch in the same fix: `SetParentBedCommand` also wasn't elevating the plant's z above the bed's, so a plant drawn before its bed rendered behind it after attach — same class of bug (mutation without re-establishing the invariants the rest of the canvas assumes). Both invariants — z elevation and soil-mismatch refresh — now run inside the command, with the elevation rolled back symmetrically on undo via a `_pre_execute_z` snapshot.
 
@@ -4035,3 +4035,58 @@ one translucent frame: one sample cannot tell a wrong colour from a wrong equati
 a term in a(1 − a) points straight at the destination alpha. Pins: the self-test judge
 (`selftest.judge_frame`, `TestJudge::test_a_drape_that_brightens_the_ground_fails`) and
 `tests/integration/test_view3d_analysis_render.py`. PF-L3D-06.
+
+## Case study: Preferences controls squeezed to 0–14 px (#569)
+
+**Symptom.** On a short display, Edit → Preferences clipped input text and
+collapsed several Agent API controls to zero height; the form needed about
+1137 px but the dialog's minimum was 550 x 400.
+**Reported by** @jbuijgers, with a fork branch
+(`fix/preferences-dialog-height`, commit 5bb91037) as the reproduction.
+**Wrong theories.** The theme's font sizes (measured at both 10 and 14 pt — the
+compression happened at both); the API-key widgets' own size policies (the plain
+line edits and combo boxes were compressed too).
+**Evidence.** A probe compared every visible control's `height()` with its
+`minimumSizeHint().height()` at 550 x 400 and 550 x 800: line edits and buttons
+measured 0 px and 14 px against a 26 px hint. The form's layout was simply
+being squeezed into the dialog's own height.
+**Root cause/fix.** The dialog put the form directly in its `QVBoxLayout` and
+never scrolled, so Qt compressed children below their hints. Put the form in a
+`QScrollArea` with Save / Cancel outside the viewport, and size the dialog from
+the content height capped to the available screen. The regression test asserts
+every visible control keeps its hint at 400 and 800 px in both fonts, that Tab
+reveals the last setting, and that Save/Cancel still work after scrolling.
+**Lesson.** `setMinimumSize` on a dialog is not a minimum for its children; a
+tall form needs a scroll area. Measure `height()` against `minimumSizeHint()`,
+not against the layout's total, and keep the action row outside the scroll so it
+cannot be scrolled away.
+
+## Case study: a 19 km styled path painted 475 001 elements per frame (#450)
+
+**Symptom.** Repainting a canvas holding a styled path with two points 19 km
+apart generated 475 001 stones/dots, and adding 2 000 items one by one took 45 s;
+the same adds inside `suspend_z_refresh` took 3.9 s.
+**Wrong theories.** The device cache would amortise the path paint (it does not:
+the first cached paint still builds the whole item); the cost was the sorted
+vertex walk alone (the z re-derivation per add was the second, independent half).
+**Evidence.** A paint spy showed `QStyleOptionGraphicsItem.exposedRect` equal to
+the item's WHOLE bounding rect during a cached paint — the viewport never reached
+the item. The 2 000-add probe counted one `_refresh_layer_z` per item; the
+existing `suspend_z_refresh` path measured 3.9 s.
+**Root cause/fix.** `PolylineItem.paint` passed no clip to the shared
+`PathStylePaint`, so the walk ran over the whole line; and `addItem` re-derived
+z for the whole layer per item. The canvas now intersects the exposed rect with
+the view's visible scene rect in item coordinates, grows it by the style's
+decoration reach, and passes it with a `WalkBudget`; exports clear the cache and
+keep full detail. `addItem` gives an appended independent solid the derivation's
+own next value on a fixed `Z_POSITION_SCALE` grid - final, not provisional - so a
+loop of adds costs one derivation per layer, direct or one item per command;
+anything that can re-order the layer (a child, a bed, a roof ridge, a ground
+surface, a pre-ranked re-add) still derives synchronously. Credit: the dense-
+overlay half of the issue set (#551) and the N-shape boolean half (#550) follow
+@Sevoiger's implementation in a personal fork.
+**Lesson.** A cached paint's `exposedRect` is not the visible rect. Measure what
+the paint call actually receives before trusting a cache; share the clip+budget
+contract with the ground bake rather than adding a second walk; and when a
+derivation can be avoided, do the arithmetic that makes the value final instead
+of scheduling a second pass - a deferred pass is a second visible change.

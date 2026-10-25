@@ -1067,25 +1067,32 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Circular array action
         circular_array_action = menu.addAction(_("PolygonItem", "Create Circular Array..."))
 
-        # Boolean operations (requires exactly 2 selected closed shapes)
+        # Boolean operations (union supports two or more closed shapes; the
+        # other operations stay a two-shape relation)
         boolean_union_action = None
         boolean_intersect_action = None
         boolean_subtract_action = None
         array_along_path_action = None
         selected = self.scene().selectedItems()
-        if len(selected) == 2:
+        if len(selected) >= 2:
             from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+            from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
             from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
             from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
-            shape_types = (PolygonItem, RectangleItem, CircleItem)
+            shape_types = (PolygonItem, RectangleItem, CircleItem, EllipseItem)
             if all(isinstance(s, shape_types) for s in selected):
                 menu.addSeparator()
                 bool_menu = menu.addMenu(_("PolygonItem", "Boolean"))
                 boolean_union_action = bool_menu.addAction(_("PolygonItem", "Union"))
-                boolean_intersect_action = bool_menu.addAction(_("PolygonItem", "Intersect"))
-                boolean_subtract_action = bool_menu.addAction(_("PolygonItem", "Subtract"))
-            if any(isinstance(s, PolylineItem) for s in selected):
+                if len(selected) == 2:
+                    boolean_intersect_action = bool_menu.addAction(
+                        _("PolygonItem", "Intersect")
+                    )
+                    boolean_subtract_action = bool_menu.addAction(
+                        _("PolygonItem", "Subtract")
+                    )
+            if len(selected) == 2 and any(isinstance(s, PolylineItem) for s in selected):
                 array_along_path_action = menu.addAction(
                     _("PolygonItem", "Array Along Path...")
                 )

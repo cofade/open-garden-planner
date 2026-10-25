@@ -382,7 +382,7 @@ for item in hidden:
     item.setVisible(True)
 ```
 
-`ItemIgnoresTransformations` is set on: measurement/constraint text labels, dimension display handles, angle display handles. **Stale claim corrected (issue #338):** this section used to say "Z-value ≥ 100 is set on: active measure tool lines, constraint preview geometry", implying z ≥ 100 is itself a reserved overlay band. That was already an oversimplification once multi-layer plans existed — every layer occupies its own `[z_order*100, z_order*100+100)` band, so a perfectly ordinary document item on layer 2+ also carries z ≥ 100 — and it is now additionally imprecise because per-object stacking (§8.25) spreads items across that whole per-layer band rather than pinning them to its floor. z is not the right test for "is this a tool overlay"; see §8.25's reserved-z-bands table for the actual fixed overlay ranges (900 and up), and note the illustrative snippet above predates that table — the live overlay-hiding code (`ui/widgets/minimap_widget.py`) uses its own named threshold, not a bare `100`.
+`ItemIgnoresTransformations` is set on: measurement/constraint text labels, dimension display handles, angle display handles. **Stale claim corrected (issue #338):** this section used to say "Z-value ≥ 100 is set on: active measure tool lines, constraint preview geometry", implying z ≥ 100 is itself a reserved overlay band. That was already an oversimplification once multi-layer plans existed — every layer occupies its own `[z_order*100, z_order*100+100)` band, so a perfectly ordinary document item on layer 2+ also carries z ≥ 100 — and it is now additionally imprecise because per-object stacking (§8.25) orders items inside that per-layer band rather than pinning them all to its floor. z is not the right test for "is this a tool overlay"; see §8.25's reserved-z-bands table for the actual fixed overlay ranges (900 and up), and note the illustrative snippet above predates that table — the live overlay-hiding code (`ui/widgets/minimap_widget.py`) uses its own named threshold, not a bare `100`.
 
 **The hide/restore itself emits `scene.changed` — asynchronously — for transformable items.** A `setVisible()` on a transformable item queues `changed([rect])` and then a trailing `changed([])`, delivered on *two separate later event-loop turns* — both *after* the render method has returned; a `setVisible()` on an `ItemIgnoresTransformations` item emits nothing (measured, Qt 6.11 — every handle/label/badge in this app carries the flag, so in production only the curve-edit connector lines are affected). If the thumbnail refresh is (as it should be) driven by `scene.changed`, this is a self-sustaining loop: with a single transformable overlay item on the scene the minimap re-rendered the whole plan ~9×/s forever while idle (issue #305, §11.4). A plain in-call re-entrancy flag does **not** cover it, and a timing window (`singleShot(0)`) is both fragile across Qt versions and drops genuine changes that share the turn. The shipped pattern in `MinimapWidget` is **content-based**: `_do_update()` records `sceneBoundingRect()` of every *transformable* item it hid (the only ones that emit); the `changed` slot (`_on_scene_changed`) ignores an emission iff every rect lies inside one of those (an empty rect list is Qt's trailing no-op — measured, every genuine mutation carries ≥ 1 rect) and schedules a render otherwise. A toggled-off minimap early-returns before rendering at all.
 
@@ -452,6 +452,20 @@ in `ui/canvas/items/resize_handle.py` and is shared with `CanvasView`'s dropped-
 recovery. `test_shift_drag_handle_does_not_select_the_item_behind` drives viewport
 press, move and release above a selectable background and checks the grab,
 geometry change and single-step undo at 0, 37 and 143 degrees.
+
+### 8.9.11 Dense vertex-edit overlays are a view concern (#551)
+
+A saved polygon may carry up to 16 384 vertices; creating four scene items per
+vertex (handle, midpoint handle, coordinate label, edge-length label) puts about
+65 000 items into the scene and re-creates them on every zoom. Above
+`MAX_ANNOTATED_VERTICES = 24` the model keeps every vertex and the overlay is
+sampled: visible handles are spaced by `DENSE_HANDLE_SPACING_PX = 24` viewport
+pixels up to `MAX_DENSE_VERTEX_HANDLES = 128`, coordinate and edge-length text
+moves into handle tooltips, and only edges long enough on screen get a midpoint.
+`CanvasView._apply_transform` and `scrollContentsBy` ask selected items to
+re-sample; a handle that is currently being dragged is never removed.
+The saved geometry is never changed by this: the tests compare the polygon
+before and after entering, zooming and leaving edit mode.
 
 ## 8.10 Integration Test Policy
 
@@ -3971,16 +3985,18 @@ bounding rect). `_normalized_layer_order(layer_id)` runs those entries through
 `_refresh_layer_z(layer_id)` then assigns:
 
 ```python
-item.setZValue(layer.z_order * 100 + 100 * (i + 1) / (n + 1))
+item.setZValue(layer.z_order * 100 + 100 * (i + 1) / stacking.Z_POSITION_SCALE)
 ```
 
-over that normalized bottom→top order (`i` = 0-based position, `n` = layer
-item count), for `layer_id = None` the base is `0` instead of
-`layer.z_order * 100`. The fraction `100 * (i + 1) / (n + 1)` is strictly
-inside the open interval `(base, base + 100)` for any `n ≥ 1` — it can never
-touch `base` or `base + 100`, so a layer's items can never collide with a
-neighbouring layer's band or with any fixed overlay band (8.25.6), however
-many items it holds. **One accepted exception:** the `layer_id = None`
+over that normalized bottom→top order (`i` = 0-based position), for
+`layer_id = None` the base is `0` instead of `layer.z_order * 100`.
+`Z_POSITION_SCALE` is a **fixed** divisor (`1 << 24`), not `n + 1`: the band is
+an ordering interval, not a spread that must be filled, so an appended item can
+receive its final z without re-deriving every existing item (#450). The fraction
+is strictly inside `(base, base + 100)` for up to about 16.7 million ranked
+items — it can never touch `base` or `base + 100`, so a layer's items cannot
+collide with a neighbouring layer's band or with any fixed overlay band
+(8.25.6). **One accepted exception:** the `layer_id = None`
 pseudo-layer shares base `0` with a real layer whose `z_order == 0` (the
 default single layer every new plan starts with) — an item with no layer and
 an item on that first layer can land at the same derived z. This only
@@ -4034,9 +4050,26 @@ scene order rather than by the original session's order.
 
 ### 8.25.4 Refresh rules
 
-**A single `CanvasScene.addItem` triggers exactly one `_refresh_layer_z` call**
-for the item's layer, right after assigning a rank if it didn't have one —
-unless `scene._suspend_z_refresh` is set. Two ways to set it:
+**A single `CanvasScene.addItem` leaves the correct, final z immediately**
+(#450). An appended independent solid gets the next value on the fixed
+`Z_POSITION_SCALE` grid inside its layer band — exactly the value the
+derivation would assign it — so it is never re-derived; one derivation per
+layer serves a whole add loop. Any item that can re-order existing items — a
+pre-ranked re-add, a child, a bed with children, a linked plant, a roof ridge,
+or a ground surface (which sorts into its own band, §8.25.2) — runs
+`_refresh_layer_z` synchronously instead. Every derivation reseeds the per-layer
+provisional cache; a full `_update_items_z_order` sweep clears both it and the
+rank cache. Arrange, move to layer, adding/deleting/reordering layers, and the
+flatten direction of group/ungroup run that sweep; the group-forming direction
+relies on `addItem`'s append, and relinking refreshes one layer through
+`_refresh_layer_z` (the sweep when the item has no layer). Either way the next
+add reseeds from the real top rather than resurrecting a stale value. There is
+no deferred pass and no command-boundary flush: what `addItem` writes is final,
+which is why 2 000 single adds (and 2 000 single-item commands) cost one
+derivation, not 2 000 (the pre-#450 loop took 45 s).
+
+The bulk scopes remain the way to suspend even the remaining per-add work. Two
+ways to set `scene._suspend_z_refresh`:
 
 - `scene.suspend_z_refresh(renumber=True)` — used by
   `ProjectManager.load` around its whole item-creation loop.
@@ -4054,7 +4087,9 @@ unless `scene._suspend_z_refresh` is set. Two ways to set it:
 
 Without this, a bulk add would trigger one O(layer-size) refresh **per item**
 — O(n²) for a paste of n items into a large layer. Measured: a 50-item paste
-into a 2000-object plan went from 316 ms to 91 ms.
+into a 2000-object plan went from 316 ms to 91 ms. The same quadratic shape
+applied to a loop of single `addItem` calls (2 000 items: 45 s, issue #450;
+measured about 0.1 s with the fixed-grid derivation, without changing any rank).
 
 **The refresh itself never writes a rank — ever.** This was a real draft
 design, caught in review before it shipped (see the rejected alternative in
@@ -4229,7 +4264,7 @@ The map's calibration, crop/mosaic math and existing cancellation outcomes are u
 
 ## 8.28 Bounded 2D canvas paint for crafted plans (#472, ADR-057)
 
-`PolygonItem.paint` sizes its work by a vertex bound, not by whatever a plan file happens to hold. `MAX_FULL_DETAIL_VERTICES = 256` is the full-detail budget: at or below it an unselected polygon paints exactly as it always did. Above it, an **interactive** paint draws the exact outline with a **cosmetic 1-px pen and `Qt.BrushStyle.NoBrush`** — and returns, skipping the shadow, grid and status overlays for that frame. "Interactive" is the item's **cache mode**, not Qt's `widget`: every cached paint receives `widget = 0`, and unselected canvas items are cached, so a `widget`-based guess never fires on the canvas (that was the first version's bug — it never degraded anything; see ADR-057). Every export, report, print and agent render path disables caches first, so those stay exact; a **selected** item is excluded and paints the exact fill, so editing sees the truth. The cosmetic pen is load-bearing: Qt strokes a wide solid pen by building a fill, so reusing the item's own pen would leave the degraded frame quadratic (measured 319 ms at 1,024 vertices against 4 ms cosmetic).
+`PolygonItem.paint` sizes its work by a vertex bound, not by whatever a plan file happens to hold. `MAX_FULL_DETAIL_VERTICES = 256` is the full-detail budget: at or below it an unselected polygon paints exactly as it always did. Above it, an **interactive** paint draws the exact outline with a **cosmetic 1-px pen and `Qt.BrushStyle.NoBrush`** — and returns, skipping the shadow, grid and status overlays for that frame. "Interactive" is the item's **cache mode**, not Qt's `widget`: every cached paint receives `widget = 0`, and unselected canvas items are cached, so a `widget`-based guess never fires on the canvas (that was the first version's bug — it never degraded anything; see ADR-057). Every export, report, print and agent render path disables caches first, so those stay exact; a **selected** item is excluded and paints the exact fill, so editing sees the truth. The cosmetic pen is load-bearing: Qt strokes a wide solid pen by building a fill, so reusing the item's own pen would leave the degraded frame quadratic (measured 319 ms at 1,024 vertices against 4 ms cosmetic). A **boolean union** result is subject to the same bound: it is selected when the command creates it (so the owner sees a filled result), and a result above 256 vertices draws the outline once deselected - FR-EDIT-19 says so, and the manual checklist re-checks the fill after clicking away.
 
 The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
 
@@ -5399,6 +5434,12 @@ and badges — they are the 2D view's overlays, not the garden's surface.
 | furniture sprite | `core.furniture_renderer.render_furniture_pixmap` | `RectangleItem` / `CircleItem.paint`; `_paint_sprite` |
 | path / fence styles | `ui.canvas.items.path_style_paint.PathStylePaint` (extracted from `PolylineItem.paint`) | `PolylineItem.paint`; `_paint_polyline` |
 | rectangle, ellipse, polygon, plain line | one `QPainter` call each (`drawRect` / `drawEllipse` / `drawPolygon` / `drawPath`), mirrored | — |
+
+Both `PathStylePaint` callers bound their walk with the same `clip` + `WalkBudget`
+contract: the ground bake per tile, the canvas item per visible viewport (#450).
+A 19 km gravel path used to generate its 475 001 elements on every canvas repaint;
+the live paint now generates only what the viewport exposes, while an export
+(cache cleared) still gets every element.
 
 **The paint frame.** The canvas paints an item in the item's OWN coordinates: a fill texture is
 anchored at the item's coordinate origin, a sprite is aligned to whole centimetres there. A

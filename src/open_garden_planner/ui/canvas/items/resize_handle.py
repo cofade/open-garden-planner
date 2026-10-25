@@ -2,7 +2,7 @@
 
 import math
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen
@@ -1720,6 +1720,84 @@ def _edge_length(p1: QPointF, p2: QPointF) -> float:
     return math.sqrt(dx * dx + dy * dy)
 
 
+# Generated curved outlines (a boolean union of a rectangle and circles, for
+# example) carry hundreds of tessellation points. Above this many vertices the
+# overlay shows a bounded, pixel-spaced sample of handles and moves the
+# coordinate / edge-length text into tooltips (#551). The model keeps every
+# vertex; only the on-screen affordances are thinned.
+MAX_ANNOTATED_VERTICES = 24
+MAX_DENSE_VERTEX_HANDLES = 128
+DENSE_HANDLE_SPACING_PX = 24.0
+
+
+def _visible_viewport_rect(view: Any, margin: float) -> QRectF:
+    """The view's viewport in VIEWPORT (logical) pixels, grown by *margin*.
+
+    ``deviceTransform`` is ``sceneTransform * viewportTransform`` on this Qt
+    (6.11): it does NOT apply the device-pixel ratio, so both sides of the
+    comparison are viewport pixels. Scaling this rect by the DPR (the first
+    version of this helper did) samples up to a whole viewport beyond the edge
+    on a high-DPI screen (senior review of PR #585, round 5).
+    """
+    return QRectF(view.viewport().rect()).adjusted(-margin, -margin, margin, margin)
+
+
+def _dense_overlay_indices(
+    item: Any, points: list[tuple[int, QPointF]]
+) -> list[int]:
+    """Original indices of a pixel-spaced sample of ``points`` (#551).
+
+    Points are mapped through the first view's device transform, so zooming in
+    reveals more vertices and zooming out hides more rather than turning the
+    outline into one overlapping pile. A vertex that is currently being dragged
+    is kept by :meth:`VertexEditMixin.refresh_vertex_edit_overlay`, which never
+    calls this while a handle is down.
+    """
+    scene = item.scene()
+    views = scene.views() if scene is not None else []
+    if not views:
+        step = max(1, math.ceil(len(points) / MAX_DENSE_VERTEX_HANDLES))
+        return [index for index, _point in points[::step]][:MAX_DENSE_VERTEX_HANDLES]
+    view = views[0]
+    transform = item.deviceTransform(view.viewportTransform())
+    visible = _visible_viewport_rect(view, DENSE_HANDLE_SPACING_PX)
+    spacing = DENSE_HANDLE_SPACING_PX
+    cells: dict[tuple[int, int], list[QPointF]] = {}
+    indices: list[int] = []
+    for index, local_point in points:
+        point = transform.map(local_point)
+        if not visible.contains(point):
+            continue
+        cell = (math.floor(point.x() / spacing), math.floor(point.y() / spacing))
+        if any(
+            _edge_length(point, previous) < spacing
+            for dx in (-1, 0, 1)
+            for dy in (-1, 0, 1)
+            for previous in cells.get((cell[0] + dx, cell[1] + dy), [])
+        ):
+            continue
+        cells.setdefault(cell, []).append(point)
+        indices.append(index)
+        if len(indices) >= MAX_DENSE_VERTEX_HANDLES:
+            break
+    return indices
+
+
+def _visible_vertex_indices(
+    item: Any, points: list[QPointF]
+) -> list[int]:
+    """All vertex indices for an ordinary outline, a current pixel sample for a dense one."""
+    indexed = list(enumerate(points))
+    if len(indexed) <= MAX_ANNOTATED_VERTICES:
+        return [index for index, _point in indexed]
+    return _dense_overlay_indices(item, indexed)
+
+
+def _map_to_scene(item: Any, point: QPointF) -> QPointF:
+    """``item.mapToScene`` for a mixin mypy cannot see as a QGraphicsItem."""
+    return cast(QPointF, item.mapToScene(point))
+
+
 class VertexEditMixin:
     """Mixin that adds vertex editing functionality to polygon items.
 
@@ -1796,16 +1874,20 @@ class VertexEditMixin:
                 self.show_rotation_handle()
 
     def _create_vertex_handles(self) -> None:
-        """Create handles for all vertices."""
+        """Create handles for all vertices, sampled when the outline is dense."""
         self._remove_vertex_handles()
 
         if not hasattr(self, 'polygon'):
             return
 
         polygon = self.polygon()
-        for i in range(polygon.count()):
+        dense = polygon.count() > MAX_ANNOTATED_VERTICES
+        for i in _visible_vertex_indices(self, [polygon.at(j) for j in range(polygon.count())]):
             handle = VertexHandle(i, self)  # type: ignore[arg-type]
             handle.update_position(polygon.at(i))
+            if dense:
+                point = _map_to_scene(self, polygon.at(i))
+                handle.setToolTip(_format_coordinate(point.x(), point.y()))
             self._vertex_handles.append(handle)
 
     def _remove_vertex_handles(self) -> None:
@@ -1816,7 +1898,7 @@ class VertexEditMixin:
         self._vertex_handles = []
 
     def _create_midpoint_handles(self) -> None:
-        """Create handles at edge midpoints."""
+        """Create handles at edge midpoints, sampled when the outline is dense."""
         self._remove_midpoint_handles()
 
         if not hasattr(self, 'polygon'):
@@ -1824,17 +1906,43 @@ class VertexEditMixin:
 
         polygon = self.polygon()
         count = polygon.count()
-
+        dense = count > MAX_ANNOTATED_VERTICES
+        owner = cast(Any, self)
+        scene = owner.scene()
+        transform = None
+        if dense and scene is not None and scene.views():
+            viewport = scene.views()[0].viewport()
+            if viewport is not None:
+                transform = owner.deviceTransform(scene.views()[0].viewportTransform())
+        candidates: list[tuple[int, QPointF]] = []
         for i in range(count):
-            # Get edge start and end points
             p1 = polygon.at(i)
             p2 = polygon.at((i + 1) % count)
+            if (
+                transform is not None
+                and _edge_length(transform.map(p1), transform.map(p2))
+                < 2 * DENSE_HANDLE_SPACING_PX
+            ):
+                continue
+            candidates.append((i, QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)))
 
-            # Calculate midpoint
-            midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-
+        indices = (
+            _dense_overlay_indices(self, candidates)
+            if dense
+            else [index for index, _point in candidates]
+        )
+        by_index = dict(candidates)
+        for i in indices:
             handle = MidpointHandle(i, self)  # type: ignore[arg-type]
-            handle.update_position(midpoint)
+            handle.update_position(by_index[i])
+            if dense:
+                p1 = polygon.at(i)
+                p2 = polygon.at((i + 1) % count)
+                handle.setToolTip(
+                    _format_edge_length(
+                        _edge_length(_map_to_scene(self, p1), _map_to_scene(self, p2))
+                    )
+                )
             self._midpoint_handles.append(handle)
 
     def _remove_midpoint_handles(self) -> None:
@@ -1844,6 +1952,21 @@ class VertexEditMixin:
                 handle.scene().removeItem(handle)
         self._midpoint_handles = []
 
+    def refresh_vertex_edit_overlay(self) -> None:
+        """Re-sample a dense outline after a zoom or pan; never during a drag."""
+        if not getattr(self, "_is_vertex_edit_mode", False):
+            return
+        if self._get_vertex_count() <= MAX_ANNOTATED_VERTICES:
+            return
+        if any(
+            getattr(handle, "_is_dragging", False)
+            for handle in [*self._vertex_handles, *self._midpoint_handles]
+        ):
+            return
+        self._create_vertex_handles()
+        self._create_midpoint_handles()
+        self._remove_annotations()
+
     def _update_vertex_handles(self) -> None:
         """Update positions of all vertex and midpoint handles and annotations."""
         if not hasattr(self, 'polygon'):
@@ -1851,19 +1974,31 @@ class VertexEditMixin:
 
         polygon = self.polygon()
         count = polygon.count()
+        dense = count > MAX_ANNOTATED_VERTICES
 
-        # Update vertex handles
-        for i, handle in enumerate(self._vertex_handles):
+        # Update vertex handles (a dense outline holds only a sample)
+        for vertex_handle in self._vertex_handles:
+            i = vertex_handle.vertex_index
             if i < count:
-                handle.update_position(polygon.at(i))
+                vertex_handle.update_position(polygon.at(i))
+                if dense:
+                    point = _map_to_scene(self, polygon.at(i))
+                    vertex_handle.setToolTip(_format_coordinate(point.x(), point.y()))
 
         # Update midpoint handles
-        for i, handle in enumerate(self._midpoint_handles):
+        for midpoint_handle in self._midpoint_handles:
+            i = midpoint_handle.edge_index
             if i < count:
                 p1 = polygon.at(i)
                 p2 = polygon.at((i + 1) % count)
                 midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-                handle.update_position(midpoint)
+                midpoint_handle.update_position(midpoint)
+                if dense:
+                    midpoint_handle.setToolTip(
+                        _format_edge_length(
+                            _edge_length(_map_to_scene(self, p1), _map_to_scene(self, p2))
+                        )
+                    )
 
         # Update annotations
         self._update_annotations()
@@ -1877,6 +2012,8 @@ class VertexEditMixin:
 
         polygon = self.polygon()
         count = polygon.count()
+        if count > MAX_ANNOTATED_VERTICES:
+            return  # Dense outlines use handle tooltips instead of overlapping labels.
 
         # Create coordinate labels at each vertex
         for i in range(count):
@@ -1919,6 +2056,8 @@ class VertexEditMixin:
 
         polygon = self.polygon()
         count = polygon.count()
+        if count > MAX_ANNOTATED_VERTICES:
+            return  # No labels exist for a dense outline; see _create_annotations.
 
         # Update coordinate labels
         for i, label in enumerate(self._coord_labels):
@@ -2825,15 +2964,20 @@ class PolylineVertexEditMixin:
             self.show_rotation_handle()
 
     def _create_vertex_handles(self) -> None:
-        """Create handles for all vertices."""
+        """Create handles for all vertices, sampled when the path is dense."""
         self._remove_vertex_handles()
 
         if not hasattr(self, '_points'):
             return
 
-        for i, point in enumerate(self._points):
+        points = self._points
+        dense = len(points) > MAX_ANNOTATED_VERTICES
+        for i in _visible_vertex_indices(self, points):
             handle = VertexHandle(i, self)  # type: ignore[arg-type]
-            handle.update_position(point)
+            handle.update_position(points[i])
+            if dense:
+                point = _map_to_scene(self, points[i])
+                handle.setToolTip(_format_coordinate(point.x(), point.y()))
             self._vertex_handles.append(handle)
 
     def _remove_vertex_handles(self) -> None:
@@ -2851,14 +2995,44 @@ class PolylineVertexEditMixin:
             return
 
         points = self._points
+        dense = len(points) > MAX_ANNOTATED_VERTICES
+        owner = cast(Any, self)
+        scene = owner.scene()
+        transform = None
+        if dense and scene is not None and scene.views():
+            viewport = scene.views()[0].viewport()
+            if viewport is not None:
+                transform = owner.deviceTransform(scene.views()[0].viewportTransform())
+        candidates: list[tuple[int, QPointF]] = []
         # Open path: midpoints between consecutive pairs only (no closing edge)
         for i in range(len(points) - 1):
             p1 = points[i]
             p2 = points[i + 1]
-            midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
+            if (
+                transform is not None
+                and _edge_length(transform.map(p1), transform.map(p2))
+                < 2 * DENSE_HANDLE_SPACING_PX
+            ):
+                continue
+            candidates.append((i, QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)))
 
+        indices = (
+            _dense_overlay_indices(self, candidates)
+            if dense
+            else [index for index, _point in candidates]
+        )
+        by_index = dict(candidates)
+        for i in indices:
             handle = MidpointHandle(i, self)  # type: ignore[arg-type]
-            handle.update_position(midpoint)
+            handle.update_position(by_index[i])
+            if dense:
+                p1 = points[i]
+                p2 = points[i + 1]
+                handle.setToolTip(
+                    _format_edge_length(
+                        _edge_length(_map_to_scene(self, p1), _map_to_scene(self, p2))
+                    )
+                )
             self._midpoint_handles.append(handle)
 
     def _remove_midpoint_handles(self) -> None:
@@ -2868,25 +3042,52 @@ class PolylineVertexEditMixin:
                 handle.scene().removeItem(handle)
         self._midpoint_handles = []
 
+    def refresh_vertex_edit_overlay(self) -> None:
+        """Re-sample a dense path after a zoom or pan; never during a drag."""
+        if not getattr(self, "_is_vertex_edit_mode", False):
+            return
+        if len(getattr(self, "_points", ())) <= MAX_ANNOTATED_VERTICES:
+            return
+        if any(
+            getattr(handle, "_is_dragging", False)
+            for handle in [*self._vertex_handles, *self._midpoint_handles]
+        ):
+            return
+        self._create_vertex_handles()
+        self._create_midpoint_handles()
+        self._remove_annotations()
+
     def _update_vertex_handles(self) -> None:
         """Update positions of all vertex and midpoint handles and annotations."""
         if not hasattr(self, '_points'):
             return
 
         points = self._points
+        dense = len(points) > MAX_ANNOTATED_VERTICES
 
-        # Update vertex handles
-        for i, handle in enumerate(self._vertex_handles):
+        # Update vertex handles (a dense path holds only a sample)
+        for vertex_handle in self._vertex_handles:
+            i = vertex_handle.vertex_index
             if i < len(points):
-                handle.update_position(points[i])
+                vertex_handle.update_position(points[i])
+                if dense:
+                    point = _map_to_scene(self, points[i])
+                    vertex_handle.setToolTip(_format_coordinate(point.x(), point.y()))
 
         # Update midpoint handles
-        for i, handle in enumerate(self._midpoint_handles):
+        for midpoint_handle in self._midpoint_handles:
+            i = midpoint_handle.edge_index
             if i < len(points) - 1:
                 p1 = points[i]
                 p2 = points[i + 1]
                 midpoint = QPointF((p1.x() + p2.x()) / 2, (p1.y() + p2.y()) / 2)
-                handle.update_position(midpoint)
+                midpoint_handle.update_position(midpoint)
+                if dense:
+                    midpoint_handle.setToolTip(
+                        _format_edge_length(
+                            _edge_length(_map_to_scene(self, p1), _map_to_scene(self, p2))
+                        )
+                    )
 
         # Update annotations
         self._update_annotations()
@@ -2899,6 +3100,8 @@ class PolylineVertexEditMixin:
             return
 
         points = self._points
+        if len(points) > MAX_ANNOTATED_VERTICES:
+            return  # Dense paths use handle tooltips instead of overlapping labels.
 
         # Coordinate labels at each vertex
         for point in points:
@@ -2939,6 +3142,8 @@ class PolylineVertexEditMixin:
             return
 
         points = self._points
+        if len(points) > MAX_ANNOTATED_VERTICES:
+            return  # No labels exist for a dense path; see _create_annotations.
 
         # Update coordinate labels
         for i, label in enumerate(self._coord_labels):

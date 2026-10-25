@@ -6,17 +6,20 @@ import os
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -75,10 +78,27 @@ class PreferencesDialog(QDialog):
         self.setMinimumSize(550, 400)
         self._setup_ui()
         self._load_settings()
+        self._resize_to_content()
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setSpacing(16)
+
+        # The settings form is taller than a 1080p screen. Put it in a scroll
+        # area instead of letting Qt squeeze every control below its minimum
+        # height, and keep Save / Cancel outside the viewport so they are always
+        # reachable (#569). Same pattern as the shortcuts dialog.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(16)
+        scroll.setWidget(content)
+        outer_layout.addWidget(scroll, 1)
+        self._scroll_content = content
 
         # Info label
         info_label = QLabel(
@@ -364,7 +384,38 @@ class PreferencesDialog(QDialog):
         save_btn.clicked.connect(self._save_and_accept)
         btn_layout.addWidget(save_btn)
 
-        layout.addLayout(btn_layout)
+        outer_layout.addLayout(btn_layout)
+        self._button_row = btn_layout
+
+    def _resize_to_content(self) -> None:
+        """Open at the form's natural height, capped to the available screen.
+
+        The scroll area alone would open at its small size hint (about 452 px)
+        on every monitor, forcing a scroll even where the whole form used to
+        fit. Size from the content instead, leaving room for the window frame
+        and the taskbar (#569).
+        """
+        self._scroll_content.adjustSize()
+        outer = self.layout()
+        margins = outer.contentsMargins() if outer is not None else None
+        spacing = outer.spacing() if outer is not None else 0
+        wanted = (
+            self._scroll_content.sizeHint().height()
+            + self._button_row.sizeHint().height()
+            + spacing
+            + 2
+            + ((margins.top() + margins.bottom()) if margins is not None else 0)
+        )
+        parent = self.parentWidget()
+        screen = (
+            (parent.screen() if parent is not None else None)
+            or self.screen()
+            or QApplication.primaryScreen()
+        )
+        if screen is not None:
+            available = screen.availableGeometry().height()
+            wanted = min(wanted, max(self.minimumHeight(), available - 40))
+        self.resize(550, max(self.minimumHeight(), wanted))
 
     def _load_settings(self) -> None:
         from open_garden_planner.app.settings import get_settings

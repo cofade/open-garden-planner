@@ -2012,7 +2012,7 @@ class ProjectManager(QObject):
             scene.set_layers(parsed_layers)
 
         # Create items inside suspend_z_refresh() (issue #338) so the whole
-        # loop does one deferred z-refresh instead of one per add, and
+        # loop does one z derivation on exit instead of one per add, and
         # renumbers every layer's ranks from its normalized order.
         has_suspend_ctx = hasattr(scene, "suspend_z_refresh")
         suspend_ctx = (
