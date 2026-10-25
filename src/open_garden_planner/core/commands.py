@@ -3162,5 +3162,5 @@ _GROUND_BAND_NEUTRAL_COMMANDS: tuple[type[Command], ...] = (
     EditConstraintDistanceCommand,
 )
 for _ground_band_neutral in _GROUND_BAND_NEUTRAL_COMMANDS:
-    _ground_band_neutral.changes_ground_band = False  # type: ignore[misc]
+    _ground_band_neutral.changes_ground_band = False
 
