@@ -276,19 +276,20 @@ Three further rules, each gated, each worth understanding before touching this:
   and then asserts it had not changed — a tripwire, not a silent repair.
 
 **The chokepoint refuses an unsafe production context (#587).** A process that is
-not the product, a test, or a self-isolating script has no business opening the
+not the product or a deliberately isolated script has no business opening the
 owner's registry. `create_qsettings()` therefore raises `SettingsIsolationError`
 when the module holds the **production** names and any of these is true: the Qt
 platform is `offscreen`/`minimal` (the product never runs there), or an exact
 agent-session variable is set (`CODEX_SANDBOX`, `CODEX_HOME`, `CLAUDECODE`,
 `CLAUDE_CODE*`, `OPENCODE*` — exact names, so `CODEX_API_KEY` does not trigger
-it). Two markers say "this process is allowed": `OGP_PRODUCT_PROCESS=1`, set by
-`main.py` at import, and `OGP_SETTINGS_ISOLATED=1`, set by
-`script_isolation.isolate_settings()`. `OGP_ALLOW_PRODUCTION_SETTINGS=1` is the
-deliberate override for a one-off tool; neither the product nor the suite sets
-it. A test or script that rebinds the names is unaffected because the check is
-against the production pair, not "anything but the test pair". Pinned by
-`tests/unit/test_settings_isolation_guard.py`.
+it). `OGP_PRODUCT_PROCESS=1`, set by `main()` in `main.py` (not at module import:
+a probe that imports `main` for a helper must not inherit the permission), is
+the product's way through. A test or script that rebinds the names is allowed;
+`script_isolation.isolate_settings()` does that, so no second marker is needed.
+`OGP_ALLOW_PRODUCTION_SETTINGS=1` is the explicit override for a one-off tool;
+neither the product nor the suite sets it. A plain desktop shell with production
+names is allowed — that is how the app runs; the guard refuses headless and
+agent/tooling contexts. Pinned by `tests/unit/test_settings_isolation_guard.py`.
 
 **Child processes.** The redirection lives in the test PROCESS. A child that a test
 starts does not import `tests/conftest.py`, and on Windows no environment variable
@@ -483,13 +484,15 @@ The saved geometry is never changed by this: the tests compare the polygon
 before and after entering, zooming and leaving edit mode.
 
 **A pan inside the sampled region does not re-sample (#594).** The sample is
-taken over the viewport grown by half a viewport; while the new viewport stays
-inside that scene region, every now-visible vertex was a candidate and the
-chosen indices keep their pairwise screen spacing under translation. A zoom, or
-a pan that leaves the region, samples again. Measured on a 16 384-vertex
-polygon (the loader's cap): ~98 ms per forced re-sample, 0.01 ms when the cached
-sample is reused; the pin is a call count on `_dense_overlay_indices`, not a
-timer. `_remember_dense_sample` / `_dense_sample_covers_view` in
+taken over the viewport grown by `DENSE_HANDLE_SPACING_PX` (24 viewport pixels) —
+the same region `_dense_overlay_indices` tests candidates in. While the new
+viewport stays inside that scene region and the item has not moved, every
+now-visible vertex was a candidate and the chosen indices keep their pairwise
+screen spacing under translation. A zoom, a pose/geometry change, or a pan that
+leaves the region samples again. Measured on a 16 384-vertex polygon (the
+loader's cap): ~98 ms per forced re-sample, 0.01 ms when the cached sample is
+reused; the pin is a call count on `_dense_overlay_indices`, not a timer.
+`_remember_dense_sample` / `_dense_sample_covers_view` in
 `ui/canvas/items/resize_handle.py`.
 
 ## 8.10 Integration Test Policy
@@ -4134,9 +4137,9 @@ nothing moved between the bands.
 Since #592 that scan runs **only when the command can reclassify something**. The
 base `Command.changes_ground_band` is `True`, so an unclassified or future command
 keeps the safe scan; the move/resize/rotate/vertex/curve/copy/link/constraint
-commands say `False`, and Create/Delete/Group/Ungroup/Boolean/ChangeProperty keep
-the scan. Creating a ground surface one command at a time is still correct without
-the scan: `addItem` takes the synchronous derivation for it (§8.25.4 above). The
+commands say `False`. Create is neutral because `addItem` takes the synchronous
+derivation for a ground surface and bulk adds end in `_update_items_z_order`;
+Delete/Group/Ungroup/Boolean/ChangeProperty keep the scan. The
 same command-boundary work included the lock badge: `update_dimension_lines` used
 to call `refresh_lock_badge` on every item, and each call walked the whole
 constraint dict — 600 single-item commands produced 360 600 badge refreshes on a

@@ -3137,8 +3137,10 @@ class DeleteManualTaskCommand(Command):
 # them moves, resizes, rotates, edits vertices/curves, copies, links/reparents,
 # or changes constraints: ``canvas_scene.on_ground`` reads the item's object
 # type, height metadata and group membership, none of which these touch. The
-# base default stays True, so a future command is safe until it says otherwise;
-# Create/Delete/Group/Ungroup/Boolean/ChangeProperty deliberately keep the scan.
+# base default stays True, so a future command is safe until it says otherwise.
+# Create is neutral because `addItem` derives a ground surface's band
+# synchronously and bulk adds end in `_update_items_z_order`; Delete/Group/
+# Ungroup/Boolean/ChangeProperty keep the scan.
 _GROUND_BAND_NEUTRAL_COMMANDS: tuple[type[Command], ...] = (
     CreateItemCommand,
     CreateItemsCommand,

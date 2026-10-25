@@ -32,13 +32,10 @@ PRODUCTION_APPLICATION_NAME = "Open Garden Planner"
 ORGANIZATION_NAME = PRODUCTION_ORGANIZATION_NAME
 APPLICATION_NAME = PRODUCTION_APPLICATION_NAME
 
-#: Set by the product's own entry point (``main.py``) before it builds anything.
-#: A probe that constructs ``GardenPlannerApp`` or a scene directly does not set
-#: it — and that is the process this guard exists for (#587).
+#: Set by the product's own entry point (``main()`` in ``main.py``) before it
+#: builds anything. A probe that constructs ``GardenPlannerApp`` or a scene
+#: directly does not set it — and that is the process this guard exists for (#587).
 PRODUCT_PROCESS_ENV = "OGP_PRODUCT_PROCESS"
-#: Set by ``scripts/script_isolation.isolate_settings()`` and by tests that
-#: deliberately rebind the names: this process's store is throwaway.
-ISOLATION_MARKER_ENV = "OGP_SETTINGS_ISOLATED"
 #: The deliberate override for a one-off tool that really must read the real
 #: store. Never set it in a product run or a test.
 ALLOW_PRODUCTION_ENV = "OGP_ALLOW_PRODUCTION_SETTINGS"
@@ -105,8 +102,6 @@ def _unsafe_production_settings_reason() -> str | None:
     ):
         return None
     if os.environ.get(PRODUCT_PROCESS_ENV) == "1":
-        return None
-    if os.environ.get(ISOLATION_MARKER_ENV) == "1":
         return None
     if os.environ.get(ALLOW_PRODUCTION_ENV) == "1":
         return None

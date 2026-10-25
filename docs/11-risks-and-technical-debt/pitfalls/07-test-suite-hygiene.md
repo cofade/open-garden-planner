@@ -449,4 +449,4 @@ Verdana 9 pt "Today" measures 60 px on the box engine and 34–37 px on a real o
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-The guard keys on the module's production names, the Qt platform, exact agent-session variables (`CODEX_SANDBOX`, `OPENCODE_SESSION_ID`, …) and two markers: `OGP_PRODUCT_PROCESS` set by `main.py`, and `OGP_SETTINGS_ISOLATED` set by `script_isolation`. `CODEX_API_KEY`/`GEMINI_API_KEY` are deliberately not markers. The explicit `OGP_ALLOW_PRODUCTION_SETTINGS` override exists for a one-off tool that really must read the real store; it is never set by the product or the suite.
+The guard keys on the module's production names, the Qt platform and exact agent-session variables (`CODEX_SANDBOX`, `OPENCODE_SESSION_ID`, …). `OGP_PRODUCT_PROCESS`, set inside `main()` (not at import), lets the product through; `script_isolation` rebinds the names, which is the other sanctioned way. `CODEX_API_KEY`/`GEMINI_API_KEY` are deliberately not markers. The explicit `OGP_ALLOW_PRODUCTION_SETTINGS` override exists for a one-off tool that really must read the real store; it is never set by the product or the suite.

@@ -6,6 +6,10 @@ import sys
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# This one-off deliberately loads the developer's own plan and records it in
+# Recent Files in the real store. The #587 probe guard refuses production names
+# on a headless platform; the override is explicit and local to this script.
+os.environ.setdefault("OGP_ALLOW_PRODUCTION_SETTINGS", "1")
 
 src = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src))

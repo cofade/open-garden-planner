@@ -108,10 +108,6 @@ def isolate_settings() -> tuple[str, str]:
         _state["found"] = found
         app_settings.ORGANIZATION_NAME = SCRIPT_ORGANIZATION
         app_settings.APPLICATION_NAME = f"Open Garden Planner Script {os.getpid()}"
-        # Belt to the rebinding: create_qsettings() refuses production names in a
-        # tooling/headless process (#587), and this marker documents that this
-        # process's store is deliberately throwaway.
-        os.environ[app_settings.ISOLATION_MARKER_ENV] = "1"
         atexit.register(_forget_settings)
     return found[0], found[1]
 

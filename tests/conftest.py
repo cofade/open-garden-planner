@@ -309,6 +309,26 @@ def deterministic_ui_font(ui_font_family):
 
 
 @pytest.fixture(autouse=True)
+def _restore_settings_guard_environment():
+    """Put the settings-guard markers back around every test.
+
+    ``main()`` sets ``OGP_PRODUCT_PROCESS`` and never clears it. ``monkeypatch``
+    cannot undo a direct ``os.environ`` write, so a test that calls ``main()``
+    would otherwise grant every later test in that xdist worker the product's
+    permission — and a future guard test that forgot to delete it would pass
+    vacuously.
+    """
+    names = ("OGP_PRODUCT_PROCESS", "OGP_ALLOW_PRODUCTION_SETTINGS")
+    before = {name: os.environ.get(name) for name in names}
+    yield
+    for name, value in before.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+
+
+@pytest.fixture(autouse=True)
 def _reset_app_settings():
     """Give every test a pristine settings store, independent of run order.
 

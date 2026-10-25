@@ -19,12 +19,12 @@ from open_garden_planner.ui.canvas.items.resize_handle import (
 )
 
 
-def _dense_polygon(count: int = 255) -> PolygonItem:
+def _dense_polygon(count: int = 255, radius: float = 150.0) -> PolygonItem:
     """A tessellated circle: every vertex is real, none may be dropped."""
     points = [
         QPointF(
-            200 + 150 * math.cos(2 * math.pi * index / count),
-            200 + 150 * math.sin(2 * math.pi * index / count),
+            200 + radius * math.cos(2 * math.pi * index / count),
+            200 + radius * math.sin(2 * math.pi * index / count),
         )
         for index in range(count)
     ]
@@ -214,21 +214,29 @@ def test_visible_midpoint_with_both_endpoints_offscreen_is_insertable(view) -> N
     assert len(item._points) == 255
 
 
-def test_a_pan_inside_the_sampled_region_does_not_resample(view, monkeypatch) -> None:
-    """A scrollbar step must not walk every vertex of a 16 384-vertex outline (#594).
+@pytest.mark.parametrize("kind", ["polygon", "polyline"])
+def test_a_pan_inside_the_sampled_region_does_not_resample(view, monkeypatch, kind) -> None:
+    """A scrollbar step must not walk every vertex of a dense outline (#594).
 
     #551 caps the overlay at 128 handles, but ``scrollContentsBy`` re-sampled the
     whole outline to decide which; the senior review of PR #585 measured ~100 ms
     per scrollbar step. The sample is reused while the viewport stays inside the
-    scene region it was taken over, and re-taken when it leaves.
+    scene region the sampler actually tested (the viewport grown by
+    ``DENSE_HANDLE_SPACING_PX``), and re-taken when it leaves.
     """
     from open_garden_planner.ui.canvas.items import resize_handle
 
-    item = _dense_polygon(16_384)
+    if kind == "polygon":
+        item = _dense_polygon(16_384, radius=600.0)
+        centre = QPointF(200, 200)
+    else:
+        item = _dense_polyline(255)
+        centre = QPointF(2500, 200)
     view.scene().addItem(item)
-    _show(view, item, zoom=1.0, center=QPointF(200, 200))
+    _show(view, item, zoom=1.0, center=centre)
     item.setSelected(True)
     item.enter_vertex_edit_mode()
+    before = {handle.vertex_index for handle in item._vertex_handles}
 
     calls: list[int] = []
     original = resize_handle._dense_overlay_indices
@@ -247,7 +255,25 @@ def test_a_pan_inside_the_sampled_region_does_not_resample(view, monkeypatch) ->
         QApplication.processEvents()
     assert calls == [], "a small scroll re-sampled the dense outline"
 
-    # A pan beyond the sampled region re-samples.
+    # A pan beyond the sampler's 24-px candidate margin re-samples, and the new
+    # viewport gets handles for vertices the old sample never considered.
+    bar.setValue(start + 100)
+    view.repaint()
+    QApplication.processEvents()
+    assert calls, "a pan beyond the candidate margin did not re-sample"
+    after = {handle.vertex_index for handle in item._vertex_handles}
+    assert after != before
+    newly = after - before
+    assert newly, "the re-sample exposed no vertex the old sample had missed"
+    viewport = view.viewport().rect()
+    assert any(
+        handle.vertex_index in newly
+        and viewport.contains(view.mapFromScene(handle.scenePos()))
+        for handle in item._vertex_handles
+    )
+
+    # A pan far outside the region re-samples too.
+    calls.clear()
     view.centerOn(QPointF(3000, 2500))
     view.repaint()
     QApplication.processEvents()
@@ -255,7 +281,7 @@ def test_a_pan_inside_the_sampled_region_does_not_resample(view, monkeypatch) ->
 
     # Zoom always re-samples: the pixel spacing changed.
     calls.clear()
-    _show(view, item, zoom=2.0, center=QPointF(200, 200))
+    _show(view, item, zoom=2.0, center=centre)
     assert calls
 
 

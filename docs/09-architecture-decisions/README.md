@@ -1377,16 +1377,18 @@ probes that day had the same defect. Written rules and the existing
 a temp directory.
 
 **Decision.** The chokepoint itself refuses the production names in a process that is
-not the product, a test, or a self-isolating script. `SettingsIsolationError` is raised
+not the product or a deliberately isolated script. `SettingsIsolationError` is raised
 when `(ORGANIZATION_NAME, APPLICATION_NAME)` is the production pair and any of these
 holds: the Qt platform is `offscreen`/`minimal` (the product never runs there), or an
 exact agent-session variable is set (`CODEX_HOME`, `CODEX_SANDBOX`, `CLAUDECODE`,
 `CLAUDE_CODE*`, `OPENCODE*` — exact names, so an API key such as `CODEX_API_KEY` does
-not trigger it). The product marks itself with `OGP_PRODUCT_PROCESS=1` in `main.py`;
-`script_isolation.isolate_settings()` marks an isolated process with
-`OGP_SETTINGS_ISOLATED=1`. `OGP_ALLOW_PRODUCTION_SETTINGS=1` is the explicit override
-for a one-off tool that really must read the real store. The check keys on the
-*production* pair, so a test or script that rebinds the names is unaffected.
+not trigger it). The product marks itself with `OGP_PRODUCT_PROCESS=1` in `main()`
+(not at module import: a probe that imports `main` for a helper must not inherit it).
+`script_isolation.isolate_settings()` rebinds the names to a throwaway pair, which is
+the other sanctioned way through. `OGP_ALLOW_PRODUCTION_SETTINGS=1` is the explicit
+override for a one-off tool that really must read the real store. A plain desktop
+shell with production names is allowed — that is how the app runs. The check keys
+on the *production* pair, so a test or script that rebinds the names is unaffected.
 
 **Rejected alternatives.** Logging loudly instead of refusing was the incident's shape
 with a different verb: a probe that ignores a warning still writes the registry. Keying
@@ -1395,10 +1397,10 @@ not an isolation mechanism. Refusing while the real GUI runs from an agent shell
 avoided by the product marker, so the frozen exe and `python -m open_garden_planner`
 still start from a tooling terminal.
 
-**Consequences.** `tests/unit/test_settings_isolation_guard.py` pins the refusal, both
-markers, the explicit override, the exact-name scan and the product marker's spelling;
-the suite and `scripts/script_isolation.py` set the marker. PF-TST-29 and §8.8 record
-the rule. No stored key, `.ogp` field or product behaviour changes.
+**Consequences.** `tests/unit/test_settings_isolation_guard.py` pins the refusal, the
+product marker's placement inside `main()`, the explicit override and the exact-name
+scan; the suite and `scripts/script_isolation.py` rebind the names rather than set a
+marker. PF-TST-29 and §8.8 record the rule. No stored key, `.ogp` field or product behaviour changes.
 
 ## ADR-042: Visual Refresh Package 3 — Generated Object Sprites, Forge Textures, Comprehensive Iconography
 
@@ -1543,8 +1545,10 @@ classified every item (about 1.0 s). Both are independent of what the command ch
 `fixed_item_ids()`; `update_dimension_lines` refreshes only items in that set or already
 showing a badge (so an unlock clears it), and skips the rest. `Command` gains
 `changes_ground_band`, default **True** for safety; the move/resize/rotate/vertex/curve/
-copy/link/constraint commands declare `False`, while Create/Delete/Group/Ungroup/Boolean/
-ChangeProperty keep the scan because they can change a type, a height or a group.
+copy/link/constraint commands declare `False`. Create is neutral because `addItem`
+derives a ground surface's band synchronously and bulk adds end in
+`_update_items_z_order`; Delete/Group/Ungroup/Boolean/ChangeProperty keep the scan
+because they can change a type, a height or a group.
 `CommandManager.last_command` lets the `stack_changed` slot ask what just happened. A
 ground surface added one command at a time still gets its band from `addItem`'s own
 synchronous derivation, so the neutral `CreateItemCommand` flag does not trade correctness
@@ -3736,19 +3740,24 @@ fresh sample on every scrollbar step. The senior review of PR #585 measured a se
 zoom step; master did no per-scroll re-sampling, so the scroll cost was new.
 
 **Decision.** The sample is still viewport-derived, but it is **cached with the scene
-region it covers**. `_remember_dense_sample` records the viewport's scene rect grown by
-half a viewport on each side; `_dense_sample_covers_view` lets `refresh_vertex_edit_overlay`
-return immediately while the current viewport is inside that region and the zoom is
-unchanged. A pan translates the points, which does not change their pairwise distances,
-so the chosen indices keep their 24-px spacing; every vertex now visible was a candidate
-when the sample was taken. A zoom change, a geometry change that makes the outline
-non-dense, or a pan beyond the region samples again. The cache lives on the item
-(polygon and polyline mixins) and is cleared when the outline is no longer dense.
+region it actually covered**. `_remember_dense_sample` records the sampler's own
+candidate region — the viewport grown by `DENSE_HANDLE_SPACING_PX` (24 viewport
+pixels), the same rect `_dense_overlay_indices` tests candidates in — together with
+the zoom and the item's pose. `_dense_sample_covers_view` lets
+`refresh_vertex_edit_overlay` return immediately while the current viewport is
+inside that region, the zoom is unchanged and the item has not moved. A pan
+translates the points, which does not change their pairwise distances, so the
+chosen indices keep their 24-px spacing; every vertex now visible was a candidate
+when the sample was taken. A zoom change, a pose/geometry change, or a pan beyond
+the region samples again. The cache lives on the item (polygon and polyline
+mixins) and is cleared when the outline is no longer dense, on a geometry update,
+and on leaving edit mode.
 
 **Measurements (dev box, 2026-10-25).** 16 384-vertex polygon at 1100×650, zoom 1.0:
 **98.58 ms** per forced re-sample, **0.01 ms** with the cache. The pin is a call count on
-`_dense_overlay_indices` after ten 2-px scrollbar steps (zero), one pan beyond the region
-(>0) and one zoom (>0), not a timer.
+`_dense_overlay_indices` after ten 2-px scrollbar steps (zero), a 100-px pan beyond the
+24-px candidate margin (>0, and the new viewport gets handles), a far pan (>0) and a
+zoom (>0), for both a polygon and a polyline; not a timer.
 
 **Pins.** `tests/integration/test_dense_polygon_edit.py::test_a_pan_inside_the_sampled_region_does_not_resample`.
 PF-CAN-26 records the rule. The saved geometry is unchanged; entering, zooming and leaving

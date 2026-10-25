@@ -38,9 +38,11 @@ def production(monkeypatch: pytest.MonkeyPatch):
         settings_module, "APPLICATION_NAME", settings_module.PRODUCTION_APPLICATION_NAME
     )
     monkeypatch.setattr(settings_module, "QSettings", _FakeQSettings)
+    # The Linux path secures the backend's file; the fake name would create
+    # `fake-settings.ini` in the working directory on a Linux runner.
+    monkeypatch.setattr(settings_module, "_secure_linux_settings", lambda _path: None)
     for name in (
         settings_module.PRODUCT_PROCESS_ENV,
-        settings_module.ISOLATION_MARKER_ENV,
         settings_module.ALLOW_PRODUCTION_ENV,
     ):
         monkeypatch.delenv(name, raising=False)
@@ -70,8 +72,11 @@ def test_a_tooling_shell_probe_is_refused(production, monkeypatch: pytest.Monkey
 
 
 def test_an_isolated_script_is_allowed(production, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``script_isolation.isolate()`` rebinds the names; the guard sees non-production ones."""
+    monkeypatch.setattr(settings_module, "ORGANIZATION_NAME", "cofade_test")
+    monkeypatch.setattr(settings_module, "APPLICATION_NAME", "Open Garden Planner Script 1")
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    monkeypatch.setenv(settings_module.ISOLATION_MARKER_ENV, "1")
+    monkeypatch.setenv("CODEX_SANDBOX", "1")
     assert isinstance(settings_module.create_qsettings(), _FakeQSettings)
 
 
@@ -106,16 +111,30 @@ def test_the_tooling_scan_matches_exact_session_markers_only() -> None:
     assert settings_module._tooling_environment_marker({"GEMINI_API_KEY": "x"}) is None
 
 
-def test_the_product_entry_point_uses_the_shared_marker_name() -> None:
-    """``main.py`` is the one legitimate production-names context (drift guard).
+def test_the_product_marker_is_set_inside_main_not_at_import() -> None:
+    """``main()`` is the one legitimate production-names context (drift guard).
 
     Read rather than imported: this test runs after the QApplication exists, and
     ``main.py`` imports ``QtWebEngineWidgets``, which Qt requires before the first
-    QCoreApplication. The frozen exe gate proves the import path itself.
+    QCoreApplication. The AST check pins the placement the design depends on — a
+    probe that imports ``main`` for a helper must not inherit the permission.
     """
+    import ast
     from pathlib import Path
 
-    main_source = (
-        Path(settings_module.__file__).parent.parent / "main.py"
-    ).read_text(encoding="utf-8")
-    assert f'os.environ["{settings_module.PRODUCT_PROCESS_ENV}"] = "1"' in main_source
+    main_path = Path(settings_module.__file__).parent.parent / "main.py"
+    source = main_path.read_text(encoding="utf-8")
+    marker = f'os.environ["{settings_module.PRODUCT_PROCESS_ENV}"]'
+    lines = [line for line in source.splitlines() if marker in line]
+    assert len(lines) == 1, lines
+    tree = ast.parse(source)
+    main_fn = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "main"
+    )
+    marker_line = next(
+        number for number, line in enumerate(source.splitlines(), 1) if marker in line
+    )
+    assert main_fn.lineno <= marker_line <= main_fn.end_lineno, (
+        "the product marker must be set inside main(), not at module import"
+    )

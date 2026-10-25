@@ -68,6 +68,11 @@ sys.path.insert(0, str(REPO / "src"))
 
 DEFAULT_EXE = REPO / "dist" / "OpenGardenPlanner" / "OpenGardenPlanner.exe"
 
+# This harness deliberately drives the developer's REAL app and settings (see
+# SAFETY above). The #587 probe guard would otherwise refuse it in a tooling
+# shell; the override is explicit and local to this script.
+os.environ.setdefault("OGP_ALLOW_PRODUCTION_SETTINGS", "1")
+
 
 # --------------------------------------------------------------------------- #
 # settings snapshot / restore

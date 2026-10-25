@@ -1756,43 +1756,68 @@ def _visible_scene_rect(view: Any | None) -> QRectF | None:
     return view.mapToScene(view.viewport().rect()).boundingRect()
 
 
+def _dense_candidate_scene_rect(view: Any | None) -> QRectF | None:
+    """The scene region the dense sampler actually tests candidates inside.
+
+    ``_dense_overlay_indices`` tests ``_visible_viewport_rect(view,
+    DENSE_HANDLE_SPACING_PX)`` — the viewport grown by 24 VIEWPORT pixels — not
+    the whole scene. This is that same region in scene coordinates: a pan that
+    keeps the new viewport inside it reuses the sample correctly, and anything
+    larger must re-sample (#594, senior review).
+    """
+    if view is None or view.viewport() is None:
+        return None
+    visible = _visible_viewport_rect(view, DENSE_HANDLE_SPACING_PX).toAlignedRect()
+    return view.mapToScene(visible).boundingRect()
+
+
+def _dense_sample_pose(item: Any) -> tuple[float, float, float, float]:
+    """The item pose the sample's candidate set was taken at (#594)."""
+    position = item.scenePos()
+    return (position.x(), position.y(), float(item.rotation()), float(item.scale()))
+
+
 def _dense_sample_covers_view(item: Any) -> bool:
     """Whether the last dense sample already covers the current viewport (#594).
 
-    The sample's candidate set was the viewport grown by half a viewport in each
-    direction. If the new viewport lies inside that scene region, every vertex
-    now visible was a candidate when the sample was taken. A pan only translates
-    the points, so the chosen indices keep their pairwise screen spacing; the
-    sample is still valid. Re-sampling every scrollbar step is what cost ~100 ms
-    on a 16 384-vertex outline.
+    The sample's candidate set was the viewport grown by
+    ``DENSE_HANDLE_SPACING_PX``. If the new viewport lies inside that same scene
+    region and the item has not moved, every vertex now visible was a candidate
+    when the sample was taken. A pan only translates the points, so the chosen
+    indices keep their pairwise screen spacing; the sample is still valid.
+    Re-sampling every scrollbar step is what cost ~100 ms on a 16 384-vertex
+    outline.
     """
     cached = getattr(item, "_dense_sample_scene_rect", None)
     sampled_zoom = getattr(item, "_dense_sample_zoom", None)
+    sampled_pose = getattr(item, "_dense_sample_pose", None)
     view = _dense_sample_view(item)
-    if cached is None or sampled_zoom is None or view is None:
+    if cached is None or sampled_zoom is None or sampled_pose is None or view is None:
         return False
     if abs(sampled_zoom - abs(view.transform().m11())) > 1e-9:
+        return False
+    if sampled_pose != _dense_sample_pose(item):
         return False
     current = _visible_scene_rect(view)
     return current is not None and cached.contains(current)
 
 
 def _remember_dense_sample(item: Any) -> None:
-    """Record the scene region the current dense sample covers (see above)."""
+    """Record the scene region the current dense sample actually covered."""
     view = _dense_sample_view(item)
-    current = _visible_scene_rect(view)
-    if view is None or current is None:
+    candidate = _dense_candidate_scene_rect(view)
+    if view is None or candidate is None:
         return
-    margin_x = current.width() / 2.0
-    margin_y = current.height() / 2.0
-    item._dense_sample_scene_rect = current.adjusted(-margin_x, -margin_y, margin_x, margin_y)
+    item._dense_sample_scene_rect = candidate
     item._dense_sample_zoom = abs(view.transform().m11())
+    item._dense_sample_pose = _dense_sample_pose(item)
 
 
 def _forget_dense_sample(item: Any) -> None:
-    """Drop the sample cache (a non-dense outline, or leaving edit mode)."""
+    """Drop the sample cache (a non-dense outline, a geometry/pose change, or leaving edit mode)."""
     item._dense_sample_scene_rect = None
     item._dense_sample_zoom = None
+    item._dense_sample_pose = None
 
 
 def _dense_overlay_indices(
@@ -1918,6 +1943,7 @@ class VertexEditMixin:
         self._remove_vertex_handles()
         self._remove_midpoint_handles()
         self._remove_annotations()
+        _forget_dense_sample(self)
 
         # Show resize and rotation handles if selected
         if hasattr(self, 'isSelected') and self.isSelected():
@@ -2067,6 +2093,8 @@ class VertexEditMixin:
 
         # Update annotations
         self._update_annotations()
+        # A geometry change invalidates the candidate set's pose/positions (#594).
+        _forget_dense_sample(self)
 
     def _create_annotations(self) -> None:
         """Create coordinate and edge length annotations."""
@@ -3023,6 +3051,7 @@ class PolylineVertexEditMixin:
         self._remove_vertex_handles()
         self._remove_midpoint_handles()
         self._remove_annotations()
+        _forget_dense_sample(self)
 
         # Show rotation handle if selected
         if hasattr(self, 'isSelected') and self.isSelected() and hasattr(self, 'show_rotation_handle'):
@@ -3166,6 +3195,8 @@ class PolylineVertexEditMixin:
 
         # Update annotations
         self._update_annotations()
+        # A geometry change invalidates the candidate set's pose/positions (#594).
+        _forget_dense_sample(self)
 
     def _create_annotations(self) -> None:
         """Create coordinate and edge length annotations."""

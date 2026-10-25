@@ -2798,8 +2798,8 @@ without touching the 3D/forge stack, the sun model or serialization:
   **78 passed / 76.9 s** on the dev box (was 20 failed / 55 passed / 3 skipped).
 - **Settings safety (#587).** `create_qsettings()` refuses the production names
   under `offscreen`/`minimal` or in an exact agent/tooling shell unless the
-  product's `main.py` (`OGP_PRODUCT_PROCESS`) or `script_isolation`
-  (`OGP_SETTINGS_ISOLATED`) marked the process; `OGP_ALLOW_PRODUCTION_SETTINGS`
+  product's `main()` (`OGP_PRODUCT_PROCESS`) or `script_isolation`'s rebound
+  names marked the process; `OGP_ALLOW_PRODUCTION_SETTINGS`
   is the deliberate one-off override. A probe can no longer switch off the
   owner's Welcome dialog. ADR-041 addendum, PF-TST-29.
 - **Command-proportional refresh (#592).** `ConstraintGraph.fixed_item_ids()`
