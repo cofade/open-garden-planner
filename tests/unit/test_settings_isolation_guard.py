@@ -119,4 +119,3 @@ def test_the_product_entry_point_uses_the_shared_marker_name() -> None:
         Path(settings_module.__file__).parent.parent / "main.py"
     ).read_text(encoding="utf-8")
     assert f'os.environ["{settings_module.PRODUCT_PROCESS_ENV}"] = "1"' in main_source
-
