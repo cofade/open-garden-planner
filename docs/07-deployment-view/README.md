@@ -61,6 +61,15 @@ own metadata and then **checks** them (`--lock pylock.toml`): a distribution who
 is missing, a version that disagrees with the lock, or a distribution with no discoverable
 license fails the build instead of shipping an incomplete notice.
 
+**The project's own license metadata is PEP 639 (#574).** `pyproject.toml` declares
+`license = "GPL-3.0-or-later"` and `license-files = ["LICENSE"]`, with no
+`License ::` classifier; a built wheel carries `Metadata-Version: 2.4`,
+`License-Expression: GPL-3.0-or-later` and the LICENSE under `dist-info/licenses/`.
+The `[build-system] requires` floor is `setuptools>=77`, because an isolated
+`pip install .`/`uv build` resolves the newest setuptools regardless of the build
+group's `84.1.0` pin. `tests/unit/test_packaging_metadata.py` pins all four facts;
+PF-CI-14 records the incident (the 2027-02-18 deprecation warning).
+
 **The gate build — test tooling, never shipped (Phase 17 L1.3).**
 `installer/workspace_gate.spec` builds `OpenGardenPlannerGate.exe`: the product recipe (it
 executes the text of `ogp.spec`) plus ONE PyInstaller runtime hook,

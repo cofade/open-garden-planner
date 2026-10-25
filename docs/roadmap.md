@@ -2781,9 +2781,52 @@ alias-table case the owner declined. Contributed content: @Sevoiger's personal-f
 implementation informed #550/#551; #569 was reported by @jbuijgers (fork branch
 `fix/preferences-dialog-height`). §8.25 (one derivation per layer), §8.9 (shared
 path clip), ADR-043 and ADR-061 addenda, FR-EDIT-19, FR-UI-14; the residual
-per-command UI refresh is #592 and the dense-overlay scroll re-sample is #594.
-The local full suite still carries the 24 pre-existing Windows-offscreen Plan &
-Sun layout failures tracked by #562; native Windows passes them.
+per-command UI refresh (#592) and the dense-overlay scroll re-sample (#594) shipped
+in the follow-up batch below.
+
+### Non-3D follow-up hardening, batch 2 (2026-10-25, draft PR)
+
+Six items from the review ledger of L2 (#584) and the non-3D batch (#585), built
+without touching the 3D/forge stack, the sun model or serialization:
+
+- **Test signal (#562, #573).** Windows' `offscreen` Qt has no font database, so
+  every family resolved to a box engine and the Plan & Sun layout file failed 20
+  cases on the dev box while Linux CI passed. `tests/conftest.py::ui_font_family`
+  now registers the real Windows faces once and makes Verdana 10 the application
+  font; `tests/unit/test_test_font_contract.py` pins the real-engine contract;
+  `test_plan_timeline.py`'s leaked `arial.ttf` registration is gone. The file is
+  **78 passed / 76.9 s** on the dev box (was 20 failed / 55 passed / 3 skipped).
+- **Settings safety (#587).** `create_qsettings()` refuses the production names
+  under `offscreen`/`minimal` or in an exact agent/tooling shell unless the
+  product's `main.py` (`OGP_PRODUCT_PROCESS`) or `script_isolation`
+  (`OGP_SETTINGS_ISOLATED`) marked the process; `OGP_ALLOW_PRODUCTION_SETTINGS`
+  is the deliberate one-off override. A probe can no longer switch off the
+  owner's Welcome dialog. ADR-041 addendum, PF-TST-29.
+- **Command-proportional refresh (#592).** `ConstraintGraph.fixed_item_ids()`
+  scopes the lock-badge refresh; `Command.changes_ground_band` (default true) lets
+  move/resize/rotate/vertex/curve/copy/link/constraint commands skip the
+  scene-wide ground-band scan. 600 single adds: **0.31 s → 0.11 s**; a 100-command
+  pin counts zero classifications and zero badge refreshes. ADR-043 addendum,
+  PF-CAN-25, FR-EDIT-20.
+- **Dense overlay scroll (#594).** A selected 16 384-vertex outline re-sampled
+  every scrollbar step (~98 ms). The sample is now reused while the viewport stays
+  inside the scene region it was taken over; a zoom or a pan beyond it samples
+  again (**0.01 ms** cached). ADR-057 addendum, PF-CAN-26, FR-EDIT-20.
+- **One height resolver (#581).** `core/object_height.resolve_height()` is the
+  single precedence ladder; `effective_height_cm`, `height_source` and
+  `height_source_at` project it. Answers unchanged, ADR-037 addendum.
+- **PEP 639 license metadata (#574).** SPDX `license`, `license-files`, no license
+  classifier, and a `setuptools>=77` build floor; the wheel is Metadata 2.4 with
+  `License-Expression` and the LICENSE file, and builds without the deprecation
+  warning. ADR-050 addendum, PF-CI-14.
+- **Release-status duty (#590).** `finalize-us` §5 now also updates the feature
+  ADR/addendum Status line and the README Status paragraph, the two statements
+  three syncs in a row left stale.
+
+The local full suite no longer carries the Windows-offscreen Plan & Sun failures:
+all 24 (20 in a single file plus the four theme/order variants) were the box font
+engine. `docs/08` §8.8/§8.9/§8.10/§8.25, the four ADR addenda, FR-EDIT-20,
+PF-CAN-25/26, PF-TST-28/29 and PF-CI-14 record the rules.
 
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-053) — **shipped v1.29.10, [PR #429](https://github.com/cofade/open-garden-planner/pull/429)**
 

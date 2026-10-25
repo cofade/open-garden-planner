@@ -1,4 +1,9 @@
 {
+  "114": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
+  },
   "12": {
     "is_pr": true,
     "state": "MERGED",
@@ -8,11 +13,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "refine(US-4): Improve Plant Details panel layout and date picker"
-  },
-  "114": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
   },
   "161": {
     "is_pr": false,
@@ -1159,10 +1159,20 @@
     "state": "OPEN",
     "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
   },
+  "574": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "pyproject license metadata is deprecated by setuptools (due 2027-02-18)"
+  },
   "575": {
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
+  },
+  "581": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "One resolver for (height, source) instead of three copies of the precedence ladder"
   },
   "584": {
     "is_pr": true,
@@ -1174,14 +1184,24 @@
     "state": "MERGED",
     "title": "fix(#450,#551,#550,#569,#538,#446): non-3D hardening batch"
   },
+  "587": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Probes outside scripts/ bypass script_isolation - nothing stops one writing the owner's real settings (it switched off the Welcome dialog)"
+  },
+  "590": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "finalize-us §5: version sync must also update ADR status lines and the README Status paragraph"
+  },
   "592": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Every command refreshes every scene item: a one-item-per-command loop is still quadratic (lock badges + ground band)"
   },
-  "593": {
-    "is_pr": true,
+  "594": {
+    "is_pr": false,
     "state": "OPEN",
-    "title": "feat(3D): Phase 17 L3 Plant Forge: procedural species models from sprite recipes (#387)"
+    "title": "A selected 16,384-vertex polygon re-samples its vertex overlay on every scrollbar step (~100 ms)"
   }
 }

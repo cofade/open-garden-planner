@@ -177,3 +177,13 @@ bootstrap pin must be checked against hosted update tooling as well as installat
 - **Source:** #538
 - **Status:** standing
 - **Legacy:** none (new entry)
+
+### PF-CI-14
+
+- **Rule:** The project license is a PEP 639 SPDX expression (`license = "GPL-3.0-or-later"`) plus `license-files = ["LICENSE"]`, with no `License ::` classifier, and the build floor is `setuptools>=77`. An isolated build (`[build-system] requires`) floats, so the build group's pin alone does not protect it.
+- **Pinned by:** `tests/unit/test_packaging_metadata.py`
+- **Source:** #574
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+setuptools 82/84 emits `SetuptoolsDeprecationWarning` with a 2027-02-18 due date for a `{text = ...}` license table and for a license classifier beside an SPDX expression. The wheel built without isolation and with `uv build` now carries `Metadata-Version: 2.4`, `License-Expression: GPL-3.0-or-later`, `License-File: LICENSE`, and the LICENSE itself under `dist-info/licenses/`, with no warning. The floor matters because an isolated `pip install .` resolves the newest setuptools regardless of the build group.
