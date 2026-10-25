@@ -609,6 +609,11 @@
     "state": "CLOSED",
     "title": "L3 \"Plant Forge\": procedural species models from the sprite recipes (Phase 17)"
   },
+  "388": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L4 \"Built world complete\": roof styles, paths, glass, 24 object builders, water and lawn (Phase 17)"
+  },
   "392": {
     "is_pr": false,
     "state": "OPEN",
@@ -1188,5 +1193,10 @@
     "is_pr": true,
     "state": "OPEN",
     "title": "fix(#562,#573,#574,#581,#587,#590,#592,#594): non-3D follow-up hardening batch 2"
+  },
+  "597": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "chore: sync version to v1.32.0 after PR #593"
   }
 }
