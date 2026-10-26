@@ -756,10 +756,11 @@ class TestOneSmallEdit:
                               "edit_passes"),
                              [("bench_small.ogp", 20, 9, None, 2, 10.0, 1),
                               ("bench_large.ogp", 60, 25, "border", 2, 10.0, 1),
-                              # PROVISIONAL (#615): a four-tile edit is one pass of the
-                              # budget plus its last tile. CI read <= 10 ms in one run,
-                              # 12.15 ms in the next, 13.29 ms under coverage. The second
-                              # pass is allowed only for a throttled Windows dev box (#616).
+                              # PROVISIONAL (#615): a four-tile edit can run over the
+                              # budget by its last tile. CI read <= 10 ms in one run,
+                              # 12.15 ms in the next, 13.29 ms under coverage. Its 2 passes
+                              # are no separate pin: a third pass needs 20 ms of bake first,
+                              # which edit_ms already rejects.
                               ("bench_large.ogp", 60, 25, "corner", 4, 20.0, 2)])
     def test_a_small_move_repaints_few_tiles_within_its_bound(
             self, qtbot: Any, plan: str, tiles: int, painted: int, across: str | None,
@@ -768,9 +769,9 @@ class TestOneSmallEdit:
         most 3 m, 31 times: every move re-paints at most four tiles (the count its case
         names), looks at ONE record, and leaves every other tile the very object it
         was. A two-tile edit's bake takes at most 10 ms in the median and is ONE pass
-        (an edit that fits the gate is not spread over frames). A four-tile edit is one
-        pass that runs over the budget by its last tile, around 10 ms on CI; master
-        costs the same on the dev box. Its bound is provisional until #615."""
+        (an edit that fits the gate is not spread over frames). A four-tile edit can run
+        over the budget by its last tile (10-13.3 ms on CI). Its bound is provisional
+        until #615."""
         scene = _loaded(plan)
         baker = TimedBaker()
         bake = Bake(scene, registry=production_registry(), baker=baker)

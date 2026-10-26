@@ -269,9 +269,10 @@ _ELLIPSE_MAX_CHORDS: Final = 2048
 #: What ONE ``bake`` call spends painting tiles before it hands the rest back as
 #: PENDING, in seconds (``GroundBaker(budget_s=…)``; None: no budget). The edit
 #: gate of the 3D workspace is 50 ms from an edit to its frame, the bake's own
-#: gate 10 ms for one small edit on the bench plans — an edit that fits the gate
-#: is one pass (measured: the bench plans open in 2 and 8 passes, the longest
-#: 13.4 ms). A pass paints at least one tile and looks at the clock after each: it
+#: gate 10 ms for one small edit of two tiles on the bench plans — an edit that
+#: fits the gate is one pass (measured at L1.5: the bench plans opened in 2 and 8
+#: passes, the longest 13.4 ms; a four-tile edit can run over, #615). A pass
+#: paints at least one tile and looks at the clock after each: it
 #: costs at most the budget plus ONE tile — plus one more when it brings an edit
 #: while older tiles are pending (``GroundBaker``: the backlog cannot starve) —
 #: and what one tile can cost is above: milliseconds on a plan somebody drew, 0.2
