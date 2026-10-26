@@ -1642,9 +1642,12 @@ def _fake_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
 
 def _trailing_pass(rig: Rig, now: list[float]) -> None:
     """The interval is over (the fake clock) and the booked trailing pass runs: the
-    timer's own signal, not a real wait a busy worker could outlast."""
+    timer's own signal, not a real wait a busy worker could outlast. The real timer
+    may have fired already on a slow runner — its pass, still inside the fake clock's
+    interval, only books it again, so whether it runs at this moment says nothing (CI
+    once read it between the two): the test asserts that a change was held instead."""
     timer = rig.controller._context_timer   # noqa: SLF001
-    assert timer.isActive(), "a trailing pass was booked"
+    assert rig.controller.context_deferrals > 0, "a change was held back"
     now[0] += sync_controller.CONTEXT_REBUILD_MIN_MS / 1000.0 + 0.01
     timer.stop()
     timer.timeout.emit()
@@ -1811,9 +1814,11 @@ def test_a_raised_lawn_lowered_inside_a_hold_keeps_the_blade_budget(
     terrace = RectangleItem(500.0, 500.0, 300.0, 200.0, object_type=ObjectType.TERRACE_PATIO,
                             layer_id=rig.scene.active_layer.id)
     rig.commands.execute(CreateItemCommand(rig.scene, terrace, "terrace"))
-    on_raised = RectangleItem(4500.0, 500.0, 300.0, 200.0, object_type=ObjectType.TERRACE_PATIO,
-                              layer_id=rig.scene.active_layer.id)   # cut out of it once it is a lawn
-    rig.commands.execute(CreateItemCommand(rig.scene, on_raised, "terrace on the raised lawn"))
+    # cut out of it once it is a lawn: a sandbox covers the ground, so it cuts whatever the
+    # paint order (a terrace lies in the ground band, under a lawn that had a height)
+    on_raised = RectangleItem(4500.0, 500.0, 300.0, 200.0, object_type=ObjectType.SANDBOX,
+                              layer_id=rig.scene.active_layer.id)
+    rig.commands.execute(CreateItemCommand(rig.scene, on_raised, "sandbox on the raised lawn"))
     rig.controller.set_active(True)
     rig.settle()
     assert sorted(_applied_shares(rig), key=str) == [36_000, None]   # the raised lawn takes none
