@@ -470,7 +470,7 @@ def build_built() -> PlanBuilder:
     b.plant(1280, 130, "Runner Bean", T.PERENNIAL, parent=trellis)
     b.rect(380, 330, 120, 60, T.COLD_FRAME, "Cold frame")
     b.rect(80, 330, 100, 100, T.COMPOST_BIN, "Compost bin")
-    b.circle(345, 105, 30, T.RAIN_BARREL, "Rain barrel")
+    b.circle(350, 105, 28, T.RAIN_BARREL, "Rain barrel")  # between the shed and the greenhouse
     b.circle(730, 110, 10, T.WATER_TAP, "Water tap")
     b.rect(1000, 260, 60, 140, T.WHEELBARROW, "Wheelbarrow")
 

@@ -7030,7 +7030,7 @@ path style and roof style for the board.
 
 **Truth details from the 3D review.** The endless meadow is a frame IN the plan's plane
 (`core/scene3d/meadow.py`): a 4 km square around the plan in cells of at most 100 m, the
-plan cut out less a 1 cm strip under its edge. Nothing lies under the plan. One quad of two
+plan cut out less a 1 mm strip under its edge. Nothing lies under the plan. One quad of two
 triangles 1 cm, then 5 cm, under the plan lost the depth test to it: its depth, interpolated
 across 2 km, was more than 5 cm off at 55–90 m. The 5 cm step also drew an ambient-occlusion
 line along every plan edge. The host loads the frame into one geometry when the plan

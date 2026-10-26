@@ -13,10 +13,11 @@ up to 52 % of the plan: the pond, the terraces and the paths were gone. The same
 cut into 100 m cells lost no view. The 5 cm step also drew an ambient-occlusion line
 along every plan edge (±14 luma), and the shadows that crossed the edge jumped there.
 
-The strip under the plan's edge (``MEADOW_OVERLAP_CM``): the tiles' vertices along the
-edge are not the meadow's, and an edge shared without its vertices can leave pixels
-that neither side covers. In that strip the meadow and the plan are coplanar, and either
-one may show. Without a plan the square has no hole.
+The strip under the plan's edge (``MEADOW_OVERLAP_CM``, 1 mm): the tiles' vertices along
+the edge are not the meadow's, and an edge shared without its vertices can leave pixels
+that neither side covers. In that strip the meadow and the plan are coplanar, and the
+meadow wins; at 1 cm it took a visible centimetre of a surface painted to the edge.
+Without a plan the square has no hole.
 
 ``meadow_frame`` builds the mesh in the scene frame (E, N, up), at the scene origin, with
 the faces up. The host loads it into ONE geometry of the scene's one meadow Model
@@ -36,9 +37,12 @@ MEADOW_HALF_CM: Final = 200_000.0
 #: The largest cell, cm. A 4 km quad of two triangles drew over the plan from the
 #: default framing; cells of 100 m drew over it from no view (3D review of #388).
 MEADOW_CELL_CM: Final = 10_000.0
-#: How far the meadow reaches under the plan's edge, cm (module docstring).
-MEADOW_OVERLAP_CM: Final = 1.0
-#: Grid lines closer together than this are one line, cm.
+#: How far the meadow reaches under the plan's edge, cm (module docstring). At 1 cm the
+#: meadow won the strip's equal depth test and took the outer centimetre of a surface
+#: painted up to the edge (3D review of #388, round 3: 4 px at 0.5 m); 1 mm shows none,
+#: and no crack either.
+MEADOW_OVERLAP_CM: Final = 0.1
+#: A cell line this close to one of the plan's edges is dropped for the edge, cm.
 _MERGE_CM: Final = 0.5
 
 
@@ -81,14 +85,16 @@ def meadow_frame(plan: tuple[float, float, float, float] | None) -> Mesh:
 
 def _lines(middle: float, hole: tuple[float, float] | None) -> np.ndarray:
     """The grid's lines along one axis: every ``MEADOW_CELL_CM`` across the square, and
-    the hole's two edges."""
+    the hole's two edges. A cell line within ``_MERGE_CM`` of an edge goes, never the
+    edge: a cell line kept in its place would move the meadow's edge off the plan's and
+    open a gap there."""
     steps = round(2.0 * MEADOW_HALF_CM / MEADOW_CELL_CM)
     at = middle - MEADOW_HALF_CM + MEADOW_CELL_CM * np.arange(steps + 1)
     if hole is not None:
-        at = np.concatenate([at, hole])
-    at = np.sort(at)
-    keep = np.concatenate([[True], np.diff(at) > _MERGE_CM])
-    return np.asarray(at[keep], dtype=np.float64)
+        edges = np.asarray(hole, dtype=np.float64)
+        near = np.abs(at[:, None] - edges[None, :]).min(axis=1) <= _MERGE_CM
+        at = np.concatenate([at[~near], edges])
+    return np.asarray(np.sort(at), dtype=np.float64)
 
 
 __all__ = ["MEADOW_CELL_CM", "MEADOW_HALF_CM", "MEADOW_OVERLAP_CM", "meadow_frame"]

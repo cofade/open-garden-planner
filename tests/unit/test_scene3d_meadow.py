@@ -48,23 +48,39 @@ def test_the_frame_is_the_square_less_the_plan_in_the_plans_plane(plan: tuple[fl
     low, high = triangles[:, :, :2].min(axis=1), triangles[:, :, :2].max(axis=1)
     assert np.all((high - low) <= MEADOW_CELL_CM + 1e-6), "no triangle wider than a cell"
     # nothing lies on the plan, the strip under its edge excepted
-    apart = ((high[:, 0] <= hole[0] + 1e-6) | (low[:, 0] >= hole[2] - 1e-6)
-             | (high[:, 1] <= hole[1] + 1e-6) | (low[:, 1] >= hole[3] - 1e-6))
+    apart = ((high[:, 0] <= hole[0] + 1e-3) | (low[:, 0] >= hole[2] - 1e-3)
+             | (high[:, 1] <= hole[1] + 1e-3) | (low[:, 1] >= hole[3] - 1e-3))  # float32 positions
     assert apart.all()
     centre = ((east0 + east1) / 2.0, (north0 + north1) / 2.0)
     assert low[:, 0].min() == pytest.approx(centre[0] - MEADOW_HALF_CM)
     assert high[:, 1].max() == pytest.approx(centre[1] + MEADOW_HALF_CM)
 
 
-def test_the_frame_reaches_under_the_plans_edge() -> None:
+def test_the_frame_reaches_under_the_plans_edge_and_no_further() -> None:
     """The strip under the edge: the tiles' vertices along it are not the meadow's, and
-    an edge shared without its vertices can leave pixels neither side covers."""
+    an edge shared without its vertices can leave pixels neither side covers. No
+    further: the meadow wins the strip, and at 1 cm it took a visible centimetre of a
+    surface painted to the edge (3D review of #388, round 3)."""
+    assert MEADOW_OVERLAP_CM <= 0.1
     triangles = _triangles(meadow_frame(PLAN))
-    for point in ((0.5, 900.0), (2599.5, 900.0), (1300.0, 0.5), (1300.0, 1799.5),
+    half, past = MEADOW_OVERLAP_CM / 2.0, 3.0 * MEADOW_OVERLAP_CM
+    for point in ((half, 900.0), (2600.0 - half, 900.0), (1300.0, half), (1300.0, 1800.0 - half),
                   (-50.0, -50.0), (2650.0, 1850.0)):
         assert _covered(triangles, point), point
-    for point in ((1.5, 900.0), (1300.0, 900.0), (2598.5, 1798.5)):
+    for point in ((past, 900.0), (1300.0, 900.0), (2600.0 - past, 1800.0 - past)):
         assert not _covered(triangles, point), point
+
+
+@pytest.mark.parametrize("off", [-0.3, 0.3])
+def test_a_cell_line_near_the_plans_edge_never_moves_the_meadows_edge(off: float) -> None:
+    """A 100 m cell line within half a centimetre of a plan edge is dropped for the edge.
+    Kept in the edge's place (whichever sorted first), a line just outside the plan
+    would end the meadow there and open a gap between it and the plan (round 3)."""
+    width = 2.0 * (MEADOW_CELL_CM + MEADOW_OVERLAP_CM + off)   # a cell line at x = overlap + off
+    triangles = _triangles(meadow_frame((0.0, 0.0, width, 1800.0)))
+    for east in (-0.05, MEADOW_OVERLAP_CM / 2.0):
+        assert _covered(triangles, (east, 900.0)), (off, east)
+    assert not _covered(triangles, (3.0 * MEADOW_OVERLAP_CM + max(off, 0.0) + 0.1, 900.0))
 
 
 def _covered(triangles: np.ndarray, point: tuple[float, float]) -> bool:
@@ -77,7 +93,7 @@ def _covered(triangles: np.ndarray, point: tuple[float, float]) -> bool:
     return bool(np.any((side(a, b) >= 0) & (side(b, c) >= 0) & (side(c, a) >= 0)))
 
 
-@pytest.mark.parametrize("plan", [None, (0.0, 0.0, 1.5, 900.0), (0.0, 0.0, 2.0, 2.0)])
+@pytest.mark.parametrize("plan", [None, (0.0, 0.0, 0.15, 900.0), (0.0, 0.0, 0.2, 0.2)])
 def test_no_plan_or_one_narrower_than_the_strip_leaves_no_hole(plan: tuple[float, ...] | None) -> None:
     triangles = _triangles(meadow_frame(plan))
     side = 2.0 * MEADOW_HALF_CM

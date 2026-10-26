@@ -819,6 +819,7 @@ class Board:
         """How the plan's fences alias, per preset: the fences alone at the noon camera
         against the same frame without them (``probes.thin_geometry_moire``)."""
         from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.host import EngineError
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         camera = {shot.name: shot for shot in shots}["noon"]
@@ -838,12 +839,20 @@ class Board:
                                                  shot=shot)
             without, _frame, _info = self.frame(f"fence_empty_{preset}", {}, sun=sun, look=look,
                                                 ground=self.plan_ground(), shot=shot)
-            large, _frame, _info = self.frame(f"fence_2x_{preset}", fences, sun=sun, look=look,
-                                              ground=self.plan_ground(), registry=registry, shot=shot,
-                                              size=(2 * self.size[0], 2 * self.size[1]))
-            reference = probes.downsample(large, 2) if large.shape[0] == 2 * with_them.shape[0] else None
+            # the reference at twice the size: a window the screen cannot hold is clamped
+            # by the windowing system and its frame refused (a 2560 x 1440 display and
+            # the default 1280 x 720 board) — then the row has no reference, the board goes on
+            reference_skipped: str | None = None
+            try:
+                large, _frame, _info = self.frame(f"fence_2x_{preset}", fences, sun=sun, look=look,
+                                                  ground=self.plan_ground(), registry=registry,
+                                                  shot=shot, size=(2 * self.size[0], 2 * self.size[1]))
+            except EngineError as error:
+                large, reference_skipped = None, f"no 2x reference: {error}"[:300]
+            reference = (probes.downsample(large, 2)
+                         if large is not None and large.shape[0] == 2 * with_them.shape[0] else None)
             out[preset] = {**probes.thin_geometry_moire(with_them, without, reference),
-                           "file": info["file"]}
+                           "file": info["file"], "reference_skipped": reference_skipped}
             self.log("fence_moire", preset=preset, **{k: v for k, v in out[preset].items()
                                                       if k != "file"})
             self.write()

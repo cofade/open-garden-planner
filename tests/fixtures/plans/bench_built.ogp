@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-26T12:24:36.036133+00:00"
+    "modified": "2026-10-26T13:21:07.189615+00:00"
   },
   "canvas": {
     "width": 2600.0,
@@ -1323,9 +1323,9 @@
     {
       "type": "circle",
       "item_id": "c5f9a4ab-47a2-4e99-aa53-87b3917a60ac",
-      "center_x": 345.0,
+      "center_x": 350.0,
       "center_y": 105.0,
-      "radius": 30,
+      "radius": 28,
       "object_type": "RAIN_BARREL",
       "name": "Rain barrel",
       "fill_color": "#ff3c643c",

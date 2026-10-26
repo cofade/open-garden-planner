@@ -7562,8 +7562,8 @@ had only moved the failing views.
   and shadows jumped where they crossed it.
 - **Decision:** the meadow is a frame IN the plan's plane (`core/scene3d/meadow.py`).
   - It is a 4 km square around the plan, in cells of at most 100 m, with the plan cut out.
-  - The cut-out is 1 cm smaller than the plan on each side, so no crack opens along the
-    edge where the tiles' and the frame's vertices differ.
+  - The cut-out is smaller than the plan on each side (1 cm at first, 1 mm after round 3),
+    so no crack opens along the edge where the tiles' and the frame's vertices differ.
   - Its one geometry belongs to the host, which loads it at start and whenever the plan
     rectangle changes, like the selection ring (`Quick3DHost._show_meadow`, a
     `ReloadableGeometry`).
@@ -7590,3 +7590,24 @@ had only moved the failing views.
   - Blade back faces lit from below, which still read as stubble at High: #604.
   - The 2D painter's outer bends, mitred fill against chord border lines: #605 (with an
     owner question).
+
+**3D review round 3 (2026-10-26): approved, no P0 or P1.**
+- **Verified fixed:**
+  - The meadow drew on the plan in 0 of 264 views of the workspace's framing on the three
+    bench plans: 8 yaws × 11 zoom factors, worst 2 px. The gate also passes on D3D11,
+    OpenGL and WARP.
+  - The edge line now reads 1.22–1.43 luma. The new probe reads 5.49–10.21 on round 2's
+    frames, so it would have caught round 2.
+  - Shadows cross the plan edge unbroken.
+  - Every round-2 P2 holds.
+- **P2s taken in the same pass:**
+  - The meadow's strip under the plan's edge is now 1 mm. In that strip the meadow wins
+    the equal depth test, and at 1 cm it took the outer centimetre of a surface painted to
+    the edge (4 px at 0.5 m).
+  - A 100 m cell line within 5 mm of a plan edge is dropped for the edge. Kept in its
+    place, a line just outside the plan opened a gap there.
+  - The bench rain barrel stands clear of the tool shed.
+  - The board's 2× fence reference is skipped and reported when the screen cannot hold
+    the window. Before, it ended the board in an error on a 2560 × 1440 display.
+- **Owner question added:** from far out (×3 the default distance, about 7 wheel notches)
+  the fog washes the garden out. Should the fog follow the camera distance?
