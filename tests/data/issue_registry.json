@@ -1218,5 +1218,15 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "L4 follow-ups from the senior review: lawn mask cost, blades per preset, roof clamp copies, degenerate sizes"
+  },
+  "609": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Two 3D render tests fail when the display is scaled (DPR 2.0, 1280x720 logical): a hard-coded 1.25 and a 1500x900 window"
+  },
+  "611": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D context hold: hold only the params both the old and new record take (follow-up to #388)"
   }
 }
