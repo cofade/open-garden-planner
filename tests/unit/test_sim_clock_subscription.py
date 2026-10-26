@@ -153,6 +153,7 @@ def test_a_dead_subscription_never_stands_in_for_a_new_receiver(qtbot) -> None: 
     others = list(sim_clock_subscription._GUARDS.keys())
     for round_number in range(50):
         listener = _Listener()
+        alive = weakref.ref(listener)
         connect_qobject(channel, listener.on_value)
         assert len(sim_clock_subscription._GUARDS) == len(others) + 1, "this receiver is booked"
         channel.emit(round_number)
@@ -160,11 +161,29 @@ def test_a_dead_subscription_never_stands_in_for_a_new_receiver(qtbot) -> None: 
         if round_number % 2:
             sip.delete(listener)  # destroyed by Qt, wrapper still referenced here
         del listener
-        gc.collect()
+        # These wrappers have no cycle. Prove immediate weak-reference cleanup on
+        # every round instead of traversing the whole suite's object graph 50 times.
+        assert alive() is None
+        assert channel.receiver_count() == 0
+        assert len(sim_clock_subscription._GUARDS) == len(others)
     channel.emit(-1)  # the Qt-destroyed ones leave at this delivery
     assert channel.receiver_count() == 0
     assert len(sim_clock_subscription._GUARDS) == len(others), "not one of the fifty is left"
     del others
+
+
+def test_a_cyclic_receiver_leaves_after_collection(qtbot) -> None:
+    """Keep real cyclic-GC coverage separate from the fifty acyclic rounds (#601)."""
+    channel: Channel[int] = Channel()
+    listener = _Listener()
+    listener.cycle = listener
+    alive = weakref.ref(listener)
+    connect_qobject(channel, listener.on_value)
+    del listener
+    gc.collect()
+    assert alive() is None
+    assert channel.receiver_count() == 0
+    channel.emit(1)
 
 
 @pytest.mark.parametrize("bad", ["function", "lambda", "plain_object", "builtin"])

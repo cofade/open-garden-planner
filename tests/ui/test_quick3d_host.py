@@ -1313,9 +1313,8 @@ class TestStateMachine:
         assert not container.isVisible()
 
 
-# Every test here bounds how long wait_ready() takes: wall-clock assertions, so they run
-# in the serial `-m perf -n 0` step, not beside the default run's workers (ADR-058).
-@pytest.mark.perf
+# Only real elapsed-time assertions need the quiet runner. Signature, spy,
+# fake-clock and bounded-call-count contracts run with the workers (#601).
 class TestWaitReady:
     """The contract's sentences 2 and 3 (``lifecycle.py``): ``wait_ready(timeout_s)``
     starts no pass of the event loop once ``timeout_s`` is up; True means a frame of the
@@ -1339,6 +1338,7 @@ class TestWaitReady:
                       "PLUS whatever was queued when its last pass began"):
             assert words in text, words
 
+    @pytest.mark.perf
     def test_true_means_a_frame_of_the_windows_size_was_just_taken(self, host) -> None:
         taken = _frames(host, (320, 240))
         _force(host)
@@ -1348,6 +1348,7 @@ class TestWaitReady:
         assert (taken, host.probes, host.stale_frames) == ([(320, 240)], 1, 0)
         assert host.grab("right after it").width() == 320
 
+    @pytest.mark.perf
     def test_a_live_host_whose_frame_has_another_size_is_refused_promptly(self, host) -> None:
         """Review round 4 — THE finding, as far as it can be put here: Qt reports every
         fact, and the frame has the old size (a pane that grew beyond the screen's edge).
@@ -1367,6 +1368,7 @@ class TestWaitReady:
             assert len(taken) == before + 1, "no second frame while nothing has happened"
         assert host.state.value == "live" and host.stale_frames == 2
 
+    @pytest.mark.perf
     def test_a_sign_of_progress_makes_it_take_another_frame(self, host) -> None:
         """The other half: the pane is moved back onto the screen, Qt draws it — an event
         arrives — and the next frame fits."""
@@ -1380,6 +1382,7 @@ class TestWaitReady:
         assert 0.05 <= time.perf_counter() - started < 1.5
         assert taken == [(49, 240), (320, 240)] and host.stale_frames == 1
 
+    @pytest.mark.perf
     def test_signs_that_keep_coming_do_not_keep_it_beyond_its_timeout(self, host) -> None:
         """Sentence 2 wins over sentence 3: while something keeps happening the host goes
         on looking — up to ``timeout_s``, not a moment longer."""
@@ -1399,6 +1402,7 @@ class TestWaitReady:
         assert 0.38 <= elapsed < 1.2, f"{elapsed:.2f} s for a 0.4 s timeout"
         assert 3 <= len(taken) <= 40, f"{len(taken)} frames: one per sign, never a spin"
 
+    @pytest.mark.perf
     @pytest.mark.parametrize(("changes", "frame", "answer", "frames"), [
         ({}, (320, 240), True, 1), ({}, (49, 240), False, 1),
         ({"exposed": False}, (320, 240), False, 0), ({"visible": False}, (320, 240), False, 0),
@@ -1484,6 +1488,7 @@ class TestWaitReady:
         host.wait_ready(timeout)
         assert limits == expected
 
+    @pytest.mark.perf
     @pytest.mark.parametrize("timeout", [float("inf"), 3.0e6, 1.0e300],
                              ids=["infinity", "34 days", "1e300"])
     def test_a_timeout_without_end_still_ends_after_the_stall_bound(self, host, timeout: float) -> None:
@@ -1497,6 +1502,7 @@ class TestWaitReady:
         assert host.wait_ready(timeout) is False and host.state.value == "starting"
         assert STALL_S - 0.05 <= time.perf_counter() - started < STALL_S + 0.8
 
+    @pytest.mark.perf
     def test_a_busy_pass_of_the_event_loop_is_not_silence(self, host) -> None:
         """Review round 5, P2-2. The stall bound counted WALL time: with the GUI thread
         busy for 0.7 s inside the wait — a handler of something else — and the repaint
@@ -1559,6 +1565,7 @@ class TestWaitReady:
             "more (the busy pass started the count again)")
         assert now[0] - 1000.0 == STALL_S + busy
 
+    @pytest.mark.perf
     def test_it_comes_back_at_once_when_no_event_loop_can_run(self, host) -> None:
         """Review round 3, P2-1. Once the application is quitting ``QEventLoop.exec()``
         returns at once (``_run_events`` then says False): 158,574 looks at Qt in 3.0 s."""
@@ -1589,6 +1596,7 @@ class TestWaitReady:
         assert host.wait_ready(0.2) is False
         assert looks[0] < 60, f"{looks[0]} looks at Qt for a 0.2 s timeout"
 
+    @pytest.mark.perf
     def test_a_pass_of_the_event_loop_says_whether_it_ran(self, tmp_path: Path) -> None:
         """The real thing, in a child with a running main loop (``quit()`` does nothing
         without one): before ``QCoreApplication.quit()`` a pass blocks and says True;
@@ -1615,6 +1623,7 @@ class TestWaitReady:
         assert host.state.value == "hidden", "hidden at once, whatever Qt still calls exposed"
         assert host.wait_ready(5.0) is False
 
+    @pytest.mark.perf
     @pytest.mark.parametrize("changes", [
         {"visible": False}, {"minimised": True}, {"size": (0, 240)}, {"size": (1, 240)},
         {"surface_created": False, "visible": False},
@@ -1626,6 +1635,7 @@ class TestWaitReady:
         assert host.wait_ready(5.0) is False
         assert time.perf_counter() - started < 1.0
 
+    @pytest.mark.perf
     def test_it_times_out_without_spinning(self, host) -> None:
         """A window that never starts, and a timeout shorter than the stall bound: False
         when the time is up — after a few dozen looks at Qt, not after the tens of
@@ -1643,6 +1653,7 @@ class TestWaitReady:
         assert 0.28 <= elapsed < 2.0
         assert looks[0] < 200, f"{looks[0]} looks at Qt in {elapsed:.2f} s: a busy loop"
 
+    @pytest.mark.perf
     @pytest.mark.parametrize("changes", [
         {"scene_graph": False, "exposed": False}, {"exposed": False}, {"root_width": 0.0},
     ], ids=["never exposed", "shown again, never exposed", "the scene never catches up"])
@@ -1660,6 +1671,7 @@ class TestWaitReady:
         elapsed = time.perf_counter() - started
         assert STALL_S - 0.05 <= elapsed < STALL_S + 0.8, f"{elapsed:.2f} s of 30 s"
 
+    @pytest.mark.perf
     def test_progress_keeps_a_starting_host_waited_for(self, host) -> None:
         """…and a host that IS on its way is not given up: every change of a fact, every
         event of the view, starts the stall bound again."""
@@ -1678,6 +1690,7 @@ class TestWaitReady:
         assert 4 * STALL_S * 0.7 - 0.05 <= elapsed < 4 * STALL_S * 0.7 + 1.0, elapsed
         assert host.longest_quiet_s >= STALL_S * 0.6, "the diagnostic saw the quiet spells"
 
+    @pytest.mark.perf
     @pytest.mark.parametrize(("later", "expected"), [
         ({}, True),                              # the first expose arrived: live
         ({"visible": False}, False),             # hidden during the wait
@@ -1696,6 +1709,7 @@ class TestWaitReady:
         assert host.wait_ready(5.0) is expected
         assert time.perf_counter() - started < 0.45, "at the change, not at a bound"
 
+    @pytest.mark.perf
     def test_it_comes_back_when_the_host_is_closed_or_destroyed_during_the_wait(
             self, qtbot) -> None:  # noqa: ARG002
         from PyQt6 import sip
@@ -1712,6 +1726,7 @@ class TestWaitReady:
             assert time.perf_counter() - started < 0.45 and made.is_closed
             made.close()
 
+    @pytest.mark.perf
     def test_it_gives_up_as_soon_as_qt_reports_no_graphics_device(self, host) -> None:
         from PyQt6.QtCore import QTimer
         from PyQt6.QtQuick import QQuickWindow

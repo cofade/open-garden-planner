@@ -1255,11 +1255,12 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
         "prevent"
     )
 
-    coverage_steps = perf_steps("coverage")
+    coverage_steps = perf_steps("coverage") + perf_steps("coverage-perf")
     parallel: list[list[str]] = []
     serial: list[list[str]] = []
     for _step, _commands, _gate in coverage_steps:
-        _argv = gated_command("coverage", _step, _commands, _gate)
+        _job = "coverage" if _step in jobs["coverage"]["steps"] else "coverage-perf"
+        _argv = gated_command(_job, _step, _commands, _gate)
         if _covers_the_perf_marker(_argv, want_marker=False):
             parallel.append(_argv)
         elif _covers_the_perf_marker(_argv, want_marker=True):
@@ -1276,13 +1277,8 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
         "the Coverage job needs a serial step that SELECTS the perf marker - without it the "
         "perf set runs only in the parallel step, beside workers"
     )
-    assert any(token == "--cov-append" for token in serial[0]), (
-        "the serial step must append, and it is LOAD-BEARING, not tidiness. Measured with "
-        "the gate itself: step 1 alone leaves `agent_api` at 2012 of 2195 and the gate "
-        "exiting 1; with the append it is 2026 and `regressions: []`. The delta is the "
-        "fourteen `stop()` escalation lines. Delete the append and Coverage goes red on "
-        "agent_api; delete the deselect and the append becomes redundant."
-    )
+    assert "--cov=open_garden_planner" in serial[0], "the serial tests must contribute coverage"
+    assert _targets_tests_dir(serial[0]), "serial coverage must include the whole perf set"
     assert _flag_value(serial[0], "-n") == "0", (
         f"the serial step is `{' '.join(serial[0])}`; `-n` must be `0`, because running the "
         "timing tests across workers is the condition the split exists to prevent"
@@ -1300,7 +1296,7 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     # Measured: a job with `if: false`, plus `needs: [that-job]` on `test`, leaves both
     # pins green while the perf step never executes. Plain YAML, no shell involved, and the
     # same "a skipped check is not a passing check" failure as an `if:` on the job itself.
-    for gate_job in ("test", "coverage"):
+    for gate_job in ("test", "coverage", "coverage-perf"):
         _seen: set[str] = set()
         _queue = list(_needs_of(jobs[gate_job]))
         while _queue:
@@ -1328,7 +1324,7 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
 
     # The step-level and job-level neutralisations. They belong here because the pin
     # that finds the steps is the pin that must insist they can fail.
-    for _job_name in ("test", "coverage"):
+    for _job_name in ("test", "coverage", "coverage-perf"):
         _gate = jobs[_job_name]
         assert not _gate.get("continue-on-error"), (
             f"the `{_job_name}` job has continue-on-error: every gate inside it - including "
@@ -1429,6 +1425,91 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     #   * a perf step moved into a reusable workflow is caught by the `found >= 3` guard.
 
 
+def _assert_coverage_topology(workflow: dict) -> None:
+    jobs = workflow["jobs"]
+    parallel, perf, floor = (jobs[key] for key in ("coverage", "coverage-perf", "coverage-floor"))
+    assert parallel["strategy"]["matrix"] == {"shard": [0, 1]}
+    assert parallel["strategy"].get("fail-fast") is False
+    for job in (parallel, perf):
+        assert "if" not in job and not job.get("continue-on-error")
+        commands = [step for step in job["steps"] if "--cov=" in str(step.get("run", ""))]
+        assert len(commands) == 1
+        step = commands[0]
+        assert "if" not in step and not step.get("continue-on-error")
+        assert "--cov-branch" in step["run"]
+    measure = next(step["run"] for step in parallel["steps"] if "--cov=" in str(step.get("run", "")))
+    assert "-p scripts.ci_coverage_shard" in measure
+    assert "--coverage-shard=${{ matrix.shard }}/2" in measure
+    for job, data_file, artifact_name in (
+        (parallel, "coverage-data/nonperf-${{ matrix.shard }}.coverage", "coverage-data-${{ matrix.shard }}"),
+        (perf, "coverage-data/perf.coverage", "coverage-data-perf"),
+    ):
+        step = next(step for step in job["steps"] if "--cov=" in str(step.get("run", "")))
+        assert step["env"]["COVERAGE_FILE"] == data_file
+        uploads = [step for step in job["steps"] if "upload-artifact@" in str(step.get("uses", ""))]
+        assert len(uploads) == 1
+        assert uploads[0]["with"] == {"name": artifact_name, "path": "coverage-data/",
+                                     "if-no-files-found": "error"}
+    assert floor["name"] == "Coverage" and floor["if"] == "always()"
+    assert sorted(_needs_of(floor)) == ["coverage", "coverage-perf"]
+    downloads = [step for step in floor["steps"] if "download-artifact@" in str(step.get("uses", ""))]
+    assert len(downloads) == 1
+    assert downloads[0]["with"] == {"pattern": "coverage-data-*", "merge-multiple": True,
+                                    "path": "coverage-data/"}
+    propagate = [step for step in floor["steps"] if step.get("name") == "Require every measurement"]
+    assert len(propagate) == 1
+    assert "if" not in propagate[0] and not propagate[0].get("continue-on-error")
+    assert propagate[0]["run"].strip().splitlines() == [
+        'test "${{ needs.coverage.result }}" = success',
+        'test "${{ needs.coverage-perf.result }}" = success',
+    ]
+    combine = [step for step in floor["steps"] if step.get("name") == "Combine all coverage data"]
+    assert len(combine) == 1
+    assert "if" not in combine[0] and not combine[0].get("continue-on-error")
+    commands = _commands_of(combine[0]["run"])
+    assert commands == [
+        ["python", "-m", "coverage", "combine", "coverage-data/nonperf-0.coverage",
+         "coverage-data/nonperf-1.coverage", "coverage-data/perf.coverage"],
+        ["python", "-m", "coverage", "xml", "-o", "coverage.xml"],
+    ]
+
+
+def test_coverage_shards_and_merge_are_pinned() -> None:
+    import yaml
+
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    )
+    _assert_coverage_topology(workflow)
+
+
+@pytest.mark.parametrize("mutation", ["missing_shard", "missing_perf", "advisory",
+                                      "skipped_measurement", "lost_branch", "lost_merge_input"])
+def test_coverage_topology_pin_rejects_incomplete_measurements(mutation: str) -> None:
+    import yaml
+
+    workflow = yaml.safe_load(
+        (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    )
+    jobs = workflow["jobs"]
+    if mutation == "missing_shard":
+        jobs["coverage"]["strategy"]["matrix"]["shard"] = [0]
+    elif mutation == "missing_perf":
+        jobs["coverage-floor"]["needs"] = ["coverage"]
+    elif mutation == "advisory":
+        jobs["coverage-perf"]["continue-on-error"] = True
+    elif mutation == "skipped_measurement":
+        jobs["coverage"]["if"] = "false"
+    elif mutation == "lost_branch":
+        step = next(s for s in jobs["coverage"]["steps"] if "--cov=" in str(s.get("run", "")))
+        step["run"] = step["run"].replace("--cov-branch", "")
+    elif mutation == "lost_merge_input":
+        step = next(s for s in jobs["coverage-floor"]["steps"] if s.get("name") == "Combine all coverage data")
+        step["run"] = step["run"].replace("coverage-data/perf.coverage", "")
+    with pytest.raises(AssertionError):
+        _assert_coverage_topology(workflow)
+
+
 def test_the_coverage_floor_step_is_pinned() -> None:
     """#514: the `Coverage` job's floor step must exist, always run, and read its report.
 
@@ -1442,7 +1523,7 @@ def test_the_coverage_floor_step_is_pinned() -> None:
     workflow = yaml.safe_load(
         (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     )
-    coverage = workflow["jobs"]["coverage"]
+    coverage = workflow["jobs"]["coverage-floor"]
     assert coverage.get("name") == "Coverage", (
         "the Coverage job's display name IS the required-check context; a rename would "
         "leave branch protection waiting forever on a check that never reports"

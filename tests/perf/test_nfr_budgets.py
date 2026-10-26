@@ -206,7 +206,6 @@ def _best_median(view: CanvasView, rounds: int = 6) -> float:
     return best
 
 
-@pytest.mark.perf
 class TestNfrPerf01LinePaintBudgets:
     """Issue #473: the budgets must see what a line's paint costs."""
 
@@ -234,6 +233,7 @@ class TestNfrPerf01LinePaintBudgets:
             p.cacheMode() == QGraphicsItem.CacheMode.NoCache for p in lines
         ), "scenario lines must disable DeviceCoordinateCache or line paint is not measured"
 
+    @pytest.mark.perf
     def test_line_paint_cost_has_not_exploded(self, line_benchmark_view) -> None:
         """A same-view upper bound on what the scenario's lines cost per frame.
 

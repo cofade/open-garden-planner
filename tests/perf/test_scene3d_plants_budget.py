@@ -147,8 +147,8 @@ def plan(request: pytest.FixtureRequest, qtbot) -> tuple[CanvasScene, str]:  # n
     return scene, request.param
 
 
-@pytest.mark.perf
 class TestPlantBuildBudget:
+    @pytest.mark.perf
     def test_a_first_build_of_every_plant_of_a_plan(self, plan: tuple[CanvasScene, str]) -> None:
         scene, name = plan
         plants, _grow, triangles, budget_units, _warm, _cold = BUDGETS[name]
@@ -180,6 +180,7 @@ class TestPlantBuildBudget:
                 f"{median_ms / unit:.2f} reference units (median of 5), "
                 f"budget {budget_units * factor():.1f}")
 
+    @pytest.mark.perf
     def test_one_daily_scrub_tick(self, plan: tuple[CanvasScene, str]) -> None:
         """The plan date moves on by one day, ``SCRUB_DAYS`` times: what the pipeline
         does per tick (records in, sink calls out), warm and cold."""

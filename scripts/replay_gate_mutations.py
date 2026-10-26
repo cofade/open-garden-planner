@@ -3,8 +3,8 @@
 
 ``tests/unit/test_gate_commands.py::test_ci_runs_the_whole_perf_set_serially`` is the
 pin that keeps the perf gate honest: the ``Test`` job must run the wall-clock-sensitive
-tests alone and serially, and the ``Coverage`` job must deselect them in one step and
-append them in a second. This mutation harness verifies that ``ci.yml`` gate pin assertions
+tests alone and serially, the coverage partitions must deselect them, and the serial
+coverage job must measure them separately. This harness verifies that the gate pin assertions
 catch regressions across 14 perturbations (and continue to pass 2 benign controls).
 
 Each case edits ``ci.yml``, runs the pin, and records whether the pin failed. A case
@@ -53,7 +53,7 @@ _FAILED_IN_PIN = re.compile(
 )
 
 QUIET_STEP = "Run performance budgets on a quiet runner"
-SERIAL_STEP = "Measure the perf tests serially and append"
+SERIAL_STEP = "Measure the perf tests serially"
 
 
 def _step(parsed: dict[str, Any], job: str, name: str) -> dict[str, Any]:
@@ -128,7 +128,7 @@ MUTATIONS: tuple[Mutation, ...] = (
             f"      - name: {SERIAL_STEP}\n",
             f"      - name: {SERIAL_STEP}\n        continue-on-error: true\n",
         ),
-        lambda p: _assert_true(_step(p, "coverage", SERIAL_STEP).get("continue-on-error")),
+        lambda p: _assert_true(_step(p, "coverage-perf", SERIAL_STEP).get("continue-on-error")),
     ),
     Mutation(
         "serial step if:",
@@ -138,7 +138,7 @@ MUTATIONS: tuple[Mutation, ...] = (
             f"      - name: {SERIAL_STEP}\n",
             f"      - name: {SERIAL_STEP}\n        if: true\n",
         ),
-        lambda p: _assert_present(_step(p, "coverage", SERIAL_STEP), "if"),
+        lambda p: _assert_present(_step(p, "coverage-perf", SERIAL_STEP), "if"),
     ),
     Mutation(
         "test job continue-on-error",
@@ -159,8 +159,8 @@ MUTATIONS: tuple[Mutation, ...] = (
         "caught",
         lambda t: _replace(
             t,
-            "  coverage:\n    name: Coverage\n",
-            "  coverage:\n    continue-on-error: true\n    name: Coverage\n",
+            "  coverage:\n    name: Coverage partition (${{ matrix.shard }})\n",
+            "  coverage:\n    continue-on-error: true\n    name: Coverage partition (${{ matrix.shard }})\n",
         ),
         lambda p: _assert_true(p["jobs"]["coverage"].get("continue-on-error")),
     ),
@@ -200,14 +200,15 @@ MUTATIONS: tuple[Mutation, ...] = (
         lambda p: _assert_true(_step(p, "test", QUIET_STEP)["run"].endswith("-m perf -v")),
     ),
     Mutation(
-        "dropped --cov-append",
+        "dropped serial coverage",
         "caught",
         lambda t: _replace(
             t,
-            "          --cov=open_garden_planner --cov-branch --cov-append\n",
-            "          --cov=open_garden_planner --cov-branch\n",
+            "          python -m pytest tests/ -m perf -n 0 -v --durations=0\n"
+            "          --cov=open_garden_planner --cov-branch --cov-report=\n",
+            "          python -m pytest tests/ -m perf -n 0 -v --durations=0\n",
         ),
-        lambda p: _assert_true("--cov-append" not in _step(p, "coverage", SERIAL_STEP)["run"]),
+        lambda p: _assert_true("--cov=" not in _step(p, "coverage-perf", SERIAL_STEP)["run"]),
     ),
     Mutation(
         "|| true on the quiet runner",
