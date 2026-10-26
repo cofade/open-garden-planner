@@ -125,7 +125,7 @@ class FocusOutTextEdit(QTextEdit):
 
     editing_finished = pyqtSignal()
 
-    def focusOutEvent(self, event: QFocusEvent) -> None:  # noqa: N802 (Qt)
+    def focusOutEvent(self, event: QFocusEvent) -> None:
         """Emit ``editing_finished`` after the default focus-out handling."""
         super().focusOutEvent(event)
         self.editing_finished.emit()

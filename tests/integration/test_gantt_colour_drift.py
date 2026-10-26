@@ -24,7 +24,6 @@ Three things this covers, all of which a green suite had failed to catch:
 
 3. **The anchor-year task-id shape** that ADR-029's Decision 3 depends on.
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 

@@ -63,7 +63,7 @@ class TestFileCoverage:
             d = FURNITURE_DIR if cfg["dir"] == "furniture" else INFRASTRUCTURE_DIR
             assert (d / f"{name}.svg").exists(), f"{name} missing from {d.name}/"
 
-    def test_renderer_maps_covered(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_renderer_maps_covered(self, qtbot: object) -> None:
         from open_garden_planner.core.furniture_renderer import (
             _FURNITURE_FILES,
             _INFRASTRUCTURE_FILES,
@@ -113,7 +113,7 @@ class TestQtSvgSubset:
         """Contract rule 1: the legacy '#00000020' offset drop shadow is gone."""
         assert "#00000020" not in svg_path.read_text(encoding="utf-8")
 
-    def test_qtsvg_accepts(self, svg_path: Path, qtbot: object) -> None:  # noqa: ARG002
+    def test_qtsvg_accepts(self, svg_path: Path, qtbot: object) -> None:
         assert QSvgRenderer(str(svg_path)).isValid(), f"QtSvg rejects {svg_path.name}"
 
 
@@ -122,7 +122,7 @@ class TestRecipes:
         for name, cfg in _GEN.OBJECTS.items():
             assert set(cfg) <= _GEN._KNOWN_KEYS, name
 
-    def test_shape_matches_change_type_menu_and_art_aspect(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_shape_matches_change_type_menu_and_art_aspect(self, qtbot: object) -> None:
         """`shape` is load-bearing: a circle-tool object must be offered for circles
         (the "Change Type" menu) and ship SQUARE art (a circle item renders into a
         square footprint — the BBQ was stretched on every canvas until #308)."""
@@ -145,7 +145,7 @@ class TestRecipes:
                 assert cfg["shape"] == "rect", name
                 assert obj_type in rect_types, f"{name}: rect-tool object not offered for rectangles"
 
-    def test_default_dimensions_match_viewboxes(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_default_dimensions_match_viewboxes(self, qtbot: object) -> None:
         """The renderer's default cm footprint IS the art's viewBox (contract rule 4)."""
         from open_garden_planner.core.furniture_renderer import (
             _FURNITURE_FILES,

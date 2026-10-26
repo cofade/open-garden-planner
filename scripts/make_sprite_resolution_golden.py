@@ -287,7 +287,7 @@ def all_sprites() -> list[tuple[str, str]]:
 def missing_sets(seed: int = 385) -> list[frozenset[tuple[str, str]]]:
     """Which sprite files are taken away, one set per differential pass."""
     sprites = all_sprites()
-    rng = random.Random(seed)  # noqa: S311 - a reproducible sample, nothing secret
+    rng = random.Random(seed)
     sets = [frozenset([sprite]) for sprite in sprites]
     sets += [frozenset(rng.sample(sprites, count)) for count in (2, 3, 5, 8, 13, 21, 40) for _ in range(4)]
     sets.append(frozenset(sprite for sprite in sprites if sprite[0] == "species"))

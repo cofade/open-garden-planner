@@ -7,7 +7,6 @@ fell back to ``setCurrentIndex(0)`` when a value was unknown — so a species wi
 no data for a trait was silently shown as the first option (e.g. a tree's
 lifecycle read "Annual"). Worse, saving then wrote that wrong concrete value back.
 """
-# ruff: noqa: ARG002
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.plant_data import PlantCycle, PlantSpeciesData

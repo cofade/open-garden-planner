@@ -1,6 +1,5 @@
 """UI tests for PreferencesDialog."""
 
-# ruff: noqa: ARG002
 
 import pytest
 

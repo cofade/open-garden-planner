@@ -142,7 +142,7 @@ class TestParseReleaseInfo:
 class TestUpdateCheckerLifecycle:
     """Tests for UpdateChecker background thread lifecycle."""
 
-    def test_cancel_suppresses_signal_emission(self, monkeypatch, qtbot) -> None:  # noqa: ARG002
+    def test_cancel_suppresses_signal_emission(self, monkeypatch, qtbot) -> None:
         import time
 
         checker = UpdateChecker()
@@ -164,7 +164,7 @@ class TestUpdateCheckerLifecycle:
         assert received == []
         assert not checker.isRunning()
 
-    def test_shutdown_unparents_and_cancels(self, monkeypatch, qtbot) -> None:  # noqa: ARG002
+    def test_shutdown_unparents_and_cancels(self, monkeypatch, qtbot) -> None:
         import time
 
         from PyQt6 import sip

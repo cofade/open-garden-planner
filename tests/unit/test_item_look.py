@@ -29,7 +29,7 @@ def _styled_rectangle() -> RectangleItem:
     return item
 
 
-def test_copies_serialized_and_live_look(qtbot: object) -> None:  # noqa: ARG001
+def test_copies_serialized_and_live_look(qtbot: object) -> None:
     source = _styled_rectangle()
     dest = RectangleItem(0, 0, 50, 40, object_type=ObjectType.GARDEN_BED)
 
@@ -45,7 +45,7 @@ def test_copies_serialized_and_live_look(qtbot: object) -> None:  # noqa: ARG001
     assert dest.pen().style() == source.pen().style()
 
 
-def test_copies_the_area_label_flag_when_set(qtbot: object) -> None:  # noqa: ARG001
+def test_copies_the_area_label_flag_when_set(qtbot: object) -> None:
     source = _styled_rectangle()
     source.area_label_visible = True
     dest = RectangleItem(0, 0, 50, 40, object_type=ObjectType.GARDEN_BED)
@@ -56,7 +56,7 @@ def test_copies_the_area_label_flag_when_set(qtbot: object) -> None:  # noqa: AR
     assert dest.area_label_visible is True
 
 
-def test_copies_between_different_shape_classes(qtbot: object) -> None:  # noqa: ARG001
+def test_copies_between_different_shape_classes(qtbot: object) -> None:
     source = _styled_rectangle()
     dest = PolygonItem(
         vertices=[QPointF(0, 0), QPointF(10, 0), QPointF(10, 10)],
@@ -69,7 +69,7 @@ def test_copies_between_different_shape_classes(qtbot: object) -> None:  # noqa:
     assert dest.pen().color() == source.pen().color()
 
 
-def test_tolerates_plain_graphics_items(qtbot: object) -> None:  # noqa: ARG001
+def test_tolerates_plain_graphics_items(qtbot: object) -> None:
     """A plain QGraphicsItem has no look attributes; the helper must not raise."""
     source = QGraphicsRectItem(0, 0, 10, 10)
     source.setPen(QPen(QColor("#123456"), 2.0))

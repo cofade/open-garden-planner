@@ -422,7 +422,7 @@ def scenario_edit_latency(window: Any, args: dict[str, Any]) -> Iterator[Any]:
         armed["report"] = report
         try:
             armed["grab"] = host.grab() and 0.0
-        except Exception as error:  # noqa: BLE001 - a host mid-resize: counted as a miss
+        except Exception as error:
             armed["error"] = f"{type(error).__name__}: {error}"
         armed["done"] = time.perf_counter()
 
@@ -569,7 +569,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     class NoPaint(QObject):
         eaten = 0
 
-        def eventFilter(self, _watched: Any, event: Any) -> bool:  # noqa: N802 - Qt's name
+        def eventFilter(self, _watched: Any, event: Any) -> bool:
             if event.type() in (QEvent.Type.Expose, QEvent.Type.UpdateRequest, QEvent.Type.Paint):
                 NoPaint.eaten += 1
                 return True

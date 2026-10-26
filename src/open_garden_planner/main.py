@@ -122,7 +122,7 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
         if log is not None:
             log("selftest_version", version=version, expected=expected or "not set")
         print(f"  OK   version {version}")
-    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+    except Exception as exc:
         ok = False
         print(f"  FAIL version selftest -> {exc!r}")
 
@@ -188,7 +188,7 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
                 print("  FAIL Agent API server did not start (issue #291 class)")
         finally:
             server.stop()
-    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+    except Exception as exc:
         ok = False
         print(f"  FAIL Agent API server selftest -> {exc!r}")
 
@@ -251,7 +251,7 @@ def _run_selftest_bounded() -> int:
     """
     try:
         from open_garden_planner.ui.view3d.quick3d.runlog import RenderLog, watchdog
-    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+    except Exception as exc:
         print(f"  FAIL the self-test's log and watchdog cannot be imported -> {exc!r}")
         print("SELFTEST: FAIL")
         return 1
@@ -261,7 +261,7 @@ def _run_selftest_bounded() -> int:
         from open_garden_planner.ui.view3d.quick3d.selftest import default_log_path
 
         log = RenderLog(default_log_path(), mirror=False)
-    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+    except Exception as exc:
         log_error = exc
         log = RenderLog(None, mirror=False)  # writes nowhere; the watchdog still ends a hang
     try:
@@ -327,7 +327,7 @@ def _selftest_quick3d(log: "RenderLog | None" = None) -> bool:
             print(line)
         print(f"  3D self-test log: {quick3d.log_path}")
         return quick3d.ok
-    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+    except Exception as exc:
         print(f"  FAIL Qt Quick 3D selftest -> {exc!r}")
         return False
 

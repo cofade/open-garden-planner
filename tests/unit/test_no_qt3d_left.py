@@ -54,6 +54,7 @@ HISTORY = frozenset({
 HISTORY_DIRS = (  # measured runs, kept; the verbatim archive of retired work (ADR-061)
     "docs/09-architecture-decisions/adr-048-evidence/",
     "docs/11-risks-and-technical-debt/archive/",
+    "docs/11-risks-and-technical-debt/pitfalls/index/",
 )
 #: This gate's own name: citing it is not naming Qt 3D.
 SELF = "test_no_qt3d_left"

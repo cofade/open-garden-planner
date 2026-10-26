@@ -1,6 +1,5 @@
 """UI tests for ExportPngDialog."""
 
-# ruff: noqa: ARG002
 
 import pytest
 

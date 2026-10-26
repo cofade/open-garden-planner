@@ -53,7 +53,7 @@ class _ThumbnailButton(QToolButton):
 
         self._list_store: PlantListStore | None = None
         if self._item.species:
-            from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+            from open_garden_planner.models.plant_lists import (
                 get_plant_list_store,
             )
 
@@ -77,7 +77,7 @@ class _ThumbnailButton(QToolButton):
         layout.addWidget(thumb_label)
 
         star_badge = QLabel(thumb_label)
-        from open_garden_planner.ui.icons import get_pixmap  # noqa: PLC0415
+        from open_garden_planner.ui.icons import get_pixmap
 
         pm = get_pixmap("star", size=14)
         if pm is not None:
@@ -102,7 +102,7 @@ class _ThumbnailButton(QToolButton):
         # palette()-based QSS tracked the OS palette, not our theme.
         self.clicked.connect(lambda: self.clicked_item.emit(self._item))
 
-    def showEvent(self, event: QShowEvent | None) -> None:  # noqa: N802 — Qt override
+    def showEvent(self, event: QShowEvent | None) -> None:
         super().showEvent(event)
         self._update_favorite_state()
 
@@ -111,10 +111,10 @@ class _ThumbnailButton(QToolButton):
         self._update_favorite_state()
 
     def _get_species_obj(self) -> "PlantSpeciesData":
-        from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+        from open_garden_planner.models.plant_data import (
             PlantSpeciesData,
         )
-        from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+        from open_garden_planner.services.bundled_species_db import (
             lookup_species,
         )
 
@@ -133,7 +133,7 @@ class _ThumbnailButton(QToolButton):
             if hasattr(self, "_star_badge"):
                 self._star_badge.setVisible(False)
             return
-        from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+        from open_garden_planner.models.plant_lists import (
             get_plant_list_store,
         )
 
@@ -157,13 +157,13 @@ class _ThumbnailButton(QToolButton):
 
     _update_tooltip = _update_favorite_state
 
-    def contextMenuEvent(self, event: QContextMenuEvent | None) -> None:  # noqa: N802 — Qt override
+    def contextMenuEvent(self, event: QContextMenuEvent | None) -> None:
         """Show context menu for plant gallery items (Favorites and List management)."""
         if not self._item.species or event is None:
             super().contextMenuEvent(event)
             return
 
-        from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+        from open_garden_planner.models.plant_lists import (
             get_plant_list_store,
         )
 

@@ -173,7 +173,7 @@ def _arm(module: ModuleType) -> None:
     window_class = module.GardenPlannerApp
     original = window_class.__init__
 
-    def __init__(self: Any, *arguments: Any, **options: Any) -> None:  # noqa: N807
+    def __init__(self: Any, *arguments: Any, **options: Any) -> None:
         original(self, *arguments, **options)
         from PyQt6.QtCore import QTimer
 
@@ -296,7 +296,7 @@ class _Runner:
         except StopIteration:
             self._finish()
             return
-        except Exception as error:  # noqa: BLE001 - a scenario's failure is a result
+        except Exception as error:
             import traceback
 
             step("EXCEPTION", error=f"{type(error).__name__}: {error}",

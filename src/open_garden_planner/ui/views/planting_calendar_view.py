@@ -1396,7 +1396,7 @@ class PlantingCalendarView(QWidget):
         # actionable_only=False: the chart draws the whole displayed year, which is
         # not an urgency window. Leaving the dashboard's True in place would drop
         # every window that is not urgent *today* — i.e. most of the chart.
-        from dataclasses import replace  # noqa: PLC0415
+        from dataclasses import replace
 
         for task in generate_for_date_window(
             replace(state, actionable_only=False), year_start, year_end
@@ -1753,7 +1753,7 @@ class PlantingCalendarView(QWidget):
 
     def _bed_name_map(self) -> dict[str, str]:
         """item_id → display name for every garden item (for succession rows)."""
-        from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
         return {
             str(item.item_id): (item.name or str(item.item_id)[:8])
             for item in self._canvas_scene.items()

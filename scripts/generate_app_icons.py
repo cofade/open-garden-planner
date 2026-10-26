@@ -73,7 +73,7 @@ def check_icons() -> bool:
                 ok = False
             else:
                 print(f"OK: {target.relative_to(ROOT)} ({len(sizes)} resolutions)")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"FAIL: cannot inspect {target.relative_to(ROOT)}: {exc}", file=sys.stderr)
             ok = False
     return ok

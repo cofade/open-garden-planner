@@ -9,7 +9,6 @@ Verifies that:
   - Context menu strings use QCoreApplication.translate (no raw string literals).
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

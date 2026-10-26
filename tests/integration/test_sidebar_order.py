@@ -11,7 +11,6 @@ directly under ``sidebar.layout()``), so canonical order is read from
 ``controller.panels()`` rather than the layout.
 """
 
-# ruff: noqa: ARG002
 
 
 class TestSidebarOrder:

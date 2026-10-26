@@ -1339,7 +1339,7 @@ class AngleConstraintTool(BaseTool):
             (self._anchor_b.item.item_id, self._anchor_b.anchor_index),
             (anchor_c.item.item_id, anchor_c.anchor_index),
         }
-        if len(anchor_keys) < 3:  # noqa: PLR2004
+        if len(anchor_keys) < 3:
             return True
 
         # Compute current angle at vertex B
@@ -2104,10 +2104,10 @@ def _capture_equal_partner_pre_states(source_item, scene) -> list:
 
     Returns list of (partner_item, old_size, apply_fn, partner_anchor_type).
     """
-    import collections  # noqa: PLC0415
+    import collections
 
-    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
-    from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
 
     if not hasattr(source_item, "item_id") or not hasattr(scene, "constraint_graph"):
         return []
@@ -2164,10 +2164,10 @@ def _apply_equal_propagation_live(source_item, scene) -> None:
 
     Guard against re-entrancy before calling this.
     """
-    import collections  # noqa: PLC0415
+    import collections
 
-    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
-    from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
 
     if not hasattr(source_item, "item_id") or not hasattr(scene, "constraint_graph"):
         return
@@ -2562,7 +2562,7 @@ class EqualConstraintTool(BaseTool):
         self._edge_indicators.clear()
 
     def _show_edge_indicators(self, scene_pos: QPointF) -> None:
-        from open_garden_planner.core.measure_snapper import AnchorType  # noqa: PLC0415
+        from open_garden_planner.core.measure_snapper import AnchorType
 
         scene = self._view.scene()
         if not scene:
@@ -3445,13 +3445,13 @@ def _create_intraobject_angle_from_edges(view, edge_a, edge_b, target_deg: float
         pg = item.polygon()
         n = pg.count()
         vtype = AnchorType.CORNER
-        def _get_v(i: int):  # noqa: E306
+        def _get_v(i: int):
             return item.mapToScene(pg.at(i))
     elif hasattr(item, "points"):
         pts = item.points
         n = len(pts)
         vtype = AnchorType.ENDPOINT
-        def _get_v(i: int):  # noqa: E306
+        def _get_v(i: int):
             return item.mapToScene(pts[i])
     else:
         QMessageBox.information(
@@ -3546,16 +3546,16 @@ def _create_intraobject_parallel_from_edges(view, edge_a, edge_b) -> None:
     if hasattr(item, "polygon") and callable(item.polygon):
         pg = item.polygon()
         n = pg.count()
-        def _get_v(i: int) -> QPointF:  # noqa: E306
+        def _get_v(i: int) -> QPointF:
             return item.mapToScene(pg.at(i))
-        def _local(i: int) -> QPointF:  # noqa: E306
+        def _local(i: int) -> QPointF:
             return pg.at(i)
     elif hasattr(item, "points"):
         pts = item.points
         n = len(pts)
-        def _get_v(i: int) -> QPointF:  # noqa: E306
+        def _get_v(i: int) -> QPointF:
             return item.mapToScene(pts[i])
-        def _local(i: int) -> QPointF:  # noqa: E306
+        def _local(i: int) -> QPointF:
             return QPointF(pts[i])
     else:
         QMessageBox.information(
@@ -3568,7 +3568,7 @@ def _create_intraobject_parallel_from_edges(view, edge_a, edge_b) -> None:
         )
         return
 
-    if n < 4:  # noqa: PLR2004
+    if n < 4:
         QMessageBox.information(
             view,
             QCoreApplication.translate("ConstraintTool", "Parallel Constraint"),

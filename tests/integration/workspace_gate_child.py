@@ -14,9 +14,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import workspace_gate_hook  # noqa: E402, F401, I001 - must precede every app import
+import workspace_gate_hook  # noqa: F401 - must precede every app import
 
-from open_garden_planner.main import main  # noqa: E402 - after the hook, on purpose
+from open_garden_planner.main import main
 
 if __name__ == "__main__":
     sys.exit(main())

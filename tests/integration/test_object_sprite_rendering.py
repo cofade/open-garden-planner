@@ -7,7 +7,6 @@ band, stay legible at gallery-thumbnail size, letterbox correctly in the
 gallery, and be placeable through the real canvas tools (new roster).
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

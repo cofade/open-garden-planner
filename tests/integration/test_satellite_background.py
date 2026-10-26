@@ -1,6 +1,5 @@
 """Integration tests for the satellite-background workflow."""
 
-# ruff: noqa: ARG002
 
 from __future__ import annotations
 
@@ -11,12 +10,12 @@ from unittest.mock import MagicMock
 # QtWebEngineWidgets must be imported before QApplication is created. The
 # dialog itself imports it, so loading the module early — at the top of
 # this test file — keeps the test running with qtbot's app.
-from PyQt6 import QtWebEngineWidgets  # noqa: F401, I001
+from PyQt6 import QtWebEngineWidgets  # noqa: F401
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QPushButton, QWidget
 
-import open_garden_planner.ui.dialogs.map_picker_dialog as map_picker_mod  # noqa: F401
+import open_garden_planner.ui.dialogs.map_picker_dialog as map_picker_mod
 from open_garden_planner.services.google_maps_service import (
     BoundingBox,
     FetchCancelled,
@@ -32,10 +31,10 @@ class _DummyWebView(QWidget):
         self._page = MagicMock()
         self._settings = MagicMock()
 
-    def page(self):  # noqa: D401
+    def page(self):
         return self._page
 
-    def settings(self):  # noqa: D401
+    def settings(self):
         return self._settings
 
     def setUrl(self, *_args, **_kwargs) -> None:

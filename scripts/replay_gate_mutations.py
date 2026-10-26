@@ -327,7 +327,7 @@ def _verdict(returncode: int, stdout: str, expected: str) -> str:
 
 
 def _run_pin() -> tuple[int, str]:
-    proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
+    proc = subprocess.run(
         [sys.executable, "-m", "pytest", PIN, "-q", "--no-header", "-n", "0"],
         cwd=REPO,
         capture_output=True,

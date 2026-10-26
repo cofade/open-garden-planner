@@ -66,7 +66,7 @@ def test_main_on_a_plan_builds_every_store_on_the_throw_away_key(
     3D workspace is always there): it opens the plan (Recent Files is written), shows the
     window, and is closed by the scenario (the window geometry is written)."""
     spec, out, store = gate_spec(tmp_path, "never")
-    proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
+    proc = subprocess.run(
         [sys.executable, str(CHILD), str(PLAN)],
         env=isolated_env(tmp_path, QT_QPA_PLATFORM="offscreen", OGP_WORKSPACE_GATE=str(spec)),
         capture_output=True, text=True, timeout=170, cwd=tmp_path)
@@ -108,7 +108,7 @@ def test_the_guard_refuses_a_store_under_any_other_organisation(tmp_path: Path) 
     """Fail closed. A decoy organisation stands in for the production one: the process
     ends with exit code 97 BEFORE the store exists, and the report says why."""
     spec, out, store = gate_spec(tmp_path, "never")
-    proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
+    proc = subprocess.run(
         [sys.executable, "-c", _DECOY, str(HERE), "decoy"],
         env=isolated_env(tmp_path, QT_QPA_PLATFORM="offscreen", OGP_WORKSPACE_GATE=str(spec)),
         capture_output=True, text=True, timeout=120, cwd=tmp_path)
@@ -124,7 +124,7 @@ def test_the_guard_refuses_a_store_under_any_other_organisation(tmp_path: Path) 
 def test_without_a_scenario_the_hook_still_moves_the_store(tmp_path: Path) -> None:
     """The frozen gate build carries the hook always: started without a scenario (its
     smoke test, its self-test) it must still never use the production names."""
-    proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
+    proc = subprocess.run(
         [sys.executable, "-c", _DECOY, str(HERE), "names"],
         env=isolated_env(tmp_path, QT_QPA_PLATFORM="offscreen", OGP_WORKSPACE_GATE=""),
         capture_output=True, text=True, timeout=120, cwd=tmp_path)

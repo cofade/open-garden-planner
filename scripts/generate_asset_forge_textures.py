@@ -1352,7 +1352,7 @@ def seed_for(name: str) -> str:
 
 
 def build_texture(name: str) -> Image.Image:
-    rng = random.Random(seed_for(name))  # noqa: S311 — art, not crypto
+    rng = random.Random(seed_for(name))
     return TEXTURES[name](rng)
 
 

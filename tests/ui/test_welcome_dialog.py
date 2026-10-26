@@ -12,54 +12,54 @@ class TestWelcomeDialog:
     """Tests for WelcomeDialog."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, qtbot):  # noqa: ARG002
+    def setup(self, qtbot):
         """Set up test fixtures."""
         # Clear recent files before each test
         get_settings().clear_recent_files()
 
-    def test_dialog_creation(self, qtbot):  # noqa: ARG002
+    def test_dialog_creation(self, qtbot):
         """Test that dialog can be created."""
         dialog = WelcomeDialog()
         assert dialog is not None
 
-    def test_dialog_title(self, qtbot):  # noqa: ARG002
+    def test_dialog_title(self, qtbot):
         """Test dialog has correct title."""
         dialog = WelcomeDialog()
         assert "Welcome" in dialog.windowTitle()
 
-    def test_dialog_is_modal(self, qtbot):  # noqa: ARG002
+    def test_dialog_is_modal(self, qtbot):
         """Test dialog is modal."""
         dialog = WelcomeDialog()
         assert dialog.isModal()
 
-    def test_dialog_has_new_project_button(self, qtbot):  # noqa: ARG002
+    def test_dialog_has_new_project_button(self, qtbot):
         """Test dialog has New Project button."""
         dialog = WelcomeDialog()
         buttons = dialog.findChildren(QPushButton)
         button_texts = [b.text() for b in buttons]
         assert "New Project" in button_texts
 
-    def test_dialog_has_open_project_button(self, qtbot):  # noqa: ARG002
+    def test_dialog_has_open_project_button(self, qtbot):
         """Test dialog has Open Project button."""
         dialog = WelcomeDialog()
         buttons = dialog.findChildren(QPushButton)
         button_texts = [b.text() for b in buttons]
         assert "Open Project..." in button_texts
 
-    def test_dialog_has_recent_list(self, qtbot):  # noqa: ARG002
+    def test_dialog_has_recent_list(self, qtbot):
         """Test dialog has recent projects list."""
         dialog = WelcomeDialog()
         list_widget = dialog.findChild(QListWidget)
         assert list_widget is not None
 
-    def test_dialog_has_checkbox(self, qtbot):  # noqa: ARG002
+    def test_dialog_has_checkbox(self, qtbot):
         """Test dialog has 'show on startup' checkbox."""
         dialog = WelcomeDialog()
         checkbox = dialog.findChild(QCheckBox)
         assert checkbox is not None
         assert "startup" in checkbox.text().lower()
 
-    def test_new_project_signal(self, qtbot):  # noqa: ARG002
+    def test_new_project_signal(self, qtbot):
         """Test new project signal is emitted."""
         dialog = WelcomeDialog()
         buttons = dialog.findChildren(QPushButton)
@@ -68,7 +68,7 @@ class TestWelcomeDialog:
         with qtbot.waitSignal(dialog.new_project_requested):
             new_button.click()
 
-    def test_open_project_signal(self, qtbot):  # noqa: ARG002
+    def test_open_project_signal(self, qtbot):
         """Test open project signal is emitted."""
         dialog = WelcomeDialog()
         buttons = dialog.findChildren(QPushButton)
@@ -77,7 +77,7 @@ class TestWelcomeDialog:
         with qtbot.waitSignal(dialog.open_project_requested):
             open_button.click()
 
-    def test_checkbox_updates_settings(self, qtbot):  # noqa: ARG002
+    def test_checkbox_updates_settings(self, qtbot):
         """Test checkbox updates settings."""
         # The suite's autouse conftest guard pre-sets the flag False, so start
         # from True — otherwise setChecked(False) emits nothing and the assert
@@ -95,7 +95,7 @@ class TestWelcomeDialog:
         checkbox.setChecked(True)
         assert get_settings().show_welcome_on_startup
 
-    def test_empty_recent_shows_placeholder(self, qtbot):  # noqa: ARG002
+    def test_empty_recent_shows_placeholder(self, qtbot):
         """Test empty recent list shows placeholder."""
         dialog = WelcomeDialog()
         list_widget = dialog.findChild(QListWidget)
@@ -106,14 +106,14 @@ class TestWelcomeDialog:
         # Placeholder should not be selectable
         assert not (item.flags() & Qt.ItemFlag.ItemIsSelectable)
 
-    def test_clear_recent_button(self, qtbot):  # noqa: ARG002
+    def test_clear_recent_button(self, qtbot):
         """Test clear recent button exists."""
         dialog = WelcomeDialog()
         buttons = dialog.findChildren(QPushButton)
         button_texts = [b.text() for b in buttons]
         assert "Clear Recent" in button_texts
 
-    def test_minimum_size(self, qtbot):  # noqa: ARG002
+    def test_minimum_size(self, qtbot):
         """Test dialog has minimum size."""
         dialog = WelcomeDialog()
         assert dialog.minimumWidth() >= 400

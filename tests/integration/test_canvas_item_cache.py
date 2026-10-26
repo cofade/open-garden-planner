@@ -72,7 +72,7 @@ from open_garden_planner.ui.canvas.items.garden_item import (
 class TestItemCacheToggling:
     """Verify items enable DeviceCoordinateCache when unselected and NoCache when selected."""
 
-    def test_circle_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_circle_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         item = CircleItem(0, 0, 50, object_type=ObjectType.TREE)
         scene.addItem(item)
@@ -84,7 +84,7 @@ class TestItemCacheToggling:
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
-    def test_rectangle_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_rectangle_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         item = RectangleItem(0, 0, 100, 50, object_type=ObjectType.RAISED_BED)
         scene.addItem(item)
@@ -96,7 +96,7 @@ class TestItemCacheToggling:
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
-    def test_polygon_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_polygon_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         points = [QPointF(0, 0), QPointF(100, 0), QPointF(50, 80)]
         item = PolygonItem(QPolygonF(points), object_type=ObjectType.GARDEN_BED)
@@ -109,7 +109,7 @@ class TestItemCacheToggling:
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
-    def test_ellipse_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_ellipse_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         item = EllipseItem(0, 0, 80, 40, object_type=ObjectType.CONTAINER_ROUND)
         scene.addItem(item)
@@ -121,7 +121,7 @@ class TestItemCacheToggling:
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
-    def test_polyline_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_polyline_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         points = [QPointF(0, 0), QPointF(100, 0), QPointF(100, 100)]
         item = PolylineItem(points, object_type=ObjectType.FENCE)
@@ -134,7 +134,7 @@ class TestItemCacheToggling:
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
-    def test_callout_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_callout_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         item = CalloutItem(target=QPointF(0, 0), box_offset=QPointF(20, 20), content="Test Callout")
         scene.addItem(item)
@@ -146,7 +146,7 @@ class TestItemCacheToggling:
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
-    def test_text_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_text_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         item = TextItem(0, 0, content="Sample Text")
         scene.addItem(item)
@@ -158,7 +158,7 @@ class TestItemCacheToggling:
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
-    def test_arc_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_arc_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         item = ArcItem(center=QPointF(0, 0), radius=50, start_deg=0, span_deg=90)
         scene.addItem(item)
@@ -170,7 +170,7 @@ class TestItemCacheToggling:
         item.setSelected(False)
         assert item.cacheMode() == QGraphicsItem.CacheMode.DeviceCoordinateCache
 
-    def test_bezier_item_cache_toggles(self, qtbot) -> None:  # noqa: ARG002
+    def test_bezier_item_cache_toggles(self, qtbot) -> None:
         scene = CanvasScene()
         anchors = [QPointF(0, 0), QPointF(100, 100)]
         handles_in = [QPointF(0, 0), QPointF(50, 100)]
@@ -189,7 +189,7 @@ class TestItemCacheToggling:
 class TestExportCacheFidelity:
     """Verify exports disable item caches and preserve exact visual output."""
 
-    def test_export_service_disables_and_restores_caches(self, qtbot) -> None:  # noqa: ARG002
+    def test_export_service_disables_and_restores_caches(self, qtbot) -> None:
         scene = QGraphicsScene()
         c1 = CircleItem(0, 0, 50, object_type=ObjectType.TREE)
         r1 = RectangleItem(0, 0, 100, 50, object_type=ObjectType.RAISED_BED)
@@ -220,7 +220,7 @@ class TestExportCacheFidelity:
         assert r2.isSelected() is True
         assert r2.cacheMode() == QGraphicsItem.CacheMode.NoCache
 
-    def test_render_scene_region_preserves_bit_exact_export(self, qtbot) -> None:  # noqa: ARG002
+    def test_render_scene_region_preserves_bit_exact_export(self, qtbot) -> None:
         scene = CanvasScene()
         c1 = CircleItem(10, 10, 30, object_type=ObjectType.TREE)
         r1 = RectangleItem(50, 50, 80, 40, object_type=ObjectType.RAISED_BED)
@@ -595,7 +595,7 @@ class TestTexturesAreNeverDropped:
     @pytest.mark.parametrize("zoom", [0.1, 0.25, 0.4, 0.75, 1.0])
     def test_the_canvas_keeps_the_texture_at_every_zoom(
         self, qtbot: object, shape: str, zoom: float
-    ) -> None:  # noqa: ARG002
+    ) -> None:
         intensity, mask = _canvas_render(qtbot, _SHAPE_FACTORIES[shape], zoom=zoom)
         count, spread = _interior_stats(intensity, mask)
         # No absolute sample floor: the interior area depends on the shape class
@@ -614,7 +614,7 @@ class TestTexturesAreNeverDropped:
     @pytest.mark.parametrize("shape", _SHAPE_IDS)
     def test_the_export_keeps_the_texture(
         self, qtbot: object, shape: str
-    ) -> None:  # noqa: ARG002
+    ) -> None:
         intensity, mask = _export_render(_SHAPE_FACTORIES[shape])
         count, spread = _interior_stats(intensity, mask)
         assert count > 0, f"the {shape}'s interior mask was empty in the export"
@@ -654,7 +654,7 @@ class TestTheMaskIsTheItem:
     @pytest.mark.parametrize("shape", _SHAPE_IDS)
     def test_the_canvas_mask_matches_the_painted_item(
         self, qtbot: object, shape: str
-    ) -> None:  # noqa: ARG002
+    ) -> None:
         intensity, mask = _canvas_render(qtbot, _SHAPE_FACTORIES[shape], zoom=1.0)
         inside = intensity[mask]
         outside = intensity[~mask]
@@ -712,7 +712,7 @@ class TestIsInteractivePaint:
 
     def test_a_real_widget_wins_even_with_the_cache_disabled(
         self, qtbot
-    ) -> None:  # noqa: ARG002
+    ) -> None:
         """The robustness half the docstring keeps, pinned so it stays true."""
         item = RectangleItem(0, 0, 10, 10, object_type=ObjectType.GENERIC_RECTANGLE)
         disable_cache(item)

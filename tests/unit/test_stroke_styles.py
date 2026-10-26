@@ -44,19 +44,19 @@ class TestObjectStyleWithStroke:
 class TestRectangleItemStroke:
     """Test RectangleItem stroke customization."""
 
-    def test_default_stroke_style(self, qtbot):  # noqa: ARG002
+    def test_default_stroke_style(self, qtbot):
         """Test rectangle has default solid stroke."""
         item = RectangleItem(0, 0, 100, 100)
         assert item.stroke_style == StrokeStyle.SOLID
         assert item.pen().style() == Qt.PenStyle.SolidLine
 
-    def test_custom_stroke_style(self, qtbot):  # noqa: ARG002
+    def test_custom_stroke_style(self, qtbot):
         """Test rectangle can have custom stroke style."""
         item = RectangleItem(0, 0, 100, 100, stroke_style=StrokeStyle.DASHED)
         assert item.stroke_style == StrokeStyle.DASHED
         assert item.pen().style() == Qt.PenStyle.DashLine
 
-    def test_stroke_color_customization(self, qtbot):  # noqa: ARG002
+    def test_stroke_color_customization(self, qtbot):
         """Test rectangle stroke color can be customized."""
         item = RectangleItem(0, 0, 100, 100)
         red = QColor(255, 0, 0)
@@ -64,7 +64,7 @@ class TestRectangleItemStroke:
         item._setup_styling()  # Re-apply styling
         assert item.pen().color() == red
 
-    def test_stroke_width_customization(self, qtbot):  # noqa: ARG002
+    def test_stroke_width_customization(self, qtbot):
         """Test rectangle stroke width can be customized."""
         item = RectangleItem(0, 0, 100, 100)
         item.stroke_width = 5.0
@@ -75,7 +75,7 @@ class TestRectangleItemStroke:
 class TestPolygonItemStroke:
     """Test PolygonItem stroke customization."""
 
-    def test_default_stroke_style(self, qtbot):  # noqa: ARG002
+    def test_default_stroke_style(self, qtbot):
         """Test polygon has default solid stroke."""
         from PyQt6.QtCore import QPointF
 
@@ -84,7 +84,7 @@ class TestPolygonItemStroke:
         assert item.stroke_style == StrokeStyle.SOLID
         assert item.pen().style() == Qt.PenStyle.SolidLine
 
-    def test_custom_stroke_style(self, qtbot):  # noqa: ARG002
+    def test_custom_stroke_style(self, qtbot):
         """Test polygon can have custom stroke style."""
         from PyQt6.QtCore import QPointF
 
@@ -97,13 +97,13 @@ class TestPolygonItemStroke:
 class TestCircleItemStroke:
     """Test CircleItem stroke customization."""
 
-    def test_default_stroke_style(self, qtbot):  # noqa: ARG002
+    def test_default_stroke_style(self, qtbot):
         """Test circle has default solid stroke."""
         item = CircleItem(50, 50, 25)
         assert item.stroke_style == StrokeStyle.SOLID
         assert item.pen().style() == Qt.PenStyle.SolidLine
 
-    def test_custom_stroke_style(self, qtbot):  # noqa: ARG002
+    def test_custom_stroke_style(self, qtbot):
         """Test circle can have custom stroke style."""
         item = CircleItem(50, 50, 25, stroke_style=StrokeStyle.DASH_DOT)
         assert item.stroke_style == StrokeStyle.DASH_DOT

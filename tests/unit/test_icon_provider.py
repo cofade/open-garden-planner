@@ -39,31 +39,31 @@ def _contains_color(pixmap: QPixmap, target: QColor, tolerance: int = 40) -> boo
 
 
 class TestIconProvider:
-    def test_available_icons_covers_the_set(self, qtbot) -> None:  # noqa: ARG002
+    def test_available_icons_covers_the_set(self, qtbot) -> None:
         names = icons.available_icons()
         assert len(names) >= 70
         assert "select" in names
         assert "constraint_distance" in names
         assert "garden_bed" in names
 
-    def test_get_icon_renders_visible_pixels(self, qtbot) -> None:  # noqa: ARG002
+    def test_get_icon_renders_visible_pixels(self, qtbot) -> None:
         icon = icons.get_icon("select")
         assert icon is not None
         assert _has_visible_pixels(icon.pixmap(QSize(24, 24)))
 
-    def test_unknown_name_returns_none(self, qtbot) -> None:  # noqa: ARG002
+    def test_unknown_name_returns_none(self, qtbot) -> None:
         assert icons.get_icon("definitely_not_an_icon") is None
         assert icons.get_pixmap("definitely_not_an_icon") is None
         assert icons.get_icon("") is None
 
-    def test_color_override_changes_pixels(self, qtbot) -> None:  # noqa: ARG002
+    def test_color_override_changes_pixels(self, qtbot) -> None:
         default = icons.get_pixmap("measure", size=32)
         red = icons.get_pixmap("measure", size=32, color="#ff0000")
         assert default is not None and red is not None
         assert _image(default) != _image(red)
         assert _contains_color(red, QColor("#ff0000"))
 
-    def test_accent_sentinel_maps_to_theme_accent(self, qtbot) -> None:  # noqa: ARG002
+    def test_accent_sentinel_maps_to_theme_accent(self, qtbot) -> None:
         app = QApplication.instance()
         apply_theme(app, ThemeMode.LIGHT)
         try:
@@ -79,7 +79,7 @@ class TestIconProvider:
         finally:
             apply_theme(app, ThemeMode.LIGHT)
 
-    def test_disabled_mode_is_grayed(self, qtbot) -> None:  # noqa: ARG002
+    def test_disabled_mode_is_grayed(self, qtbot) -> None:
         icon = icons.get_icon("constraint_distance")
         assert icon is not None
         normal = icon.pixmap(QSize(24, 24), QIcon.Mode.Normal)
@@ -87,12 +87,12 @@ class TestIconProvider:
         assert _has_visible_pixels(disabled)
         assert _image(normal) != _image(disabled)
 
-    def test_cache_returns_same_icon_object(self, qtbot) -> None:  # noqa: ARG002
+    def test_cache_returns_same_icon_object(self, qtbot) -> None:
         first = icons.get_icon("undo")
         second = icons.get_icon("undo")
         assert first is second
 
-    def test_theme_switch_invalidates_cache(self, qtbot) -> None:  # noqa: ARG002
+    def test_theme_switch_invalidates_cache(self, qtbot) -> None:
         app = QApplication.instance()
         apply_theme(app, ThemeMode.LIGHT)
         try:

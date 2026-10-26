@@ -9,14 +9,14 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.i18n_catalog import (  # noqa: E402
+from scripts.i18n_catalog import (
     CatalogError,
     active_messages,
     describe,
     read_catalog,
     validate_messages,
 )
-from scripts.i18n_sources import inventory, supported_languages  # noqa: E402
+from scripts.i18n_sources import inventory, supported_languages
 
 
 def check(root: Path, *, binaries: bool = True) -> list[str]:

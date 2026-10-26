@@ -980,5 +980,5 @@ def active_language() -> str:
     """
     try:
         return get_settings().language or "en"
-    except Exception:  # noqa: BLE001
+    except Exception:
         return "en"

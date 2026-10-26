@@ -74,7 +74,7 @@ class _WeatherFetchWorker(QThread):
                 self.success.emit(forecast)
             else:
                 self.error.emit(self.tr("Forecast unavailable"))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             if not self._is_cancelled:
                 self.error.emit(str(exc))
 
@@ -379,7 +379,7 @@ class WeatherWidget(QFrame):
                 return WeatherWidget.tr("Last updated %1 min ago").replace("%1", str(minutes))
             hours = int(delta.total_seconds() // 3600)
             return WeatherWidget.tr("Last updated %1 h ago").replace("%1", str(hours))
-        except Exception:  # noqa: BLE001
+        except Exception:
             return ""
 
 

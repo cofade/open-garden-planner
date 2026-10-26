@@ -29,12 +29,12 @@ from open_garden_planner.ui.panels.journal_panel import JournalPanel
 
 
 @pytest.fixture()
-def project_manager(qtbot: object) -> ProjectManager:  # noqa: ARG001 — Qt init
+def project_manager(qtbot: object) -> ProjectManager:
     return ProjectManager()
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot: object) -> CanvasScene:
     return CanvasScene(width_cm=1000, height_cm=800)
 
 
@@ -159,14 +159,14 @@ class TestReviewerRegressions:
     """Bug fixes from senior-reviewer pass on the US-12.9 branch."""
 
     def test_delete_key_path_routes_through_journal_command(
-        self, project_manager: ProjectManager, scene: CanvasScene, qtbot: object  # noqa: ARG002
+        self, project_manager: ProjectManager, scene: CanvasScene, qtbot: object
     ) -> None:
         """Selecting a pin and pressing Delete used to call DeleteItemsCommand
         directly, removing the pin from the scene but orphaning the note dict
         in ProjectData. The fix routes journal pins through
         DeleteJournalNoteCommand via journal_notes_batch_delete_requested.
         """
-        from open_garden_planner.ui.canvas.canvas_view import CanvasView  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
         note = JournalNote(date="2026-05-13", text="x", scene_x=0.0, scene_y=0.0)
         pin = JournalPinItem(x=0.0, y=0.0, note_id=note.id)
@@ -220,7 +220,7 @@ class TestReviewerRegressions:
         """A garden with many long notes used to silently truncate at the
         first page boundary. The fix calls writer.newPage() automatically.
         """
-        from open_garden_planner.services.pdf_report_service import (  # noqa: PLC0415
+        from open_garden_planner.services.pdf_report_service import (
             PdfReportOptions,
             PdfReportService,
         )
@@ -348,13 +348,13 @@ class TestProjectRoundTrip:
 
 class TestJournalNoteDialog:
     def test_new_note_defaults_to_today(
-        self, qtbot: object, project_manager: ProjectManager  # noqa: ARG002
+        self, qtbot: object, project_manager: ProjectManager
     ) -> None:
         """Regression: opening the dialog for a fresh JournalNote with date=""
         used to leave the QDateEdit at Qt's default 2000-01-01."""
-        from datetime import date as _date  # noqa: PLC0415
+        from datetime import date as _date
 
-        from open_garden_planner.ui.dialogs.journal_note_dialog import (  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.journal_note_dialog import (
             JournalNoteDialog,
         )
 
@@ -369,9 +369,9 @@ class TestJournalNoteDialog:
         )
 
     def test_dialog_preserves_existing_note_date(
-        self, qtbot: object, project_manager: ProjectManager  # noqa: ARG002
+        self, qtbot: object, project_manager: ProjectManager
     ) -> None:
-        from open_garden_planner.ui.dialogs.journal_note_dialog import (  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.journal_note_dialog import (
             JournalNoteDialog,
         )
 
@@ -384,7 +384,7 @@ class TestJournalNoteDialog:
 
 
 class TestJournalPanel:
-    def test_panel_filters_by_text_query(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_panel_filters_by_text_query(self, qtbot: object) -> None:
         panel = JournalPanel()
         panel.refresh({
             "a": JournalNote(date="2026-05-01", text="planted lettuce").to_dict(),
@@ -395,7 +395,7 @@ class TestJournalPanel:
         panel._search_edit.setText("lettuce")
         # textChanged auto-rebuilds the list. Real notes carry a UserRole id;
         # the placeholder row sets no data, so filtering by truthy data is enough.
-        from PyQt6.QtCore import Qt as _Qt  # noqa: PLC0415
+        from PyQt6.QtCore import Qt as _Qt
 
         ids = [
             panel._list.item(i).data(_Qt.ItemDataRole.UserRole)
@@ -404,8 +404,8 @@ class TestJournalPanel:
         ids = [i for i in ids if i]
         assert set(ids) == {"a", "c"}
 
-    def test_panel_filters_by_date_range(self, qtbot: object) -> None:  # noqa: ARG002
-        from PyQt6.QtCore import QDate  # noqa: PLC0415
+    def test_panel_filters_by_date_range(self, qtbot: object) -> None:
+        from PyQt6.QtCore import QDate
 
         panel = JournalPanel()
         panel.refresh({
@@ -418,7 +418,7 @@ class TestJournalPanel:
         panel._date_from.setDate(QDate(2026, 5, 1))
         panel._date_to.setDate(QDate(2026, 5, 31))
 
-        from PyQt6.QtCore import Qt as _Qt  # noqa: PLC0415
+        from PyQt6.QtCore import Qt as _Qt
 
         ids = [
             panel._list.item(i).data(_Qt.ItemDataRole.UserRole)
@@ -439,7 +439,7 @@ class TestPdfGardenNotesPage:
         scene: CanvasScene,
         tmp_path: Path,
     ) -> None:
-        from open_garden_planner.services.pdf_report_service import (  # noqa: PLC0415
+        from open_garden_planner.services.pdf_report_service import (
             PdfReportOptions,
             PdfReportService,
         )
@@ -474,7 +474,7 @@ class TestPdfGardenNotesPage:
         scene: CanvasScene,
         tmp_path: Path,
     ) -> None:
-        from open_garden_planner.services.pdf_report_service import (  # noqa: PLC0415
+        from open_garden_planner.services.pdf_report_service import (
             PdfReportOptions,
             PdfReportService,
         )

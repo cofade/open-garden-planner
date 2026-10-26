@@ -495,15 +495,15 @@ def build_plan_state(
     name the date it reasoned about. This mirrors ``_parse_agent_date`` on the
     application side, which owns parsing and refusal of a malformed value.
     """
-    from open_garden_planner.core.object_types import (  # noqa: PLC0415
+    from open_garden_planner.core.object_types import (
         get_translated_display_name,
         is_bed_type,
     )
-    from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+    from open_garden_planner.models.plant_data import (
         PlantSpeciesData,
         species_key,
     )
-    from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
+    from open_garden_planner.models.task import ManualTask
 
     today = today or datetime.date.today()
     year = today.year if year is None else year
@@ -581,7 +581,7 @@ def build_plan_state(
     overrides: dict[str, dict] = {}
     seed_packets: dict[str, Any] = {}
     if include_propagation:
-        from open_garden_planner.models.seed_inventory import get_seed_inventory  # noqa: PLC0415
+        from open_garden_planner.models.seed_inventory import get_seed_inventory
 
         overrides = dict(project_manager.propagation_overrides)
         store = get_seed_inventory()
@@ -679,7 +679,7 @@ def frost_anchor_years(
     propagation steps), never from a hand-written offset constant, so it stays
     correct when the bundled data changes.
     """
-    from dataclasses import replace  # noqa: PLC0415
+    from dataclasses import replace
 
     first_year, last_year = start.year, end.year
     if state.last_frost is None:
@@ -720,7 +720,7 @@ def generate_for_date_window(
     anchor-year ids, filter by date overlap, and leave urgency relative to
     state.today.
     """
-    from dataclasses import replace  # noqa: PLC0415
+    from dataclasses import replace
 
     if start > end:
         raise ValueError("from_date must be on or before to_date.")
@@ -789,7 +789,7 @@ def generate_actionable_for_surface(
         # frost alerts) are still worth listing, and they carry absolute dates.
         return generate_all(state)
 
-    from dataclasses import replace  # noqa: PLC0415
+    from dataclasses import replace
 
     # ``classify_urgency`` admits nothing beyond 30 days ahead or 14 behind, so
     # this span is the widest that can ever produce a listed task. It also bounds
@@ -891,11 +891,11 @@ def _bed_amendment_recs(
     record = soil_service.get_effective_record(bed_id)
     if record is None:
         return ()
-    from open_garden_planner.app.settings import active_language  # noqa: PLC0415
-    from open_garden_planner.core.measurements import (  # noqa: PLC0415
+    from open_garden_planner.app.settings import active_language
+    from open_garden_planner.core.measurements import (
         calculate_area_and_perimeter,
     )
-    from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
+    from open_garden_planner.services.soil_service import SoilService
 
     result = calculate_area_and_perimeter(item)
     if result is None:
@@ -921,8 +921,8 @@ def _bed_mismatch_plants(
     """Names of a bed's child plants whose soil preference clashes (US-12.10d)."""
     if soil_service is None:
         return ()
-    from open_garden_planner.models.plant_data import PlantSpeciesData  # noqa: PLC0415
-    from open_garden_planner.services.soil_service import SoilService  # noqa: PLC0415
+    from open_garden_planner.models.plant_data import PlantSpeciesData
+    from open_garden_planner.services.soil_service import SoilService
 
     bed_id = str(getattr(item, "item_id", ""))
     record = soil_service.get_effective_record(bed_id)

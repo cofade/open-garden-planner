@@ -260,7 +260,7 @@ class _FetchWorker(QThread):
         self._bbox = bbox
         self._api_key = api_key
 
-    def run(self) -> None:  # noqa: D401 - QThread API
+    def run(self) -> None:
         try:
             result = fetch_bbox(
                 self._bbox,

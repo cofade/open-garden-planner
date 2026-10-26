@@ -35,12 +35,12 @@ from open_garden_planner.ui.panels import PropertiesPanel
 
 
 @pytest.fixture
-def manager(qtbot) -> ProjectManager:  # noqa: ARG001 — qtbot for Qt init
+def manager(qtbot) -> ProjectManager:
     return ProjectManager()
 
 
 @pytest.fixture
-def scene(qtbot) -> QGraphicsScene:  # noqa: ARG001
+def scene(qtbot) -> QGraphicsScene:
     return QGraphicsScene()
 
 
@@ -125,7 +125,7 @@ class TestRoundTrip:
 
 
 class TestPanelUndo:
-    def test_edit_is_one_undo_step_and_reverts(self, qtbot) -> None:  # noqa: ARG002
+    def test_edit_is_one_undo_step_and_reverts(self, qtbot) -> None:
         cmd_mgr = CommandManager()
         panel = PropertiesPanel(command_manager=cmd_mgr)
         fence = RectangleItem(0, 0, 300, 10, object_type=ObjectType.FENCE)
@@ -153,7 +153,7 @@ class TestPanelUndo:
         cmd_mgr.redo()
         assert fence.metadata[METADATA_KEY] == 180.0
 
-    def test_refresher_updates_spin_after_undo(self, qtbot) -> None:  # noqa: ARG002
+    def test_refresher_updates_spin_after_undo(self, qtbot) -> None:
         cmd_mgr = CommandManager()
         panel = PropertiesPanel(command_manager=cmd_mgr)
         fence = RectangleItem(0, 0, 300, 10, object_type=ObjectType.FENCE)
@@ -167,7 +167,7 @@ class TestPanelUndo:
         panel.set_selected_items([fence])
         assert spin.value() == 120.0  # back to the resolved default
 
-    def test_zero_clears_the_override(self, qtbot) -> None:  # noqa: ARG002
+    def test_zero_clears_the_override(self, qtbot) -> None:
         cmd_mgr = CommandManager()
         panel = PropertiesPanel(command_manager=cmd_mgr)
         wall = RectangleItem(0, 0, 400, 20, object_type=ObjectType.WALL)
@@ -182,14 +182,14 @@ class TestPanelUndo:
         cmd_mgr.undo()
         assert wall.metadata[METADATA_KEY] == 250.0
 
-    def test_no_height_row_for_type_without_semantics(self, qtbot) -> None:  # noqa: ARG002
+    def test_no_height_row_for_type_without_semantics(self, qtbot) -> None:
         panel = PropertiesPanel(command_manager=CommandManager())
         generic = RectangleItem(0, 0, 100, 100)  # GENERIC_RECTANGLE
         panel.set_selected_items([generic])
         assert _field_by_label(panel, "Object height") is None
 
     @pytest.mark.parametrize("type_name", sorted(_HEIGHT_FIELD_TYPES))
-    def test_open_structures_offer_the_field_without_a_default(self, qtbot, type_name: str) -> None:  # noqa: ARG002
+    def test_open_structures_offer_the_field_without_a_default(self, qtbot, type_name: str) -> None:
         """Package 3a (#308): swing/pergola/hammock have no default height (the
         shadow model extrudes a solid footprint) but the panel MUST still offer
         the row so a user can opt in — the predicate alone was proven

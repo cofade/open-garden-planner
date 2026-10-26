@@ -100,7 +100,7 @@ def test_guild_membership_coexists_with_parent_delete_and_undo(factory, supports
 @pytest.mark.parametrize("factory,supports_grid,supports_soil", BED_SHAPES)
 def test_bed_context_menu_has_all_features(
     factory, supports_grid: bool, supports_soil: bool, qtbot
-) -> None:  # noqa: ARG001 — qtbot needed for Qt init
+) -> None:
     """Every plant-parent shape exposes the non-soil bed actions; soil-test +
     grid are gated by supports_soil / supports_grid (trellis omits both)."""
     item = factory()
@@ -130,7 +130,7 @@ def test_bed_context_menu_has_all_features(
 @pytest.mark.parametrize("factory,supports_grid,supports_soil", BED_SHAPES)
 def test_bed_menu_actions_have_translated_text(
     factory, supports_grid: bool, supports_soil: bool, qtbot
-) -> None:  # noqa: ARG001
+) -> None:
     """Each present bed action must have non-empty label text (i18n-ready)."""
     item = factory()
     menu = QMenu()

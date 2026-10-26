@@ -4,7 +4,6 @@ Tests exercise the full mouse gesture → scene state assertion workflow.
 All coordinates are scene-space (Y-down, (0,0) = top-left).
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

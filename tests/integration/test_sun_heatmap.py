@@ -54,7 +54,7 @@ POINT_SOUTH = (2000.0, 20.0)
 
 
 @pytest.fixture
-def wall_scene(qtbot) -> CanvasScene:  # noqa: ARG001
+def wall_scene(qtbot) -> CanvasScene:
     scene = CanvasScene(4000.0, 300.0)
     wall = PolylineItem(
         [QPointF(0.0, WALL_Y), QPointF(4000.0, WALL_Y)],
@@ -74,7 +74,7 @@ class TestQImageRasterizer:
     TRIANGLE = [[(35.0, 20.0), (370.0, 90.0), (150.0, 280.0)]]
     GRID = HeatmapGrid(x0_cm=0.0, y0_cm=0.0, cell_cm=10.0, cols=40, rows=30)
 
-    def test_matches_point_reference(self, qtbot) -> None:  # noqa: ARG002
+    def test_matches_point_reference(self, qtbot) -> None:
         qimage_mask = rasterize_polygons_qimage(self.TRIANGLE, self.GRID)
         reference = point_rasterizer_reference(self.TRIANGLE, self.GRID)
         mismatch = np.mean(qimage_mask != reference)
@@ -82,7 +82,7 @@ class TestQImageRasterizer:
         # sampling) — a few boundary cells on a 1200-cell grid.
         assert mismatch < 0.03, f"mismatch fraction {mismatch:.3f}"
 
-    def test_two_thread_smoke(self, qtbot) -> None:  # noqa: ARG002
+    def test_two_thread_smoke(self, qtbot) -> None:
         """The ADR-037 route-1 license: QImage painting is thread-safe off
         the GUI thread — two concurrent painter threads, identical output,
         no crash."""
@@ -96,7 +96,7 @@ class TestQImageRasterizer:
                     results[slot].append(
                         rasterize_polygons_qimage(self.TRIANGLE, self.GRID)
                     )
-            except BaseException as exc:  # noqa: BLE001 — smoke test collects
+            except BaseException as exc:
                 errors.append(exc)
 
         threads = [
@@ -164,7 +164,7 @@ class TestWorkerEndToEnd:
             "blocked the GUI thread or ended before 50 ms"
         )
 
-    def test_no_location_refuses(self, qtbot, wall_scene) -> None:  # noqa: ARG002
+    def test_no_location_refuses(self, qtbot, wall_scene) -> None:
         controller = SunHeatmapController(wall_scene, lambda: None)
         assert controller.run_for_day(SUMMER) is False
         assert controller.run_count == 0
@@ -408,7 +408,7 @@ class TestAppGlue:
 
 @pytest.mark.perf
 class TestPerf:
-    def test_60k_cells_full_day_budget(self, qtbot) -> None:  # noqa: ARG002
+    def test_60k_cells_full_day_budget(self, qtbot) -> None:
         """The stated budget: 30 m × 20 m at 10 cm cells (60 000 cells),
         full summer day — < 2 s in the worker on dev hardware; asserted
         with CI slack (×3)."""

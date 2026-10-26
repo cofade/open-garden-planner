@@ -8,7 +8,6 @@ Regression coverage for:
 - Rectangle corner drag preserves right angles and blocks when FIXED.
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock, patch
 

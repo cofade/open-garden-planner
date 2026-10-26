@@ -85,7 +85,7 @@ class SmartSymbolLibrary:
                     data = json.load(f)
                 definition = SmartSymbolDefinition.from_dict(data)
                 symbols[definition.id] = definition  # user may override a bundled id
-            except Exception as exc:  # noqa: BLE001 — untrusted-input boundary (see above)
+            except Exception as exc:
                 logger.warning("Skipping invalid smart-symbol file %s: %s", path, exc)
         self._symbols = symbols
 

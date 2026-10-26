@@ -8,7 +8,6 @@ Regression coverage for:
   context menu on both VertexHandle and MidpointHandle.
 """
 
-# ruff: noqa: ARG002
 
 import copy
 from unittest.mock import MagicMock

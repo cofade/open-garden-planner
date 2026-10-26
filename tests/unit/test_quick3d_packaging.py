@@ -278,7 +278,7 @@ class TestFrozenSelftestWorkflow:
         assert "environ" not in body and "argv" not in body, (
             "the app has a switch for the update check now: use it for the smoke, and say so")
         checker = (REPO / "src/open_garden_planner/services/update_checker.py").read_text(encoding="utf-8")
-        assert "except Exception:  # noqa: BLE001" in checker[checker.index("class UpdateChecker"):]
+        assert "except Exception:" in checker[checker.index("class UpdateChecker"):]
         comments = "\n".join(line for line in FROZEN.splitlines() if line.lstrip().startswith("#"))
         assert "no _version.py" not in comments.lower()
         for statement in ("writes _version.py with the version in pyproject.toml", "calls itself by the last synced release",

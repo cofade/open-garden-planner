@@ -13,7 +13,7 @@ from __future__ import annotations
 from PyQt6.QtGui import QFont, QFontDatabase, QFontMetrics
 
 
-def test_the_ui_font_engine_is_real(qtbot, qapp, ui_font_family):  # noqa: ARG001 - qtbot initialises Qt
+def test_the_ui_font_engine_is_real(qtbot, qapp, ui_font_family):
     assert ui_font_family in QFontDatabase.families(), ui_font_family
     chosen = QFontMetrics(QFont(ui_font_family, 9))
     assert chosen.horizontalAdvance("i") != chosen.horizontalAdvance("W"), (

@@ -137,7 +137,7 @@ def restore_settings(before: dict) -> list[str]:
             f"port={s.agent_api_port} token="
             f"{'restored' if before['token'] else 'removed (regenerates)'}"
         )
-    except Exception:  # noqa: BLE001 - reporting beats masking
+    except Exception:
         problems.append("restore FAILED: " + traceback.format_exc(limit=2))
     return problems
 
@@ -502,7 +502,7 @@ async def drive(port: int, token: str) -> dict:
                     msgs = getattr(pr, "messages", None) or []
                     out["prompt_" + tag] = (
                         getattr(msgs[0].content, "text", "") if msgs else "")
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     out["prompt_" + tag] = ""
                     out["errors"].append(f"get_prompt ({tag}) raised {exc!r}")
             out["prompt_text"] = out["prompt_with_plan"]
@@ -786,7 +786,7 @@ def main() -> int:
             out = asyncio.run(emit_sample(port, token, tmp))
         else:
             out = asyncio.run(drive(port, token))
-    except Exception as exc:  # noqa: BLE001 - report, never traceback-only
+    except Exception as exc:
         out["errors"].append(f"harness error: {exc!r}")
         traceback.print_exc()
     finally:

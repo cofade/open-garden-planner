@@ -14,7 +14,7 @@ from open_garden_planner.ui.canvas.items import RectangleItem
 
 
 @pytest.fixture
-def scene(qtbot) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot) -> CanvasScene:
     return CanvasScene(20000, 20000)
 
 

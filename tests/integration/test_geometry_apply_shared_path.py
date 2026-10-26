@@ -67,7 +67,7 @@ class TestRotatedPanelResizeRegression:
 
     @pytest.mark.parametrize("rotation", _ROTATIONS)
     def test_panel_resize_holds_a_rotated_circle_in_place(
-        self, canvas: CanvasView, qtbot: object, rotation: float  # noqa: ARG002
+        self, canvas: CanvasView, qtbot: object, rotation: float
     ) -> None:
         scene = canvas.scene()
         item = CircleItem(200.0, 200.0, 50.0, object_type=ObjectType.TREE)
@@ -91,7 +91,7 @@ class TestRotatedPanelResizeRegression:
 
     @pytest.mark.parametrize("rotation", _ROTATIONS)
     def test_panel_resize_re_pins_the_rotation_origin(
-        self, canvas: CanvasView, qtbot: object, rotation: float  # noqa: ARG002
+        self, canvas: CanvasView, qtbot: object, rotation: float
     ) -> None:
         """The mechanism, asserted directly: the serializer invariant
         ``transformOriginPoint == rect().center()`` (#219) must survive a
@@ -123,7 +123,7 @@ class TestRotatedPanelResizeRegression:
         assert origin.y() == pytest.approx(centre.y())
 
     def test_undo_restores_a_rotated_panel_resize_exactly(
-        self, canvas: CanvasView, qtbot: object  # noqa: ARG002
+        self, canvas: CanvasView, qtbot: object
     ) -> None:
         scene = canvas.scene()
         item = CircleItem(500.0, 500.0, 40.0, object_type=ObjectType.SHRUB)
@@ -149,7 +149,7 @@ class TestPanelAndAgentAgree:
 
     @pytest.mark.parametrize("rotation", _ROTATIONS)
     def test_circle_panel_and_agent_produce_the_same_geometry(
-        self, canvas: CanvasView, qtbot: object, rotation: float  # noqa: ARG002
+        self, canvas: CanvasView, qtbot: object, rotation: float
     ) -> None:
         scene = canvas.scene()
         panel_item = CircleItem(200.0, 200.0, 50.0, object_type=ObjectType.TREE)
@@ -416,7 +416,7 @@ class TestRotatedRectanglePanelResize:
 
     @pytest.mark.parametrize("rotation", _ROTATIONS)
     def test_anchor_corner_stays_put_under_rotation(
-        self, canvas: CanvasView, qtbot: object, rotation: float  # noqa: ARG002
+        self, canvas: CanvasView, qtbot: object, rotation: float
     ) -> None:
         scene = canvas.scene()
         item = RectangleItem(600.0, 600.0, 100.0, 80.0)

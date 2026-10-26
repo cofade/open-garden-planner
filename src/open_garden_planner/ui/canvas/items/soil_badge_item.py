@@ -49,7 +49,7 @@ class SoilBadgeItem(QGraphicsObject):
     def bed_id(self) -> str:
         return self._bed_id
 
-    def boundingRect(self) -> QRectF:  # noqa: N802 (Qt API)
+    def boundingRect(self) -> QRectF:
         half = BADGE_SIZE / 2.0
         return QRectF(-half, -half, BADGE_SIZE, BADGE_SIZE)
 
@@ -103,7 +103,7 @@ class SoilBadgeItem(QGraphicsObject):
         if scene_pos != self.pos():
             self.setPos(scene_pos)
 
-    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:  # noqa: N802
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self._bed_id)
             event.accept()

@@ -32,7 +32,7 @@ from open_garden_planner.ui.canvas.items import (
 
 
 @pytest.fixture
-def scene(qtbot) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot) -> CanvasScene:
     return CanvasScene(2000, 2000)
 
 
@@ -202,7 +202,7 @@ class TestCustomProvider:
             kind = SnapCandidateKind.CENTER
             priority = 5
 
-            def candidates(self, _scene_pos, _items, _threshold, reference_point=None):  # type: ignore[override]  # noqa: ARG002
+            def candidates(self, _scene_pos, _items, _threshold, reference_point=None):  # type: ignore[override]
                 yield SnapCandidate(
                     point=QPointF(1, 1),
                     kind=SnapCandidateKind.CENTER,

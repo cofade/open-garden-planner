@@ -15,7 +15,7 @@ the *wiring* side that #222 left on the table:
 only (their real job).
 """
 
-# ruff: noqa: ARG001, ARG002, ARG005
+# ruff: noqa: ARG005
 
 from PyQt6.QtCore import QPointF
 from PyQt6.QtWidgets import QApplication, QMessageBox

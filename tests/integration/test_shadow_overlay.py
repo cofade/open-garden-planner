@@ -46,7 +46,7 @@ JUNE_NIGHT_UTC = datetime(2026, 6, 21, 23, 0, tzinfo=UTC)
 
 
 @pytest.fixture
-def scene(qtbot) -> CanvasScene:  # noqa: ARG001 — qtbot for Qt init
+def scene(qtbot) -> CanvasScene:
     return CanvasScene(500.0, 500.0)
 
 
@@ -81,7 +81,7 @@ def _pixel(region: QRectF, px_per_cm: float, image_height: int, x_cm: float, y_c
 
 
 class TestBindingPixel:
-    def test_shadow_tip_lands_at_predicted_pixel(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_shadow_tip_lands_at_predicted_pixel(self, qtbot, scene) -> None:
         _make_caster(scene)
         controller = SunShadowController(scene, lambda: BERLIN)
         controller.set_sim_datetime(JUNE_NOON_UTC)
@@ -123,7 +123,7 @@ class TestBindingPixel:
             "expected untouched background just beyond the predicted tip"
         )
 
-    def test_disabling_restores_clean_render(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_disabling_restores_clean_render(self, qtbot, scene) -> None:
         _make_caster(scene)
         controller = SunShadowController(scene, lambda: BERLIN)
         controller.set_sim_datetime(JUNE_NOON_UTC)
@@ -136,7 +136,7 @@ class TestBindingPixel:
 
 
 class TestCanvasClip:
-    def test_shadow_clipped_to_canvas_bounds(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_shadow_clipped_to_canvas_bounds(self, qtbot, scene) -> None:
         # A tall caster near the north edge throws a shadow far past the top of
         # the canvas; the overlay must be cut off at the canvas boundary, not
         # spill onto the grey area outside the garden.
@@ -158,7 +158,7 @@ class TestCanvasClip:
             "shadow overlay must be clipped to the canvas — nothing outside it"
         )
 
-    def test_soft_feather_extends_just_past_shadow(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_soft_feather_extends_just_past_shadow(self, qtbot, scene) -> None:
         # The soft edge is an OUTWARD penumbra: it tints a few cm past the
         # geometric shadow tip (proving the feather is painted and points
         # outward), while well beyond it the background is untouched.
@@ -224,7 +224,7 @@ class TestRecomputeDiscipline:
         qtbot.wait(400)
         assert controller.recompute_count == night_count
 
-    def test_canvas_resize_forces_rebuild(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_canvas_resize_forces_rebuild(self, qtbot, scene) -> None:
         # A canvas resize (satellite picker) changes the clip bounds with the
         # sun and casters unchanged; canvas_key must break the snapshot guard,
         # else the overlay stays pinned to the stale canvas.
@@ -237,7 +237,7 @@ class TestRecomputeDiscipline:
         controller.recompute_now()
         assert controller.recompute_count == count + 1
 
-    def test_sim_time_change_recomputes_immediately(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_sim_time_change_recomputes_immediately(self, qtbot, scene) -> None:
         _make_caster(scene)
         controller = SunShadowController(scene, lambda: BERLIN)
         controller.set_sim_datetime(JUNE_NOON_UTC)
@@ -248,7 +248,7 @@ class TestRecomputeDiscipline:
 
 
 class TestEmptyStates:
-    def test_no_location_state(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_no_location_state(self, qtbot, scene) -> None:
         _make_caster(scene)
         controller = SunShadowController(scene, lambda: None)
         controller.set_sim_datetime(JUNE_NOON_UTC)
@@ -258,7 +258,7 @@ class TestEmptyStates:
         assert controller.state == STATE_NO_LOCATION
         assert STATE_NO_LOCATION in states
 
-    def test_night_shades_whole_canvas(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_night_shades_whole_canvas(self, qtbot, scene) -> None:
         # US-E3 follow-up: at night the shadows do NOT vanish — the entire
         # garden lies in shade. The overlay fills (and is clipped to) the
         # canvas, so an interior region renders darker than the bare scene.
@@ -281,7 +281,7 @@ class TestEmptyStates:
             scene.canvas_rect.height()
         )
 
-    def test_location_set_recovers_from_empty_state(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_location_set_recovers_from_empty_state(self, qtbot, scene) -> None:
         _make_caster(scene)
         location: dict | None = None
         controller = SunShadowController(scene, lambda: location)
@@ -294,7 +294,7 @@ class TestEmptyStates:
 
 
 class TestNeverSerialized:
-    def test_overlay_absent_from_saved_ogp(self, qtbot, scene, tmp_path) -> None:  # noqa: ARG002
+    def test_overlay_absent_from_saved_ogp(self, qtbot, scene, tmp_path) -> None:
         _make_caster(scene)
         controller = SunShadowController(scene, lambda: BERLIN)
         controller.set_sim_datetime(JUNE_NOON_UTC)
@@ -314,7 +314,7 @@ class TestNeverSerialized:
         manager.load(scene, file_path)
         assert not any(isinstance(i, SunShadowOverlayItem) for i in scene.items())
 
-    def test_recompute_survives_scene_clear(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_recompute_survives_scene_clear(self, qtbot, scene) -> None:
         """scene.clear() (project load/new) deletes the overlay's C++ object;
         the controller must recover, not crash (RuntimeError guard)."""
         _make_caster(scene)
@@ -356,7 +356,7 @@ class TestGrowthCoupledShadows:
         scene.addItem(tree)
         return tree
 
-    def test_scrubbing_years_regrows_the_shadow(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_scrubbing_years_regrows_the_shadow(self, qtbot, scene) -> None:
         self._make_tree(scene)
         controller = SunShadowController(scene, lambda: BERLIN)
         controller.set_sim_datetime(datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
@@ -373,7 +373,7 @@ class TestGrowthCoupledShadows:
 
     def test_stored_geometry_untouched_by_scrubbing(
         self, qtbot, scene, tmp_path
-    ) -> None:  # noqa: ARG002
+    ) -> None:
         import json
 
         tree = self._make_tree(scene)
@@ -395,7 +395,7 @@ class TestGrowthCoupledShadows:
             json.loads(second.read_text(encoding="utf-8"))["objects"]
         )
 
-    def test_planting_date_round_trips(self, qtbot, scene, tmp_path) -> None:  # noqa: ARG002
+    def test_planting_date_round_trips(self, qtbot, scene, tmp_path) -> None:
         self._make_tree(scene)
         manager = ProjectManager()
         path = tmp_path / "tree.ogp"
@@ -409,7 +409,7 @@ class TestGrowthCoupledShadows:
             loaded.metadata["plant_instance"]["planting_date"] == "2026-01-01"
         )
 
-    def test_measured_current_height_drives_the_caster(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_measured_current_height_drives_the_caster(self, qtbot, scene) -> None:
         """The owner's report: 'shadow scales only on max height, ignores
         current height'. The measured size must win — even with no date."""
         from open_garden_planner.ui.canvas.items.circle_item import CircleItem
@@ -437,7 +437,7 @@ class TestGrowthCoupledShadows:
         # not a fraction of the 100 cm drawn circle.
         assert (max(xs) - min(xs)) == pytest.approx(150.0, abs=2.0)
 
-    def test_canopy_grows_past_the_drawn_circle(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_canopy_grows_past_the_drawn_circle(self, qtbot, scene) -> None:
         """A placeholder-sized circle must not cap canopy growth.
 
         The earlier proportional model clamped the scale to ≤1, so a tree
@@ -462,7 +462,7 @@ class TestGrowthCoupledShadows:
         xs = [x for x, _ in footprint]
         assert (max(xs) - min(xs)) == pytest.approx(400.0, abs=2.0)
 
-    def test_unmeasured_plants_unchanged(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_unmeasured_plants_unchanged(self, qtbot, scene) -> None:
         """A dated but UN-measured plant keeps its mature size at every
         date — growth stays disengaged until a current height is typed."""
         from open_garden_planner.ui.canvas.items.circle_item import CircleItem
@@ -479,7 +479,7 @@ class TestGrowthCoupledShadows:
             _, height, _base = collect_shadow_casters(scene, at_date=at)[0]
             assert height == pytest.approx(500.0)
 
-    def test_undated_plants_unchanged(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_undated_plants_unchanged(self, qtbot, scene) -> None:
         """No ``plant_instance`` at all → mature size at every sim date, the
         pre-E8 compatibility contract.
 
@@ -508,7 +508,7 @@ class TestGrowthCoupledShadows:
 
 @pytest.mark.perf
 class TestPerf:
-    def test_recompute_200_items_perf(self, qtbot, scene) -> None:  # noqa: ARG002
+    def test_recompute_200_items_perf(self, qtbot, scene) -> None:
         for i in range(200):
             item = RectangleItem(
                 (i % 20) * 60.0,
