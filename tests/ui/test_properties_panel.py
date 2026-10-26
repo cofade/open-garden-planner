@@ -1,12 +1,13 @@
 """Tests for properties panel."""
 
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtWidgets import QFormLayout
+from PyQt6.QtWidgets import QAbstractSpinBox, QComboBox, QFormLayout
 
 from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
+from open_garden_planner.ui.panels.properties_panel import ColorButton
 
 
 class TestPropertiesPanel:
@@ -548,6 +549,15 @@ class TestObjectHeightField:
         for label in ("Spacing:", "Soil depth:", "Object height:", "Stroke Width:"):
             assert fields[label].width() == 120, label
             assert fields[label].alignment() & Qt.AlignmentFlag.AlignRight, label
+        # Every short input shares that column, not only the four in the first
+        # screenshot: position/size fields, combos and colour buttons too.
+        for spin in panel.findChildren(QAbstractSpinBox):
+            assert spin.width() == 120, spin
+            assert spin.alignment() & Qt.AlignmentFlag.AlignRight, spin
+        for combo in panel.findChildren(QComboBox):
+            assert combo.width() == 120, combo
+        for button in panel.findChildren(ColorButton):
+            assert button.width() == 120, button
 
         fields["Object height:"].setValue(70.0)
         qtbot.wait(30)

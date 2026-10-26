@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QGraphicsItem,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QPushButton,
     QScrollArea,
@@ -74,9 +75,9 @@ _TEXT_PROPERTY_LABELS = {
     "italic": "italic",
 }
 
-#: Shared width of the paired numeric fields (soil depth, object height).
-#: The height field once expanded across the whole panel (#596 manual pass).
-NUMERIC_FIELD_WIDTH = 120
+#: Shared width of every short Properties input: numeric fields, combo boxes
+#: and colour buttons. The panel's one control column (#596 manual pass).
+FIELD_WIDTH = 120
 
 
 def _style_numeric_field(field: QAbstractSpinBox) -> None:
@@ -87,8 +88,13 @@ def _style_numeric_field(field: QAbstractSpinBox) -> None:
     object-height field's shape is the reference. Composite widgets (the
     position X/Y pair) keep their own layout.
     """
-    field.setFixedWidth(NUMERIC_FIELD_WIDTH)
+    field.setFixedWidth(FIELD_WIDTH)
     field.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+
+def _style_combo(combo: QComboBox) -> None:
+    """Give a combo box the same width as every other short input (#596)."""
+    combo.setFixedWidth(FIELD_WIDTH)
 
 # Free-text fields (Name, Text Content) live-update the item on every keystroke
 # but only commit ONE undo command per typing burst. The command is committed
@@ -128,6 +134,7 @@ class ColorButton(QPushButton):
         """
         super().__init__(parent)
         self._color = color
+        self.setFixedWidth(FIELD_WIDTH)
         self.setFixedHeight(30)
         self._update_style()
         self.clicked.connect(self._pick_color)
@@ -628,6 +635,7 @@ class PropertiesPanel(QWidget):
             # Layer
             if hasattr(item, 'layer_id'):
                 layer_combo = QComboBox()
+                _style_combo(layer_combo)
                 self._populate_layer_combo(layer_combo, item)
                 layer_combo.currentIndexChanged.connect(
                     lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
@@ -668,6 +676,7 @@ class PropertiesPanel(QWidget):
         # Object Type (if applicable)
         if hasattr(item, 'object_type'):
             type_combo = QComboBox()
+            _style_combo(type_combo)
             self._populate_object_type_combo(type_combo, item)
             type_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'object_type', type_combo.currentData())
@@ -721,6 +730,7 @@ class PropertiesPanel(QWidget):
         # Layer
         if hasattr(item, 'layer_id'):
             layer_combo = QComboBox()
+            _style_combo(layer_combo)
             self._populate_layer_combo(layer_combo, item)
             layer_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
@@ -1084,6 +1094,7 @@ class PropertiesPanel(QWidget):
         pos_layout = QHBoxLayout()
         pos_layout.setSpacing(4)
         pos_layout.setContentsMargins(0, 0, 0, 0)
+        pos_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
         # X coordinate
         x_label = QLabel("X:")
@@ -1093,9 +1104,10 @@ class PropertiesPanel(QWidget):
         x_spin.setSingleStep(10.0)
         x_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
         x_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(x_spin)
         x_spin.setValue(bottom_left_x)
         pos_layout.addWidget(x_label)
-        pos_layout.addWidget(x_spin, 1)
+        pos_layout.addWidget(x_spin)
 
         # Y coordinate
         y_label = QLabel("Y:")
@@ -1105,9 +1117,10 @@ class PropertiesPanel(QWidget):
         y_spin.setSingleStep(10.0)
         y_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
         y_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(y_spin)
         y_spin.setValue(bottom_left_y)
         pos_layout.addWidget(y_label)
-        pos_layout.addWidget(y_spin, 1)
+        pos_layout.addWidget(y_spin)
 
         # Connect after both spin boxes are created
         x_spin.valueChanged.connect(
@@ -1117,9 +1130,9 @@ class PropertiesPanel(QWidget):
             lambda _: self._on_position_changed(item, x_spin, y_spin)
         )
 
-        # Create a widget to hold the layout; Expanding so it fills the field column
+        # Hug the two 120 px fields rather than stretching across the column.
         pos_widget = QWidget()
-        pos_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        pos_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         pos_widget.setLayout(pos_layout)
         self._form_layout.addRow(self.tr("Position:"), pos_widget)
 
@@ -1154,6 +1167,7 @@ class PropertiesPanel(QWidget):
             size_layout = QHBoxLayout()
             size_layout.setSpacing(4)
             size_layout.setContentsMargins(0, 0, 0, 0)
+            size_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
             w_label = QLabel("W:")
             w_spin = QDoubleSpinBox()
@@ -1165,7 +1179,7 @@ class PropertiesPanel(QWidget):
             _style_numeric_field(w_spin)
             w_spin.setValue(rect.width())
             size_layout.addWidget(w_label)
-            size_layout.addWidget(w_spin, 1)
+            size_layout.addWidget(w_spin)
 
             h_label = QLabel("H:")
             h_spin = QDoubleSpinBox()
@@ -1177,7 +1191,7 @@ class PropertiesPanel(QWidget):
             _style_numeric_field(h_spin)
             h_spin.setValue(rect.height())
             size_layout.addWidget(h_label)
-            size_layout.addWidget(h_spin, 1)
+            size_layout.addWidget(h_spin)
 
             w_spin.valueChanged.connect(
                 lambda _: self._on_dimension_changed(item, 'rect_size', None, w_spin, h_spin)
@@ -1187,7 +1201,7 @@ class PropertiesPanel(QWidget):
             )
 
             size_widget = QWidget()
-            size_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            size_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
             size_widget.setLayout(size_layout)
             self._form_layout.addRow(self.tr("Size:"), size_widget)
             self._register_refresh(
@@ -1201,6 +1215,7 @@ class PropertiesPanel(QWidget):
             axes_layout = QHBoxLayout()
             axes_layout.setSpacing(4)
             axes_layout.setContentsMargins(0, 0, 0, 0)
+            axes_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
             rx_label = QLabel("X:")
             rx_spin = QDoubleSpinBox()
@@ -1213,7 +1228,7 @@ class PropertiesPanel(QWidget):
             _style_numeric_field(rx_spin)
             rx_spin.setValue(rect.width() / 2)
             axes_layout.addWidget(rx_label)
-            axes_layout.addWidget(rx_spin, 1)
+            axes_layout.addWidget(rx_spin)
 
             ry_label = QLabel("Y:")
             ry_spin = QDoubleSpinBox()
@@ -1226,7 +1241,7 @@ class PropertiesPanel(QWidget):
             _style_numeric_field(ry_spin)
             ry_spin.setValue(rect.height() / 2)
             axes_layout.addWidget(ry_label)
-            axes_layout.addWidget(ry_spin, 1)
+            axes_layout.addWidget(ry_spin)
 
             rx_spin.valueChanged.connect(
                 lambda _: self._on_dimension_changed(item, 'ellipse_axes', None, rx_spin, ry_spin)
@@ -1236,7 +1251,7 @@ class PropertiesPanel(QWidget):
             )
 
             axes_widget = QWidget()
-            axes_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            axes_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
             axes_widget.setLayout(axes_layout)
             self._form_layout.addRow(self.tr("Semi-axes:"), axes_widget)
             self._register_refresh(
@@ -1404,6 +1419,7 @@ class PropertiesPanel(QWidget):
             cm.METAL: self.tr("Metal"),
         }
         material_combo = QComboBox()
+        _style_combo(material_combo)
         for ident in cm.MATERIALS:
             material_combo.addItem(material_labels[ident], ident)
         material_combo.setCurrentIndex(cm.MATERIALS.index(cm.container_material(meta)))
@@ -1687,6 +1703,7 @@ class PropertiesPanel(QWidget):
             widget: QWidget
             if param.type == "choice":
                 combo = QComboBox()
+                _style_combo(combo)
                 for choice in param.choices:
                     combo.addItem(choice, choice)
                 idx = combo.findData(current)
@@ -1895,6 +1912,7 @@ class PropertiesPanel(QWidget):
 
         # Font family
         font_combo = QFontComboBox()
+        _style_combo(font_combo)
         font_combo.setCurrentFont(item.font())
         font_combo.currentFontChanged.connect(
             lambda f: self._on_text_property_changed(item, "font_family", f.family())
@@ -2030,6 +2048,7 @@ class PropertiesPanel(QWidget):
         # Path/fence style preset (only for polylines)
         if isinstance(item, PolylineItem):
             style_combo = QComboBox()
+            _style_combo(style_combo)
             # Add "Paths" group
             style_combo.addItem(self.tr("── Paths ──"), None)
             idx = style_combo.count() - 1
@@ -2092,6 +2111,7 @@ class PropertiesPanel(QWidget):
 
             # Fill pattern
             pattern_combo = QComboBox()
+            _style_combo(pattern_combo)
             _pattern_names = {
                 FillPattern.SOLID: self.tr("Solid"),
                 FillPattern.GRASS: self.tr("Grass"),
@@ -2174,6 +2194,7 @@ class PropertiesPanel(QWidget):
 
         # Stroke style
         stroke_style_combo = QComboBox()
+        _style_combo(stroke_style_combo)
         _style_names = {
             StrokeStyle.SOLID: self.tr("Solid"),
             StrokeStyle.DASHED: self.tr("Dashed"),
