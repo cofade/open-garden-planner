@@ -35,6 +35,8 @@ from open_garden_planner.core.scene3d.context import (
     ENCLOSED_KINDS,
     MAX_CUTOUTS,
     MAX_PLAN_BLADES,
+    POND_CLEARANCE_CM,
+    ROUND_PATH_STYLES,
     with_context,
 )
 from open_garden_planner.core.scene3d.pick_oracle import pick_scene
@@ -181,6 +183,8 @@ def test_a_terrace_has_kerbs_or_deck_boards_inside_its_outline(kind, pattern, ri
     assert part.name == ("deck" if pattern in surfaces.DECK_PATTERNS else "kerb")
     top = float(part.mesh.positions[:, 2].max())
     assert top == pytest.approx(surfaces.DECK_TOP_CM if part.name == "deck" else surfaces.KERB_CM)
+    # on the ground, not above it (3D review of #388: the deck's boards were 1.25 cm off it)
+    assert float(part.mesh.positions[:, 2].min()) == pytest.approx(0.0, abs=1e-3)
 
 
 @pytest.mark.parametrize("pattern", ["DECKING", "STONE"])
@@ -392,6 +396,56 @@ def test_a_lawn_is_cut_by_flat_items_painted_above_it_and_by_enclosed_buildings(
                      for ring in cutouts)
     assert centres == [(0, 0), (500, 0)]  # the terrace above and the greenhouse (drawn below it)
     assert {"HOUSE", "GARAGE_SHED", "TOOL_SHED", "GREENHOUSE"} == ENCLOSED_KINDS
+
+
+def _blade_roots_cut(cutter) -> tuple[np.ndarray, np.ndarray]:  # noqa: ANN001 - a Record
+    """A lawn under ``cutter``: the roots of its blades with and without the cut-out."""
+    lawn_record = painted(at(polygon_record("LAWN", rectangle(2400.0, 2400.0), None, item_id="lawn"), 0.0, 0.0))
+    records = {"lawn": lawn_record, cutter.item_id: painted(cutter)}
+    with_context(records)
+    cut = records["lawn"]
+    whole = dataclasses.replace(cut, params=Params({k: v for k, v in cut.params.items() if k != "lawn_cutouts"}))
+    return tuple(_roots(next(part for part in REGISTRY.build(record) if part.name == surfaces.LAWN_BLADES))
+                 for record in (whole, cut))
+
+
+def _roots(part) -> np.ndarray:  # noqa: ANN001 - a MeshPart
+    """Where each blade stands: the middle of its vertices on the ground (5 a blade)."""
+    blades = part.mesh.positions.astype(np.float64).reshape(-1, 5, 3)
+    base = blades[:, :, 2] <= blades[:, :, 2].min(axis=1, keepdims=True) + 1e-6
+    return np.stack([(blades[..., axis] * base).sum(axis=1) / base.sum(axis=1) for axis in (0, 1)], axis=1)
+
+
+def test_no_blade_grows_through_a_pond_s_coping() -> None:
+    """3D review of #388: blades rooted under the coping's 7 cm overhang grew through it."""
+    pond = circle_record("POND_POOL", 300.0, None, item_id="pond")
+    whole, cut = _blade_roots_cut(pond)
+    reach = np.hypot(cut[:, 0], cut[:, 1])
+    assert reach.min() >= 300.0 + POND_CLEARANCE_CM - 0.6  # the grown ring's arcs (0.5 cm)
+    assert POND_CLEARANCE_CM == surfaces.COPING_OUT_CM + 2.0
+    kept = np.hypot(whole[:, 0], whole[:, 1])
+    assert ((kept > 300.0) & (kept < 300.0 + surfaces.COPING_OUT_CM)).sum() > 10  # there were some
+
+
+@pytest.mark.parametrize("style", ["GRAVEL_PATH", "DIRT_PATH", "PAVED_PATH"])
+def test_a_gravel_or_dirt_path_s_cutout_has_the_round_ends_the_canvas_paints(style) -> None:
+    """3D review of #388: the canvas paints a gravel and a dirt path with round caps half
+    a width past each end; the square-ended outline let blades grow there."""
+    path = line_record("PATH", ((-500.0, 0.0), (500.0, 0.0)), None, width=80.0, style=style, item_id="p")
+    _whole, cut = _blade_roots_cut(path)
+    beyond_end = (cut[:, 0] > 505.0) & (cut[:, 0] < 535.0) & (np.abs(cut[:, 1]) < 10.0)
+    assert bool(beyond_end.any()) is (style == "PAVED_PATH"), style  # a paved path ends square
+    assert not ((np.abs(cut[:, 0]) < 500.0) & (np.abs(cut[:, 1]) < 40.0)).any()
+    assert style in ROUND_PATH_STYLES or style == "PAVED_PATH"
+
+
+def test_a_closed_gravel_loop_keeps_its_outline() -> None:
+    """A loop's rounded stroke would be two rings, and a cut-out ring is filled: the
+    garden inside the loop would lose its blades. A loop keeps its outline."""
+    loop = line_record("PATH", CLOSED_PATH, None, width=80.0, style="GRAVEL_PATH", item_id="loop")
+    _whole, cut = _blade_roots_cut(loop)
+    inside = (np.abs(cut[:, 0]) < 300.0) & (np.abs(cut[:, 1]) < 200.0)
+    assert inside.any(), "the blades inside the loop stay"
 
 
 def test_the_cutouts_are_in_the_lawn_s_own_frame() -> None:

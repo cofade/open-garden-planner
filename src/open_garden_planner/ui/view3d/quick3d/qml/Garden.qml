@@ -320,6 +320,15 @@ Item {
     // stroke) and under a crown seen from above.
     property real ringDepthScale: 0.01
 
+    function meadowModel() {
+        return meadow
+    }
+
+    function setMeadowGeometry(geometry) {
+        meadow.geometry = geometry
+        return true
+    }
+
     function selectionRingModel() {
         return selectionRing
     }
@@ -817,16 +826,15 @@ Item {
             castsShadow: false
         }
 
-        // endless meadow (4 x 4 km, past the 800 m far plane), 5 cm under the plan. At 1 cm
-        // it won the depth test against the plan's ground tiles from 14 of 36 orbit cameras
-        // on bench_built (a 24-bit depth buffer resolves ~1.2 cm at 100 m from the 5 cm near
-        // plane): the pond, terraces and paths vanished (3D review of #388, P0; gated by
-        // test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan)
+        // The endless meadow: a 4 x 4 km square around the plan, IN the plan's plane, the
+        // plan cut out, in cells of at most 100 m — core/scene3d/meadow.py says why (3D
+        // review of #388: one quad under the plan lost the depth test to it). Its ONE
+        // geometry is the host's: loaded at start and whenever the plan's rectangle
+        // changes, as the selection ring's (Quick3DHost._show_meadow).
         Model {
-            source: "#Rectangle"
-            position: Qt.vector3d(root.groundCenter.x, -5.0, root.groundCenter.z)
-            eulerRotation.x: -90
-            scale: Qt.vector3d(4000, 4000, 1)
+            id: meadow
+            visible: geometry !== null
+            pickable: false
             receivesShadows: true
             castsShadows: false
             materials: PrincipledMaterial {

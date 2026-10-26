@@ -280,12 +280,17 @@ def test_the_low_preset_does_not_alias_the_pickets(board) -> None:
 #: (960 x 540, low / high): the meadow's material on both, at most 0.21; the plan ground's
 #: old material (roughness 0.92, specular 0.2) up to 4.65 — the positive control.
 MAX_PLAN_EDGE_STEP = 1.0
+#: 3D review of #388: a thin LINE on the edge, which the fitted step cannot see. With the
+#: meadow 5 cm under the plan, ambient occlusion drew one of +-14 luma along every edge
+#: (the step read 0.45); in the plan's plane, 0.09 (the reviewer's measurement).
+MAX_PLAN_EDGE_LINE = 2.0
 
 
 def test_the_plan_ground_meets_the_meadow_without_a_step(board) -> None:
     metrics, _out = board
     edge = metrics["plan_edge"]
     assert edge["max_abs_step"] <= MAX_PLAN_EDGE_STEP, edge
+    assert edge["max_line"] <= MAX_PLAN_EDGE_LINE, edge
     for preset in PRESETS:
         for mood in ("golden_hour", "noon"):
             rows = edge[preset][mood]

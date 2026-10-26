@@ -6870,7 +6870,7 @@ SimClock ──instant_changed / date_changed───────────�
   (`#if QSSG_ENABLE_DEPTH_PASS`), which does not run the discard (PF-L3D-08). No part
   blends or hides for X-ray or Cutaway; the look materials stay master's while nothing
   fades.
-- *The drape is lifted 1.5 cm* (the meadow lies at −1, the tiles at 0): clear of the
+- *The drape is lifted 1.5 cm* (the tiles and the meadow's frame lie at 0): clear of the
   ground's depth from every distance the orbit camera frames a garden at, and below
   everything that stands on the ground.
 - *The sweep's map* is the shown map's own samples taken by their local time of day
@@ -7028,13 +7028,23 @@ shapes keep `MAX_STROKE_WIDTH` (20 px). Bench plans older than L4 keep their wid
 (`make_bench_plans.LEGACY_PATH_WIDTH_CM`); `bench_built.ogp` holds every L4 kind,
 path style and roof style for the board.
 
-**Truth details from the 3D review.** The endless meadow lies 5 cm under the plan (at
-1 cm it won the depth test against the ground tiles from orbit distances; gated by a keyed
-meadow in 36 views). Path relief treats every path as open, because its outline is: a
+**Truth details from the 3D review.** The endless meadow is a frame IN the plan's plane
+(`core/scene3d/meadow.py`): a 4 km square around the plan in cells of at most 100 m, the
+plan cut out less a 1 cm strip under its edge. Nothing lies under the plan. One quad of two
+triangles 1 cm, then 5 cm, under the plan lost the depth test to it: its depth, interpolated
+across 2 km, was more than 5 cm off at 55–90 m. The 5 cm step also drew an ambient-occlusion
+line along every plan edge. The host loads the frame into one geometry when the plan
+rectangle changes, like the selection ring. A keyed meadow is gated in 156 views: an orbit
+sweep, and the workspace's own camera on the three bench plans. Path relief treats every
+path as open, because its outline is: a
 rail runs on its own offset line, chorded outside a bend where the outline squares off,
 and a boardwalk's end planks stand half a plank in. A deck's boards are 2.5 cm high
-(`DECK_TOP_CM`), so furniture standing at z 0 does not sink into them. `kit.beam` and
-`kit.rod` lift an end that stands on the ground by what its tilted end cap dips.
+(`DECK_TOP_CM`) and lie on the ground, so furniture standing at z 0 does not sink into
+them. `kit.beam` and `kit.rod` lift an end that stands on the ground by what its tilted
+end cap dips.
+A lawn's cut-outs are one keyhole ring per region, so a loop of path keeps the lawn inside
+it. A pond's cut-out is grown by its coping (`POND_CLEARANCE_CM`). An open gravel or dirt
+path's cut-out is the rounded stroke the canvas paints (`ROUND_PATH_STYLES`).
 
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on

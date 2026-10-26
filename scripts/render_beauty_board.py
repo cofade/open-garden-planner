@@ -859,7 +859,8 @@ class Board:
         The gate's number is the largest step of any view (``max_abs_step``): a sheen
         that differs makes the plan darker looking one way and brighter looking the
         other (the old material: -4.1 and +4.3 along the south edge at golden hour),
-        and a mean of the two would hide it."""
+        and a mean of the two would hide it. ``max_line`` is the largest LINE on an edge
+        (``probes.plan_edge_step``): a thin line the fits cannot see."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         by_name = {shot.name: shot for shot in shots}
@@ -881,6 +882,7 @@ class Board:
         out: dict[str, Any] = {}
         self.metrics["plan_edge"] = out
         worst = 0.0
+        worst_line = 0.0
         for preset in presets:
             out[preset] = {}
             for mood in ("golden_hour", "noon"):
@@ -897,11 +899,13 @@ class Board:
                                   "file": info["file"]}
                 for row in rows.values():
                     worst = max(worst, abs(row["step"]) if row["step"] is not None else math.inf)
+                    worst_line = max(worst_line, row["line"] if row["line"] is not None else math.inf)
                 out[preset][mood] = rows
                 self.log("plan_edge", preset=preset, mood=mood,
                          **{name: row["step"] for name, row in rows.items()})
             self.write()
         out["max_abs_step"] = round(worst, 2)
+        out["max_line"] = round(worst_line, 2)
         self.write()
 
     def restore_check(self, shot: BoardShot, preset: str) -> None:

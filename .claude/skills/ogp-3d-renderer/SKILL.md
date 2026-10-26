@@ -97,6 +97,8 @@ lives now; the values production was drift-guarded against are frozen in
 | Textures from Python | `QQuick3DTextureData`, `Format.RGBA8` | detached from its `Texture` and attached again, the same object draws the surface **untextured (white)**; `update()` does not help, `setTextureData(textureData())` + `update()` (or a fresh object) does — §5 |
 | Instancing | not bound → merge meshes (static batching) | — |
 | Geometry lifetime | one `QQuick3DGeometry` per Model lifetime | once its Model is destroyed, the same geometry given to a new Model **renders and picks nothing** (frame = empty scene, 0/20 picks); `update()` does not help, a full re-upload (`set_mesh`) does |
+| Geometry built in QML (L4) | not `ProceduralMesh` (`QtQuick3D.Helpers`): load the data from Python into a `ReloadableGeometry` that a declared Model holds for life, as the selection ring and the meadow do | a declared `ProceduralMesh` whose lists were replaced kept DRAWING its first data, though its lists read back the new ones; a `ProceduralMesh` created later — set at creation or after, in the live Model or in a new one — drew NOTHING (D3D11, RTX 4070; PF-L3D-14) |
+| One large triangle near another surface (L4) | triangles of at most 100 m, and no surface just under another | a 4 km quad of two triangles 5 cm under the plan won the depth test against it from normal cameras: its interpolated depth was more than 5 cm off at 55-90 m; the same quad in 100 m cells lost no view (24-bit depth resolves about 0.3 cm at 50 m; PF-L3D-13) |
 | `Repeater3D` over a JS array | fine for a fixed set | **any** change of the array destroys and recreates **every** delegate — combined with the row above, every model came back blank; use per-item creation or a list model with incremental inserts |
 | Pick result | `View3D.pick()` inside a QML helper that returns a plain JS object | the return value arrives as **`QJSValue`**: call `.toVariant()` before `dict()` |
 | Surface format | — | `QQuick3D.idealSurfaceFormat()` **before** `QGuiApplication` exists **segfaults** (Linux) |
@@ -1183,7 +1185,7 @@ the same machine, 2026-10-24):
   `uOpacity: root.roofsHidden ? 0.0 : fade`: no iteration over Models, a roof built while
   Cutaway is on is born cut, and it still casts (`tests/ui/test_view3d_analysis_host.py`).
   The vc walls bind `cullMode` to `roofsHidden` (their inner faces show).
-- **The drape lies 1.5 cm above the ground** (tiles at 0, meadow at −1): a 24-bit depth
+- **The drape lies 1.5 cm above the ground** (the tiles and the meadow's frame at 0): a 24-bit depth
   buffer at a 5 cm near plane resolves about 0.3 cm at 50 m and 1.2 cm at 100 m.
 
 Running the story's tiers:

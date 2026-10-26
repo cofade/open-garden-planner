@@ -1126,7 +1126,7 @@
   },
   "562": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Windows offscreen Plan & Sun layout checks depend on font discovery and test order"
   },
   "565": {
@@ -1156,7 +1156,7 @@
   },
   "573": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
   },
   "575": {
@@ -1181,7 +1181,7 @@
   },
   "592": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Every command refreshes every scene item: a one-item-per-command loop is still quadratic (lock badges + ground band)"
   },
   "593": {
@@ -1198,5 +1198,20 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Phase 17: smart-symbol builders for 3D (deferred from L4 #388)"
+  },
+  "600": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: the selection oracle builds v0 plants while the workspace shows L3 forged plants"
+  },
+  "603": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: the G7 workspace soaks compare frames before L3's forge has finished"
+  },
+  "605": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D paths: at an outer bend the fill and the border lines disagree (mitre vs chord, V spike)"
   }
 }

@@ -338,6 +338,8 @@ Permanent IDs survive retirement (ADR-061). [Pitfalls](pitfalls/) hold rules and
 | PF-L3D-10 | Render production plants and verify final seasonal bounds. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-10) |  |
 | PF-L3D-11 | A `CustomMaterial`'s `TextureInput` ignores the `Texture`'s `flipV`, so a shader that samples a north-up ground tile flips `v` itself. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-11) |  |
 | PF-L3D-12 | Do not switch on scene-wide order-independent transparency: `OITWeightedBlended` re-blends L2's multiply drapes and brightens what a shadow drape covers. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-12) |  |
+| PF-L3D-13 | Never fill round the plan with a large surface just under it: a triangle kilometres wide is centimetres off in depth and wins against the plan. Keep one plane, cut the plan out, cells of at most 100 m. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-13) |  |
+| PF-L3D-14 | Do not feed changing geometry through QML's `ProceduralMesh`: replaced lists kept drawing the first data, and one created later drew nothing. Use a `ReloadableGeometry` on a declared Model. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-14) |  |
 
 ### Redirect of legacy numbered IDs
 

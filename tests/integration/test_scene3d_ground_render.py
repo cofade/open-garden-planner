@@ -386,20 +386,27 @@ def _plan_mask(view: dict[str, Any], ground: tuple[float, float], shape: tuple[i
 
 
 def test_the_meadow_never_shows_through_the_plan(run: Run) -> None:
-    """3D review of #388, P0: the endless meadow lay 1 cm under the plan and won the
-    depth test from 14 of 36 orbit cameras on bench_built — the pond, the terraces, the
-    paths and the driveway were gone. Drawn in a key colour, the meadow must show on
-    no pixel of the plan (objects standing on it may hide the ground; the key never)."""
+    """3D review of #388, P0, twice: the endless meadow, one quad 1 cm and then 5 cm under
+    the plan, won the depth test from 14 of 36 orbit cameras on bench_built, and then
+    from 13 of 120 views of the workspace's own framing on the three bench plans — the
+    pond, the terraces, the paths and the driveway were gone. Drawn in a key colour, the
+    meadow must show on no pixel of the plan (objects standing on it may hide the
+    ground; the key never) — and it must be DRAWN: a meadow that is missing passes the
+    first half (it did, once, while this fix was made)."""
     seen = run[0]["scenarios"]["ground_visible"]
-    ground = tuple(seen["ground"])
-    assert len(seen["views"]) == 36 and seen["tiles_textured"] == seen["tiles_in_scene"] > 0
+    framed = len(driver.VISIBLE_PLANS) * len(driver.VISIBLE_YAWS) * len(driver.VISIBLE_FACTORS)
+    assert len(seen["views"]) == 36 + framed == 156
+    assert all(textured == total > 0 for textured, total in seen["textured"].values()), seen["textured"]
     worst: list[tuple[int, str]] = []
     for view in seen["views"]:
         frame, dpr = _frame(run, view)
+        ground = tuple(view["ground"])
         mask = _plan_mask(view, ground, frame.shape, dpr)
         assert mask.sum() > 5_000, view["file"]  # the plan is in the frame
         red, green, blue = (frame[..., channel].astype(np.int32) for channel in range(3))
         keyed = (red - green > 60) & (blue - green > 60)
+        outside = ~_plan_mask(view, ground, frame.shape, dpr, inset_cm=-40.0)
+        assert (keyed & outside).sum() > 5_000, view["file"]  # the meadow is drawn round it
         worst.append((int((keyed & mask).sum()), view["file"]))
     worst.sort(reverse=True)
     print(f"\nmeadow through the plan, worst views: {worst[:3]}")

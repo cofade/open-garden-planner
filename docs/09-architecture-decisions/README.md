@@ -7549,3 +7549,44 @@ undo, snapshot, context pass and production registry end to end.
   relief, and the eight L4 shadow cases in the measured table. Left as owner questions:
   roof colour (terracotta, or the item's fill as the walls), windows beside a centred
   door on a long wall, and object porosity (as for the fences).
+
+**3D review round 2 (2026-10-26).** Round 2 rejected again with one P0: the round-1 fix
+had only moved the failing views.
+- **P0:** from the workspace's own default framing, a few wheel notches out, the meadow
+  still drew over the plan in 13 of 120 views on the three bench plans (on `bench_built`
+  at ×1.5, over 52 % of it). The reviewer measured the cause: the meadow was ONE quad of
+  two triangles, 4 km across, and its interpolated depth was more than 5 cm off at
+  55–90 m. The same quad cut into 100 m cells failed no view. 24-bit depth precision
+  (about 0.3 cm at 50 m) is not the limit.
+- **P1:** the 5 cm step drew a ±14 luma ambient-occlusion line along every plan edge,
+  and shadows jumped where they crossed it.
+- **Decision:** the meadow is a frame IN the plan's plane (`core/scene3d/meadow.py`).
+  - It is a 4 km square around the plan, in cells of at most 100 m, with the plan cut out.
+  - The cut-out is 1 cm smaller than the plan on each side, so no crack opens along the
+    edge where the tiles' and the frame's vertices differ.
+  - Its one geometry belongs to the host, which loads it at start and whenever the plan
+    rectangle changes, like the selection ring (`Quick3DHost._show_meadow`, a
+    `ReloadableGeometry`).
+  - Two QML routes were tried first and measured wrong: a `ProceduralMesh` whose lists are
+    replaced in place kept drawing its first data, and one created later drew nothing
+    (PF-L3D-14).
+- **Gates:**
+  - The meadow gate now covers the workspace's own camera on the three bench plans:
+    156 views, worst 1 key pixel.
+  - The old quad at −5 cm, re-created as a mutation, reads 27,726 key pixels.
+  - The gate also asserts that the meadow is drawn at all, because a missing meadow passes
+    the first half (one attempt during this fix did).
+  - `board_probes.plan_edge_step` gained `line`: the largest deviation within 3 px of the
+    edge. Under the ±14 luma line the fitted step had read 0.45. The board gates `line` at
+    2 luma (PF-L3D-13).
+- **P2s fixed in the same pass:**
+  - A deck's boards lie on the ground; they floated 1.25 cm above it.
+  - No blade grows through a pond's coping or a gravel or dirt path's round ends. The
+    cut-outs are now the coping's outline and the rounded stroke the canvas paints.
+  - A closed path loop, or a surface with a hole, keeps the lawn inside it. A cut-out was a
+    filled ring, so the hole's blades were cut too; it is now one keyhole ring per region.
+  - The `bench_built` deck, loungers and hammock no longer overlap anything.
+- **Left as follow-ups:**
+  - Blade back faces lit from below, which still read as stubble at High: #604.
+  - The 2D painter's outer bends, mitred fill against chord border lines: #605 (with an
+    owner question).

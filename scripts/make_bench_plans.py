@@ -404,7 +404,8 @@ def build_built() -> PlanBuilder:
 
     # --- ground surfaces ---
     b.polygon([(40, 40), (2560, 40), (2560, 1240), (40, 1240)], T.LAWN, "Lawn")
-    b.polygon([(120, 1300), (1100, 1300), (1100, 1440), (120, 1440)], T.TERRACE_PATIO, "Deck")
+    # deep enough for the table's chairs and the loungers (3D review of #388: they hung off it)
+    b.polygon([(120, 1260), (1100, 1260), (1100, 1455), (120, 1455)], T.TERRACE_PATIO, "Deck")
     b.filled(b.polygon([(1180, 700), (1700, 700), (1700, 1040), (1180, 1040)],
                        T.TERRACE_PATIO, "Stone terrace"), FillPattern.FLAGSTONE)
     b.polygon([(2150, 1240), (2420, 1240), (2420, 1290), (2450, 1290), (2450, 40), (2150, 40)],
@@ -428,7 +429,7 @@ def build_built() -> PlanBuilder:
     b.polygon([(10, 30), (60, 30), (60, 1250), (10, 1250)], T.HEDGE_POLYGON, "Hedge")
 
     # --- paths, every style at its own width ---
-    b.polyline([(600, 1300), (600, 1100), (760, 980), (1180, 900)], T.PATH, S.STEPPING_STONES,
+    b.polyline([(600, 1250), (600, 1100), (760, 980), (1180, 900)], T.PATH, S.STEPPING_STONES,
                "Stepping stones")
     b.polyline([(1100, 1370), (1250, 1300), (1300, 1040)], T.PATH, S.PAVED_PATH, "Paved path")
     b.polyline([(1700, 860), (2150, 860)], T.PATH, S.WOODEN_BOARDWALK, "Boardwalk")
@@ -443,8 +444,8 @@ def build_built() -> PlanBuilder:
         if cy < 1320:  # south of the table: turned round, its back away from it (a
             chair._apply_rotation(180.0)  # chair's back is its sprite's top, local +y)
     b.circle(560, 1370, 110, T.PARASOL, "Parasol")
-    b.rect(720, 1310, 70, 190, T.LOUNGER, "Lounger")
-    b.rect(820, 1310, 70, 190, T.LOUNGER, "Lounger")
+    b.rect(720, 1262, 70, 190, T.LOUNGER, "Lounger")
+    b.rect(820, 1262, 70, 190, T.LOUNGER, "Lounger")
     b.circle(1000, 1380, 40, T.BBQ_GRILL, "Grill")
 
     # --- the stone terrace ---
@@ -459,7 +460,7 @@ def build_built() -> PlanBuilder:
     b.rect(1800, 120, 150, 150, T.SANDBOX, "Sandbox")
     b.circle(1850, 520, 150, T.TRAMPOLINE, "Trampoline")
     b.rect(1500, 100, 220, 160, T.SWING, "Swing")
-    b.rect(1450, 480, 300, 120, T.HAMMOCK, "Hammock")
+    b.rect(1380, 480, 300, 120, T.HAMMOCK, "Hammock")  # clear of the trampoline (3D review of #388)
 
     # --- kitchen garden ---
     bed = b.rect(780, 90, 360, 120, T.RAISED_BED, "Raised bed")

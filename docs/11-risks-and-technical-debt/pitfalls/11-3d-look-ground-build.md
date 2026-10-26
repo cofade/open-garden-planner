@@ -135,3 +135,48 @@ levels LIGHTER, the PF-L3D-06/07 class of P0. Weighted-blended OIT accumulates e
 blended Model into its own buffers and composites them with its own equation, so the
 drape's multiply blend no longer multiplies. The greenhouse and cold-frame glass keep the
 existing sorted `glass` material.
+
+### PF-L3D-13
+
+- **Rule:** Never fill round the plan with a large surface just under it: a triangle kilometres wide is centimetres off in depth and wins against the plan. Keep one plane, cut the plan out, cells of at most 100 m.
+- **Pinned by:** `tests/integration/test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan`; `tests/unit/test_scene3d_meadow.py`; `tests/integration/test_view3d_looks_render.py::test_the_plan_ground_meets_the_meadow_without_a_step`
+- **Source:** #388, ADR-065 3D review rounds 1 and 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The endless meadow was one 4 × 4 km quad of two triangles, 1 cm under the plan. From 14 of 36
+orbit cameras on `bench_built` it drew over the pond, the terraces and the paths. Lowering it
+to 5 cm passed a 36-view orbit gate but not the workspace's own framing a few wheel notches
+out: 13 of 120 views lost up to 52 % of the plan.
+
+The wrong theory was depth-buffer resolution. A 24-bit buffer at a 5 cm near plane resolves
+about 0.3 cm at 50 m. The deciding control was the reviewer's: the same quad at −5 cm, cut
+into 100 m cells, lost no view. The error is in interpolating a triangle 2 km across.
+
+The 5 cm step had two costs of its own: an ambient-occlusion line of ±14 luma along every
+plan edge, and shadows that jumped where they crossed it. The fitted step probe read 0.45
+under that line, and `plan_edge_step` now also reports `line`.
+
+Fix: a frame in the plan's plane with the plan cut out (`core/scene3d/meadow.py`). Mutation
+check: the old quad, re-created at −5 cm, reads 27,726 key pixels; the gate's bound is 20.
+
+### PF-L3D-14
+
+- **Rule:** Do not feed changing geometry through QML's `ProceduralMesh`: replaced lists kept drawing the first data, and one created later drew nothing. Use a `ReloadableGeometry` on a declared Model.
+- **Pinned by:** `tests/ui/test_quick3d_meadow_host.py`; `tests/integration/test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan`
+- **Source:** #388, ADR-065 3D review round 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Measured on D3D11 (RTX 4070), building the meadow's frame in QML:
+- A declared `ProceduralMesh` bound to a computed frame drew its first frame (no hole: no
+  plan yet) after the plan arrived. Reading back its lists showed the new data; the engine
+  never drew it.
+- A new `ProceduralMesh` given to the live Model drew nothing, with its lists set either as
+  initial properties or afterwards.
+- So did a new Model holding a new `ProceduralMesh`.
+
+The selection ring's route works: a `ReloadableGeometry` parented to a Model that
+`Garden.qml` declares, set once as its geometry, then reloaded for the Model's life. The
+render gate asserts that the meadow is drawn round the plan. It is the same rule as `ogp-3d-renderer` §2's
+geometry-lifetime row.

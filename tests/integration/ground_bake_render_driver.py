@@ -668,45 +668,80 @@ VISIBLE_HEIGHTS = (0.12, 0.22, 0.40)
 VISIBLE_DISTANCE = 0.95
 VISIBLE_KEY = "#ff00ff"  # the meadow, keyed: a colour no plan surface has
 VISIBLE_PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_built.ogp"
+#: … and the workspace's own camera on the three bench plans (3D review of #388, round
+#: 2: the meadow came through the plan from the default framing a few wheel notches out,
+#: a view the orbit sweep never took): ``camera.frame_pose`` of the plan, turned by each
+#: yaw, and its distance times each factor — 0, 2 and 4 notches of the wheel
+#: (``orbit_input.WHEEL_ZOOM_PER_NOTCH`` 0.85) and the two factors that failed in review.
+VISIBLE_PLANS = (("bench_small", 2400.0, 1600.0), ("bench_built", 2600.0, 1800.0),
+                 ("bench_large", 5000.0, 3000.0))
+VISIBLE_YAWS = tuple(float(yaw) for yaw in range(0, 360, 45))
+VISIBLE_FACTORS = (1.0, 0.85 ** -2, 0.85 ** -4, 1.5, 1.63)
 
 
 def scenario_ground_visible(ctx: base.Context) -> dict[str, Any]:
-    """The plan's baked ground wins the depth test against the endless meadow under it,
-    from every orbit camera (3D review of #388, P0: the meadow 1 cm under the plan
-    overwrote it from 14 of 36 cameras on bench_built). The meadow is drawn in a key
-    colour; the test projects the plan into each frame and counts that colour there."""
+    """The endless meadow never shows through the plan (3D review of #388: one quad 1 cm,
+    then 5 cm, under the plan overwrote it from 14 of 36 orbit cameras, then from 13 of
+    120 default-framing views — the pond, the terraces and the paths were gone). The
+    meadow is drawn in a key colour; the test projects the plan into each frame and
+    counts that colour there. The orbit sweep on bench_built, then the workspace's own
+    camera on the three bench plans."""
     import dataclasses
     import math
 
     from open_garden_planner.core import ProjectManager
+    from open_garden_planner.core.scene3d import camera
     from open_garden_planner.core.scene3d.builders import production_registry
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
     from open_garden_planner.ui.view3d.snapshot import snapshot_records
 
-    scene = CanvasScene(width_cm=2600, height_cm=1800)
-    ProjectManager().load(scene, VISIBLE_PLAN)
-    ground = GroundSpec(float(scene.width_cm), float(scene.height_cm))
-    records = snapshot_records(scene, date(2026, 6, 21))
     host = ctx.shown_host(PLAN_VIEW)
     try:
         rig = _Rig(host, production_registry())
-        rig.sync.apply(records, sun=HIGH_SUN, ground=ground)
-        host.set_look(dataclasses.replace(host.look, meadow_albedo=VISIBLE_KEY))
+        views: list[dict[str, Any]] = []
+        textured: dict[str, list[int]] = {}
+
+        def show(name: str, width: float, depth: float) -> tuple[GroundSpec, list[Any]]:
+            scene = CanvasScene(width_cm=width, height_cm=depth)
+            ProjectManager().load(scene, REPO / "tests" / "fixtures" / "plans" / f"{name}.ogp")
+            ground = GroundSpec(float(scene.width_cm), float(scene.height_cm))
+            records = snapshot_records(scene, date(2026, 6, 21))
+            rig.sync.apply(records, sun=HIGH_SUN, ground=ground)
+            host.set_look(dataclasses.replace(host.look, meadow_albedo=VISIBLE_KEY))
+            facts = rig.facts()
+            textured[name] = [facts["tiles_textured"], facts["tiles_in_scene"]]
+            return ground, list(records.values())
+
+        def grab(name: str, plan: str, ground: GroundSpec, shot: PerspectiveShot) -> None:
+            host.set_shot(shot)
+            views.append({"plan": plan, "ground": [ground.width_cm, ground.depth_cm],
+                          "eye": list(shot.eye), "target": list(shot.target), "fov": shot.fov_deg,
+                          **ctx.save(name, host.grab(name))})
+
+        ground, _records = show("bench_built", 2600.0, 1800.0)
         cx, cy = ground.width_cm / 2.0, ground.depth_cm / 2.0
         diag = math.hypot(ground.width_cm, ground.depth_cm)
-        views = []
         for height in VISIBLE_HEIGHTS:
             for bearing in VISIBLE_BEARINGS:
                 turn = math.radians(bearing)
                 eye = (cx + VISIBLE_DISTANCE * diag * math.sin(turn),
                        cy - VISIBLE_DISTANCE * diag * math.cos(turn), height * diag)
-                shot = PerspectiveShot(eye=eye, target=(cx, cy, 60.0), fov_deg=44.0)
-                host.set_shot(shot)
-                name = f"visible_{int(bearing):03d}_{int(height * 100):02d}"
-                views.append({"eye": list(eye), "target": [cx, cy, 60.0], "fov": 44.0,
-                              **ctx.save(name, host.grab(name))})
-        return {"ground": [ground.width_cm, ground.depth_cm], "view": list(PLAN_VIEW),
-                "views": views, **rig.facts()}
+                grab(f"visible_{int(bearing):03d}_{int(height * 100):02d}", "bench_built", ground,
+                     PerspectiveShot(eye=eye, target=(cx, cy, 60.0), fov_deg=44.0))
+        for plan, width, depth in VISIBLE_PLANS:
+            ground, records = show(plan, width, depth)
+            top = max((r.transform.base_cm + r.height_cm for r in records if r.height_cm is not None),
+                      default=0.0)
+            framed = camera.frame_pose(camera.Bounds.of_plan(ground.width_cm, ground.depth_cm, top),
+                                       PLAN_VIEW[0] / PLAN_VIEW[1])
+            for yaw in VISIBLE_YAWS:
+                for factor in VISIBLE_FACTORS:
+                    pose = camera.CameraPose(framed.target, framed.distance_cm * factor,
+                                             framed.yaw_deg + yaw, framed.pitch_deg)
+                    grab(f"framed_{plan}_{int(yaw):03d}_x{factor:.2f}", plan, ground,
+                         PerspectiveShot(eye=pose.eye, target=pose.target_scene, fov_deg=camera.FOV_DEG))
+        return {"view": list(PLAN_VIEW), "views": views, "textured": textured,
+                "meadow_loads": host.meadow_loads}
     finally:
         host.close()
         base._pump()

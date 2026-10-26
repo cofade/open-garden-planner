@@ -14,7 +14,9 @@ the record's own frame, once every record exists (``with_context``):
   (``ENCLOSED_KINDS``: a greenhouse's floor is seen through its glass):
   ``params["lawn_cutouts"]`` holds the outer outlines of every such record
   (painted on the ground, no height, not a plant, later in paint order; or
-  enclosed) whose box meets the lawn's, in the lawn's frame. At most
+  enclosed) whose box meets the lawn's, in the lawn's frame — a pond's grown by its
+  coping (``POND_CLEARANCE_CM``), an open gravel or dirt path's the rounded stroke the
+  canvas paints (``ROUND_PATH_STYLES``). At most
   ``MAX_CUTOUTS`` outlines and ``MAX_CUTOUT_VERTICES`` vertices, the largest
   first: beyond that, the smallest items let blades through.
 - **How many blades a lawn grows** is the PLAN's to say: ``params["lawn_blades"]``
@@ -30,19 +32,28 @@ those. The ground bake paints neither param (``record.BUILD_ONLY_PARAMS``).
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Sequence
 from dataclasses import replace
 from typing import Final
 
 import numpy as np
 from numpy.typing import NDArray
 
+from ..shadow_geometry import grown_polygon, polyline_round_outline
+from .builders.common import centre_line
 from .builders.facade import door_wall_index
-from .builders.surfaces import BLADES_PER_M2
+from .builders.surfaces import BLADES_PER_M2, COPING_OUT_CM, pond_regions
 from .builders.surfaces import MAX_BLADES as MAX_LAWN_BLADES
 from .frame import cos_sin, pose_ring
-from .polygon import ring_area
-from .record import PARAM_DOOR_WALL, PARAM_LAWN_BLADES, PARAM_LAWN_CUTOUTS, Record, Transform
+from .polygon import group_rings, ring_area
+from .record import (
+    PARAM_DOOR_WALL,
+    PARAM_LAWN_BLADES,
+    PARAM_LAWN_CUTOUTS,
+    PARAM_PATH_STYLE,
+    Record,
+    Transform,
+)
 
 #: The kinds that get a door, and the kinds their door looks for, in order.
 DOOR_TARGETS: Final[dict[str, tuple[str, ...]]] = {
@@ -56,6 +67,13 @@ _NOT_A_CUTOUT: Final = frozenset({"TREE", "SHRUB", "PERENNIAL", "LAWN"})
 #: inside is seen — through a greenhouse's glass, into a house with its roof off
 #: (Cutaway) — and no grass grows on a floor.
 ENCLOSED_KINDS: Final = frozenset({"HOUSE", "GARAGE_SHED", "TOOL_SHED", "GREENHOUSE"})
+#: Path styles the canvas paints with round caps and joins (``path_style_paint``): their
+#: cut-out is that rounded stroke, half a width past each end — blades grew through the
+#: painted round ends of the square-ended outline (3D review of #388).
+ROUND_PATH_STYLES: Final = frozenset({"GRAVEL_PATH", "DIRT_PATH"})
+#: A pond's cut-out reaches past its outline by its coping and a little more: blades
+#: grew through the coping's overhang (3D review of #388).
+POND_CLEARANCE_CM: Final = COPING_OUT_CM + 2.0
 MAX_CUTOUTS: Final = 96
 MAX_CUTOUT_VERTICES: Final = 6000
 #: The most lawn blades a whole plan grows (3 triangles a blade); a lawn's own
@@ -145,6 +163,42 @@ def _blade_shares(areas: dict[int, float]) -> dict[int, int]:
     return shares
 
 
+def _cutout_rings(record: Record) -> list[tuple[tuple[float, float], ...]]:
+    """The ground ``record`` keeps blades off, in its own frame, one ring a region (its
+    holes joined in: ``_keyhole``): its outline — for a pond grown by its coping, for an
+    open gravel or dirt path the rounded stroke the canvas paints."""
+    if record.kind == "POND_POOL":  # the outline its coping is built on (a round pond: round)
+        return [_keyhole(grown, holes) for outer, holes in pond_regions(record)
+                for grown in grown_polygon(outer, POND_CLEARANCE_CM)]
+    width = record.path_width_cm
+    if record.kind == "PATH" and record.params.get(PARAM_PATH_STYLE) in ROUND_PATH_STYLES and width:
+        line, closed = centre_line(record)
+        if not closed and len(line) >= 2:
+            rounded = polyline_round_outline([(float(x), float(y)) for x, y in line], width)
+            try:
+                return [_keyhole(outer, holes) for outer, holes in group_rings([tuple(r) for r in rounded])]
+            except ValueError:  # no regions: the outline below
+                pass
+    return [_keyhole(outer, holes) for outer, holes in record.regions]
+
+
+def _keyhole(outer: Sequence[tuple[float, float]], holes: Sequence[Sequence[tuple[float, float]]]
+             ) -> tuple[tuple[float, float], ...]:
+    """ONE ring for a region with holes: each hole is joined to the ring by a doubled
+    edge, there and back. An even-odd test of the one ring (the lawn's cut-out mask)
+    counts the doubled edge twice or not at all, so the holes stay out of it — a
+    loop of path round a bed, or a terrace round a pond, keeps the lawn inside it."""
+    ring = [(float(x), float(y)) for x, y in outer]
+    for hole in holes:
+        inner = [(float(x), float(y)) for x, y in hole]
+        if len(inner) < 3 or len(ring) < 3:
+            continue
+        reach = np.hypot(*(np.asarray(ring) - np.asarray(inner[0])).T)
+        at = int(reach.argmin())
+        ring = [*ring[:at + 1], *inner, inner[0], *ring[at:]]
+    return tuple(ring)
+
+
 def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
     order = list(records)
     lawns = [index for index, item_id in enumerate(order)
@@ -158,8 +212,11 @@ def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
         if not other.footprints or (not enclosed and (
                 other.kind in _NOT_A_CUTOUT or other.height_cm is not None or other.material.paint is None)):
             continue
-        rings = [np.asarray(pose_ring(other.transform, ring), dtype=np.float64) for ring in other.footprints]
-        candidates.append((len(order) if enclosed else index, other, rings, _box(rings)))
+        own = _cutout_rings(other)
+        if not own:
+            continue
+        rings = [np.asarray(pose_ring(other.transform, ring), dtype=np.float64) for ring in own]
+        candidates.append((len(order) if enclosed else index, own, rings, _box(rings)))
     shares = _blade_shares({index: sum(ring_area(ring) for ring in records[order[index]].footprints)
                             for index in lawns})
     for index in lawns:
@@ -169,12 +226,12 @@ def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
         lawn_rings = [np.asarray(pose_ring(lawn.transform, ring), dtype=np.float64) for ring in lawn.footprints]
         lx0, ly0, lx1, ly1 = _box(lawn_rings)
         found: list[tuple[float, tuple[tuple[float, float], ...]]] = []
-        for other_index, other, rings, (ox0, oy0, ox1, oy1) in candidates:
+        for other_index, own, rings, (ox0, oy0, ox1, oy1) in candidates:
             if other_index <= index:  # painted under the lawn: the lawn hides it
                 continue
             if ox1 < lx0 or ox0 > lx1 or oy1 < ly0 or oy0 > ly1:
                 continue
-            for ring, scene_ring in zip(other.footprints, rings, strict=True):
+            for ring, scene_ring in zip(own, rings, strict=True):
                 local = tuple((round(x, 1) + 0.0, round(y, 1) + 0.0)
                               for x, y in (_local(lawn.transform, float(px), float(py)) for px, py in scene_ring))
                 found.append((ring_area(ring), local))

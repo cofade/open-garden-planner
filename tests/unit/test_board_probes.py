@@ -363,10 +363,12 @@ def test_the_horizon_reports_a_hue_seam_that_luma_cannot_see() -> None:
 # ── the plan rectangle meets the meadow ──────────────────────────────────────
 
 
-def _ground_frame(camera: P.Pinhole, step: float, gradient: float) -> np.ndarray:
+def _ground_frame(camera: P.Pinhole, step: float, gradient: float, line: float = 0.0,
+                  line_cm: float = 4.0) -> np.ndarray:
     """A frame of flat ground whose luma rises ``gradient`` per cm eastwards everywhere
     (the sky's sheen changing with the angle) and jumps by ``step`` at the line east = 0
-    (the plan to the east); the sky above."""
+    (the plan to the east); ``line`` luma more on a strip ``line_cm`` wide on that line;
+    the sky above."""
     cols, rows = camera.size
     xs, ys = np.meshgrid(np.arange(cols) + 0.5, np.arange(rows) + 0.5)
     rays = camera.rays(xs, ys)
@@ -374,7 +376,8 @@ def _ground_frame(camera: P.Pinhole, step: float, gradient: float) -> np.ndarray
     down = rays[..., 2] < 0
     t = np.where(down, -eye[2] / np.where(down, rays[..., 2], -1.0), 0.0)
     east = eye[0] + t * rays[..., 0]
-    level = 110.0 + gradient * east + np.where(east >= 0.0, step, 0.0)
+    level = (110.0 + gradient * east + np.where(east >= 0.0, step, 0.0)
+             + np.where(np.abs(east) < line_cm / 2.0, line, 0.0))
     frame = np.full((rows, cols, 3), 200.0)
     frame[down] = level[down][:, None]
     return frame
@@ -393,6 +396,25 @@ def test_the_plan_edge_step_is_the_jump_at_the_edge_not_the_gradient() -> None:
     behind = P.Pinhole(eye=(0.0, 3000.0, 165.0), target=(0.0, 5000.0, 0.0), fov_deg=40.0, size=SIZE)
     assert P.plan_edge_step(np.zeros((SIZE[1], SIZE[0], 3)), behind, axis="east", at=0.0,
                             along=along)["step"] is None, "ground behind the camera: no number"
+
+
+def test_the_plan_edge_line_is_what_the_fits_cannot_see() -> None:
+    """3D review of #388: ambient occlusion drew a +-14 luma line along every plan edge
+    while the meadow lay 5 cm under the plan, and the fitted step read 0.45. ``line``
+    reads it; a gradient, a clean step and the edge's own anti-aliasing do not."""
+    camera = P.Pinhole(eye=(0.0, -700.0, 165.0), target=(0.0, 800.0, 0.0), fov_deg=40.0, size=SIZE)
+    along = [500.0, 650.0, 800.0, 950.0, 1100.0]
+    smooth = P.plan_edge_step(_ground_frame(camera, 0.0, 0.014), camera, axis="east", at=0.0,
+                              along=along)
+    assert smooth["line"] < 0.5, smooth
+    stepped = P.plan_edge_step(_ground_frame(camera, -1.0, 0.014), camera, axis="east", at=0.0,
+                               along=along)
+    assert stepped["line"] <= 1.1, stepped
+    for amplitude in (-14.0, 6.0):
+        lined = P.plan_edge_step(_ground_frame(camera, 0.0, 0.014, line=amplitude), camera,
+                                 axis="east", at=0.0, along=along)
+        assert lined["line"] == pytest.approx(abs(amplitude), abs=1.0), lined
+        assert abs(lined["step"]) < 1.0, "the fitted step does not see it"
 
 
 # ── aliasing of thin repeated geometry ───────────────────────────────────────

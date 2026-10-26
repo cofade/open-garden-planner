@@ -412,9 +412,11 @@ def _board_runs(outer: Ring, holes: tuple[Ring, ...], y: float, half: float) -> 
 
 
 def _deck(record: Record, top: float, solid: bool) -> list[Mesh]:
-    """Boards across the outline (along its local x), their top at ``top``."""
+    """Boards across the outline (along its local x), their top at ``top``. A deck on the
+    ground lies on it (its boards were 1.25 cm off it: 3D review of #388); a raised deck's
+    boards are at most 3 cm thick, on its skirt."""
     gap = 0.8
-    thick = min(3.0, 0.5 * top)
+    thick = min(3.0, 0.5 * top) if solid else top
     meshes = []
     for outer, holes in record.regions:
         ys = [y for _x, y in outer]
@@ -458,7 +460,7 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
 ROUND_POND_SEGMENTS: Final = 64
 
 
-def _pond_regions(record: Record) -> tuple[tuple[Ring, tuple[Ring, ...]], ...]:
+def pond_regions(record: Record) -> tuple[tuple[Ring, tuple[Ring, ...]], ...]:
     """The pond's regions — for a round pond (one plain circle) its circle of
     ``ROUND_POND_SEGMENTS`` points instead of the record's coarser ring."""
     radius = record.params.get(PARAM_RADIUS_CM)
@@ -474,7 +476,7 @@ def _pond_regions(record: Record) -> tuple[tuple[Ring, tuple[Ring, ...]], ...]:
 def _water_plan(record: Record) -> F64 | None:
     """The pond's regions (holes cut out) as plan triangles (t, 3, 2), or None."""
     triangles: list[F64] = []
-    for outer, holes in _pond_regions(record):
+    for outer, holes in pond_regions(record):
         try:
             vertices, faces = cut_region(tuple(outer), tuple(holes))
         except ValueError:
@@ -496,7 +498,7 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
     the water a hand under the wall's top."""
     walls = []
     thick = min(18.0, 0.2 * min(np.ptp(np.asarray(record.footprints[0]), axis=0)))
-    for outer, holes in _pond_regions(record):
+    for outer, holes in pond_regions(record):
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)
             if len(points) < 3:
@@ -518,7 +520,7 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
         return _raised_pool(record, record.height_cm, plan)
     water = _water(plan, WATER_CM)
     coping = []
-    for outer, holes in _pond_regions(record):
+    for outer, holes in pond_regions(record):
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)
             if len(points) < 3:
@@ -729,5 +731,6 @@ def register(registry: BuilderRegistry) -> None:
         registry.register(kind, builder)
 
 
-__all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "clear_lawn_cache", "register", "sward_cache_info",
+__all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "clear_lawn_cache", "pond_regions", "register",
+           "sward_cache_info",
            "walk_path"]
