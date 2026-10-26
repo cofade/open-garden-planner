@@ -1680,6 +1680,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     # ── PropertiesPanel ──
     "PropertiesPanel": {
+        # Short prefixes inside the width/height fields (#596).
+        "W: ": "B: ",
+        "H: ": "H: ",
         # US-E9 asset-forge pilot fill patterns (#264)
         "Decking": "Terrassendielen",
         "Corten steel": "Cortenstahl",

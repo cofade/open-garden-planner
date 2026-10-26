@@ -93,8 +93,17 @@ def _style_numeric_field(field: QAbstractSpinBox) -> None:
 
 
 def _style_combo(combo: QComboBox) -> None:
-    """Give a combo box the same width as every other short input (#596)."""
+    """Give a combo box the same width as every other short input (#596).
+
+    A fixed width clips a long selected value (Qt draws no ellipsis), so the
+    full text stays reachable as a tooltip; the popup already shows every item
+    in full.
+    """
     combo.setFixedWidth(FIELD_WIDTH)
+    combo.setToolTip(combo.currentText())
+    combo.currentTextChanged.connect(combo.setToolTip)
+
+
 
 # Free-text fields (Name, Text Content) live-update the item on every keystroke
 # but only commit ONE undo command per typing burst. The command is committed
@@ -1172,7 +1181,7 @@ class PropertiesPanel(QWidget):
             w_spin.setDecimals(1)
             w_spin.setSingleStep(10.0)
             w_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
-            w_spin.setPrefix("W: ")
+            w_spin.setPrefix(self.tr("W: "))
             w_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
             _style_numeric_field(w_spin)
             w_spin.setValue(rect.width())
@@ -1183,7 +1192,7 @@ class PropertiesPanel(QWidget):
             h_spin.setDecimals(1)
             h_spin.setSingleStep(10.0)
             h_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
-            h_spin.setPrefix("H: ")
+            h_spin.setPrefix(self.tr("H: "))
             h_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
             _style_numeric_field(h_spin)
             h_spin.setValue(rect.height())

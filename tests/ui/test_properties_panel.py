@@ -1,13 +1,13 @@
 """Tests for properties panel."""
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtWidgets import QAbstractSpinBox, QComboBox, QFormLayout
 
 from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
-from open_garden_planner.ui.panels.properties_panel import ColorButton
+from open_garden_planner.ui.panels.properties_panel import FIELD_WIDTH, ColorButton
 
 
 class TestPropertiesPanel:
@@ -521,7 +521,7 @@ class TestContainerProperties:
 
 
 class TestObjectHeightField:
-    """The height field shares the soil-depth width and its source tooltip updates (#596)."""
+    """Every short input shares one control column; the height source tooltip updates (#596)."""
 
     @staticmethod
     def _fields(panel: PropertiesPanel) -> dict[str, object]:
@@ -556,8 +556,22 @@ class TestObjectHeightField:
             assert spin.alignment() & Qt.AlignmentFlag.AlignRight, spin
         for combo in panel.findChildren(QComboBox):
             assert combo.width() == 120, combo
+            # A fixed 120 px clips a long selected value (Qt draws no ellipsis);
+            # the full text must stay reachable as a tooltip.
+            assert combo.toolTip() == combo.currentText(), combo
         for button in panel.findChildren(ColorButton):
             assert button.width() == 120, button
+        # The position/size pairs start at the column edge, and their second
+        # box is one field plus the layout's 8 px away (the external labels
+        # used to indent the first box by ~20 px).
+        position = fields["Position:"]
+        assert (
+            position.mapTo(panel, QPoint(0, 0)).x()
+            == fields["Type:"].mapTo(panel, QPoint(0, 0)).x()
+        )
+        pair = position.findChildren(QAbstractSpinBox)
+        assert len(pair) == 2
+        assert pair[1].x() - pair[0].x() == FIELD_WIDTH + 8
 
         fields["Object height:"].setValue(70.0)
         qtbot.wait(30)

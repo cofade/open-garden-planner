@@ -2848,11 +2848,15 @@ Help → About reported **1.2.0** in a direct PyInstaller build because a tracke
 `_version.py` shadowed `__version__`; the module is now a gitignored build artifact,
 written before PyInstaller and removed after it, read dynamically, with a `__version__`
 fallback, a conditional PyInstaller hidden import and a `--selftest` version check against
-the version being built (PF-CI-15, ADR-050 addendum). Every short Properties input now shares one **120 px** control column: numeric fields
-(right-aligned; grid spacing, stroke width, soil depth, object height, plant spacing
-radius, position and size pairs) plus the type/layer/fill-pattern/stroke-style/font/
-material combos and colour buttons (`FIELD_WIDTH`, `_style_numeric_field`,
-`_style_combo`). Name and text fields stay full width by design; the height tooltip
+the version being built (PF-CI-15, ADR-050 addendum). Every short Properties input now shares one **120 px** control column: every numeric
+field (right-aligned, including grid spacing, stroke width, soil and object height,
+plant spacing, diameter, container height/volume, text size, symbol parameters, and
+the position/size/semi-axes pairs) plus every combo (object type, layer, material,
+fill pattern, stroke/path style, symbol choice, font) and the colour buttons
+(`FIELD_WIDTH`, `_style_numeric_field`, `_style_combo`). A combo value longer than
+the column keeps its full text in a tooltip; the popup always shows full names.
+Position and size fields carry `X:`/`Y:`/`W:`/`H:` inside the box so both start at
+the column edge. Name and text fields stay full width by design; the height tooltip
 refreshes on every edit. A gallery drop of a **named** species now adopts
 `max_spread_cm` like the Plant Database and Plant Lists drops, so an 8 m apple tree is
 no longer 2 m wide in 3D; the display rule for a plant the owner resized is unchanged
