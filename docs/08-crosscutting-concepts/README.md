@@ -7062,12 +7062,17 @@ narrower than 1 cm, which are now skipped, scanned rows for 2.8 s). A
 kerb, skirt or coping is swept along at most `MAX_RELIEF_VERTICES` (4,096) outline
 vertices; beyond, the surface keeps its painted ground. A pitched roof's lowest edge stays
 at least `EDGE_FLOOR_SHARE` (half) of the eave floor above the ground: the overhang is
-shortened (a secant's guess, then halvings while a guess fails: three roofs built
-instead of twelve) and the chosen style and pitch kept (a 60 × 100 cm shed at 60°
-and 150 cm reached 91.5 cm into the ground). Context params change at most once per
-`CONTEXT_REBUILD_MIN_MS` during a drag (§8.29, "A move or a recolour uploads nothing"); a
-held lawn never keeps a larger blade share than its new one, so the plan's 60,000 hold in
-every pass, and a document change, a pause and a recovery from scratch end the hold.
+shortened and the chosen style and pitch kept (a 60 × 100 cm shed at 60° and 150 cm
+reached 91.5 cm into the ground). The overhang is found by a regula falsi on the measured
+edge heights: over the panel's ranges (6,048 cases) at least 97 % of the longest overhang
+that holds, in 1.3 roofs on average and at most `OVERHANG_TRIES` beyond the first two; a
+style that is not up even without an overhang builds no roof (the caller falls back).
+Context params change at most once per `CONTEXT_REBUILD_MIN_MS` during a drag (§8.29,
+"A move or a recolour uploads nothing"). A held pass keeps the plan's 60,000 blades: the
+old shares are kept while the lawns' total fits (a resized lawn leaves the others alone);
+otherwise no held share is above its new one, and an item that became a lawn inside the
+interval counts as unbounded. A document change, a pause and a recovery from scratch end
+the hold.
 
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on

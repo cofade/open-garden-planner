@@ -551,11 +551,11 @@ def test_a_closed_gravel_loop_keeps_its_outline() -> None:
 @pytest.mark.parametrize("kind,cuts", [("PERGOLA", False), ("PARASOL", False), ("HAMMOCK", False),
                                        ("SWING", False), ("WATER_TAP", False), ("PLANTER_POT", True),
                                        ("FIRE_PIT", True), ("COLD_FRAME", True)])
-def test_an_object_without_a_height_cuts_the_lawn_only_where_it_covers_the_ground(kind, cuts) -> None:
+def test_an_object_cuts_the_lawn_only_where_it_covers_the_ground(kind, cuts) -> None:
     """Senior review of #388: an object without a height is BUILT (at its illustrative
     height) and so no longer painted, but its outline still cut the lawn — a pergola
     left 12 m² of bald lawn, a parasol 6 m². Only an object that covers its footprint
-    at the ground cuts it."""
+    at the ground cuts it, with a height or without one."""
     for height in (None, 30.0):   # round 2: a cold frame's soil is a few cm up, with a height too
         lawn_record = painted(at(polygon_record("LAWN", rectangle(2000.0, 2000.0), None, item_id="lawn"),
                                  0.0, 0.0))

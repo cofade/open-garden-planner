@@ -10,6 +10,7 @@ goes on the wall ``params["door_wall"]`` names.
 
 from __future__ import annotations
 
+import dataclasses
 import math
 
 import numpy as np
@@ -211,6 +212,55 @@ def test_no_roof_reaches_the_ground_at_the_panels_extremes(kind, width, depth, h
             if style == "hip":   # a rectangle keeps its hip: a slope facing each way, never the gable's two
                 slopes = roof.mesh.normals[roof.mesh.normals[:, 2] > 0.1]
                 assert len({(round(float(x), 2), round(float(y), 2)) for x, y in slopes[:, :2]}) == 4
+
+
+def _hexagon(radius: float):
+    return tuple((radius * math.cos(math.pi * k / 3.0), radius * math.sin(math.pi * k / 3.0)) for k in range(6))
+
+
+@pytest.mark.parametrize("kind,ring,height,style,pitch,overhang", [
+    ("HOUSE", _hexagon(300.0), 700.0, "hip", 60.0, 150.0),               # round 3: 37.5 where 73.9 holds
+    ("TOOL_SHED", rectangle(240.0, 180.0), 700.0, "shed", 60.0, 100.0),  # 40.3 where 76.9 (a curved edge)
+    ("TOOL_SHED", rectangle(60.0, 100.0), 450.0, "shed", 60.0, 150.0),
+    ("TOOL_SHED", rectangle(60.0, 100.0), 200.0, "gable", 60.0, 150.0),
+    ("GARAGE_SHED", rectangle(240.0, 180.0), 40.0, "gable", 30.0, 150.0),
+])
+def test_a_shortened_overhang_is_nearly_the_longest_that_holds(
+        monkeypatch: pytest.MonkeyPatch, kind, ring, height, style, pitch, overhang) -> None:
+    """Senior review of #388, round 3: the round-2 search gave up its bracket after a
+    failed guess and halved from there — a hexagonal hip got 37.5 cm of overhang where
+    73.9 cm holds, a shed whose edge is curved by its slope clamp 40.3 where 76.9
+    holds. The search is a regula falsi now: within 10 % of the longest overhang that
+    keeps the edge up, in at most ``OVERHANG_TRIES`` roofs beyond the first two."""
+    real = buildings._pitched  # noqa: SLF001
+    tried: list[tuple[object, float]] = []
+
+    def counting(record, chosen, height_cm, roof_style):
+        built = real(record, chosen, height_cm, roof_style)
+        if built is not None:
+            tried.append((built.roof, roof_style.overhang_cm))
+        return built
+
+    monkeypatch.setattr(buildings, "_pitched", counting)
+    params = {"roof_style": style, "roof_pitch_deg": pitch, "roof_overhang_cm": overhang}
+    record = house(params, ring=ring, height=height, kind=kind)
+    roof = roof_of(record)
+    found = next(cm for mesh, cm in tried if mesh is roof.mesh)
+    assert len(tried) <= 2 + buildings.OVERHANG_TRIES
+
+    style_used = buildings.style_for(record, buildings.HOUSE_ROOF if kind == "HOUSE" else buildings.SHED_ROOF)
+    floor = buildings.EDGE_FLOOR_SHARE * eave_floor(style_used, height)
+
+    def holds(cm: float) -> bool:
+        built = real(record, style, height, dataclasses.replace(style_used, overhang_cm=cm))
+        return built is not None and float(built.roof.positions[:, 2].min()) >= floor - 1e-6
+
+    assert not holds(overhang), "the case shortens the overhang"
+    low, high = 0.0, overhang
+    for _step in range(30):
+        middle = (low + high) / 2.0
+        low, high = (middle, high) if holds(middle) else (low, middle)
+    assert 0.9 * low <= found <= low + 1e-3, (found, low)
 
 
 def test_style_for_clamps_like_the_metadata() -> None:

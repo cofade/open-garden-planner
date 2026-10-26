@@ -27,6 +27,7 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QApplication, QGraphicsRectItem, QGraphicsScene
 
 from open_garden_planner.core.commands import (
+    ChangePropertyCommand,
     CreateItemCommand,
     DeleteItemsCommand,
     MoveItemsCommand,
@@ -1635,6 +1636,97 @@ def test_a_held_blade_share_never_breaks_the_plans_blade_budget(
     applied = [record.params["lawn_blades"] for record in rig.controller.sync.records.values()
                if record.kind == "LAWN"]
     assert len(applied) == 3 and sum(applied) <= MAX_PLAN_BLADES, applied
+
+
+def _applied_shares(rig: Rig) -> list[object]:
+    return [record.params.get("lawn_blades") for record in rig.controller.sync.records.values()
+            if record.kind == "LAWN"]
+
+
+def test_an_item_that_becomes_a_lawn_inside_a_hold_keeps_the_blade_budget(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Round 3 of the senior review, P1: a held share that is MISSING kept no share at
+    all — a terrace turned into a lawn inside the interval was built with its own
+    count, up to 36,000 blades: 75,637 in the scene against 60,000. A lawn without a
+    held share now counts as unbounded, so the held pass takes the new shares."""
+    from open_garden_planner.core.scene3d.context import MAX_PLAN_BLADES
+
+    _fake_clock(monkeypatch)
+    rig = Rig(canvas, qtbot)
+    _lawn(rig, 0.0)
+    _lawn(rig, 4000.0)
+    terrace = RectangleItem(4500.0, 500.0, 1000.0, 1000.0, object_type=ObjectType.TERRACE_PATIO,
+                            layer_id=rig.scene.active_layer.id)
+    rig.commands.execute(CreateItemCommand(rig.scene, terrace, "terrace"))
+    rig.controller.set_active(True)
+    rig.settle()
+    terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))   # a cut-out moves: applied at once,
+    rig.settle()                                         # and the interval begins
+    deferred = rig.controller.context_deferrals
+
+    def retype(item: Any, kind: ObjectType) -> None:
+        item.object_type = kind
+        item.update()
+
+    rig.commands.execute(ChangePropertyCommand(
+        terrace, "type", ObjectType.TERRACE_PATIO, ObjectType.LAWN, retype))
+    rig.settle()
+    assert rig.controller.context_deferrals == deferred + 1, "the pass was a held one"
+    shares = _applied_shares(rig)
+    assert len(shares) == 3 and all(isinstance(share, int) for share in shares), shares
+    assert sum(shares) <= MAX_PLAN_BLADES, shares
+
+
+def test_a_lawn_resized_inside_a_hold_leaves_the_other_lawns_alone(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Round 3 of the senior review, P2: a held share was cut to its new one whenever
+    that was smaller, so a lawn grown step by step next to another (the budget binds:
+    two lawns want 72,000) rebuilt the OTHER lawn — up to 36,000 blades and a destroyed
+    Model (#531) — in 9 of 12 steps. The old shares are kept while their total fits."""
+    from open_garden_planner.core.scene3d.context import MAX_PLAN_BLADES
+
+    now = _fake_clock(monkeypatch)
+    rig = Rig(canvas, qtbot)
+    grown, other = _lawn(rig, 0.0), _lawn(rig, 4000.0)
+    rig.controller.set_active(True)
+    rig.settle()
+    assert sum(_applied_shares(rig)) == MAX_PLAN_BLADES   # the budget binds
+    other_id = str(other.item_id)
+    rig.reports.clear()
+
+    steps = 12
+    for _step in range(steps):   # a drag of the resize handle: 50 cm a step
+        old, new = build_rect_resize(grown, grown.rect().width() + 50.0, grown.rect().height(),
+                                     keep_center=False)
+        rig.commands.execute(ResizeItemCommand(grown, old, new, apply_rect_like_geometry))
+        rig.settle()
+    assert _rebuilds(rig, other_id) <= 1, "the first step at once, then left alone"
+    assert sum(_applied_shares(rig)) <= MAX_PLAN_BLADES
+    now[0] += sync_controller.CONTEXT_REBUILD_MIN_MS / 1000.0 + 0.01
+    qtbot.wait(sync_controller.CONTEXT_REBUILD_MIN_MS + 150)
+    rig.settle()
+    rig.assert_equals_a_from_scratch_apply()
+
+
+def test_a_recovery_inside_a_hold_applies_the_plan_unheld(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Round 3 of the senior review: a pass whose apply fails is rebuilt from scratch,
+    and that rebuild applies the snapshot as it is — nothing held back."""
+    _fake_clock(monkeypatch)
+    sink = FailingSink()
+    rig = Rig(canvas, qtbot, sink=sink)
+    lawn, terrace = _lawn_and_terrace(rig)
+    rig.controller.set_active(True)
+    rig.settle()
+    lawn_id = str(lawn.item_id)
+    terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))   # applied at once
+    rig.settle()
+    sink.fail_on, sink.failures_left = "update_transform", 1
+    terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))   # held — and the pass fails
+    rig.settle()
+    assert rig.controller.recovery_count == 1 and rig.reports[-1].recovered is True
+    truth = snapshot_records(rig.scene, rig.clock.plan_date)[lawn_id].params["lawn_cutouts"]
+    assert rig.controller.sync.records[lawn_id].params["lawn_cutouts"] == truth
 
 
 def test_a_document_change_and_a_pause_end_a_held_context(

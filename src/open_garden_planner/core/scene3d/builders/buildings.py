@@ -80,13 +80,15 @@ from .roofs import (
 #: least this share of the walls' eave floor above the ground. The overhang continues
 #: down the slope past the walls, and at the panel's own extremes (pitch 60°, overhang
 #: 150 cm) a 60 x 100 cm tool shed's eaves went 91.5 cm into the ground (senior review
-#: of #388). The OVERHANG is shortened to the longest that keeps the edge up — the
-#: style and the pitch the user chose are kept.
+#: of #388). The OVERHANG is shortened to nearly the longest that keeps the edge up
+#: (within 3 % over the panel's ranges, measured) — the style and the pitch the user
+#: chose are kept.
 EDGE_FLOOR_SHARE: Final = 0.5
 #: The most roofs built to find the overhang beyond the first two (the style's and
-#: none): the lowest edge falls nearly linearly with the overhang, so a secant's guess
-#: (2 % short) is tried first, and halvings only while a guess fails (round 2: ten
-#: halvings built a 64-corner hip twelve times, 472 ms).
+#: none): a regula falsi on the measured edge heights, the lowest edge falling nearly
+#: linearly with the overhang (round 2: ten halvings built a 64-corner hip twelve times,
+#: 472 ms; round 3: a search that dropped its bracket kept as little as 51 % of the
+#: overhang that holds). Over the panel's ranges: 1.3 roofs on average, 6 at most.
 OVERHANG_TRIES: Final = 4
 
 HOUSE_ROOF: Final = RoofStyle(
@@ -195,33 +197,47 @@ def _pitched(record: Record, chosen: str, height_cm: float, style: RoofStyle) ->
 
 
 def _kept_up(record: Record, chosen: str, height_cm: float, style: RoofStyle) -> GableRoof | None:
-    """The ``chosen`` pitched roof with the longest overhang (up to the style's) whose
-    lowest edge stays ``EDGE_FLOOR_SHARE`` of the eave floor above the ground. A hip
-    whose eaves the overhang would sink is built with a shorter overhang, not turned
-    into a gable; None only when no overhang gives this style a roof."""
+    """The ``chosen`` pitched roof with nearly the longest overhang (up to the style's)
+    whose lowest edge stays ``EDGE_FLOOR_SHARE`` of the eave floor above the ground. A
+    hip whose eaves the overhang would sink is built with a shorter overhang, not
+    turned into a gable; None when not even a roof without an overhang stays up."""
     floor = EDGE_FLOOR_SHARE * eave_floor(style, height_cm)
 
+    def above(built: GableRoof | None) -> float | None:
+        """How far the roof's lowest edge is above the floor (None: no roof)."""
+        return None if built is None else float(built.roof.positions[:, 2].min()) - floor
+
     def up(built: GableRoof | None) -> bool:
-        return built is not None and float(built.roof.positions[:, 2].min()) >= floor - 1e-6
+        height = above(built)
+        return height is not None and height >= -1e-6
 
     built = _pitched(record, chosen, height_cm, style)
     if up(built) or style.overhang_cm <= 0.0:
-        return built
+        return built if up(built) else None
     best = _pitched(record, chosen, height_cm, dataclasses.replace(style, overhang_cm=0.0))
-    if best is None:
-        return built   # this style builds no roof here at all: the caller falls back
+    if not up(best):
+        return None   # no overhang keeps this style up here: the caller falls back
+    # regula falsi on the measured edge heights, the secant's guess 2 % short; a side
+    # kept twice running has its height halved (Illinois), so that a curved edge
+    # (a shed's slope clamp) cannot hold one end of the bracket for ever
     low, high = 0.0, style.overhang_cm
-    at_none = float(best.roof.positions[:, 2].min())
-    at_full = float(built.roof.positions[:, 2].min()) if built is not None else None
-    guess = (0.98 * high * (at_none - floor) / (at_none - at_full)   # the secant's
-             if at_full is not None and at_none - at_full > 1e-6 else high / 2.0)
+    at_low, at_high = above(best), above(built)
+    kept_low = 0
     for _try in range(OVERHANG_TRIES):
-        guess = min(max(guess, low), high)
+        if at_low is None or at_high is None or at_low - at_high <= 1e-6:
+            guess = (low + high) / 2.0   # no roof at the long end: halve
+        else:
+            guess = low + 0.98 * (high - low) * at_low / (at_low - at_high)
         trial = _pitched(record, chosen, height_cm, dataclasses.replace(style, overhang_cm=guess))
-        if up(trial):   # the secant's guess, or a halving: the longest that held
-            return trial
-        high = guess
-        guess = (low + high) / 2.0
+        if up(trial):
+            best, low, at_low, kept_low = trial, guess, above(trial), 0
+        else:
+            high, at_high = guess, above(trial)
+            kept_low += 1
+            if kept_low >= 2 and at_low is not None:
+                at_low /= 2.0
+        if high - low < 1.0 or (at_low is not None and at_low < 1.0 and kept_low == 0):
+            break   # within a centimetre of the overhang, or of the floor
     return best
 
 

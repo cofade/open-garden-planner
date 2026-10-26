@@ -140,7 +140,7 @@ from open_garden_planner.core.scene3d import (
     SunState,
 )
 from open_garden_planner.core.scene3d.camera import Bounds
-from open_garden_planner.core.scene3d.context import CONTEXT_PARAMS
+from open_garden_planner.core.scene3d.context import CONTEXT_PARAMS, MAX_PLAN_BLADES
 from open_garden_planner.core.scene3d.record import PARAM_LAWN_BLADES
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
@@ -186,9 +186,10 @@ DATE_REGROW_MIN_MS: Final = 500
 #: changed cut-out rebuilds the lawn's blades — up to 36,000, a re-mask and an upload,
 #: and a destroyed Model Qt Quick 3D keeps 15 to 20 kB of (#531). A change of a
 #: record's ``CONTEXT_PARAMS`` alone is applied at most once per this interval: the
-#: first at once, the last when the interval is over (one trailing pass). Everything
-#: else of the record — a dragged lawn's own move — is applied at every step. Senior
-#: review of #388 measured 30 lawn rebuilds in 30 drag steps.
+#: first at once, the last when the interval is over (one trailing pass) — unless the
+#: plan's blade budget needs a held lawn's smaller share at once (``_hold_context``).
+#: Everything else of the record — a dragged lawn's own move — is applied at every
+#: step. Senior review of #388 measured 30 lawn rebuilds in 30 drag steps.
 CONTEXT_REBUILD_MIN_MS: Final = 400
 #: How many distinct failures of one outage are remembered (and so logged at ERROR
 #: once each); a failure beyond that is a DEBUG line.
@@ -221,6 +222,28 @@ def _kinds(changes: SceneDiff) -> str:
 def _context_of(record: Record) -> dict[str, ParamValue]:
     """A record's context params (``core.scene3d.context.CONTEXT_PARAMS``)."""
     return {key: value for key, value in record.params.items() if key in CONTEXT_PARAMS}
+
+
+def _blade_share(params: Mapping[str, ParamValue]) -> int | None:
+    """The blade share in ``params`` as the lawn builder reads it: an int, or None."""
+    share = params.get(PARAM_LAWN_BLADES)
+    return share if isinstance(share, int) and not isinstance(share, bool) else None
+
+
+def _fits_the_blade_budget(records: Mapping[str, Record],
+                           held: Mapping[str, Mapping[str, ParamValue]]) -> bool:
+    """Whether the lawns of ``records`` stay within ``MAX_PLAN_BLADES`` with the params
+    of ``held`` in place of their own: a lawn is a record with a share, and a lawn whose
+    held params carry none would take its own count — it never fits."""
+    total = 0
+    for item_id, record in records.items():
+        if _blade_share(record.params) is None:   # no lawn of this plan
+            continue
+        share = _blade_share(held[item_id]) if item_id in held else _blade_share(record.params)
+        if share is None:
+            return False
+        total += share
+    return total <= MAX_PLAN_BLADES
 
 
 def plain_ground(_previous: Mapping[str, Record], _records: Mapping[str, Record],
@@ -395,7 +418,8 @@ class Scene3DController(QObject):
         self._context_timer = QTimer(self)
         self._context_timer.setSingleShot(True)
         self._context_timer.timeout.connect(self.mark_dirty)
-        #: Passes that held a change of context params back (an instrument).
+        #: Passes that held a change of context params back (an instrument; a pass
+        #: whose apply fails and is rebuilt from scratch applies it unheld after all).
         self.context_deferrals = 0
         self._revision_at_changed = self._revision()
         announced = getattr(scene, "plan_changed", None)  # a CanvasScene has it
@@ -591,7 +615,6 @@ class Scene3DController(QObject):
             self._timer.stop()
             self._net.stop()
             self._date_timer.stop()
-            self._context_timer.stop()
         scene = self._scene
         connections: list[tuple[Any, Callable[..., None]]] = [
             (scene.changed, self._on_scene_changed),
@@ -760,9 +783,15 @@ class Scene3DController(QObject):
         ``CONTEXT_REBUILD_MIN_MS``, ``records`` with the context params of the records
         the sink holds (CONTEXT PLAYBACK): the first change at once, the rest held back
         until the trailing pass. Only those params are held: the record's own move,
-        size or style is never late. A lawn's blade share is held at most at its new
-        value — the plan's blade budget holds in every pass (senior review of #388,
-        round 2: a held share and a new lawn's put 80,000 blades in the scene)."""
+        size or style is never late.
+
+        A held pass keeps the plan's blade budget (``MAX_PLAN_BLADES``): the old blade
+        shares are kept while the lawns' total fits it — so a resized lawn leaves the
+        other lawns alone — and otherwise no held share is above its new one. A lawn of
+        the new plan without a held share (an item that became a lawn) counts as
+        unbounded: its builder would take the lawn's own count. Senior review of #388:
+        round 2, a held share and a new lawn's put 80,000 blades in the scene; round 3,
+        a terrace turned into a lawn inside the interval put 75,637."""
         applied = self._sync.records
         changed = [item_id for item_id, record in records.items()
                    if (before := applied.get(item_id)) is not None
@@ -777,15 +806,19 @@ class Scene3DController(QObject):
         with contextlib.suppress(RuntimeError):  # the #230 teardown guard
             if not self._context_timer.isActive():
                 self._context_timer.start(max(1, math.ceil(CONTEXT_REBUILD_MIN_MS - waited_ms)))
-        held = dict(records)
+        kept: dict[str, dict[str, ParamValue]] = {}
         for item_id in changed:
-            record = records[item_id]
-            kept = {key: value for key, value in record.params.items() if key not in CONTEXT_PARAMS}
-            kept.update(_context_of(applied[item_id]))
-            share, held_share = record.params.get(PARAM_LAWN_BLADES), kept.get(PARAM_LAWN_BLADES)
-            if isinstance(share, int) and isinstance(held_share, int) and share < held_share:
-                kept[PARAM_LAWN_BLADES] = share
-            held[item_id] = replace(record, params=Params(kept))
+            params = {key: value for key, value in records[item_id].params.items() if key not in CONTEXT_PARAMS}
+            params.update(_context_of(applied[item_id]))
+            kept[item_id] = params
+        if not _fits_the_blade_budget(records, kept):
+            for item_id, params in kept.items():
+                share, held_share = _blade_share(records[item_id].params), _blade_share(params)
+                if share is not None and (held_share is None or share < held_share):
+                    params[PARAM_LAWN_BLADES] = share
+        held = dict(records)
+        for item_id, params in kept.items():
+            held[item_id] = replace(records[item_id], params=Params(params))
         return held
 
     def _regrow_if_the_date_moved(self) -> None:

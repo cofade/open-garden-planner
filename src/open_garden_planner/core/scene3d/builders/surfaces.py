@@ -577,7 +577,9 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
         return _raised_pool(record, record.height_cm, plan)
     water = _water(plan, WATER_CM)
     coping = []
-    regions = pond_regions(record)   # (the water's own work bound usually refuses first)
+    # the water's work bound holds per region: this total cap is what bounds the coping
+    # of a pond of many regions
+    regions = pond_regions(record)
     for outer, holes in regions if _outline_vertices(regions) <= MAX_RELIEF_VERTICES else ():
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)

@@ -7669,11 +7669,47 @@ had only moved the failing views.
   - Smaller fixes:
     - `same_geometry` stays a list by hand: `scripts/mutation_check_scene3d.py` deletes its
       comparisons one by one, so each one is pinned.
-    - The pond case left the relief-cap test (the water refuses first), and the dead
-      raised-pool fallback is gone.
+    - The pond case left the relief-cap test, and the raised pool's total-vertex guard was
+      deleted as dead code. **Reversed by the security review:** the water's work bound
+      holds per region, so a pond of many small regions passed it and swept walls along
+      all their vertices. The guard is back (`_raised_pool`), pinned by a many-regions
+      test; the coping has the same total cap.
     - The hip check asserts four slopes instead of comparing the builder with itself.
     - The FR wording is corrected.
     - The glossary gained "Context playback".
 - **Left as smells, not defects:** the throttle keeps one timestamp for all records (an
   unrelated context change may wait up to 400 ms), and the caps bound each builder's output
   one at a time, not a per-record work budget (#607).
+
+**Senior review round 3 (2026-10-26): two P1s.**
+- **P1, the blade budget:** the round-2 rule skipped a held share that was MISSING. A
+  terrace turned into a lawn inside the interval was built with its own count: 75,637
+  blades against 60,000.
+  - Fix: one budget check in `_hold_context`. The old shares are kept while the lawns'
+    total fits `MAX_PLAN_BLADES`; otherwise no held share is above its new one. A lawn of
+    the new plan without a held share counts as unbounded.
+  - The same check closes a round-3 P2: a lawn resized next to another (the budget
+    binds) rebuilt the OTHER lawn at every drag step, 12 of 12. It is left alone now.
+  - Pinned with the fake clock: a type change to lawn, a resize beside another lawn, and
+    a recovery from scratch inside a hold, which applies the snapshot unheld. Each test
+    fails with its fix reverted.
+- **P1, this addendum:** round 2's text still said the raised-pool guard was gone (the
+  reversal above), and the `_pond` comment said the water refuses first. Both are
+  corrected.
+- **P2s fixed:**
+  - The round-2 overhang search dropped its bracket after a failed guess and halved from
+    there. A hexagonal hip kept 37.5 cm of overhang where 73.9 cm holds, and a shed whose
+    edge the slope clamp curves kept 40.3 where 76.9 holds. The search is a regula falsi
+    on the measured edge heights, with Illinois halving. Over 6,048 panel cases it finds
+    at least 97 % of the longest overhang that holds (it was 51 %), in 1.3 roofs on
+    average and 6 at most. Pinned against a 30-step bisection.
+  - `_kept_up` no longer returns a roof it never checked: when even a roof without an
+    overhang is below the floor, it returns None and the caller falls back. Of the 6,048
+    cases this changes four, the unreachable tool shed with an L outline and a rectangle
+    shape.
+  - The FR's eave sentence states the floor's numbers instead of "a door still fits".
+  - An AST test pins every `GEOMETRY_FIELDS` name in `same_geometry`'s hand-written list.
+  - Nits: a second timer stop, a test name, the `context_deferrals` comment.
+- **Left as a smell:** the hold builds records that never existed (new geometry with old
+  context), so every plan-wide invariant over context params needs its own check in
+  `_hold_context`. The blade budget is the only one today.
