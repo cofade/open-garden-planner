@@ -50,7 +50,7 @@ from open_garden_planner.ui.canvas.items import (
     PolylineItem,
     RectangleItem,
 )
-from open_garden_planner.ui.view3d.ground_bake import BAKE_BUDGET_S, GroundBaker
+from open_garden_planner.ui.view3d.ground_bake import GroundBaker
 from open_garden_planner.ui.view3d.snapshot import SkipReason
 from tests.integration.ground_bake_support import (
     Bake,
@@ -64,7 +64,6 @@ from tests.integration.ground_bake_support import rgba as ground_rgba
 from tests.integration.test_scene3d_snapshot import (
     work_done,  # noqa: F401 - the contract story's counters of what an idle tick must not do
 )
-from tests.perf.test_scene3d_snapshot_budget import budget_factor, traced
 
 
 def objects_unbuilt() -> Any:
@@ -749,21 +748,26 @@ class TestOneSmallEdit:
     # painted: since L4 (#388) the objects without a height are built, no longer painted
     # (bench_small 11 -> 9, bench_large 45 -> 25)
     # bench_large has no flat item of its own since L4: its stand-in is measured across
-    # a border (two tiles) and on a corner (four, the most the gate allows)
-    @pytest.mark.parametrize(("plan", "tiles", "painted", "across"),
-                             [("bench_small.ogp", 20, 9, None),
-                              ("bench_large.ogp", 60, 25, "border"),
-                              ("bench_large.ogp", 60, 25, "corner")])
-    def test_a_move_repaints_at_most_four_tiles_in_ten_milliseconds(
-            self, qtbot: Any, plan: str, tiles: int, painted: int, across: str | None) -> None:
+    # a border (two tiles) and on a corner (four, the most a 3 m item can touch).
+    # edit_tiles: the tiles a move repaints (exactly, for a stand-in; at most, for
+    # bench_small's own item); edit_ms and edit_passes: the median bound of a move.
+    @pytest.mark.parametrize(("plan", "tiles", "painted", "across", "edit_tiles", "edit_ms",
+                              "edit_passes"),
+                             [("bench_small.ogp", 20, 9, None, 2, 10.0, 1),
+                              ("bench_large.ogp", 60, 25, "border", 2, 10.0, 1),
+                              # PROVISIONAL (#615): a four-tile edit is one pass of the
+                              # budget plus its last tile, 12.15-13.29 ms on CI
+                              ("bench_large.ogp", 60, 25, "corner", 4, 20.0, 2)])
+    def test_a_small_move_repaints_only_its_tiles_within_its_bound(
+            self, qtbot: Any, plan: str, tiles: int, painted: int, across: str | None,
+            edit_tiles: int, edit_ms: float, edit_passes: int) -> None:
         """G3 — with the time budget ON, as in the product. Move one flat item of at
-        most 3 m, 31 times: every move re-paints at most four tiles, looks at ONE
-        record, and leaves every other tile the very object it was; the bake of a
-        two-tile edit takes at most 10 ms in the median — and is ONE pass (an edit
-        that fits the gate is not spread over frames). A four-tile edit is held to
-        what ``BAKE_BUDGET_S`` guarantees, two passes of the budget: it does not fit
-        one pass on CI runners, on master either (#615). Under a tracer each bound
-        is only §8.10's tripwire, ten times as wide, and the passes are not counted."""
+        most 3 m, 31 times: every move re-paints only the tiles it touches, looks at
+        ONE record, and leaves every other tile the very object it was. A two-tile
+        edit's bake takes at most 10 ms in the median and is ONE pass (an edit that
+        fits the gate is not spread over frames). A four-tile edit does not fit
+        10 ms on CI: one pass of the budget runs over it by its last tile, on master
+        too. Its bound is provisional until the owner decides #615."""
         scene = _loaded(plan)
         baker = TimedBaker()
         bake = Bake(scene, registry=production_registry(), baker=baker)
@@ -797,9 +801,9 @@ class TestOneSmallEdit:
             per_edit.append(sum(baker.milliseconds))
             most_tiles = max(most_tiles, len(repainted))
             most_records = max(most_records, baker.records_painted - painted_before)
-            assert 1 <= len(repainted) <= 4
+            assert 1 <= len(repainted) <= edit_tiles
             if across is not None:   # every move repaints the stand-in's tiles, no fewer
-                assert len(repainted) == {"border": 2, "corner": 4}[across]
+                assert len(repainted) == edit_tiles
             for tile in bake.tiles:
                 if tile.key not in repainted:
                     assert tile is before[tile.key]  # untouched: the same object, the same bits
@@ -810,14 +814,7 @@ class TestOneSmallEdit:
               f"median {median:.2f} ms, max {max(per_edit):.2f} ms, at most {most_tiles} tiles and "
               f"{most_records} record paints; passes per move: median "
               f"{statistics.median(passes)}, max {max(passes)}")
-        # two tiles: one pass of the budget; four tiles: two (#615 — 12.15 ms on CI's
-        # uninstrumented run, 6.8 ms quiet on the dev box, 8-15 ms under load)
-        budget_passes = 2 if most_tiles > 2 else 1
-        is_traced = traced()
-        factor = budget_factor(is_traced=is_traced, is_ci=False)
-        assert median <= budget_passes * BAKE_BUDGET_S * 1000.0 * factor
-        if not is_traced:
-            assert statistics.median(passes) <= budget_passes
+        assert median <= edit_ms and statistics.median(passes) <= edit_passes
         assert bake.sink.state().ground == bake.sync.expected_state().ground
 
 

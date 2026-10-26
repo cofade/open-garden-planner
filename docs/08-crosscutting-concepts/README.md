@@ -1842,9 +1842,11 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   `idle`, ONE ERROR line, a note in the list — and the next edit, and a new document, try
   again. The workspace's own handling of a ground pass is pinned with a test clock that jumps
   10 s after the edit's pass: no ground pass hands the look a sun, and the release is due.
-- **The wall-clock gates run on the quiet runner.** G3 — an edit's bake in at most 10 ms in
-  the median — carries `@pytest.mark.perf` (ADR-058, §8.10.4): beside eight workers it read
-  11.58 ms. So does its render-tier twin, whose median is taken in the driver process
+- **The wall-clock gates run on the quiet runner.** G3 — a two-tile edit's bake in at most
+  10 ms in the median, a four-tile edit's in a provisional 20 ms (#615) — carries
+  `@pytest.mark.perf` (ADR-058, §8.10.4): beside eight workers it read 11.58 ms. On a
+  Windows dev box, Windows power throttling (EcoQoS) can double a perf run's timings partway
+  through, so a local reading is evidence only from a process that has opted out (#616). So does its render-tier twin, whose median is taken in the driver process
   (`test_scene3d_ground_render.py::test_one_small_edit_re_bakes_within_the_time_budget`; the
   rest of that test stays in the render tier — review 3, P2-1). G3's stopwatch is an ATTRIBUTE of
   `tests/integration/ground_bake_support.py::TimedBaker`. Issue #528 makes the perf-marker
@@ -5594,7 +5596,10 @@ three bakers at once, §8.10.10).
 
 Why 10 ms: the workspace's gate is 50 ms from an edit to its frame, and the bake's own gate —
 10 ms for one small edit on the bench plans — still holds with the budget ON: an edit that fits
-the gate is ONE pass (measured: 31 moves on each bench plan, one pass each). Measured with the
+the gate is ONE pass (measured: 31 moves on each bench plan, one pass each). That holds for
+an edit of two tiles. An edit where four tiles meet (L4, #388) is one pass that runs over
+the budget by its last tile: 12.15–13.29 ms on CI, on master too. G3 holds it to a
+provisional 20 ms in at most two passes until the owner decides #615. Measured with the
 real clock: bench_small opens in 2 passes (longest 11.6 ms), bench_large in 8 (longest 13.4 ms).
 What the budget does NOT bound is one tile: a pass costs the budget plus the tile it is in — and
 one tile more when it brings an edit while older tiles are still pending (below). The
@@ -7131,8 +7136,8 @@ PF-CAN-22). The restack runs on every `stack_changed` and scans the items. It sk
 scan when the command manager's `last_command` says it cannot change a band
 (`changes_ground_band = False`, #592). That scan is what keeps the cut-outs right.
 Two writes defeat it, and both leave 2D and 3D agreeing on a stale order:
-- a height written outside a command, when the last command is one marked as unable to
-  change a band;
+- a height written outside a command: it emits no `stack_changed`, so it stays stale until
+  the next command that is not marked `changes_ground_band = False`;
 - a command wrongly marked `changes_ground_band = False`.
 Either way, a terrace on a lowered lawn stays under the lawn and is not cut out.
 Tests that change the height of a ground surface use the Properties panel's own command

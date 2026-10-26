@@ -1758,11 +1758,13 @@ class PropertiesPanel(QWidget):
         self._register_refresh(overhang_spin, refresh_overhang)
 
     def _hint_on_label(self, field: QWidget, hint: str) -> None:
-        """Put ``hint`` on the row label Qt made for ``field`` (its buddy): a combo's own
-        tooltip is its current text (#596), so the label carries what the row is for."""
+        """Put ``hint`` on the row label Qt made for ``field`` (its buddy) and on the
+        field's accessible description: a combo's own tooltip is its current text (#596),
+        so the label carries what the row is for."""
         label = self._form_layout.labelForField(field)
-        if label is not None:
-            label.setToolTip(hint)
+        assert label is not None, "call after addRow(text, field)"
+        label.setToolTip(hint)
+        field.setAccessibleDescription(hint)
 
     @staticmethod
     def _roof_setter(key: str) -> Callable[[Any, object], None]:

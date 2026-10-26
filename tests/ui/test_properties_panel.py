@@ -615,12 +615,19 @@ def _building(kind: str, shape: str) -> object:
     return RectangleItem(0, 0, 400, 250, object_type=ObjectType[kind])
 
 
+#: Each building kind in the shape its tool draws (canvas_view: HOUSE and GARAGE_SHED by
+#: the polygon tool, TOOL_SHED by the rectangle tool), and a HOUSE given its type later.
+ROOF_ROW_CASES = [("HOUSE", "polygon"), ("GARAGE_SHED", "polygon"), ("TOOL_SHED", "rectangle"),
+                  ("HOUSE", "rectangle")]
+
+
 class TestRoofRows:
     """The roof rows (#388) share #596's control column; the 3D hint is on their labels."""
 
-    @pytest.mark.parametrize(("kind", "shape"), [("HOUSE", "polygon"), ("HOUSE", "rectangle"),
-                                                 ("TOOL_SHED", "rectangle"),
-                                                 ("GARAGE_SHED", "rectangle")])
+    def test_the_cases_cover_every_building_kind(self) -> None:
+        assert {kind for kind, _shape in ROOF_ROW_CASES} == BUILDING_KINDS
+
+    @pytest.mark.parametrize(("kind", "shape"), ROOF_ROW_CASES)
     def test_a_building_s_roof_rows_share_the_column(self, qtbot, kind: str, shape: str) -> None:
         # Written before #596's column, the rows missed it in the merge: style 111 px,
         # pitch 54 px, overhang 79 px under a 120 px height field.
@@ -645,5 +652,5 @@ class TestRoofRows:
         # the hint is on each row's own label, which stays the field's buddy
         labels = [panel._form_layout.labelForField(field) for field in roof]
         assert all(label.buddy() is field for label, field in zip(labels, roof, strict=True))
-        hints = {label.toolTip() for label in labels}
+        hints = {label.toolTip() for label in labels} | {field.accessibleDescription() for field in roof}
         assert len(hints) == 1 and "3D view" in hints.pop()

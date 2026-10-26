@@ -8103,10 +8103,9 @@ had only moved the failing views.
   - Default roofs, decks, kerbs and ponds keep identical mesh digests.
   - At the panel's extremes, sunk eaves are lifted: on a 60 × 100 cm shed from
     −101.5 cm to +78.7 cm.
-- **G3** (`test_scene3d_ground_bake.py`) placed its stand-in terrace where four tiles meet.
-  It now lies across one tile border, as master's furniture item did (two tiles,
-  7.1 ms). The gate's bounds are unchanged. **Corrected after the merge** (below): the
-  13.5 ms read for four tiles was not load noise.
+- **G3** (`test_scene3d_ground_bake.py`) had placed its stand-in terrace where four tiles
+  meet; this round moved it across one tile border, as master's furniture item did. The
+  reason given (13.5 ms for four tiles "under load") was wrong; see "G3, corrected" below.
 
 **Senior review of the merge with master (2026-10-26): one P1, fixed.**
 - The review compared every line on both sides of the merge and found nothing lost. It
@@ -8128,28 +8127,30 @@ had only moved the failing views.
   - §8.29.12 now says that the cut-outs follow the 2D paint order, which is right only
     after the restack scan. The scan is skipped when `last_command` is marked
     `changes_ground_band = False` (#592).
-- **G3, corrected.** bench_large has no flat item of its own since L4, so the gate moves a
-  stand-in terrace, placed from the plan's middle. It is now measured in two places, and
-  every move must repaint exactly the tiles its case names:
-  - across one tile border: two tiles, like the furniture sprite before L4;
-  - where four tiles meet: the most the gate allows.
-  Medians per move, uninstrumented and serial on the dev box:
-  - with the machine quiet: 3.7 ms across the border, 6.8 ms on the corner (max
-    8.3 ms). That is about 70 % of the 10 ms bound;
-  - with another user's process loading the machine: 7.6–7.8 ms and 14.4–15.0 ms, and the
-    corner's edit takes two passes.
-  On CI, the corner read 13.3 ms under coverage (#601), and then 12.15 ms in the
-  uninstrumented `Test` job, which had passed it one run earlier. So the 13.5 ms of round 7
-  was not noise: a four-tile edit does not reliably fit one 10 ms pass. **The same is
-  true on master:** an interleaved A/B of the same terrace on the same corner read
-  7.6–8.6 ms on master and 8.8–9.5 ms here, and master also split it into two passes once
-  (15.0 ms). L4 adds about 5–10 %. Across a border it is 4.2–4.6 ms against 4.6–4.8 ms.
-  - A first fix (e7916be7) skipped the corner's clock under a tracer only. The re-review
-    rejected it: that misread the cause, and it made one case an exception to §8.10's rule.
-  - **The gate now:** the two-tile cases keep one pass and at most 10 ms in the median. The
-    four-tile case is held to what `BAKE_BUDGET_S` guarantees, which is two passes of the
-    budget (at most 20 ms, at most two passes). Under a tracer, every case asserts only
-    §8.10's tripwire (10×, `budget_factor`), and passes are not counted.
-  - **#615 (owner decision):** should a four-tile edit fit one pass?
+- **G3, corrected (after two more review rounds).** bench_large has no flat item of its
+  own since L4, so the gate moves a stand-in terrace, placed from the plan's middle, across
+  one tile border (two tiles) and where four tiles meet (four). Every move must repaint
+  exactly those tiles.
+  - **A four-tile edit does not hold 10 ms on CI.** It is one pass that runs over the
+    budget by its last tile, as `BAKE_BUDGET_S`'s contract allows ("the budget plus ONE
+    tile"). CI read 12.15 ms uninstrumented and 13.29 ms under coverage, both with a
+    median of one pass.
+  - The cost is the same on master. In 5 alternating pairs of 61 moves, the four-tile
+    corner read 8.25 ms here against 8.36 ms on master, and the border 4.39 against
+    4.46 ms. The difference is 0 to about 8 % either way, within noise.
+  - Readings of 14–17 ms in two passes on the dev box came from Windows power throttling
+    (EcoQoS), not from load or the code. Opted out, the corner is 8.4–9.5 ms in one pass
+    (#616). Two first fixes misread this: one blamed machine load, and e7916be7 blamed
+    coverage's tracer.
+  - **The gate:** each case states its tiles, passes and median bound as literals. Two
+    tiles: one pass and at most 10 ms, as on master, also under coverage. Four tiles: at
+    most 20 ms in at most two passes. That bound is **provisional** until the owner decides
+    #615: should a four-tile pass hold 10 ms on CI? The test is renamed
+    `test_a_small_move_repaints_only_its_tiles_within_its_bound`, because the old name
+    promised four tiles in 10 ms.
+- The roof hint stays a tooltip (on the row labels and the spin boxes, and as the
+  inputs' accessible description). The review proposed a visible hint row instead, but
+  that would add a line of text to every building's panel, while the other 3D-only rows
+  (Object height's source) explain themselves in a tooltip too.
 - The merge commit's message says "three unused noqa directives". There were nine, in
   four files. The merge commit is pushed and not rewritten; ruff is clean.

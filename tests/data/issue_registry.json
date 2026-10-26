@@ -1267,6 +1267,11 @@
   "615": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "G3: a four-tile ground edit does not fit one 10 ms bake pass on CI (also on master)"
+    "title": "G3: a four-tile ground edit's bake pass overruns 10 ms on CI (also on master)"
+  },
+  "616": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Windows power throttling doubles local perf-tier timings partway through a run"
   }
 }

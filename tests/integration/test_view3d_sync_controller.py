@@ -1677,6 +1677,7 @@ def _set_height(rig: Rig, item: Any, height_cm: float) -> None:
     signals."""
     if rig.height_panel is None:
         rig.height_panel = PropertiesPanel(command_manager=rig.commands)
+        rig.qtbot.addWidget(rig.height_panel)
     rig.height_panel._on_object_height_changed(item, height_cm)   # noqa: SLF001
     assert explicit_height_cm(item.metadata) == (height_cm or None), "the edit was a no-op"
 
