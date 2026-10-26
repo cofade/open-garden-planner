@@ -1288,7 +1288,7 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
     # count is what stops this pin from silently looking at nothing after a rename.
     found = len(test_steps) + len(coverage_steps)
     assert found >= 3, (
-        f"expected the perf step in `test` and the two in `coverage`, found {found} - if a "
+        f"expected the perf step in `test` plus parallel and serial coverage, found {found} - if a "
         "step was renamed or moved, this check has silently stopped looking at it"
     )
 
@@ -1348,7 +1348,7 @@ def test_ci_runs_the_whole_perf_set_serially() -> None:
                 f"`{_where}` has continue-on-error: the perf tests would run, could fail, "
                 "and the job would still be green - a gate that reports nothing"
             )
-            # The loop matches BOTH perf steps of the Coverage job, and the two have
+            # The loop matches parallel and serial coverage steps, and the two have
             # opposite consequences when skipped - so the message names the one that
             # applies instead of describing only the selecting case. Skipping the
             # deselecting step is not a weaker neutralisation than skipping the serial one:

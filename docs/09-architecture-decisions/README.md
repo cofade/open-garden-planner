@@ -4098,6 +4098,35 @@ a solid colour. *Reachability is necessary, not sufficient: before promoting a d
 path, ask whether it earns the degradation it costs, and put the answer in front of the
 person who has to look at it.*
 
+### ADR-058 addendum: complete coverage on parallel runners (#601, 26 October 2026)
+
+**Decision.** Keep full line and branch tracing and the uninstrumented `Test`
+job. Split non-perf coverage by a stable SHA-256 test-ID partition across two
+Linux runners, with xdist within each. Measure the entire perf set serially on a
+separate runner. `Coverage`, the existing protected check name, runs with
+`if: always()`, rejects failed/skipped producers, combines three explicitly named
+files and enforces the existing line floors. A missing producer or input fails;
+there is no partial-report success. Required check names and protection do not change.
+
+Only actual wall-clock-sensitive cases and shared measurement scenarios retain
+`perf`; 27 deterministic cases return to parallel execution. Reuse the marker
+guard's parsed AST/index, consolidate duplicate CLI sweep consumers, and separate
+fifty acyclic receiver lifecycles from one real cyclic-GC check.
+
+**Alternatives.** Merely dropping `--cov-branch` leaves TOML's `branch = true`
+active. Line-only tracing is benchmarked explicitly but would remove diagnostic
+branch data; it is not the delivery mechanism. Replacing `Test` with a forwarding
+status would remove the uninstrumented budgets (traced budgets have slack).
+Larger/paid runners and a Python migration are unnecessary here. Hash membership
+avoids the collection-order assumption of an initial round-robin partition.
+
+**Consequences.** Extra runner setup/collection may increase total runner minutes
+while reducing latency. No dependency, runtime behavior, `.ogp` format, budget or
+floor changes. Pins: `tests/integration/test_ci_coverage_shards.py`,
+`tests/unit/test_gate_commands.py`, `tests/unit/test_perf_marker_guard.py` and the
+existing receiver/harness guards. Measurements and all 116 original marker cases
+are in [the investigation](../11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md).
+
 ## ADR-059: 3D scene pipeline and the truth principle (Phase 17, L1.1)
 
 **Status**: Accepted (2026-10-11, #385 story L1.1, epic #383). This is the scene-pipeline ADR the

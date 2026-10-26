@@ -1198,5 +1198,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "chore: sync version to v1.32.0 after PR #593"
+  },
+  "601": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "CI bottleneck: Coverage job takes ~16-17 min on 18.7k tests; deeper investigation and optimization without sacrificing coverage"
   }
 }

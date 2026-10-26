@@ -3356,3 +3356,17 @@ Windows and green Linux CI (#562). Independent senior/3D review and frozen smoke
 and self-test passed. The published installer checksum and source-bound build
 provenance attestation were independently verified against the release merge SHA.
 
+
+
+### CI latency follow-up #601 — implemented, awaiting owner acceptance
+
+Coverage retains all line/branch data and unchanged package/file floors. Two
+stable test-ID hash partitions plus one serial perf producer feed the protected
+Coverage check, which requires every measurement and all three files. The
+uninstrumented Test job and its duration artifact remain. The perf audit moves
+27 deterministic cases from the 116-case serial set; AST reuse, consolidated CLI
+sweep consumers and immediate acyclic receiver cleanup remove repeated work.
+
+See ADR-058, §8.10.4, deployment §7.4 and the
+[investigation, marker inventory and measured results](11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md).
+No application or render-tier scope change; #540/#600/#603 remain separate.

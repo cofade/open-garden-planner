@@ -450,3 +450,12 @@ Verdana 9 pt "Today" measures 60 px on the box engine and 34–37 px on a real o
 - **Legacy:** none (new entry)
 
 The guard keys on the module's production names, the Qt platform and exact agent-session variables (`CODEX_SANDBOX`, `OPENCODE_SESSION_ID`, …). `OGP_PRODUCT_PROCESS`, set inside `main()` (not at import), lets the product through; `script_isolation` rebinds the names, which is the other sanctioned way. `CODEX_API_KEY`/`GEMINI_API_KEY` are deliberately not markers. The explicit `OGP_ALLOW_PRODUCTION_SETTINGS` override exists for a one-off tool that really must read the real store; it is never set by the product or the suite.
+
+
+### PF-TST-30
+
+- **Rule:** Apply `perf` to individual elapsed-time tests in a mixed class; deterministic signature, spy, fake-clock and geometry contracts belong in the parallel suite.
+- **Pinned by:** `tests/unit/test_perf_marker_guard.py::test_mixed_budget_groups_mark_methods_instead_of_the_class`
+- **Source:** #601; ADR-058
+- **Status:** pointer → [§8.10.4](../../08-crosscutting-concepts/README.md#8104-the-inner-loop-and-which-run-is-the-gate-509)
+- **Legacy:** none (new entry)

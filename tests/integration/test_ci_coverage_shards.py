@@ -10,9 +10,19 @@ from pathlib import Path
 
 import pytest
 from coverage import Coverage
-from scripts.ci_coverage_shard import shard_spec
+from scripts.ci_coverage_shard import shard_of, shard_spec
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_membership_is_independent_of_collection_order() -> None:
+    node_ids = [f"tests/test_case.py::test_case[{i}]" for i in range(101)]
+    partitions = [{node for node in node_ids if shard_of(node, 2) == shard} for shard in range(2)]
+    reversed_partitions = [{node for node in reversed(node_ids) if shard_of(node, 2) == shard}
+                           for shard in range(2)]
+    assert partitions == reversed_partitions
+    assert all(partitions) and partitions[0].isdisjoint(partitions[1])
+    assert set.union(*partitions) == set(node_ids)
 
 
 @pytest.mark.parametrize("value", ["bad", "0", "0/0", "2/2", "-1/2", "0/2/3"])
@@ -24,14 +34,15 @@ def test_invalid_shards_are_refused(value: str) -> None:
 def test_real_shards_cover_the_whole_suite_and_merge_branch_data(tmp_path: Path) -> None:
     """No overlap, no missing case, perf collected once, and both branch arms covered."""
     (tmp_path / "sample.py").write_text(
-        "def answer(value):\n    if value:\n        return 1\n    return 0\n",
+        "def answer(value):\n    if value:\n        return 1\n    return 0\n"
+        "def serial_only():\n    return 3\n",
         encoding="utf-8",
     )
     (tmp_path / "test_sample.py").write_text(
-        "import pytest\nfrom sample import answer\n"
+        "import pytest\nfrom sample import answer, serial_only\n"
         "@pytest.mark.parametrize('value', [False, True])\n"
         "def test_answer(value):\n    assert answer(value) == int(value)\n"
-        "@pytest.mark.perf\ndef test_perf():\n    assert answer(True) == 1\n",
+        "@pytest.mark.perf\ndef test_perf():\n    assert serial_only() == 3\n",
         encoding="utf-8",
     )
     (tmp_path / "pytest.ini").write_text("[pytest]\nmarkers = perf\n", encoding="utf-8")
@@ -57,6 +68,11 @@ def test_real_shards_cover_the_whole_suite_and_merge_branch_data(tmp_path: Path)
     assert seen[0].isdisjoint(seen[1])
     assert seen[0] | seen[1] == {"test_answer[False]", "test_answer[True]"}
     assert seen[2] == {"test_perf"}
+    without_perf = Coverage(data_file=str(tmp_path / "without-perf"), branch=True)
+    without_perf.combine([str(path) for path in files[:2]], strict=True, keep=True)
+    without_perf.save()
+    without_perf.xml_report(outfile=str(tmp_path / "without-perf.xml"))
+    assert float(ET.parse(tmp_path / "without-perf.xml").getroot().attrib["line-rate"]) < 1
     combined = Coverage(data_file=str(tmp_path / "combined"), branch=True)
     combined.combine([str(path) for path in files], strict=True)
     combined.save()

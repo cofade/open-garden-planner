@@ -879,6 +879,30 @@ invalid values/placeholders, stale binaries and stale source declarations fail.
 
 ### 8.10.4 The inner loop, and which run is the gate (#509)
 
+**Current scheduling (#601, 26 October 2026).** Coverage measures two disjoint
+non-perf test-ID hash partitions on separate Linux runners and the complete perf
+set on a third, serial runner. The required `Coverage` check requires every
+producer to succeed, combines all three explicit data files, then enforces the
+unchanged floors. Branch tracing remains enabled. `Test` remains uninstrumented
+and retains its duration artifact and serial budgets. This costs extra setup and
+collection work in exchange for a shorter critical path; it does not claim fewer
+runner minutes. See the [investigation and full marker audit](../11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md).
+
+The audit moves 27 deterministic cases out of the serial set (116 → 89): mark
+individual elapsed-time tests, not their entire mixed class. The AST guard reuses
+one parse and lexical index per module. The documented-figure guard runs each CLI
+sweep once and applies both invariants and prose checks to that output, avoiding
+process-local caches that duplicate work across xdist workers. The fifty receiver
+cycles assert immediate acyclic teardown; one separate cyclic case uses full GC.
+`test_ci_coverage_shards.py` exercises real xdist selection and branch merging;
+workflow pins reject omitted measurements and masked failures.
+`test_perf_marker_guard.py::test_mixed_budget_groups_mark_methods_instead_of_the_class`
+pins the marker scope. `test_gate_commands.py::test_coverage_shards_and_merge_are_pinned` and
+`test_coverage_topology_pin_rejects_incomplete_measurements` pin complete,
+mandatory producer inputs and their failure propagation.
+
+The timings and fourteen-case counts below are the original **#509 baseline**.
+
 `addopts` carries `-n auto --dist worksteal -m 'not perf'` (ADR-058), so the **default**
 run is parallel. Three things follow from that, and each is a trap worth naming.
 

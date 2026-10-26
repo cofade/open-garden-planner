@@ -197,3 +197,12 @@ setuptools 82/84 emits `SetuptoolsDeprecationWarning` with a 2027-02-18 due date
 - **Legacy:** none (new entry)
 
 The About dialog in a direct PyInstaller build said **1.2.0** while `pyproject.toml` and `__init__.py` said 1.31.1. The cause was a tracked `_version.py` from 2026-03-01 that `build_installer.py` overwrote only on the release path; the direct gate bundled the stale file. The script now also deletes the module in a `finally` after PyInstaller, so a release build cannot leave it behind for a later direct build. The freeze/fallback path is pinned by monkeypatching `sys.frozen` and removing `open_garden_planner._version` from `sys.modules`; the release direction is pinned by injecting a module whose `__version__` differs from the package's. `installer/ogp.spec` grew the conditional hidden import in the same change, because the dynamic import removed the static edge PyInstaller used to follow; `test_packaging_metadata.py` pins the write/remove pair, the fallback, the release direction and the spec line; `tests/unit/test_main_hardening.py` pins the `--selftest` version check against `OGP_EXPECTED_VERSION`.
+
+
+### PF-CI-16
+
+- **Rule:** A required coverage check must require every measurement to succeed and combine every explicitly named partition, including serial perf coverage; failed, skipped or missing inputs must fail the check.
+- **Pinned by:** `tests/unit/test_gate_commands.py::test_coverage_shards_and_merge_are_pinned`; `tests/unit/test_gate_commands.py::test_coverage_topology_pin_rejects_incomplete_measurements`
+- **Source:** #601; ADR-058
+- **Status:** pointer → [§8.10.4](../../08-crosscutting-concepts/README.md#8104-the-inner-loop-and-which-run-is-the-gate-509)
+- **Legacy:** none (new entry)
