@@ -7125,6 +7125,14 @@ path's cut-out is the rounded stroke the canvas paints (`ROUND_PATH_STYLES`). An
 without a height cuts the lawn only when it covers its footprint at the ground
 (`GROUND_COVERING_KINDS`, whatever its height: a cold frame's soil and a fire pit's ash
 lie under a blade's 7 cm); a pergola or a parasol stands in the grass.
+"Painted above the lawn" is the 2D paint order, read from the record order. That order is
+right only after the scene restacks its ground band (`CanvasScene._restack_ground_changes`,
+PF-CAN-22), which runs after a command. A height written without a command, or a command
+wrongly marked `changes_ground_band = False` (#592), leaves the 2D view and 3D agreeing
+on a stale order: a terrace on a lowered lawn stays under it and is not cut out. #592's
+per-command opt-out is therefore part of what makes the 3D cut-outs correct.
+Tests that change a height go through the Properties panel's own command
+(`test_view3d_sync_controller._set_height`).
 
 **Bounds from the senior review.** A deck's boards are found before a mesh is built,
 with numpy row crossings; beyond `MAX_DECK_BOARDS` (2,000) boards, or `MAX_DECK_ROWS`

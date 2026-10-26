@@ -8103,6 +8103,32 @@ had only moved the failing views.
   - Default roofs, decks, kerbs and ponds keep identical mesh digests.
   - At the panel's extremes, sunk eaves are lifted: on a 60 × 100 cm shed from
     −101.5 cm to +78.7 cm.
-- **G3** (`test_scene3d_ground_bake.py`) placed its stand-in terrace where four tiles meet.
-  It now lies across one tile border, as master's furniture item did (two tiles,
-  7.1 ms). The gate's bounds are unchanged.
+- **G3** (`test_scene3d_ground_bake.py`): bench_large has no flat item of its own
+  since L4, so the gate moves a stand-in terrace. It is measured in two places: across one
+  tile border (two tiles, like the furniture sprite before L4) and where four tiles meet
+  (the most the gate allows). Medians per move, from the quiet serial run of the
+  post-merge review on the dev box: 3.7 ms across the border, 6.8 ms on the corner (max
+  8.3 ms). The 7.1 ms and 13.5 ms read earlier came from a loaded
+  machine, which §8.10.4 does not accept as evidence. The gate's bounds are unchanged.
+
+**Senior review of the merge with master (2026-10-26): one P1, fixed.**
+- The review compared every line on both sides of the merge and found nothing lost. It
+  also checked the CR CR LF normalisation (#614): only line endings changed.
+- **P1:** master's #596 put every short Properties input in one 120 px column. The three
+  roof rows were written before that rule and the merge missed them (111, 54 and 79 px
+  under a 120 px height field). They now use the shared helpers. The "Shapes the roof
+  in the 3D view" hint moved to the row labels, because a combo's tooltip is its own text
+  (#596). `test_properties_panel.py::test_a_building_s_roof_rows_share_the_column` checks
+  every input of every building kind. Before, only a raised bed was checked, so the suite
+  stayed green.
+- **P2s, fixed:**
+  - The raised-lawn and "gets a height" hold tests change the height through the panel's
+    own command. A bare metadata write skipped the ground-band restack and reached a 2D
+    order no user can reach.
+  - The trailing-pass helper's cumulative counter is replaced by `_held`: the applied
+    context differs from a fresh snapshot. The callers assert it where it holds.
+  - G3 measures both placements (above).
+  - §8.29.12 now says that the cut-outs follow the 2D paint order. That order is right
+    only after a restack, so #592's per-command opt-out is part of what makes 3D correct.
+- The merge commit's message says "three unused noqa directives". There were nine, in
+  four files. The merge commit is pushed and not rewritten; ruff is clean.

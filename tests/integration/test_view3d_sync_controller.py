@@ -49,6 +49,7 @@ from open_garden_planner.core.scene3d import (
 from open_garden_planner.core.scene3d import polygon as polygon_module
 from open_garden_planner.core.scene3d.builders import plants, production_registry
 from open_garden_planner.core.scene3d.camera import Bounds
+from open_garden_planner.core.scene3d.context import CONTEXT_PARAMS
 from open_garden_planner.core.sim_clock import SimClock
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -59,6 +60,7 @@ from open_garden_planner.ui.canvas.geometry_apply import (
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
 from open_garden_planner.ui.view3d import snapshot as snapshot_module
 from open_garden_planner.ui.view3d import sync_controller
 from open_garden_planner.ui.view3d.snapshot import SkipReason, snapshot_records
@@ -1597,6 +1599,7 @@ def test_a_drag_over_a_lawn_re_cuts_its_blades_at_most_once_per_interval(
     if dragged == "lawn":   # its own move is in 3D at every step
         moves = sum(1 for report in rig.reports if lawn_id in report.changes.transform)
         assert moves == steps
+    assert _held(rig) == [lawn_id]
     _trailing_pass(rig, now)
     assert _rebuilds(rig, lawn_id) == 2, "the trailing pass"
     applied = rig.controller.sync.records[lawn_id].params["lawn_cutouts"]
@@ -1629,6 +1632,7 @@ def test_an_item_wiggled_across_a_lawn_s_box_edge_is_still_held(
         rig.settle()
     assert _rebuilds(rig, lawn_id) <= 1, "the first step at once, the rest held back"
     assert rig.controller.context_deferrals >= steps - 2
+    assert _held(rig) == [lawn_id]   # the sliver of the first step
     _trailing_pass(rig, now)   # the terrace is outside the box again: the sliver goes
     rig.assert_equals_a_from_scratch_apply()
 
@@ -1640,18 +1644,36 @@ def _fake_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return now
 
 
+def _held(rig: Rig) -> list[str]:
+    """The records whose applied context params are not the plan's: what a hold keeps
+    back. The timer cannot say it: the real one may have fired already on a slow runner
+    — its pass, still inside the fake clock's interval, only books it again (CI once
+    read it between the two) — but the held params outlive that pass."""
+    def context(record: Record) -> dict[str, object]:
+        return {key: value for key, value in record.params.items() if key in CONTEXT_PARAMS}
+
+    applied = rig.controller.sync.records
+    return [item_id for item_id, record in snapshot_records(rig.scene, rig.clock.plan_date).items()
+            if item_id in applied and context(applied[item_id]) != context(record)]
+
+
 def _trailing_pass(rig: Rig, now: list[float]) -> None:
     """The interval is over (the fake clock) and the booked trailing pass runs: the
-    timer's own signal, not a real wait a busy worker could outlast. The real timer
-    may have fired already on a slow runner — its pass, still inside the fake clock's
-    interval, only books it again, so whether it runs at this moment says nothing (CI
-    once read it between the two): the test asserts that a change was held instead."""
+    timer's own signal, not a real wait a busy worker could outlast."""
     timer = rig.controller._context_timer   # noqa: SLF001
-    assert rig.controller.context_deferrals > 0, "a change was held back"
     now[0] += sync_controller.CONTEXT_REBUILD_MIN_MS / 1000.0 + 0.01
     timer.stop()
     timer.timeout.emit()
     rig.settle()
+    assert _held(rig) == [], "the trailing pass applies the plan"
+
+
+def _set_height(rig: Rig, item: Any, height_cm: float) -> None:
+    """The Properties panel's own height edit (0 = automatic): one command, after which
+    the scene restacks the ground band (PF-CAN-22). A bare metadata write skips that
+    restack and leaves the 2D paint order — which a lawn's cut-outs follow — in a state
+    no user can reach."""
+    PropertiesPanel(command_manager=rig.commands)._on_object_height_changed(item, height_cm)   # noqa: SLF001
 
 
 def _lawn(rig: Rig, x: float) -> Any:
@@ -1750,8 +1772,7 @@ def test_a_lawn_that_stops_being_one_inside_a_hold_keeps_no_lawn_params(
         rig.commands.execute(ChangePropertyCommand(
             turned, "type", ObjectType.LAWN, ObjectType.TERRACE_PATIO, retype))
     else:
-        turned.metadata[METADATA_KEY] = 50.0
-        rig.commands.stack_changed.emit()
+        _set_height(rig, turned, 50.0)
     rig.settle()
     assert rig.controller.context_deferrals == deferred + 1, "the other lawn's share was held"
     applied = rig.controller.sync.records[str(turned.item_id)]
@@ -1794,6 +1815,7 @@ def test_a_lawn_resized_inside_a_hold_leaves_the_other_lawns_alone(
         rig.settle()
     assert _rebuilds(rig, other_id) <= 1, "the first step at once, then left alone"
     assert sum(_applied_shares(rig)) <= MAX_PLAN_BLADES
+    assert other_id in _held(rig)
     _trailing_pass(rig, now)
     rig.assert_equals_a_from_scratch_apply()
 
@@ -1810,23 +1832,20 @@ def test_a_raised_lawn_lowered_inside_a_hold_keeps_the_blade_budget(
     rig = Rig(canvas, qtbot)
     _lawn(rig, 0.0)
     raised = _lawn(rig, 4000.0)
-    raised.metadata[METADATA_KEY] = 50.0
+    _set_height(rig, raised, 50.0)
     terrace = RectangleItem(500.0, 500.0, 300.0, 200.0, object_type=ObjectType.TERRACE_PATIO,
                             layer_id=rig.scene.active_layer.id)
     rig.commands.execute(CreateItemCommand(rig.scene, terrace, "terrace"))
-    # cut out of it once it is a lawn: a sandbox covers the ground, so it cuts whatever the
-    # paint order (a terrace lies in the ground band, under a lawn that had a height)
-    on_raised = RectangleItem(4500.0, 500.0, 300.0, 200.0, object_type=ObjectType.SANDBOX,
+    on_raised = RectangleItem(4500.0, 500.0, 300.0, 200.0, object_type=ObjectType.TERRACE_PATIO,
                               layer_id=rig.scene.active_layer.id)
-    rig.commands.execute(CreateItemCommand(rig.scene, on_raised, "sandbox on the raised lawn"))
+    rig.commands.execute(CreateItemCommand(rig.scene, on_raised, "terrace on the raised lawn"))
     rig.controller.set_active(True)
     rig.settle()
     assert sorted(_applied_shares(rig), key=str) == [36_000, None]   # the raised lawn takes none
     terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))   # a cut-out moves: applied at once,
     rig.settle()                                         # and the interval begins
     deferred = rig.controller.context_deferrals
-    del raised.metadata[METADATA_KEY]
-    rig.commands.stack_changed.emit()
+    _set_height(rig, raised, 0.0)   # lowered: into the ground band, under the terrace on it
     rig.settle()
     assert rig.controller.context_deferrals == deferred + 1, "the other lawn's share was held"
     lowered = rig.controller.sync.records[str(raised.item_id)].params

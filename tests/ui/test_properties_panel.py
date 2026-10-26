@@ -1,10 +1,12 @@
 """Tests for properties panel."""
 
+import pytest
 from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtWidgets import QAbstractSpinBox, QComboBox, QFormLayout
 
 from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.roof_style import BUILDING_KINDS
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
 from open_garden_planner.ui.panels.properties_panel import FIELD_WIDTH, ColorButton
@@ -585,6 +587,34 @@ class TestObjectHeightField:
             "Default for this object type" in height.toolTip()
             or "No height" in height.toolTip()
         )
+
+    @pytest.mark.parametrize("kind", sorted(BUILDING_KINDS))
+    def test_a_building_s_roof_rows_share_the_column(self, qtbot, kind: str) -> None:
+        # The roof rows (#388) were written before #596's column and missed it in
+        # the merge: style 111 px, pitch 54 px, overhang 79 px under a 120 px height.
+        item = RectangleItem(0, 0, 400, 250, object_type=ObjectType[kind])
+        panel = PropertiesPanel(CommandManager())
+        qtbot.addWidget(panel)
+        panel.set_selected_items([item])
+        panel.resize(450, 900)
+        panel.show()
+        qtbot.wait(30)
+
+        fields = self._fields(panel)
+        for label in ("Roof style:", "Roof pitch:", "Roof overhang:"):
+            assert fields[label].width() == FIELD_WIDTH, label
+        for spin in panel.findChildren(QAbstractSpinBox):
+            assert spin.width() == FIELD_WIDTH, spin
+            assert spin.alignment() & Qt.AlignmentFlag.AlignRight, spin
+        for combo in panel.findChildren(QComboBox):
+            assert combo.width() == FIELD_WIDTH, combo
+            assert combo.toolTip() == combo.currentText(), combo
+        # the roof hint moved to the row labels, where the combo cannot overwrite it
+        hints = {
+            panel._form_layout.labelForField(fields[label]).toolTip()
+            for label in ("Roof style:", "Roof pitch:", "Roof overhang:")
+        }
+        assert len(hints) == 1 and "3D view" in hints.pop()
 
     def test_plant_spacing_radius_shares_the_same_shape(self, qtbot) -> None:
         item = CircleItem(0, 0, 50)

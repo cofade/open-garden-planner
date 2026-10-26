@@ -1698,12 +1698,18 @@ class PropertiesPanel(QWidget):
         building: Any = item  # a building item: its ``metadata`` dict is the roof's home
         hint = self.tr("Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.")
 
+        def label(text: str) -> QLabel:
+            # the hint sits on the label: the combo's tooltip is its own text (#596)
+            row_label = QLabel(text)
+            row_label.setToolTip(hint)
+            return row_label
+
         style_combo = QComboBox()
+        _style_combo(style_combo)
         for value, text in ((None, self.tr("Automatic")), (rs.GABLE, self.tr("Gable")),
                             (rs.HIP, self.tr("Hip")), (rs.SHED, self.tr("Single slope")),
                             (rs.FLAT, self.tr("Flat"))):
             style_combo.addItem(text, value)
-        style_combo.setToolTip(hint)
 
         def refresh_style(c: QComboBox = style_combo, it: Any = building) -> None:
             index = c.findData(rs.roof_style(it.metadata))
@@ -1713,7 +1719,7 @@ class PropertiesPanel(QWidget):
         style_combo.currentIndexChanged.connect(
             lambda _index, it=item, c=style_combo: self._on_roof_style_changed(it, c.currentData())
         )
-        self._form_layout.addRow(self.tr("Roof style:"), style_combo)
+        self._form_layout.addRow(label(self.tr("Roof style:")), style_combo)
         self._register_refresh(style_combo, refresh_style)
 
         pitch_spin = QDoubleSpinBox()
@@ -1726,13 +1732,14 @@ class PropertiesPanel(QWidget):
         # Non-empty special-value text — an empty string DISABLES the feature (#231/#232)
         pitch_spin.setSpecialValueText(self.tr("Auto"))
         pitch_spin.setToolTip(hint)
+        _style_numeric_field(pitch_spin)
 
         def refresh_pitch(s: QDoubleSpinBox = pitch_spin, it: Any = building) -> None:
             s.setValue(rs.roof_pitch_deg(it.metadata) or s.minimum())
 
         refresh_pitch()
         pitch_spin.valueChanged.connect(lambda value, it=item: self._on_roof_pitch_changed(it, value))
-        self._form_layout.addRow(self.tr("Roof pitch:"), pitch_spin)
+        self._form_layout.addRow(label(self.tr("Roof pitch:")), pitch_spin)
         self._register_refresh(pitch_spin, refresh_pitch)
 
         overhang_spin = QDoubleSpinBox()
@@ -1742,6 +1749,7 @@ class PropertiesPanel(QWidget):
         overhang_spin.setSuffix(" cm")
         overhang_spin.setSpecialValueText(self.tr("Auto"))
         overhang_spin.setToolTip(hint)
+        _style_numeric_field(overhang_spin)
 
         def refresh_overhang(s: QDoubleSpinBox = overhang_spin, it: Any = building) -> None:
             overhang = rs.roof_overhang_cm(it.metadata)
@@ -1749,7 +1757,7 @@ class PropertiesPanel(QWidget):
 
         refresh_overhang()
         overhang_spin.valueChanged.connect(lambda value, it=item: self._on_roof_overhang_changed(it, value))
-        self._form_layout.addRow(self.tr("Roof overhang:"), overhang_spin)
+        self._form_layout.addRow(label(self.tr("Roof overhang:")), overhang_spin)
         self._register_refresh(overhang_spin, refresh_overhang)
 
     @staticmethod

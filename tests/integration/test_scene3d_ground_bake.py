@@ -702,13 +702,13 @@ def _loaded(plan: str) -> CanvasScene:
     return scene
 
 
-def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
+def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake, across: str | None) -> Any:
     """The largest painted item of the plan that is no longer than 3 m. A plan without
     one (since L4, #388, a plan's small flat items were its furniture sprites, and
-    furniture is built now) gets a 2.5 x 1.5 m terrace across the tile border nearest
-    its middle, half a tile up a row — two tiles, as master's furniture sprite on
-    bench_large; the plan's middle itself is where four tiles meet, and four repaints
-    a move took 13.5 ms on a loaded machine — baked before the gate measures anything."""
+    furniture is built now) gets a 2.5 x 1.5 m terrace near its middle, baked before the
+    gate measures anything: ``across="border"`` lays it across one tile border, half a
+    tile up a row — two tiles, as the furniture sprite bench_large moved before L4 —
+    and ``"corner"`` on the corner where four tiles meet, the most a move may repaint."""
     painted = set(bake.baker.painted_ids())
     best: tuple[float, Any] | None = None
     for item in scene.items():
@@ -718,12 +718,16 @@ def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
         size = max(rect.width(), rect.height())
         if size <= 300.0 and (best is None or size > best[0]):
             best = (size, item)
+    assert (best is None) == (across is not None), "the case names the item the plan has"
     if best is None:
         middle = scene.sceneRect().center()
         tile_cm = bake.grid.tile_px / bake.grid.px_per_cm
         border = round(middle.x() / tile_cm) * tile_cm
-        row_middle = (math.floor(middle.y() / tile_cm) + 0.5) * tile_cm
-        added = RectangleItem(border - 125.0, row_middle - 75.0, 250.0, 150.0,
+        if across == "corner":
+            row = round(middle.y() / tile_cm) * tile_cm
+        else:
+            row = (math.floor(middle.y() / tile_cm) + 0.5) * tile_cm
+        added = RectangleItem(border - 125.0, row - 75.0, 250.0, 150.0,
                               object_type=ObjectType.TERRACE_PATIO)
         scene.addItem(added)
         bake.step()
@@ -743,10 +747,14 @@ class TestOneSmallEdit:
     @pytest.mark.perf
     # painted: since L4 (#388) the objects without a height are built, no longer painted
     # (bench_small 11 -> 9, bench_large 45 -> 25)
-    @pytest.mark.parametrize(("plan", "tiles", "painted"), [("bench_small.ogp", 20, 9),
-                                                           ("bench_large.ogp", 60, 25)])
+    # bench_large has no flat item of its own since L4: its stand-in is measured across
+    # a border (two tiles) and on a corner (four, the most the gate allows)
+    @pytest.mark.parametrize(("plan", "tiles", "painted", "across"),
+                             [("bench_small.ogp", 20, 9, None),
+                              ("bench_large.ogp", 60, 25, "border"),
+                              ("bench_large.ogp", 60, 25, "corner")])
     def test_a_move_repaints_at_most_four_tiles_in_ten_milliseconds(
-            self, qtbot: Any, plan: str, tiles: int, painted: int) -> None:
+            self, qtbot: Any, plan: str, tiles: int, painted: int, across: str | None) -> None:
         """G3 — with the time budget ON, as in the product. Move one flat item of at
         most 3 m, 31 times: every move re-paints at most four tiles, looks at ONE
         record, and leaves every other tile the very object it was; the bake of
@@ -758,7 +766,7 @@ class TestOneSmallEdit:
         bake.step()
         open_passes = 1 + bake.finish()  # opening the plan may take several
         assert len(bake.tiles) == tiles and len(baker.painted_ids()) == painted
-        item = _flat_item_up_to_three_metres(scene, bake)
+        item = _flat_item_up_to_three_metres(scene, bake, across)
         full_ms = sum(baker.milliseconds)
         most_tiles = most_records = 0
         per_edit: list[float] = []
@@ -791,8 +799,10 @@ class TestOneSmallEdit:
                     assert tile is before[tile.key]  # untouched: the same object, the same bits
             uploaded, dropped = changed_tiles(tuple(before.values()), bake.tiles)
             assert dropped == () and {tile.key for tile in uploaded} <= repainted
+        if across is not None:  # the stand-in measures the tiles its case names
+            assert most_tiles == {"border": 2, "corner": 4}[across]
         median = statistics.median(per_edit)
-        print(f"\nG3 {plan}: opened in {open_passes} passes, {full_ms:.1f} ms of bake; per move: "
+        print(f"\nG3 {plan} {across or ''}: opened in {open_passes} passes, {full_ms:.1f} ms of bake; per move: "
               f"median {median:.2f} ms, max {max(per_edit):.2f} ms, at most {most_tiles} tiles and "
               f"{most_records} record paints; passes per move: median "
               f"{statistics.median(passes)}, max {max(passes)}")
