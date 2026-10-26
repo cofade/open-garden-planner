@@ -2725,12 +2725,12 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 ✅ sim clock shipped v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)); L1.1–L1.10 ✅ shipped v1.30.14 ([PR #484](https://github.com/cofade/open-garden-planner/pull/484))** — see below | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
 | ✅ | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **✅ shipped v1.31.0 ([PR #584](https://github.com/cofade/open-garden-planner/pull/584)) after owner acceptance (ADR-063, FR-3D-ANALYZE-01 … 08)** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
-| 🔄 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **Implemented on `feature/388-l4-built-world`, draft PR awaiting owner manual test (ADR-065, FR-3D-BUILT-01 … 07)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
+| 🔄 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **Implemented on `feature/388-l4-built-world`, draft [PR #613](https://github.com/cofade/open-garden-planner/pull/613) awaiting owner manual test (ADR-065, FR-3D-BUILT-01 … 07)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
-### L4 acceptance highlights — Built world complete (#388, ADR-065) — **draft PR, owner test pending**
+### L4 acceptance highlights — Built world complete (#388, ADR-065) — **draft [PR #613](https://github.com/cofade/open-garden-planner/pull/613), owner test pending**
 
 - **L4.1 roofs and facades:** Roof style (Automatic / Gable / Hip / Single slope /
   Flat), pitch (5–60°) and overhang (0–150 cm) are optional, additive item metadata
