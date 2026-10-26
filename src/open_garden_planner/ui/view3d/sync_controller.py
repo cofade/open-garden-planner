@@ -780,12 +780,14 @@ class Scene3DController(QObject):
         until the trailing pass. Only those params are held: the record's own move,
         size or style is never late.
 
-        A record whose context GAINS or LOSES a param is not held: there is no old value
-        to hold, or one it no longer takes (a lawn turned into a terrace, or given a
-        height, carried its blade share and cut-outs). A held pass keeps the plan's
-        blade budget (``MAX_PLAN_BLADES``): the old blade shares are kept while the lawns'
-        total fits it — so a resized lawn leaves the other lawns alone — and otherwise no
-        held share is above its new one."""
+        A record that becomes or stops being a lawn — its blade share appears or goes: a
+        lawn turned into a terrace, given a height, or lowered from one — is not held:
+        there is no old share to hold, or one it no longer takes. Any other context param
+        is held at its old state, an absent one included: a lawn's cut-outs come and go as
+        an item crosses the lawn's box, and that must not end the throttle. A held pass
+        keeps the plan's blade budget (``MAX_PLAN_BLADES``): the old blade shares are kept
+        while the lawns' total fits it — so a resized lawn leaves the other lawns alone —
+        and otherwise no held share is above its new one."""
         applied = self._sync.records
         changed = []
         for item_id, record in records.items():
@@ -793,7 +795,7 @@ class Scene3DController(QObject):
             if before is None:
                 continue
             old, new = _context_of(before), _context_of(record)
-            if old != new and old.keys() == new.keys():
+            if old != new and (PARAM_LAWN_BLADES in old) == (PARAM_LAWN_BLADES in new):
                 changed.append(item_id)
         if not changed:
             return records

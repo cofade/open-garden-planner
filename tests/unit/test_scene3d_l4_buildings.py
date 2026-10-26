@@ -246,7 +246,7 @@ def test_a_shortened_overhang_is_nearly_the_longest_that_holds(
     gable is NO roof at exactly 100 cm, shortened to 50; round 5 an L on a grid whose
     gable is no roof at exactly no overhang (the roof was lost), and a small shed roof
     whose slope clamp bends the edge's fall (0 where 94.8 holds). Over
-    ``scripts/measure_roof_overhang.py``'s grid the worst case is 95.5 % of the longest
+    ``scripts/measure_roof_overhang.py``'s grid the worst case is 96.5 % of the longest
     overhang that holds; at most ``OVERHANG_TRIES`` roofs beyond the ends."""
     real = buildings._pitched  # noqa: SLF001
     tried: list[tuple[object, float]] = []
@@ -275,7 +275,55 @@ def test_a_shortened_overhang_is_nearly_the_longest_that_holds(
     for _step in range(30):
         middle = (low + high) / 2.0
         low, high = (middle, high) if holds(middle) else (low, middle)
-    assert 0.95 * low <= found <= low + 1e-3, (found, low)
+    assert 0.96 * low <= found <= low + 1e-3, (found, low)
+
+
+def _turned(ring, degrees: float):
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    return tuple((x * c - y * s, x * s + y * c) for x, y in ring)
+
+
+@pytest.mark.parametrize("width,depth,degrees,height,overhang", [
+    (900.0, 540.0, 45.0, 700.0, 100.0), (600.0, 400.0, 45.0, 450.0, 150.0)])
+def test_a_straight_edge_takes_one_guess(monkeypatch: pytest.MonkeyPatch, width, depth, degrees, height,
+                                         overhang) -> None:
+    """A house drawn turned over a satellite image gets the HOUSE tool's ridge on its
+    bounding box's long axis, oblique to its walls (round 6 of the senior review: a case
+    neither the test nor the measurement had). Its edge falls in a straight line, and the
+    chord to the sunk roof finds the root in one guess: three roofs — the style's
+    overhang, none, the guess — at 99 % of the longest that holds. Without the chord it
+    took five; a stop on a centimetre alone took four on the larger house."""
+    ring = _turned(rectangle(width, depth), degrees)
+    crossings = [x0 + (0.0 - y0) / (y1 - y0) * (x1 - x0)
+                 for (x0, y0), (x1, y1) in zip(ring, (*ring[1:], ring[0]), strict=True)
+                 if y0 != y1 and y0 * y1 <= 0.0]
+    ridge = ((min(crossings), 0.0), (max(crossings), 0.0))   # the tool's: along x through the centre
+    real = buildings._pitched  # noqa: SLF001
+    tried: list[tuple[object, float]] = []
+
+    def counting(record, chosen, height_cm, roof_style):
+        built = real(record, chosen, height_cm, roof_style)
+        tried.append((None if built is None else built.roof, roof_style.overhang_cm))
+        return built
+
+    monkeypatch.setattr(buildings, "_pitched", counting)
+    record = polygon_record("HOUSE", ring, height, params={
+        "roof_style": "gable", "roof_pitch_deg": 45.0, "roof_overhang_cm": overhang, "ridge": ridge})
+    roof = roof_of(record)
+    found = next(cm for mesh, cm in tried if mesh is roof.mesh)
+    assert len(tried) == 3, [cm for _mesh, cm in tried]
+    style = buildings.style_for(record, buildings.HOUSE_ROOF)
+    floor = buildings.EDGE_FLOOR_SHARE * eave_floor(style, height)
+
+    def holds(cm: float) -> bool:
+        built = real(record, "gable", height, dataclasses.replace(style, overhang_cm=cm))
+        return built is not None and float(built.roof.positions[:, 2].min()) >= floor - 1e-6
+
+    low, high = 0.0, overhang
+    for _step in range(30):
+        middle = (low + high) / 2.0
+        low, high = (middle, high) if holds(middle) else (low, middle)
+    assert 0.98 * low <= found <= low + 1e-3, (found, low)
 
 
 def test_a_style_that_builds_no_roof_at_either_end_is_left_to_the_caller() -> None:

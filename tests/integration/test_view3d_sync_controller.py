@@ -1604,6 +1604,33 @@ def test_a_drag_over_a_lawn_re_cuts_its_blades_at_most_once_per_interval(
     rig.assert_equals_a_from_scratch_apply()
 
 
+def test_an_item_wiggled_across_a_lawn_s_box_edge_is_still_held(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Round 6 of the senior review, P1: a lawn's cut-outs param is there only while
+    another item's box meets the lawn's, so it comes and goes as a terrace crosses the
+    edge. A rule that held only records whose context kept the same params let every
+    such step through: 12 blade rebuilds in 12 steps. Only a record that becomes or
+    stops being a lawn is not held."""
+    _fake_clock(monkeypatch)
+    rig = Rig(canvas, qtbot)
+    layer = rig.scene.active_layer.id
+    lawn = RectangleItem(0.0, 0.0, 2000.0, 1500.0, object_type=ObjectType.LAWN, layer_id=layer)
+    rig.commands.execute(CreateItemCommand(rig.scene, lawn, "lawn"))
+    terrace = RectangleItem(2005.0, 400.0, 300.0, 200.0, object_type=ObjectType.TERRACE_PATIO,
+                            layer_id=layer)
+    rig.commands.execute(CreateItemCommand(rig.scene, terrace, "terrace"))
+    rig.controller.set_active(True)
+    rig.settle()
+    lawn_id = str(lawn.item_id)
+    rig.reports.clear()
+    steps = 12
+    for step in range(steps):   # across the lawn box's east edge and back, one interval
+        terrace.setPos(terrace.pos() + QPointF(-10.0 if step % 2 == 0 else 10.0, 3.0))
+        rig.settle()
+    assert _rebuilds(rig, lawn_id) <= 1, "the first step at once, the rest held back"
+    assert rig.controller.context_deferrals >= steps - 2
+
+
 def _fake_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     now = [1000.0]
     monkeypatch.setattr(sync_controller, "time", SimpleNamespace(
@@ -1695,7 +1722,7 @@ def test_a_lawn_that_stops_being_one_inside_a_hold_keeps_no_lawn_params(
     """Rounds 4 and 5 of the senior review: a held record took the context params of the
     record the sink held — a lawn turned into a terrace, or given a height (a plain
     prism), inside the interval carried its blade share and cut-outs on, and the
-    trailing pass rebuilt it once more. A record whose context gains or loses a param is
+    trailing pass rebuilt it once more. A record that stops (or starts) being a lawn is
     applied as it is."""
     _fake_clock(monkeypatch)
     rig = Rig(canvas, qtbot)

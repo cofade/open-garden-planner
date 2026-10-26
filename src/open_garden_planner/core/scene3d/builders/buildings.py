@@ -231,31 +231,34 @@ def _kept_up(record: Record, chosen: str, height_cm: float, style: RoofStyle) ->
         return None   # no roof at the short end: the caller falls back
     at_low = above(best)
     if at_low < -1e-6:
-        # Too low for the floor without an overhang — only a gable 18-22 cm tall: it
-        # holds its eaves to 0.75 x (top - ridge cap - slab), lower than ``eave_floor``.
+        # Too low for the floor without an overhang — only a gable 18-22 cm tall: it holds
+        # its eaves to 0.75 x (top - ridge cap - slab), lower than ``eave_floor``. (The
+        # loop would return the same roof — its estimates are negative; said here.)
         return best
     at_high = None if built is None else above(built)
     held: tuple[float, float] | None = None   # the roof that held before ``low``
     sank = False
     for _try in range(OVERHANG_TRIES):
-        # Two estimates of where the edge meets the floor. The chord to the roof that sank
-        # lies beyond it where the edge's fall flattens (a shed's slope clamp); the line
-        # through the two last roofs that held — at first the held roof's own slope, the
-        # edge's fall per cm of overhang there — lies short of it there, and the other way
-        # round where the fall steepens (a hip's clamp). The nearer is short of it on
-        # either kind of curve; after a guess sank, a guess goes at most halfway. A guess
-        # is 1 % short of its estimate, so it never lands on the long end itself (maybe a
-        # coincidence). A gable's edge falls in a straight line.
+        # Two estimates of how much more overhang still holds. The chord to the roof that
+        # sank, and a line from the last roof that held: through the two last that held,
+        # or at first at the roof's own ``slope`` — the edge's fall per cm of overhang for
+        # a hip and for a gable square to its ridge; a gable with an oblique ridge falls
+        # faster at its far corner, a shed's edge twice as fast until its slope clamp and
+        # slower after it. Neither is sure to be short of the root: a guess is the nearer
+        # of the two, 1 % short (so never on the long end itself, maybe a coincidence),
+        # and after a guess sank the next goes at most halfway. Only a roof that holds is
+        # kept. The search stops when even the larger estimate (within the bracket) is
+        # under a centimetre or ``OVERHANG_GAIN_SHARE`` of the overhang found.
         estimates = [high - low]
         if at_high is not None and at_low - at_high > 1e-6:
             estimates.append((high - low) * at_low / (at_low - at_high))
         slope = (held[1] - at_low) / (low - held[0]) if held is not None and held[1] > at_low else best.slope
         estimates.append(at_low / max(slope, 1e-6))
+        if min(high - low, max(estimates[1:])) < max(1.0, OVERHANG_GAIN_SHARE * low):
+            break
         gain = 0.99 * min(estimates)
         if sank:
             gain = min(gain, (high - low) / 2.0)
-        if gain < max(1.0, OVERHANG_GAIN_SHARE * low):
-            break   # what is left to gain is under a centimetre, or a few per cent
         trial = build(low + gain)
         if trial is not None and above(trial) >= -1e-6:
             held = (low, at_low)

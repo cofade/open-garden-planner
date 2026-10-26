@@ -7781,7 +7781,9 @@ had only moved the failing views.
   - A guess is the nearer of two estimates: the chord to a roof that sank, and the line
     from the last roof that held at its measured fall (that roof's own `slope`, then two
     roofs). On a curve that flattens or steepens, the nearer is short of the root. After
-    a guess sank, the next goes at most halfway.
+    a guess sank, the next goes at most halfway. **Wrong, round 6:** `slope` is the edge's
+    fall per cm only for a hip and a gable square to its ridge, so neither estimate is
+    sure to be short. The halving after a sink carried the worst case.
   - `OVERHANG_TRIES` is 5. A single-slope roof on a small shed kinks where its slope
     clamp starts, and with 4 tries it ended at 87 % of the longest overhang that holds.
   - The walls' own roof stays. A gable holds its eaves to 0.75 × (top − ridge cap −
@@ -7801,7 +7803,8 @@ had only moved the failing views.
 - **P2s fixed:**
   - A record whose context gains or loses a param is not held. This replaces the kind
     filter: a lawn given a height carried its blade params onto the prism, the twin of
-    the terrace case.
+    the terrace case. **Wrong, round 6:** a lawn's cut-outs come and go as an item
+    crosses its box, so this switched the drag throttle off there.
   - The budget check's guard for a held lawn without a share is pinned directly.
   - The script-isolation exemption states the import facts correctly.
   - The round numbers are gone from this branch's code comments. Measured facts keep
@@ -7812,3 +7815,45 @@ had only moved the failing views.
   - an L on a grid, and a tool shed with an L outline, keep a roof and facade;
   - a hip on an L is None, and the caller builds the gable;
   - a lawn given a height inside a hold carries no lawn params.
+
+**Senior review round 6 (2026-10-26): no P0. Two P1s.**
+- **Confirmed fixed:** the L drawn on a grid keeps its roof and facade, and every number
+  in §8.29.12 matched the script's output on re-run.
+- **P1, the drag throttle:** round 5's "same keys" rule was defeated at a lawn's
+  bounding-box edge. A flat item wiggled across it rebuilt the lawn's blades on every
+  step: 12 of 12, 0 deferrals.
+  - Fix: only a record that becomes or stops being a lawn (its blade share appears or
+    goes) skips the hold. An absent cut-out is held at its old state.
+  - Pinned by an edge-wiggle test, which fails under the round-5 rule.
+- **P1, a false description:** round 5 said `slope` is the edge's fall per cm and that
+  the nearer estimate is short "either way".
+  - The reviewer measured otherwise: a hip falls exactly at `slope`; a gable with an
+    oblique ridge falls √2 faster at 45°; a shed falls at twice `slope` until its clamp
+    and slower after it.
+  - The code comment, §8.29.12 and this ADR now say what holds. Only a roof that holds
+    is kept, a guess after a sink goes at most halfway, and the quality is what the
+    script measures.
+- **P2s fixed:**
+  - The chord was neither pinned nor measured; deleting it moved nothing. The HOUSE
+    tool's ridge follows the bounding box, so a house drawn turned has an oblique ridge.
+    The grid now has two such houses, and a test asserts that a straight edge takes
+    three roofs. Without the chord it takes five.
+  - The stop now uses the larger estimate within the bracket, not the nearer one. The
+    150 × 60 cm shed had stopped at 95.5 % with tries unused. `OVERHANG_GAIN_SHARE` is
+    pinned by the same test: stopping at a centimetre alone takes four roofs.
+  - The walls'-own-roof branch says it only makes the loop's result explicit.
+  - The script's leftover long-end filter is gone, and its runtime note is fixed.
+- **The measurement now:** 20,592 cases. Results:
+  - 0 violations and 0 lost;
+  - 624 gables at 20 cm keep the walls' own roof;
+  - of 1,581 shortened cases, the median is 99.0 % and the worst 96.5 %. The 3 under
+    97 % are one small shed roof at 4 m, once for each kind;
+  - 1.40 roofs per case, 7 at most;
+  - 3 roofs for the 64-corner hip.
+- **Pins:** the overhang test's floor is 96 %. Ten mutants each fail a test: the
+  key-set rule, holding every record, the round-2 min rule, no chord, a stop at a
+  centimetre, a stop on the nearer estimate, no short-end nudge, no halving, no
+  measured fall, and four tries.
+- **Left as the reviewer advised:** the search is not tuned further. A closed form per
+  roof style would replace it, but the overhang is cosmetic, and the guarantee that
+  matters (no edge below the floor, no roof lost) is measured on 20,592 cases.

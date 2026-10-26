@@ -19,7 +19,10 @@ outlines:
 - an L and a U whose ridge crosses them;
 - an L and a U drawn on a grid, whose ridge lies on an edge of the outline (the
   HOUSE tool's ridge: the bounding box's centre line);
-- a hexagon (r 300 cm) and a 64-gon (r 400 cm).
+- a hexagon (r 300 cm) and a 64-gon (r 400 cm);
+- a 600 x 400 cm rectangle turned 30° and a 900 x 540 cm one turned 45°, whose HOUSE gets
+  the HOUSE tool's ridge (`core/roof_ridge.py`: the bounding box's long axis, so
+  oblique to the walls).
 
 Heights are 20, 25, 40, 60, 90, 150, 250, 400, 450, 600 and 700 cm; pitches 5, 30, 45
 and 60°; overhangs 25, 50, 100 and 150 cm. Cases whose longest holding overhang is under
@@ -27,7 +30,7 @@ and 60°; overhangs 25, 50, 100 and 150 cm. Cases whose longest holding overhang
 nothing. Last, it times the worst case the reviews used: a 64-corner hip, r 250 cm,
 700 cm, 60°, 150 cm.
 
-Run: ``venv/Scripts/python.exe scripts/measure_roof_overhang.py`` (several minutes).
+Run: ``venv/Scripts/python.exe scripts/measure_roof_overhang.py`` (about two minutes).
 """
 
 from __future__ import annotations
@@ -59,6 +62,27 @@ def _round(corners: int, radius: float) -> tuple[Point, ...]:
                  for k in range(corners))
 
 
+def _turned(ring: tuple[Point, ...], degrees: float) -> tuple[Point, ...]:
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    return tuple((x * c - y * s, x * s + y * c) for x, y in ring)
+
+
+def tool_ridge(ring: tuple[Point, ...]) -> tuple[Point, Point]:
+    """The HOUSE tool's ridge (``core/roof_ridge.compute_roof_ridge_endpoints``): the
+    bounding box's long axis through its centre, clipped to the outline."""
+    xs, ys = [x for x, _y in ring], [y for _x, y in ring]
+    cx, cy = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    along_x = max(xs) - min(xs) >= max(ys) - min(ys)
+    crossings = []
+    for (x0, y0), (x1, y1) in zip(ring, (*ring[1:], ring[0]), strict=True):
+        if along_x and y0 != y1 and (y0 - cy) * (y1 - cy) <= 0.0:
+            crossings.append(x0 + (cy - y0) / (y1 - y0) * (x1 - x0))
+        elif not along_x and x0 != x1 and (x0 - cx) * (x1 - cx) <= 0.0:
+            crossings.append(y0 + (cx - x0) / (x1 - x0) * (y1 - y0))
+    low, high = min(crossings), max(crossings)
+    return ((low, cy), (high, cy)) if along_x else ((cx, low), (cx, high))
+
+
 OUTLINES: dict[str, tuple[str, tuple[Point, ...]]] = {
     "rect 60x100": ("rectangle", _rectangle(60.0, 100.0)),
     "rect 100x50": ("rectangle", _rectangle(100.0, 50.0)),
@@ -75,7 +99,11 @@ OUTLINES: dict[str, tuple[str, tuple[Point, ...]]] = {
                                 (250.0, 0.0), (-250.0, 0.0), (-250.0, 300.0), (-450.0, 300.0))),
     "hexagon": ("polygon", _round(6, 300.0)),
     "64-gon": ("polygon", _round(64, 400.0)),
+    "rect 600x400 turned 30°": ("polygon", _turned(_rectangle(600.0, 400.0), 30.0)),
+    "rect 900x540 turned 45°": ("polygon", _turned(_rectangle(900.0, 540.0), 45.0)),
 }
+#: The outlines whose HOUSE gets the HOUSE tool's ridge (an oblique one).
+TOOL_RIDGE = frozenset({"rect 600x400 turned 30°", "rect 900x540 turned 45°"})
 KINDS = ("HOUSE", "TOOL_SHED", "GARAGE_SHED")
 HEIGHTS = (20.0, 25.0, 40.0, 60.0, 90.0, 150.0, 250.0, 400.0, 450.0, 600.0, 700.0)
 STYLES = ("gable", "hip", "shed")
@@ -85,8 +113,11 @@ SHARE_FLOOR_CM = 5.0   # a longest holding overhang under this is kept out of th
 
 
 def record(kind: str, shape: str, ring: tuple[Point, ...], height: float, style: str, pitch: float,
-           overhang: float) -> Record:
-    params = {"seed": "roof", "roof_style": style, "roof_pitch_deg": pitch, "roof_overhang_cm": overhang}
+           overhang: float, ridge: tuple[Point, Point] | None = None) -> Record:
+    params: dict[str, object] = {"seed": "roof", "roof_style": style, "roof_pitch_deg": pitch,
+                                 "roof_overhang_cm": overhang}
+    if ridge is not None:
+        params["ridge"] = ridge
     return Record("roof", kind, shape, (ccw(ring),), Transform(), Material(kind, (200, 180, 140, 255)),
                   height_cm=height, params=Params(params))
 
@@ -111,7 +142,8 @@ def main() -> int:
                 for style in STYLES:
                     for pitch in PITCHES:
                         for overhang in OVERHANGS:
-                            rec = record(kind, shape, ring, height, style, pitch, overhang)
+                            ridge = tool_ridge(ring) if kind == "HOUSE" and name in TOOL_RIDGE else None
+                            rec = record(kind, shape, ring, height, style, pitch, overhang, ridge)
                             used = buildings.style_for(rec, base)
                             floor = buildings.EDGE_FLOOR_SHARE * eave_floor(used, height)
 
@@ -145,8 +177,8 @@ def main() -> int:
                                     own_roofs += 1
                                 else:
                                     violations += 1
-                            if found >= used.overhang_cm - buildings.OVERHANG_NUDGE_CM - 1e-9:
-                                continue
+                            if found >= used.overhang_cm - 1e-9:
+                                continue   # the style's own overhang holds
                             short = 0.0 if at(0.0) is not None else buildings.OVERHANG_NUDGE_CM
                             if not holds(short):
                                 continue   # the walls' own roof: no overhang holds

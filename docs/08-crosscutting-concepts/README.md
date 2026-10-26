@@ -7064,13 +7064,19 @@ vertices; beyond, the surface keeps its painted ground. An overhang never takes 
 roof's lowest edge below `EDGE_FLOOR_SHARE` (half) of the eave floor: the overhang is
 shortened and the chosen style and pitch kept (a 60 × 100 cm shed at 60° and 150 cm
 reached 91.5 cm into the ground). How the overhang is found:
-- Each guess is the nearer of two estimates of where the edge meets the floor. One is
-  the chord to a roof that sank. The other is the line from the last roof that held, at
-  the measured fall: that roof's own slope at first, then the line through the two last
-  roofs that held.
-- On a curve that flattens, the chord lands beyond the root and the line short of it;
-  on one that steepens, the other way round. The nearer one is short either way.
-- After a guess sinks, the next goes at most halfway.
+- Two estimates of how much more overhang holds. One is the chord to a roof that sank.
+  The other is a line from the last roof that held: through the two last that held, or
+  at first at that roof's own `slope`.
+- That slope is the edge's fall per cm of overhang only for a hip, and for a gable square
+  to its ridge. A gable with an oblique ridge falls faster at its far corner; the HOUSE
+  tool's ridge follows the bounding box, so a house drawn turned has one. A shed's edge
+  falls twice as fast until its slope clamp and slower after it. So neither estimate is
+  sure to be short.
+- A guess is the nearer estimate, 1 % short. After a guess sinks, the next goes at most
+  halfway. Only a roof that holds is kept.
+- The search stops when even the larger estimate (within the bracket) is under a
+  centimetre or 2.5 % of the overhang found, or after `OVERHANG_TRIES` (5) guesses.
+- On a straight edge the chord finds the root in one guess: three roofs in all.
 - A builder returns no roof on an exact coincidence: a U outline's offset edge on the
   ridge line at 100 cm, or the ridge on the inner edge of an L drawn on a grid at no
   overhang. A guess is 1 % short of its estimate, so it never lands on the long end, and
@@ -7081,23 +7087,25 @@ reached 91.5 cm into the ground). How the overhang is found:
 - A style that builds no roof at either end is left to the caller: a hip falls back to
   the gable, otherwise the building is its plain block.
 
-`scripts/measure_roof_overhang.py` measures the search over 17,424 cases (the grid in
-its docstring). It reports:
+`scripts/measure_roof_overhang.py` measures the search over 20,592 cases (the grid in
+its docstring, houses turned with the tool's ridge among them). It reports:
 - 0 floor violations, and 0 roofs lost, where "lost" means no roof although some overhang
   in range holds;
-- 528 gables at 20 cm that keep the walls' own roof;
-- for the 1,482 cases it shortens: median 99.0 % of the longest overhang that holds,
-  worst 95.5 %. The 6 under 97 % are single-slope roofs on sheds of 1–1.5 m at 4 m,
-  where the slope clamp kinks the edge's fall;
-- 1.46 roofs built per case, 7 at most;
+- 624 gables at 20 cm that keep the walls' own roof;
+- for the 1,581 cases it shortens: median 99.0 % of the longest overhang that holds,
+  worst 96.5 %. The 3 under 97 % are the single-slope roof of a 100 × 50 cm shed at 4 m,
+  60° and 100 cm, whose slope clamp kinks the edge's fall;
+- 1.40 roofs built per case, 7 at most;
 - 3 roofs for a 64-corner hip at 700 cm, 60° and 150 cm.
 
 Context params change at most once per `CONTEXT_REBUILD_MIN_MS` during a drag (§8.29,
 "A move or a recolour uploads nothing"). A held pass keeps the plan's 60,000 blades:
 - The old shares are kept while the lawns' total fits, so a resized lawn leaves the
   others alone. Otherwise no held share is above its new one.
-- A record whose context gains or loses a param is not held: a lawn turned into a
-  terrace, given a height, or lowered from one.
+- A record that becomes or stops being a lawn (its blade share appears or goes) is not
+  held: a lawn turned into a terrace, given a height, or lowered from one. Any other
+  context param is held at its old state, an absent one included: a lawn's cut-outs
+  come and go as an item crosses the lawn's box.
 - A lawn with a height grows no blades and takes no share.
 
 A document change and a pause end the hold, and a recovery from scratch applies the plan
