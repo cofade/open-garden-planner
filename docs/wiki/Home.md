@@ -68,6 +68,15 @@ camera-driven LOD, background upgrades, support-aware climbers and independent
 seasonal flowers, fruit and foliage. See the
 [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l3-acceptance-highlights--plant-forge-387-adr-064--shipped-v1320-pr-593).
 
+Non-3D follow-up batch 2 (#562/#573, #574, #581, #587, #590, #592, #594) shipped in
+[v1.32.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.32.1) via
+[PR #596](https://github.com/cofade/open-garden-planner/pull/596) after owner
+acceptance: real offscreen fonts on Windows, the settings guard for tooling probes,
+command-scoped canvas refresh, cached dense-overlay panning, one height resolver, a
+generated version artifact (About now reports 1.32.1), species-sized gallery drops,
+and a single 120 px Properties control column. See the
+[canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#non-3d-follow-up-hardening-batch-2--shipped-2026-10-26-as-v1321-pr-596).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

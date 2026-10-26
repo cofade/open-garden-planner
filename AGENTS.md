@@ -246,7 +246,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 - **Phase 17 L3 "Plant Forge" (#387) shipped on 2026-10-25 as v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner executable acceptance (ADR-064, §8.29.11).** 123 recipes (108 species + 15 categories), 13 archetypes, LOD caps and a 256-entry/64 MiB cache; background admission/recovery, camera-driven LOD, seasonal parts, exact harvest dates and winter bounds. The production render gates exercise the forge. Details in the roadmap and ADR-064.
 
-- **Non-3D follow-up hardening, batch 2 (#562/#573, #574, #581, #587, #590, #592, #594):** real offscreen fonts, command-scoped refresh, cached dense-overlay sample, one height resolver, PEP 639 metadata. Manual: version artifact (About 1.2.0; PF-CI-15), one 120 px control column + clipped-value tooltips, species-sized gallery drops (#596; FR-PLANT-15).
+- **Non-3D follow-up hardening, batch 2 shipped 2026-10-26 as v1.32.1 ([PR #596](https://github.com/cofade/open-garden-planner/pull/596)) after owner acceptance (#562/#573, #574, #581, #587, #590, #592, #594):** real offscreen fonts, command-scoped refresh, cached dense-overlay sample, one height resolver, PEP 639 metadata. Owner manual pass found and fixed: the settings guard, the version artifact (About 1.2.0; PF-CI-15), one 120 px control column + clipped-value tooltips, and species-sized gallery drops (#596; FR-PLANT-15).
 
 - **Non-3D hardening batch #450/#551/#550/#569/#538 shipped on 2026-10-25 as v1.31.1 ([PR #585](https://github.com/cofade/open-garden-planner/pull/585)) after owner acceptance.** See the roadmap and ADR-043/061 addenda for the detail.
 

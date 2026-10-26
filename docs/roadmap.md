@@ -2781,7 +2781,7 @@ the active display. Existing ground-texture/wind issues #532/#534 remain separat
 - **L2.4 Cutaway / X-ray.** Roofs off by one scene property; the items between the eye and the selection fade (Qt-free segment casts over the meshes the engine holds, the pick oracle's own triangle test), unpickable while faded.
 - **Tests:** the §8.10 workflow `tests/integration/test_view3d_analysis.py` (real shadow overlay and heatmap worker beside the workspace), four new unit files, the QML scene without a GPU, the render tier on GPU / WARP / OpenGL, the frozen `--selftest` (both overlay shaders compiled and judged).
 - **Owner acceptance (2026-10-24), two manual passes.** Pass 1 found the 3D hours-of-sun drape not following the toolbar switch going on, and the 2D shadows and heatmap hidden under lawns (ground surfaces now lie in `GROUND_Z_RANGE` under the overlays; PF-L3D-09, PF-CAN-22, FR-STACK-09). Pass 2 replaced the strip's separate Past/Future label with the Today button saying Past or Future in place at one width (ADR-062 addendum, PF-TST-26), and found the startup Welcome dialog switched off in the owner's real settings by a review probe, not by the code (PF-TST-27; the startup path is now pinned by `tests/integration/test_startup_welcome.py`; guard follow-up #587). Every checklist step was then confirmed and release authorized. Every CI job passed on the merged head (12 jobs, 23 check runs); the frozen smoke and `--selftest` passed; senior review ended with no P0/P1. The required `Dependencies` checks were unblocked by #575 (v1.30.21), merged first. Open owner questions (X-ray look, fading plants in a selected bed, flat vs tinted sun map, floor inside buildings, near half of the arcs #578, generic shapes under the sun study; the other five tracked in #589) keep the shipped behaviour until decided. Follow-ups: #573, #574, #576–#583, #586–#589; the sync's own process gap is #590.
-### Parallel non-3D hardening (2026-10-24, draft PR)
+### Parallel non-3D hardening — **shipped 2026-10-25 as v1.31.1, PR #585**
 
 Built beside L2 without touching the 3D/sun/sim-clock stack: a styled line's walk
 is clipped to the visible viewport and budgeted (#450), `addItem` gives an appended
@@ -2799,10 +2799,10 @@ path clip), ADR-043 and ADR-061 addenda, FR-EDIT-19, FR-UI-14; the residual
 per-command UI refresh (#592) and the dense-overlay scroll re-sample (#594) shipped
 in the follow-up batch below.
 
-### Non-3D follow-up hardening, batch 2 (2026-10-25, draft PR)
+### Non-3D follow-up hardening, batch 2 — **shipped 2026-10-26 as v1.32.1, PR #596**
 
 Seven work items from the review ledger of L2 (#584) and the non-3D batch (#585), built
-without touching the 3D/forge stack, the sun model or serialization:
+without changing the 3D/forge product code, the sun model or serialization:
 
 - **Test signal (#562, #573).** Windows' `offscreen` Qt has no font database, so
   every family resolved to a box engine and the Plan & Sun layout file failed 20
@@ -2843,7 +2843,7 @@ the file is **78/78** on the dev box and the full suite is green; the root cause
 was the box font engine. `docs/08` §8.8/§8.9/§8.10/§8.25, the five ADR addenda, FR-EDIT-20,
 PF-CAN-25/26, PF-TST-28/29 and PF-CI-14 record the rules.
 
-**Owner manual pass (2026-10-25) added three fixes to the same draft PR.**
+**Owner manual pass (2026-10-25) added three fixes to the same release PR.**
 Help → About reported **1.2.0** in a direct PyInstaller build because a tracked, stale
 `_version.py` shadowed `__version__`; the module is now a gitignored build artifact,
 written before PyInstaller and removed after it, read dynamically, with a `__version__`
@@ -2860,7 +2860,9 @@ the column edge. Name and text fields stay full width by design; the height tool
 refreshes on every edit. A gallery drop of a **named** species now adopts
 `max_spread_cm` like the Plant Database and Plant Lists drops, so an 8 m apple tree is
 no longer 2 m wide in 3D; the display rule for a plant the owner resized is unchanged
-(FR-PLANT-15).
+(FR-PLANT-15). The only 3D-tier change is its test gate: **16 ms locally**, **25 ms on
+CI's software rasterisers** (the 20 ms negative control still exceeds either budget),
+after WARP timing failures across runners.
 
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-053) — **shipped v1.29.10, [PR #429](https://github.com/cofade/open-garden-planner/pull/429)**
 
