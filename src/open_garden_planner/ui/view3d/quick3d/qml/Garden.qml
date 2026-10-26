@@ -72,6 +72,11 @@ Item {
     // the animation policy's switch (Quick3DHost.set_wind_running): the clock runs
     // only while this is true — while it is false nothing ticks at all
     property bool windRunning: false
+    // L4.5: a lawn's blades (parts named "lawn_blades") are drawn from the High preset
+    // up; they are built at every preset, so a preset step changes no geometry
+    property bool lawnBlades: true
+    // L4.5: the ground's detail normals (0 = flat), see the groundTile component
+    property real detailNormals: 1.0
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
     property bool sunUp: false              // false until the first sun, and whenever there is no key light
@@ -190,7 +195,9 @@ Item {
         part.seasonOpacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
                              part.partName === "fruits" ? (state[5] > 0.0 ? 1.0 : 0.0) : 1.0
         // Seasonal absence removes its shadow too. X-ray's independent fade keeps it.
+        // A lawn's blades show only at the presets that draw them (lawnBlades).
         part.visible = !part.retired && part.seasonOpacity > 0.0
+                       && (part.partName !== "lawn_blades" || root.lawnBlades)
         return true
     }
     function setPlantSeasons(states) {
@@ -340,7 +347,13 @@ Item {
     // shadow; the walls drop back-face culling so the house reads as a room, not as one
     // wall and a free gable.
     property bool roofsHidden: false
-
+    onLawnBladesChanged: {
+        for (var i = 0; i < parts.children.length; ++i) {
+            var part = parts.children[i]
+            if (!part.retired && part.partName === "lawn_blades")
+                applyPlantSeason(part)
+        }
+    }
     function overlayModel(layer) {
         return layer === "shade" ? shadeOverlay : layer === "drape" ? drapeOverlay
              : layer === "lines" ? linesOverlay : null
@@ -384,8 +397,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [vcScreen] : [vcLook]
             PrincipledMaterial {
                 id: vcLook
@@ -424,8 +438,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0 && !root.roofsHidden
+            pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
             // screen door with nothing left, still casting its shadow
             materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]
@@ -464,8 +479,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             materials: PrincipledMaterial {
                 vertexColorsEnabled: true
                 baseColor: tint
@@ -494,8 +510,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             // a custom shader keeps the water's hue in every mood; see water.frag for why
             // this is not a PrincipledMaterial (measured in the spike: lavender at golden hour)
             materials: fade < 1.0 ? [waterDoor] : [waterLook]
@@ -540,21 +557,36 @@ Item {
             eulerRotation.x: -90
             receivesShadows: true
             castsShadows: false
-            materials: PrincipledMaterial {
-                baseColorMap: Texture {
-                    textureData: tileData
-                    flipV: true
-                    tilingModeHorizontal: Texture.ClampToEdge
-                    tilingModeVertical: Texture.ClampToEdge
-                    generateMipmaps: true
-                    mipFilter: Texture.Linear
-                }
+            // ONE Texture for the tile's life, shared by its two materials (a Texture
+            // re-pointed at another texture goes white: ogp-3d-renderer section 5)
+            Texture {
+                id: tileTexture
+                textureData: tileData
+                flipV: true
+                tilingModeHorizontal: Texture.ClampToEdge
+                tilingModeVertical: Texture.ClampToEdge
+                generateMipmaps: true
+                mipFilter: Texture.Linear
+            }
+            // L4.5: from the Medium preset up the ground shades with detail normals of its
+            // own picture (ground.frag); Low and the compatibility mode keep the flat look
+            materials: root.detailNormals > 0.0 ? [tileDetail] : [tileFlat]
+            PrincipledMaterial {
+                id: tileFlat
+                baseColorMap: tileTexture
                 // the endless meadow's values (below): PrincipledMaterial scales the
                 // sky's diffuse light by (1 - specularAmount), so any other pair puts a
                 // luma step where a baked lawn meets the meadow at the plan's edge
                 // (the L1.4 look review measured 2-8 luma for 0.92 / 0.2)
                 roughness: 1.0
                 specularAmount: 0.15
+            }
+            CustomMaterial {
+                id: tileDetail
+                property TextureInput uBaseMap: TextureInput { texture: tileTexture }
+                property real uDetail: root.detailNormals
+                shadingMode: CustomMaterial.Shaded
+                fragmentShader: "ground.frag"
             }
         }
     }
@@ -573,8 +605,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [foliageDoor] : [foliageLook]
             CustomMaterial {
                 id: foliageLook
@@ -618,8 +651,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [grassDoor] : [grassLook]
             CustomMaterial {
                 id: grassLook

@@ -304,7 +304,7 @@ class TestRecord:
         refusal names the way out, and the way out is one line."""
         from open_garden_planner.core.scene3d import record as record_module
 
-        assert frozenset() == DIMENSIONLESS_PARAMS  # nothing is exempt today
+        assert frozenset({"roof_pitch_deg"}) == DIMENSIONLESS_PARAMS  # L4.1: a roof's pitch, degrees
         with pytest.raises(RecordRangeError, match="taken for a length in cm unless its key is "
                                                    "listed in record.DIMENSIONLESS_PARAMS"):
             Params({"days_since_epoch": 2e7})

@@ -89,6 +89,8 @@ class PartSpec:
     buffers: EngineBuffers
     casts_shadow: bool
     name: str = ""
+    #: ``MeshPart.ground_detail`` (L4): relief on painted ground — never picked.
+    ground_detail: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,7 +368,8 @@ class Quick3DSink:
             if buffers.is_empty:
                 held.handles.append(None)
                 continue
-            spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow, part.name)
+            spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow, part.name,
+                            part.ground_detail)
             held.handles.append(self._scene.create_part(spec, pose, part_tint(part, held.material)))
             self.geometry_uploads += 1
 

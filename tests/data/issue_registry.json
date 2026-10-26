@@ -1,4 +1,9 @@
 {
+  "114": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
+  },
   "12": {
     "is_pr": true,
     "state": "MERGED",
@@ -8,11 +13,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "refine(US-4): Improve Plant Details panel layout and date picker"
-  },
-  "114": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#110,#111): Hedge tiled texture polygon + roof ridge with mirrored tiles"
   },
   "161": {
     "is_pr": false,
@@ -514,11 +514,6 @@
     "state": "CLOSED",
     "title": "US-D2.7: get_history - expose the undo/redo stack to the agent (Package D2, epic #237)"
   },
-  "363": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Two contact links in ISSUE_TEMPLATE config point at non-existent templates (bug_report.md, feature_request.md)"
-  },
   "364": {
     "is_pr": false,
     "state": "CLOSED",
@@ -553,11 +548,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-D3.1,D2.7): agent domain-intelligence tools + get_history"
-  },
-  "371": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#364,#363): recompute the HOUSE roof ridge instead of re-projecting it"
   },
   "372": {
     "is_pr": false,
@@ -798,6 +788,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Data loss: a recoloured rectangle-based object is saved with its type's default colour after load → save → load"
+  },
+  "440": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Limitation: the 2D sun/shade model treats porous fences as solid walls and a gable roof as a flat-topped box"
   },
   "441": {
     "is_pr": false,
@@ -1179,6 +1174,11 @@
     "state": "MERGED",
     "title": "fix(#450,#551,#550,#569,#538,#446): non-3D hardening batch"
   },
+  "586": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board renders without the ground bake"
+  },
   "592": {
     "is_pr": false,
     "state": "OPEN",
@@ -1191,7 +1191,12 @@
   },
   "597": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "chore: sync version to v1.32.0 after PR #593"
+  },
+  "599": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Phase 17: smart-symbol builders for 3D (deferred from L4 #388)"
   }
 }

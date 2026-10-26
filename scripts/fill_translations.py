@@ -21,6 +21,7 @@ from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATION
 from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS  # noqa: E402
 from scripts.translations_f4 import DE as _F4_TRANSLATIONS  # noqa: E402
 from scripts.translations_l2 import DE as _L2_TRANSLATIONS  # noqa: E402
+from scripts.translations_l4 import DE as _L4_TRANSLATIONS  # noqa: E402
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -3473,6 +3474,10 @@ for _ctx, _strings in _F4_TRANSLATIONS.items():
 
 # ── Phase 17 L2: Analyze in 3D (#386) ──
 for _ctx, _strings in _L2_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Phase 17 L4: the built world (#388) ──
+for _ctx, _strings in _L4_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

@@ -48,35 +48,38 @@ PATH_FENCE_STYLES: dict[PathFenceStyle, PathFenceStyleInfo] = {
         stroke_color=QColor(160, 82, 45),
         stroke_width=3.0,
     ),
+    # A path's stroke is its width on the ground, in cm (Phase 17 L4.2, #388: the presets
+    # drew 6-10 cm "paths" — a line, not a path one walks on; the owner asked for real
+    # widths). Plans keep the width they were saved with.
     PathFenceStyle.GRAVEL_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Gravel"),
         category="path",
         stroke_color=QColor(180, 170, 150),
-        stroke_width=8.0,
+        stroke_width=90.0,
     ),
     PathFenceStyle.STEPPING_STONES: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Stepping Stones"),
         category="path",
         stroke_color=QColor(160, 160, 155),
-        stroke_width=6.0,
+        stroke_width=70.0,
     ),
     PathFenceStyle.PAVED_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Paved"),
         category="path",
         stroke_color=QColor(140, 140, 140),
-        stroke_width=10.0,
+        stroke_width=100.0,
     ),
     PathFenceStyle.WOODEN_BOARDWALK: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Wooden Boardwalk"),
         category="path",
         stroke_color=QColor(160, 120, 70),
-        stroke_width=10.0,
+        stroke_width=100.0,
     ),
     PathFenceStyle.DIRT_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Dirt"),
         category="path",
         stroke_color=QColor(150, 110, 60),
-        stroke_width=6.0,
+        stroke_width=70.0,
     ),
     PathFenceStyle.WOODEN_FENCE: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Wooden Fence"),
@@ -337,7 +340,7 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
     ObjectType.PATH: ObjectStyle(
         fill_color=QColor(210, 180, 140, 0),  # Tan (no fill for lines)
         stroke_color=QColor(160, 82, 45),  # Sienna
-        stroke_width=5.0,
+        stroke_width=80.0,  # cm on the ground: a garden path (L4.2, #388; was 5)
         display_name=QT_TR_NOOP("Path"),
         fill_pattern=FillPattern.SOLID,
     ),

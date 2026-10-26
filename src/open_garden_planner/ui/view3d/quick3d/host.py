@@ -571,6 +571,8 @@ class Quick3DHost:
         self._parts.add(part)
         try:
             _set(model, "partName", spec.name)
+            if spec.ground_detail:
+                _set(model, "groundDetail", True)
             self._call("applyPlantSeason", model)
             self.pose_part(part, pose)
             self.tint_part(part, tint_rgba)

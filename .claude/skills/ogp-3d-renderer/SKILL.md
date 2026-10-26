@@ -109,6 +109,8 @@ lives now; the values production was drift-guarded against are frozen in
 | Fill light without a probe (L1.2) | a second `DirectionalLight { brightness: 0; ambientColor: … }` | — (measured: it still contributes its ambient term, so the fill stays when the sun is switched off) |
 | `baseColor` vs a shader uniform (L1.2) | `PrincipledMaterial.baseColor` takes sRGB and is linearised by the engine; a `vector3d` uniform of a `CustomMaterial` is passed as it is | the engine's sRGB curve is an approximation: the same tint read 171 through `baseColor` and 169 through an exact linear uniform |
 | Vertex colour in a fragment-only custom shader (L1.2) | `VAR_COLOR` | — (D3D11 on GPU and WARP; OpenGL unverified) |
+| A texture in a `CustomMaterial` (L4.5) | `property TextureInput uBaseMap: TextureInput { texture: … }`, sampled with `texture(uBaseMap, uv)` | the `Texture`'s `flipV` is NOT applied to a `TextureInput` (it is applied by `PrincipledMaterial`'s own lookup): the north-up ground tiles drew mirrored north–south until `ground.frag` sampled at `vec2(UV0.x, 1.0 - UV0.y)` (PF-L3D-11) |
+| Transparency (L4.3) | the sorted per-Model blend (the `glass` material) | scene-wide `oitMethod: OITWeightedBlended` re-blends L2's MULTIPLY drapes with its own equation: under a shadow drape pixels read up to 243 levels lighter (four drape tests failed; PF-L3D-12) — not used |
 
 ## 3. Frame and geometry
 
@@ -1201,3 +1203,25 @@ OGP_RENDER3D=1 QSG_RHI_BACKEND=opengl venv/Scripts/python.exe -m pytest \
 **Not measured (L2):** the overlays' cost per frame on the large bench plan; the X-ray's
 GUI-thread cost on a large selection of a dense plan (bounded to 16 selected items and
 box-culled, not timed); the drape under the looks' post effects at grazing angles.
+
+## 17. The built world complete on the engine (L4)
+
+Concept: docs §8.29.12; decisions: ADR-065; lessons: PF-L3D-11, PF-L3D-12. Measured on the
+RTX 4070 (Direct3D 11), 2026-10-26:
+
+- **Relief on the painted ground is a `ground_detail` part** (`MeshPart.ground_detail`): a
+  Model with `groundDetail: true`, never pickable, no shadow, and the item stays painted by the
+  bake. The "ground alone" gates take it off (`ground_bake_render_driver._without_relief`):
+  they judge the tiles, and stones, water and blades stand on them.
+- **Lawn blades are one Model per lawn**, built at every preset and shown by the root's
+  `lawnBlades` (re-applied to `lawn_blades` parts when it changes): a preset step creates
+  and destroys nothing. They are the grass material, so the wind sways them.
+- **Detail normals are a material switch, not a texture:** `materials: root.detailNormals > 0.0
+  ? [tileDetail] : [tileFlat]` on the ground tile; `tileDetail` is `ground.frag` with the tile's
+  own `Texture` as a `TextureInput` (one Texture per tile for life, PF-L3D-04, unchanged).
+- **The scene file's look defaults ARE `NEUTRAL_DAY`** (High): `lawnBlades: true`,
+  `detailNormals: 1.0`, inside the look block (`test_quick3d_qml.py` holds them to the mapping).
+
+**Not measured (L4):** the blades' fill-rate cost at Ultra on a weak GPU (they are bounded at
+60,000 per plan, 180,000 triangles); the detail normals at grazing angles under the looks'
+post effects.

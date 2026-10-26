@@ -142,8 +142,8 @@ MUTANTS: tuple[Mutant, ...] = (
            (STACKING,), "one_point_in_bed_predicate"),
     Mutant("a plant keeps its base when its parent got no record (38 cm over nothing)",
            SRC + "ui/view3d/snapshot.py",
-           "    _ground_items_without_a_parent_record(records)\n    return records\n",
-           "    return records\n",
+           "    _ground_items_without_a_parent_record(records)\n    with_context(records)",
+           "    with_context(records)",
            (STACKING,), "without_a_record or stacked_higher"),
     # ── the shared 2D caster ────────────────────────────────────────────────
     Mutant("a bare 3-tuple is a caster again (round 0)",
@@ -269,8 +269,8 @@ MUTANTS: tuple[Mutant, ...] = (
     # ── the production registry (the merge of the plant story) ──────────────
     Mutant("the plant builder is not in the production registry (every plant a prism again)",
            BUILDERS + "__init__.py",
-           "    register(registry)\n    plants.register(registry)\n",
-           "    register(registry)\n",
+           "    register_surfaces(registry)\n    plants.register(registry)\n",
+           "    register_surfaces(registry)\n",
            (BUILDER_TESTS, BUILT_WORLD), "TestRegistration or two_real_plants"),
 )
 

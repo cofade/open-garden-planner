@@ -340,7 +340,7 @@ class SceneSync:
             solid = frozenset(
                 (solid - set(changes.removed) - set(built))
                 | {item_id for item_id, parts in built.items()
-                   if any(part.mesh.vertex_count for part in parts)})
+                   if any(part.mesh.vertex_count and not part.ground_detail for part in parts)})
         # a restyled item's record did not change, but whether it has a solid may have:
         # the diff no longer names everything the ground depends on
         ground = self._bake(new, None if restyled else changes, solid, ground)

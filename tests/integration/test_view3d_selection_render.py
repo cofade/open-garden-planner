@@ -27,7 +27,7 @@ import numpy as np
 import pytest
 
 from open_garden_planner.core.scene3d import point_in_ring, pose_ring, walk
-from open_garden_planner.core.scene3d.builders import walls
+from open_garden_planner.core.scene3d.builders import production_registry, walls
 from open_garden_planner.core.scene3d.camera import FOV_DEG
 from open_garden_planner.core.scene3d.selection import (
     MITRE_LIMIT,
@@ -324,7 +324,9 @@ def test_twenty_of_twenty_picks_agree_with_the_cpu_oracle(pick_cases, plan: str)
     print(f"\n[pick {plan}] {len(agree)}/20; kinds hit: {kinds}; nothing: {nothing}")
     assert len(agree) == 20, [(point, answer, case["engine"][point]) for point, answer in chosen
                               if case["engine"][point] != answer]
-    assert len(kinds) >= (5 if plan == "bench_small" else 2), "the twenty are not one item"
+    # bench_small: 5 kinds until L4 (#388) built the trampoline as its frame, mat and legs
+    # instead of a solid drum; the seeded position that met it no longer qualifies (4 since)
+    assert len(kinds) >= (4 if plan == "bench_small" else 2), "the twenty are not one item"
 
 
 def test_the_named_positions_are_picked_as_the_oracle_says(pick_cases) -> None:
@@ -465,7 +467,13 @@ def ws(run: Run, qapp: Any) -> dict[str, Any]:  # noqa: ARG001 - Qt for the scen
     records = driver.plan_records(scene)
     shot = PerspectiveShot(tuple(data["shot"]["eye"]), tuple(data["shot"]["target"]),
                            float(data["shot"]["fov"]))
-    assert data["records"] == len(records) == data["models"] and data["build_failures"] == []
+    # every record reached the engine, and every item with a solid has its Models — the
+    # forge (L3, #387) adds Models to a plant asynchronously, so the count is a floor
+    built = production_registry()
+    solids = sum(1 for record in records.values()
+                 if any(part.mesh.vertex_count and not part.ground_detail for part in built.build(record)))
+    assert data["records"] == len(records) and data["models"] >= solids > 0
+    assert data["build_failures"] == []
     return {"data": data, "records": records, "shot": shot, "oracle": oracle_scene(records),
             "view": (float(data["view_size"][0]), float(data["view_size"][1])),
             "size": (float(scene.width_cm), float(scene.height_cm))}

@@ -36,6 +36,8 @@ from open_garden_planner.core.commands import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
 from open_garden_planner.core.item_look import (
+    MAX_LINE_WIDTH_CM,
+    MAX_STROKE_WIDTH,
     MIN_STROKE_WIDTH,
     adopt_pen,
     apply_line_look,
@@ -729,6 +731,9 @@ class PropertiesPanel(QWidget):
 
         # Object height (sun/shade simulation) — US-E2
         self._add_object_height_properties(item)
+
+        # Roof style, pitch and overhang (3D view) — Phase 17 L4.1, #388
+        self._add_roof_properties(item)
 
         # Spacing radius section (for plant types only)
         self._add_spacing_properties(item)
@@ -1626,6 +1631,116 @@ class PropertiesPanel(QWidget):
         if self._command_manager:
             self._command_manager.execute(cmd)
 
+    def _add_roof_properties(self, item: QGraphicsItem) -> None:
+        """Add a building's roof style, pitch and overhang (Phase 17 L4.1, #388).
+
+        Three optional metadata keys (``core/roof_style``) the 3D view builds the
+        roof from; the 2D plan, its ridge line and its sun study do not read them.
+        "Automatic" (style) and "Auto" (pitch, overhang) remove the key, so the
+        building falls back to the style's own value. Each edit is one
+        ``ChangePropertyCommand`` (#530: ``_commit_edit``).
+        """
+        from open_garden_planner.core import roof_style as rs
+
+        object_type = getattr(item, "object_type", None)
+        if object_type is None or object_type.name not in rs.BUILDING_KINDS or not hasattr(item, "metadata"):
+            return
+        building: Any = item  # a building item: its ``metadata`` dict is the roof's home
+        hint = self.tr("Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.")
+
+        style_combo = QComboBox()
+        for value, text in ((None, self.tr("Automatic")), (rs.GABLE, self.tr("Gable")),
+                            (rs.HIP, self.tr("Hip")), (rs.SHED, self.tr("Single slope")),
+                            (rs.FLAT, self.tr("Flat"))):
+            style_combo.addItem(text, value)
+        style_combo.setToolTip(hint)
+
+        def refresh_style(c: QComboBox = style_combo, it: Any = building) -> None:
+            index = c.findData(rs.roof_style(it.metadata))
+            c.setCurrentIndex(index if index >= 0 else 0)
+
+        refresh_style()
+        style_combo.currentIndexChanged.connect(
+            lambda _index, it=item, c=style_combo: self._on_roof_style_changed(it, c.currentData())
+        )
+        self._form_layout.addRow(self.tr("Roof style:"), style_combo)
+        self._register_refresh(style_combo, refresh_style)
+
+        pitch_spin = QDoubleSpinBox()
+        pitch_spin.setRange(0.0, rs.MAX_PITCH_DEG)
+        pitch_spin.setDecimals(0)
+        pitch_spin.setSingleStep(1.0)
+        pitch_spin.setSuffix("°")
+        # Non-empty special-value text — an empty string DISABLES the feature (#231/#232)
+        pitch_spin.setSpecialValueText(self.tr("Auto"))
+        pitch_spin.setToolTip(hint)
+
+        def refresh_pitch(s: QDoubleSpinBox = pitch_spin, it: Any = building) -> None:
+            s.setValue(rs.roof_pitch_deg(it.metadata) or 0.0)
+
+        refresh_pitch()
+        pitch_spin.valueChanged.connect(lambda value, it=item: self._on_roof_pitch_changed(it, value))
+        self._form_layout.addRow(self.tr("Roof pitch:"), pitch_spin)
+        self._register_refresh(pitch_spin, refresh_pitch)
+
+        overhang_spin = QDoubleSpinBox()
+        overhang_spin.setRange(-1.0, rs.MAX_OVERHANG_CM)  # -1: "Auto" (0 is a real overhang)
+        overhang_spin.setDecimals(0)
+        overhang_spin.setSingleStep(5.0)
+        overhang_spin.setSuffix(" cm")
+        overhang_spin.setSpecialValueText(self.tr("Auto"))
+        overhang_spin.setToolTip(hint)
+
+        def refresh_overhang(s: QDoubleSpinBox = overhang_spin, it: Any = building) -> None:
+            overhang = rs.roof_overhang_cm(it.metadata)
+            s.setValue(-1.0 if overhang is None else overhang)
+
+        refresh_overhang()
+        overhang_spin.valueChanged.connect(lambda value, it=item: self._on_roof_overhang_changed(it, value))
+        self._form_layout.addRow(self.tr("Roof overhang:"), overhang_spin)
+        self._register_refresh(overhang_spin, refresh_overhang)
+
+    @staticmethod
+    def _roof_setter(key: str) -> Callable[[Any, object], None]:
+        """An ``apply_func`` that writes ``key`` into the item's metadata (None removes it)."""
+
+        def apply(itm: Any, value: object) -> None:
+            if value is None:
+                itm.metadata.pop(key, None)
+            else:
+                itm.metadata[key] = value
+
+        return apply
+
+    def _on_roof_style_changed(self, item: Any, value: object) -> None:
+        from open_garden_planner.core import roof_style as rs
+
+        old = rs.roof_style(item.metadata)
+        if self._updating or value == old:
+            return
+        self._commit_edit(item, ChangePropertyCommand(
+            item, "roof style", old, value, apply_func=self._roof_setter(rs.STYLE_KEY)))
+
+    def _on_roof_pitch_changed(self, item: Any, value: float) -> None:
+        from open_garden_planner.core import roof_style as rs
+
+        old = rs.roof_pitch_deg(item.metadata)
+        new = min(rs.MAX_PITCH_DEG, max(rs.MIN_PITCH_DEG, float(value))) if value > 0.0 else None
+        if self._updating or new == old:
+            return
+        self._commit_edit(item, ChangePropertyCommand(
+            item, "roof pitch", old, new, apply_func=self._roof_setter(rs.PITCH_KEY)))
+
+    def _on_roof_overhang_changed(self, item: Any, value: float) -> None:
+        from open_garden_planner.core import roof_style as rs
+
+        old = rs.roof_overhang_cm(item.metadata)
+        new = float(value) if value >= 0.0 else None
+        if self._updating or new == old:
+            return
+        self._commit_edit(item, ChangePropertyCommand(
+            item, "roof overhang", old, new, apply_func=self._roof_setter(rs.OVERHANG_KEY)))
+
     def _add_smart_symbol_properties(self, item: QGraphicsItem) -> None:
         """Render typed parameter widgets for a selected smart symbol (US-C4).
 
@@ -2120,12 +2235,13 @@ class PropertiesPanel(QWidget):
         self._form_layout.addRow(self.tr("Stroke Color:"), stroke_btn)
         self._register_refresh(stroke_btn, lambda b=stroke_btn: b.set_color(_read_stroke()))
 
-        # Stroke width
+        # Stroke width — a line's (a path's, a fence's) is its width on the ground, in cm
         width_spin = QDoubleSpinBox()
-        width_spin.setRange(MIN_STROKE_WIDTH, 20.0)
-        width_spin.setSingleStep(0.5)
+        is_line = isinstance(item, PolylineItem)
+        width_spin.setRange(MIN_STROKE_WIDTH, MAX_LINE_WIDTH_CM if is_line else MAX_STROKE_WIDTH)
+        width_spin.setSingleStep(5.0 if is_line else 0.5)
         width_spin.setDecimals(1)
-        width_spin.setSuffix(" px")
+        width_spin.setSuffix(" cm" if is_line else " px")
         width_spin.setValue(
             item.stroke_width if hasattr(item, 'stroke_width') and item.stroke_width else item.pen().widthF()
         )

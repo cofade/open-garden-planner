@@ -153,7 +153,9 @@ def test_a_real_plan_shows_its_baked_ground_in_the_engine(run: Run) -> None:
     assert opened["tiles_in_scene"] == opened["tiles_visible"] == opened["tiles_textured"] == tiles
     assert opened["uploads"] == tiles and opened["textures_held"] == tiles
     assert opened["ground_tiled"] is True and opened["state_equals_expected"] is True
-    assert opened["painted"] == 11 and opened["records"] == 98  # the default tier's numbers
+    # the default tier's numbers; since L4 (#388) the fire pit and the rain barrel, which
+    # have no height, are built objects, no longer sprites painted on the ground (11 → 9)
+    assert opened["painted"] == 9 and opened["records"] == 98
     assert opened["capped"] == 0 and opened["bake_failures"] == 0 and opened["ground_failure"] is None
     assert opened["parts"] > 50  # the solids of the plan stand on it
     print(f"\nopen: bake {opened['bake_ms']} ms, apply {opened['apply_ms']} ms, "
@@ -281,7 +283,7 @@ def test_the_offscreen_path_shows_the_baked_ground(run: Run) -> None:
     solid, and says so with the frame; without a baker the plan ground is bare."""
     offscreen = run[0]["scenarios"]["ground_offscreen"]
     whole, only, bare = offscreen["whole"], offscreen["only"], offscreen["bare"]
-    assert (offscreen["records"], offscreen["painted"]) == (98, 11)
+    assert (offscreen["records"], offscreen["painted"]) == (98, 9)  # L4: 11 → 9, as above
     assert whole["ground_tiles"] == only["ground_tiles"] == 20 and bare["ground_tiles"] == 0
     for frame in (whole, only, bare):
         assert frame["ground_failure"] is None and frame["build_failures"] == {}

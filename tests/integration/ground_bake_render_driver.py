@@ -219,6 +219,16 @@ def _textures_alive() -> int:
     return textures_alive()
 
 
+def _without_relief(registry: BuilderRegistry) -> BuilderRegistry:
+    """``registry`` with the L4 surfaces' relief taken off, in place (#388): stones,
+    planks, kerbs, water and blades are ground-detail parts STANDING on the painted
+    ground, and the gates of the ground alone judge the bake's tiles under them."""
+    from open_garden_planner.core.scene3d.builders import SURFACE_KINDS
+
+    registry.register_many(SURFACE_KINDS, lambda _record: (), replace=True)
+    return registry
+
+
 class _Rig:
     """The product's wiring on a shown host: SceneSync → GroundBaker + Quick3DSink."""
 
@@ -369,10 +379,11 @@ def scenario_ground_plan(ctx: base.Context) -> dict[str, Any]:
         out["after_edits_digest_equals_first"] = rig.digest() == first_digest
         out["back"] = ctx.save("ground_plan_back", host.grab("ground_plan_back"))
 
-        # G2: the ground alone — the painted records, no solid above them — seen from
-        # straight above, next to the bake itself
+        # G2: the ground alone — the painted records, no solid above them and none of
+        # their relief (L4, #388) — seen from straight above, next to the bake itself
         painted = set(rig.baker.painted_ids())  # type: ignore[union-attr]
         uploads = _tile_uploads()
+        _without_relief(rig.sync.registry)
         rig.sync.apply({key: record for key, record in records.items() if key in painted})
         out["ground_only"] = {
             "frame": ctx.save("ground_only_top", host.grab("ground_only_top")),
@@ -457,12 +468,13 @@ def scenario_ground_offscreen(ctx: base.Context) -> dict[str, Any]:
                        ground_baker=baker, **common)
     painted = {key: record for key, record in records.items() if key in set(baker.painted_ids())}
     alone = GroundBaker()
-    only = _offscreen(ctx, "ground_offscreen_top", painted, shot=top, ground_baker=alone, **common)
+    flat = {**common, "registry": _without_relief(production_registry())}  # L4: no relief
+    only = _offscreen(ctx, "ground_offscreen_top", painted, shot=top, ground_baker=alone, **flat)
     return {"ground": [ground.width_cm, ground.depth_cm],
             "top": {"center": list(top.center), "px_per_cm": top.px_per_cm},
             "records": len(records), "painted": len(painted), "whole": whole, "only": only,
             "bake": ctx.save("ground_offscreen_bake", alone.image()),
-            "bare": _offscreen(ctx, "ground_offscreen_bare", painted, shot=top, **common)}
+            "bare": _offscreen(ctx, "ground_offscreen_bare", painted, shot=top, **flat)}
 
 
 def _seam_frames(ctx: base.Context, host: Any, name: str) -> dict[str, Any]:

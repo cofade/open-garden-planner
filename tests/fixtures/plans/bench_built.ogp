@@ -1,0 +1,1703 @@
+{
+  "version": "1.4",
+  "metadata": {
+    "modified": "2026-10-26T09:14:34.138832+00:00"
+  },
+  "canvas": {
+    "width": 2600.0,
+    "height": 1800.0
+  },
+  "layers": [
+    {
+      "id": "c9d82f39-2cd0-472e-bab9-19ba4d250939",
+      "name": "Layer 1",
+      "visible": true,
+      "locked": false,
+      "opacity": 1.0,
+      "z_order": 0,
+      "permaculture_layer": null
+    }
+  ],
+  "objects": [
+    {
+      "type": "polygon",
+      "item_id": "099e1cc7-c4ab-4822-9393-613f45c80a34",
+      "points": [
+        {
+          "x": 40.0,
+          "y": 40.0
+        },
+        {
+          "x": 2560.0,
+          "y": 40.0
+        },
+        {
+          "x": 2560.0,
+          "y": 1240.0
+        },
+        {
+          "x": 40.0,
+          "y": 1240.0
+        }
+      ],
+      "object_type": "LAWN",
+      "name": "Lawn",
+      "fill_color": "#ff64b43c",
+      "stroke_color": "#ff3c821e",
+      "stroke_width": 2.0,
+      "fill_pattern": "GRASS",
+      "stroke_style": "SOLID",
+      "stack_order": 1024
+    },
+    {
+      "type": "polygon",
+      "item_id": "3d1f5b82-e293-4c55-b3f4-3cfdab9314eb",
+      "points": [
+        {
+          "x": 120.0,
+          "y": 1300.0
+        },
+        {
+          "x": 1100.0,
+          "y": 1300.0
+        },
+        {
+          "x": 1100.0,
+          "y": 1440.0
+        },
+        {
+          "x": 120.0,
+          "y": 1440.0
+        }
+      ],
+      "object_type": "TERRACE_PATIO",
+      "name": "Deck",
+      "fill_color": "#ffdeb887",
+      "stroke_color": "#ffa0522d",
+      "stroke_width": 2.0,
+      "fill_pattern": "WOOD",
+      "stroke_style": "SOLID",
+      "stack_order": 2048
+    },
+    {
+      "type": "polygon",
+      "item_id": "03d0ab5a-9831-41b4-a638-8948f82c0da4",
+      "points": [
+        {
+          "x": 1180.0,
+          "y": 700.0
+        },
+        {
+          "x": 1700.0,
+          "y": 700.0
+        },
+        {
+          "x": 1700.0,
+          "y": 1040.0
+        },
+        {
+          "x": 1180.0,
+          "y": 1040.0
+        }
+      ],
+      "object_type": "TERRACE_PATIO",
+      "name": "Stone terrace",
+      "fill_color": "#ffdeb887",
+      "stroke_color": "#ffa0522d",
+      "stroke_width": 2.0,
+      "fill_pattern": "FLAGSTONE",
+      "stroke_style": "SOLID",
+      "stack_order": 3072
+    },
+    {
+      "type": "polygon",
+      "item_id": "1245a74b-2beb-4a50-afa7-d989da3f3554",
+      "points": [
+        {
+          "x": 2150.0,
+          "y": 1240.0
+        },
+        {
+          "x": 2420.0,
+          "y": 1240.0
+        },
+        {
+          "x": 2420.0,
+          "y": 1290.0
+        },
+        {
+          "x": 2450.0,
+          "y": 1290.0
+        },
+        {
+          "x": 2450.0,
+          "y": 40.0
+        },
+        {
+          "x": 2150.0,
+          "y": 40.0
+        }
+      ],
+      "object_type": "DRIVEWAY",
+      "name": "Driveway",
+      "fill_color": "#ff708090",
+      "stroke_color": "#ff2f4f4f",
+      "stroke_width": 2.0,
+      "fill_pattern": "GRAVEL",
+      "stroke_style": "SOLID",
+      "stack_order": 4096
+    },
+    {
+      "type": "circle",
+      "item_id": "828ad125-8192-49fa-ba02-7fedc726f9da",
+      "center_x": 520.0,
+      "center_y": 900.0,
+      "radius": 150,
+      "object_type": "POND_POOL",
+      "name": "Pond",
+      "fill_color": "#ff40a4df",
+      "stroke_color": "#ff191970",
+      "stroke_width": 2.0,
+      "fill_pattern": "WATER",
+      "stroke_style": "SOLID",
+      "stack_order": 5120
+    },
+    {
+      "type": "polyline",
+      "item_id": "6b46c86e-dbe7-4ab7-b1b7-d0c8537f2cf5",
+      "points": [
+        {
+          "x": 600.0,
+          "y": 1300.0
+        },
+        {
+          "x": 600.0,
+          "y": 1100.0
+        },
+        {
+          "x": 760.0,
+          "y": 980.0
+        },
+        {
+          "x": 1180.0,
+          "y": 900.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Stepping stones",
+      "stroke_color": "#ffa0a09b",
+      "stroke_width": 70.0,
+      "path_fence_style": "STEPPING_STONES",
+      "stack_order": 16384
+    },
+    {
+      "type": "polyline",
+      "item_id": "9605c043-dfd1-4e1e-a493-ef446b52641b",
+      "points": [
+        {
+          "x": 1100.0,
+          "y": 1370.0
+        },
+        {
+          "x": 1250.0,
+          "y": 1300.0
+        },
+        {
+          "x": 1300.0,
+          "y": 1040.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Paved path",
+      "stroke_color": "#ff8c8c8c",
+      "stroke_width": 100.0,
+      "path_fence_style": "PAVED_PATH",
+      "stack_order": 17408
+    },
+    {
+      "type": "polyline",
+      "item_id": "2ff0b417-2765-41b6-bee4-cf79b05156d4",
+      "points": [
+        {
+          "x": 1700.0,
+          "y": 860.0
+        },
+        {
+          "x": 2150.0,
+          "y": 860.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Boardwalk",
+      "stroke_color": "#ffa07846",
+      "stroke_width": 100.0,
+      "path_fence_style": "WOODEN_BOARDWALK",
+      "stack_order": 18432
+    },
+    {
+      "type": "polyline",
+      "item_id": "f770b651-61a7-4ab6-ab3f-49009b57e198",
+      "points": [
+        {
+          "x": 200.0,
+          "y": 300.0
+        },
+        {
+          "x": 200.0,
+          "y": 560.0
+        },
+        {
+          "x": 700.0,
+          "y": 560.0
+        },
+        {
+          "x": 700.0,
+          "y": 340.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Gravel path",
+      "stroke_color": "#ffb4aa96",
+      "stroke_width": 90.0,
+      "path_fence_style": "GRAVEL_PATH",
+      "stack_order": 19456
+    },
+    {
+      "type": "polyline",
+      "item_id": "67e90ba3-7c48-44d0-8e65-066312673bd4",
+      "points": [
+        {
+          "x": 760.0,
+          "y": 330.0
+        },
+        {
+          "x": 1000.0,
+          "y": 420.0
+        },
+        {
+          "x": 1400.0,
+          "y": 420.0
+        }
+      ],
+      "object_type": "PATH",
+      "name": "Dirt path",
+      "stroke_color": "#ff966e3c",
+      "stroke_width": 70.0,
+      "path_fence_style": "DIRT_PATH",
+      "stack_order": 20480
+    },
+    {
+      "type": "polygon",
+      "item_id": "3579e6dd-3179-4333-be6f-18c6169a88f3",
+      "points": [
+        {
+          "x": 120.0,
+          "y": 1460.0
+        },
+        {
+          "x": 1100.0,
+          "y": 1460.0
+        },
+        {
+          "x": 1100.0,
+          "y": 1760.0
+        },
+        {
+          "x": 120.0,
+          "y": 1760.0
+        }
+      ],
+      "object_type": "HOUSE",
+      "name": "House",
+      "metadata": {
+        "ridge_item_id": "1c9b8e7c-9df4-4f53-89ff-5383b8e2af9b"
+      },
+      "fill_color": "#ffd2b48c",
+      "stroke_color": "#ff8b5a2b",
+      "stroke_width": 2.5,
+      "fill_pattern": "ROOF_TILES",
+      "stroke_style": "SOLID",
+      "stack_order": 6144
+    },
+    {
+      "type": "polyline",
+      "item_id": "1c9b8e7c-9df4-4f53-89ff-5383b8e2af9b",
+      "points": [
+        {
+          "x": 120.0,
+          "y": 1610.0
+        },
+        {
+          "x": 1100.0,
+          "y": 1610.0
+        }
+      ],
+      "object_type": "ROOF_RIDGE",
+      "metadata": {
+        "owner_polygon_id": "3579e6dd-3179-4333-be6f-18c6169a88f3"
+      },
+      "stroke_color": "#ff644826",
+      "stroke_width": 2.0,
+      "stack_order": 7168
+    },
+    {
+      "type": "rectangle",
+      "item_id": "77a6a88a-2c03-423f-bec4-cebcf13873c5",
+      "x": 1260.0,
+      "y": 1360.0,
+      "width": 520.0,
+      "height": 380.0,
+      "object_type": "HOUSE",
+      "name": "Studio",
+      "metadata": {
+        "object_height_cm": 520.0,
+        "roof_style": "hip"
+      },
+      "fill_color": "#ffd2b48c",
+      "stroke_color": "#ff8b5a2b",
+      "stroke_width": 2.5,
+      "fill_pattern": "ROOF_TILES",
+      "stroke_style": "SOLID",
+      "stack_order": 8192
+    },
+    {
+      "type": "rectangle",
+      "item_id": "c272f480-4388-4075-a49b-b549fc34f51f",
+      "x": 1900.0,
+      "y": 1300.0,
+      "width": 520.0,
+      "height": 420.0,
+      "object_type": "GARAGE_SHED",
+      "name": "Garage",
+      "metadata": {
+        "roof_style": "flat"
+      },
+      "fill_color": "#ffa9a9a9",
+      "stroke_color": "#ff696969",
+      "stroke_width": 2.0,
+      "fill_pattern": "CONCRETE",
+      "stroke_style": "SOLID",
+      "stack_order": 9216
+    },
+    {
+      "type": "rectangle",
+      "item_id": "93735584-6673-43b1-b3f0-a3e814712978",
+      "x": 80.0,
+      "y": 80.0,
+      "width": 240.0,
+      "height": 180.0,
+      "object_type": "TOOL_SHED",
+      "name": "Tool shed",
+      "metadata": {
+        "roof_style": "shed"
+      },
+      "fill_color": "#ffa0825a",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 10240
+    },
+    {
+      "type": "rectangle",
+      "item_id": "363f608d-8c90-457c-a72f-4d58a61a6ed8",
+      "x": 380.0,
+      "y": 80.0,
+      "width": 300.0,
+      "height": 220.0,
+      "object_type": "GREENHOUSE",
+      "name": "Greenhouse",
+      "fill_color": "#ffd2e6f5",
+      "stroke_color": "#ffa0a5aa",
+      "stroke_width": 2.5,
+      "fill_pattern": "GLASS",
+      "stroke_style": "SOLID",
+      "stack_order": 11264
+    },
+    {
+      "type": "rectangle",
+      "item_id": "ddf7e307-09bd-4dde-8f67-b6614733246e",
+      "x": 1180.0,
+      "y": 700.0,
+      "width": 300.0,
+      "height": 260.0,
+      "object_type": "PERGOLA",
+      "name": "Pergola",
+      "fill_color": "#ffb98350",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 12288
+    },
+    {
+      "type": "polyline",
+      "item_id": "1994cfd4-19ac-40ac-a410-753562cd2a72",
+      "points": [
+        {
+          "x": 10.0,
+          "y": 10.0
+        },
+        {
+          "x": 2590.0,
+          "y": 10.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "South fence",
+      "stroke_color": "#ff8b5a2b",
+      "stroke_width": 3.0,
+      "path_fence_style": "WOODEN_FENCE",
+      "stack_order": 13312
+    },
+    {
+      "type": "polyline",
+      "item_id": "4893432c-381a-4473-891d-6e936f99ffc7",
+      "points": [
+        {
+          "x": 2590.0,
+          "y": 10.0
+        },
+        {
+          "x": 2590.0,
+          "y": 1790.0
+        }
+      ],
+      "object_type": "FENCE",
+      "name": "East fence",
+      "stroke_color": "#ff3c3c3c",
+      "stroke_width": 2.5,
+      "path_fence_style": "METAL_FENCE",
+      "stack_order": 14336
+    },
+    {
+      "type": "polygon",
+      "item_id": "98e90c49-70f9-487e-9dba-9a1846155a59",
+      "points": [
+        {
+          "x": 10.0,
+          "y": 30.0
+        },
+        {
+          "x": 60.0,
+          "y": 30.0
+        },
+        {
+          "x": 60.0,
+          "y": 1250.0
+        },
+        {
+          "x": 10.0,
+          "y": 1250.0
+        }
+      ],
+      "object_type": "HEDGE_POLYGON",
+      "name": "Hedge",
+      "fill_color": "#ff2d5a1c",
+      "stroke_color": "#ff1e4112",
+      "stroke_width": 1.5,
+      "fill_pattern": "HEDGE",
+      "stroke_style": "SOLID",
+      "stack_order": 15360
+    },
+    {
+      "type": "rectangle",
+      "item_id": "238813c3-b4e4-4a2c-8e1b-008c0c75d0ce",
+      "x": 260.0,
+      "y": 1320.0,
+      "width": 160.0,
+      "height": 90.0,
+      "object_type": "TABLE_RECTANGULAR",
+      "name": "Table",
+      "fill_color": "#ffa07850",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 21504
+    },
+    {
+      "type": "rectangle",
+      "item_id": "8d2f792c-2bdd-4b0f-a1e8-88ad0f9197ca",
+      "x": 268.0,
+      "y": 1278.0,
+      "width": 45.0,
+      "height": 45.0,
+      "object_type": "CHAIR",
+      "name": "Chair",
+      "fill_color": "#ff8c6946",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 22528
+    },
+    {
+      "type": "rectangle",
+      "item_id": "fd3e4d27-ba8f-4465-acd1-a290543fb1e3",
+      "x": 368.0,
+      "y": 1278.0,
+      "width": 45.0,
+      "height": 45.0,
+      "object_type": "CHAIR",
+      "name": "Chair",
+      "fill_color": "#ff8c6946",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 23552
+    },
+    {
+      "type": "rectangle",
+      "item_id": "a254f086-b223-4bf8-8fdb-469ded1d9738",
+      "x": 268.0,
+      "y": 1408.0,
+      "width": 45.0,
+      "height": 45.0,
+      "object_type": "CHAIR",
+      "name": "Chair",
+      "fill_color": "#ff8c6946",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 24576
+    },
+    {
+      "type": "rectangle",
+      "item_id": "714a639b-3b0d-446a-af3c-561eb9c3b1fe",
+      "x": 368.0,
+      "y": 1408.0,
+      "width": 45.0,
+      "height": 45.0,
+      "object_type": "CHAIR",
+      "name": "Chair",
+      "fill_color": "#ff8c6946",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 25600
+    },
+    {
+      "type": "circle",
+      "item_id": "f58a2bef-0874-4712-af36-4d0ed948c63f",
+      "center_x": 560.0,
+      "center_y": 1370.0,
+      "radius": 110,
+      "object_type": "PARASOL",
+      "name": "Parasol",
+      "fill_color": "#ffe6dcc8",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 26624
+    },
+    {
+      "type": "rectangle",
+      "item_id": "3499fa73-8334-4dd2-89e6-addca7790405",
+      "x": 720.0,
+      "y": 1310.0,
+      "width": 70.0,
+      "height": 190.0,
+      "object_type": "LOUNGER",
+      "name": "Lounger",
+      "fill_color": "#ffb4b4b4",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 27648
+    },
+    {
+      "type": "rectangle",
+      "item_id": "bd85578c-2c75-434f-a35b-d04bb5f92836",
+      "x": 820.0,
+      "y": 1310.0,
+      "width": 70.0,
+      "height": 190.0,
+      "object_type": "LOUNGER",
+      "name": "Lounger",
+      "fill_color": "#ffb4b4b4",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 28672
+    },
+    {
+      "type": "circle",
+      "item_id": "3f4c7416-a4f5-4273-988a-a9165963a0ca",
+      "center_x": 1000.0,
+      "center_y": 1380.0,
+      "radius": 40,
+      "object_type": "BBQ_GRILL",
+      "name": "Grill",
+      "fill_color": "#ff3c3c3c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 29696
+    },
+    {
+      "type": "circle",
+      "item_id": "7354a0b3-1aa4-4cec-a40a-accae6ef20cb",
+      "center_x": 1560.0,
+      "center_y": 760.0,
+      "radius": 55,
+      "object_type": "TABLE_ROUND",
+      "name": "Round table",
+      "fill_color": "#ffa07850",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 30720
+    },
+    {
+      "type": "rectangle",
+      "item_id": "589bbea3-e32f-4bc6-b3c4-eb9885cdcea0",
+      "x": 1500.0,
+      "y": 860.0,
+      "width": 180.0,
+      "height": 150.0,
+      "object_type": "PICNIC_TABLE",
+      "name": "Picnic table",
+      "fill_color": "#ffb98350",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 31744
+    },
+    {
+      "type": "rectangle",
+      "item_id": "2bfcb310-8431-45e6-9b0f-6cfffe646f94",
+      "x": 1210.0,
+      "y": 730.0,
+      "width": 220.0,
+      "height": 220.0,
+      "object_type": "HOT_TUB",
+      "name": "Hot tub",
+      "fill_color": "#ff43a3d2",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 32768
+    },
+    {
+      "type": "circle",
+      "item_id": "8c8466a0-37f1-4225-abac-422cc2cbf960",
+      "center_x": 760.0,
+      "center_y": 820.0,
+      "radius": 25,
+      "object_type": "BIRD_BATH",
+      "name": "Bird bath",
+      "fill_color": "#ffa29d93",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 33792
+    },
+    {
+      "type": "rectangle",
+      "item_id": "b1e13b09-3532-4650-8461-3988c581c6f4",
+      "x": 1800.0,
+      "y": 120.0,
+      "width": 150.0,
+      "height": 150.0,
+      "object_type": "SANDBOX",
+      "name": "Sandbox",
+      "fill_color": "#ffe4d0a0",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 34816
+    },
+    {
+      "type": "circle",
+      "item_id": "a6ddcec5-5895-4e1f-a6dc-5b662482b122",
+      "center_x": 1850.0,
+      "center_y": 520.0,
+      "radius": 150,
+      "object_type": "TRAMPOLINE",
+      "name": "Trampoline",
+      "fill_color": "#ff303336",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 35840
+    },
+    {
+      "type": "rectangle",
+      "item_id": "fc2e9c86-21f6-43f9-bc22-2ab23dc647d4",
+      "x": 1500.0,
+      "y": 100.0,
+      "width": 220.0,
+      "height": 160.0,
+      "object_type": "SWING",
+      "name": "Swing",
+      "fill_color": "#ffd4b471",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 36864
+    },
+    {
+      "type": "rectangle",
+      "item_id": "025d7a2e-7f7d-44d7-8184-a4994db2c8df",
+      "x": 1450.0,
+      "y": 480.0,
+      "width": 300.0,
+      "height": 120.0,
+      "object_type": "HAMMOCK",
+      "name": "Hammock",
+      "fill_color": "#ff4f9d97",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 37888
+    },
+    {
+      "type": "rectangle",
+      "item_id": "c724cd4b-0e61-4761-a746-265119758316",
+      "x": 780.0,
+      "y": 90.0,
+      "width": 360.0,
+      "height": 120.0,
+      "object_type": "RAISED_BED",
+      "name": "Raised bed",
+      "fill_color": "#ff8b5a2b",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "child_item_ids": [
+        "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+        "2b7226e6-a393-4e14-87ee-38cc23a48b97",
+        "61a58ac1-1344-4bc0-9765-daa7ea848038",
+        "9d0668f2-fb7e-4fa0-88e5-b18821e57be3",
+        "7bdffb9e-0bc3-4ec4-a7ad-7e28c18a39bd",
+        "de0f3217-aa3d-40b9-8732-50d39c5c3a48"
+      ],
+      "stack_order": 38912
+    },
+    {
+      "type": "circle",
+      "item_id": "b9c2c0d0-84d2-4188-a859-35b4f562ec6a",
+      "center_x": 810.0,
+      "center_y": 150.0,
+      "radius": 45.0,
+      "object_type": "PERENNIAL",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Solanum lycopersicum",
+          "common_name": "Tomato",
+          "family": "Solanaceae",
+          "genus": "Solanum",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 200.0,
+          "min_spread_cm": 45.0,
+          "max_spread_cm": 90.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 6.8,
+          "edible": true,
+          "edible_parts": [
+            "fruit"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "tender",
+          "indoor_sow_start": -8,
+          "indoor_sow_end": -6,
+          "transplant_start": 2,
+          "transplant_end": 4,
+          "harvest_start": 10,
+          "harvest_end": 20,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 85,
+          "min_germination_temp_c": 18.0,
+          "seed_depth_cm": 0.6,
+          "prick_out_after_days": 21,
+          "harden_off_days": 10,
+          "nutrient_demand": "heavy",
+          "n_demand": "high",
+          "p_demand": "medium",
+          "k_demand": "high",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15"
+        }
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "tomato",
+      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
+      "stack_order": 39936
+    },
+    {
+      "type": "circle",
+      "item_id": "2b7226e6-a393-4e14-87ee-38cc23a48b97",
+      "center_x": 870.0,
+      "center_y": 150.0,
+      "radius": 20.0,
+      "object_type": "PERENNIAL",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Ocimum basilicum",
+          "common_name": "Basil",
+          "family": "Lamiaceae",
+          "genus": "Ocimum",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 60.0,
+          "min_spread_cm": 25.0,
+          "max_spread_cm": 40.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "leaves"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "tender",
+          "indoor_sow_start": -6,
+          "indoor_sow_end": -4,
+          "direct_sow_start": 2,
+          "direct_sow_end": 6,
+          "transplant_start": 2,
+          "transplant_end": 4,
+          "harvest_start": 6,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 45,
+          "days_to_maturity_max": 70,
+          "min_germination_temp_c": 18.0,
+          "seed_depth_cm": 0.3,
+          "prick_out_after_days": 21,
+          "harden_off_days": 10,
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15"
+        }
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "basil",
+      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
+      "stack_order": 40960
+    },
+    {
+      "type": "circle",
+      "item_id": "61a58ac1-1344-4bc0-9765-daa7ea848038",
+      "center_x": 930.0,
+      "center_y": 150.0,
+      "radius": 15.0,
+      "object_type": "PERENNIAL",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Lactuca sativa",
+          "common_name": "Lettuce",
+          "family": "Asteraceae",
+          "genus": "Lactuca",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 15.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 15.0,
+          "max_spread_cm": 30.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 2,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": true,
+          "edible_parts": [
+            "leaves"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "half-hardy",
+          "indoor_sow_start": -6,
+          "indoor_sow_end": -4,
+          "direct_sow_start": -4,
+          "direct_sow_end": 4,
+          "transplant_start": -2,
+          "transplant_end": 2,
+          "harvest_start": 6,
+          "harvest_end": 10,
+          "days_to_germination_min": 2,
+          "days_to_germination_max": 8,
+          "days_to_maturity_min": 45,
+          "days_to_maturity_max": 60,
+          "min_germination_temp_c": 4.0,
+          "seed_depth_cm": 0.3,
+          "prick_out_after_days": 21,
+          "harden_off_days": 7,
+          "nutrient_demand": "light",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15"
+        }
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "lettuce",
+      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
+      "stack_order": 41984
+    },
+    {
+      "type": "circle",
+      "item_id": "9d0668f2-fb7e-4fa0-88e5-b18821e57be3",
+      "center_x": 990.0,
+      "center_y": 150.0,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Brassica oleracea var. acephala",
+          "common_name": "Kale",
+          "family": "Brassicaceae",
+          "genus": "Brassica",
+          "cycle": "biennial",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_sterile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 90.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "leaves"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "indoor_sow_start": -8,
+          "indoor_sow_end": -6,
+          "direct_sow_start": -4,
+          "direct_sow_end": 6,
+          "transplant_start": -2,
+          "transplant_end": 4,
+          "harvest_start": 8,
+          "harvest_end": 20,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 55,
+          "days_to_maturity_max": 75,
+          "min_germination_temp_c": 7.0,
+          "seed_depth_cm": 0.6,
+          "nutrient_demand": "heavy",
+          "n_demand": "high",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "herbaceous",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15"
+        }
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "kale",
+      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
+      "stack_order": 43008
+    },
+    {
+      "type": "circle",
+      "item_id": "7bdffb9e-0bc3-4ec4-a7ad-7e28c18a39bd",
+      "center_x": 1050.0,
+      "center_y": 150.0,
+      "radius": 5.0,
+      "object_type": "PERENNIAL",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Daucus carota",
+          "common_name": "Carrot",
+          "family": "Apiaceae",
+          "genus": "Daucus",
+          "cycle": "biennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 20.0,
+          "max_height_cm": 30.0,
+          "min_spread_cm": 5.0,
+          "max_spread_cm": 10.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 10,
+          "ph_min": 6.0,
+          "ph_max": 6.8,
+          "edible": true,
+          "edible_parts": [
+            "roots"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "direct_sow_start": -4,
+          "direct_sow_end": 6,
+          "harvest_start": 10,
+          "harvest_end": 16,
+          "days_to_germination_min": 10,
+          "days_to_germination_max": 21,
+          "days_to_maturity_min": 65,
+          "days_to_maturity_max": 80,
+          "min_germination_temp_c": 7.0,
+          "seed_depth_cm": 0.5,
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "high",
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15"
+        }
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "carrot",
+      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
+      "stack_order": 44032
+    },
+    {
+      "type": "circle",
+      "item_id": "de0f3217-aa3d-40b9-8732-50d39c5c3a48",
+      "center_x": 1110.0,
+      "center_y": 150.0,
+      "radius": 7.5,
+      "object_type": "PERENNIAL",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Allium cepa",
+          "common_name": "Onion",
+          "family": "Amaryllidaceae",
+          "genus": "Allium",
+          "cycle": "biennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 30.0,
+          "max_height_cm": 60.0,
+          "min_spread_cm": 10.0,
+          "max_spread_cm": 15.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": true,
+          "edible_parts": [
+            "bulb",
+            "leaves"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "indoor_sow_start": -10,
+          "indoor_sow_end": -8,
+          "direct_sow_start": -6,
+          "direct_sow_end": -4,
+          "transplant_start": -2,
+          "transplant_end": 0,
+          "harvest_start": 18,
+          "harvest_end": 24,
+          "days_to_germination_min": 7,
+          "days_to_germination_max": 14,
+          "days_to_maturity_min": 100,
+          "days_to_maturity_max": 130,
+          "min_germination_temp_c": 10.0,
+          "seed_depth_cm": 1.0,
+          "prick_out_after_days": 35,
+          "harden_off_days": 7,
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "high",
+          "permaculture_layer": "root",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15"
+        }
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "onion",
+      "parent_bed_id": "c724cd4b-0e61-4761-a746-265119758316",
+      "stack_order": 45056
+    },
+    {
+      "type": "rectangle",
+      "item_id": "2511284b-f6ec-4d37-a9b6-29609ff5e724",
+      "x": 1180.0,
+      "y": 80.0,
+      "width": 200.0,
+      "height": 20.0,
+      "object_type": "TRELLIS",
+      "name": "Trellis",
+      "fill_color": "#78b4966e",
+      "stroke_color": "#ff6e502d",
+      "stroke_width": 2.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "child_item_ids": [
+        "4362733c-90c9-44eb-92c2-e5bf1a0a04bf"
+      ],
+      "stack_order": 46080
+    },
+    {
+      "type": "circle",
+      "item_id": "4362733c-90c9-44eb-92c2-e5bf1a0a04bf",
+      "center_x": 1280.0,
+      "center_y": 130.0,
+      "radius": 30.0,
+      "object_type": "PERENNIAL",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Phaseolus coccineus",
+          "common_name": "Runner Bean",
+          "family": "Fabaceae",
+          "genus": "Phaseolus",
+          "cycle": "annual",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 200.0,
+          "max_height_cm": 300.0,
+          "min_spread_cm": 30.0,
+          "max_spread_cm": 60.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 11,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": true,
+          "edible_parts": [
+            "pods",
+            "seeds",
+            "flowers"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "tender",
+          "indoor_sow_start": -3,
+          "indoor_sow_end": -2,
+          "direct_sow_start": 1,
+          "direct_sow_end": 4,
+          "transplant_start": 1,
+          "transplant_end": 2,
+          "harvest_start": 10,
+          "harvest_end": 16,
+          "days_to_germination_min": 5,
+          "days_to_germination_max": 10,
+          "days_to_maturity_min": 60,
+          "days_to_maturity_max": 80,
+          "min_germination_temp_c": 15.0,
+          "seed_depth_cm": 5.0,
+          "nutrient_demand": "fixer",
+          "n_demand": "fixer",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "vine",
+          "functions": [
+            "nitrogen_fixer"
+          ]
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15"
+        }
+      },
+      "fill_color": "#ff9acd32",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "runner bean",
+      "parent_bed_id": "2511284b-f6ec-4d37-a9b6-29609ff5e724",
+      "stack_order": 47104
+    },
+    {
+      "type": "rectangle",
+      "item_id": "c7a18ac4-49cd-4540-b3b7-f6779d497b62",
+      "x": 380.0,
+      "y": 330.0,
+      "width": 120.0,
+      "height": 60.0,
+      "object_type": "COLD_FRAME",
+      "name": "Cold frame",
+      "fill_color": "#ffc8dcf0",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 48128
+    },
+    {
+      "type": "rectangle",
+      "item_id": "8f1b360a-a64a-4948-bb5c-b546f35f36f7",
+      "x": 80.0,
+      "y": 330.0,
+      "width": 100.0,
+      "height": 100.0,
+      "object_type": "COMPOST_BIN",
+      "name": "Compost bin",
+      "fill_color": "#ff5a4628",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 49152
+    },
+    {
+      "type": "circle",
+      "item_id": "c5f9a4ab-47a2-4e99-aa53-87b3917a60ac",
+      "center_x": 345.0,
+      "center_y": 105.0,
+      "radius": 30,
+      "object_type": "RAIN_BARREL",
+      "name": "Rain barrel",
+      "fill_color": "#ff3c643c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 50176
+    },
+    {
+      "type": "circle",
+      "item_id": "7119dad8-3b9f-4e80-beb8-a46e92ae0c1d",
+      "center_x": 730.0,
+      "center_y": 110.0,
+      "radius": 10,
+      "object_type": "WATER_TAP",
+      "name": "Water tap",
+      "fill_color": "#ffa0aab4",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 51200
+    },
+    {
+      "type": "rectangle",
+      "item_id": "6f18f16c-b436-444a-8a3e-9ee8667ee737",
+      "x": 1000.0,
+      "y": 260.0,
+      "width": 60.0,
+      "height": 140.0,
+      "object_type": "WHEELBARROW",
+      "name": "Wheelbarrow",
+      "fill_color": "#ff3f7c3e",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 52224
+    },
+    {
+      "type": "circle",
+      "item_id": "614ffa39-a2fc-4e34-ae68-a6a3ae797c41",
+      "center_x": 260.0,
+      "center_y": 760.0,
+      "radius": 50,
+      "object_type": "FIRE_PIT",
+      "name": "Fire pit",
+      "fill_color": "#ff8c6446",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 53248
+    },
+    {
+      "type": "rectangle",
+      "item_id": "cea95e2e-13ea-4f19-83d0-81d9e0bb5107",
+      "x": 90.0,
+      "y": 640.0,
+      "width": 180.0,
+      "height": 60.0,
+      "object_type": "BENCH",
+      "name": "Bench",
+      "fill_color": "#ff966e46",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 54272
+    },
+    {
+      "type": "circle",
+      "item_id": "b76421e5-c22b-4886-a4c4-3f99be78b3f7",
+      "center_x": 120.0,
+      "center_y": 900.0,
+      "radius": 25,
+      "object_type": "PLANTER_POT",
+      "name": "Planter 1",
+      "fill_color": "#ffb4783c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 55296
+    },
+    {
+      "type": "circle",
+      "item_id": "80e6de68-99b3-4c87-bbea-a4b8ad93087e",
+      "center_x": 120.0,
+      "center_y": 970.0,
+      "radius": 25,
+      "object_type": "PLANTER_POT",
+      "name": "Planter 2",
+      "fill_color": "#ffb4783c",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 56320
+    },
+    {
+      "type": "circle",
+      "item_id": "c8ee7cc1-12d4-493d-bbee-c6d82a4331a2",
+      "center_x": 2300.0,
+      "center_y": 700.0,
+      "radius": 170.0,
+      "object_type": "TREE",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Malus domestica",
+          "common_name": "Apple Tree",
+          "family": "Rosaceae",
+          "genus": "Malus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_sterile",
+          "min_height_cm": 200.0,
+          "max_height_cm": 800.0,
+          "min_spread_cm": 200.0,
+          "max_spread_cm": 600.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": true,
+          "edible_parts": [
+            "fruit"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15",
+          "current_spread_cm": 340.0,
+          "current_height_cm": 420.0
+        }
+      },
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "apple tree",
+      "stack_order": 57344
+    },
+    {
+      "type": "circle",
+      "item_id": "eaa37b4a-ed32-4a5e-a577-75d4361fcb86",
+      "center_x": 980.0,
+      "center_y": 1180.0,
+      "radius": 150.0,
+      "object_type": "TREE",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Prunus avium",
+          "common_name": "Cherry Tree",
+          "family": "Rosaceae",
+          "genus": "Prunus",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "partially_self_fertile",
+          "min_height_cm": 400.0,
+          "max_height_cm": 1500.0,
+          "min_spread_cm": 300.0,
+          "max_spread_cm": 800.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 4,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.5,
+          "edible": true,
+          "edible_parts": [
+            "fruit"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "high",
+          "permaculture_layer": "sub_canopy",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15",
+          "current_spread_cm": 300.0,
+          "current_height_cm": 450.0
+        }
+      },
+      "fill_color": "#ff228b22",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "cherry tree",
+      "stack_order": 58368
+    },
+    {
+      "type": "circle",
+      "item_id": "3be90932-9fc7-4deb-8be6-de49cc19f55d",
+      "center_x": 2520.0,
+      "center_y": 300.0,
+      "radius": 55.0,
+      "object_type": "SHRUB",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Hydrangea macrophylla",
+          "common_name": "Hydrangea",
+          "family": "Hydrangeaceae",
+          "genus": "Hydrangea",
+          "cycle": "perennial",
+          "growth_rate": "fast",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 100.0,
+          "max_height_cm": 300.0,
+          "min_spread_cm": 100.0,
+          "max_spread_cm": 250.0,
+          "sun_requirement": "partial_sun",
+          "water_needs": "high",
+          "hardiness_zone_min": 5,
+          "hardiness_zone_max": 9,
+          "ph_min": 5.0,
+          "ph_max": 6.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "half-hardy",
+          "nutrient_demand": "medium",
+          "n_demand": "medium",
+          "p_demand": "medium",
+          "k_demand": "medium",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15",
+          "current_spread_cm": 110.0,
+          "current_height_cm": 140.0
+        }
+      },
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "hydrangea",
+      "stack_order": 59392
+    },
+    {
+      "type": "circle",
+      "item_id": "5504eee4-8634-4e8d-881a-7b01543b5c4e",
+      "center_x": 2520.0,
+      "center_y": 520.0,
+      "radius": 55.0,
+      "object_type": "SHRUB",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Rosa rugosa",
+          "common_name": "Rose",
+          "family": "Rosaceae",
+          "genus": "Rosa",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 60.0,
+          "max_height_cm": 200.0,
+          "min_spread_cm": 60.0,
+          "max_spread_cm": 150.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 9,
+          "ph_min": 6.0,
+          "ph_max": 7.0,
+          "edible": false,
+          "edible_parts": [
+            "fruit"
+          ],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "heavy",
+          "n_demand": "high",
+          "p_demand": "medium",
+          "k_demand": "high",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15",
+          "current_spread_cm": 110.0,
+          "current_height_cm": 140.0
+        }
+      },
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "rose",
+      "stack_order": 60416
+    },
+    {
+      "type": "circle",
+      "item_id": "e99e3e24-233c-4bc1-bc68-37072e5c927e",
+      "center_x": 2520.0,
+      "center_y": 740.0,
+      "radius": 55.0,
+      "object_type": "SHRUB",
+      "metadata": {
+        "plant_species": {
+          "scientific_name": "Syringa vulgaris",
+          "common_name": "Lilac",
+          "family": "Oleaceae",
+          "genus": "Syringa",
+          "cycle": "perennial",
+          "growth_rate": "medium",
+          "flower_type": "hermaphrodite",
+          "pollination_type": "self_fertile",
+          "min_height_cm": 200.0,
+          "max_height_cm": 700.0,
+          "min_spread_cm": 200.0,
+          "max_spread_cm": 500.0,
+          "sun_requirement": "full_sun",
+          "water_needs": "medium",
+          "hardiness_zone_min": 3,
+          "hardiness_zone_max": 7,
+          "ph_min": 6.5,
+          "ph_max": 7.5,
+          "edible": false,
+          "edible_parts": [],
+          "data_source": "bundled",
+          "frost_tolerance": "hardy",
+          "nutrient_demand": "light",
+          "n_demand": "low",
+          "p_demand": "low",
+          "k_demand": "low",
+          "permaculture_layer": "shrub",
+          "functions": []
+        },
+        "plant_instance": {
+          "planting_date": "2026-04-15",
+          "current_spread_cm": 110.0,
+          "current_height_cm": 140.0
+        }
+      },
+      "fill_color": "#ff6b8e23",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "plant_species": "lilac",
+      "stack_order": 61440
+    }
+  ],
+  "location": {
+    "latitude": 52.52,
+    "longitude": 13.405,
+    "frost_dates": {
+      "last_spring_frost": "04-09",
+      "first_fall_frost": "10-31"
+    }
+  }
+}

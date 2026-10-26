@@ -7409,3 +7409,110 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+## ADR-065: The built world complete — objects, roofs, facades, surfaces and ground detail (Phase 17 L4, #388)
+
+**Status:** Proposed (draft PR, owner manual test pending).
+**Date:** 2026-10-26
+**Naming note:** older branches used "ADR-065" as a working name for ADR-060 (see
+ADR-059's status line). This record is the L4 one.
+**Context:** after L1–L3 every plant had a species model, but most built things were
+still flat: the 24 furniture, play, utility and structure objects were painted
+sprites on the ground, every house had a gable whatever the user wanted, walls had no
+windows or doors, paths were 6–10 cm lines with nothing on them, and lawns were a
+flat texture. Issue #388 asked for all of it under the truth gates of ADR-048/059
+(the top of a thing is its resolved height; nothing reaches more than 10 cm past
+its footprint), with one shared material table and no new texture assets. The
+owner added that a path capped at 20 px is not a path.
+
+**Decisions:**
+
+1. **Every object kind gets a builder; one material table.** `builders/furniture.py`,
+   `play.py`, `utility.py` and `structures.py` build the 24 `OBJECT_KINDS` from the
+   bevelled pieces in `builders/kit.py`, in the colours of `builders/palette.py`,
+   which mirrors the 2D object `MATERIALS` (drift guard in
+   `test_scene3d_builders_palette.py`). Each is bounded by construction
+   (`OBJECT_TRIANGLE_BUDGET` 4,000; slats, staves, bays and lattice cells are
+   capped, so a hostile 9 km object stays bounded). Every object goes through
+   `BuiltBuilder`: its top is its resolved height by construction.
+2. **An object without a height is decoration.** A parasol, fire pit, planter pot,
+   cold frame, rain barrel, water tap, swing, hammock or pergola has no 2D default
+   height (`core/object_height.py`). In 3D it is built at an illustrative height
+   (`core/object_height_estimate.py`, carried as `params["estimated_height_cm"]`,
+   as #557 does for plants) and **casts no shadow**, and the 2D sun study still
+   sees no caster. Unlike a #557 plant estimate, an object's shape is not a
+   silhouette the user would expect to shade the ground. Whether these objects
+   should cast shadows is an open owner question.
+3. **Roof style is additive item metadata.** `roof_style` (gable, hip, shed, flat),
+   `roof_pitch_deg` (5–60°) and `roof_overhang_cm` (0–150) on HOUSE, GARAGE_SHED and
+   TOOL_SHED (`core/roof_style.py`). There is no FILE_VERSION bump: an older app
+   ignores the keys. Missing keys mean automatic: a gable along the live ridge
+   where there is one, otherwise a flat roof on a house. A hip on a footprint that
+   is not convex falls back to a gable. The properties panel edits each key with one
+   `ChangePropertyCommand`; "Automatic"/"Auto" removes the key. The roof's top
+   stays the building's height (ADR-037: the height is the ridge's), so a steeper
+   pitch lowers the eaves. **The 2D plan and its sun study do not read these
+   keys.** A roof-aware 2D caster is #440's work, not L4's.
+4. **The facade is a heuristic, and its context is a wall index.** Windows go on
+   every wall long and tall enough to hold them; the door goes on the wall that
+   faces the nearest PATH (a garage's nearest DRIVEWAY first), centred on that
+   wall. The snapshot's new context pass (`core/scene3d/context.py`, `with_context`)
+   writes the wall's INDEX into `params["door_wall"]` in the building's own frame,
+   not a point. A building moved along its path keeps the same index, so the move
+   stays a transform only (ADR-059: "move → transform only").
+5. **Relief on painted ground is a `ground_detail` part.** Stepping stones (where
+   the 2D painter's walk places them, slid onto the path at its ends and dropped at a
+   bend they would overhang), boardwalk planks, paving kerbs, gravel edging and
+   pebbles, terrace kerbs or deck boards, a pond's water and coping, and lawn blades
+   are `MeshPart(ground_detail=True)`. Such a part casts no shadow (enforced in
+   `MeshPart`), is never picked and never makes its item a solid, so the ground
+   bake still paints the item and the 2D picture stays the ground. A surface the
+   user gave a height is a solid as before (a raised deck, a raised pool, the
+   prism).
+6. **The build-only params do not re-bake the ground.** The roof keys,
+   `door_wall`, `surface_pattern`, `lawn_cutouts` and `lawn_blades` are
+   `record.BUILD_ONLY_PARAMS`. They are geometry for `SceneSync`, so a change
+   rebuilds the one item, but `Record.same_ground_geometry` ignores them. A terrace
+   moved across a lawn rebuilds the lawn's blades and re-bakes only the terrace's
+   tiles.
+7. **Lawn blades are bounded and cut out.** 220 blades per m², at most 36,000 per
+   lawn and 60,000 per plan, shared by area with what a capped or small lawn cannot
+   use going to the others. They grow nowhere under a flat item painted above the
+   lawn, nor inside an enclosed building on it (at most 96 cut-outs per lawn, the
+   largest first). They are built at every preset, because a preset step changes no
+   geometry, and drawn from High up (QML `lawnBlades`).
+8. **Detail normals come from the baked ground, in a shader.** From Medium up, the
+   ground tiles use `ground.frag`, which tilts the normal by the luminance gradient
+   of the tile's own texture (strength 1.0, slope clamped to ±0.35). No normal-map
+   asset is generated or shipped, and PBR texture sets remain ADR-042's subject.
+   Measured: a `CustomMaterial`'s `TextureInput` does not apply the `Texture`'s
+   `flipV`, so the tiles drew mirrored north–south until the shader flipped `v`
+   itself.
+9. **No order-independent transparency.** Scene-wide `OITWeightedBlended` was
+   measured to break L2's multiply drapes (pixels up to 243 levels lighter: the
+   PF-L3D-06/07 P0 class). Greenhouse and cold-frame glass therefore use the
+   existing `glass` material.
+10. **A path's width is its width on the ground.** The path presets are 70–100 cm
+    and the PATH default is 80 cm. The properties panel sets a line's width in cm
+    up to `MAX_LINE_WIDTH_CM` (5 m); a shape's outline keeps its 20 px range. Saved
+    plans keep the width they were saved with, and so do the older bench plans
+    (`LEGACY_PATH_WIDTH_CM`). The new `bench_built.ogp` shows every L4 kind, path
+    style and roof style.
+11. **The Beauty Board shows the bake (#586).** Its shot, mood and horizon frames
+    pass a `GroundBaker` with no time budget. The IoU and orientation probes stay
+    bare, because their oracles are the records' own footprints.
+
+**Deferred:** smart-symbol builders (#599; a smart symbol is a group of ordinary items,
+which L4 already builds item by item) and roof-aware 2D shadow casters (#440).
+
+**Alternatives rejected:** a door point instead of a wall index (every move rebuilt
+the house); a ground-detail part as a solid (the bake stopped painting paths and
+lawns); per-lawn blade caps without a plan cap (2,000 stacked lawns, 72 M blades);
+an even per-area share (a small lawn next to a capped one got 594 of its 7,920
+blades while the budget went unused); OIT (decision 9); a generated normal-map asset
+(a second picture of the ground that can drift from the bake).
+
+**Consequences:** No new dependency, asset or setting. The ground bake paints fewer
+items (objects are solids now), which changes the counts that the bake and render
+tests pin. Every L4 builder passes `verify_builder` on hostile input, and the
+integration story `tests/integration/test_l4_built_world.py` drives the panel,
+undo, snapshot, context pass and production registry end to end.

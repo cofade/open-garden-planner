@@ -1230,7 +1230,7 @@ class GroundBaker:
             wanted = (record is not None and record.material.paint is not None
                       and item_id not in solid)
             if wanted and held is not None and record is not None and (
-                    held.record is record or (held.record.same_geometry(record)
+                    held.record is record or (held.record.same_ground_geometry(record)
                                               and held.record.same_transform(record)
                                               and held.record.same_material(record))):
                 continue  # painted, and nothing of it changed

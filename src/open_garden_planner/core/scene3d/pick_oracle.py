@@ -101,7 +101,9 @@ class PickScene:
 def pick_scene(records: Mapping[str, Record], parts_of: PartsOf) -> PickScene:
     """The oracle's scene for ``records``: each record built by ``parts_of`` and
     posed by its own transform. A record without triangles (a flat item, a builder
-    that returned nothing) is not in it — it cannot be picked."""
+    that returned nothing) is not in it — it cannot be picked — and neither is a
+    ``ground_detail`` part (L4: a path's stones, a lawn's blades), which the engine
+    does not pick either."""
     ids: list[str] = []
     corners: list[_F64] = []
     firsts: list[_F64] = []
@@ -113,7 +115,7 @@ def pick_scene(records: Mapping[str, Record], parts_of: PartsOf) -> PickScene:
         held = False
         for part_index, part in enumerate(parts_of(record)):
             mesh = part.mesh
-            if not mesh.triangle_count:
+            if not mesh.triangle_count or part.ground_detail:  # relief is never picked (L4)
                 continue
             posed = pose_points(record.transform, mesh.positions)
             triangles = posed[mesh.indices.astype(np.int64)]

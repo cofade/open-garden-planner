@@ -6962,6 +6962,71 @@ the same budget. Geometry-job and Model/buffer-churn checks are independent.
 The mixed-species phenology unit budget remains an additional gate.
 
 
+### 8.29.12 The built world complete — objects, roofs, facades, surfaces, ground detail (L4, #388, ADR-065)
+
+**Objects.** The 24 `OBJECT_KINDS` (furniture, play, utility, structures) are built
+from the bevelled pieces of `builders/kit.py` in `builders/palette.py`'s colours, which
+mirror the 2D object `MATERIALS` (drift guard in `test_scene3d_builders_palette.py`).
+Every object goes through `BuiltBuilder` (top = resolved height by construction) and
+stays under `OBJECT_TRIANGLE_BUDGET` (4,000) by construction: repeated members (slats,
+staves, bays, lattice cells) are capped, and a hostile 9 km object stays bounded. An
+object with no height of its own (parasol, fire pit, planter pot, cold frame, rain
+barrel, water tap, swing, hammock, pergola) is built at the illustrative height of
+`core/object_height_estimate.py` as **decoration**: no shadow in 3D, no caster in 2D.
+How to add an object: a builder function in the family module, an entry in its
+`KINDS`, a row in `test_scene3d_l4_objects.py`'s parametrised cases (height, footprint
+margin, orientation against the sprite's top edge = local +y).
+
+**Roofs and facades.** `core/roof_style.py` owns the three optional metadata keys
+(`roof_style`, `roof_pitch_deg`, `roof_overhang_cm`) and their clamping readers; the
+snapshot copies them into the record's params for HOUSE, GARAGE_SHED and TOOL_SHED.
+`builders/roofs.py` builds gable, hip (lower envelope of the eave planes, convex
+footprints only), shed and flat roofs, each returning the walls' top as a function
+so the walls meet the roof. `builders/facade.py` puts windows on every wall that can
+hold one and the door on the wall `params["door_wall"]` names, batched into one mesh.
+The 2D plan, its ridge line and its sun study read none of this.
+
+**Context params.** `core/scene3d/context.py::with_context` runs once at the end of
+`snapshot_records`: it writes a building's door wall (the wall facing the nearest
+PATH; a garage's nearest DRIVEWAY first), a lawn's cut-outs (flat items painted above
+it and enclosed buildings on it, in the lawn's frame, at most 96, largest first) and
+a lawn's blade share (220 / m², ≤ 36,000 per lawn, ≤ 60,000 per plan, water-filled by
+area). All are geometry for `SceneSync`, and all are `record.BUILD_ONLY_PARAMS`: the
+ground bake compares records with `Record.same_ground_geometry`, which ignores them,
+so a cut-out that moves rebuilds the lawn's blades without re-baking its tiles.
+
+**Ground detail.** A part that is relief on painted ground sets
+`MeshPart.ground_detail` (and must not cast a shadow: `MeshPart.__post_init__`). It is
+drawn, but it never makes its item a solid (`SceneSync.solid_ids`), the pick oracle
+and QML (`pickable && !groundDetail`) never pick it, and the info card still says the
+item lies on the ground. Paths get stones / planks / kerbs / edging and pebbles per
+style, terraces and driveways kerbs or deck boards (`surface_pattern` DECKING / WOOD),
+ponds water and coping, lawns blades. A surface with a height is a solid as before.
+Stepping stones follow the 2D painter's walk (`surfaces.walk_path` =
+`PathStylePaint._walk_path`); a stone that would hang past the path's end is slid half
+a stone along it, one that cannot be slid onto the footprint is left out.
+
+**Presets.** Lawn blades are built at every preset and drawn from High up (QML
+`lawnBlades`, re-applied to `lawn_blades` parts on change): a preset step changes no
+geometry. From Medium up the ground tiles use `ground.frag` (`detailNormals`), which
+tilts the normal by the tile texture's own luminance gradient (clamped ±0.35). It
+flips `v` itself: a `CustomMaterial`'s `TextureInput` ignores `Texture.flipV`
+(measured: the tiles drew mirrored north–south). Scene-wide OIT is not used: it broke
+L2's multiply drapes (ADR-065 decision 9).
+
+**Paths.** A line's stroke is its width on the ground in cm: presets 70–100 cm, PATH
+default 80 cm, the properties panel up to `MAX_LINE_WIDTH_CM` (500 cm, suffix "cm");
+shapes keep `MAX_STROKE_WIDTH` (20 px). Bench plans older than L4 keep their widths
+(`make_bench_plans.LEGACY_PATH_WIDTH_CM`); `bench_built.ogp` holds every L4 kind,
+path style and roof style for the board.
+
+**Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
+`test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on
+hostile input), `tests/integration/test_l4_built_world.py` (panel → undo → snapshot →
+context → production registry), the ground-bake and render tiers (the "ground alone"
+gates take the relief off: `ground_bake_render_driver._without_relief`) and the
+frozen self-test, whose High-preset frame compiles `ground.frag` from the bundle.
+
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 
 `core/item_look.py` owns `LineLook`, `capture_line_look`, `apply_line_look`,

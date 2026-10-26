@@ -309,6 +309,12 @@ class PresetSpec:
     sharpening: float = 0.0
     #: SSGI renders a black frame on Mesa llvmpipe: opt-in only, no preset turns it on.
     global_illumination: bool = False
+    #: L4.5 (#388): a lawn's grass blades are drawn (they are built at every preset —
+    #: a preset step changes no geometry — and shown from High up: they cost fill rate).
+    lawn_blades: bool = False
+    #: L4.5: how strongly the ground's shading follows its texture's luminance (detail
+    #: normals derived from the baked ground itself, no new asset), 0 = flat.
+    detail_normals: float = 0.0
 
     def __post_init__(self) -> None:
         if self.shadow_map_quality not in ("high", "very_high", "ultra"):
@@ -333,15 +339,18 @@ class PresetSpec:
 #: against FXAA's 67-152 under a shared CPU. No ambient occlusion, no glow — fog stays.
 #: Medium: the 2048 map too (it had 1024, smaller than low's): on bench_large it cost
 #: +4 % of a WARP frame (183 -> 191 ms) and nothing measurable on the GPU (30-40 ms).
+#: The ground's detail-normal strength from Medium up (L4.5; the board's ``--edge``
+#: and ``--orient`` probes hold it to the meadow and to north-up).
+DETAIL_NORMALS: Final = 1.0
 PRESET_SPECS: Final[Mapping[str, PresetSpec]] = MappingProxyType({
     "low": PresetSpec("low", "very_high", 1, "pcf4", 15.0, "msaa", "high", False, 2, False,
                       False, False),
     "medium": PresetSpec("medium", "very_high", 1, "pcf8", 15.0, "msaa", "high", True, 2, True,
-                         False, False),
+                         False, False, detail_normals=DETAIL_NORMALS),
     "high": PresetSpec("high", "very_high", 2, "pcf16", 10.0, "msaa", "high", True, 3, True,
-                       False, False),
+                       False, False, lawn_blades=True, detail_normals=DETAIL_NORMALS),
     "ultra": PresetSpec("ultra", "ultra", 3, "pcf32", 10.0, "msaa", "very_high", True, 4, True,
-                        True, True),
+                        True, True, lawn_blades=True, detail_normals=DETAIL_NORMALS),
 })
 
 

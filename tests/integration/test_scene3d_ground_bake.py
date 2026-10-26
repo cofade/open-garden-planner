@@ -65,6 +65,22 @@ from tests.integration.test_scene3d_snapshot import (
     work_done,  # noqa: F401 - the contract story's counters of what an idle tick must not do
 )
 
+
+def objects_unbuilt() -> Any:
+    """The production builders WITHOUT L4's objects (#388). Since L4 every furniture
+    object is built in 3D, so the bake's SPRITE path — what a furniture item shows
+    on the ground when no solid is built for it (its builder failed) — is exercised
+    with a registry that builds none of them."""
+    from open_garden_planner.core.scene3d.build import BuilderRegistry
+    from open_garden_planner.core.scene3d.builders import plants, register, register_surfaces
+
+    registry = BuilderRegistry()
+    register(registry)
+    register_surfaces(registry)
+    plants.register(registry)
+    return registry
+
+
 REPO = Path(__file__).resolve().parents[2]
 PLANS = REPO / "tests" / "fixtures" / "plans"
 #: The gate's bound: mean absolute difference per channel, 0..255.
@@ -407,13 +423,31 @@ class TestParityOfSprites:
         scene.addItem(item)
         if angle:
             item._apply_rotation(angle)
-        mean, worst, bake = compare(scene, production_registry())
+        mean, worst, bake = compare(scene, objects_unbuilt())
         assert bake.baker.painted_ids() == (str(item.item_id),)
         assert bake.image()[..., :3].std() > 5.0  # a picture, not a flat fill
         # a sprite is a pixmap drawn through a flip: at a tile's edge its smooth
         # scaling rounds a value differently now and then — a circle's sprite turns
         # with its item like a rectangle's (``Paint.rotation_deg``)
         assert mean <= (0.01 if angle else 0.002) and worst <= (16 if angle else 2), (mean, worst)
+
+    @pytest.mark.parametrize("kind", ["FIRE_PIT", "RAIN_BARREL", "PERGOLA"])
+    def test_with_l4_the_object_is_its_model_not_its_sprite(self, qtbot: Any, kind: str) -> None:
+        """L4 (#388) builds every furniture object, a height or not: the object is a
+        solid in 3D — decoration at its illustrative height — and the ground under it
+        is no longer painted with its sprite."""
+        scene = new_scene()
+        x, y = ACROSS_A_CORNER
+        object_type = ObjectType[kind]
+        if kind == "PERGOLA":
+            item: Any = RectangleItem(x + 0.4, y + 0.7, 300.0, 200.0, object_type=object_type)
+        else:
+            item = CircleItem(x + 110.3, y + 90.6, 75.0, object_type=object_type)
+        scene.addItem(item)
+        bake = Bake(scene, registry=production_registry())
+        bake.step()
+        assert str(item.item_id) in bake.sync.solid_ids
+        assert bake.baker.painted_ids() == ()
 
 
 # ── what is on the ground and what is not ─────────────────────────────────────
@@ -620,7 +654,8 @@ class TestTheLiveSceneIsLeftAlone:
         selection, changed = QSignalSpy(scene.selectionChanged), QSignalSpy(scene.changed)
         bake = Bake(scene, registry=production_registry())
         bake.step()
-        assert len(bake.baker.last_repainted) == 20 and len(bake.baker.painted_ids()) == 11
+        # 9: since L4 (#388) the fire pit and the rain barrel are models, not sprites
+        assert len(bake.baker.last_repainted) == 20 and len(bake.baker.painted_ids()) == 9
         bake.baker.clear()
         bake.step()  # a second full bake
         bake.sync.reset()
@@ -755,8 +790,9 @@ class TestNorthUpOnARealPlan:
         bake.step()
         assert bake.skipped == [] and bake.baker.failures == {}
         kinds = sorted(bake.records[item_id].kind for item_id in bake.baker.painted_ids())
-        assert kinds == ["DRIVEWAY", "FIRE_PIT", "GARDEN_BED", "GARDEN_BED", "GARDEN_BED", "LAWN",
-                         "PATH", "PATH", "POND_POOL", "RAIN_BARREL", "TERRACE_PATIO"]
+        # the fire pit and the rain barrel are models since L4 (#388): no sprite on the ground
+        assert kinds == ["DRIVEWAY", "GARDEN_BED", "GARDEN_BED", "GARDEN_BED", "LAWN",
+                         "PATH", "PATH", "POND_POOL", "TERRACE_PATIO"]
         baked = bake.image()
         _hide_all_but(scene, bake.baker.painted_ids())
         reference = canvas_render(scene, bake.grid)
@@ -777,7 +813,9 @@ class TestNorthUpOnARealPlan:
         assert tuple(baked[row, column, :3]) != canvas_rgb()
 
     def test_the_two_bench_plans_and_the_edge_plan_bake_without_a_failure(self, qtbot: Any) -> None:
-        for plan, painted in (("bench_small.ogp", 11), ("bench_large.ogp", 45),
+        # L4 (#388) builds every furniture object: bench_small's fire pit and rain barrel and
+        # bench_large's twenty objects are models now, not sprites on the ground
+        for plan, painted in (("bench_small.ogp", 9), ("bench_large.ogp", 25),
                               ("scene3d_edge_cases.ogp", 1)):
             scene = _loaded(plan)
             bake = Bake(scene, registry=production_registry(), bare_rgb=canvas_rgb())
@@ -1411,8 +1449,13 @@ class TestHostilePlans:
         # paint, because the pond is not among what that tile holds
         painted, checks = bake.baker.records_painted, bake.baker.admission_checks
         MoveItemsCommand([pond], QPointF(35.0, -20.0)).execute()
-        assert bake.step() == SceneDiff(transform=(str(pond.item_id),))
-        assert bake.baker.last_examined == 1 and bake.baker.last_repainted == ()
+        # L4 (#388): the pond cuts every lawn's 3D blades (``lawn_cutouts``, a param of
+        # theirs only the builders read) — 2,000 geometry changes, and the bake, which
+        # looks at each of them, finds none it paints (``Record.same_ground_geometry``)
+        moved = bake.step()
+        assert moved.transform == (str(pond.item_id),)
+        assert set(moved.geometry) == {str(lawn.item_id) for lawn in lawns}
+        assert bake.baker.last_examined == 1 + len(lawns) and bake.baker.last_repainted == ()
         assert bake.baker.records_painted == painted
         assert bake.baker.admission_checks - checks == TILE_RECORDS + 2
         # the topmost lawn is recoloured: ONE record looked at, every tile painted with its 256
@@ -1782,7 +1825,7 @@ class TestHostilePlans:
         monkeypatch.setattr(ground_bake, "render_furniture_pixmap", recording)
         scene = _hostile_scene()
         scene.addItem(RectangleItem(100.0, 100.0, 300.0, 200.0, object_type=ObjectType.PERGOLA))
-        bake = Bake(scene, registry=production_registry())
+        bake = Bake(scene, registry=objects_unbuilt())
         bake.step()
         assert set(asked) == {(300.0, 200.0)}  # control: the canvas's own size
         asked.clear()

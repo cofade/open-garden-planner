@@ -31,12 +31,14 @@ the ``Builder`` the registry wants and applies the three rules.
 from __future__ import annotations
 
 import dataclasses
+import math
 from collections.abc import Callable, Sequence
 from typing import Final, TypeAlias
 
 import numpy as np
 
 from ...object_height import effective_height_cm
+from ...object_height_estimate import ESTIMATED_HEIGHT_PARAM
 from ..build import prism_mesh
 from ..mesh import Mesh, MeshPart
 from ..record import PARAM_OUTLINE_RESOLVED, SHAPE_POLYLINE, Record
@@ -55,6 +57,17 @@ def nominal_height_cm(kind: str) -> float | None:
     the per-type default, a container's default fill height — or None when it
     has none. Asked, not mirrored: there is no table of kinds here."""
     return effective_height_cm(kind, None)
+
+
+def estimated_height_of(record: Record) -> float | None:
+    """The ILLUSTRATIVE height the snapshot put on ``record`` (``params
+    ["estimated_height_cm"]``, L4 / #557), or None when there is no usable one. A
+    geometry param: reading it is reading the record's geometry part."""
+    value = record.params.get(ESTIMATED_HEIGHT_PARAM)
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    height = float(value)
+    return height if math.isfinite(height) and height > 0.0 else None
 
 
 def centre_line(record: Record) -> tuple[F64, bool]:
@@ -146,10 +159,16 @@ class BuiltBuilder:
         return f"<built-world builder {self.name}>"
 
     def height_for(self, record: Record) -> float | None:
-        """The height the item is built at: the plan's, else the kind's nominal one."""
+        """The height the item is built at: the plan's, else the kind's nominal one,
+        else the ILLUSTRATIVE one the snapshot put on the record for a kind the 2D
+        resolver gives no height (L4: ``core/object_height_estimate``) — the last two
+        built as decoration (``__call__``: no shadow)."""
         if record.height_cm is not None:
             return record.height_cm
-        return nominal_height_cm(record.kind)
+        nominal = nominal_height_cm(record.kind)
+        if nominal is not None:
+            return nominal
+        return estimated_height_of(record)
 
     def uses_the_plain_block(self, record: Record) -> bool:
         """A polygon-footprint record whose ground is not one plain outline (several

@@ -735,6 +735,59 @@ Acceptance: `tests/integration/test_plant_forge.py`,
 The production Beauty Board, actual engine seasonal checks and owner acceptance
 complete the evidence.
 
+The built world complete (L4, #388, ADR-065).
+
+- **FR-3D-BUILT-01** (L4.4): Every furniture, play, utility and structure object
+  (24 kinds: rectangular and round table, picnic table, chair, bench, lounger,
+  parasol, barbecue grill, fire pit, planter pot, sandbox, trampoline, hot tub,
+  swing, hammock, compost bin, cold frame, rain barrel, water tap, wheelbarrow,
+  bird bath, pergola, trellis, greenhouse) is shown in 3D as a model of the thing,
+  in the colours of its
+  2D sprite and turned as its sprite is, no longer as a picture on the ground. Its
+  top is its height on the plan; nothing of it reaches more than 10 cm past its
+  footprint. An object the plan gives no height (parasol, fire pit, planter pot,
+  cold frame, rain barrel, water tap, swing, hammock, pergola) is shown at a usual
+  height for its kind and casts no shadow, in 3D as in the 2D sun study.
+- **FR-3D-BUILT-02** (L4.1): A house, garage or tool shed has **Roof style**
+  (Automatic, Gable, Hip, Single slope, Flat), **Roof pitch** (Auto, 5–60°) and
+  **Roof overhang** (Auto, 0–150 cm) in the Properties panel. Each change is one
+  undo step and is saved with the plan; Automatic / Auto removes the value. The
+  roof's highest point stays the building's height, so a steeper pitch lowers the
+  eaves. Automatic is a gable along the house's ridge line, or a flat roof on a
+  house without one. A hip on an outline that is not convex is built as a gable.
+  The 2D plan and its sun study are unchanged by these settings.
+- **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
+  wall that faces the nearest path (a garage: the nearest driveway, then path).
+  Moving the building along its path does not move its door to another wall. A
+  building too low for a door has no door or window.
+- **FR-3D-BUILT-04** (L4.2): A path shows its style on the 3D ground: stepping
+  stones where the plan draws them, boardwalk planks, paving kerbs, gravel edging
+  and pebbles. A terrace or driveway shows kerbs, or deck boards for a wood pattern;
+  a pond shows water inside a stone coping. All of this lies on the plan's painted
+  ground, casts no shadow and cannot be clicked: a click on it is a click on the
+  ground, as on the flat surface before L4. A surface given a height is a raised solid with that top.
+- **FR-3D-BUILT-05** (L4.2): A path's width is its width on the ground in cm. New
+  paths start 70–100 cm wide by style (80 cm without one), and the Properties panel
+  sets a path's, fence's or wall's width up to 500 cm. Saved plans keep their
+  widths.
+- **FR-3D-BUILT-06** (L4.5): At the High and Ultra presets, a lawn grows grass
+  blades that sway with the wind. No blades grow under a path, terrace or bed drawn
+  on the lawn, or inside a house, shed, garage or greenhouse standing on it. A plan
+  grows at most 60,000 blades in all; a large lawn is sparser rather than slower.
+- **FR-3D-BUILT-07** (L4.5): From the Medium preset up, the 3D ground is shaded by
+  the relief of its own textures (paving joints, gravel, bark), with no new picture
+  of the ground and nothing mirrored.
+
+Acceptance (L4): `tests/integration/test_l4_built_world.py` (§8.10 — the roof
+rows through the real panel, undo and a save/load; the door against the path and
+a move as a transform; the lawn's cut-outs under a terrace and a greenhouse; a
+path's width in cm and its stones; an object without a height), the unit suites
+`tests/unit/test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py` and
+`test_scene3d_l4_surfaces.py` (every builder through `verify_builder` on hostile
+input), `tests/integration/test_bench_plans.py` (`bench_built.ogp`), the render
+tier `tests/integration/test_scene3d_ground_render.py` and the frozen
+`--selftest` (`ground.frag` compiled from the bundle).
+
 
 ## FR-34: Plan timeline and plant lifetimes (US-F4, #315)
 

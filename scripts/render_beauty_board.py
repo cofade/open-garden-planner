@@ -355,14 +355,19 @@ class Board:
 
     def frame(self, name: str, records: dict[str, Record], *, shot: Any, sun: SunState | None,
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
-              sky: bool = True, size: tuple[int, int] | None = None) -> tuple[np.ndarray, Any, dict[str, Any]]:
-        """Render one frame in a host of its own, save it, account for its Qt messages."""
+              sky: bool = True, size: tuple[int, int] | None = None,
+              baked: bool = False) -> tuple[np.ndarray, Any, dict[str, Any]]:
+        """Render one frame in a host of its own, save it, account for its Qt messages.
+        ``baked``: the plan's flat surfaces are painted onto its ground (L1.5 —
+        every board shot; the probes' oracles want it bare, #586)."""
+        from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
         try:
             build_date = self._snapshot_day.get(id(records))
             frame = render_records(
                 records, shot=shot, sun=sun, ground=ground, size=size or self.size,
+                ground_baker=GroundBaker(budget_s=None) if baked else None,
                 registry=registry, look=look, qml_dir=self.args.qml_dir, log=self.log,
                 graphics_info=True, sky_light=sky and not self.software,
                 prefer_software=self.software, plant_date=build_date,
@@ -393,10 +398,9 @@ class Board:
         self.qt_warnings += [str(line) for line in report.get("warnings", [])]
 
     def plan_ground(self) -> GroundSpec:
-        # THE GROUND BAKE (L1.5) JOINS HERE. Until its baker is on this branch the board
-        # shows the plan rectangle bare (one meadow albedo); with it, this is the one
-        # line that hands the pipeline the baked surfaces — the lawn, the terrace, the
-        # paths and the beds painted from the records.
+        """The plan rectangle. A shot paints the plan's flat surfaces onto it —
+        ``frame(..., baked=True)``, the ground bake of L1.5 (#586); a probe whose oracle
+        compares against the records' own footprints leaves it bare."""
         return GroundSpec(self.width, self.depth)
 
     # ── the shots ────────────────────────────────────────────────────────────
@@ -416,7 +420,8 @@ class Board:
                 look = look_for(sun, preset)
                 rgb, _frame, info = self.frame(
                     f"{shot.name}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
-                    registry=registry, shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg))
+                    registry=registry, shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
+                    baked=True)
                 row = {"shot": shot.name, "preset": preset, "sun_elev": round(sun.elevation_deg, 2),
                        "sun_az": round(sun.azimuth_deg, 2),
                        "sun_date": plan_day(shot.when_utc).isoformat(),
@@ -546,11 +551,13 @@ class Board:
                        ) -> tuple[np.ndarray, Any, dict[str, Any]]:
         """``frame`` with the analysis options of ``render_records`` (overlays, roofs,
         fades, the selection ring)."""
+        from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
         try:
             frame = render_records(
                 records, shot=shot, sun=sun, ground=self.plan_ground(), size=self.size,
+                ground_baker=GroundBaker(budget_s=None),
                 registry=registry, look=look, qml_dir=self.args.qml_dir, log=self.log,
                 graphics_info=True, sky_light=not self.software, prefer_software=self.software,
                 overlays=options.get("overlays"), roofs_hidden=bool(options.get("roofs_hidden")),
@@ -589,7 +596,8 @@ class Board:
                 look = look_for(sun, preset)
                 rgb, _frame, info = self.frame(
                     f"mood_{mood}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
-                    registry=registry, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    registry=registry, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg),
+                    baked=True)
                 rows[mood] = {"sun_elev": round(sun.elevation_deg, 2), "night": look.night,
                               "file": info["file"], **probes.frame_stats(rgb)}
             noon, night = rows["noon"], rows["night"]
@@ -733,7 +741,7 @@ class Board:
                     rgb, _frame, info = self.frame(
                         f"horizon_{mood}_{label}_{preset}", {}, sun=sun, look=look_for(sun, preset),
                         ground=self.plan_ground(),
-                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), baked=True)
                     row[label] = {**probes.horizon_step(rgb, camera), "file": info["file"]}
                     for key in worst:
                         worst[key] = max(worst[key], row[label][key])
@@ -905,7 +913,7 @@ class Board:
         again, _frame, _info = self.frame(
             "probes_restored", self.records_for(plan_day(shot.when_utc)), sun=sun,
             look=look_for(sun, preset), ground=self.plan_ground(), registry=production_registry(),
-            shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg))
+            shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg), baked=True)  # as the shot
         before = image_rgba(first)[..., :3].astype(np.float64)
         same = before.shape == again.shape
         self.metrics["probe_restore_frame_diff"] = (

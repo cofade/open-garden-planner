@@ -63,6 +63,8 @@ from open_garden_planner.core.object_types import (
 )
 
 __all__ = [
+    "MAX_LINE_WIDTH_CM",
+    "MAX_STROKE_WIDTH",
     "MIN_STROKE_WIDTH",
     "LineLook",
     "adopt_pen",
@@ -83,6 +85,13 @@ __all__ = [
 #: The narrowest stroke the properties panel and the properties dialog can set
 #: (both spin boxes start here).
 MIN_STROKE_WIDTH = 0.5
+#: The widest OUTLINE of a shape the panel and the dialog can set.
+MAX_STROKE_WIDTH = 20.0
+#: The widest LINE — a path, a fence, a wall — the panel can set, in cm (scene
+#: units). A line's stroke is its width on the ground: the 2D path painters, the
+#: ground bake and the 3D relief all read it (Phase 17 L4.2, #388: the owner found
+#: a garden path capped at 20 cm).
+MAX_LINE_WIDTH_CM = 500.0
 
 
 @dataclass(frozen=True)

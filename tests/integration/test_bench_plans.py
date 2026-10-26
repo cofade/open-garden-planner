@@ -114,7 +114,8 @@ def test_generator_reproduces_committed_fixtures(qtbot, tmp_path) -> None:  # no
     # module-scope rebinding once took it over for the rest of the session.
     after = (app_settings.ORGANIZATION_NAME, app_settings.APPLICATION_NAME)
     assert after == store
-    for name, build in (("bench_small.ogp", module.build_small), ("bench_large.ogp", module.build_large)):
+    for name, build in (("bench_small.ogp", module.build_small), ("bench_large.ogp", module.build_large),
+                        ("bench_built.ogp", module.build_built)):
         fresh = tmp_path / name
         module._save(build(), fresh)
         assert module._normalised(fresh) == module._normalised(PLANS / name), (
@@ -122,7 +123,45 @@ def test_generator_reproduces_committed_fixtures(qtbot, tmp_path) -> None:  # no
         )
 
 
-@pytest.mark.parametrize("name", ["bench_small.ogp", "bench_large.ogp"])
+def test_the_built_world_plan_holds_every_object_and_every_roof_style(qtbot) -> None:  # noqa: ARG001
+    """bench_built.ogp (Phase 17 L4, #388) is the L4 board's scene: every L4 object kind,
+    every path style at its own width, a house in each roof style, a deck, a stone
+    terrace, a driveway, a pond and a lawn."""
+    from open_garden_planner.core.object_types import PATH_FENCE_STYLES, PathFenceStyle
+    from open_garden_planner.core.roof_style import ROOF_STYLES
+    from open_garden_planner.core.scene3d.builders import OBJECT_KINDS, SURFACE_KINDS
+
+    scene, _ = _load("bench_built.ogp")
+    kinds = {item.object_type.name for item in scene.items() if getattr(item, "object_type", None)}
+    assert kinds >= OBJECT_KINDS | SURFACE_KINDS
+    styles = {item.path_fence_style for item in scene.items()
+              if getattr(item, "object_type", None) is ObjectType.PATH}
+    assert styles == {style for style, info in PATH_FENCE_STYLES.items() if info.category == "path"}
+    widths = {item.path_fence_style: item.pen().widthF() for item in scene.items()
+              if getattr(item, "object_type", None) is ObjectType.PATH}
+    assert widths[PathFenceStyle.STEPPING_STONES] == PATH_FENCE_STYLES[PathFenceStyle.STEPPING_STONES].stroke_width
+    roofs = {item.metadata.get("roof_style") for item in scene.items()
+             if getattr(item, "object_type", None) in (ObjectType.HOUSE, ObjectType.GARAGE_SHED,
+                                                        ObjectType.TOOL_SHED)}
+    assert roofs == {None, *ROOF_STYLES} - {"gable"}  # the house's gable is the automatic one
+
+
+def test_the_older_bench_plans_keep_their_path_widths(qtbot) -> None:  # noqa: ARG001
+    """L4 gave paths real widths; bench_small and bench_large keep the ones they were
+    made with, so every number measured on them stays measured on the same plan."""
+    spec = importlib.util.spec_from_file_location("make_bench_plans_widths",
+                                                  REPO / "scripts" / "make_bench_plans.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    for name in ("bench_small.ogp", "bench_large.ogp"):
+        scene, _ = _load(name)
+        for item in scene.items():
+            if getattr(item, "object_type", None) is ObjectType.PATH:
+                assert item.pen().widthF() == module.LEGACY_PATH_WIDTH_CM[item.path_fence_style], name
+
+
+@pytest.mark.parametrize("name", ["bench_small.ogp", "bench_large.ogp", "bench_built.ogp"])
 def test_fixture_is_valid_json_with_version(name: str) -> None:
     data = json.loads((PLANS / name).read_text(encoding="utf-8"))
     assert data["version"]

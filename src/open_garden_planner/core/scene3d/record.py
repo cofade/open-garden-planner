@@ -111,6 +111,28 @@ PARAM_PAINT_ORIGIN: Final = "paint_origin"
 #: resolved it into: not the drawn vertices, possibly several rings, and anything
 #: that referred to the drawn outline (a HOUSE's ``ridge``) is left out.
 PARAM_OUTLINE_RESOLVED: Final = "outline_resolved"
+#: A building's roof (L4.1, ``core/roof_style``) — each present only when the item
+#: stores a usable value: str ``"gable"`` / ``"hip"`` / ``"shed"`` / ``"flat"``; the
+#: pitch in DEGREES (a float that is not a length: ``DIMENSIONLESS_PARAMS``); the
+#: overhang in cm.
+PARAM_ROOF_STYLE: Final = "roof_style"
+PARAM_ROOF_PITCH: Final = "roof_pitch_deg"
+PARAM_ROOF_OVERHANG: Final = "roof_overhang_cm"
+#: int — a building's (L4.1): the index of the wall (of its counter-clockwise
+#: footprint, ``builders.facade``) that faces the nearest PATH (a garage's nearest
+#: DRIVEWAY first); its door goes there. WHICH wall only, so a building moved along
+#: its path keeps its param and its mesh. Absent when the plan has no path.
+PARAM_DOOR_WALL: Final = "door_wall"
+#: str — a TERRACE_PATIO's or DRIVEWAY's fill-pattern name (L4.2): its relief
+#: (boards for a deck, pavers, a kerb) depends on it, so here it is geometry.
+PARAM_SURFACE_PATTERN: Final = "surface_pattern"
+#: ``((x, y), …)`` rings — a LAWN's (L4.5): the outlines, in the lawn's local frame,
+#: of the flat items painted ABOVE it (paths, terraces, beds, ponds …). Its blades
+#: grow nowhere under them.
+PARAM_LAWN_CUTOUTS: Final = "lawn_cutouts"
+#: int — how many blades a LAWN grows (L4.5): its share of the plan's blade budget
+#: (``context.MAX_PLAN_BLADES``). Absent: the lawn's own count (a record made by hand).
+PARAM_LAWN_BLADES: Final = "lawn_blades"
 
 #: Tint of a part whose item has neither a fill nor a stroke colour (the legacy
 #: collector's fallback, ``ui/view3d/snapshot._FALLBACK_COLOR``).
@@ -135,8 +157,8 @@ MIN_HEIGHT_CM: Final = 1e-3
 #: ``MAX_LENGTH_CM``: the two the snapshot writes are (``radius_cm``, ``ridge``),
 #: and a builder turns what it reads into geometry. A later float param that is
 #: a ratio, an angle or a count of days names its key HERE; it is then checked
-#: for being finite and for nothing else. Empty today.
-DIMENSIONLESS_PARAMS: Final[frozenset[str]] = frozenset()
+#: for being finite and for nothing else. L4.1 (#388): a roof's pitch, in degrees.
+DIMENSIONLESS_PARAMS: Final[frozenset[str]] = frozenset({"roof_pitch_deg"})
 
 
 class RecordRangeError(ValueError):
@@ -415,6 +437,19 @@ class Params(Mapping[str, ParamValue]):
 
 EMPTY_PARAMS: Final = Params()
 
+#: Params only the 3D BUILDERS read — never the ground bake, which paints an item as
+#: the canvas does (L4, #388): a roof, a door's target, a deck's pattern (the bake
+#: reads the pattern from the material), a lawn's cut-outs and blade count. A change
+#: of them alone rebuilds a mesh and re-paints no tile (``Record.same_ground_geometry``).
+BUILD_ONLY_PARAMS: Final[frozenset[str]] = frozenset({
+    PARAM_ROOF_STYLE, PARAM_ROOF_PITCH, PARAM_ROOF_OVERHANG, PARAM_DOOR_WALL,
+    PARAM_SURFACE_PATTERN, PARAM_LAWN_CUTOUTS, PARAM_LAWN_BLADES,
+})
+
+
+def _painted_params(params: Params) -> tuple[tuple[str, ParamValue], ...]:
+    return tuple((key, value) for key, value in params.items() if key not in BUILD_ONLY_PARAMS)
+
 #: Field groups of ``Record`` — pinned by a drift-guard test: every field is in
 #: exactly one. A new field must be put into a signature or declared unsigned.
 GEOMETRY_FIELDS: Final[tuple[str, ...]] = (
@@ -598,6 +633,18 @@ class Record:
             and self.params == other.params
             and self.outline == other.outline
         )
+
+    def same_ground_geometry(self, other: Record) -> bool:
+        """Equal geometry as the GROUND BAKE sees it: every geometry field equal, the
+        params too once ``BUILD_ONLY_PARAMS`` are left out (L4: a lawn whose blades a
+        moved path cuts anew is painted as it was — its tiles are not re-baked)."""
+        if self.same_geometry(other):
+            return True
+        return (self.kind == other.kind and self.shape == other.shape
+                and self.height_cm == other.height_cm and self.path_width_cm == other.path_width_cm
+                and self.footprints == other.footprints and self.holes == other.holes
+                and self.path == other.path and self.outline == other.outline
+                and _painted_params(self.params) == _painted_params(other.params))
 
     def same_transform(self, other: Record) -> bool:
         return self.transform_sig == other.transform_sig and self.transform == other.transform

@@ -11,6 +11,14 @@ are production ``.ogp`` files, not hand-rolled JSON:
   fence, hedge, wall and furniture. It is the beauty-board scene.
 * ``bench_large.ogp`` — a 50 x 30 m allotment-style plan with 425 items
   (320 plants) for the performance budgets.
+* ``bench_built.ogp`` — a 26 x 18 m plan of the BUILT world (Phase 17 L4, #388):
+  every furniture and infrastructure object, a house in each roof style, every
+  path style at a real width, a deck, a stone terrace, a driveway, a pond and a
+  lawn the paths cut. The L4 Beauty Board's scene.
+
+The first two keep the path widths they were made with (6-10 cm, before L4 gave
+paths real widths): ``PlanBuilder(legacy_path_widths=True)``, so the committed
+files stay byte for byte what every pinned number of the L1-L3 stories measured.
 
 Both sit in Berlin, with its frost dates (``BERLIN``). Both are deterministic:
 positions come from a seeded ``random.Random`` and item ids are drawn from the
@@ -66,6 +74,8 @@ from PyQt6.QtCore import QPointF  # noqa: E402
 from PyQt6.QtWidgets import QApplication  # noqa: E402
 
 from open_garden_planner.core import ProjectManager  # noqa: E402
+from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush  # noqa: E402
+from open_garden_planner.core.item_look import adopt_pen  # noqa: E402
 from open_garden_planner.core.object_height import METADATA_KEY  # noqa: E402
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle  # noqa: E402
 from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints  # noqa: E402
@@ -100,13 +110,24 @@ BERLIN = {"latitude": 52.52, "longitude": 13.405,
 PLANTED = date(2026, 4, 15).isoformat()
 
 
+#: The path widths the presets drew before L4 (#388) gave paths real ones — what
+#: bench_small and bench_large were made with, and keep (module docstring).
+LEGACY_PATH_WIDTH_CM: dict[PathFenceStyle, float] = {
+    PathFenceStyle.NONE: 5.0, PathFenceStyle.GRAVEL_PATH: 8.0,
+    PathFenceStyle.STEPPING_STONES: 6.0, PathFenceStyle.PAVED_PATH: 10.0,
+    PathFenceStyle.WOODEN_BOARDWALK: 10.0, PathFenceStyle.DIRT_PATH: 6.0,
+}
+
+
 class PlanBuilder:
     """Adds items to a CanvasScene with deterministic ids and positions."""
 
-    def __init__(self, width_cm: float, height_cm: float, seed: str) -> None:
+    def __init__(self, width_cm: float, height_cm: float, seed: str, *,
+                 legacy_path_widths: bool = False) -> None:
         self.scene = CanvasScene(width_cm, height_cm)
         self.rng = random.Random(seed)
         self.count = 0
+        self.legacy_path_widths = legacy_path_widths
         # Default layers get uuid4 ids at construction; pin them so the file is
         # byte-stable across regenerations (items reference layers by id).
         for layer in self.scene.layers:
@@ -142,9 +163,18 @@ class PlanBuilder:
 
     def polyline(self, points: list[tuple[float, float]], ot: ObjectType,
                  style: PathFenceStyle = PathFenceStyle.NONE, name: str = "") -> PolylineItem:
-        return self._add(
-            PolylineItem(self._pts(points), object_type=ot, name=name, path_fence_style=style)
-        )
+        item = PolylineItem(self._pts(points), object_type=ot, name=name, path_fence_style=style)
+        if self.legacy_path_widths and ot is ObjectType.PATH:
+            pen = item.pen()
+            pen.setWidthF(LEGACY_PATH_WIDTH_CM[style])
+            adopt_pen(item, pen)
+        return self._add(item)
+
+    def filled(self, item: Any, pattern: FillPattern) -> Any:
+        """Give an item a fill pattern the way the properties panel does."""
+        item.fill_pattern = pattern
+        item.setBrush(create_pattern_brush(pattern, item.fill_color))
+        return item
 
     # -- composites -------------------------------------------------------
     def house(self, points: list[tuple[float, float]], name: str = "House") -> PolygonItem:
@@ -200,7 +230,7 @@ def build_small() -> PlanBuilder:
     gravel path to three raised vegetable beds, a trellis with climbers,
     berry shrubs along the fence, apple/pear/spruce/birch trees.
     """
-    b = PlanBuilder(2400.0, 1600.0, seed="ogp-bench-small-v2")
+    b = PlanBuilder(2400.0, 1600.0, seed="ogp-bench-small-v2", legacy_path_widths=True)
     T = ObjectType
 
     # --- ground surfaces (bottom of the stack) ---
@@ -310,7 +340,7 @@ def build_small() -> PlanBuilder:
 
 def build_large() -> PlanBuilder:
     """50 x 30 m allotment-style plan — 425 items, 320 plants (performance)."""
-    b = PlanBuilder(5000.0, 3000.0, seed="ogp-bench-large-v1")
+    b = PlanBuilder(5000.0, 3000.0, seed="ogp-bench-large-v1", legacy_path_widths=True)
     T = ObjectType
     b.polygon([(30, 30), (4970, 30), (4970, 2970), (30, 2970)], T.LAWN, "Lawn")
     b.house([(200, 2200), (1300, 2200), (1300, 2900), (200, 2900)])
@@ -355,6 +385,109 @@ def build_large() -> PlanBuilder:
     return b
 
 
+def build_built() -> PlanBuilder:
+    """26 x 18 m — the built world of Phase 17 L4 (#388), every object of the 2D roster.
+
+    North-west: a gabled house on its ridge with a deck before it (table, chairs,
+    parasol, loungers, grill). North-east: a hip-roofed studio and a flat-roofed
+    garage at the end of a gravel driveway. Middle: a lawn crossed by stepping
+    stones, a paved path and a boardwalk to a stone terrace (round table, picnic
+    table, hot tub) under a pergola's corner; the pond with a bird bath; a play
+    corner (sandbox, trampoline, swing, hammock). South: the kitchen garden — a
+    greenhouse, a raised bed with a trellis, a cold frame, a compost bin, a rain
+    barrel, a water tap, a wheelbarrow, a tool shed with a mono-pitch roof, a dirt
+    path and a gravel path; a fire pit and a bench with planter pots by the hedge.
+    """
+    b = PlanBuilder(2600.0, 1800.0, seed="ogp-bench-built-v1")
+    T = ObjectType
+    S = PathFenceStyle
+
+    # --- ground surfaces ---
+    b.polygon([(40, 40), (2560, 40), (2560, 1240), (40, 1240)], T.LAWN, "Lawn")
+    b.polygon([(120, 1300), (1100, 1300), (1100, 1440), (120, 1440)], T.TERRACE_PATIO, "Deck")
+    b.filled(b.polygon([(1180, 700), (1700, 700), (1700, 1040), (1180, 1040)],
+                       T.TERRACE_PATIO, "Stone terrace"), FillPattern.FLAGSTONE)
+    b.polygon([(2150, 1240), (2420, 1240), (2420, 1290), (2450, 1290), (2450, 40), (2150, 40)],
+              T.DRIVEWAY, "Driveway")
+    b.circle(520, 900, 150, T.POND_POOL, "Pond")
+
+    # --- buildings: a house in each roof style ---
+    b.house([(120, 1460), (1100, 1460), (1100, 1760), (120, 1760)], "House")
+    studio = b.rect(1260, 1360, 520, 380, T.HOUSE, "Studio", height_cm=520)
+    studio.metadata["roof_style"] = "hip"
+    garage = b.rect(1900, 1300, 520, 420, T.GARAGE_SHED, "Garage")
+    garage.metadata["roof_style"] = "flat"
+    shed = b.rect(80, 80, 240, 180, T.TOOL_SHED, "Tool shed")
+    shed.metadata["roof_style"] = "shed"
+    b.rect(380, 80, 300, 220, T.GREENHOUSE, "Greenhouse")
+    b.rect(1180, 700, 300, 260, T.PERGOLA, "Pergola")
+
+    # --- boundaries ---
+    b.polyline([(10, 10), (2590, 10)], T.FENCE, S.WOODEN_FENCE, "South fence")
+    b.polyline([(2590, 10), (2590, 1790)], T.FENCE, S.METAL_FENCE, "East fence")
+    b.polygon([(10, 30), (60, 30), (60, 1250), (10, 1250)], T.HEDGE_POLYGON, "Hedge")
+
+    # --- paths, every style at its own width ---
+    b.polyline([(600, 1300), (600, 1100), (760, 980), (1180, 900)], T.PATH, S.STEPPING_STONES,
+               "Stepping stones")
+    b.polyline([(1100, 1370), (1250, 1300), (1300, 1040)], T.PATH, S.PAVED_PATH, "Paved path")
+    b.polyline([(1700, 860), (2150, 860)], T.PATH, S.WOODEN_BOARDWALK, "Boardwalk")
+    b.polyline([(200, 300), (200, 560), (700, 560), (700, 340)], T.PATH, S.GRAVEL_PATH,
+               "Gravel path")
+    b.polyline([(760, 330), (1000, 420), (1400, 420)], T.PATH, S.DIRT_PATH, "Dirt path")
+
+    # --- the deck: dining and lounging ---
+    b.rect(260, 1320, 160, 90, T.TABLE_RECTANGULAR, "Table")
+    for cx, cy in [(290, 1300), (390, 1300), (290, 1430), (390, 1430)]:
+        b.rect(cx - 22, cy - 22, 45, 45, T.CHAIR, "Chair")
+    b.circle(560, 1370, 110, T.PARASOL, "Parasol")
+    b.rect(720, 1310, 70, 190, T.LOUNGER, "Lounger")
+    b.rect(820, 1310, 70, 190, T.LOUNGER, "Lounger")
+    b.circle(1000, 1380, 40, T.BBQ_GRILL, "Grill")
+
+    # --- the stone terrace ---
+    b.circle(1560, 760, 55, T.TABLE_ROUND, "Round table")
+    b.rect(1500, 860, 180, 150, T.PICNIC_TABLE, "Picnic table")
+    b.rect(1210, 730, 220, 220, T.HOT_TUB, "Hot tub")
+
+    # --- pond and birds ---
+    b.circle(760, 820, 25, T.BIRD_BATH, "Bird bath")
+
+    # --- play corner ---
+    b.rect(1800, 120, 150, 150, T.SANDBOX, "Sandbox")
+    b.circle(1850, 520, 150, T.TRAMPOLINE, "Trampoline")
+    b.rect(1500, 100, 220, 160, T.SWING, "Swing")
+    b.rect(1450, 480, 300, 120, T.HAMMOCK, "Hammock")
+
+    # --- kitchen garden ---
+    bed = b.rect(780, 90, 360, 120, T.RAISED_BED, "Raised bed")
+    for i, crop in enumerate(["Tomato", "Basil", "Lettuce", "Kale", "Carrot", "Onion"]):
+        b.plant(810 + i * 60, 150, crop, T.PERENNIAL, parent=bed)
+    trellis = b.rect(1180, 80, 200, 20, T.TRELLIS, "Trellis")
+    b.plant(1280, 130, "Runner Bean", T.PERENNIAL, parent=trellis)
+    b.rect(380, 330, 120, 60, T.COLD_FRAME, "Cold frame")
+    b.rect(80, 330, 100, 100, T.COMPOST_BIN, "Compost bin")
+    b.circle(345, 105, 30, T.RAIN_BARREL, "Rain barrel")
+    b.circle(730, 110, 10, T.WATER_TAP, "Water tap")
+    b.rect(1000, 260, 60, 140, T.WHEELBARROW, "Wheelbarrow")
+
+    # --- by the hedge: fire pit, bench, pots ---
+    b.circle(260, 760, 50, T.FIRE_PIT, "Fire pit")
+    b.rect(90, 640, 180, 60, T.BENCH, "Bench")
+    for i in range(2):
+        b.circle(120, 900 + i * 70, 25, T.PLANTER_POT, f"Planter {i + 1}")
+
+    # --- a few trees and shrubs for scale ---
+    for tx, ty, name, spread, height in [
+        (2300, 700, "Apple Tree", 340, 420),
+        (980, 1180, "Cherry Tree", 300, 450),
+    ]:
+        b.plant(tx, ty, name, T.TREE, spread_cm=spread, height_cm=height)
+    for i, name in enumerate(["Hydrangea", "Rose", "Lilac"]):
+        b.plant(2520, 300 + i * 220, name, T.SHRUB, spread_cm=110, height_cm=140)
+    return b
+
+
 def _save(builder: PlanBuilder, path: Path) -> None:
     pm = ProjectManager()
     pm.set_location(copy.deepcopy(BERLIN))
@@ -391,7 +524,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     app = QApplication.instance() or QApplication(sys.argv[:1])  # noqa: F841
 
-    plans = {"bench_small.ogp": build_small, "bench_large.ogp": build_large}
+    plans = {"bench_small.ogp": build_small, "bench_large.ogp": build_large,
+             "bench_built.ogp": build_built}
     if args.check:
         failed = False
         with tempfile.TemporaryDirectory() as tmp:

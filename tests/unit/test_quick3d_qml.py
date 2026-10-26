@@ -289,8 +289,26 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "overlay.vert", "overlay.frag",     # the analysis overlays: L2
                                 "screen.frag", "screen.vert",       # X-ray and Cutaway: L2.4
                                 "foliage_door.frag", "water_door.frag",
-                                "foliage_door.vert", "grass_door.vert"}
+                                "foliage_door.vert", "grass_door.vert",
+                                "ground.frag"}                      # detail normals: L4.5
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {"Garden.qml"}
+
+
+def test_the_ground_detail_shader_flips_v_itself() -> None:
+    """PF-L3D-11: a ``TextureInput`` ignores its ``Texture``'s ``flipV`` (measured, L4.5,
+    #388) — ``ground.frag`` samples the north-up tile at ``1 - v`` itself, and every
+    sample it takes goes through that flipped coordinate."""
+    code = "\n".join(line.split("//")[0] for line in
+                     (QML_DIR / "ground.frag").read_text(encoding="utf-8").splitlines())
+    assert re.search(r"\buv\s*=\s*vec2\(\s*UV0\.x\s*,\s*1\.0\s*-\s*UV0\.y\s*\)", code)
+    samples = re.findall(r"texture\(\s*uBaseMap\s*,\s*([^;]*?)\)\s*\.rgb", code)
+    assert len(samples) == 5 and all(sample.startswith("uv") for sample in samples), samples
+
+
+def test_the_scene_uses_no_order_independent_transparency() -> None:
+    """PF-L3D-12: weighted-blended OIT re-blends L2's multiply drapes (measured: pixels
+    under a shadow drape up to 243 levels lighter). Glass stays the sorted material."""
+    assert "oitMethod" not in strip_comments(_scene())
 
 
 def test_every_custom_shader_multiplies_with_the_tint() -> None:

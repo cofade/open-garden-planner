@@ -18,7 +18,9 @@ the artifact it runs in: can THIS build render the garden? It
 4. bakes the plan's ground with the product's ground baker (L1.5): one flat
    lawn, painted into twelve ground tiles over as many passes (a budget of 0 —
    at least one tile a pass), uploaded as textures — and the judge finds the
-   lawn's colour where the lawn lies.
+   lawn's colour where the lawn lies. The frame's look is High, so the tiles are
+   drawn by the detail-normal material (L4.5, #388): ``ground.frag`` is compiled
+   from the bundle too.
 5. shows two analysis overlays of L2 (#386) — a patch of the 2D shadow drape
    (``core.scene3d.drape.shadow_drape``, the product's own builder) on the shade
    layer and a patch on the lines overlay — so ``overlay.vert`` / ``overlay.frag``

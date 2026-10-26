@@ -103,3 +103,32 @@ Climber guides retain actual finite support geometry: orientation alone left a
 13.3945 cm gap to a reachable fence. Support discovery runs on the worker and
 reuses structural dependencies; the production workspace timing gate includes
 300 climbers and 100 supports, rather than bypassing admission with an evaluator.
+
+### PF-L3D-11
+
+- **Rule:** A `CustomMaterial`'s `TextureInput` ignores the `Texture`'s `flipV`, so a shader that samples a north-up ground tile flips `v` itself.
+- **Pinned by:** `tests/integration/test_scene3d_ground_render.py::test_the_engine_shows_the_bake_north_up`; `tests/unit/test_quick3d_qml.py::test_the_ground_detail_shader_flips_v_itself`
+- **Source:** #388, ADR-065 decision 8
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+L4.5 moved the ground tiles from a `PrincipledMaterial` to a custom material (`ground.frag`,
+detail normals from the tile's own luminance). The tiles still carried `flipV: true` on
+their `Texture`, and the plan drew mirrored north–south: the flat material honours the
+flag, a `TextureInput` does not. The fix samples at `vec2(UV0.x, 1.0 - UV0.y)`. The
+north-up gate runs at the High preset, so it judges the custom material, not the flat one.
+
+### PF-L3D-12
+
+- **Rule:** Do not switch on scene-wide order-independent transparency: `OITWeightedBlended` re-blends L2's multiply drapes and brightens what a shadow drape covers.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_scene_uses_no_order_independent_transparency`; `tests/integration/test_view3d_analysis_render.py`
+- **Source:** #388, ADR-065 decision 9
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Issue #388 asked for greenhouse glass "with OIT". With `oitMethod: OITWeightedBlended` on the
+scene environment, four drape tests failed: pixels under the shade layer read up to 243
+levels LIGHTER, the PF-L3D-06/07 class of P0. Weighted-blended OIT accumulates every
+blended Model into its own buffers and composites them with its own equation, so the
+drape's multiply blend no longer multiplies. The greenhouse and cold-frame glass keep the
+existing sorted `glass` material.

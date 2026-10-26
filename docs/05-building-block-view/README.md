@@ -90,10 +90,17 @@ src/open_garden_planner/
 │   │   ├── color.py              #   sRGB → linear, the one conversion
 │   │   ├── builders/             #   the production builders (Phase 17 L1.6 built world, L1.7 plants) — production_registry(); see §5.10
 │   │   │   ├── primitives.py     #     flat_mesh, boxes, bevelled_boxes, prism, sweep, plank, lathe, tubes, plan helpers
-│   │   │   ├── palette.py        #     the 13 baked colours, mirrored from the 2D generators (drift-guarded); TINT
-│   │   │   ├── common.py         #     BuiltBuilder: the top is the height (fit safety net); no height, no shadow
-│   │   │   ├── roofs.py          #     gable roof + walls from a ridge line; shed ridge from the local bounding box
-│   │   │   ├── buildings.py      #     HOUSE, GARAGE_SHED, TOOL_SHED
+│   │   │   ├── palette.py        #     the baked colours, mirrored from the 2D generators and object MATERIALS (drift-guarded); TINT
+│   │   │   ├── common.py         #     BuiltBuilder: the top is the height (fit safety net); no height → estimate, no shadow
+│   │   │   ├── kit.py            #     L4: bevelled pieces every object builder shares (legs, slats, staves, frames)
+│   │   │   ├── furniture.py      #     L4: tables, chairs, bench, lounger, parasol, grill, fire pit, planter pot, picnic table
+│   │   │   ├── play.py           #     L4: sandbox, trampoline, hot tub, swing, hammock
+│   │   │   ├── utility.py        #     L4: compost bin, cold frame, rain barrel, water tap, wheelbarrow, bird bath
+│   │   │   ├── structures.py     #     L4: pergola, trellis, greenhouse (glass)
+│   │   │   ├── surfaces.py       #     L4: ground-detail relief — path styles, kerbs / decks, pond water + coping, lawn blades
+│   │   │   ├── roofs.py          #     gable / hip / shed / flat roofs + the walls' top under them (L4.1)
+│   │   │   ├── facade.py         #     L4: windows on the walls that hold them, the door on params["door_wall"]
+│   │   │   ├── buildings.py      #     HOUSE, GARAGE_SHED, TOOL_SHED: roof style, pitch, overhang (core/roof_style)
 │   │   │   ├── lines.py          #     FENCE and WALL: the ONE dispatch from kind + style to a solid; unknown style → plain panel
 │   │   │   ├── fences.py         #     fence geometry: picket, metal, chain link, hedge fence, plain panel
 │   │   │   ├── walls.py          #     wall geometry: body + coping swept along the centre line
@@ -104,6 +111,7 @@ src/open_garden_planner/
 │   │   ├── selection.py          #   Selection: the selected ids + ONE ring mesh round their footprints — L1.8, see §5.15
 │   │   ├── walk.py               #   walk mode's rules: the walker, its world (what is DRAWN blocks), ticks and sliding — L1.8
 │   │   ├── pick_oracle.py        #   a ray caster and camera model of our own: what the engine's pick is judged against — L1.8
+│   │   ├── context.py            #   with_context: params one record needs from the others (door wall, lawn cut-outs, blades) — L4
 
 │   │   └── interleave.py         #   a Mesh as the bytes an engine uploads (stride 48, engine frame) — L1.2
 │   ├── growth_model.py           # Qt-free current-size→mature interpolation by planting date — one model for shadows/heatmap/3D (US-E8, ADR-037)
@@ -517,6 +525,9 @@ for other `core` modules.
 | `core/plant_art/recipes.py` | What a plant looks like, as data (L1.7): the five tables the sprite generator draws from — `PALETTES` (nine, six anchors each), `FRUITS`, `FLOWERS`, `SPECIES` (108 recipes), `CATEGORIES` (15) — plus `palette_key(recipe)`, `FEATURE_KEYS` (the keys a season decides) and `ARCHETYPES` (the thirteen `a=` values). Standard library only; no Qt, no numpy. | recipe tables |
 | `core/plant_art/resolve.py` | Which sprite — and so which recipe — a plant gets: `resolve_sprite(kind, species, category, available=…)`, the 2D rule (corrected in #446: a species name is matched as a whole name or alias, not as a substring) with its maps (`SPECIES_SPRITES`, `CATEGORY_SPRITES`, `DEFAULT_CATEGORY`, `PLANT_KINDS`); `resolve_recipe` / `recipe_for` for 3D. `core/plant_renderer` and the 3D plant builder both call it — on the same three inputs: the item's type, its own species string as it is (the record's `sprite_species`) and its category — so the plan and the 3D view draw and build the same sprite. | names → `SpriteRef` (+ recipe) |
 | `core/plant_height_estimate.py` | Qt-free canonical illustrative height table (#557): tree 400 cm, shrub/climber 150 cm, perennial/flower/grass/ground cover 60 cm, vegetable/herb 50 cm; category before item kind. Snapshot-only `estimated_height_cm` drives decorative plant geometry and shadows; `height_cm` and analytical sun/shade remain unknown. No plan or undo mutation. | kind + category → estimated cm or None |
+| `core/object_height_estimate.py` | Qt-free illustrative heights for objects the 2D resolver gives no height (Phase 17 L4, #388): parasol 250, fire pit 30, planter pot 50, cold frame 45, rain barrel 100, water tap 80, swing 220, hammock 110, pergola 250 cm. Carried by the snapshot as `estimated_height_cm`; such an object is built as decoration WITHOUT a shadow, and 2D sun/shade keeps the height unknown. | kind → estimated cm or None |
+| `core/roof_style.py` | Qt-free roof metadata (L4.1): the keys `roof_style` / `roof_pitch_deg` / `roof_overhang_cm`, `ROOF_STYLES` (gable, hip, shed, flat), `BUILDING_KINDS`, the clamps (pitch 5–60°, overhang ≤ 150 cm) and validating readers. Edited by the Properties panel (one `ChangePropertyCommand` each), read by the snapshot; the 2D plan does not read it (ADR-065). | metadata → style / pitch / overhang or None |
+| `core/scene3d/context.py` | The snapshot's context pass (L4): `with_context(records)` writes `door_wall` (the wall facing the nearest path / driveway), `lawn_cutouts` and `lawn_blades` (the plan's blade budget, water-filled by area) into the records that need them, in their own frames. Build-only params (`record.BUILD_ONLY_PARAMS`): the ground bake ignores them. §8.29.12. | records → records (in place) |
 | `core/scene3d/builders/plants.py` | Plant v0 (L1.7): `build_plant`, the builder of `TREE` / `SHRUB` / `PERENNIAL`. One silhouette per archetype (`ARCHETYPE_BUILDERS`, thirteen), foliage in the recipe's palette, wood in the 2D bark colour; the builders build to the record's height and canopy circle, `_fit` normalises the last millimetre, ends by holding every foliage vertex within `REACH_MAX` (1.09) canopy radii of the axis (wood stays inside by the trunk builders' radii), builds sizes between `MIN_SIZE_CM` and `MAX_LENGTH_CM` only, and returns a `FitReport` of what it repaired (`fit_report`); a shape is built once per (recipe form, seed, 5 % proportion step) and scaled to the exact size (`PROPORTION_STEP`; the cache is capped in bytes, `SHAPE_CACHE_BYTES`, `resize_shape_cache`, `shape_cache_info`), so a plant that grows is not rebuilt; at most 2,000 triangles; no fruit or flowers; unknown plant height uses the separate illustrative `estimated_height_cm` record parameter (#557); `placeholder_parts` remains only when no usable fallback exists (a low neutral dome, no shadow). `register(registry)` takes `plant_art.PLANT_KINDS`. Concept: §8.29.7. | `Record` → `("wood", "foliage")` parts, or `("placeholder",)` |
 
 ## 5.11 Qt Quick 3D Engine Package (Phase 17 L1.2, #385, ADR-048)

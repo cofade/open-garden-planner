@@ -310,7 +310,11 @@ def test_the_horizon_hue_seam_is_reported(board) -> None:
 #: same with and without sharpening and so not the look's — and its December frame has
 #: almost none. The bounds are per shot, each a third above what was measured; the gate
 #: for the LOOK is the December frame, where the control is 75 times the clean count.
-MAX_SPECKLES = {"noon": 260, "december_noon": 30}
+#: Re-measured 2026-10-26 (#388): the December frame reads 33 on master and 32 with L4 —
+#: L3's forged crowns (#387) show their own shade through gaps between leaves, the tall
+#: columnar tree most; none is a sharpening overshoot. A third above: 44. Noon reads
+#: 162 on master and 191 with L4, inside its bound.
+MAX_SPECKLES = {"noon": 260, "december_noon": 44}
 MIN_CONTROL_EXTRA = 80
 
 

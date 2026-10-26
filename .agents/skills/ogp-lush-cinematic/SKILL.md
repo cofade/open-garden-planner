@@ -30,7 +30,7 @@ OGP is a planning tool. A beautiful render that misstates the plan is a **P0**, 
 | Sky | the sky's sun disc sits at the solar azimuth | sky probe error < 6° (spike, disc 25° off-centre: max 0.85° OpenGL, 1.4° D3D11) |
 | Date | season/growth shown = the plan's sim date | models are built for each shot's own date; every shot row records `sun_date` = `build_date` (`metrics.json`) |
 | Season | fruit and flowers only inside the plan's OWN frost-free season: `location["frost_dates"]` `last_spring_frost` ≤ day ≤ `first_fall_frost` (`"MM-DD"`, the keys the task generator reads); fruit whose species carries harvest weeks follows the shared task generator's harvest window instead — last spring frost + `harvest_start` … + `harvest_end` weeks, anchored on every frost year whose window can reach the day (a 29 February frost and the spike's fallback for it: ADR-048 entry 18; `task_generator.generate_for_date_window`, behind the agent's `get_tasks` and `get_task_calendar`; every GUI task surface anchors on one year, TD-037; bench: tomato 18 Jun–27 Aug, sweet pepper 2 Jul–13 Aug, so the 21 June board shows no peppers); no frost dates → no seasonal claim (accents stay). Crowns never go bare: the growth model has no leaf-off — an owner question, not a look lever | `runner.in_frost_free_season`, `runner.in_harvest_window` / `accents_in_season`; every shot row's build records `in_season` (`metrics.json` `builds`); exact accent-colour markers in `test_spike_q3d_board.py` / `test_spike_q3d_meshes.py` |
-| Built heights | every built object's top = its resolved height ±1 % | builders exact to `h`, `fit_height` as the safety net; objects with no resolved height (rain barrel, fire pit) cast no shadow — as in 2D |
+| Built heights | every built object's top = its resolved height ±1 % | builders exact to `h`, `fit_height` as the safety net; an object with no resolved height (parasol, fire pit, planter pot, cold frame, rain barrel, water tap, swing, hammock, pergola) is BUILT at the illustrative height of `core/object_height_estimate.py` and casts no shadow — as in 2D, where it has no caster (L4, ADR-065; whether it should cast is an open owner question) |
 | Faces | the sun lights the face that faces it | stored normal · winding normal ≥ 0.99 on every flat face (the first board lit the wrong roof slope) |
 
 Never tune a domain number (species height, spread, planting date) to make a shot prettier.
@@ -167,7 +167,11 @@ less golden than the 6° anchor, which `sunset` shows.
 Fixture: `tests/fixtures/plans/bench_small.ogp` (24×16 m showcase garden, every object class;
 regenerate with `scripts/make_bench_plans.py`, never hand-edit). Render through the
 **production pipeline** (L1.4) — `snapshot_records` → `SceneSync(production_registry())` →
-`Quick3DSink` → a never-shown `Quick3DHost` per frame, lit by `core/scene3d/look.look_for`:
+`Quick3DSink` → a never-shown `Quick3DHost` per frame, lit by `core/scene3d/look.look_for`.
+Every shot, mood and horizon frame paints the plan's flat surfaces into its ground with the
+product's `GroundBaker` (#586); the IoU and orientation probes stay bare, because their oracles
+are the records' own footprints. `tests/fixtures/plans/bench_built.ogp` (`--plan`) holds every
+L4 object kind, path style and roof style (ADR-065):
 
 ```bash
 venv/Scripts/python.exe scripts/render_beauty_board.py --out <dir>   --presets low,high --shots all --iou --orient --horizon --moods --watchdog-s 1800

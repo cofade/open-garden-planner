@@ -336,6 +336,8 @@ Permanent IDs survive retirement (ADR-061). [Pitfalls](pitfalls/) hold rules and
 | PF-L3D-08 | A hidden or blended Model drops out of the shadow map, so a part that must keep casting while it fades or is cut is an opaque screen door (a fragment discard) that collapses in the AO depth pass. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-08) |  |
 | PF-L3D-09 | The 3D drape follows the shared Hours of Sun both ways, also when 3D opens with it on. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-09) |  |
 | PF-L3D-10 | Render production plants and verify final seasonal bounds. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-10) |  |
+| PF-L3D-11 | A `CustomMaterial`'s `TextureInput` ignores the `Texture`'s `flipV`, so a shader that samples a north-up ground tile flips `v` itself. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-11) |  |
+| PF-L3D-12 | Do not switch on scene-wide order-independent transparency: `OITWeightedBlended` re-blends L2's multiply drapes and brightens what a shadow drape covers. | standing | [11](pitfalls/11-3d-look-ground-build.md#pf-l3d-12) |  |
 
 ### Redirect of legacy numbered IDs
 
