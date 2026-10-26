@@ -7857,3 +7857,23 @@ had only moved the failing views.
 - **Left as the reviewer advised:** the search is not tuned further. A closed form per
   roof style would replace it, but the overhang is cosmetic, and the guarantee that
   matters (no edge below the floor, no roof lost) is measured on 20,592 cases.
+
+**Senior review round 7 (2026-10-26): no P0, no P1. The 3D delta review approves.**
+- Round 7 confirmed both round-6 fixes by running them, and every doc number matched the
+  script. Its four P2 nits are fixed: the stop's comment, a pin of the "starts being a
+  lawn" half of the rule, the edge-wiggle test's trailing pass, and a docstring.
+- The runtime view (docs/06) now describes the context hold.
+- **Left as follow-ups:**
+  - #611: hold only the params that both the old and the new record take, and
+    pin the stop's bracket cap.
+  - #612: the Properties panel shows the overhang that was asked for, while 3D builds a
+    shorter one when it must. This is an owner question.
+- **The 3D delta review at 032b08d0:** the round-3 approval still holds.
+  - Against 514eee80, every Low frame and every probe is byte-identical.
+  - At High, blades now grow under the swing and the hammock (the bald patches are gone).
+  - Default roofs, decks, kerbs and ponds keep identical mesh digests.
+  - At the panel's extremes, sunk eaves are lifted: on a 60 × 100 cm shed from
+    −101.5 cm to +78.7 cm.
+- **G3** (`test_scene3d_ground_bake.py`) placed its stand-in terrace where four tiles meet.
+  It now lies across one tile border, as master's furniture item did (two tiles,
+  7.1 ms). The gate's bounds are unchanged.

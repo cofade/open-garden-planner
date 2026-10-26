@@ -1228,5 +1228,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "3D context hold: hold only the params both the old and new record take (follow-up to #388)"
+  },
+  "612": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D roofs: show when the overhang was shortened to keep the eaves above ground (follow-up to #388)"
   }
 }
