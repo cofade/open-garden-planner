@@ -4121,8 +4121,11 @@ Larger/paid runners and a Python migration are unnecessary here. Hash membership
 avoids the collection-order assumption of an initial round-robin partition.
 
 **Consequences.** Extra runner setup/collection may increase total runner minutes
-while reducing latency. No dependency, runtime behavior, `.ogp` format, budget or
-floor changes. Pins: `tests/integration/test_ci_coverage_shards.py`,
+while reducing latency. No dependency, runtime behavior, `.ogp` format, product
+budget or floor changes. The phenology gate's reproduced tracer-only overrun uses
+the existing snapshot-budget tracing factor with CI slack disabled: the real
+16 ms gate remains in Test, with a 160 ms tripwire under tracing. Pins:
+`tests/integration/test_ci_coverage_shards.py`,
 `tests/unit/test_gate_commands.py`, `tests/unit/test_perf_marker_guard.py` and the
 existing receiver/harness guards. Measurements and all 116 original marker cases
 are in [the investigation](../11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md).

@@ -12,6 +12,19 @@ This change covers #601 only. It changes test scheduling and repeated test work,
 not application code, coverage floors, the locked Python 3.11 interpreter or the
 render tier's scope. #540, #600 and #603 remain separate renderer investigations.
 
+The first hash-partitioned run (40332584429) exposed a pre-existing phenology
+timing gate with no tracer allowance: its 300-record batch took 17.85 ms under
+branch tracing against the product's 16 ms bound. A tagged local probe reproduced
+the mismatch: untraced scrubs took 1.89–2.36 ms and the batch 2.17 ms; tracing took
+7.92 ms then 22.69 ms, failing before the remaining dates ran. No such allowance
+was added to the real product budget. This test now uses the existing shared
+`budget_factor`/`traced` policy from the snapshot budgets with **CI slack disabled**:
+16 ms in the uninstrumented Test job on every machine, 160 ms as a tracer tripwire.
+Deterministic controls reject 17 ms without tracing and 161 ms with tracing.
+The test remains perf-marked, exercises every original date and state-count
+assertion, and contributes its full coverage. The protected aggregation correctly
+rejected the failed producer before this fix.
+
 ## Corrections to the initial hypotheses
 
 - Removing `--cov-branch` alone does nothing: `[tool.coverage.run] branch = true`

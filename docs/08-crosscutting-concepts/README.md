@@ -900,6 +900,11 @@ workflow pins reject omitted measurements and masked failures.
 pins the marker scope. `test_gate_commands.py::test_coverage_shards_and_merge_are_pinned` and
 `test_coverage_topology_pin_rejects_incomplete_measurements` pin complete,
 mandatory producer inputs and their failure propagation.
+The phenology 300-plant gate keeps 16 ms in uninstrumented runs, including CI.
+Under coverage it uses the existing snapshot-budget tracer factor (10×) without
+the CI factor, so tracing cannot masquerade as a product frame-budget regression.
+`test_phenology.py::test_the_product_budget_stays_16ms_and_only_tracing_gets_an_allowance`
+pins both refusal thresholds. #601's audit records the reproduced traced failure.
 
 The timings and fourteen-case counts below are the original **#509 baseline**.
 
