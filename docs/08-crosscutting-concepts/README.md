@@ -955,6 +955,15 @@ call resolution does not follow dynamic receivers, instance aliases, inherited
 methods or imported helper functions; support-module attribute carriers are a
 separate supported path.
 
+**A local perf reading on Windows may be a throttled one (#616).** On the Windows 11 dev box,
+power throttling (EcoQoS) can raise a `-m perf -n 0` run's timings about 1.8× partway through
+the run, and the run does not recover. G3's two-tile bench_large edit read 7.8 ms throttled
+and 4.3 ms with the test process opted out. The four-tile edit read 14.8 ms in two passes
+throttled and 8.4 ms in one pass opted out. A sudden per-move jump from about 8 to about
+15 ms, with passes going from 1 to 2, is the signal. During PR #613 it was misread twice,
+first as machine load and then as coverage's tracer. Until #616 adds the opt-out to the test
+process, a local timing is not evidence against a budget. CI is the gate.
+
 **Small targeted runs are slower than they were.** Worker start-up dominates when there
 is nothing to distribute: one 11-test file measured 2.85 s serially against 5.48 s under
 `-n auto`. Pass **`-n 0`** for a single file or a handful of tests. The asymmetry is
@@ -1844,11 +1853,13 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   10 s after the edit's pass: no ground pass hands the look a sun, and the release is due.
 - **The wall-clock gates run on the quiet runner.** G3 — a two-tile edit's bake in at most
   10 ms in the median, a four-tile edit's in a provisional 20 ms (#615) — carries
-  `@pytest.mark.perf` (ADR-058, §8.10.4): beside eight workers it read 11.58 ms. On a
-  Windows dev box, Windows power throttling (EcoQoS) can double a perf run's timings partway
-  through, so a local reading is evidence only from a process that has opted out (#616). So does its render-tier twin, whose median is taken in the driver process
+  `@pytest.mark.perf` (ADR-058, §8.10.4): beside eight workers it read 11.58 ms. So does its
+  render-tier twin, whose median is taken in the driver process
   (`test_scene3d_ground_render.py::test_one_small_edit_re_bakes_within_the_time_budget`; the
-  rest of that test stays in the render tier — review 3, P2-1). G3's stopwatch is an ATTRIBUTE of
+  rest of that test stays in the render tier — review 3, P2-1). Unlike the pure-Python budgets
+  of §8.10.5, G3 asserts its real bound under coverage's tracer too. The bake is mostly Qt
+  painting, which the tracer slows by about 15–20 %, not 9×. Do not add a tracer factor back:
+  the one tried in PR #613 hid nothing and weakened master's gate. G3's stopwatch is an ATTRIBUTE of
   `tests/integration/ground_bake_support.py::TimedBaker`. Issue #528 makes the perf-marker
   guard (`tests/unit/test_perf_marker_guard.py`) follow that carrier and require the marker.
   The class originally moved to the support module to avoid the guard's bare-name collision;
@@ -5574,7 +5585,8 @@ holds records), finds each dirty tile's records in one walk down the stack and r
 only if its list changed or holds a changed record. Every other tile is handed out as the SAME
 object — which is how the sink knows not to upload it. Measured (idle dev box): bench_small
 (98 records, 11 painted, 20 tiles) full bake 13 ms, one move of a 3 m item 3.4 ms median, at most
-2 tiles; bench_large (424 records, 45 painted, 60 tiles) 69 ms and 3.3 ms. A move dirties the
+2 tiles; bench_large (424 records, 45 painted, 60 tiles) 69 ms and 3.3 ms. (Since L4 builds
+furniture as solids, 9 and 25 records are painted.) A move dirties the
 tiles under the item's old AND new paint bounds. Each place is at most four tiles for an item of
 up to 3 m; together they are at most four when the move is up to 2 m (old and new place then span
 less than one tile's width in each direction — what the gate's 31 moves of 44 cm measure), and
@@ -5597,9 +5609,12 @@ three bakers at once, §8.10.10).
 Why 10 ms: the workspace's gate is 50 ms from an edit to its frame, and the bake's own gate —
 10 ms for one small edit on the bench plans — still holds with the budget ON: an edit that fits
 the gate is ONE pass (measured: 31 moves on each bench plan, one pass each). That holds for
-an edit of two tiles. An edit where four tiles meet (L4, #388) is one pass that runs over
-the budget by its last tile: 12.15–13.29 ms on CI, on master too. G3 holds it to a
-provisional 20 ms in at most two passes until the owner decides #615. Measured with the
+an edit of two tiles. An edit where four tiles meet is one pass that runs over the budget by
+its last tile. On CI it read ≤ 10 ms in one uninstrumented run, 12.15 ms in the next and
+13.29 ms under coverage. On the dev box, master costs the same: medians of 8.36 ms against
+the branch's 8.25 ms over five alternating pairs. No gate placed an item on a tile corner
+before L4 (#388). G3 holds such an edit to a provisional median of 20 ms until the owner
+decides #615. Measured with the
 real clock: bench_small opens in 2 passes (longest 11.6 ms), bench_large in 8 (longest 13.4 ms).
 What the budget does NOT bound is one tile: a pass costs the budget plus the tile it is in — and
 one tile more when it brings an edit while older tiles are still pending (below). The

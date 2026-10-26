@@ -8131,23 +8131,25 @@ had only moved the failing views.
   own since L4, so the gate moves a stand-in terrace, placed from the plan's middle, across
   one tile border (two tiles) and where four tiles meet (four). Every move must repaint
   exactly those tiles.
-  - **A four-tile edit does not hold 10 ms on CI.** It is one pass that runs over the
-    budget by its last tile, as `BAKE_BUDGET_S`'s contract allows ("the budget plus ONE
-    tile"). CI read 12.15 ms uninstrumented and 13.29 ms under coverage, both with a
-    median of one pass.
-  - The cost is the same on master. In 5 alternating pairs of 61 moves, the four-tile
-    corner read 8.25 ms here against 8.36 ms on master, and the border 4.39 against
-    4.46 ms. The difference is 0 to about 8 % either way, within noise.
+  - **A four-tile edit does not reliably hold 10 ms on CI.** It is one pass that runs over
+    the budget by its last tile, as `BAKE_BUDGET_S`'s contract allows ("the budget plus
+    ONE tile"). CI read ≤ 10 ms in one uninstrumented run, 12.15 ms in the next and 13.29 ms
+    under coverage, each with a median of one pass.
+  - On the dev box the cost is the same on master. CI has never run a four-tile case on
+    master. Over 5 alternating pairs of 61 moves, the medians were 8.25 ms here against
+    8.36 ms on master for the corner, and 4.39 against 4.46 ms for the border. Single pairs
+    differ from −9.5 % to +11.7 %.
   - Readings of 14–17 ms in two passes on the dev box came from Windows power throttling
     (EcoQoS), not from load or the code. Opted out, the corner is 8.4–9.5 ms in one pass
     (#616). Two first fixes misread this: one blamed machine load, and e7916be7 blamed
     coverage's tracer.
   - **The gate:** each case states its tiles, passes and median bound as literals. Two
-    tiles: one pass and at most 10 ms, as on master, also under coverage. Four tiles: at
-    most 20 ms in at most two passes. That bound is **provisional** until the owner decides
-    #615: should a four-tile pass hold 10 ms on CI? The test is renamed
-    `test_a_small_move_repaints_only_its_tiles_within_its_bound`, because the old name
-    promised four tiles in 10 ms.
+    tiles: a median of one pass and at most 10 ms, as on master, also under coverage. Four
+    tiles: a median of at most 20 ms and two passes. The second pass is only for a throttled
+    dev box (#616); CI runs one. That bound is **provisional** until the owner decides #615:
+    should a four-tile pass hold 10 ms on CI? The test is renamed
+    `test_a_small_move_repaints_few_tiles_within_its_bound`, because the old name promised
+    four tiles in 10 ms. FR-3D-GROUND-03 states the same.
 - The roof hint stays a tooltip (on the row labels and the spin boxes, and as the
   inputs' accessible description). The review proposed a visible hint row instead, but
   that would add a line of text to every building's panel, while the other 3D-only rows

@@ -1714,7 +1714,7 @@ class PropertiesPanel(QWidget):
             lambda _index, it=item, c=style_combo: self._on_roof_style_changed(it, c.currentData())
         )
         self._form_layout.addRow(self.tr("Roof style:"), style_combo)
-        self._hint_on_label(style_combo, hint)
+        self._explain_row(style_combo, hint)
         self._register_refresh(style_combo, refresh_style)
 
         pitch_spin = QDoubleSpinBox()
@@ -1735,7 +1735,7 @@ class PropertiesPanel(QWidget):
         refresh_pitch()
         pitch_spin.valueChanged.connect(lambda value, it=item: self._on_roof_pitch_changed(it, value))
         self._form_layout.addRow(self.tr("Roof pitch:"), pitch_spin)
-        self._hint_on_label(pitch_spin, hint)
+        self._explain_row(pitch_spin, hint)
         self._register_refresh(pitch_spin, refresh_pitch)
 
         overhang_spin = QDoubleSpinBox()
@@ -1754,10 +1754,10 @@ class PropertiesPanel(QWidget):
         refresh_overhang()
         overhang_spin.valueChanged.connect(lambda value, it=item: self._on_roof_overhang_changed(it, value))
         self._form_layout.addRow(self.tr("Roof overhang:"), overhang_spin)
-        self._hint_on_label(overhang_spin, hint)
+        self._explain_row(overhang_spin, hint)
         self._register_refresh(overhang_spin, refresh_overhang)
 
-    def _hint_on_label(self, field: QWidget, hint: str) -> None:
+    def _explain_row(self, field: QWidget, hint: str) -> None:
         """Put ``hint`` on the row label Qt made for ``field`` (its buddy) and on the
         field's accessible description: a combo's own tooltip is its current text (#596),
         so the label carries what the row is for."""
