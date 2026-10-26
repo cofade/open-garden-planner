@@ -7237,6 +7237,8 @@ configured. The hint replaces the generic map-unavailable label while coordinate
 are absent. Saving a location lets an already enabled live map recover through its
 existing scheduler. Date navigation remains available without a location.
 
+
+
 ## 8.33 Offline examples and template authoring (US-F5, ADR-066)
 
 Welcome's Examples & templates tab and File > New from example share
@@ -7259,3 +7261,7 @@ must be explicitly kept or stripped; unknown serialized top-level keys are dropp
 The filter is not a free-text anonymizer. Succession dates are retained calendar
 dates, so authors state their example year rather than claiming climate adaptation.
 See `resources/examples/PROVENANCE.md` and `tests/integration/test_templates_gallery.py`.
+
+The gallery tab hides Welcome's large banner. A bounded, scrollable details area
+keeps a complete card visible at 600 x 500 with 9/12 pt fonts in every locale;
+`tests/ui/test_template_gallery.py` pins the actual item/viewport rectangles.

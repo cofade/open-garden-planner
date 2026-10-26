@@ -180,3 +180,15 @@ def test_dogfood_sample_is_a_copy_of_the_maintained_example(tmp_path, qtbot):
     manager = ProjectManager()
     manager.load(scene, Path(result["ogp"]))
     assert manager.succession_plans
+
+
+def test_sample_cli_needs_no_executable_settings_or_live_server(tmp_path, monkeypatch, capsys):
+    from scripts import dogfood_agent_api as harness
+
+    monkeypatch.setattr("sys.argv", ["dogfood_agent_api.py", "--emit-sample", "--exe", "missing.exe"])
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    monkeypatch.setattr(harness, "snapshot_settings", lambda: pytest.fail("sample touched settings"))
+    monkeypatch.setattr(harness.subprocess, "Popen", lambda *_a, **_k: pytest.fail("sample launched app"))
+    assert harness.main() == 0
+    assert "EMIT: OK" in capsys.readouterr().out
+    assert (tmp_path / "ogp-dogfood" / "us-d3.2-succession-sample.ogp").is_file()

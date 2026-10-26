@@ -4267,3 +4267,30 @@ same-layer/child-list regression in test_templates.py. Use the already documente
 minimal:enable_fonts platform for Windows thumbnail fonts; no engine change.
 **Lesson.** Inspect content rendered through the real path. A parent UUID is not the
 whole parent contract, and deriving z-order only clamps inside a shared layer.
+
+
+## Case study: a generic type key is not a canvas object boundary (#316 review)
+
+**Symptom.** Template export removed a plant's custom_fields when its type value
+was background_image or journal_pin, and a list/dict-valued type raised TypeError.
+**Wrong theory.** Every nested dictionary with the item discriminator was an item.
+**Evidence.** Four observed-failing custom-field cases reproduced both silent
+removal and the unhashable-type traceback in test_custom_type_fields_are_data_not_canvas_records.
+**Root cause.** Structural record filtering was mixed into the generic recursive
+path scrubber. Arbitrary custom data shares dictionary keys with scene records.
+**Fix.** Filter image/pin types only in structural objects and children sequences;
+preserve the generic recursive path scrubber for all other data. The four cases pass.
+**Lesson.** Choose record semantics from the enclosing schema boundary, not a key
+name that untrusted or custom metadata can also use.
+
+## Case study: the Welcome gallery had content but no visible card (#316 review)
+
+**Symptom.** At the supported 600 x 500 dialog size, the first gallery viewport
+was 59 px tall and shrank to 35 px on selection for a 122 px card; 12 pt font
+produced a 27 px viewport for a 148 px card.
+**Wrong theory.** Layout stretch and successful selection tests implied usability.
+**Evidence.** The independent reviewer measured actual item rectangles with real
+fonts. The new minimum-size visibility test pins all three locales at 9/12 pt.
+**Fix.** Hide the large banner on the gallery tab and put description/attribution
+in a bounded, scrollable read-only details area. Whole selected cards remain visible.
+**Lesson.** Test the viewport and its content rectangles, not only that widgets exist.

@@ -36,8 +36,6 @@ def _portable(value: Any) -> Any:
     if isinstance(value, str) and _absolute_path(value):
         return _REMOVED
     if isinstance(value, dict):
-        if value.get("type") in {"background_image", "journal_pin"}:
-            return _REMOVED
         result = {}
         for key, child in value.items():
             if key in _SITE_KEYS or _absolute_path(key):
@@ -51,12 +49,28 @@ def _portable(value: Any) -> Any:
     return value
 
 
+def _objects(value: Any) -> Any:
+    """Filter canvas records only; custom dictionaries may also have a type key."""
+    if not isinstance(value, list):
+        return _portable(value)
+    result = []
+    for record in value:
+        if isinstance(record, dict) and record.get("type") in ("background_image", "journal_pin"):
+            continue
+        cleaned = _portable(record)
+        if isinstance(record, dict) and isinstance(cleaned, dict) and "children" in record:
+            cleaned["children"] = _objects(record["children"])
+        if cleaned is not _REMOVED:
+            result.append(cleaned)
+    return result
+
+
 def template_plan(plan: dict[str, Any]) -> dict[str, Any]:
     """Return a detached portable subset; never modify the source snapshot."""
     result = {}
     for key, value in plan.items():
         if key in KEEP_PLAN_KEYS:
-            cleaned = _portable(value)
+            cleaned = _objects(value) if key == "objects" else _portable(value)
             if cleaned is not _REMOVED:
                 result[key] = cleaned
     return result

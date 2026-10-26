@@ -13,6 +13,7 @@ transport and the domain logic, and it cannot cover three things:
 
 This script launches the built exe, connects with the same ``mcp``
 streamable-HTTP client a real harness uses, and drives the tools end to end.
+The ``--emit-sample`` content-copy shortcut needs no exe, settings or server.
 
     venv/Scripts/python.exe scripts/dogfood_agent_api.py            # drive the tools
     venv/Scripts/python.exe scripts/dogfood_agent_api.py --repair   # restore defaults
@@ -645,6 +646,16 @@ def main() -> int:
               f"(token left as-is)")
         return 0
 
+    if args.emit_sample:
+        import tempfile
+
+        folder = Path(os.environ.get("TEMP", tempfile.gettempdir())) / "ogp-dogfood"
+        out = asyncio.run(emit_sample(0, "", folder))
+        print(f"plan file : {out['ogp']}")
+        print(f"render    : {out['png']}")
+        print("EMIT: OK")
+        return 0
+
     exe = Path(args.exe)
     if not exe.exists():
         print("FAIL: exe not built. Run:")
@@ -664,10 +675,7 @@ def main() -> int:
         token = apply_settings(port)
         proc = subprocess.Popen([str(exe), str(plan)])
         wait_for_port(port, proc)
-        if args.emit_sample:
-            out = asyncio.run(emit_sample(port, token, tmp))
-        else:
-            out = asyncio.run(drive(port, token))
+        out = asyncio.run(drive(port, token))
     except Exception as exc:
         out["errors"].append(f"harness error: {exc!r}")
         traceback.print_exc()
@@ -680,30 +688,6 @@ def main() -> int:
                 proc.kill()
         for line in restore_settings(before):
             print("settings: " + line)
-
-    if args.emit_sample:
-        if out.get("errors"):
-            for e in out["errors"]:
-                print("  ERROR " + e)
-        if out.get("ogp"):
-            print(f"plan file : {out['ogp']}")
-        if out.get("png"):
-            print(f"render    : {out['png']}")
-        for seg, s, e in out.get("windows") or []:
-            print(f"filled    : {seg} {s} -> {e}")
-        if out.get("rotation_record"):
-            print(f"history   : {out['rotation_record']}")
-        print(f"bed id    : {out.get('bed_id')}")
-        ok_emit = (
-            bool(out.get("ogp"))
-            and bool(out.get("png"))
-            and not out["errors"]
-            and not out.get("write_error")
-            and not out.get("save_error")
-        )
-        print()
-        print("EMIT: " + ("OK" if ok_emit else "FAIL"))
-        return 0 if ok_emit else 1
 
     # Run the checks even when the harness errored: a partial result is more
     # informative than "FAIL" with no detail.

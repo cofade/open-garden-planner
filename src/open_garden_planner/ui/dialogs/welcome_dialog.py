@@ -82,6 +82,7 @@ class WelcomeDialog(QDialog):
         self._gallery = TemplateGallery()
         self._gallery.template_selected.connect(self._on_template_selected)
         tabs.addTab(self._gallery, self.tr("Examples & templates"))
+        tabs.currentChanged.connect(lambda index: self._banner_label.setVisible(index == 0))
         layout.addWidget(tabs, stretch=1)
 
         # Bottom: Don't show again checkbox
@@ -90,6 +91,7 @@ class WelcomeDialog(QDialog):
     def _setup_banner(self, layout: QVBoxLayout) -> None:
         """Set up the banner image at the top."""
         banner_label = QLabel()
+        self._banner_label = banner_label
         banner_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Load banner image

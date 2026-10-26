@@ -115,3 +115,10 @@ def test_polycluture_has_no_bundled_antagonistic_pair(qtbot):
     for a, b in combinations(names, 2):
         relationship = service.get_relationship(a, b)
         assert relationship is None or relationship.type != "antagonistic"
+
+
+@pytest.mark.parametrize("custom_type", ["background_image", "journal_pin", [], {"kind": "custom"}])
+def test_custom_type_fields_are_data_not_canvas_records(qtbot, custom_type):
+    custom = {"type": custom_type, "cultivar": "kept text", "nested": {"type": "journal_pin"}}
+    plan = {"objects": [{"type": "circle", "metadata": {"plant_instance": {"custom_fields": custom}}}]}
+    assert template_plan(plan) == plan

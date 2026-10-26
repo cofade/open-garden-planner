@@ -178,13 +178,14 @@ Held in [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-er
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l3247-a1-numeric-download-and-settings-boundaries-453)
 - **Legacy:** b1faaa9 README L3247
 
+
 ### PF-PER-19
 
-- **Rule:** Authored examples use the same creation commands as the UI, with bed
-  and child on the same layer; bare item construction does not establish that contract.
-- **Pinned by:** `tests/unit/test_templates.py::test_bundled_parent_links_share_a_layer_and_the_forest_covers_seven_layers`.
-- **Source:** #316, ADR-066.
-- **Status:** standing.
+- **Rule:** Authored examples use creation commands and keep bed/child layers aligned.
+- **Pinned by:** `tests/unit/test_templates.py::test_bundled_parent_links_share_a_layer_and_the_forest_covers_seven_layers`
+- **Source:** #316, ADR-066
+- **Status:** standing
+- **Legacy:** none (new entry)
 
 The initial balcony preview showed empty containers. `[F5-Z]` reported containers
 on layer None, plants on the active UUID, and a later container at a higher z than

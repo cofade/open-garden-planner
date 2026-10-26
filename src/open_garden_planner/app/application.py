@@ -3750,9 +3750,11 @@ class GardenPlannerApp(QMainWindow):
 
         example_action = QAction(self.tr("New from example..."), self)
         example_action.triggered.connect(self._on_new_from_example)
+        self._set_action_icon(example_action, "file_new")
         menu.addAction(example_action)
         template_action = QAction(self.tr("New from template..."), self)
         template_action.triggered.connect(self._on_new_from_template)
+        self._set_action_icon(template_action, "file_open")
         menu.addAction(template_action)
 
         # Open Project
@@ -3788,6 +3790,7 @@ class GardenPlannerApp(QMainWindow):
 
         save_template_action = QAction(self.tr("Save as template..."), self)
         save_template_action.triggered.connect(self._on_save_template)
+        self._set_action_icon(save_template_action, "file_save_as")
         menu.addAction(save_template_action)
 
         menu.addSeparator()

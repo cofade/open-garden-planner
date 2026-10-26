@@ -791,6 +791,7 @@ instance snapshot's week offsets and the shared day-level calendar calculation,
 including frost anchors in other years. Southern latitude shifts illustrative
 seasonal months, never already-local recorded frost dates.
 
+
 ## Opening an example or template (US-F5, ADR-066)
 
 ```mermaid

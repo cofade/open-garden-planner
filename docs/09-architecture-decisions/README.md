@@ -7638,6 +7638,8 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+
+
 ## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
 
 **Status:** Accepted for implementation; owner executable acceptance pending.
@@ -7688,3 +7690,8 @@ version bump. A pre-F reader can ignore additive F keys and retain geometry.
 `generate_examples.py` uses production constructors, creation commands, serializer
 and renderer with isolated stores. `dogfood_agent_api.py --emit-sample` copies the
 maintained raised-bed example and preview instead of constructing another schema.
+
+**Review hardening.** Record-type filtering applies only to structural objects and
+children lists; custom dictionaries may contain arbitrary type values. The gallery
+reclaims the banner space and scrolls details so the minimum-size viewport holds
+a complete card. Sample emission short-circuits before exe/settings/server work.

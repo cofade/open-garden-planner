@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -43,9 +44,9 @@ class TemplateGallery(QWidget):
                 row.setIcon(QIcon(str(entry.thumbnail)))
             self.list.addItem(row)
         layout.addWidget(self.list, 1)
-        self.description = QLabel()
-        self.description.setWordWrap(True)
-        self.description.setTextFormat(Qt.TextFormat.PlainText)
+        self.description = QTextBrowser()
+        self.description.setMinimumHeight(64)
+        self.description.setMaximumHeight(88)
         layout.addWidget(self.description)
         self.open_button = QPushButton(self.tr("Open Selected"))
         self.open_button.setEnabled(False)
@@ -57,7 +58,7 @@ class TemplateGallery(QWidget):
     def _selection_changed(self) -> None:
         row = self.list.currentItem()
         self.open_button.setEnabled(row is not None)
-        self.description.setText(row.toolTip() if row else "")
+        self.description.setPlainText(row.toolTip() if row else "")
 
     def _open(self) -> None:
         row = self.list.currentItem()
