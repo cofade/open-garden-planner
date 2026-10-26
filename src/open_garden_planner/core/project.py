@@ -1043,7 +1043,30 @@ class ProjectManager(QObject):
             records.append({"diagnostics": deepcopy(getattr(scene, "_sun_diagnostics", []))})
         return records
 
-    def load(self, scene: QGraphicsScene, file_path: Path) -> None:
+    def save_template(self, scene: QGraphicsScene, file_path: Path) -> None:
+        """Export a portable snapshot without changing the current file or history."""
+        from PyQt6.QtCore import QCoreApplication
+
+        from open_garden_planner.core.templates import template_plan
+
+        destination = file_path.with_suffix(".ogp")
+        bundled = Path(__file__).resolve().parent.parent / "resources" / "examples"
+        same_project = self._current_file and (
+            destination.resolve() == self._current_file.resolve()
+            or (destination.exists() and self._current_file.exists()
+                and destination.samefile(self._current_file))
+        )
+        if same_project or destination.resolve().is_relative_to(bundled):
+            raise ValueError(QCoreApplication.translate(
+                "ProjectManager", "Choose a template filename outside the current project and bundled examples."
+            ))
+        self.before_save.emit()
+        data = self._build_project_data(scene, sync_journal=False)
+        write_plan(destination, template_plan(data.to_dict()))
+
+    def load(
+        self, scene: QGraphicsScene, file_path: Path, *, as_template: bool = False
+    ) -> None:
         """Load a project from a file.
 
         Args:
@@ -1075,6 +1098,10 @@ class ProjectManager(QObject):
                     f"before opening this project."
                 )
 
+            if as_template:
+                from open_garden_planner.core.templates import template_plan
+
+                raw_data = template_plan(raw_data)
             data = ProjectData.from_dict(raw_data)
             prep = self._prepare_scene_data(data)
 
@@ -1086,12 +1113,15 @@ class ProjectManager(QObject):
             # Sync custom plants from project to app library
             self._sync_custom_plants(scene)
 
-            self._current_file = file_path
-            self.mark_clean()
-            self.project_changed.emit(str(file_path))
+            self._current_file = None if as_template else file_path
+            if as_template:
+                self.mark_dirty()
+            else:
+                self.mark_clean()
+            self.project_changed.emit(None if as_template else str(file_path))
 
-            # Track in recent files
-            get_settings().add_recent_file(str(file_path))
+            if not as_template:
+                get_settings().add_recent_file(str(file_path))
         except Exception:
             if scene_mutated:
                 self._current_file = None

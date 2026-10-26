@@ -34,7 +34,20 @@ Open Garden Planner fills the gap: **engineering-grade precision meets gardener-
 - **Sun, Shade & 3D**: Analytic 2D shadows and hours-of-sun maps for your garden's location, date and time; a 3D view beside the plan (Plan / 3D / Split) lit by the same sun, with shadows, plant growth over the simulated dates and a walk mode — it follows every edit. Its Analyze menu lays the same 2D shadows or the hours-of-sun map on the 3D ground (click the map to read a spot), draws the sun's path with a compass, plays the day, jumps years ahead with a before/after view, and takes roofs off while fading what hides the selection. Flat ground only; frame rate depends on your graphics card (a software fallback exists)
 - **AI Agent Integration**: Embedded MCP server exposes the live plan for reading, visualization, export, and optional token-gated editing (including stable low-level geometry)
 - **Modern UI**: Clean interface with light and dark modes, keyboard shortcuts
+- **Offline Examples & Templates**: Start from three illustrated garden layouts or reuse a plan with site/history data removed. Review names and free-form text before sharing.
 - **Auto-Save**: Periodic auto-save with crash recovery
+
+## Offline example plans
+
+Welcome's **Examples & templates** tab and **File > New from example** open an
+untitled copy. The gallery includes a food forest, a raised-bed polyculture and
+balcony herb containers. These are learning layouts: adapt plants, spacing and
+dates to your site. **File > Save as template** explains which personal/site data
+is removed; **New from template** reuses any `.ogp` as a copy.
+
+![Bundled raised-bed polyculture preview](src/open_garden_planner/resources/examples/raised-bed.png)
+
+[Example content and CC-BY-SA-4.0 attribution](src/open_garden_planner/resources/examples/PROVENANCE.md).
 
 ## Installation
 

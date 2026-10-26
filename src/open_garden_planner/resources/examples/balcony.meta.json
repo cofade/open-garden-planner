@@ -1,0 +1,15 @@
+{
+  "name_en": "Balcony herb containers",
+  "name_de": "Balkon mit Kräutergefäßen",
+  "name_es": "Macetas de hierbas en el balcón",
+  "description_en": "A 5 x 3 m balcony with basil, parsley and thyme in linked containers. Illustrative layout; check the site's light and load limits.",
+  "description_de": "Ein 5 x 3 m großer Balkon mit Basilikum, Petersilie und Thymian in verknüpften Gefäßen. Beispielentwurf; Licht und Tragfähigkeit vor Ort prüfen.",
+  "description_es": "Un balcón de 5 x 3 m con albahaca, perejil y tomillo en macetas vinculadas. Diseño ilustrativo; compruebe la luz y la capacidad de carga del lugar.",
+  "tags": [
+    "balcony",
+    "containers",
+    "herbs"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "attribution": "Open Garden Planner contributors; species data from the bundled CC-BY-SA-4.0 database; see PROVENANCE.md."
+}

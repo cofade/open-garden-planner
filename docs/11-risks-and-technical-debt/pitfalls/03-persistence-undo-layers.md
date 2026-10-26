@@ -177,3 +177,19 @@ Held in [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-er
 - **Source:** #453, #480, #483, #485
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l3247-a1-numeric-download-and-settings-boundaries-453)
 - **Legacy:** b1faaa9 README L3247
+
+### PF-PER-19
+
+- **Rule:** Authored examples use the same creation commands as the UI, with bed
+  and child on the same layer; bare item construction does not establish that contract.
+- **Pinned by:** `tests/unit/test_templates.py::test_bundled_parent_links_share_a_layer_and_the_forest_covers_seven_layers`.
+- **Source:** #316, ADR-066.
+- **Status:** standing.
+
+The initial balcony preview showed empty containers. `[F5-Z]` reported containers
+on layer None, plants on the active UUID, and a later container at a higher z than
+a preceding plant. The parent clamp is per-layer, so linking IDs alone did not
+raise those plants. Assign the active layer to authored rectangles and use
+CreateItemsCommand for plants, which also maintains the parent's child list.
+Real rendering caught what successful JSON loading did not. Box glyphs in the
+first preview separately required the existing `minimal:enable_fonts` recipe.

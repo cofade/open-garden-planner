@@ -3748,6 +3748,13 @@ class GardenPlannerApp(QMainWindow):
         self._set_action_icon(new_action, "file_new")
         menu.addAction(new_action)
 
+        example_action = QAction(self.tr("New from example..."), self)
+        example_action.triggered.connect(self._on_new_from_example)
+        menu.addAction(example_action)
+        template_action = QAction(self.tr("New from template..."), self)
+        template_action.triggered.connect(self._on_new_from_template)
+        menu.addAction(template_action)
+
         # Open Project
         open_action = QAction(self.tr("&Open..."), self)
         open_action.setShortcut(QKeySequence("Ctrl+O"))
@@ -3778,6 +3785,10 @@ class GardenPlannerApp(QMainWindow):
         save_as_action.triggered.connect(self._on_save_as)
         self._set_action_icon(save_as_action, "file_save_as")
         menu.addAction(save_as_action)
+
+        save_template_action = QAction(self.tr("Save as template..."), self)
+        save_template_action.triggered.connect(self._on_save_template)
+        menu.addAction(save_template_action)
 
         menu.addSeparator()
 
@@ -5416,6 +5427,7 @@ class GardenPlannerApp(QMainWindow):
         dialog.new_project_requested.connect(self._on_new_project)
         dialog.open_project_requested.connect(self._on_open_project)
         dialog.recent_project_selected.connect(self._open_project_file)
+        dialog.template_selected.connect(self._open_template_file)
 
         dialog.exec()
 
@@ -5876,7 +5888,7 @@ class GardenPlannerApp(QMainWindow):
         }
         return messages[error.category].format(field=error.field)
 
-    def _load_project_file(self, file_path: str) -> None:
+    def _load_project_file(self, file_path: str, *, as_template: bool = False) -> None:
         """THE one open-a-plan path: load and rewire the UI, or raise.
 
         Shared by ``_open_project_file`` (the GUI, which catches and shows a
@@ -5892,7 +5904,10 @@ class GardenPlannerApp(QMainWindow):
         been a #337-class bug waiting on the caller the extraction created.
         """
         try:
-            self._project_manager.load(self.canvas_scene, Path(file_path))
+            if as_template:
+                self._project_manager.load(self.canvas_scene, Path(file_path), as_template=True)
+            else:
+                self._project_manager.load(self.canvas_scene, Path(file_path))
         except Exception:
             self._reset_compare_overlay_after_failed_load()
             if hasattr(self, "_update_window_title"):
@@ -5993,6 +6008,71 @@ class GardenPlannerApp(QMainWindow):
             self._save_to_file(self._project_manager.current_file)
         else:
             self._on_save_as()
+
+    def _open_template_file(self, file_path: str) -> None:
+        """Gallery and file picker share the normal atomic document replacement."""
+        if not self._confirm_discard_changes():
+            return
+        try:
+            self._load_project_file(file_path, as_template=True)
+        except Exception as error:
+            QMessageBox.critical(self, self.tr("Error"),
+                                 self.tr("Failed to open file:\n{error}").format(
+                                     error=self._plan_error_message(error)))
+
+    def _on_new_from_example(self) -> None:
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout
+
+        from open_garden_planner.ui.widgets.template_gallery import TemplateGallery
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self.tr("Examples & templates"))
+        dialog.resize(720, 520)
+        layout = QVBoxLayout(dialog)
+        gallery = TemplateGallery(dialog)
+        layout.addWidget(gallery)
+        selected: list[str] = []
+        gallery.template_selected.connect(selected.append)
+        gallery.template_selected.connect(dialog.accept)
+        if dialog.exec() and selected:
+            self._open_template_file(selected[0])
+
+    def _on_new_from_template(self) -> None:
+        from open_garden_planner.services.example_library import user_templates_dir
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, self.tr("New from template..."), str(user_templates_dir()),
+            self.tr("Open Garden Planner (*.ogp);;All Files (*)"),
+        )
+        if path:
+            self._open_template_file(path)
+
+    def _on_save_template(self) -> None:
+        from open_garden_planner.services.example_library import user_templates_dir
+
+        explanation = self.tr(
+            "Templates remove location, journal notes and pins, harvest and pest logs, soil tests, "
+            "season links and year, crop history, seed inventory, propagation overrides, manual "
+            "tasks and task states, shopping data and amendment preferences, background images, "
+            "photos and absolute paths. Geometry, species, layers, guilds, constraints and "
+            "succession plans stay. Review names and free-form text before sharing."
+        )
+        if QMessageBox.question(self, self.tr("Save as template..."), explanation,
+                                QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Cancel,
+                                QMessageBox.StandardButton.Cancel) != QMessageBox.StandardButton.Save:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, self.tr("Save as template..."),
+            str(user_templates_dir() / (self._project_manager.project_name + ".ogp")),
+            self.tr("Open Garden Planner (*.ogp);;All Files (*)"),
+        )
+        if path:
+            try:
+                self._project_manager.save_template(self.canvas_scene, Path(path))
+            except Exception as error:
+                QMessageBox.critical(self, self.tr("Error"),
+                                     self.tr("Failed to save file:\n{error}").format(
+                                         error=self._plan_error_message(error)))
 
     def _on_save_as(self) -> None:
         """Handle Save As action."""

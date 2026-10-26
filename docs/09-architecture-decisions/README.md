@@ -7638,3 +7638,53 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
+
+**Status:** Accepted for implementation; owner executable acceptance pending.
+**Date:** 2026-10-26. The number skips the historical ADR-065 compatibility alias.
+
+**Context.** A saved plan includes site and history data. Reusing it as a starting
+point must never attach Save or autosave to the bundled file. A new file format,
+second loader or community server would add unnecessary compatibility seams.
+
+**Decision.** A template is the existing version-1.4 JSON format filtered through
+`core/templates.py::template_plan`. Keep canvas dimensions, geometry (including
+species, plant dates, guild snapshots and smart symbols), layers, constraints,
+guides, succession plans and the layer-assignment flag. Explicitly classify every
+`ProjectData` field as keep/strip; a test fails on future unclassified fields.
+Drop unknown top-level keys, site/history/preferences, top-level metadata,
+background-image and journal-pin records (also inside groups), georeferencing,
+photos and path-bearing fields. Recursively remove absolute Windows/POSIX paths,
+UNC and drive-relative paths and file URIs. Names and free-form annotations are
+retained: the export explanation asks users to review them before sharing.
+
+`ProjectManager.load(as_template=True)` validates the original file version,
+filters the document and uses the normal prepare/apply/metadata restoration path.
+It finishes untitled and dirty, without adding the source to Recent Files.
+`GardenPlannerApp._load_project_file` remains the only UI replacement path,
+including history/autosave/compare cleanup. Export uses the normal snapshot and
+atomic `write_plan`, flushes pending editors, never changes the current file or
+cleans the document, and refuses to overwrite the live project or bundled files.
+
+Three CC-BY-SA-4.0 learning layouts ship with localized sidecars and rendered PNGs.
+The catalog lists local `<app-data>/templates/*.ogp` by filename without parsing
+untrusted files. Opening a corrupt local template follows normal load recovery.
+The read-only `garden://examples` resource lists bundled content only. GUI actions
+open copies. No agent-open tool, network gallery or community server is added.
+The later community-sharing phase can reuse this template subset.
+
+**Verified spec correction.** `SuccessionEntry` stores absolute ISO calendar dates,
+not frost-relative offsets. Preserve them without rebasing; the raised-bed example
+and descriptions explicitly label its 2027 dates as illustrative. No climate or
+companion benefit is inferred from an absence of antagonistic rules.
+
+**Alternatives rejected.** A new extension/schema; a temporary-file loader; direct
+scene construction per gallery entry; silently rewriting crop dates; sanitizing
+arbitrary prose as if this were a complete anonymizer. No new dependency or file
+version bump. A pre-F reader can ignore additive F keys and retain geometry.
+
+**Evidence.** `tests/unit/test_templates.py`,
+`tests/integration/test_templates_gallery.py`, `tests/ui/test_welcome_dialog.py`.
+`generate_examples.py` uses production constructors, creation commands, serializer
+and renderer with isolated stores. `dogfood_agent_api.py --emit-sample` copies the
+maintained raised-bed example and preview instead of constructing another schema.

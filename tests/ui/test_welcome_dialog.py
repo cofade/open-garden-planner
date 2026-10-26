@@ -49,7 +49,7 @@ class TestWelcomeDialog:
     def test_dialog_has_recent_list(self, qtbot):
         """Test dialog has recent projects list."""
         dialog = WelcomeDialog()
-        list_widget = dialog.findChild(QListWidget)
+        list_widget = dialog.findChild(QListWidget, "recent_projects_list")
         assert list_widget is not None
 
     def test_dialog_has_checkbox(self, qtbot):
@@ -98,7 +98,7 @@ class TestWelcomeDialog:
     def test_empty_recent_shows_placeholder(self, qtbot):
         """Test empty recent list shows placeholder."""
         dialog = WelcomeDialog()
-        list_widget = dialog.findChild(QListWidget)
+        list_widget = dialog.findChild(QListWidget, "recent_projects_list")
 
         assert list_widget.count() == 1
         item = list_widget.item(0)

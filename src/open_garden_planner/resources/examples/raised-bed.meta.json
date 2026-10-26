@@ -1,0 +1,15 @@
+{
+  "name_en": "Raised-bed polyculture - 4 x 2 m",
+  "name_de": "Hochbeet-Mischkultur - 4 x 2 m",
+  "name_es": "Policultivo en bancal elevado - 4 x 2 m",
+  "description_en": "Carrots, lettuce and radishes with a 2027 succession plan. Dates are illustrative calendar dates, not a local frost forecast.",
+  "description_de": "Möhren, Salat und Radieschen mit einem Nachfolgeplan für 2027. Die Beispieldaten sind Kalenderdaten, keine lokale Frostprognose.",
+  "description_es": "Zanahorias, lechugas y rábanos con un plan de sucesión para 2027. Las fechas son ejemplos de calendario, no una previsión local de heladas.",
+  "tags": [
+    "raised-bed",
+    "polyculture",
+    "succession"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "attribution": "Open Garden Planner contributors; species data from the bundled CC-BY-SA-4.0 database; see PROVENANCE.md."
+}
