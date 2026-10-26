@@ -705,8 +705,10 @@ def _loaded(plan: str) -> CanvasScene:
 def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
     """The largest painted item of the plan that is no longer than 3 m. A plan without
     one (since L4, #388, a plan's small flat items were its furniture sprites, and
-    furniture is built now) gets a 2.5 x 1.5 m terrace in its middle, baked before
-    the gate measures anything."""
+    furniture is built now) gets a 2.5 x 1.5 m terrace across the tile border nearest
+    its middle, half a tile up a row — two tiles, as master's furniture sprite on
+    bench_large; the plan's middle itself is where four tiles meet, and four repaints
+    a move took 13.5 ms on a loaded machine — baked before the gate measures anything."""
     painted = set(bake.baker.painted_ids())
     best: tuple[float, Any] | None = None
     for item in scene.items():
@@ -718,7 +720,10 @@ def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
             best = (size, item)
     if best is None:
         middle = scene.sceneRect().center()
-        added = RectangleItem(middle.x() - 125.0, middle.y() - 75.0, 250.0, 150.0,
+        tile_cm = bake.grid.tile_px / bake.grid.px_per_cm
+        border = round(middle.x() / tile_cm) * tile_cm
+        row_middle = (math.floor(middle.y() / tile_cm) + 0.5) * tile_cm
+        added = RectangleItem(border - 125.0, row_middle - 75.0, 250.0, 150.0,
                               object_type=ObjectType.TERRACE_PATIO)
         scene.addItem(added)
         bake.step()
