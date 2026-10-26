@@ -8110,6 +8110,9 @@ had only moved the failing views.
   post-merge review on the dev box: 3.7 ms across the border, 6.8 ms on the corner (max
   8.3 ms). The 7.1 ms and 13.5 ms read earlier came from a loaded
   machine, which §8.10.4 does not accept as evidence. The gate's bounds are unchanged.
+  Under coverage's tracer, CI's run read 13.3 ms on the corner, while the two-tile cases
+  hold 10 ms there too. So the corner's tiles are checked in every run, but its clock is
+  checked only without a tracer (`traced()`, as in the scene3d budgets).
 
 **Senior review of the merge with master (2026-10-26): one P1, fixed.**
 - The review compared every line on both sides of the merge and found nothing lost. It
