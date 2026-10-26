@@ -2762,7 +2762,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   - decks and other relief are bounded by construction;
   - a roof's lowest edge stays at least half its eave floor above the ground, the style kept.
 
-  Follow-ups: #600, #603–#605, #607, #609, #611, #612.
+  Follow-ups: #600, #603–#605, #607, #609, #611, #612, #615.
 
 ### L3 acceptance highlights — Plant Forge (#387, ADR-064) — **shipped v1.32.0, PR #593**
 

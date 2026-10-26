@@ -8138,7 +8138,18 @@ had only moved the failing views.
     8.3 ms). That is about 70 % of the 10 ms bound;
   - with another user's process loading the machine: 7.6–7.8 ms and 14.4–15.0 ms, and the
     corner's edit takes two passes.
-  CI read 13.3 ms on the corner under coverage, which its perf tier runs with (#601). So
-  the 13.5 ms of round 7 was not noise: a four-tile edit is close to the bound.
+  On CI, the corner read 13.3 ms under coverage (#601), and then 12.15 ms in the
+  uninstrumented `Test` job, which had passed it one run earlier. So the 13.5 ms of round 7
+  was not noise: a four-tile edit does not reliably fit one 10 ms pass. **The same is
+  true on master:** an interleaved A/B of the same terrace on the same corner read
+  7.6–8.6 ms on master and 8.8–9.5 ms here, and master also split it into two passes once
+  (15.0 ms). L4 adds about 5–10 %. Across a border it is 4.2–4.6 ms against 4.6–4.8 ms.
+  - A first fix (e7916be7) skipped the corner's clock under a tracer only. The re-review
+    rejected it: that misread the cause, and it made one case an exception to §8.10's rule.
+  - **The gate now:** the two-tile cases keep one pass and at most 10 ms in the median. The
+    four-tile case is held to what `BAKE_BUDGET_S` guarantees, which is two passes of the
+    budget (at most 20 ms, at most two passes). Under a tracer, every case asserts only
+    §8.10's tripwire (10×, `budget_factor`), and passes are not counted.
+  - **#615 (owner decision):** should a four-tile edit fit one pass?
 - The merge commit's message says "three unused noqa directives". There were nine, in
   four files. The merge commit is pushed and not rewritten; ruff is clean.
