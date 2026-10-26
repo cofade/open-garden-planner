@@ -223,7 +223,7 @@ def _trimmed(line: F64, distance: float) -> F64:
     reach = np.concatenate([[0.0], np.cumsum(lengths)])
 
     def at(where: float) -> F64:
-        index = int(min(np.searchsorted(reach, where, side="right") - 1, len(lengths) - 1))
+        index = min(int(np.searchsorted(reach, where, side="right")) - 1, len(lengths) - 1)
         share = (where - reach[index]) / lengths[index] if lengths[index] > 0.0 else 0.0
         return np.asarray(line[index] + (line[index + 1] - line[index]) * share)
 
