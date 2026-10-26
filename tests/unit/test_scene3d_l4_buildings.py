@@ -29,7 +29,7 @@ from open_garden_planner.core.scene3d.builders.roofs import (
     is_convex,
     shed_roof,
 )
-from tests.unit.scene3d_builder_cases import L_RIDGE, L_SHAPE, polygon_record, rectangle
+from tests.unit.scene3d_builder_cases import L_RIDGE, L_SHAPE, U_SHAPE, polygon_record, rectangle
 
 REGISTRY = production_registry()
 RIDGE = ((-450.0, 0.0), (450.0, 0.0))
@@ -218,20 +218,27 @@ def _hexagon(radius: float):
     return tuple((radius * math.cos(math.pi * k / 3.0), radius * math.sin(math.pi * k / 3.0)) for k in range(6))
 
 
-@pytest.mark.parametrize("kind,ring,height,style,pitch,overhang", [
-    ("HOUSE", _hexagon(300.0), 700.0, "hip", 60.0, 150.0),               # round 3: 37.5 where 73.9 holds
-    ("TOOL_SHED", rectangle(240.0, 180.0), 700.0, "shed", 60.0, 100.0),  # 40.3 where 76.9 (a curved edge)
-    ("TOOL_SHED", rectangle(60.0, 100.0), 450.0, "shed", 60.0, 150.0),
-    ("TOOL_SHED", rectangle(60.0, 100.0), 200.0, "gable", 60.0, 150.0),
-    ("GARAGE_SHED", rectangle(240.0, 180.0), 40.0, "gable", 30.0, 150.0),
+@pytest.mark.parametrize("kind,ring,height,style,pitch,overhang,shape", [
+    ("HOUSE", _hexagon(300.0), 700.0, "hip", 60.0, 150.0, "rectangle"),  # round 3: 37.5 where 73.9 holds
+    ("TOOL_SHED", rectangle(240.0, 180.0), 700.0, "shed", 60.0, 100.0, "rectangle"),  # 40.3 where 76.9
+    ("TOOL_SHED", rectangle(60.0, 100.0), 450.0, "shed", 60.0, 150.0, "rectangle"),   # the sweep's worst
+    ("TOOL_SHED", rectangle(60.0, 100.0), 200.0, "gable", 60.0, 150.0, "rectangle"),
+    ("GARAGE_SHED", rectangle(240.0, 180.0), 40.0, "gable", 30.0, 150.0, "rectangle"),
+    ("HOUSE", U_SHAPE, 150.0, "gable", 60.0, 100.0, "polygon"),   # round 4: no roof at exactly 100 cm
+    ("HOUSE", U_SHAPE, 25.0, "gable", 60.0, 100.0, "polygon"),
+    ("HOUSE", tuple((250.0 * math.cos(2.0 * math.pi * k / 64), 250.0 * math.sin(2.0 * math.pi * k / 64))
+                    for k in range(64)), 700.0, "hip", 60.0, 150.0, "polygon"),   # no roof at the long end
 ])
 def test_a_shortened_overhang_is_nearly_the_longest_that_holds(
-        monkeypatch: pytest.MonkeyPatch, kind, ring, height, style, pitch, overhang) -> None:
-    """Senior review of #388, round 3: the round-2 search gave up its bracket after a
-    failed guess and halved from there — a hexagonal hip got 37.5 cm of overhang where
-    73.9 cm holds, a shed whose edge is curved by its slope clamp 40.3 where 76.9
-    holds. The search is a regula falsi now: within 10 % of the longest overhang that
-    keeps the edge up, in at most ``OVERHANG_TRIES`` roofs beyond the first two."""
+        monkeypatch: pytest.MonkeyPatch, kind, ring, height, style, pitch, overhang, shape) -> None:
+    """Senior review of #388: the round-2 search gave up its bracket after a failed
+    guess and halved from there — a hexagonal hip got 37.5 cm of overhang where 73.9 cm
+    holds, a shed whose edge is curved by its slope clamp 40.3 where 76.9 holds; round
+    4 found a U outline whose gable is NO roof at exactly 100 cm (an offset edge on the
+    ridge line) and was shortened to 50. The search is a regula falsi on the measured
+    edge heights: at least 97 % of the longest overhang that holds — the worst case of
+    ``scripts/measure_roof_overhang.py``'s grid — in at most ``OVERHANG_TRIES`` roofs
+    beyond the first two."""
     real = buildings._pitched  # noqa: SLF001
     tried: list[tuple[object, float]] = []
 
@@ -243,7 +250,7 @@ def test_a_shortened_overhang_is_nearly_the_longest_that_holds(
 
     monkeypatch.setattr(buildings, "_pitched", counting)
     params = {"roof_style": style, "roof_pitch_deg": pitch, "roof_overhang_cm": overhang}
-    record = house(params, ring=ring, height=height, kind=kind)
+    record = polygon_record(kind, ring, height, shape=shape, params=params)
     roof = roof_of(record)
     found = next(cm for mesh, cm in tried if mesh is roof.mesh)
     assert len(tried) <= 2 + buildings.OVERHANG_TRIES
@@ -260,7 +267,35 @@ def test_a_shortened_overhang_is_nearly_the_longest_that_holds(
     for _step in range(30):
         middle = (low + high) / 2.0
         low, high = (middle, high) if holds(middle) else (low, middle)
-    assert 0.9 * low <= found <= low + 1e-3, (found, low)
+    assert 0.97 * low <= found <= low + 1e-3, (found, low)
+
+
+def test_a_style_that_builds_no_roof_at_all_is_left_to_the_caller() -> None:
+    """A tool shed whose record says rectangle but whose outline is an L gets its ridge
+    on the inner edge: no gable without an overhang, and at 150 cm one that sinks
+    44 cm under the floor. ``_kept_up`` returns None — never a roof it did not check —
+    and the building is its plain block."""
+    params = {"roof_style": "gable", "roof_pitch_deg": 60.0, "roof_overhang_cm": 150.0}
+    record = polygon_record("TOOL_SHED", L_SHAPE, 700.0, shape="rectangle", params=params)
+    style = buildings.style_for(record, buildings.SHED_ROOF)
+    assert buildings._kept_up(record, "gable", 700.0, style) is None  # noqa: SLF001
+    parts = REGISTRY.build(record)
+    assert "roof" not in {part.name for part in parts}
+    assert min(float(part.mesh.positions[:, 2].min()) for part in parts) >= 0.0
+
+
+@pytest.mark.parametrize("height", [18.5, 19.0, 20.0, 21.0, 21.5])
+def test_a_building_too_low_for_the_floor_keeps_the_walls_own_roof(height: float) -> None:
+    """A gable on a house 18.5-21.5 cm tall ends about 1 cm above the ground without an
+    overhang — under half its eave floor, with no overhang left to shorten. It keeps
+    that roof (round 4: it had become a plain block)."""
+    record = house({"roof_style": "gable", "roof_overhang_cm": 150.0}, ring=rectangle(300.0, 200.0),
+                   height=height)
+    roof = roof_of(record)
+    style = buildings.style_for(record, buildings.HOUSE_ROOF)
+    without = buildings._pitched(record, "gable", height, dataclasses.replace(style, overhang_cm=0.0))  # noqa: SLF001
+    assert without is not None and roof.mesh == without.roof
+    assert float(roof.mesh.positions[:, 2].min()) >= 0.0
 
 
 def test_style_for_clamps_like_the_metadata() -> None:

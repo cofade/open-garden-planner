@@ -7060,19 +7060,32 @@ with numpy row crossings; beyond `MAX_DECK_BOARDS` (2,000) boards, or `MAX_DECK_
 raised (a 402-vertex comb had built 446,364 triangles in 14 s; a sawtooth of 601 regions
 narrower than 1 cm, which are now skipped, scanned rows for 2.8 s). A
 kerb, skirt or coping is swept along at most `MAX_RELIEF_VERTICES` (4,096) outline
-vertices; beyond, the surface keeps its painted ground. A pitched roof's lowest edge stays
-at least `EDGE_FLOOR_SHARE` (half) of the eave floor above the ground: the overhang is
+vertices; beyond, the surface keeps its painted ground. An overhang never takes a pitched
+roof's lowest edge below `EDGE_FLOOR_SHARE` (half) of the eave floor: the overhang is
 shortened and the chosen style and pitch kept (a 60 × 100 cm shed at 60° and 150 cm
 reached 91.5 cm into the ground). The overhang is found by a regula falsi on the measured
-edge heights: over the panel's ranges (6,048 cases) at least 97 % of the longest overhang
-that holds, in 1.3 roofs on average and at most `OVERHANG_TRIES` beyond the first two; a
-style that is not up even without an overhang builds no roof (the caller falls back).
+edge heights. Where the long end builds no roof, the fall per centimetre comes from the
+last two roofs that held, or at first from the pitch, and a guess stays half a centimetre
+short of that end: a U outline's gable is no roof at exactly 100 cm. A building too low
+for the floor even without an overhang keeps its roof without one; a gabled house 18.5–21.5
+cm tall ends about 1 cm above the ground. A style that builds no roof there at all is
+left to the caller: a hip falls back to the gable, otherwise the building is its plain
+block. `scripts/measure_roof_overhang.py` measures the search over 9,072 cases (three
+building kinds; rectangles, an L, a U, a hexagon and a 64-gon; 20–700 cm; every style;
+four pitches and four overhangs). Of the 569 cases it shortens to at least 5 cm, the worst
+found 97.0 % of the longest overhang that holds, with 0 floor violations and 0 roofs
+lost. It builds 1.30 roofs per case on average and 6 at most. A 64-corner hip at 700 cm,
+60° and 150 cm takes 3 roofs, 266 ms.
 Context params change at most once per `CONTEXT_REBUILD_MIN_MS` during a drag (§8.29,
-"A move or a recolour uploads nothing"). A held pass keeps the plan's 60,000 blades: the
-old shares are kept while the lawns' total fits (a resized lawn leaves the others alone);
-otherwise no held share is above its new one, and an item that became a lawn inside the
-interval counts as unbounded. A document change, a pause and a recovery from scratch end
-the hold.
+"A move or a recolour uploads nothing"). A held pass keeps the plan's 60,000 blades:
+- The old shares are kept while the lawns' total fits, so a resized lawn leaves the
+  others alone. Otherwise no held share is above its new one.
+- A lawn without a held share (a raised lawn lowered) counts as unbounded.
+- A record whose kind changed is not held.
+- A lawn with a height grows no blades and takes no share.
+
+A document change and a pause end the hold, and a recovery from scratch applies the plan
+unheld.
 
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on

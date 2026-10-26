@@ -141,7 +141,7 @@ from open_garden_planner.core.scene3d import (
 )
 from open_garden_planner.core.scene3d.camera import Bounds
 from open_garden_planner.core.scene3d.context import CONTEXT_PARAMS, MAX_PLAN_BLADES
-from open_garden_planner.core.scene3d.record import PARAM_LAWN_BLADES
+from open_garden_planner.core.scene3d.record import PARAM_LAWN_BLADES, lawn_blade_share
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
@@ -189,7 +189,7 @@ DATE_REGROW_MIN_MS: Final = 500
 #: first at once, the last when the interval is over (one trailing pass) — unless the
 #: plan's blade budget needs a held lawn's smaller share at once (``_hold_context``).
 #: Everything else of the record — a dragged lawn's own move — is applied at every
-#: step. Senior review of #388 measured 30 lawn rebuilds in 30 drag steps.
+#: step. Before, a drag measured 30 lawn rebuilds in 30 steps.
 CONTEXT_REBUILD_MIN_MS: Final = 400
 #: How many distinct failures of one outage are remembered (and so logged at ERROR
 #: once each); a failure beyond that is a DEBUG line.
@@ -224,12 +224,6 @@ def _context_of(record: Record) -> dict[str, ParamValue]:
     return {key: value for key, value in record.params.items() if key in CONTEXT_PARAMS}
 
 
-def _blade_share(params: Mapping[str, ParamValue]) -> int | None:
-    """The blade share in ``params`` as the lawn builder reads it: an int, or None."""
-    share = params.get(PARAM_LAWN_BLADES)
-    return share if isinstance(share, int) and not isinstance(share, bool) else None
-
-
 def _fits_the_blade_budget(records: Mapping[str, Record],
                            held: Mapping[str, Mapping[str, ParamValue]]) -> bool:
     """Whether the lawns of ``records`` stay within ``MAX_PLAN_BLADES`` with the params
@@ -237,9 +231,9 @@ def _fits_the_blade_budget(records: Mapping[str, Record],
     held params carry none would take its own count — it never fits."""
     total = 0
     for item_id, record in records.items():
-        if _blade_share(record.params) is None:   # no lawn of this plan
+        if lawn_blade_share(record.params) is None:   # no lawn of this plan
             continue
-        share = _blade_share(held[item_id]) if item_id in held else _blade_share(record.params)
+        share = lawn_blade_share(held[item_id]) if item_id in held else lawn_blade_share(record.params)
         if share is None:
             return False
         total += share
@@ -787,14 +781,13 @@ class Scene3DController(QObject):
 
         A held pass keeps the plan's blade budget (``MAX_PLAN_BLADES``): the old blade
         shares are kept while the lawns' total fits it — so a resized lawn leaves the
-        other lawns alone — and otherwise no held share is above its new one. A lawn of
-        the new plan without a held share (an item that became a lawn) counts as
-        unbounded: its builder would take the lawn's own count. Senior review of #388:
-        round 2, a held share and a new lawn's put 80,000 blades in the scene; round 3,
-        a terrace turned into a lawn inside the interval put 75,637."""
+        other lawns alone — and otherwise no held share is above its new one. A lawn
+        without a held share (a raised lawn lowered) counts as unbounded: its builder
+        would take the lawn's own count. A record whose kind changed is not held — its
+        old context means nothing to it (a lawn turned terrace kept its blade params)."""
         applied = self._sync.records
         changed = [item_id for item_id, record in records.items()
-                   if (before := applied.get(item_id)) is not None
+                   if (before := applied.get(item_id)) is not None and before.kind == record.kind
                    and _context_of(before) != _context_of(record)]
         if not changed:
             return records
@@ -813,7 +806,7 @@ class Scene3DController(QObject):
             kept[item_id] = params
         if not _fits_the_blade_budget(records, kept):
             for item_id, params in kept.items():
-                share, held_share = _blade_share(records[item_id].params), _blade_share(params)
+                share, held_share = lawn_blade_share(records[item_id].params), lawn_blade_share(params)
                 if share is not None and (held_share is None or share < held_share):
                     params[PARAM_LAWN_BLADES] = share
         held = dict(records)

@@ -588,6 +588,18 @@ def test_the_plan_s_blades_are_shared_and_none_is_wasted() -> None:
     assert b == int(220.0 * 36.0)  # the small one gets its own density from what the big one cannot use
 
 
+def test_a_raised_lawn_takes_no_share_of_the_plan_s_blades() -> None:
+    """A lawn with a height is the plain prism and grows no blades, yet it took a share:
+    beside a raised 30 x 30 m lawn the real one got 30,000 blades, alone 36,000
+    (senior review of #388, round 4)."""
+    real = painted(at(polygon_record("LAWN", rectangle(3000.0, 3000.0), None, item_id="real"), 0.0, 0.0))
+    raised = painted(at(polygon_record("LAWN", rectangle(3000.0, 3000.0), 50.0, item_id="raised"), 4000.0, 0.0))
+    records = {r.item_id: r for r in (real, raised)}
+    with_context(records)
+    assert records["real"].params["lawn_blades"] == surfaces.MAX_BLADES
+    assert "lawn_blades" not in records["raised"].params and "lawn_cutouts" not in records["raised"].params
+
+
 def test_lawns_past_the_plan_budget_share_it_by_area() -> None:
     lawns = [painted(at(polygon_record("LAWN", rectangle(side, side), None, item_id=f"l{i}"), 10_000.0 * i, 0.0))
              for i, side in enumerate((1500.0, 1500.0, 3000.0))]

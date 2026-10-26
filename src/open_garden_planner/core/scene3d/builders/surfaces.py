@@ -43,7 +43,6 @@ from ..build import BuilderRegistry, default_builder, item_seed, prism_mesh
 from ..mesh import Mesh, MeshPart
 from ..polygon import cut_region
 from ..record import (
-    PARAM_LAWN_BLADES,
     PARAM_LAWN_CUTOUTS,
     PARAM_PATH_STYLE,
     PARAM_RADIUS_CM,
@@ -52,6 +51,7 @@ from ..record import (
     SHAPE_CIRCLE,
     Record,
     Ring,
+    lawn_blade_share,
 )
 from . import palette
 from .common import centre_line
@@ -746,9 +746,7 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
     if record.height_cm is not None:  # a lawn the user gave a height: the plain prism, as before L4
         return default_builder(record)
     seed = str(record.params.get(PARAM_SEED, ""))
-    wanted = record.params.get(PARAM_LAWN_BLADES)
-    share = wanted if isinstance(wanted, int) and not isinstance(wanted, bool) else None
-    sward = _sward(record.footprints, record.holes, seed, share)
+    sward = _sward(record.footprints, record.holes, seed, lawn_blade_share(record.params))
     roots = sward.roots
     if not len(roots):
         return ()

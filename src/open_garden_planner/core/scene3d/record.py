@@ -139,6 +139,14 @@ PARAM_LAWN_BLADES: Final = "lawn_blades"
 FALLBACK_RGBA: Final[Rgba] = (158, 158, 148, 255)
 
 
+def lawn_blade_share(params: Mapping[str, ParamValue]) -> int | None:
+    """The ``PARAM_LAWN_BLADES`` of ``params`` as the lawn builder reads it: an int, or
+    None (absent or not an int: the lawn's own count). The one reading — the 3D
+    controller's budget check holds only while it reads what the builder builds."""
+    share = params.get(PARAM_LAWN_BLADES)
+    return share if isinstance(share, int) and not isinstance(share, bool) else None
+
+
 #: The largest length a record may hold, in cm: 10 km. A height, a stroke width,
 #: a radius, a coordinate of the local geometry, a position, a float param —
 #: nothing in a garden plan is taller, wider or farther from its origin. The

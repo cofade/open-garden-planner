@@ -7655,7 +7655,8 @@ had only moved the failing views.
 - **P1:** the blade share is a context param, so a held lawn kept its old, larger share
   while new lawns got theirs. Two lawns created within one interval put 80,000 blades in
   the scene, against a plan budget of 60,000.
-  - Fix: a held share is never above its new one, so the budget holds in every pass.
+  - Fix: a held share is never above its new one. **Not enough, round 3:** a MISSING
+    held share escaped the rule; one budget check replaced it.
   - Pinned with the fake clock; without the fix the test reads 30,000 + 30,000 + 20,000.
 - **P2s fixed:**
   - The hold now ends at a document change (its first pass is a plain apply), at a pause
@@ -7664,7 +7665,8 @@ had only moved the failing views.
     regions narrower than 1 cm are skipped. A 601-region sawtooth took 2.8 s and now
     takes 0 ms.
   - The roof's overhang search tries a secant's guess first: about three builds instead of
-    twelve. A 64-corner hip went from 472 ms to 175 ms.
+    twelve. A 64-corner hip went from 472 ms to 175 ms. (Rounds 3 and 4 replaced the
+    search; the round-4 search takes that hip in 3 roofs, 266 ms.)
   - Ground-covering objects cut a lawn whatever their height and paint order.
   - Smaller fixes:
     - `same_geometry` stays a list by hand: `scripts/mutation_check_scene3d.py` deletes its
@@ -7702,14 +7704,63 @@ had only moved the failing views.
     edge the slope clamp curves kept 40.3 where 76.9 holds. The search is a regula falsi
     on the measured edge heights, with Illinois halving. Over 6,048 panel cases it finds
     at least 97 % of the longest overhang that holds (it was 51 %), in 1.3 roofs on
-    average and 6 at most. Pinned against a 30-step bisection.
+    average and 6 at most. Pinned against a 30-step bisection. **Wrong, round 4:** those
+    6,048 cases had no U outline. Its gable builds no roof at exactly 100 cm, and the
+    search took that as a sunk roof and kept 50–94 cm.
   - `_kept_up` no longer returns a roof it never checked: when even a roof without an
     overhang is below the floor, it returns None and the caller falls back. Of the 6,048
     cases this changes four, the unreachable tool shed with an L outline and a rectangle
-    shape.
+    shape. **Wrong, round 4:** it also took the roof off every gabled building 18.5–21.5 cm
+    tall.
   - The FR's eave sentence states the floor's numbers instead of "a door still fits".
   - An AST test pins every `GEOMETRY_FIELDS` name in `same_geometry`'s hand-written list.
   - Nits: a second timer stop, a test name, the `context_deferrals` comment.
 - **Left as a smell:** the hold builds records that never existed (new geometry with old
   context), so every plan-wide invariant over context params needs its own check in
   `_hold_context`. The blade budget is the only one today.
+
+**Senior review round 4 (2026-10-26): no P0. One P1: round 3's measured claims.**
+- **Confirmed fixed:** the reviewer fuzzed `_hold_context` with 3,000 random plans through
+  6 chained held passes each (12,292 held passes, with type changes, heights toggled, and
+  lawns added and removed). The worst total was exactly 60,000; round 3's controller went
+  over in 1,135 passes, up to 123,151.
+- **P1:** round 3 wrote two numbers into this addendum, §8.29.12 and a code comment that
+  the code did not meet (the two "Wrong, round 4" notes above), and the measurement was
+  not in the repo.
+- **Decisions:**
+  - `_kept_up` tells "no roof" from "sunk". A guess stays `OVERHANG_NUDGE_CM` (0.5 cm)
+    short of an overhang that built no roof. With no roof at the long end, the edge's fall
+    per centimetre comes from the last two roofs that held, or at first from the pitch.
+  - The search stops on overhang, not on edge height: once its next step would gain
+    under 2.5 % of the overhang found, or under a centimetre.
+  - A building too low for the floor even without an overhang keeps that roof, as before
+    round 3, because there is no overhang left to shorten. The function returns None
+    only when the style builds no roof at all.
+  - The measurement is committed: `scripts/measure_roof_overhang.py` (9,072 cases, the
+    grid in its docstring). Of the 569 cases it shortens to at least 5 cm, the worst
+    found 97.0 % of the longest overhang that holds, with 0 floor violations and 0 roofs
+    lost. It builds 1.30 roofs per case on average and 6 at most.
+  - A 64-corner hip at 700 cm, 60° and 150 cm takes 3 roofs, 266 ms (round 3: 6 roofs,
+    527 ms; the long end builds no roof).
+  - The reviewer's own 26,880-case sweep on the round-4 search: 0 of 1,553 shortened
+    roofs below 97 %, worst 0.970 (round 3: 351 below, 45 at exactly 50 %).
+- **P2s fixed:**
+  - One reading of a lawn's blade share, `record.lawn_blade_share`, now serves the
+    builder and the budget check.
+  - A lawn with a height grows no blades and now takes no share, so the real lawn beside
+    a raised one gets its 36,000.
+  - A record whose kind changed is not held: a lawn turned into a terrace no longer
+    carries blade params onto the terrace.
+  - The trailing-pass tests emit the timer's signal instead of waiting on a real timer.
+  - The glossary and §8.29.12 now agree on what ends a hold.
+  - Docstrings that round 3 made false are corrected, and the review history is trimmed
+    from code comments (#516).
+- **Pins:** the U outline and the 64-corner hip join the overhang test at 97 %. Each of
+  these is pinned:
+  - the None path (a style with no roof at all, then the plain block);
+  - low buildings keeping their own roof;
+  - the raised lawn's share;
+  - a raised lawn lowered inside a hold;
+  - a lawn turned into a terrace inside a hold.
+
+  Eight mutants, one per fix, each fail their test.

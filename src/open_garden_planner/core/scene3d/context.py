@@ -23,7 +23,8 @@ the record's own frame, once every record exists (``with_context``):
   shares ``MAX_PLAN_BLADES`` among the plan's lawns by area (each lawn its own
   density and ``surfaces.MAX_BLADES`` at most; what a capped or small lawn cannot
   use goes to the others), so a plan of many lawns — or of 2,000 stacked ones —
-  grows a bounded meadow.
+  grows a bounded meadow. A lawn with a height is a plain solid that grows no blades:
+  it takes neither param.
 
 Because these params are GEOMETRY, an edit that changes them rebuilds the house
 whose door turns to another wall and the lawn a flat item crosses — and only
@@ -215,8 +216,9 @@ def _keyhole(outer: Sequence[tuple[float, float]], holes: Sequence[Sequence[tupl
 
 def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
     order = list(records)
-    lawns = [index for index, item_id in enumerate(order)
-             if records[item_id].kind == "LAWN" and records[item_id].footprints]
+    lawns = [index for index, item_id in enumerate(order)   # a lawn with a height grows no blades
+             if records[item_id].kind == "LAWN" and records[item_id].footprints
+             and records[item_id].height_cm is None]
     if not lawns:
         return
     candidates = []  # every record that cuts a lawn it lies on: collected once
