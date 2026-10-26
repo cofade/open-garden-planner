@@ -166,7 +166,10 @@ class UpdateChecker(QThread):
                     "User-Agent": "OpenGardenPlanner-UpdateChecker",
                 },
             )
-            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+            if not req.full_url.startswith("https://"):
+                logger.error("Refusing non-HTTPS releases URL: %s", req.full_url)
+                return
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:  # nosec: B310
                 if self._is_cancelled:
                     return
                 content = resp.read(1_048_577)
@@ -179,6 +182,6 @@ class UpdateChecker(QThread):
             info = parse_release_info(data)
             if info.tag_name and compare_versions(current, info.tag_name) and not self._is_cancelled:
                 self.update_available.emit(info)
-        except Exception:  # noqa: BLE001
+        except Exception:
             if not self._is_cancelled:
                 logger.debug("Update check skipped (offline or error)", exc_info=True)

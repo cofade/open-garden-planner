@@ -5,7 +5,6 @@ Distance is now determined by cursor position, not a dialog.
 All coordinates are scene-space (Y-down, (0,0) = top-left).
 """
 
-# ruff: noqa: ARG002
 
 import tempfile
 from pathlib import Path

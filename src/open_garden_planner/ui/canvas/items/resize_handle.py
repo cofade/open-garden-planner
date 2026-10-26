@@ -289,7 +289,7 @@ def _is_item_fixed(item: "QGraphicsItem") -> bool:
     item_id = getattr(item, "item_id", None)
     if item_id is None:
         return False
-    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+    from open_garden_planner.core.constraints import ConstraintType
 
     for c in scene.constraint_graph.constraints.values():
         if c.constraint_type == ConstraintType.FIXED and c.anchor_a.item_id == item_id:
@@ -330,7 +330,7 @@ def _has_blocking_constraints(item: "QGraphicsItem") -> bool:
     item_id = getattr(item, "item_id", None)
     if item_id is None:
         return False
-    from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+    from open_garden_planner.core.constraints import ConstraintType
 
     scale_invariant = {
         ConstraintType.HORIZONTAL,
@@ -1060,7 +1060,7 @@ class ResizeHandlesMixin:
         scene = self.scene() if hasattr(self, 'scene') else None
         if scene is not None and hasattr(self, 'item_id'):
             from open_garden_planner.core.tools.constraint_tool import (
-                _capture_equal_partner_pre_states,  # noqa: PLC0415
+                _capture_equal_partner_pre_states,
             )
             self._equal_partner_pre_states: list = _capture_equal_partner_pre_states(self, scene)
         else:
@@ -1080,7 +1080,7 @@ class ResizeHandlesMixin:
         self._propagating_equal_resize = True
         try:
             from open_garden_planner.core.tools.constraint_tool import (
-                _apply_equal_propagation_live,  # noqa: PLC0415
+                _apply_equal_propagation_live,
             )
             _apply_equal_propagation_live(self, scene)
         finally:

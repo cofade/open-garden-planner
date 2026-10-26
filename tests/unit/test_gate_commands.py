@@ -209,7 +209,7 @@ def _tracked(*patterns: str) -> list[Path]:
     the whole suite.
     """
     try:
-        out = subprocess.run(  # noqa: S603 - fixed argv, no shell
+        out = subprocess.run(
             ["git", "ls-files", *patterns],
             cwd=_REPO_ROOT,
             capture_output=True,

@@ -43,15 +43,15 @@ class _HeaderFrame(QFrame):
     hover_leave = pyqtSignal()
     pin_toggled = pyqtSignal(bool)
 
-    def enterEvent(self, event: QEnterEvent) -> None:  # noqa: N802 (Qt override)
+    def enterEvent(self, event: QEnterEvent) -> None:
         self.hover_enter.emit()
         super().enterEvent(event)
 
-    def leaveEvent(self, event: QEvent) -> None:  # noqa: N802 (Qt override)
+    def leaveEvent(self, event: QEvent) -> None:
         self.hover_leave.emit()
         super().leaveEvent(event)
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802 (Qt override)
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.pin_toggled.emit(True)
         super().mousePressEvent(event)

@@ -29,12 +29,12 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
 @pytest.fixture()
-def project_manager(qtbot: object) -> ProjectManager:  # noqa: ARG001 — Qt init
+def project_manager(qtbot: object) -> ProjectManager:
     return ProjectManager()
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot: object) -> CanvasScene:
     return CanvasScene(width_cm=1000, height_cm=800)
 
 
@@ -329,7 +329,7 @@ class TestSeasonCarryover:
 # ---------------------------------------------------------------------------
 
 class TestPestOverviewPanel:
-    def test_lists_only_unresolved(self, qtbot) -> None:  # noqa: ARG002
+    def test_lists_only_unresolved(self, qtbot) -> None:
         from open_garden_planner.ui.panels.pest_overview_panel import (
             PestOverviewPanel,
         )
@@ -347,7 +347,7 @@ class TestPestOverviewPanel:
         assert panel._list.count() == 1
         assert "Aphids" in panel._list.item(0).text()
 
-    def test_empty_state_shows_placeholder(self, qtbot) -> None:  # noqa: ARG002
+    def test_empty_state_shows_placeholder(self, qtbot) -> None:
         from open_garden_planner.ui.panels.pest_overview_panel import (
             PestOverviewPanel,
         )
@@ -362,7 +362,7 @@ class TestPestOverviewPanel:
 
     def test_deleted_target_falls_back_to_placeholder(
         self, qtbot
-    ) -> None:  # noqa: ARG002
+    ) -> None:
         from open_garden_planner.ui.panels.pest_overview_panel import (
             PestOverviewPanel,
         )
@@ -403,7 +403,7 @@ class TestPhotoPath:
 # ---------------------------------------------------------------------------
 
 class TestPestLogDialog:
-    def test_set_values_round_trip(self, qtbot) -> None:  # noqa: ARG002
+    def test_set_values_round_trip(self, qtbot) -> None:
         from open_garden_planner.ui.dialogs.pest_log_dialog import PestLogDialog
 
         dialog = PestLogDialog(target_id="bed-1", target_name="Tomatoes")
@@ -427,7 +427,7 @@ class TestPestLogDialog:
 
     def test_attach_photo_button_disabled_when_unsaved(
         self, qtbot, project_manager: ProjectManager
-    ) -> None:  # noqa: ARG002
+    ) -> None:
         from open_garden_planner.ui.dialogs.pest_log_dialog import PestLogDialog
 
         # current_file is None on a fresh project_manager

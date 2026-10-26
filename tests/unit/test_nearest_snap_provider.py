@@ -29,7 +29,7 @@ def _approx(a: float, b: float, tol: float = 1e-3) -> bool:
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot: object) -> CanvasScene:
     return CanvasScene(width_cm=5000, height_cm=3000)
 
 

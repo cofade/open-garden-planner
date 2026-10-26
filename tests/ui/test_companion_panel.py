@@ -14,21 +14,21 @@ def service() -> CompanionPlantingService:
 
 
 @pytest.fixture()
-def panel(qtbot, service: CompanionPlantingService) -> CompanionPanel:  # noqa: ARG001
+def panel(qtbot, service: CompanionPlantingService) -> CompanionPanel:
     p = CompanionPanel(service)
     qtbot.addWidget(p)
     return p
 
 
 @pytest.fixture()
-def tomato_item(qtbot) -> CircleItem:  # noqa: ARG001
+def tomato_item(qtbot) -> CircleItem:
     item = CircleItem(100.0, 100.0, 25.0, object_type=ObjectType.TREE)
     item.plant_species = "tomato"
     return item
 
 
 @pytest.fixture()
-def basil_item(qtbot) -> CircleItem:  # noqa: ARG001
+def basil_item(qtbot) -> CircleItem:
     item = CircleItem(150.0, 100.0, 15.0, object_type=ObjectType.SHRUB)
     item.plant_species = "basil"
     return item

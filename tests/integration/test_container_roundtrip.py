@@ -20,12 +20,12 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
 @pytest.fixture
-def manager(qtbot) -> ProjectManager:  # noqa: ARG001 — qtbot for Qt init
+def manager(qtbot) -> ProjectManager:
     return ProjectManager()
 
 
 @pytest.fixture
-def scene(qtbot) -> QGraphicsScene:  # noqa: ARG001
+def scene(qtbot) -> QGraphicsScene:
     return QGraphicsScene()
 
 

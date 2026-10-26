@@ -51,7 +51,7 @@ class _AtDateSpy:
 
 
 @pytest.fixture
-def scene(qtbot) -> CanvasScene:  # noqa: ARG001 — qtbot for Qt init
+def scene(qtbot) -> CanvasScene:
     canvas = CanvasScene(500.0, 500.0)
     canvas.addItem(RectangleItem(100, 100, 40, 40, object_type=ObjectType.TOOL_SHED))
     return canvas

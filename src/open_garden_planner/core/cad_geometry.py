@@ -248,7 +248,7 @@ def arc_from_three_points(
     # numerical noise can push it just outside. We don't reject — the
     # arc still passes within micro-cm of p2 in practice. The unit
     # tests verify this.
-    _ = a2  # noqa: F841
+    _ = a2
 
     return center, radius, start_deg, span_deg
 

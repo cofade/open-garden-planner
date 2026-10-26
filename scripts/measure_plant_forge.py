@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 if __name__ == "__main__":
     script_isolation.isolate_profile()
 
-from open_garden_planner.core.plant_art import CATEGORIES, SPECIES, SpriteRef  # noqa: E402
-from open_garden_planner.core.plant_forge import ForgeCache, forge_plant  # noqa: E402
+from open_garden_planner.core.plant_art import CATEGORIES, SPECIES, SpriteRef
+from open_garden_planner.core.plant_forge import ForgeCache, forge_plant
 
 
 def main() -> int:

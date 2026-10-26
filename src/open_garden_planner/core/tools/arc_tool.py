@@ -210,7 +210,7 @@ class ArcTool(BaseTool):
                     layer_id=layer_id,
                 )
                 self._view.add_item(item, "polyline")
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             self._notify_collinear_fallback()
         else:

@@ -51,7 +51,7 @@ def _active_language() -> str:
     Delegates to the one shared resolver so this module, the task generator and
     the companion-set finder cannot disagree about the current UI language.
     """
-    from open_garden_planner.app.settings import active_language  # noqa: PLC0415
+    from open_garden_planner.app.settings import active_language
 
     return active_language()
 

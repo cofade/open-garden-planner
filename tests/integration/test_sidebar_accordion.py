@@ -6,7 +6,7 @@ plant/bed auto-opens the matching contextual panels; and an auto-opened panel ca
 be closed with a single click (and stays closed for that selection).
 """
 
-# ruff: noqa: ARG001, ARG002, ARG005
+# ruff: noqa: ARG005
 
 from PyQt6.QtWidgets import QApplication, QMessageBox
 

@@ -34,7 +34,7 @@ def _content_edit(panel: PropertiesPanel) -> FocusOutTextEdit:
 class TestNameFieldUndoGranularity:
     """Name edits: live label update while typing, one undo step on commit."""
 
-    def test_typing_then_commit_is_one_undo_step(self, qtbot) -> None:  # noqa: ARG002
+    def test_typing_then_commit_is_one_undo_step(self, qtbot) -> None:
         manager = CommandManager()
         panel = PropertiesPanel()
         panel.set_command_manager(manager)
@@ -91,7 +91,7 @@ class TestNameFieldUndoGranularity:
         manager.undo()
         assert item.name == ""
 
-    def test_pending_edit_flushed_when_selection_changes(self, qtbot) -> None:  # noqa: ARG002
+    def test_pending_edit_flushed_when_selection_changes(self, qtbot) -> None:
         """P1 (round-2 review): a pending debounced edit must not be lost when
         the panel rebuilds for a different item. Selecting another item while a
         debounce is still armed must flush the edit to a real undo command, not
@@ -120,7 +120,7 @@ class TestNameFieldUndoGranularity:
         manager.undo()
         assert item_a.name == "", "the flushed command undoes A's edit in one step"
 
-    def test_commit_without_change_is_noop(self, qtbot) -> None:  # noqa: ARG002
+    def test_commit_without_change_is_noop(self, qtbot) -> None:
         manager = CommandManager()
         panel = PropertiesPanel()
         panel.set_command_manager(manager)
@@ -133,7 +133,7 @@ class TestNameFieldUndoGranularity:
         name_edit.editingFinished.emit()
         assert not manager.can_undo, "unchanged focus-out must not push a command"
 
-    def test_double_commit_pushes_single_command(self, qtbot) -> None:  # noqa: ARG002
+    def test_double_commit_pushes_single_command(self, qtbot) -> None:
         """editingFinished can fire twice (Enter, then focus-out) — the
         start-value reset must keep that to a single recorded command."""
         manager = CommandManager()
@@ -155,7 +155,7 @@ class TestNameFieldUndoGranularity:
 class TestTextContentUndoGranularity:
     """Text Content edits commit one undo step on focus-out."""
 
-    def test_typing_then_focus_out_is_one_undo_step(self, qtbot) -> None:  # noqa: ARG002
+    def test_typing_then_focus_out_is_one_undo_step(self, qtbot) -> None:
         manager = CommandManager()
         panel = PropertiesPanel()
         panel.set_command_manager(manager)
@@ -176,7 +176,7 @@ class TestTextContentUndoGranularity:
         assert item.content == ""
         assert not manager.can_undo
 
-    def test_focus_out_without_change_is_noop(self, qtbot) -> None:  # noqa: ARG002
+    def test_focus_out_without_change_is_noop(self, qtbot) -> None:
         manager = CommandManager()
         panel = PropertiesPanel()
         panel.set_command_manager(manager)
@@ -187,7 +187,7 @@ class TestTextContentUndoGranularity:
         content_edit.editing_finished.emit()
         assert not manager.can_undo
 
-    def test_real_focus_out_event_commits(self, qtbot) -> None:  # noqa: ARG002
+    def test_real_focus_out_event_commits(self, qtbot) -> None:
         """A genuine QFocusEvent through FocusOutTextEdit.focusOutEvent commits
         one command — exercises the new subclass code, not just the signal."""
         from PyQt6.QtCore import QEvent
@@ -212,7 +212,7 @@ class TestTextContentUndoGranularity:
 class TestCommandDescriptionLocalized:
     """The {property} fragment localizes end-to-end via the compiled .qm (#210)."""
 
-    def test_german_description_is_fully_localized(self, qtbot) -> None:  # noqa: ARG002
+    def test_german_description_is_fully_localized(self, qtbot) -> None:
         from PyQt6.QtWidgets import QApplication, QGraphicsRectItem
 
         from open_garden_planner.core.i18n import load_translator

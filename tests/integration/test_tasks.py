@@ -4,7 +4,7 @@ Covers persistence round-trip + backwards-compat, season carryover, the status
 flows (done/snooze/dismiss + legacy fold), and the Tasks tab view (rendering,
 manual-task CRUD via TaskDialog, navigation signals).
 """
-# ruff: noqa: ARG001, ARG002, ARG005
+# ruff: noqa: ARG005
 
 import datetime
 

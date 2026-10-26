@@ -21,7 +21,7 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot: object) -> CanvasScene:
     return CanvasScene(width_cm=1000, height_cm=800)
 
 
@@ -251,7 +251,7 @@ class TestDxfImport:
         finally:
             tmp.unlink(missing_ok=True)
 
-    def test_import_get_dxf_layers(self, scene: CanvasScene) -> None:  # noqa: ARG002
+    def test_import_get_dxf_layers(self, scene: CanvasScene) -> None:
         import ezdxf
 
         with tempfile.NamedTemporaryFile(suffix=".dxf", delete=False) as f:

@@ -11,7 +11,7 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
 @pytest.fixture()
-def bed_polygon(qtbot) -> PolygonItem:  # noqa: ARG001
+def bed_polygon(qtbot) -> PolygonItem:
     """A 120×90 polygon bed."""
     vertices = [
         QPointF(0, 0),
@@ -23,13 +23,13 @@ def bed_polygon(qtbot) -> PolygonItem:  # noqa: ARG001
 
 
 @pytest.fixture()
-def bed_rect(qtbot) -> RectangleItem:  # noqa: ARG001
+def bed_rect(qtbot) -> RectangleItem:
     """A 120×90 rectangle bed."""
     return RectangleItem(0, 0, 120, 90, object_type=ObjectType.GARDEN_BED)
 
 
 @pytest.fixture()
-def non_bed_polygon(qtbot) -> PolygonItem:  # noqa: ARG001
+def non_bed_polygon(qtbot) -> PolygonItem:
     """A polygon that is NOT a bed type."""
     vertices = [QPointF(0, 0), QPointF(100, 0), QPointF(100, 100), QPointF(0, 100)]
     return PolygonItem(vertices, object_type=ObjectType.HOUSE)
@@ -88,14 +88,14 @@ class TestGridProperties:
 class TestGridMetadataRoundTrip:
     """Grid settings survive construction from metadata dict."""
 
-    def test_polygon_from_metadata(self, qtbot) -> None:  # noqa: ARG002
+    def test_polygon_from_metadata(self, qtbot) -> None:
         meta = {"grid_enabled": True, "grid_spacing": 15.0}
         vertices = [QPointF(0, 0), QPointF(60, 0), QPointF(60, 60), QPointF(0, 60)]
         item = PolygonItem(vertices, object_type=ObjectType.GARDEN_BED, metadata=meta)
         assert item.grid_enabled is True
         assert item.grid_spacing == 15.0
 
-    def test_rectangle_from_metadata(self, qtbot) -> None:  # noqa: ARG002
+    def test_rectangle_from_metadata(self, qtbot) -> None:
         meta = {"grid_enabled": True, "grid_spacing": 40.0}
         item = RectangleItem(0, 0, 80, 80, object_type=ObjectType.RAISED_BED, metadata=meta)
         assert item.grid_enabled is True

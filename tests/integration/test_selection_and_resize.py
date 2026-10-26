@@ -13,7 +13,6 @@ Workflow per test:
   5. Assert that only the expected axis changed.
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

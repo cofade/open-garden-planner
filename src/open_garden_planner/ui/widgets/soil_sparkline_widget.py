@@ -61,7 +61,7 @@ class SoilSparklineWidget(QWidget):
 
     # ── Painting ───────────────────────────────────────────────────────────────
 
-    def paintEvent(self, _event: QPaintEvent | None) -> None:  # noqa: N802 (Qt API)
+    def paintEvent(self, _event: QPaintEvent | None) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 

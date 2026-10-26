@@ -75,7 +75,6 @@ rotation-only sweep cannot tell a negated sign from a correct one, and the
 geometries; see ``HOUSE_CASES``.
 """
 
-# ruff: noqa: ARG002
 
 import math
 

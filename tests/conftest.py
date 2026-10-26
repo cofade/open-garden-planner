@@ -515,7 +515,7 @@ def _disable_agent_api_server(_reset_app_settings):
 
 
 @pytest.fixture(autouse=True)
-def _reclaim_widgets(qtbot: object):  # noqa: ARG001 - see below
+def _reclaim_widgets(qtbot: object):
     """Destroy the widget graph a test leaves behind, so the next one does not pay for it.
 
     This is the measured root cause of the suite's single largest cost block

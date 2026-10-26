@@ -142,7 +142,7 @@ def _drive(server: AgentApiServer, body: Callable[[Any], Any], result: dict[str,
 
     try:
         asyncio.run(run())
-    except Exception as exc:  # noqa: BLE001 - surface to the assertion below
+    except Exception as exc:
         result["error"] = exc
     finally:
         result["done"] = True

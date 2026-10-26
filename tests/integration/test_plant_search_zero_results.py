@@ -37,7 +37,7 @@ class _StubLibrary:
     run shares; ``tests/conftest.py`` keeps it out of the user's real one).
     """
 
-    def search_plants(self, query: str) -> list:  # noqa: ARG002
+    def search_plants(self, query: str) -> list:
         return []
 
     def get_all_plants(self) -> list:
@@ -61,7 +61,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         credentials-hint text.
         """
 
-        def _empty_get(url, params=None, timeout=None):  # noqa: ARG001
+        def _empty_get(url, params=None, timeout=None):
             response = MagicMock()
             response.status_code = 200
             response.raise_for_status = MagicMock()
@@ -95,7 +95,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         senior-review P2).
         """
 
-        def _get(url, params=None, timeout=None):  # noqa: ARG001
+        def _get(url, params=None, timeout=None):
             response = MagicMock()
             if "perenual" in url:
                 response.status_code = 500
@@ -137,7 +137,7 @@ class TestZeroResultsIsNotReportedAsFailure:
         QMessageBox -- this path must remain intact after the #302 fix.
         """
 
-        def _failing_get(url, params=None, timeout=None):  # noqa: ARG001
+        def _failing_get(url, params=None, timeout=None):
             response = MagicMock()
             response.status_code = 500
             response.raise_for_status = MagicMock(

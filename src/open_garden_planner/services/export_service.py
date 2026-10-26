@@ -67,17 +67,17 @@ class ExportService:
             (hidden_items, previously_selected_items) — the second list is so
             the selection state can be restored after the render.
         """
-        from open_garden_planner.ui.canvas.items.garden_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.garden_item import (
             LockBadgeItem,
         )
-        from open_garden_planner.ui.canvas.items.resize_handle import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.resize_handle import (
             MidpointHandle,
             RectCornerHandle,
             ResizeHandle,
             RotationHandle,
             VertexHandle,
         )
-        from open_garden_planner.ui.canvas.items.soil_badge_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.soil_badge_item import (
             SoilBadgeItem,
         )
 
@@ -808,7 +808,7 @@ class ExportService:
         Raises:
             ValueError: If writing fails.
         """
-        from open_garden_planner.services.harvest_aggregation import (  # noqa: PLC0415
+        from open_garden_planner.services.harvest_aggregation import (
             HARVEST_CSV_HEADERS,
             aggregate_by_species_year,
             harvest_csv_rows,

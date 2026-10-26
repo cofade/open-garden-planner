@@ -34,7 +34,7 @@ def _get_species_key(species_obj: PlantSpeciesData | dict[str, Any] | str) -> st
     via bundled species DB so that gallery items, database records, and custom
     lists resolve symmetrically (P0 fix for issue #320).
     """
-    from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+    from open_garden_planner.services.bundled_species_db import (
         lookup_species,
     )
 
@@ -116,7 +116,7 @@ class PlantListEntry:
                 if species_raw
                 else PlantSpeciesData(scientific_name="", common_name="")
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             species_obj = PlantSpeciesData(
                 scientific_name=species_raw.get("scientific_name", ""),
                 common_name=species_raw.get("common_name", ""),
@@ -224,7 +224,7 @@ class PlantListStore(QObject):
                 for item in lists_raw:
                     pl = PlantList.from_dict(item)
                     self._lists[pl.id] = pl
-            except Exception:  # noqa: BLE001
+            except Exception:
                 # Corrupted or unreadable file: start clean with favorites
                 self._lists = {}
 

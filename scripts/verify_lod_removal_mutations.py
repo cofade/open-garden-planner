@@ -150,7 +150,7 @@ def check_site(fname: str, anchor: str, draw: str, indent: int) -> str:
         path.write_text(original.replace(anchor, body + anchor, 1), encoding="utf-8")
         if not _parses(path):
             return "MUTANT-INVALID (this script's own mutant is broken)"
-        proc = subprocess.run(  # noqa: S603
+        proc = subprocess.run(
             [
                 sys.executable,
                 "-m",

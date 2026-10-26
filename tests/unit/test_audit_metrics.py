@@ -26,7 +26,7 @@ def test_metrics_snapshot_offline(tmp_path: Path) -> None:
     out = tmp_path / "metrics.json"
     argv = [sys.executable, str(SCRIPT), "--root", str(ROOT), "--out", str(out)]
     argv += ["--no-git", "--no-mypy", "--no-ruff", "--no-radon"]
-    proc = subprocess.run(  # noqa: S603 - fixed argv
+    proc = subprocess.run(
         argv, capture_output=True, text=True, encoding="utf-8", timeout=600, check=False
     )
     assert proc.returncode == 0, proc.stderr

@@ -34,13 +34,13 @@ class TestIsInfrastructureType:
     """Tests for is_furniture_type detecting infrastructure objects."""
 
     @pytest.mark.parametrize("obj_type", INFRASTRUCTURE_TYPES)
-    def test_infrastructure_types_detected(self, qtbot: object, obj_type: ObjectType) -> None:  # noqa: ARG002
+    def test_infrastructure_types_detected(self, qtbot: object, obj_type: ObjectType) -> None:
         assert is_furniture_type(obj_type) is True
 
-    def test_house_is_not_infrastructure(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_house_is_not_infrastructure(self, qtbot: object) -> None:
         assert is_furniture_type(ObjectType.HOUSE) is False
 
-    def test_generic_rect_is_not_infrastructure(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_generic_rect_is_not_infrastructure(self, qtbot: object) -> None:
         assert is_furniture_type(ObjectType.GENERIC_RECTANGLE) is False
 
 
@@ -63,7 +63,7 @@ class TestInfrastructureSVGFiles:
         assert "<svg" in content, f"{filename}.svg is not valid SVG"
         assert "</svg>" in content
 
-    def test_infrastructure_files_mapped(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_infrastructure_files_mapped(self, qtbot: object) -> None:
         """The map and this roster agree (map-driven — no literal count to bump)."""
         assert set(_INFRASTRUCTURE_FILES) == set(INFRASTRUCTURE_TYPES)
 
@@ -72,13 +72,13 @@ class TestGetInfrastructureSvgPath:
     """Tests for SVG path resolution."""
 
     @pytest.mark.parametrize("obj_type", INFRASTRUCTURE_TYPES)
-    def test_infrastructure_type_resolves(self, qtbot: object, obj_type: ObjectType) -> None:  # noqa: ARG002
+    def test_infrastructure_type_resolves(self, qtbot: object, obj_type: ObjectType) -> None:
         path = get_furniture_svg_path(obj_type)
         assert path is not None
         assert path.exists()
 
     @pytest.mark.parametrize("obj_type", INFRASTRUCTURE_TYPES)
-    def test_infrastructure_svg_in_infrastructure_dir(self, qtbot: object, obj_type: ObjectType) -> None:  # noqa: ARG002
+    def test_infrastructure_svg_in_infrastructure_dir(self, qtbot: object, obj_type: ObjectType) -> None:
         path = get_furniture_svg_path(obj_type)
         assert path is not None
         assert "infrastructure" in str(path)
@@ -94,19 +94,19 @@ class TestRenderInfrastructurePixmap:
         clear_furniture_cache()
 
     @pytest.mark.parametrize("obj_type", INFRASTRUCTURE_TYPES)
-    def test_render_returns_pixmap(self, qtbot: object, obj_type: ObjectType) -> None:  # noqa: ARG002
+    def test_render_returns_pixmap(self, qtbot: object, obj_type: ObjectType) -> None:
         w, h = FURNITURE_DEFAULT_DIMENSIONS[obj_type]
         pixmap = render_furniture_pixmap(obj_type, width=w, height=h)
         assert pixmap is not None
         assert isinstance(pixmap, QPixmap)
         assert not pixmap.isNull()
 
-    def test_render_raised_bed_default_size(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_render_raised_bed_default_size(self, qtbot: object) -> None:
         pixmap = render_furniture_pixmap(ObjectType.RAISED_BED, width=120, height=80)
         assert pixmap is not None
         assert not pixmap.isNull()
 
-    def test_caching_returns_same_pixmap(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_caching_returns_same_pixmap(self, qtbot: object) -> None:
         p1 = render_furniture_pixmap(ObjectType.RAISED_BED, width=120, height=80)
         p2 = render_furniture_pixmap(ObjectType.RAISED_BED, width=120, height=80)
         assert p1 is p2  # Same object from cache
@@ -116,27 +116,27 @@ class TestInfrastructureDefaultDimensions:
     """Tests for default infrastructure dimensions."""
 
     @pytest.mark.parametrize("obj_type", INFRASTRUCTURE_TYPES)
-    def test_all_types_have_defaults(self, qtbot: object, obj_type: ObjectType) -> None:  # noqa: ARG002
+    def test_all_types_have_defaults(self, qtbot: object, obj_type: ObjectType) -> None:
         w, h = get_default_dimensions(obj_type)
         assert w > 0
         assert h > 0
 
-    def test_raised_bed_dimensions(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_raised_bed_dimensions(self, qtbot: object) -> None:
         w, h = get_default_dimensions(ObjectType.RAISED_BED)
         assert w == 120.0
         assert h == 80.0
 
-    def test_tool_shed_dimensions(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_tool_shed_dimensions(self, qtbot: object) -> None:
         w, h = get_default_dimensions(ObjectType.TOOL_SHED)
         assert w == 200.0
         assert h == 150.0
 
-    def test_water_tap_small(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_water_tap_small(self, qtbot: object) -> None:
         w, h = get_default_dimensions(ObjectType.WATER_TAP)
         assert w == 20.0
         assert h == 20.0
 
-    def test_rain_barrel_dimensions(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_rain_barrel_dimensions(self, qtbot: object) -> None:
         w, h = get_default_dimensions(ObjectType.RAIN_BARREL)
         assert w == 60.0
         assert h == 60.0

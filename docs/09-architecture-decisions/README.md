@@ -51,9 +51,9 @@ or a claim that finite hostile outlines have bounded rendering costs.
 
 ## ADR-004: Command Pattern for Undo/Redo
 
-**Status**: Accepted
+**Status**: Accepted (CommandManager; see Addenda)
 **Context**: Need robust undo/redo support for all editing operations.
-**Decision**: Wrap all modifications in Command objects, push to QUndoStack.
+**Decision**: Wrap all modifications in Command objects, managed via CommandManager (replaces original QUndoStack).
 **Rationale**: Industry standard pattern. Qt provides QUndoStack. Clean separation of actions from UI.
 **Consequences**: Every new editing operation requires a corresponding Command class. More code but predictable behavior.
 
@@ -84,7 +84,7 @@ integration tests.
 
 ## ADR-006: AI-Generated SVG Assets
 
-**Status**: Accepted (Phase 6)
+**Status**: Superseded by ADR-040 and ADR-042 (Phase 6)
 **Context**: Need illustrated SVG graphics for plants, furniture, and infrastructure objects.
 **Decision**: Use AI image generation to create consistent top-down plant/object illustrations, then convert to SVG.
 **Rationale**: Fast production, consistent art style, fully custom, no licensing issues. Can iterate on style.
@@ -92,7 +92,7 @@ integration tests.
 
 ## ADR-007: Tileable PNG Textures (over Procedural)
 
-**Status**: Accepted (Phase 6)
+**Status**: Superseded by ADR-042 (Phase 6)
 **Context**: Current procedural patterns are too subtle. Need rich, recognizable textures.
 **Decision**: Replace procedural fill patterns with pre-made tileable PNG textures.
 **Rationale**: Better visual quality, easier to create realistic materials, AI-generated or CC0 sourced.
@@ -150,7 +150,7 @@ Pinned by the translation gate unit/integration tests and registry-driven menu t
 
 ## ADR-011: Hybrid Plant Rendering
 
-**Status**: Accepted (Phase 6)
+**Status**: Superseded by ADR-040 (Phase 6)
 **Context**: How many unique plant SVG illustrations to create.
 **Decision**: Hybrid approach: ~15-20 category-based shapes varied by color/size, plus unique illustrations for ~10 most popular species.
 **Rationale**: Best balance of visual appeal and production effort. Category shapes cover 90% of cases. Popular species get special treatment.
@@ -1739,6 +1739,8 @@ the release workflow or establish any effect on antivirus reputation. Attestatio
 verification and signing evaluation remain their existing separate processes.
 
 ## ADR-045: Compatible-set search — maximal cliques, ranked by bed coverage (issue #319, US-D3.1)
+
+**Status**: Accepted (2026-08-18)
 
 **Problem.** Permapeople's "companion plant combinations" page computes mutually compatible 3/4/5-plant sets from a companion graph. Exposing that to OGP needs two decisions the D3.1 issue body left open: which graph algorithm, and what "compatible set for THIS bed" means when the bed already contains plants.
 
@@ -7066,6 +7068,29 @@ split. The test's comment says the budget is a maintenance trigger, not a target
 **Consequences.** #588 stays open for the structural decision (a per-area index or a shorter
 row format), which this addendum does not make; the raise is the option it lists and buys
 the time to take it deliberately. No entry, rule or pin changed to fit.
+
+### ADR-061 addendum: structural split of the pitfall index by area (#588, 2026-10-26)
+
+**Context.** As anticipated in the 2026-10-24 addendum, the central chapter README had
+grown to 217 index rows and ~83 KB. Compressing rule wording was rejected as the wrong
+feedback loop. The structural decision selected by the owner on 2026-10-24 is executed.
+
+**Decision.**
+1. **Central navigation.** The chapter README §11.4 retains its role as the central entry point,
+   presenting a concise area navigation table linking to per-area index files and detailed body files,
+   plus the legacy numbered redirect table (`11.4.N` -> `PF-*`).
+2. **Area indexes.** The 217 full index rows are distributed into 12 dedicated area index files under
+   `docs/11-risks-and-technical-debt/pitfalls/index/` (`01-canvas-geometry.md` through `12-process-and-docs.md`).
+   Logical areas remain independent of body-file splits (`UI` index covers both `04` and `04b`).
+   All 5 columns (`ID`, `Rule`, `Status`, `Where`, `Legacy`) are preserved verbatim with rebased
+   relative links (`../01-canvas-geometry.md#pf-can-01`).
+3. **Gates & Budgets.** `tests/unit/test_pitfall_catalogue.py` discovers area index files,
+   enforcing full coverage in central navigation, exact ID matching, per-area row locality, and link resolution.
+   Size budgets are adjusted to reflect the split architecture:
+   - Chapter README: `README_MAX_BYTES = 48_000` (measured 26,489 B; ~21 KB headroom)
+   - Area indexes: `INDEX_MAX_BYTES = 24_000` (measured 2,141 B – 8,284 B; >=15 KB headroom each)
+   - Detailed body files: `PITFALL_MAX_BYTES = 64_000` (unchanged)
+4. Closes #588.
 
 ## ADR-062: Plant lifetimes on the shared plan date (US-F4, #315)
 

@@ -2330,7 +2330,7 @@ def build_server(
             return await anyio.to_thread.run_sync(get_lists_fn)
 
         def _get_lists() -> list[dict[str, Any]]:
-            from open_garden_planner.models.plant_lists import (  # noqa: PLC0415
+            from open_garden_planner.models.plant_lists import (
                 get_plant_list_store,
             )
 
@@ -2707,7 +2707,7 @@ class AgentApiServer:
             # logged as one — but only when stop() actually forced it.
             if not self._forced_stop:
                 logger.exception("Agent API server crashed")
-        except Exception:  # noqa: BLE001 - log and let the thread end
+        except Exception:
             logger.exception("Agent API server crashed")
         finally:
             # Drain any tasks left pending by the ASGI stack (e.g. sse-starlette's

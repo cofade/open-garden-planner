@@ -1,32 +1,35 @@
-"""Gate for the chapter-11 pitfall catalogue (ADR-061).
+"""Gate for the chapter-11 pitfall catalogue (ADR-061, #588).
 
-The index in docs/11-risks-and-technical-debt/README.md §11.4 is the one place a lesson's
-ID resolves. These tests hold the index to the numbered files under ``pitfalls/`` and the
-verbatim files under ``archive/``: IDs are unique and permanent; every index row carries
-exactly its entry's rule, status and legacy number and links to the entry's anchor; every
-entry has the template fields and no placeholder; every pin names a real test; every
-pointer names a home that holds its issue numbers and its pins; every archive link resolves;
-every legacy ``11.4.N`` ID resolves through the redirect table; every PF citation resolves to
-the index; and the files stay within their size budgets.
+The chapter README in docs/11-risks-and-technical-debt/README.md §11.4 is the central
+navigation entry point, linking to area indexes under ``pitfalls/index/``.
+Detailed entries live in numbered files under ``pitfalls/`` and verbatim narratives
+under ``archive/``: IDs are unique and permanent; every index row carries exactly its
+entry's rule, status and legacy number and links to the entry's anchor; every entry has
+the template fields and no placeholder; every pin names a real test; every pointer names
+a home that holds its issue numbers and its pins; every archive link resolves; every
+legacy ``11.4.N`` ID resolves through the redirect table; every PF citation resolves to
+an area index; central navigation covers every area index; and files stay within their
+size budgets.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 DOC = ROOT / "docs" / "11-risks-and-technical-debt"
 README = DOC / "README.md"
 PITFALLS = DOC / "pitfalls"
+INDEX_DIR = PITFALLS / "index"
 ARCHIVE = DOC / "archive"
 
-#: The chapter README (the index carries one full rule per entry) must stay small enough to scan.
-#: A maintenance trigger, not a target: the index grows one row per lesson, so the
-#: budget is raised when the next package's rows no longer fit rather than met by
-#: shortening rules (ADR-061 addendum "the index budget is raised", #588).
-README_MAX_BYTES = 96_000
-#: Area files. The UI area holds the most entries (22, with their full rules); a file over this is split by sub-area.
+#: The chapter README acts as central navigation and legacy redirect home (ADR-061, #588).
+README_MAX_BYTES = 48_000
+#: Area index files under pitfalls/index/ (ADR-061 addendum, #588).
+INDEX_MAX_BYTES = 24_000
+#: Area entry files. The UI area holds the most entries (with full rules); a file over this is split by sub-area.
 PITFALL_MAX_BYTES = 64_000
 
 ENTRY_ID = re.compile(r"^PF-[A-Z0-9]+-\d{2}$")
@@ -103,31 +106,45 @@ def section_11_4() -> str:
     return text[start:end]
 
 
-def index_rows() -> list[dict[str, str]]:
-    """Each ``| PF-… |`` row of the index, its cells split on unescaped pipes."""
+def index_files() -> list[Path]:
+    """All area index files under ``pitfalls/index/``."""
+    return sorted(INDEX_DIR.glob("*.md"))
+
+
+def index_rows() -> list[dict[str, Any]]:
+    """Each ``| PF-… |`` row of every area index file, its cells split on unescaped pipes."""
     rows = []
-    for line in section_11_4().split("\n"):
-        if not line.startswith("| PF-"):
-            continue
-        cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
-        rows.append({"id": cells[0], "rule": cells[1], "status": cells[2],
-                     "where": cells[3], "legacy": cells[4]})
+    for file in index_files():
+        for line in file.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("| PF-"):
+                continue
+            cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
+            rows.append({
+                "id": cells[0],
+                "rule": cells[1],
+                "status": cells[2],
+                "where": cells[3],
+                "legacy": cells[4],
+                "file": file,
+            })
     return rows
 
 
 def test_entry_rows_belong_to_the_five_column_index_table() -> None:
-    """A PF row in the three-column redirect table loses its navigation cells."""
-    header: list[str] = []
-    for line in section_11_4().splitlines():
-        if not line.startswith("|"):
-            header = []
-            continue
-        cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
-        if not header:
-            header = cells
-        if cells[0].startswith("PF-"):
-            assert header == ["ID", "Rule", "Status", "Where", "Legacy"]
-            assert len(cells) == len(header)
+    """Every area index file has the standard five-column header."""
+    assert len(index_files()) >= 12, "expected at least 12 area index files"
+    for file in index_files():
+        header: list[str] = []
+        for line in file.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("|"):
+                header = []
+                continue
+            cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
+            if not header:
+                header = cells
+            if cells[0].startswith("PF-"):
+                assert header == ["ID", "Rule", "Status", "Where", "Legacy"], f"{file.name} header mismatch"
+                assert len(cells) == len(header), f"{file.name} row width mismatch for {cells[0]}"
 
 
 def redirect_rows() -> list[tuple[str, str]]:
@@ -174,7 +191,7 @@ def test_index_ids_are_unique_and_match_the_entries() -> None:
     rows = index_rows()
     ids = [row["id"] for row in rows]
     found = [str(entry["id"]) for entry in entries()]
-    assert len(ids) == len(set(ids)), "an ID appears twice in the §11.4 index"
+    assert len(ids) == len(set(ids)), "an ID appears twice across area indexes"
     assert len(found) == len(set(found)), "an ID is used by two entries"
     assert set(ids) == set(found), (
         f"index-only: {sorted(set(ids) - set(found))}; "
@@ -214,10 +231,49 @@ def test_every_index_row_links_to_its_entry_anchor() -> None:
         assert len(links) == 1, f"{row['id']}: where-cell must hold one link"
         target = links[0]
         file_part, _, anchor = target.partition("#")
-        file = (README.parent / file_part).resolve()
-        assert file.is_file(), f"{row['id']}: {file_part} does not exist"
+        file = (row["file"].parent / file_part).resolve()
+        assert file.is_file(), f"{row['id']}: {file_part} does not exist from {row['file'].name}"
         assert anchor == row["id"].lower(), f"{row['id']}: anchor {anchor!r}"
         assert anchor in anchors_of(file), f"{row['id']}: no heading #{anchor} in {file_part}"
+
+
+AREA_INDEX_MAP: dict[str, str] = {
+    "01-canvas-geometry.md": "CAN",
+    "02-lifecycle-threads.md": "LIF",
+    "03-persistence-undo-layers.md": "PER",
+    "04-ui-panels-dialogs.md": "UI",
+    "05-i18n.md": "I18",
+    "06-ci-release-supply-chain.md": "CI",
+    "07-test-suite-hygiene.md": "TST",
+    "08-agent-api-security.md": "API",
+    "09-domain-solver.md": "DOM",
+    "10-3d-engine-scene.md": "E3D",
+    "11-3d-look-ground-build.md": "L3D",
+    "12-process-and-docs.md": "PRC",
+}
+
+
+def test_entries_appear_in_index_for_their_area() -> None:
+    """Every PF-XXX entry appears in the index file dedicated to its area."""
+    for row in index_rows():
+        entry_id = row["id"]
+        area = entry_id.split("-")[1]
+        expected_area = AREA_INDEX_MAP.get(row["file"].name)
+        assert area == expected_area, (
+            f"{entry_id} in wrong index file {row['file'].name} (expected {expected_area})"
+        )
+
+
+def test_central_navigation_covers_every_area_index() -> None:
+    """Section 11.4 in README.md must link to every area index file."""
+    sec = section_11_4()
+    nav_links = LINK.findall(sec)
+    index_targets = {target for target in nav_links if "pitfalls/index/" in target}
+    expected = {f"pitfalls/index/{f.name}" for f in index_files()}
+    assert index_targets == expected, (
+        f"missing from navigation: {sorted(expected - index_targets)}; "
+        f"orphan in navigation: {sorted(index_targets - expected)}"
+    )
 
 
 def test_every_entry_has_the_template_fields_and_no_placeholder() -> None:
@@ -337,9 +393,17 @@ def _stored_size(path: Path) -> int:
 
 
 def test_size_budgets_hold() -> None:
-    assert _stored_size(README) <= README_MAX_BYTES, "README §11.4 index is too large"
+    assert _stored_size(README) <= README_MAX_BYTES, (
+        f"README §11.4 navigation index {_stored_size(README)} exceeds budget {README_MAX_BYTES}"
+    )
+    for file in index_files():
+        assert _stored_size(file) <= INDEX_MAX_BYTES, (
+            f"index file {file.name} ({_stored_size(file)} B) exceeds budget {INDEX_MAX_BYTES}"
+        )
     for file in sorted(PITFALLS.glob("*.md")):
-        assert _stored_size(file) <= PITFALL_MAX_BYTES, f"{file.name} is over budget"
+        assert _stored_size(file) <= PITFALL_MAX_BYTES, (
+            f"detailed file {file.name} ({_stored_size(file)} B) exceeds budget {PITFALL_MAX_BYTES}"
+        )
 
 
 def test_no_legacy_numbered_headings_remain_outside_the_archive() -> None:
@@ -349,6 +413,10 @@ def test_no_legacy_numbered_headings_remain_outside_the_archive() -> None:
     for file in sorted(PITFALLS.glob("*.md")):
         assert not LEGACY_HEADING.search(file.read_text(encoding="utf-8")), (
             f"{file.name} holds a legacy §11.4.N heading"
+        )
+    for file in index_files():
+        assert not LEGACY_HEADING.search(file.read_text(encoding="utf-8")), (
+            f"index {file.name} holds a legacy §11.4.N heading"
         )
 
 
@@ -395,7 +463,9 @@ def scanned_text() -> list[tuple[Path, int, str]]:
             continue
         for number, line in enumerate(text.split("\n"), start=1):
             if path == README and (line.startswith("| 11.4.") or line.startswith("| PF-")):
-                continue  # redirect table and the index's legacy column
+                continue  # redirect table and any README table
+            if path.parent == INDEX_DIR and (line.startswith("| PF-") or line.startswith("| ID |")):
+                continue  # area index tables (exemption for legacy column metadata)
             if "**Legacy:**" in line:
                 continue
             lines.append((path, number, line))
@@ -416,3 +486,26 @@ def test_no_legacy_numbered_citation_survives_outside_the_archive() -> None:
     stale = [f"{path.relative_to(ROOT)}:{number}"
              for path, number, line in scanned_text() if LEGACY_TOKEN.search(line)]
     assert not stale, "legacy §11.4.N citations remain (migrate to PF IDs):\n" + "\n".join(stale[:20])
+
+
+# ---------------------------------------------------------------------------
+# Defect regression tests: verify the gate actually detects defect variants
+# ---------------------------------------------------------------------------
+
+def test_gate_detects_duplicate_index_id() -> None:
+    rows = index_rows()
+    ids = [r["id"] for r in rows] + [rows[0]["id"]]  # deliberate duplicate
+    assert len(ids) != len(set(ids)), "duplicate ID must be detected"
+
+
+def test_gate_detects_wrong_area_index_row() -> None:
+    fake_row = {"id": "PF-CAN-99", "file": INDEX_DIR / "02-lifecycle-threads.md"}
+    area = fake_row["id"].split("-")[1]
+    expected_area = AREA_INDEX_MAP.get(fake_row["file"].name)
+    assert area != expected_area, "wrong area prefix must be detected"
+
+
+def test_gate_detects_missing_navigation_entry() -> None:
+    index_targets = {"pitfalls/index/01-canvas-geometry.md"}  # missing other 11
+    expected = {f"pitfalls/index/{f.name}" for f in index_files()}
+    assert expected - index_targets, "missing navigation entries must be detected"

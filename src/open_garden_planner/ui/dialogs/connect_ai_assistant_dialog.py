@@ -419,7 +419,7 @@ class ConnectAiAssistantDialog(QDialog):
                 result = onboarding.install_to_client(
                     client.client_id, url=self._server_url, token=self._token
                 )
-            except Exception as exc:  # noqa: BLE001 — UI trust boundary: a failed
+            except Exception as exc:
                 # install must never crash the app, even if a future client
                 # strategy raises something install_to_client doesn't yet guard.
                 self._status_label.setText(

@@ -819,7 +819,7 @@ class CanvasView(QGraphicsView):
 
     def focus_on_journal_pin(self, note_id: str) -> None:
         """Center the viewport on the pin matching ``note_id`` (US-12.9)."""
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
 
@@ -1345,21 +1345,21 @@ class CanvasView(QGraphicsView):
         constraints would be forced out of tolerance, shows a dialog letting
         the user delete conflicting constraints (Override) or back out.
         """
-        import uuid as _uuid  # noqa: PLC0415
+        import uuid as _uuid
 
-        from open_garden_planner.core.constraints import (  # noqa: PLC0415
+        from open_garden_planner.core.constraints import (
             Constraint,
             ConstraintType,
         )
-        from open_garden_planner.core.measure_snapper import (  # noqa: PLC0415
+        from open_garden_planner.core.measure_snapper import (
             get_anchor_points,
         )
-        from open_garden_planner.ui.canvas.items import GardenItemMixin  # noqa: PLC0415
-        from open_garden_planner.ui.canvas.items.construction_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
         )
-        from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (
             ConstraintConflictDialog,
         )
 
@@ -1534,7 +1534,7 @@ class CanvasView(QGraphicsView):
                 if is_construction:
                     construction_ids.add(uid)
 
-        if len(item_positions) < 2:  # noqa: PLR2004
+        if len(item_positions) < 2:
             return True  # Not enough items to form a conflict — optimistically allow
 
         deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
@@ -1884,8 +1884,8 @@ class CanvasView(QGraphicsView):
         event.acceptProposedAction()
         scene_pos = self.mapToScene(event.position().toPoint())
 
-        from open_garden_planner.core.plant_renderer import PlantCategory  # noqa: PLC0415
-        from open_garden_planner.core.tools import ToolType as TT  # noqa: PLC0415
+        from open_garden_planner.core.plant_renderer import PlantCategory
+        from open_garden_planner.core.tools import ToolType as TT
 
         # Branch A: Drop from Plant Lists panel (US-G4, issue #320)
         if text.startswith("plant_list:"):
@@ -1897,7 +1897,7 @@ class CanvasView(QGraphicsView):
                     species_dict = None
 
             if species_dict is not None:
-                from open_garden_planner.models.plant_data import PlantSpeciesData  # noqa: PLC0415
+                from open_garden_planner.models.plant_data import PlantSpeciesData
                 species_obj = PlantSpeciesData.from_dict(species_dict)
             else:
                 parts = text.split(":")
@@ -1906,7 +1906,7 @@ class CanvasView(QGraphicsView):
                     return
 
                 from open_garden_planner.models.plant_lists import (
-                    get_plant_list_store,  # noqa: PLC0415
+                    get_plant_list_store,
                 )
                 store = get_plant_list_store()
                 _pl, entry = store.get_entry(entry_id)
@@ -1914,10 +1914,10 @@ class CanvasView(QGraphicsView):
                     return
                 species_obj = entry.species
 
-            from open_garden_planner.core.plant_sizing import (  # noqa: PLC0415
+            from open_garden_planner.core.plant_sizing import (
                 species_drop_diameter_cm,
             )
-            from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+            from open_garden_planner.services.bundled_species_db import (
                 merge_calendar_data,
             )
 
@@ -1987,8 +1987,8 @@ class CanvasView(QGraphicsView):
             # the type default is only for an unknown/custom name. An 8 m apple
             # tree dropped 2 m wide made the 3D tree unnaturally slim while its
             # height came from the species (#596).
-            from open_garden_planner.core.plant_sizing import species_drop_diameter_cm  # noqa: PLC0415
-            from open_garden_planner.services.bundled_species_db import lookup_species  # noqa: PLC0415
+            from open_garden_planner.core.plant_sizing import species_drop_diameter_cm
+            from open_garden_planner.services.bundled_species_db import lookup_species
 
             record = lookup_species(species) if species else None
             diameter = species_drop_diameter_cm(record, obj_type.name)
@@ -2653,7 +2653,7 @@ class CanvasView(QGraphicsView):
                 scene_construction_ids.add(scene_item.item_id)
 
         # Collect FIXED item IDs — they act as pinned anchors just like construction items
-        from open_garden_planner.core.constraints import ConstraintType  # noqa: PLC0415
+        from open_garden_planner.core.constraints import ConstraintType
 
         fixed_ids: set = {
             c.anchor_a.item_id
@@ -2955,7 +2955,7 @@ class CanvasView(QGraphicsView):
         graph = self._canvas_scene.constraint_graph
         pg = item.polygon()
         n = pg.count()
-        if n < 4:  # noqa: PLR2004
+        if n < 4:
             return
 
         def _scene(i: int) -> QPointF:
@@ -3675,7 +3675,7 @@ class CanvasView(QGraphicsView):
         # which also prunes the matching note dict from ProjectData. Otherwise
         # the keyboard-Delete path would orphan the note (the right-click
         # "Delete" menu already routes correctly via the view signal).
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
 

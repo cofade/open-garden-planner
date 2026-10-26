@@ -774,7 +774,7 @@ class ConstraintGraph:
         deformable: set[UUID] = {
             uid
             for uid, idxs in vertex_constraint_counts.items()
-            if len(idxs) >= 2  # noqa: PLR2004
+            if len(idxs) >= 2
         }
 
         def _is_vtx(item_id: UUID, anchor: AnchorRef) -> bool:
@@ -1271,7 +1271,7 @@ class ConstraintGraph:
         # the remaining residuals so the solver actually converges on the
         # intersection set.  See docs §8.12 and ADR-012.
         if max_error > tolerance:
-            from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
+            from open_garden_planner.core.constraint_solver_newton import (
                 newton_refine,
             )
 
@@ -1410,7 +1410,7 @@ class ConstraintGraph:
         ``solve_anchored`` keeps its cm-scale tolerance for full-graph solves;
         only the live-drag path is tightened here.
         """
-        from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
+        from open_garden_planner.core.constraint_solver_newton import (
             newton_refine,
         )
 

@@ -148,7 +148,7 @@ def _read_crop_rotation_record(raw: object) -> Any:
         if not isinstance(record.year, int) or isinstance(record.year, bool):
             raise ValueError(f"year is not an int: {record.year!r}")
         return record
-    except Exception:  # noqa: BLE001 - untrusted .ogp ingestion seam
+    except Exception:
         logger.warning(
             "Skipping an unreadable crop-rotation record; crop rotation "
             "indicators and the family cooldown stay incomplete until it is fixed"
@@ -1819,7 +1819,7 @@ class GardenPlannerApp(QMainWindow):
         touches ``ProjectManager.manual_tasks`` and never pushes onto the undo
         stack. One command either way, so one call is exactly one undo step.
         """
-        import datetime  # noqa: PLC0415 - local, as elsewhere in this module
+        import datetime
 
         from open_garden_planner.agent_api.schema import ManualTaskResult
         from open_garden_planner.core.commands import (
@@ -2273,7 +2273,7 @@ class GardenPlannerApp(QMainWindow):
         try:
             for record in get_species_db().values():
                 _add(record)
-        except Exception:  # noqa: BLE001 - a validation aid must never be the thing
+        except Exception:
             # that fails a write; without the bundled roster the species check is
             # skipped rather than turned into a blanket refusal. The placed-plant
             # pass below still runs.
@@ -2284,7 +2284,7 @@ class GardenPlannerApp(QMainWindow):
                 meta = getattr(item, "metadata", None)
                 species = (meta or {}).get("plant_species")
                 _add(species)
-        except Exception:  # noqa: BLE001 - see above
+        except Exception:
             logger.warning("Could not enumerate placed plants for validation")
 
         return keys
@@ -3671,7 +3671,7 @@ class GardenPlannerApp(QMainWindow):
             self._tab_widget.setTabIcon(index, icon)
         self._tab_icons.append((widget, icon_name))
 
-    def eventFilter(self, obj: Any, event: QEvent) -> bool:  # noqa: N802 — Qt override
+    def eventFilter(self, obj: Any, event: QEvent) -> bool:
         """The status-bar sun icon follows the transient sun hint's visibility
         (the hint is shown/hidden from the sun-sim controller; #310)."""
         if obj is getattr(self, "_sun_hint_label", None) and event.type() in (
@@ -5378,9 +5378,9 @@ class GardenPlannerApp(QMainWindow):
         toggle (default ON). Idempotent: safe to call from multiple deferred
         startup/open paths.
         """
-        from datetime import date  # noqa: PLC0415
+        from datetime import date
 
-        from open_garden_planner.app.settings import get_settings  # noqa: PLC0415
+        from open_garden_planner.app.settings import get_settings
 
         if not get_settings().notify_overdue_tasks_on_startup:
             self._task_reminder_bar.hide()
@@ -6010,7 +6010,7 @@ class GardenPlannerApp(QMainWindow):
         try:
             # Prune orphan shopping-list price entries before writing (issue #178)
             from open_garden_planner.services.shopping_list_service import (
-                ShoppingListService,  # noqa: PLC0415
+                ShoppingListService,
             )
             ShoppingListService(
                 scene=self.canvas_scene,
@@ -7606,8 +7606,8 @@ class GardenPlannerApp(QMainWindow):
         Args:
             name: Unique name computed by the layers panel
         """
-        from open_garden_planner.core.commands import AddLayerCommand  # noqa: PLC0415
-        from open_garden_planner.models.layer import Layer  # noqa: PLC0415
+        from open_garden_planner.core.commands import AddLayerCommand
+        from open_garden_planner.models.layer import Layer
 
         try:
             layer = Layer(name=name)
@@ -7624,7 +7624,7 @@ class GardenPlannerApp(QMainWindow):
         Args:
             new_order: New list of layers in order
         """
-        from open_garden_planner.core.commands import ReorderLayersCommand  # noqa: PLC0415
+        from open_garden_planner.core.commands import ReorderLayersCommand
 
         try:
             if [lyr.id for lyr in new_order] == [
@@ -7645,7 +7645,7 @@ class GardenPlannerApp(QMainWindow):
             layer_id: UUID of the layer to rename
             new_name: Requested new name
         """
-        from open_garden_planner.core.commands import RenameLayerCommand  # noqa: PLC0415
+        from open_garden_planner.core.commands import RenameLayerCommand
 
         try:
             layer = self.canvas_scene.get_layer_by_id(layer_id)
@@ -7664,7 +7664,7 @@ class GardenPlannerApp(QMainWindow):
         Args:
             layer_id: UUID of the layer to delete
         """
-        from open_garden_planner.core.commands import DeleteLayerCommand  # noqa: PLC0415
+        from open_garden_planner.core.commands import DeleteLayerCommand
 
         try:
             if len(self.canvas_scene.layers) <= 1:
@@ -7695,7 +7695,7 @@ class GardenPlannerApp(QMainWindow):
             layer_id: UUID of the layer
             visible: New visibility state
         """
-        from open_garden_planner.core.commands import SetLayerPropertyCommand  # noqa: PLC0415
+        from open_garden_planner.core.commands import SetLayerPropertyCommand
 
         try:
             layer = self.canvas_scene.get_layer_by_id(layer_id)
@@ -7717,7 +7717,7 @@ class GardenPlannerApp(QMainWindow):
             layer_id: UUID of the layer
             locked: New lock state
         """
-        from open_garden_planner.core.commands import SetLayerPropertyCommand  # noqa: PLC0415
+        from open_garden_planner.core.commands import SetLayerPropertyCommand
 
         try:
             layer = self.canvas_scene.get_layer_by_id(layer_id)
@@ -7740,7 +7740,7 @@ class GardenPlannerApp(QMainWindow):
             old: Opacity before the change (snapshotted at drag start)
             new: Final opacity
         """
-        from open_garden_planner.core.commands import SetLayerPropertyCommand  # noqa: PLC0415
+        from open_garden_planner.core.commands import SetLayerPropertyCommand
 
         try:
             layer = self.canvas_scene.get_layer_by_id(layer_id)
@@ -7957,11 +7957,11 @@ class GardenPlannerApp(QMainWindow):
                     # circle refreshes, a manual override is reconciled, and the
                     # change is a single undoable step (issue #213).
                     from open_garden_planner.services.bundled_species_db import (
-                        merge_calendar_data,  # noqa: PLC0415
+                        merge_calendar_data,
                     )
                     from open_garden_planner.ui.plant_species_assignment import (
-                        apply_species_to_item,  # noqa: PLC0415
-                        confirm_apply_database_values,  # noqa: PLC0415
+                        apply_species_to_item,
+                        confirm_apply_database_values,
                     )
                     apply_species_to_item(
                         plant_item,
@@ -8286,11 +8286,11 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_load_satellite_background(self) -> None:
         """Open the embedded Google Maps picker and import the chosen area."""
-        import io  # noqa: PLC0415
-        from datetime import UTC, datetime  # noqa: PLC0415
+        import io
+        from datetime import UTC, datetime
 
-        from open_garden_planner.ui.canvas.items import BackgroundImageItem  # noqa: PLC0415
-        from open_garden_planner.ui.dialogs.map_picker_dialog import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items import BackgroundImageItem
+        from open_garden_planner.ui.dialogs.map_picker_dialog import (
             MapPickerDialog,
         )
 
@@ -8396,9 +8396,9 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_set_location(self) -> None:
         """Handle Set Garden Location action."""
-        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+        from PyQt6.QtWidgets import QDialog
 
-        from open_garden_planner.ui.dialogs.location_dialog import LocationDialog  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.location_dialog import LocationDialog
 
         dialog = LocationDialog(self, location=self._project_manager.location)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -8419,7 +8419,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _lookup_bed_display_name(self, bed_id: str) -> str:
         """Return the bed's name for the dialog title, or empty string if not found."""
-        from open_garden_planner.core.object_types import is_bed_type  # noqa: PLC0415
+        from open_garden_planner.core.object_types import is_bed_type
 
         scene = (
             getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
@@ -8436,10 +8436,10 @@ class GardenPlannerApp(QMainWindow):
 
     def _open_soil_test_dialog(self, target_id: str, display_name: str) -> None:
         """Open the soil test dialog and execute AddSoilTestCommand on accept."""
-        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+        from PyQt6.QtWidgets import QDialog
 
-        from open_garden_planner.core import AddSoilTestCommand  # noqa: PLC0415
-        from open_garden_planner.ui.dialogs import SoilTestDialog  # noqa: PLC0415
+        from open_garden_planner.core import AddSoilTestCommand
+        from open_garden_planner.ui.dialogs import SoilTestDialog
 
         history = self._soil_service.get_history(target_id)
         existing = history.latest
@@ -8496,10 +8496,10 @@ class GardenPlannerApp(QMainWindow):
 
     def _open_pest_log_dialog(self, target_id: str, display_name: str) -> None:
         """Open the pest/disease dialog and execute AddPestLogCommand on accept."""
-        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+        from PyQt6.QtWidgets import QDialog
 
-        from open_garden_planner.core import AddPestLogCommand  # noqa: PLC0415
-        from open_garden_planner.ui.dialogs import PestLogDialog  # noqa: PLC0415
+        from open_garden_planner.core import AddPestLogCommand
+        from open_garden_planner.ui.dialogs import PestLogDialog
 
         if not display_name:
             display_name = self._lookup_bed_display_name(target_id) or self._lookup_item_name(target_id)
@@ -8542,10 +8542,10 @@ class GardenPlannerApp(QMainWindow):
         so an unnamed bed/plant never caches an empty name (which would surface
         as the internal ``target:<uuid>`` key on the dashboard).
         """
-        from open_garden_planner.core.object_types import (  # noqa: PLC0415
+        from open_garden_planner.core.object_types import (
             get_translated_display_name,
         )
-        from open_garden_planner.models.plant_data import (  # noqa: PLC0415
+        from open_garden_planner.models.plant_data import (
             species_key as _species_key,
         )
 
@@ -8577,10 +8577,10 @@ class GardenPlannerApp(QMainWindow):
 
     def _open_harvest_dialog(self, target_id: str, display_name: str) -> None:
         """Open the harvest dialog and execute AddHarvestRecordCommand on accept."""
-        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+        from PyQt6.QtWidgets import QDialog
 
-        from open_garden_planner.core import AddHarvestRecordCommand  # noqa: PLC0415
-        from open_garden_planner.ui.dialogs import HarvestLogDialog  # noqa: PLC0415
+        from open_garden_planner.core import AddHarvestRecordCommand
+        from open_garden_planner.ui.dialogs import HarvestLogDialog
 
         if not display_name:
             display_name = (
@@ -8627,11 +8627,11 @@ class GardenPlannerApp(QMainWindow):
 
     def _open_succession_plan_dialog(self, bed_id: str, display_name: str) -> None:
         """Open the succession plan dialog and execute SetSuccessionPlanCommand on accept."""
-        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+        from PyQt6.QtWidgets import QDialog
 
-        from open_garden_planner.core.commands import SetSuccessionPlanCommand  # noqa: PLC0415
-        from open_garden_planner.models.succession import SuccessionPlan  # noqa: PLC0415
-        from open_garden_planner.ui.dialogs.succession_plan_dialog import (  # noqa: PLC0415
+        from open_garden_planner.core.commands import SetSuccessionPlanCommand
+        from open_garden_planner.models.succession import SuccessionPlan
+        from open_garden_planner.ui.dialogs.succession_plan_dialog import (
             SuccessionPlanDialog,
         )
 
@@ -8669,11 +8669,11 @@ class GardenPlannerApp(QMainWindow):
         bed shape (Rectangle/Polygon/Ellipse/Circle) since the badge is a
         graphics-item child managed in ``GardenItemMixin``.
         """
-        import datetime  # noqa: PLC0415
+        import datetime
 
-        from open_garden_planner.core.object_types import is_bed_type  # noqa: PLC0415
-        from open_garden_planner.models.succession import SuccessionPlan  # noqa: PLC0415
-        from open_garden_planner.ui.canvas.items.garden_item import (  # noqa: PLC0415
+        from open_garden_planner.core.object_types import is_bed_type
+        from open_garden_planner.models.succession import SuccessionPlan
+        from open_garden_planner.ui.canvas.items.garden_item import (
             GardenItemMixin,
         )
 
@@ -8727,14 +8727,14 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_journal_note_placement(self, scene_x: float, scene_y: float) -> None:
         """Open dialog for a new pin placed at ``(scene_x, scene_y)``."""
-        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+        from PyQt6.QtWidgets import QDialog
 
-        from open_garden_planner.core import AddJournalNoteCommand  # noqa: PLC0415
-        from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.core import AddJournalNoteCommand
+        from open_garden_planner.models.journal_note import JournalNote
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
-        from open_garden_planner.ui.dialogs.journal_note_dialog import (  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs.journal_note_dialog import (
             JournalNoteDialog,
         )
 
@@ -8771,10 +8771,10 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_journal_note_edit(self, note_id: str) -> None:
         """Open the dialog to edit an existing journal note."""
-        from PyQt6.QtWidgets import QDialog  # noqa: PLC0415
+        from PyQt6.QtWidgets import QDialog
 
-        from open_garden_planner.core import EditJournalNoteCommand  # noqa: PLC0415
-        from open_garden_planner.ui.dialogs.journal_note_dialog import (  # noqa: PLC0415
+        from open_garden_planner.core import EditJournalNoteCommand
+        from open_garden_planner.ui.dialogs.journal_note_dialog import (
             JournalNoteDialog,
         )
 
@@ -8795,10 +8795,10 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_journal_note_delete(self, note_id: str) -> None:
         """Confirm + remove the pin and its note."""
-        from PyQt6.QtWidgets import QMessageBox  # noqa: PLC0415
+        from PyQt6.QtWidgets import QMessageBox
 
-        from open_garden_planner.core import DeleteJournalNoteCommand  # noqa: PLC0415
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.core import DeleteJournalNoteCommand
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
 
@@ -8829,8 +8829,8 @@ class GardenPlannerApp(QMainWindow):
         Matches the Delete-key UX for regular items (no confirmation; undo is
         available). The right-click "Delete" path stays single-pin + confirmed.
         """
-        from open_garden_planner.core import DeleteJournalNoteCommand  # noqa: PLC0415
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.core import DeleteJournalNoteCommand
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
 
@@ -8931,10 +8931,10 @@ class GardenPlannerApp(QMainWindow):
         ``calculate_area_and_perimeter`` (e.g. EllipseItem — pre-existing gap),
         or when the canvas scene isn't available.
         """
-        from open_garden_planner.core.measurements import (  # noqa: PLC0415
+        from open_garden_planner.core.measurements import (
             calculate_area_and_perimeter,
         )
-        from open_garden_planner.core.object_types import is_bed_type  # noqa: PLC0415
+        from open_garden_planner.core.object_types import is_bed_type
 
         scene = getattr(self.canvas_view, "_canvas_scene", None) or self.canvas_view.scene()
         if scene is None:
@@ -8953,7 +8953,7 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_amendment_plan(self) -> None:
         """Open the cross-bed Amendment Plan dialog (US-12.10c)."""
-        from open_garden_planner.ui.dialogs import AmendmentPlanDialog  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs import AmendmentPlanDialog
 
         scene = (
             getattr(self.canvas_view, "_canvas_scene", None)
@@ -8970,10 +8970,10 @@ class GardenPlannerApp(QMainWindow):
 
     def _on_shopping_list(self) -> None:
         """Open the Shopping List dialog (US-12.6)."""
-        from open_garden_planner.services.shopping_list_service import (  # noqa: PLC0415
+        from open_garden_planner.services.shopping_list_service import (
             ShoppingListService,
         )
-        from open_garden_planner.ui.dialogs import ShoppingListDialog  # noqa: PLC0415
+        from open_garden_planner.ui.dialogs import ShoppingListDialog
 
         scene = (
             getattr(self.canvas_view, "_canvas_scene", None)

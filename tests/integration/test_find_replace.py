@@ -4,7 +4,6 @@ Tests verify search filtering, select-all matching, bulk layer change,
 and species replace on canvas items.
 """
 
-# ruff: noqa: ARG002
 
 import pytest
 

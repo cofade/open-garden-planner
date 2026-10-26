@@ -231,7 +231,7 @@ def _assert_close(actual: Any, expected: Any, where: str) -> None:
 
 
 @pytest.fixture(scope="module")
-def cases(qapp) -> dict[str, Any]:  # noqa: ARG001 — Qt must exist before items are built
+def cases(qapp) -> dict[str, Any]:
     return compute_cases()
 
 

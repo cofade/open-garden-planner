@@ -895,7 +895,7 @@ def _merge_json_like(
                 loaded = {}
             else:
                 loaded = json.loads(_strip_jsonc(text) if tolerant else text)
-        except Exception as exc:  # noqa: BLE001 — TRUST BOUNDARY (invariant 14)
+        except Exception as exc:
             # Another program's file. See the note on `registered_url`: the
             # family is deliberately not enumerated, because a deeply nested
             # document alone makes `json.loads` raise `RecursionError`, and the
@@ -1003,7 +1003,7 @@ def _merge_toml(
                 original = ""
             else:
                 tomllib.loads(original)
-        except Exception as exc:  # noqa: BLE001 — TRUST BOUNDARY (invariant 14)
+        except Exception as exc:
             # Another program's file; see the note on `registered_url` for why
             # the family is not enumerated. `tomllib.loads` raises
             # `RecursionError` on a deeply nested document, which is in no
@@ -1054,7 +1054,7 @@ def _merge_toml(
     # file OGP does not own — so never write an unverified result. See §11.4.
     try:
         tomllib.loads(new_text)
-    except Exception as exc:  # noqa: BLE001 — untrusted/derived input, not ours
+    except Exception as exc:
         # Anything at all the parser objects to means we are about to write a
         # file the user's own program cannot read, into a file OGP does not
         # own. Never write an unverified result. See §11.4.
@@ -1177,7 +1177,7 @@ def registered_url(client_id: ClientId, name: str = SERVER_NAME) -> str | None:
             data: object = tomllib.loads(text)
         else:
             data = json.loads(_strip_jsonc(text) if target.syntax == "jsonc" else text)
-    except Exception as exc:  # noqa: BLE001 — TRUST BOUNDARY, see below
+    except Exception as exc:
         # This is the ONE reader in the module and it runs from the dialog's
         # `__init__`, so a config file OGP cannot read must report
         # "unregistered", never raise: PyQt6 turns an unhandled exception in a
@@ -1393,7 +1393,7 @@ def cli_supported_flags(exe: str, probe: tuple[str, ...]) -> frozenset[str]:
             # they think a terminal is attached.
             env={**os.environ, "NO_COLOR": "1", "TERM": "dumb"},
         )
-    except Exception:  # noqa: BLE001 — TRUST BOUNDARY (invariant 14)
+    except Exception:
         # NOT an enumerated family: this is another program's stdout on a
         # foreign platform, and the module's own `registered_url` note explains
         # why enumerating loses here — every family added is a family still
@@ -1711,7 +1711,7 @@ def install_to_client(
                 syntax=target.syntax,
                 replace_on_parse_error=replace_on_parse_error,
             )
-        except Exception as exc:  # noqa: BLE001 — "never raises into the UI"
+        except Exception as exc:
             # TRUST BOUNDARY again: the file is another program's, and the
             # parser family is deliberately not enumerated (a deeply nested
             # document alone yields RecursionError). This function's contract
@@ -1788,7 +1788,7 @@ def install_to_client(
                         f"Could not remove the existing entry to update it: "
                         f"{removed.stderr.strip()}"
                     )
-    except Exception as exc:  # noqa: BLE001 — "never raises into the UI"
+    except Exception as exc:
         # The CLI can hang, vanish, or produce a family nobody enumerated;
         # this function's contract is that a failed install comes back as an
         # InstallResult rather than an exception.

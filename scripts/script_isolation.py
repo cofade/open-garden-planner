@@ -152,5 +152,5 @@ def _forget_settings() -> None:
             store = app_settings.create_qsettings()
             store.clear()
             store.sync()
-    except Exception:  # noqa: BLE001, S110 - the interpreter is going down; nothing to tell
+    except Exception:
         pass

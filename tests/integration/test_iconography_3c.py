@@ -8,7 +8,6 @@ pixmap, no glyph text) and — where the widget opts in — re-tints on a theme
 switch through `refresh_theme_icons`.
 """
 
-# ruff: noqa: ARG001, ARG002
 
 import pathlib
 import uuid

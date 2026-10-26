@@ -12,7 +12,6 @@ thumbnails render; and the greenhouse tool's default GLASS fill draws
 through the real tool workflow.
 """
 
-# ruff: noqa: ARG002
 
 from unittest.mock import MagicMock
 

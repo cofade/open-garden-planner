@@ -20,7 +20,7 @@ from tests.integration.quick3d_render_support import isolated_env
 
 class TestExceptHook:
     def test_installs_and_shows_dialog_without_reraising(
-        self, qtbot, monkeypatch  # noqa: ARG002
+        self, qtbot, monkeypatch
     ) -> None:
         from PyQt6.QtWidgets import QMessageBox
 
@@ -210,7 +210,7 @@ class TestSelfTestQuick3d:
         assert _selftest_quick3d() is False
         assert "FAIL Qt Quick 3D selftest" in capsys.readouterr().out
 
-    def test_an_existing_application_keeps_its_identity(self, qapp, monkeypatch) -> None:  # noqa: ARG002
+    def test_an_existing_application_keeps_its_identity(self, qapp, monkeypatch) -> None:
         """The log directory hangs on Qt's application identity, so the self-test names
         the application — but only when it is the one that will create it. An
         application that already exists (this test process's) keeps its own names.
@@ -294,7 +294,7 @@ class TestMainUtilities:
         import open_garden_planner.main as ogp_main
         from open_garden_planner.ui.view3d.quick3d import runlog
 
-        assert ogp_main._SUPERVISOR_FLAG == runlog.SUPERVISOR_FLAG  # noqa: SLF001
+        assert ogp_main._SUPERVISOR_FLAG == runlog.SUPERVISOR_FLAG
         handed: list[list[str]] = []
         monkeypatch.setattr(runlog, "supervisor_main", lambda arguments: handed.append(arguments) or 7)
         monkeypatch.setattr(ogp_main, "_run_selftest_bounded",
@@ -542,7 +542,7 @@ class TestBoundedSelfTest:
         words before faulthandler's stack dump — the frame that hangs is in it."""
         log_file = tmp_path / "selftest.log"
         env = isolated_env(tmp_path, QT_QPA_PLATFORM="offscreen", OGP_SELFTEST_LOG=str(log_file))
-        proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
+        proc = subprocess.run(
             [sys.executable, "-c", _HUNG_BLOCK], env=env, capture_output=True, text=True,
             timeout=100, cwd=tmp_path)
         assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:]

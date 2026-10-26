@@ -33,13 +33,13 @@ class _FrostLookupWorker(QThread):
 
     def run(self) -> None:
         try:
-            from open_garden_planner.services.climate_service import (  # noqa: PLC0415
+            from open_garden_planner.services.climate_service import (
                 get_climate_service,
             )
 
             data = get_climate_service().lookup_frost_dates(self._lat, self._lon)
             self.success.emit(data)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             self.error.emit(str(exc))
 
 
@@ -288,7 +288,7 @@ class LocationDialog(QDialog):
 
     def _on_lookup_success(self, frost_data: object) -> None:
         """Populate frost date fields with data returned by the worker."""
-        from open_garden_planner.services.climate_service import FrostData  # noqa: PLC0415
+        from open_garden_planner.services.climate_service import FrostData
 
         if not isinstance(frost_data, FrostData):
             return

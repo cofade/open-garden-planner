@@ -18,7 +18,7 @@ import open_garden_planner.app.settings as settings_module
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="registry-backend behaviour")
-def test_probe_reports_a_black_hole_and_stays_quiet_when_healthy(qtbot) -> None:  # noqa: ARG001
+def test_probe_reports_a_black_hole_and_stays_quiet_when_healthy(qtbot) -> None:
     from open_garden_planner.app.settings import get_settings
 
     live = get_settings()  # the singleton _reset_app_settings will probe

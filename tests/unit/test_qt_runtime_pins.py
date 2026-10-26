@@ -57,7 +57,7 @@ def test_the_lock_holds_exactly_the_pinned_qt() -> None:
         assert _locked(name) == {pins[name]}, (name, _locked(name), pins[name])
 
 
-def test_the_loaded_qt_is_the_pinned_qt(qtbot) -> None:  # noqa: ARG001 - Qt must be up
+def test_the_loaded_qt_is_the_pinned_qt(qtbot) -> None:
     pins = _pins()
     assert version("PyQt6") == pins["PyQt6"]
     assert version("PyQt6-Qt6") == pins["PyQt6-Qt6"]

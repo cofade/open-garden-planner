@@ -17,7 +17,7 @@ from open_garden_planner.ui.canvas.items import CircleItem, PolylineItem
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot: object) -> CanvasScene:
     s = CanvasScene(width_cm=1000, height_cm=800)
     s.addItem(CircleItem(500, 400, 80))
     s.addItem(PolylineItem(points=[QPointF(100, 100), QPointF(900, 100)]))

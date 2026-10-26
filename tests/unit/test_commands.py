@@ -758,12 +758,12 @@ class TestChangePropertyDescription:
     label ("Textinhalt ändern") instead of half of it ("text content ändern").
     """
 
-    def test_fragment_is_interpolated(self, qtbot) -> None:  # noqa: ARG002
+    def test_fragment_is_interpolated(self, qtbot) -> None:
         item = QGraphicsRectItem(0, 0, 10, 10)
         cmd = ChangePropertyCommand(item, "name", "old", "new", lambda *_: None)
         assert cmd.description == "Change name"
 
-    def test_each_fragment_distinct(self, qtbot) -> None:  # noqa: ARG002
+    def test_each_fragment_distinct(self, qtbot) -> None:
         item = QGraphicsRectItem(0, 0, 10, 10)
         width = ChangePropertyCommand(item, "stroke width", 1, 2, lambda *_: None)
         fill = ChangePropertyCommand(item, "fill color", "a", "b", lambda *_: None)
@@ -789,7 +789,7 @@ class TestApplySpeciesCommand:
     """Tests for ApplySpeciesCommand (issue #213)."""
 
     def test_assign_from_generic_sets_species_and_clears_on_undo(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         item = _FakePlant()
         new = {"scientific_name": "Solanum lycopersicum", "max_spread_cm": 90.0}
@@ -805,7 +805,7 @@ class TestApplySpeciesCommand:
         assert item.spacing_radius_cm is None
 
     def test_reassign_over_existing_species_restores_prior_on_undo(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         old = {"scientific_name": "Old species", "max_spread_cm": 20.0}
         item = _FakePlant()
@@ -823,7 +823,7 @@ class TestApplySpeciesCommand:
         assert item.metadata["plant_species"]["scientific_name"] == "Old species"
         assert item.spacing_radius_cm == 10.0
 
-    def test_old_species_copy_is_not_aliased(self, qtbot) -> None:  # noqa: ARG002
+    def test_old_species_copy_is_not_aliased(self, qtbot) -> None:
         old = {"scientific_name": "Old", "max_spread_cm": 20.0}
         item = _FakePlant()
         item.metadata["plant_species"] = old
@@ -836,7 +836,7 @@ class TestApplySpeciesCommand:
         assert item.metadata["plant_species"]["scientific_name"] == "Old"
 
     def test_resizes_footprint_and_restores_on_undo(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         item = _FakePlant(radius=20.0)
         new = {"scientific_name": "Solanum lycopersicum", "max_spread_cm": 90.0}
@@ -851,7 +851,7 @@ class TestApplySpeciesCommand:
         assert item.radius == 20.0
 
     def test_footprint_unchanged_when_radius_none(
-        self, qtbot  # noqa: ARG002
+        self, qtbot
     ) -> None:
         item = _FakePlant(radius=20.0)
         cmd = ApplySpeciesCommand(item, None, {"scientific_name": "X"}, None, None,
@@ -859,12 +859,12 @@ class TestApplySpeciesCommand:
         cmd.execute()
         assert item.radius == 20.0  # no resize requested
 
-    def test_description_localizable(self, qtbot) -> None:  # noqa: ARG002
+    def test_description_localizable(self, qtbot) -> None:
         cmd = ApplySpeciesCommand(_FakePlant(), None, {}, None, None,
                                old_species_name="", new_species_name="X")
         assert cmd.description == "Apply species data"
 
-    def test_the_species_string_is_written_and_restored(self, qtbot) -> None:  # noqa: ARG002
+    def test_the_species_string_is_written_and_restored(self, qtbot) -> None:
         """#445: the item's own species STRING is what the sprite resolver reads,
         so the assignment writes it - and the undo puts the old one back."""
         item = _FakePlant()
@@ -879,7 +879,7 @@ class TestApplySpeciesCommand:
         cmd.undo()
         assert item.plant_species == "pumpkin"
 
-    def test_a_command_without_names_cannot_be_built(self, qtbot) -> None:  # noqa: ARG002
+    def test_a_command_without_names_cannot_be_built(self, qtbot) -> None:
         """The names are REQUIRED: a command that carries a species but no name
         would assign the data and leave the plant drawn as it was - the very
         defect #445 is about."""

@@ -6,7 +6,6 @@ The calendar shows only actionable, still-open tasks; the Tasks tab classifies t
 same task by ``effective_status``. Both read the project's single ``task_states``
 store, so a status set on either surface is reflected on the other.
 """
-# ruff: noqa: ARG001, ARG002
 
 import datetime
 

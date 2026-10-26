@@ -11,7 +11,6 @@ single mutator; the scene -> panel round-trip (layers_changed -> set_layers,
 active_layer_changed -> select_layer) keeps the panel in sync.
 """
 
-# ruff: noqa: ARG001, ARG002
 
 from unittest.mock import MagicMock
 

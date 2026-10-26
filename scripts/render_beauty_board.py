@@ -1128,7 +1128,7 @@ def main(argv: list[str] | None = None) -> int:
         metrics["error"] = log_text(error)
         log("qt_errors", error=log_text(error))
         code = QT_ERRORS_EXIT
-    except Exception as error:  # noqa: BLE001 - a tool: record it, never swallow it silently
+    except Exception as error:
         metrics["status"] = "error"
         metrics["error"] = f"{type(error).__name__}: {log_text(error)}"
         metrics["traceback"] = traceback.format_exc()

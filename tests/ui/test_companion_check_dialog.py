@@ -37,19 +37,19 @@ def _make_pair(
 
 
 class TestCompanionCheckDialogCreation:
-    def test_creates_empty_report(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_creates_empty_report(self, qtbot, service: CompanionPlantingService) -> None:
         dialog = CompanionCheckDialog([], [], service)
         qtbot.addWidget(dialog)
         assert dialog is not None
         assert dialog.windowTitle()
 
-    def test_creates_with_conflicts(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_creates_with_conflicts(self, qtbot, service: CompanionPlantingService) -> None:
         bad = [_make_pair("Tomato", "Fennel", ANTAGONISTIC, 150.0)]
         dialog = CompanionCheckDialog([], bad, service)
         qtbot.addWidget(dialog)
         assert dialog is not None
 
-    def test_creates_with_beneficial(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_creates_with_beneficial(self, qtbot, service: CompanionPlantingService) -> None:
         good = [_make_pair("Tomato", "Basil", BENEFICIAL, 50.0)]
         dialog = CompanionCheckDialog(good, [], service)
         qtbot.addWidget(dialog)
@@ -57,19 +57,19 @@ class TestCompanionCheckDialogCreation:
 
 
 class TestCompatibilityScore:
-    def test_all_good_returns_100(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_all_good_returns_100(self, qtbot, service: CompanionPlantingService) -> None:
         good = [_make_pair("Tomato", "Basil", BENEFICIAL)]
         dialog = CompanionCheckDialog(good, [], service)
         qtbot.addWidget(dialog)
         assert dialog._compute_score() == 100
 
-    def test_all_bad_returns_0(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_all_bad_returns_0(self, qtbot, service: CompanionPlantingService) -> None:
         bad = [_make_pair("Tomato", "Fennel", ANTAGONISTIC)]
         dialog = CompanionCheckDialog([], bad, service)
         qtbot.addWidget(dialog)
         assert dialog._compute_score() == 0
 
-    def test_mixed_returns_ratio(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_mixed_returns_ratio(self, qtbot, service: CompanionPlantingService) -> None:
         good = [
             _make_pair("Tomato", "Basil", BENEFICIAL),
             _make_pair("Carrot", "Onion", BENEFICIAL),
@@ -80,7 +80,7 @@ class TestCompatibilityScore:
         qtbot.addWidget(dialog)
         assert dialog._compute_score() == 75
 
-    def test_empty_returns_100(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_empty_returns_100(self, qtbot, service: CompanionPlantingService) -> None:
         dialog = CompanionCheckDialog([], [], service)
         qtbot.addWidget(dialog)
         assert dialog._compute_score() == 100
@@ -88,7 +88,7 @@ class TestCompatibilityScore:
 
 class TestRowClickSelection:
     def test_row_click_selects_items_on_scene(
-        self, qtbot, service: CompanionPlantingService  # noqa: ARG002
+        self, qtbot, service: CompanionPlantingService
     ) -> None:
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -129,7 +129,7 @@ class TestRowClickSelection:
 
 
 class TestAnalysePlan:
-    def test_finds_antagonistic_pair(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_finds_antagonistic_pair(self, qtbot, service: CompanionPlantingService) -> None:
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -164,7 +164,7 @@ class TestAnalysePlan:
         assert antagonistic[0].relationship.type == ANTAGONISTIC
         assert len(antagonistic[0].items) == 2
 
-    def test_finds_beneficial_pair(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_finds_beneficial_pair(self, qtbot, service: CompanionPlantingService) -> None:
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -199,7 +199,7 @@ class TestAnalysePlan:
         assert beneficial[0].relationship.type == BENEFICIAL
         assert len(antagonistic) == 0
 
-    def test_out_of_range_ignored(self, qtbot, service: CompanionPlantingService) -> None:  # noqa: ARG002
+    def test_out_of_range_ignored(self, qtbot, service: CompanionPlantingService) -> None:
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.canvas_scene import CanvasScene

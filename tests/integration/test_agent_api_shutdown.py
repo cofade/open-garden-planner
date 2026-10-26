@@ -102,7 +102,7 @@ def _assert_own_server_thread_stopped(server: AgentApiServer) -> None:
     """
     from open_garden_planner.agent_api.server import SERVER_THREAD_NAME
 
-    thread = server._thread  # noqa: SLF001 - the handle is what stop() clears
+    thread = server._thread
     assert thread is None, (
         f"stop() left its own server thread handle set ({SERVER_THREAD_NAME})"
     )
@@ -147,7 +147,7 @@ def _wait_for_established_stream(server: AgentApiServer, timeout: float = 10.0) 
     """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        loop = server._loop  # noqa: SLF001 - the handle the fix stores
+        loop = server._loop
         if loop is not None and not loop.is_closed():
             for task in asyncio.all_tasks(loop):
                 name = task.get_name()
@@ -180,7 +180,7 @@ def test_stop_with_a_streaming_client_is_prompt(caplog: Any) -> None:
                 for _ in response.iter_lines():
                     if release.is_set():
                         break
-        except Exception:  # noqa: BLE001 - the stream is expected to be cut
+        except Exception:
             pass
 
     holder = threading.Thread(target=_hold_stream, daemon=True)

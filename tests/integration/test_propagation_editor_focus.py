@@ -18,7 +18,6 @@ Every test in the previous three rounds drove `setDate()` and then an explicit
 The production path is exercised here: a real `PlantingCalendarView`, real
 signal wiring, and `QApplication.processEvents()` for the focus walk.
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 

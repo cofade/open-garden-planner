@@ -68,7 +68,7 @@ HYGIENE_FILES = (
 def run(cmd: list[str], cwd: Path, timeout: int = 600) -> tuple[int | None, str, str]:
     """Run a command; never raise. Returns (returncode or None, stdout, stderr)."""
     try:
-        proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
+        proc = subprocess.run(
             cmd,
             cwd=cwd,
             capture_output=True,
@@ -395,7 +395,7 @@ def _coverage_section(xml_path: Path | None) -> dict[str, Any] | None:
     if not xml_path.exists():
         return {"available": False, "reason": f"{xml_path.name} not found"}
     try:
-        tree = ET.parse(xml_path)  # noqa: S314 - a coverage.xml the caller produced
+        tree = ET.parse(xml_path)
     except ET.ParseError as exc:
         return {"available": False, "reason": f"{xml_path.name}: {exc}"}
     sources = [s.text or "" for s in tree.getroot().iter("source")]

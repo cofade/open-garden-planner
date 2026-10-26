@@ -1,4 +1,3 @@
-# ruff: noqa: ARG001, ARG002
 """#396 — the Agent API's only browser barrier is now OGP's, not an SDK default.
 
 The loopback MCP server is unauthenticated for reads by design (ADR-033

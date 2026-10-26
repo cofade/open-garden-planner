@@ -282,7 +282,7 @@ class PlantDatabasePanel(QWidget):
         self._notes_timer.setInterval(800)
         self._notes_timer.timeout.connect(self._flush_pending_notes)
 
-        from open_garden_planner.models.plant_lists import get_plant_list_store  # noqa: PLC0415
+        from open_garden_planner.models.plant_lists import get_plant_list_store
         self._list_store = get_plant_list_store()
         self._list_store.changed.connect(self._update_favorite_button)
 
@@ -929,7 +929,7 @@ class PlantDatabasePanel(QWidget):
             note_plan_changed(cmd._item.scene())
             return True
         mgr.execute(cmd)
-        from PyQt6.QtWidgets import QAbstractSpinBox as _Spin  # noqa: PLC0415
+        from PyQt6.QtWidgets import QAbstractSpinBox as _Spin
 
         spin_sender = self.sender() if isinstance(self.sender(), _Spin) else None
         self._last_spin_cmd = cmd if spin_sender is not None else None
@@ -956,7 +956,7 @@ class PlantDatabasePanel(QWidget):
             note_plan_changed(cmd._item.scene())
             return True
         mgr.execute(cmd)
-        from PyQt6.QtWidgets import QAbstractSpinBox as _Spin  # noqa: PLC0415
+        from PyQt6.QtWidgets import QAbstractSpinBox as _Spin
 
         spin_sender = self.sender() if isinstance(self.sender(), _Spin) else None
         self._last_spin_cmd = cmd if spin_sender is not None else None

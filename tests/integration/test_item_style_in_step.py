@@ -176,9 +176,9 @@ def through_the_file(item: Any, tmp_path: Path) -> Any:
 def _serialised(item: Any) -> Any:
     """The clipboard, duplicate and the four array commands: ``_serialize_item`` →
     ``_deserialize_item`` (``CanvasView`` delegates both to ``ProjectManager``)."""
-    data = ProjectManager._serialize_item(item)  # noqa: SLF001
+    data = ProjectManager._serialize_item(item)
     assert data is not None
-    return ProjectManager._deserialize_item(data)  # noqa: SLF001
+    return ProjectManager._deserialize_item(data)
 
 
 def _mirrored(item: Any) -> Any:
@@ -426,7 +426,7 @@ class TestAFreshLineStatesItsPen:
 
     def test_a_preset_picked_in_the_panel_is_stated_too(self, canvas: CanvasView, panel: PropertiesPanel) -> None:
         line = on_canvas(canvas, panel, fresh_line("path"))
-        panel._on_property_changed(line, "path_fence_style", PathFenceStyle.GRAVEL_PATH)  # noqa: SLF001
+        panel._on_property_changed(line, "path_fence_style", PathFenceStyle.GRAVEL_PATH)
         assert pen_of(line) == stated_as_pen(line) == ("#ffb4aa96", 8.0, Qt.PenStyle.SolidLine)
         assert style_gaps(line) == []
 
@@ -448,7 +448,7 @@ class TestUndoOnAFreshLine:
     def test_a_width_edit(self, canvas: CanvasView, panel: PropertiesPanel, kind: str) -> None:
         line = on_canvas(canvas, panel, fresh_line(kind))
         before = pen_of(line), stated(line)
-        panel._on_property_changed(line, "stroke_width", 7.5)  # noqa: SLF001
+        panel._on_property_changed(line, "stroke_width", 7.5)
         assert pen_of(line)[1] == 7.5 == line.stroke_width
         canvas.command_manager.undo()
         assert (pen_of(line), stated(line)) == before
@@ -459,7 +459,7 @@ class TestUndoOnAFreshLine:
     def test_a_dash_edit(self, canvas: CanvasView, panel: PropertiesPanel, kind: str) -> None:
         line = on_canvas(canvas, panel, fresh_line(kind))
         before = pen_of(line), stated(line)
-        panel._on_property_changed(line, "stroke_style", StrokeStyle.DASHED)  # noqa: SLF001
+        panel._on_property_changed(line, "stroke_style", StrokeStyle.DASHED)
         assert pen_of(line)[2] is Qt.PenStyle.DashLine and line.stroke_style is StrokeStyle.DASHED
         canvas.command_manager.undo()
         assert (pen_of(line), stated(line)) == before
@@ -478,7 +478,7 @@ class TestUndoOnAFreshLine:
         new_type = OTHER_TYPE[was_type]
         style = get_style(new_type)
         before = pen_of(line), stated(line)
-        panel._on_property_changed(line, "object_type", new_type)  # noqa: SLF001
+        panel._on_property_changed(line, "object_type", new_type)
         assert line.object_type is new_type and line.path_fence_style is PathFenceStyle.NONE
         assert pen_of(line) == (QColor(style.stroke_color).name(HEX), style.stroke_width, Qt.PenStyle.SolidLine)
         assert style_gaps(line) == []
@@ -494,10 +494,10 @@ class TestUndoOnAFreshLine:
         """The undo set the stroke attributes, let ``apply_style_preset`` overwrite them
         with the preset's, and then built the pen from the state: pen 12.0, stated 8.0."""
         line = on_canvas(canvas, panel, fresh_line("gravel path"))
-        panel._on_property_changed(line, "stroke_width", 12.0)  # noqa: SLF001
+        panel._on_property_changed(line, "stroke_width", 12.0)
         before = pen_of(line), stated(line)
         assert before[0] == ("#ffb4aa96", 12.0, Qt.PenStyle.SolidLine)
-        panel._on_property_changed(line, "object_type", ObjectType.WALL)  # noqa: SLF001
+        panel._on_property_changed(line, "object_type", ObjectType.WALL)
         assert pen_of(line) == ("#ff696969", 4.0, Qt.PenStyle.SolidLine)  # the wall's, beside the gravel
         assert line.path_fence_style is PathFenceStyle.NONE and style_gaps(line) == []
         canvas.command_manager.undo()
@@ -510,12 +510,12 @@ class TestUndoOnAFreshLine:
         stated: the undo of a context-menu type change gave a re-stroked fence the
         fence type's 3.0 solid brown — and attributes that said 7.5 dashed."""
         line = on_canvas(canvas, panel, fresh_line("fence"))
-        panel._on_property_changed(line, "stroke_width", 7.5)  # noqa: SLF001
-        panel._on_property_changed(line, "stroke_style", StrokeStyle.DASHED)  # noqa: SLF001
+        panel._on_property_changed(line, "stroke_width", 7.5)
+        panel._on_property_changed(line, "stroke_style", StrokeStyle.DASHED)
         before = pen_of(line), stated(line)
         assert before[0] == ("#ff8b4513", 7.5, Qt.PenStyle.DashLine)
         line.setSelected(True)
-        line._dispatch_change_type(ObjectType.WALL)  # noqa: SLF001
+        line._dispatch_change_type(ObjectType.WALL)
         assert pen_of(line) == stated_as_pen(line) == ("#ff696969", 4.0, Qt.PenStyle.SolidLine)
         canvas.command_manager.undo()
         assert line.object_type is ObjectType.FENCE and (pen_of(line), stated(line)) == before

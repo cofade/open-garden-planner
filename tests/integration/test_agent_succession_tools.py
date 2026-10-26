@@ -67,7 +67,7 @@ def _pump(qtbot: Any, coro: Any) -> None:
     def _run() -> None:
         try:
             box["value"] = loop.run_until_complete(coro)
-        except Exception as exc:  # noqa: BLE001 - re-raised on the main thread
+        except Exception as exc:
             box["error"] = exc
         finally:
             loop.close()

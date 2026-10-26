@@ -113,10 +113,10 @@ class TestPlacementAndEditing:
 
 class TestSerialization:
     @pytest.fixture
-    def manager(self, qtbot) -> ProjectManager:  # noqa: ARG002
+    def manager(self, qtbot) -> ProjectManager:
         return ProjectManager()
 
-    def test_round_trips_as_parametric(self, manager, qtbot) -> None:  # noqa: ARG002
+    def test_round_trips_as_parametric(self, manager, qtbot) -> None:
         scene = CanvasScene(width_cm=5000, height_cm=3000)
         sym = SmartSymbolItem("raised_bed_rows", 1, {"rows": 5})
         scene.addItem(sym)
@@ -134,7 +134,7 @@ class TestSerialization:
         assert _geometry_children(loaded[0]) == 5
         assert (loaded[0].pos().x(), loaded[0].pos().y()) == (120, 80)
 
-    def test_missing_definition_uses_cached_geometry(self, manager, qtbot) -> None:  # noqa: ARG002
+    def test_missing_definition_uses_cached_geometry(self, manager, qtbot) -> None:
         scene = CanvasScene(width_cm=5000, height_cm=3000)
         sym = SmartSymbolItem("raised_bed_rows", 1, {"rows": 4})
         scene.addItem(sym)
@@ -155,7 +155,7 @@ class TestSerialization:
         # Definition is gone → the cached serialized children are rebuilt.
         assert _geometry_children(loaded[0]) == 4
 
-    def test_version_mismatch_uses_cached_geometry(self, manager, qtbot) -> None:  # noqa: ARG002
+    def test_version_mismatch_uses_cached_geometry(self, manager, qtbot) -> None:
         scene = CanvasScene(width_cm=5000, height_cm=3000)
         sym = SmartSymbolItem("raised_bed_rows", 99, {"rows": 4})  # future version
         scene.addItem(sym)
@@ -179,7 +179,7 @@ class TestSerialization:
 
 
 class TestDxfExport:
-    def test_emits_block_insert_not_flat(self, qtbot) -> None:  # noqa: ARG002
+    def test_emits_block_insert_not_flat(self, qtbot) -> None:
         scene = CanvasScene(width_cm=5000, height_cm=3000)
         sym = SmartSymbolItem("raised_bed_rows", 1, {"rows": 4})
         scene.addItem(sym)

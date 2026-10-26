@@ -103,6 +103,7 @@ select = [
     "UP",     # pyupgrade
     "ARG",    # flake8-unused-arguments
     "SIM",    # flake8-simplify
+    "RUF100", # unused noqa directives (AUD-036)
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)
@@ -114,6 +115,24 @@ known-first-party = ["open_garden_planner"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ARG001", "ARG002"]  # pytest fixtures like qtbot are often unused but required
+# 3D subsystem paths excluded from RUF100 to prevent merge conflicts with active Phase 17 L4 (#388)
+"src/open_garden_planner/core/scene3d/**" = ["RUF100"]
+"src/open_garden_planner/ui/view3d/**" = ["RUF100"]
+"tests/integration/*view3d*" = ["RUF100"]
+"tests/integration/*scene3d*" = ["RUF100"]
+"tests/integration/*quick3d*" = ["RUF100"]
+"tests/integration/*plant_forge*" = ["RUF100"]
+"tests/integration/*ground_bake*" = ["RUF100"]
+"tests/perf/*scene3d*" = ["RUF100"]
+"tests/perf/*view3d*" = ["RUF100"]
+"tests/ui/*quick3d*" = ["RUF100"]
+"tests/ui/*view3d*" = ["RUF100"]
+"tests/unit/*scene3d*" = ["RUF100"]
+"tests/unit/*view3d*" = ["RUF100"]
+"tests/unit/*quick3d*" = ["RUF100"]
+"tests/unit/*3d*" = ["RUF100"]
+"tests/unit/test_render_beauty_board.py" = ["RUF100"]
+"tests/render/**" = ["RUF100"]
 
 [tool.mypy]
 python_version = "3.11"

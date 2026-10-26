@@ -120,6 +120,6 @@ class CoordinateInputField(QLineEdit):
 
     # --- Focus management ----------------------------------------------
 
-    def focusOutEvent(self, event: QFocusEvent) -> None:  # noqa: N802 (Qt)
+    def focusOutEvent(self, event: QFocusEvent) -> None:
         self._clear_error_styling()
         super().focusOutEvent(event)

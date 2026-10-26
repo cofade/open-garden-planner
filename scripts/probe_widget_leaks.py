@@ -242,7 +242,7 @@ def mode_per_test(files: list[str]) -> int:
             "scripts.probe_widget_leaks",
         ]
         print(f"running: {' '.join(command)}")
-        subprocess.run(command, cwd=REPO, env=env, check=False)  # noqa: S603
+        subprocess.run(command, cwd=REPO, env=env, check=False)
         if not out.exists():
             print("the probe plugin wrote no counts (was it imported?)")
             return 1
