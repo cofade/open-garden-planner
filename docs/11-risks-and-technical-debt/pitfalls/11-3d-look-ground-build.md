@@ -117,6 +117,9 @@ detail normals from the tile's own luminance). The tiles still carried `flipV: t
 their `Texture`, and the plan drew mirrored north–south: the flat material honours the
 flag, a `TextureInput` does not. The fix samples at `vec2(UV0.x, 1.0 - UV0.y)`. The
 north-up gate runs at the High preset, so it judges the custom material, not the flat one.
+Mutation check (2026-10-26, RTX 4070): sampling at `UV0` again drops the gate's identity
+NCC to 0.47 against its bound of 0.9 (each tile mirrored in itself, so no whole-plan
+mirror matches either: north–south 0.13).
 
 ### PF-L3D-12
 
