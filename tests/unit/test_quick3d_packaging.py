@@ -331,7 +331,7 @@ class TestRenderJob:
     def test_both_platforms_run_the_same_existing_opt_in_files(self) -> None:
         job = _code(self._job())
         runs = [line for line in job.splitlines() if "python -m pytest" in line]
-        budget_runs = [line for line in runs if "::test_real_engine_scrubs_300_models_within_16ms" in line]
+        budget_runs = [line for line in runs if "::test_real_engine_scrubs_300_models_within_frame_budget" in line]
         scene_runs = [line for line in runs if line not in budget_runs]
         assert len(scene_runs) == len(budget_runs) == 2
         for line in scene_runs:
