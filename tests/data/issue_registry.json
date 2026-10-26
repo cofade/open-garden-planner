@@ -1203,5 +1203,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "CI bottleneck: Coverage job takes ~16-17 min on 18.7k tests; deeper investigation and optimization without sacrificing coverage"
+  },
+  "606": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "chore(#601): shorten Coverage critical path while retaining branch data"
   }
 }

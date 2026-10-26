@@ -3358,7 +3358,7 @@ provenance attestation were independently verified against the release merge SHA
 
 
 
-### CI latency follow-up #601 — implemented, awaiting owner acceptance
+### CI latency follow-up #601 — owner-approved chore (PR #606)
 
 Coverage retains all line/branch data and unchanged package/file floors. Two
 stable test-ID hash partitions plus one serial perf producer feed the protected
@@ -3370,3 +3370,5 @@ sweep consumers and immediate acyclic receiver cleanup remove repeated work.
 See ADR-058, §8.10.4, deployment §7.4 and the
 [investigation, marker inventory and measured results](11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md).
 No application or render-tier scope change; #540/#600/#603 remain separate.
+Owner authorized protected merge on 26 October 2026 without GUI testing because
+the change is limited to CI/tests/documentation. No release or version sync is needed.

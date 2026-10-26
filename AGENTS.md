@@ -243,7 +243,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-- **#601 CI latency work is implemented, awaiting owner acceptance.** Coverage keeps
+- **#601 CI latency work is owner-approved as a chore (PR #606, 2026-10-26); no release.** Coverage keeps
   full branch data and unchanged floors, using two stable test-ID partitions plus
   a quiet serial perf producer; the existing required Coverage check combines all
   three and fails on missing/failed measurements. Test remains uninstrumented.

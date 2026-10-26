@@ -124,7 +124,30 @@ name. Neither completed a valid comparison.
 The first partitioned run (40324923512, before the hash refinement) caught stale
 eight-job documentation in its tests. Both measurement failures propagated to the
 required Coverage check; the aggregation did not report a partial green result.
-The final delivery's current-head CI results are attached to its draft PR.
+The code head `6b074bb1` passed all 28 push/PR check runs. These two independent
+runner observations retain full tracing:
+
+| Measurement | Push run 40334409604 | PR run 40335837780 |
+|---|---:|---:|
+| Non-perf partition 0 | 579 s | 535 s |
+| Non-perf partition 1 | 539 s | 532 s |
+| Serial perf coverage | 189 s | 231 s |
+| Aggregation/floors job | 37 s | 36 s |
+| Entire Coverage path, first producer start to floor completion | **619 s (10m19s)** | **575 s (9m35s)** |
+| Test job (now the longest job) | 861 s (14m21s) | 863 s (14m23s) |
+
+Both combined reports retain **63,209/73,148 covered statements**, zero unresolved
+statements and zero floor regressions. They cover 15,035 and 15,036 of the same
+21,014 branch outcomes respectively. Coverage is no longer the critical path;
+the uninstrumented Test job remains about fourteen minutes on these runners.
+The extra runner setup/collection cost is deliberate; no claim is made that the
+entire workflow now takes under ten minutes.
+
+Final local validation passed 18,436 source tests (247 skips), 77 quiet perf cases
+(12 skips), all quality gates, a strict locked frozen build, smoke exit 124 and
+self-test exit 0. Independent review of `6b074bb1` was clean. On 26 October 2026,
+the owner authorized the chore's protected merge without GUI testing or a release
+(PR #606).
 
 ## Perf-marker audit
 

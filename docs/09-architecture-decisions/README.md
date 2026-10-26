@@ -4100,6 +4100,9 @@ person who has to look at it.*
 
 ### ADR-058 addendum: complete coverage on parallel runners (#601, 26 October 2026)
 
+**Status.** Owner approved as a chore on 26 October 2026 (PR #606), without GUI
+testing; no application release or version synchronization is needed.
+
 **Decision.** Keep full line and branch tracing and the uninstrumented `Test`
 job. Split non-perf coverage by a stable SHA-256 test-ID partition across two
 Linux runners, with xdist within each. Measure the entire perf set serially on a
