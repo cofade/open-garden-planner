@@ -271,6 +271,25 @@ def test_a_deck_of_many_regions_scans_a_bounded_number_of_rows(
         assert {part.name for part in parts} == {"kerb"}   # beyond the budget: the kerb
 
 
+@pytest.mark.parametrize("height", [None, 60.0])
+def test_a_pond_of_many_small_regions_gets_no_sweep_along_all_of_them(height: float | None) -> None:
+    """Security review of #388: the water's work bound holds per REGION, so a pond of
+    many small regions passes it — and its coping, or a raised pool's walls, would be
+    swept along all their vertices. Beyond ``MAX_RELIEF_VERTICES`` in all: the water
+    alone (flat), the plain prism (raised)."""
+    angle = np.linspace(0.0, 2.0 * np.pi, 16, endpoint=False)
+    regions = tuple(tuple((float(x + 30.0 * np.cos(a)), float(30.0 * np.sin(a))) for a in angle)
+                    for x in np.arange(300) * 80.0)
+    assert sum(len(ring) for ring in regions) > surfaces.MAX_RELIEF_VERTICES
+    record = dataclasses.replace(polygon_record("POND_POOL", regions[0], height),
+                                 footprints=regions, holes=tuple(() for _ in regions))
+    parts = REGISTRY.build(record)
+    names = {part.name for part in parts}
+    assert "coping" not in names and "walls" not in names, names
+    triangles = sum(part.mesh.triangle_count for part in parts)
+    assert triangles <= 64 * len(regions), triangles
+
+
 @pytest.mark.parametrize("kind", ["TERRACE_PATIO", "DRIVEWAY"])
 def test_an_outline_of_too_many_vertices_gets_no_relief(kind: str) -> None:
     """A kerb or a skirt is 12 triangles a vertex: beyond ``MAX_RELIEF_VERTICES`` the

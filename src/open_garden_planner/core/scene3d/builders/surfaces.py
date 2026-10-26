@@ -550,7 +550,12 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
     the water a hand under the wall's top."""
     walls = []
     thick = min(18.0, 0.2 * min(np.ptp(np.asarray(record.footprints[0]), axis=0)))
-    for outer, holes in pond_regions(record):
+    regions = pond_regions(record)
+    # the water's work bound holds per REGION: a pond of many small regions passes it and
+    # would sweep walls along all their vertices (security review of #388)
+    if _outline_vertices(regions) > MAX_RELIEF_VERTICES:
+        return default_builder(record)
+    for outer, holes in regions:
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)
             if len(points) < 3:
