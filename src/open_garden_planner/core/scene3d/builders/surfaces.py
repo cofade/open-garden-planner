@@ -80,6 +80,13 @@ COPING_UP_CM: Final = 7.0
 #: gets a sparser sward rather than an unbounded mesh: 3 triangles a blade).
 BLADES_PER_M2: Final = 220.0
 MAX_BLADES: Final = 36_000
+#: The jittered grid the blades' roots are drawn from lies over the lawn's BOUNDING
+#: BOX: at most this many grid points, and at most ``MAX_SWARD_WORK`` point-in-ring
+#: tests (points x the outline's edges), whatever the lawn's shape — a thin diagonal
+#: strip kilometres long has a small area and a huge box, and gets a sparser sward
+#: rather than billions of grid points.
+MAX_SWARD_GRID: Final = 4 * MAX_BLADES
+MAX_SWARD_WORK: Final = 400_000_000
 #: The most stones, planks or pebbles one path gets: a path kilometres long gets
 #: no relief rather than an unbounded mesh (the 2D pattern stays on the ground).
 MAX_PATH_ELEMENTS: Final = 2_000
@@ -460,7 +467,12 @@ def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], se
     rng = np.random.Generator(np.random.PCG64(item_seed(seed, "lawn blades")))
     every = np.concatenate(rings)
     low, high = every.min(axis=0), every.max(axis=0)
-    step = math.sqrt(area / count)
+    width, depth = float(high[0] - low[0]), float(high[1] - low[1])
+    edges = len(every) + sum(len(hole) for group in holes for hole in group)
+    grid_cap = max(1, min(MAX_SWARD_GRID, MAX_SWARD_WORK // max(edges, 1)))
+    step = max(math.sqrt(area / count), math.sqrt(width * depth / grid_cap))
+    while math.ceil(width / step) * math.ceil(depth / step) > grid_cap:  # a thin box
+        step *= 1.25
     xs = np.arange(low[0] + step / 2.0, high[0], step)
     ys = np.arange(low[1] + step / 2.0, high[1], step)
     grid = np.stack(np.meshgrid(xs, ys), axis=-1).reshape(-1, 2)

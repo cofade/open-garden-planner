@@ -212,6 +212,38 @@ def test_the_plan_s_share_caps_a_lawn_s_blades() -> None:
     assert REGISTRY.build(lawn({"lawn_blades": 0})) == ()
 
 
+@pytest.mark.parametrize("ring", [
+    # a strip 10 km long and 20 cm wide, on the diagonal: 20 m2 of lawn in a 7 x 7 km box
+    ((0.0, 0.0), (707_100.0, 707_100.0), (707_085.9, 707_114.1), (-14.1, 14.1)),
+    # a strip 10 km long and 1 cm deep: a grid one row high
+    ((0.0, 0.0), (1_000_000.0, 0.0), (1_000_000.0, 1.0), (0.0, 1.0)),
+    # a round lawn of 16,000 edges, 2 km across: the point-in-ring work bounds the grid
+    tuple((100_000.0 * np.cos(a), 100_000.0 * np.sin(a))
+          for a in np.linspace(0.0, 2.0 * np.pi, 16_000, endpoint=False)),
+], ids=["diagonal strip", "thin box", "many edges"])
+def test_a_lawn_with_a_small_area_in_a_huge_box_grows_a_bounded_grid(ring) -> None:
+    """Security review of #388: the roots' grid lies over the bounding box, so its
+    size is bounded by construction (``MAX_SWARD_GRID``, ``MAX_SWARD_WORK``), not by
+    the lawn's area."""
+    surfaces.clear_lawn_cache()
+    calls: list[int] = []
+    real = np.meshgrid
+
+    def counting(*arrays, **kwargs):
+        calls.append(int(np.prod([len(a) for a in arrays])))
+        return real(*arrays, **kwargs)
+
+    np.meshgrid = counting  # type: ignore[assignment]
+    try:
+        parts = REGISTRY.build(polygon_record("LAWN", ring, None))
+    finally:
+        np.meshgrid = real  # type: ignore[assignment]
+        surfaces.clear_lawn_cache()
+    bound = min(surfaces.MAX_SWARD_GRID, surfaces.MAX_SWARD_WORK // len(ring))
+    assert calls and max(calls) <= bound
+    assert sum(part.mesh.triangle_count for part in parts) <= 3 * surfaces.MAX_BLADES
+
+
 def test_a_lawn_the_user_gave_a_height_is_the_prism() -> None:
     record = polygon_record("LAWN", rectangle(800.0, 600.0), 20.0)
     assert REGISTRY.build(record) == default_builder(record)

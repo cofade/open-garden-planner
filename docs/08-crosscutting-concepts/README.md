@@ -6991,7 +6991,10 @@ The 2D plan, its ridge line and its sun study read none of this.
 PATH; a garage's nearest DRIVEWAY first), a lawn's cut-outs (flat items painted above
 it and enclosed buildings on it, in the lawn's frame, at most 96, largest first) and
 a lawn's blade share (220 / m², ≤ 36,000 per lawn, ≤ 60,000 per plan, water-filled by
-area). All are geometry for `SceneSync`, and all are `record.BUILD_ONLY_PARAMS`: the
+area; the roots' jittered grid lies over the lawn's bounding box and is bounded by
+construction, `surfaces.MAX_SWARD_GRID` points and `MAX_SWARD_WORK` point-in-ring tests,
+so a thin lawn in a huge box gets a sparser sward). All are geometry for `SceneSync`,
+and all are `record.BUILD_ONLY_PARAMS`: the
 ground bake compares records with `Record.same_ground_geometry`, which ignores them,
 so a cut-out that moves rebuilds the lawn's blades without re-baking its tiles.
 
