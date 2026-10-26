@@ -1,0 +1,39 @@
+name: Coverage 601 experiment
+on:
+  push:
+    branches: [fix/601-ci-coverage-latency]
+    paths: [.github/workflows/coverage-601-experiment.yml]
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install Qt system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+      - uses: ./.github/actions/setup-locked-env
+      - name: Compare branch and line tracing on the same runner
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          mkdir -p experiment
+          for mode in branch line; do
+            cp pyproject.toml experiment/original.toml
+            if [ "$mode" = line ]; then
+              python -c 'from pathlib import Path; p=Path("pyproject.toml"); p.write_text(p.read_text().replace("branch = true", "branch = false"))'
+            fi
+            /usr/bin/time -f '%e' -o "experiment/$mode-seconds.txt" python -m pytest tests/ -v --durations=0 --cov=open_garden_planner --cov-report=xml:"experiment/$mode.xml" --cov-report= --junitxml="experiment/$mode-junit.xml" > "experiment/$mode.log" 2>&1
+            python scripts/check_coverage_floors.py --xml "experiment/$mode.xml" --report "experiment/$mode-floors.json" > "experiment/$mode-floors.log"
+            cp experiment/original.toml pyproject.toml
+          done
+      - name: Upload experiment
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: coverage-601-experiment
+          path: experiment/
