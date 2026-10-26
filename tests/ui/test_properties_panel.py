@@ -1,6 +1,6 @@
 """Tests for properties panel."""
 
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtWidgets import QFormLayout
 
 from open_garden_planner.core.commands import CommandManager
@@ -543,7 +543,11 @@ class TestObjectHeightField:
         qtbot.wait(30)
 
         fields = self._fields(panel)
-        assert fields["Object height:"].width() == fields["Soil depth:"].width()
+        # The owner's screenshot (#596) showed four widths and three alignments
+        # for these adjacent rows; the object-height field is the reference.
+        for label in ("Spacing:", "Soil depth:", "Object height:", "Stroke Width:"):
+            assert fields[label].width() == 120, label
+            assert fields[label].alignment() & Qt.AlignmentFlag.AlignRight, label
 
         fields["Object height:"].setValue(70.0)
         qtbot.wait(30)
@@ -557,3 +561,22 @@ class TestObjectHeightField:
             "Default for this object type" in height.toolTip()
             or "No height" in height.toolTip()
         )
+
+    def test_plant_spacing_radius_shares_the_same_shape(self, qtbot) -> None:
+        item = CircleItem(0, 0, 50)
+        item.object_type = ObjectType.TREE
+        item.metadata["plant_species"] = {
+            "common_name": "Apple Tree",
+            "max_height_cm": 800.0,
+            "max_spread_cm": 600.0,
+        }
+        panel = PropertiesPanel(CommandManager())
+        qtbot.addWidget(panel)
+        panel.set_selected_items([item])
+        panel.resize(450, 900)
+        panel.show()
+        qtbot.wait(30)
+
+        spacing = self._fields(panel)["Spacing radius:"]
+        assert spacing.width() == 120
+        assert spacing.alignment() & Qt.AlignmentFlag.AlignRight

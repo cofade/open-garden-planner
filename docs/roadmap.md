@@ -2848,9 +2848,10 @@ Help → About reported **1.2.0** in a direct PyInstaller build because a tracke
 `_version.py` shadowed `__version__`; the module is now a gitignored build artifact,
 written before PyInstaller and removed after it, read dynamically, with a `__version__`
 fallback, a conditional PyInstaller hidden import and a `--selftest` version check against
-the version being built (PF-CI-15, ADR-050 addendum). The Properties **Object height** field now shares
-the soil-depth width and refreshes its source tooltip on every edit
-(`NUMERIC_FIELD_WIDTH`). A gallery drop of a **named** species now adopts
+the version being built (PF-CI-15, ADR-050 addendum). Every single-row numeric Properties field now shares the **120 px** width and right
+alignment of the object-height field (grid spacing, stroke width, soil depth, object
+height, plant spacing radius; `NUMERIC_FIELD_WIDTH`, `_style_numeric_field`), and the
+height tooltip refreshes on every edit. A gallery drop of a **named** species now adopts
 `max_spread_cm` like the Plant Database and Plant Lists drops, so an 8 m apple tree is
 no longer 2 m wide in 3D; the display rule for a plant the owner resized is unchanged
 (FR-PLANT-15).

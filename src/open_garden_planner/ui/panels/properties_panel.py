@@ -78,6 +78,18 @@ _TEXT_PROPERTY_LABELS = {
 #: The height field once expanded across the whole panel (#596 manual pass).
 NUMERIC_FIELD_WIDTH = 120
 
+
+def _style_numeric_field(field: QAbstractSpinBox) -> None:
+    """Give a single-row numeric field the shared width and right alignment.
+
+    The #596 manual pass showed four widths and three alignments for adjacent
+    rows (grid spacing, stroke width, soil depth, object height); the
+    object-height field's shape is the reference. Composite widgets (the
+    position X/Y pair) keep their own layout.
+    """
+    field.setFixedWidth(NUMERIC_FIELD_WIDTH)
+    field.setAlignment(Qt.AlignmentFlag.AlignRight)
+
 # Free-text fields (Name, Text Content) live-update the item on every keystroke
 # but only commit ONE undo command per typing burst. The command is committed
 # after the user pauses for this long, or immediately on focus-out — whichever
@@ -1126,7 +1138,7 @@ class PropertiesPanel(QWidget):
             diameter_spin.setDecimals(1)
             diameter_spin.setSingleStep(10.0)
             diameter_spin.setSuffix(" cm")
-            diameter_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            _style_numeric_field(diameter_spin)
             diameter_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
             diameter_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
             diameter_spin.setValue(item.radius * 2)
@@ -1150,6 +1162,7 @@ class PropertiesPanel(QWidget):
             w_spin.setSingleStep(10.0)
             w_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
             w_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(w_spin)
             w_spin.setValue(rect.width())
             size_layout.addWidget(w_label)
             size_layout.addWidget(w_spin, 1)
@@ -1161,6 +1174,7 @@ class PropertiesPanel(QWidget):
             h_spin.setSingleStep(10.0)
             h_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
             h_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(h_spin)
             h_spin.setValue(rect.height())
             size_layout.addWidget(h_label)
             size_layout.addWidget(h_spin, 1)
@@ -1196,6 +1210,7 @@ class PropertiesPanel(QWidget):
             rx_spin.setSuffix(" cm")
             rx_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
             rx_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(rx_spin)
             rx_spin.setValue(rect.width() / 2)
             axes_layout.addWidget(rx_label)
             axes_layout.addWidget(rx_spin, 1)
@@ -1208,6 +1223,7 @@ class PropertiesPanel(QWidget):
             ry_spin.setSuffix(" cm")
             ry_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
             ry_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(ry_spin)
             ry_spin.setValue(rect.height() / 2)
             axes_layout.addWidget(ry_label)
             axes_layout.addWidget(ry_spin, 1)
@@ -1254,6 +1270,7 @@ class PropertiesPanel(QWidget):
         spacing_spin.setRange(1.0, 200.0)
         spacing_spin.setSuffix(" cm")
         spacing_spin.setDecimals(1)
+        _style_numeric_field(spacing_spin)
         spacing_spin.setValue(item.grid_spacing)
 
         def on_grid_check(checked: bool) -> None:
@@ -1327,7 +1344,7 @@ class PropertiesPanel(QWidget):
         depth_spin = QSpinBox()
         depth_spin.setRange(1, 200)
         depth_spin.setSuffix(" cm")
-        depth_spin.setFixedWidth(NUMERIC_FIELD_WIDTH)
+        _style_numeric_field(depth_spin)
         depth_spin.setValue(int(item.metadata.get("soil_depth_cm", 30)))
         depth_spin.setToolTip(self.tr("Fill depth used to calculate soil volume in the Shopping List"))
 
@@ -1401,6 +1418,7 @@ class PropertiesPanel(QWidget):
         height_spin = QSpinBox()
         height_spin.setRange(1, 300)
         height_spin.setSuffix(" cm")
+        _style_numeric_field(height_spin)
         height_spin.setValue(int(cm.container_height_cm(meta)))
         self._form_layout.addRow(self.tr("Height:"), height_spin)
 
@@ -1409,6 +1427,7 @@ class PropertiesPanel(QWidget):
         volume_spin.setRange(0.0, 100000.0)
         volume_spin.setDecimals(1)
         volume_spin.setSuffix(" L")
+        _style_numeric_field(volume_spin)
         volume_spin.setSpecialValueText(self.tr("Auto"))
         override = meta.get("container_soil_volume_l")
         volume_spin.setValue(float(override) if override else 0.0)
@@ -1582,8 +1601,7 @@ class PropertiesPanel(QWidget):
         # Non-empty special-value text — an empty string DISABLES the feature
         # (the #231/#232 Qt trap).
         height_spin.setSpecialValueText(self.tr("Auto"))
-        height_spin.setFixedWidth(NUMERIC_FIELD_WIDTH)
-        height_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(height_spin)
 
         source_texts = {
             oh.SOURCE_CUSTOM: self.tr("Custom height (0 = back to automatic)"),
@@ -1700,6 +1718,7 @@ class PropertiesPanel(QWidget):
                     spin.setValue(float(current))
                     if param.unit:
                         spin.setSuffix(f" {param.unit}")
+                _style_numeric_field(spin)
                 spin.valueChanged.connect(
                     lambda val, it=item, p=param.name: self._on_symbol_param_changed(it, p, val)
                 )
@@ -1747,8 +1766,7 @@ class PropertiesPanel(QWidget):
         spacing_spin.setSingleStep(5.0)
         spacing_spin.setSuffix(" cm")
         spacing_spin.setSpecialValueText(self.tr("—"))  # Show dash when 0 (no data)
-        spacing_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        spacing_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(spacing_spin)
         effective = item.effective_spacing_radius()
         spacing_spin.setValue(effective if effective is not None else 0.0)
         spacing_spin.setToolTip(self.tr("Recommended spacing radius (half of plant spread)"))
@@ -1892,6 +1910,7 @@ class PropertiesPanel(QWidget):
         size_spin.setSingleStep(0.5)
         size_spin.setDecimals(1)
         size_spin.setSuffix(" cm")
+        _style_numeric_field(size_spin)
         size_spin.setValue(item.font_size)
         size_spin.valueChanged.connect(
             lambda v: self._on_text_property_changed(item, "font_size", v)
@@ -2138,6 +2157,7 @@ class PropertiesPanel(QWidget):
         width_spin.setSingleStep(0.5)
         width_spin.setDecimals(1)
         width_spin.setSuffix(" px")
+        _style_numeric_field(width_spin)
         width_spin.setValue(
             item.stroke_width if hasattr(item, 'stroke_width') and item.stroke_width else item.pen().widthF()
         )
