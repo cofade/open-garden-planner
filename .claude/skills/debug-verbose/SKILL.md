@@ -4205,3 +4205,49 @@ of scheduling a second pass - a deferred pass is a second visible change.
 **Evidence.** `get_current_version()` reads `open_garden_planner._version` when `sys.frozen`. `_version.py` was tracked, last written 2026-03-01 with 1.2.0. `installer/build_installer.py` rewrites it on the release path; a raw PyInstaller build does not.
 **Root cause/fix.** `_version.py` is a build artifact. It is removed from git and gitignored; the release build writes the release version, and a direct build falls back to `__version__`. `tests/unit/test_packaging_metadata.py` monkeypatches `sys.frozen` and removes the module from `sys.modules` to pin the fallback.
 **Lesson.** A version shown by the shipped artifact must come from that artifact's build path, not from a file tracked months ago. Build the exact command the gate uses and read About.
+
+
+## Case study: Coverage became the delivery bottleneck (#601)
+
+**Symptom.** The required Coverage job took 16–17 minutes as the suite grew to
+18,748 cases, including 116 serialized perf cases.
+**Wrong theories.** Dropping the CLI branch flag would disable branch tracing
+(TOML independently enabled it); most host wait tests were mocks (30 of 47
+actually depended on real time); CLI startup explained the sweep hotspot (the
+wide sweep's computation dominated).
+**Evidence.** A tagged probe recorded `[601-GC] 52` full collections, with the
+unexpected repeated caller's `traceback.format_stack()` pointing into the fifty
+receiver rounds. cProfile recorded 1,069 parses for 528 test modules. Two sweep
+consumers cost 37.47 s locally. Collection showed 27 deterministic cases inherited
+a class perf marker. Controlled runner measurements live in the #601 audit report.
+**Root cause/fix.** Repeated suite-wide work and unnecessary serialization compounded
+the larger traced suite. Reuse AST indices, apply invariant/prose assertions to one
+CLI sweep result, assert immediate acyclic receiver cleanup, and retain one cyclic-GC
+case. Mark methods individually. Measure two stable test-ID coverage partitions and
+the serial perf set concurrently, then require all three inputs under the protected
+Coverage check. Keep branch data and the uninstrumented Test budgets.
+**Lesson.** Measure the effective configuration and each expensive operation before
+claiming a saving. A shorter required check must still fail on every missing or failed
+measurement. The real xdist/coverage fixture needs perf-only code, or a full combined
+report does not prove the perf input mattered. No diagnostic prints remain.
+
+
+## Case study: a product frame budget measured coverage's tracer (#601)
+
+**Symptom.** The fresh serial coverage producer failed the 300-plant phenology
+batch at 17.85 ms against 16 ms. The protected Coverage check correctly failed.
+**Wrong theory.** The new test-ID partition dropped data or changed the product;
+the failed test was serial and no application file changed.
+**Evidence.** The temporary wrapped-call probe recorded untraced scrubs at
+1.89–2.36 ms and a 2.17 ms batch. With the same branch tracer it recorded
+`[601-PHENO] scrub_date True 22.69`, then the original assertion failed. The
+probe captured traceback.format_stack() when installing its wrappers and retained
+all results; no event-loop or source behavior was substituted.
+**Root cause/fix.** This single-sample gate had no tracer allowance, unlike the
+snapshot budgets. It now reuses their `budget_factor` and `traced` with CI slack
+disabled: the uninstrumented Test job still enforces 16 ms, while traced runs
+retain every state/date assertion and a 160 ms tracer tripwire. Controls reject
+17 ms untraced and 161 ms traced. No application or renderer change.
+**Lesson.** Keep an uninstrumented product budget when collecting coverage; an
+instrumented call measures the tracer too. Reuse the existing tracing policy,
+and pin the unchanged real threshold rather than silently loosening it on CI.

@@ -240,7 +240,7 @@ Details in `ogp-build-and-run`.
 
 ### `.github/workflows/ci.yml` — the merge gate (every push, every PR to master)
 
-Eight jobs using locked Python 3.11 environments (type/dependency matrices include Windows) (`agent-context` was added
+Ten jobs using locked Python 3.11 environments (type/dependency matrices include Windows) (`agent-context` was added
 2026-08-09, `render3d` with Phase 17 L1.2; the security job also runs the secrets scan — count the jobs, don't
 trust this table):
 
@@ -252,7 +252,9 @@ trust this table):
 | Agent context | `scripts/check_agent_context.py` | CLAUDE.md / AGENTS.md parity + skill-tree parity |
 | Dependencies | `scripts/check_dependency_lock.py`; `pip-audit` over the exported lock on both OSes (AUD-054) | Linux/Windows; lock freshness, PEP 751 export agreement and the dependency audit |
 | Types | `scripts/check_mypy_baseline.py` | Linux/Windows Python 3.11; per-file allowances, strict mypy |
-| Coverage | full-suite branch coverage + `scripts/check_coverage_floors.py` | Linux; package line floors; initially not a required GitHub check |
+| Coverage partition (0/1) | non-perf suite split by stable test-ID hash, branch tracing | Linux; two runners, xdist within each (#601) |
+| Coverage performance | entire perf set with branch tracing at `-n 0` | Linux; separate quiet runner (#601) |
+| Coverage | require every measurement, combine three explicit files, enforce `scripts/check_coverage_floors.py` | Linux; existing required check; no floor or branch reduction (#601) |
 | Render 3D | the 3D render tier (`OGP_RENDER3D=1`): `tests/integration/test_quick3d_render.py`, `test_quick3d_engine.py`, `test_quick3d_selftest.py`, `test_quick3d_lifecycle.py` | Linux under xvfb (xcb, OpenGL on llvmpipe) and Windows (Direct3D 11 on WARP); not a required GitHub check |
 
 Gate on green before merging: `gh pr checks <PR#> --watch --fail-fast` (Windows) or the

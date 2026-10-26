@@ -273,7 +273,9 @@ window system, runs under xvfb.
 | `security` | Security | Linux | Bandit HIGH findings and tracked-secret scan |
 | `dependencies` | Dependencies (ubuntu-latest/windows-latest) | Matrix | Clean locked installation, freshness and export checks, and the lock-based `pip-audit` scan on **both** platforms (AUD-054: pip-audit evaluates markers for the running platform, so a Linux-only scan never sees the Windows-only `pywin32`) |
 | `types` | Types (ubuntu-latest/windows-latest) | Matrix | Strict mypy against per-file platform allowances |
-| `coverage` | Coverage | Linux | Full-suite line/branch report and per-package line floors |
+| `coverage` | Coverage partition (0/1) | Linux matrix | Two disjoint non-perf test-ID hash partitions, each with four xdist workers and branch tracing |
+| `coverage-perf` | Coverage performance | Linux | All perf-marked tests alone at `-n 0`, with branch tracing |
+| `coverage-floor` | Coverage | Linux | Require successful measurements, combine all three data files, emit XML and enforce unchanged package/file line floors |
 | `render3d` | Render 3D (ubuntu-latest/windows-latest) | Matrix | The 3D render tier (`OGP_RENDER3D=1`) of the engine package: Linux under xvfb with xcb and OpenGL on Mesa llvmpipe, Windows with Direct3D 11 on WARP. Frames, results and logs are uploaded. Not required by protection |
 
 The matrix jobs each emit two concrete check names. The reviewed protection payload requires

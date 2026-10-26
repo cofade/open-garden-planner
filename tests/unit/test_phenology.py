@@ -53,6 +53,7 @@ from open_garden_planner.core.scene3d import (
     verify_builder,
 )
 from open_garden_planner.ui.view3d.forge_worker import ForgeWorker
+from tests.perf.test_scene3d_snapshot_budget import budget_factor, traced
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PHENOLOGY_PATH = REPO_ROOT / "src" / "open_garden_planner" / "core" / "phenology.py"
@@ -331,6 +332,21 @@ class TestL35PhenologyAndHemispheres:
         assert abs(doy_nh - doy_sh) <= 2.0
 
 
+def _phenology_budget_ms() -> float:
+    # Keep the real 16 ms gate in Test, including on CI. Coverage measures its
+    # tracer too; use the suite's existing tracer allowance, without CI slack.
+    return 16.0 * budget_factor(is_traced=traced(), is_ci=False)
+
+
+@pytest.mark.parametrize(("tracing", "elapsed_ms", "passes"), [
+    (False, 16.0, True), (False, 17.0, False), (True, 17.0, True), (True, 161.0, False),
+])
+def test_the_product_budget_stays_16ms_and_only_tracing_gets_an_allowance(
+        monkeypatch, tracing: bool, elapsed_ms: float, passes: bool) -> None:
+    monkeypatch.setitem(globals(), "traced", lambda: tracing)
+    assert (elapsed_ms <= _phenology_budget_ms()) is passes
+
+
 class TestL35Scrubbing300PlantsPerformance:
     """Gate: scrubbing 300 plants across dates completes in <= 16 ms."""
 
@@ -356,6 +372,7 @@ class TestL35Scrubbing300PlantsPerformance:
             datetime.date(2026, 7, 15),
             datetime.date(2026, 10, 22),
         ]
+        budget_ms = _phenology_budget_ms()
 
         # Measure cold and warm date scrubs across 300 plants
         for target_date in dates:
@@ -363,14 +380,14 @@ class TestL35Scrubbing300PlantsPerformance:
             states = worker.scrub_date(target_date, latitude_deg=52.0)
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             assert len(states) == 300
-            assert elapsed_ms <= 16.0, f"Scrubbing 300 plants on {target_date} took {elapsed_ms:.2f} ms > 16 ms"
+            assert elapsed_ms <= budget_ms, f"Scrubbing 300 plants on {target_date} took {elapsed_ms:.2f} ms > {budget_ms:g} ms"
 
         # Also test direct batch evaluation for 300 plants
         t0 = time.perf_counter()
         batch_states = evaluate_phenology_batch(records, datetime.date(2026, 5, 18), latitude_deg=-35.0)
         batch_ms = (time.perf_counter() - t0) * 1000.0
         assert len(batch_states) == 300
-        assert batch_ms <= 16.0, f"Batch evaluation of 300 plants took {batch_ms:.2f} ms > 16 ms"
+        assert batch_ms <= budget_ms, f"Batch evaluation of 300 plants took {batch_ms:.2f} ms > {budget_ms:g} ms"
 
 
 def test_fruit_ripeness_tint_changes_while_the_plant_is_also_flowering():

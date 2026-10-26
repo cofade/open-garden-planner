@@ -14,9 +14,8 @@ venv/Scripts/python.exe -m open_garden_planner
 # absolute seconds - this machine drifts 37-63% with no code change (#509, 8.10.4)
 venv/Scripts/python.exe -m pytest tests/ -v
 # The timing-sensitive tests, which must not share a runner with workers.
-# All THREE details are load-bearing: `tests/` not `tests/perf/` (7 of the 14
-# marked tests live elsewhere, and a directory-scoped run collects those 7 and
-# PASSES), `-m perf` (or addopts' `-m 'not perf'` wins and nothing runs), and
+# All THREE details are load-bearing: `tests/` (marked cases span directories),
+# `-m perf` (or addopts' `-m 'not perf'` wins and nothing runs), and
 # `-n 0` (running these across workers is what the split exists to prevent).
 venv/Scripts/python.exe -m pytest tests/ -m perf -n 0
 # One file or a few tests: `-n 0` avoids paying worker start-up. Measured on the
@@ -243,6 +242,15 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - PyQt6 tests require `qtbot` fixture even when unused (needed for Qt init); ruff per-file ignore ARG002 in test files
 
 ## Where to Pick Up After Restart
+
+- **#601 CI latency work is owner-approved as a chore (PR #606, 2026-10-26); no release.** Coverage keeps
+  full branch data and unchanged floors, using two stable test-ID partitions plus
+  a quiet serial perf producer; the existing required Coverage check combines all
+  three and fails on missing/failed measurements. Test remains uninstrumented.
+  The 116-case perf audit moves 27 deterministic cases to parallel execution;
+  duplicate AST/sweep work and fifty full-GC traversals are removed without losing
+  their assertions. ADR-058 and `audits/2026-10/ci-latency-601.md` own the evidence.
+
 
 - **Phase 17 L3 "Plant Forge" (#387) shipped on 2026-10-25 as v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner executable acceptance (ADR-064, §8.29.11).** 123 recipes (108 species + 15 categories), 13 archetypes, LOD caps and a 256-entry/64 MiB cache; background admission/recovery, camera-driven LOD, seasonal parts, exact harvest dates and winter bounds. The production render gates exercise the forge. Details in the roadmap and ADR-064.
 

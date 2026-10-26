@@ -198,29 +198,6 @@ PATTERN_SWEEP_CASES = re.compile(
 class TestTheHarnessesStillProduceWhatTheDocumentsQuote:
     """The invariant, checked against a live run rather than a remembered number."""
 
-    def test_the_task_window_sweep_reproduces_both_quoted_harnesses(self) -> None:
-        default = _run(SWEEP)
-        wide = _run(SWEEP, "--wide")
-
-        # The invariant, not just the numbers: nothing missed AND nothing added.
-        # A "0 missed" that also added surplus tasks would be a regression that
-        # hides behind the headline figure.
-        for name, output in (("default", default), ("--wide", wide)):
-            missed_after = _figure(output, "missed by the GUI now")
-            surplus = _figure(output, "listed now but not by the agent")
-            assert missed_after == 0, f"{name} harness missed {missed_after}"
-            assert surplus == 0, f"{name} harness added {surplus} surplus tasks"
-
-        # Both harnesses' headline counts, so a change in either is visible here
-        # rather than in whichever document happens to quote it.
-        assert _sweep_counts(default) == {1836}, default
-        assert _sweep_counts(wide) == {17884}, wide
-
-    def test_the_harvest_harness_still_produces_two_readings(self) -> None:
-        output = _run(HARVEST)
-        assert len(_harvest_pairs(output)) == 2, output
-        assert re.search(r"species that fit neither reading:\s*\d+", output), output
-
     def test_the_corpus_is_not_empty(self) -> None:
         """A guard that reads nothing passes; make that visible."""
         assert len(_CORPUS) > 20, len(_CORPUS)
@@ -295,7 +272,10 @@ class TestDocumentsOnlyQuoteFiguresTheHarnessesProduce:
         ]
 
     def test_no_document_quotes_an_unmeasured_harvest_count(self) -> None:
-        pairs = _harvest_pairs(_run(HARVEST))
+        output = _run(HARVEST)
+        pairs = _harvest_pairs(output)
+        assert len(pairs) == 2, output
+        assert re.search(r"species that fit neither reading:\s*\d+", output), output
         allowed = [
             # "N fit / M miss" is a PAIR summing to the population.
             (PATTERN_FIT_MISS, pairs),
@@ -313,7 +293,19 @@ class TestDocumentsOnlyQuoteFiguresTheHarnessesProduce:
         loop and silently missed the `_LINT_FIXTURES` exemption, which made the
         guard flag its own positive controls.
         """
-        counts = _sweep_counts(_run(SWEEP)) | _sweep_counts(_run(SWEEP, "--wide"))
+        # Run each CLI harness exactly once, even under xdist. A process-local
+        # cache would still duplicate the wide sweep if its consumers land on
+        # different workers. The invariant and the prose lint share these runs.
+        counts: set[int] = set()
+        for args, expected in (((), 1836), (("--wide",), 17884)):
+            output = _run(SWEEP, *args)
+            missed = _figure(output, "missed by the GUI now")
+            surplus = _figure(output, "listed now but not by the agent")
+            assert missed == 0, f"{args} harness missed {missed}"
+            assert surplus == 0, f"{args} harness added {surplus} surplus tasks"
+            measured = _sweep_counts(output)
+            assert measured == {expected}, output
+            counts.update(measured)
         stale = [
             f"{hit} — the harnesses produce {sorted(counts)}"
             for hit in _stale_over(
