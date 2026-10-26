@@ -1611,7 +1611,7 @@ def test_an_item_wiggled_across_a_lawn_s_box_edge_is_still_held(
     edge. A rule that held only records whose context kept the same params let every
     such step through: 12 blade rebuilds in 12 steps. Only a record that becomes or
     stops being a lawn is not held."""
-    _fake_clock(monkeypatch)
+    now = _fake_clock(monkeypatch)
     rig = Rig(canvas, qtbot)
     layer = rig.scene.active_layer.id
     lawn = RectangleItem(0.0, 0.0, 2000.0, 1500.0, object_type=ObjectType.LAWN, layer_id=layer)
@@ -1629,6 +1629,8 @@ def test_an_item_wiggled_across_a_lawn_s_box_edge_is_still_held(
         rig.settle()
     assert _rebuilds(rig, lawn_id) <= 1, "the first step at once, the rest held back"
     assert rig.controller.context_deferrals >= steps - 2
+    _trailing_pass(rig, now)   # the terrace is outside the box again: the sliver goes
+    rig.assert_equals_a_from_scratch_apply()
 
 
 def _fake_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
@@ -1809,6 +1811,9 @@ def test_a_raised_lawn_lowered_inside_a_hold_keeps_the_blade_budget(
     terrace = RectangleItem(500.0, 500.0, 300.0, 200.0, object_type=ObjectType.TERRACE_PATIO,
                             layer_id=rig.scene.active_layer.id)
     rig.commands.execute(CreateItemCommand(rig.scene, terrace, "terrace"))
+    on_raised = RectangleItem(4500.0, 500.0, 300.0, 200.0, object_type=ObjectType.TERRACE_PATIO,
+                              layer_id=rig.scene.active_layer.id)   # cut out of it once it is a lawn
+    rig.commands.execute(CreateItemCommand(rig.scene, on_raised, "terrace on the raised lawn"))
     rig.controller.set_active(True)
     rig.settle()
     assert sorted(_applied_shares(rig), key=str) == [36_000, None]   # the raised lawn takes none
@@ -1819,6 +1824,8 @@ def test_a_raised_lawn_lowered_inside_a_hold_keeps_the_blade_budget(
     rig.commands.stack_changed.emit()
     rig.settle()
     assert rig.controller.context_deferrals == deferred + 1, "the other lawn's share was held"
+    lowered = rig.controller.sync.records[str(raised.item_id)].params
+    assert "lawn_cutouts" in lowered, "no blades through the terrace on it, not even for an interval"
     shares = _applied_shares(rig)
     assert all(isinstance(share, int) for share in shares) and sum(shares) <= MAX_PLAN_BLADES, shares
     _trailing_pass(rig, now)

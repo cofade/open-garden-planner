@@ -292,7 +292,7 @@ def test_a_straight_edge_takes_one_guess(monkeypatch: pytest.MonkeyPatch, width,
     neither the test nor the measurement had). Its edge falls in a straight line, and the
     chord to the sunk roof finds the root in one guess: three roofs — the style's
     overhang, none, the guess — at 99 % of the longest that holds. Without the chord it
-    took five; a stop on a centimetre alone took four on the larger house."""
+    took five; a stop on a centimetre alone took four on the 600 x 400 house."""
     ring = _turned(rectangle(width, depth), degrees)
     crossings = [x0 + (0.0 - y0) / (y1 - y0) * (x1 - x0)
                  for (x0, y0), (x1, y1) in zip(ring, (*ring[1:], ring[0]), strict=True)

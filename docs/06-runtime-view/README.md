@@ -468,7 +468,11 @@ Since L4 (#388, ADR-065) the snapshot's last step writes the params one record n
 the others (`core/scene3d/context.py`). A move of a house along its path keeps its door
 wall, so it stays one `update_transform`; a terrace moved across a lawn rebuilds the lawn's
 blades (its cut-outs changed) but re-bakes only the terrace's tiles, because the bake ignores
-these build-only params.
+these build-only params. During a drag the controller holds such a change back
+(`Scene3DController._hold_context`, `CONTEXT_REBUILD_MIN_MS` = 400 ms): the first step's
+cut-outs are applied at once, later steps move the terrace but keep the lawn's old
+cut-outs, and one trailing pass applies the last. A record that becomes or stops being a
+lawn is never held, and a held pass keeps the plan's blade budget (§8.29.12).
 
 **The first switch to 3D or Split** — nothing of 3D exists before it:
 

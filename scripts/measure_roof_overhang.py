@@ -30,7 +30,7 @@ and 60°; overhangs 25, 50, 100 and 150 cm. Cases whose longest holding overhang
 nothing. Last, it times the worst case the reviews used: a 64-corner hip, r 250 cm,
 700 cm, 60°, 150 cm.
 
-Run: ``venv/Scripts/python.exe scripts/measure_roof_overhang.py`` (about two minutes).
+Run: ``venv/Scripts/python.exe scripts/measure_roof_overhang.py`` (several minutes).
 """
 
 from __future__ import annotations

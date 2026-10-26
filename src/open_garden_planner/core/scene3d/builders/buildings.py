@@ -87,8 +87,8 @@ EDGE_FLOOR_SHARE: Final = 0.5
 #: range. ``scripts/measure_roof_overhang.py`` measures how close to the longest
 #: overhang that holds it lands, and how many roofs it builds.
 OVERHANG_TRIES: Final = 5
-#: … and done once its next step would gain less than this share of the overhang found
-#: (or a centimetre).
+#: … and done once even the larger of its two estimates (within the bracket) says less
+#: than this share of the overhang found (or a centimetre) is left to gain.
 OVERHANG_GAIN_SHARE: Final = 0.025
 #: Where no overhang builds no roof — maybe an exact coincidence: the ridge on an edge of
 #: the outline (an L drawn on a grid) — the search tries this much overhang instead.
