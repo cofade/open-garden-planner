@@ -621,9 +621,20 @@ class Record:
 
     def same_geometry(self, other: Record) -> bool:
         """Equal geometry part — the signature first, then the values (collisions)."""
+        # each field by hand, on purpose: scripts/mutation_check_scene3d.py deletes the
+        # comparisons one by one and a test must fail for each — a new geometry field is
+        # added here, to the signature and to that script by hand
         return (
             self.geometry_sig == other.geometry_sig
-            and all(getattr(self, name) == getattr(other, name) for name in GEOMETRY_FIELDS)
+            and self.kind == other.kind
+            and self.shape == other.shape
+            and self.height_cm == other.height_cm
+            and self.path_width_cm == other.path_width_cm
+            and self.footprints == other.footprints
+            and self.holes == other.holes
+            and self.path == other.path
+            and self.params == other.params
+            and self.outline == other.outline
         )
 
     def same_ground_geometry(self, other: Record) -> bool:

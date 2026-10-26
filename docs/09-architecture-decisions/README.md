@@ -7667,7 +7667,8 @@ had only moved the failing views.
     twelve. A 64-corner hip went from 472 ms to 175 ms.
   - Ground-covering objects cut a lawn whatever their height and paint order.
   - Smaller fixes:
-    - `same_geometry` also derives from `GEOMETRY_FIELDS`.
+    - `same_geometry` stays a list by hand: `scripts/mutation_check_scene3d.py` deletes its
+      comparisons one by one, so each one is pinned.
     - The pond case left the relief-cap test (the water refuses first), and the dead
       raised-pool fallback is gone.
     - The hip check asserts four slopes instead of comparing the builder with itself.
