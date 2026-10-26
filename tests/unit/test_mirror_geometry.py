@@ -92,7 +92,7 @@ class TestSnapAxisStep:
 
 
 @pytest.fixture()
-def _qt(qtbot: object) -> object:  # noqa: ARG001 — ensures a QApplication exists
+def _qt(qtbot: object) -> object:
     return qtbot
 
 

@@ -80,7 +80,7 @@ class PlantSearchDialog(QDialog):
         self.setModal(True)
         self.setMinimumSize(700, 500)
 
-        from open_garden_planner.models.plant_lists import get_plant_list_store  # noqa: PLC0415
+        from open_garden_planner.models.plant_lists import get_plant_list_store
 
         self._list_store = get_plant_list_store()
         self._list_store.changed.connect(self._on_list_store_changed)
@@ -142,7 +142,7 @@ class PlantSearchDialog(QDialog):
         details_header.addWidget(details_label, 1)
 
         self.favorite_btn = QToolButton()
-        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+        from open_garden_planner.ui.icons import get_icon
 
         star_icon = get_icon("star")
         if star_icon is not None:
@@ -280,7 +280,7 @@ class PlantSearchDialog(QDialog):
         else:
             self.status_label.setText(self.tr("No matches."))
 
-    def done(self, result: int) -> None:  # noqa: N802 — Qt override
+    def done(self, result: int) -> None:
         """Settle the debounced search before the dialog goes away — a pending
         timer must never fire into a closed dialog (see __init__)."""
         self._search_timer.stop()
@@ -344,7 +344,7 @@ class PlantSearchDialog(QDialog):
     def _on_list_store_changed(self) -> None:
         """React to plant list store changes (update button and star icons in list)."""
         self._update_favorite_button()
-        from open_garden_planner.ui.icons import get_icon  # noqa: PLC0415
+        from open_garden_planner.ui.icons import get_icon
 
         s_icon = get_icon("star")
         for i in range(self.results_list.count()):
@@ -543,7 +543,7 @@ class PlantSearchDialog(QDialog):
             # search result already has everything there is to have. Quiet:
             # no user-facing warning for something that isn't an error.
             unavailable = True
-        except Exception as e:  # noqa: BLE001 -- external API trust boundary. Only
+        except Exception as e:
             # PlantAPIError is documented, but a 200 response with an unexpected
             # shape reaches _parse_species() uncaught here (unlike search(), which
             # already wraps per-item parsing in `except Exception` -- manager.py).

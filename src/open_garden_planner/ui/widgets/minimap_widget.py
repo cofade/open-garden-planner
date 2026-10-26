@@ -134,7 +134,7 @@ class MinimapWidget(QWidget):
         self.move(max(vp.left(), x), max(vp.top(), y))
         self.raise_()
 
-    def eventFilter(self, obj: object, event: QEvent) -> bool:  # noqa: N802
+    def eventFilter(self, obj: object, event: QEvent) -> bool:
         """Reposition minimap when the view is resized."""
         if obj is self._canvas_view and event.type() == QEvent.Type.Resize:
             self._reposition()
@@ -281,7 +281,7 @@ class MinimapWidget(QWidget):
         for item in hidden:
             item.setVisible(True)
 
-    def paintEvent(self, _event: object) -> None:  # noqa: N802
+    def paintEvent(self, _event: object) -> None:
         """Draw the minimap thumbnail, border, and viewport rectangle."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -358,7 +358,7 @@ class MinimapWidget(QWidget):
     # Mouse interaction
     # ------------------------------------------------------------------
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         """Click to pan or start dragging the viewport rectangle."""
         if event.button() != Qt.MouseButton.LeftButton:
             return
@@ -378,7 +378,7 @@ class MinimapWidget(QWidget):
 
         event.accept()
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Drag the viewport rectangle to navigate."""
         if self._dragging:
             pos = event.position()
@@ -388,7 +388,7 @@ class MinimapWidget(QWidget):
             self._canvas_view.centerOn(QPointF(sx, sy))
             event.accept()
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """End viewport rectangle drag."""
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = False

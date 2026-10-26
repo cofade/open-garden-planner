@@ -20,7 +20,6 @@ hook). Access from inside Qt's own C++ is not visible to it; the app's stores
 are plain Python file I/O.
 """
 
-# ruff: noqa: ARG002
 
 from __future__ import annotations
 

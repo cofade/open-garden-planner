@@ -137,6 +137,7 @@ jobs:
         timeout-minutes: 10
         env:
           OGP_SELFTEST_LOG: ${{ runner.temp }}/ogp-selftest-3d.log
+          OGP_EXPECTED_VERSION: ${{ steps.version.outputs.version }}
         run: |
           $exe = "dist/OpenGardenPlanner/OpenGardenPlanner.exe"
           if (-not (Test-Path $exe)) { Write-Host "::error::Frozen exe not found: $exe"; exit 1 }

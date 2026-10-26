@@ -534,11 +534,11 @@ def _render_garden_notes(
     ``painter.device().newPage()`` and continues on a fresh page with the same
     "Garden Notes" header. No content is silently truncated.
     """
-    from pathlib import Path as _Path  # noqa: PLC0415
+    from pathlib import Path as _Path
 
-    from PyQt6.QtGui import QFontMetricsF  # noqa: PLC0415
+    from PyQt6.QtGui import QFontMetricsF
 
-    from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
+    from open_garden_planner.models.journal_note import JournalNote
 
     notes_raw = opts.garden_journal_notes or {}
     notes: list[JournalNote] = []

@@ -112,7 +112,7 @@ def run_gate(scratch: Path, scenario: str, *, plan: Path | None = PLANS / "bench
         extra["QSG_RHI_PREFER_SOFTWARE_RENDERER"] = "1"
     if timer_paced:
         extra["QT_D3D_NO_VBLANK_THREAD"] = "1"
-    proc = subprocess.run(  # noqa: S603 - fixed argv, our own code
+    proc = subprocess.run(
         argv, capture_output=True, text=True, timeout=GATE_TIMEOUT_S, cwd=scratch,
         env=render_env(scratch, OGP_WORKSPACE_GATE=str(spec), **extra))
     report = json.loads(out.read_text(encoding="utf-8")) if out.is_file() else {}

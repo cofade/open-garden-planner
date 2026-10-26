@@ -133,6 +133,37 @@ def db_spacing_radius_cm(species_dict: dict[str, Any]) -> float | None:
     return db / 2.0 if db is not None else None
 
 
+#: The gallery's fallback diameter per object type when a plant has no species
+#: spread (cm). One copy: every drop path asks ``species_drop_diameter_cm``.
+GALLERY_DEFAULT_DIAMETER_CM: dict[str, float] = {
+    "TREE": 200.0,
+    "SHRUB": 100.0,
+    "PERENNIAL": 60.0,
+}
+
+
+def species_drop_diameter_cm(
+    species_dict: dict[str, Any] | None, object_type_name: str
+) -> float:
+    """Diameter a NEW plant is drawn at: the species spread, else the type default.
+
+    One rule for every creation path that knows a species record - the gallery
+    drop, the Plant Database drop (``build_species_plant``) and the Plant Lists
+    drop (#596). ``db_spacing_radius_cm`` is the same positive-only
+    ``max_spread_cm / 2`` used by species assignment, so the drawn footprint
+    and the stamped metadata cannot disagree. An unknown/custom name keeps the
+    gallery default; an EXISTING plant's geometry is never touched.
+    """
+    radius = (
+        db_spacing_radius_cm(species_dict)
+        if isinstance(species_dict, dict)
+        else None
+    )
+    if radius is not None:
+        return radius * 2.0
+    return GALLERY_DEFAULT_DIAMETER_CM.get(object_type_name, 60.0)
+
+
 def sizing_for_item(item: _SizedPlant) -> PlantSizing:
     """Build a :class:`PlantSizing` from a plant item's current state."""
     footprint = float(getattr(item, "radius", 0.0) or 0.0)

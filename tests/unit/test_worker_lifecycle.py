@@ -21,7 +21,7 @@ class _DummyWorker(QThread):
         time.sleep(self.duration_s)
 
 
-def test_retain_worker_holds_until_finished(qtbot) -> None:  # noqa: ARG001
+def test_retain_worker_holds_until_finished(qtbot) -> None:
     worker = _DummyWorker(duration_s=0.15)
     worker.start()
     assert worker.isRunning()
@@ -34,7 +34,7 @@ def test_retain_worker_holds_until_finished(qtbot) -> None:  # noqa: ARG001
     qtbot.waitUntil(lambda: worker not in _RETIRING_WORKERS, timeout=1000)
 
 
-def test_retain_worker_discarded_if_already_stopped(qtbot) -> None:  # noqa: ARG001
+def test_retain_worker_discarded_if_already_stopped(qtbot) -> None:
     worker = _DummyWorker(duration_s=0.01)
     worker.start()
     worker.wait(1000)

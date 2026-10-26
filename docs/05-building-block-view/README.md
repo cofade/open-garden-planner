@@ -73,7 +73,9 @@ src/open_garden_planner/
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
 │   ├── plain_text.py             # Qt-free: plan text as TEXT — normalise, then cap, then escape; for tooltips, labels and log lines (Phase 17 L1.3, §8.11)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037);
-│   │                             #   and where an item STANDS: standing_base_cm / soil_surface_cm (Phase 17 L1.6)
+│   │                             #   resolve_height() is the ONE precedence ladder, projected by effective_height_cm /
+│   │                             #   height_source / height_source_at (#581); and where an item STANDS: standing_base_cm /
+│   │                             #   soil_surface_cm (Phase 17 L1.6)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037);
 │   │                             #   ShadowCaster(footprint, height, base): a raised caster's shadow starts base/tanα out (L1.6)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)
@@ -137,6 +139,8 @@ src/open_garden_planner/
 │   ├── coordinate_input/         # Typed coordinate pipeline (ADR-021, Package A US-A1/A2/A4)
 │   │   ├── parser.py             #   parse(@dx,dy / @dist<angle / x,y), smart decimal
 │   │   └── buffer.py             #   CoordinateInputBuffer(QObject) — shared state
+│   ├── stacking.py               # Qt-free per-object stacking order (Bring to Front/Forward/Backward/Back), block expansion, parent clamp (ADR-043, §8.25)
+│   ├── canvas_bounds.py          # Qt-free canvas clamping math — the ONE shared rule keeping items on-plan across GUI and Agent API (#380)
 │   ├── alignment.py              # Object alignment helpers
 │   ├── i18n.py                   # Internationalization, translator loading
 │   ├── geometry/                 # Point, Polygon, Rectangle primitives
@@ -157,7 +161,8 @@ src/open_garden_planner/
 │       ├── trim_tool.py          # Trim/Extend (US-11.16)
 │       ├── offset_tool.py        # Parallel-copy offset (US-11.15)
 │       ├── measure_tool.py       # Distance measurement
-│       └── constraint_tool.py    # Distance constraint creation
+│       ├── constraint_tool.py    # Distance constraint creation
+│       └── preview_z.py          # Reserved z-values for in-progress tool previews below minimap cutoff (#377, §8.25.6)
 ├── models/
 │   ├── plant_data.py             # Plant data model
 │   ├── layer.py                  # Layer model
@@ -176,6 +181,7 @@ src/open_garden_planner/
 │   │   ├── footprints.py         # THE footprint extraction — item_outline / item_footprints / plant_canopy_radius_cm; shadows, heatmap and 3D all read it (Phase 17 L1.1, ADR-059)
 │   │   ├── sun_shadow_controller.py # Runtime-only solar shadow overlay + debounced recompute (US-E3, ADR-037)
 │   │   ├── sun_heatmap.py        # QImage rasterizer + HeatmapWorker(QThread) + cool→warm ramp overlay + hourly contour lines/labels (US-E4)
+│   │   ├── arrange.py            # THE one apply path for per-object stacking order changes — builds ArrangeItemsCommand via core.stacking (ADR-043)
 │   │   ├── geometry_apply.py     # THE canonical resize/rotate/vertex apply path — panel + handles + agent (US-D2.2/D2.6)
 │   │   ├── geometry_inspect.py   # Live scene-frame geometry projection for Agent API reads (US-D2.6)
 │   │   └── items/                # Canvas item types
@@ -760,3 +766,13 @@ seeded immutable meshes, bounded by 256 entries and 64 MiB of array data.
 plant at a time off the GUI thread. The workspace admits current completions,
 updates LOD on orbit/walk movement and sends seasonal values to persistent
 Models. Scene recovery invalidates remembered upgrades. See ADR-064.
+
+
+## Stacking, arrange and canvas bounds blocks (#338/#377/#380, AUD-076, ADR-043)
+
+| Building block | Responsibility | Interface (in → out) |
+|---|---|---|
+| `core/stacking.py` | Qt-free per-object stacking order algorithms. Owns `StackEntry`, `ArrangeMode` (Front / Forward / Backward / Back), rank step calculation, block expansion (moving a parent bed together with its plants), and normalization clamping children (plants, roof ridges) above their parent without exceeding layer boundaries. | list of `StackEntry` + selected IDs + `ArrangeMode` → list of `(uuid, new_rank)` |
+| `core/canvas_bounds.py` | Qt-free geometric boundary enforcement. The single shared math implementation for clamping item bounding boxes within `(0, 0, width, height)` canvas bounds; consumed by both `CanvasView` drag/nudge and Agent API write operations to prevent off-plan item placement. | list of `(left, top, right, bottom)` + canvas dimensions → `(dx, dy)` shift |
+| `core/tools/preview_z.py` | Standardized z-ordering for ephemeral interactive tool preview items (`PREVIEW_Z_FILL` = 999, `LINE` = 1000, `LABEL` = 1001, `HANDLE` = 1002). Keeps gesture previews visibly above document items while staying strictly below the minimap capture threshold (`MAX_PREVIEW_Z` < 10,000). | constant z-level definitions |
+| `ui/canvas/arrange.py` | The single GUI and API command-dispatch seam for stacking mutations (`build_arrange_command`). Gathers selected items across layers, filters non-rankable items (e.g. journal pins), queries `core.stacking` per layer, and emits a single undoable `ArrangeItemsCommand`. | scene + items + `ArrangeMode` → `(ArrangeItemsCommand, ArrangeOutcome)` |

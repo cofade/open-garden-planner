@@ -270,7 +270,7 @@ class TestProjectRoundTrip:
 
 
 class TestCsvExport:
-    def test_export_round_trips_rows(self, tmp_path: Path, qtbot) -> None:  # noqa: ARG002
+    def test_export_round_trips_rows(self, tmp_path: Path, qtbot) -> None:
         QApplication.instance() or QApplication([])
         scene = CanvasScene(width_cm=5000, height_cm=3000)
         _add_plant(scene, "Tomato", "solanum_lycopersicum")
@@ -292,7 +292,7 @@ class TestCsvExport:
         assert "Tomato" in names
         assert "Basil" in names
 
-    def test_csv_export_uses_utf8_bom(self, tmp_path: Path, qtbot) -> None:  # noqa: ARG002
+    def test_csv_export_uses_utf8_bom(self, tmp_path: Path, qtbot) -> None:
         """Excel on Windows reads UTF-8 as Latin-1 unless a BOM is present."""
         QApplication.instance() or QApplication([])
         scene = CanvasScene(width_cm=5000, height_cm=3000)
@@ -315,7 +315,7 @@ class TestCsvExport:
 class TestExcludedItems:
     """The Have checkbox dims rows + excludes them from totals and exports."""
 
-    def test_csv_export_skips_excluded_items(self, tmp_path: Path, qtbot) -> None:  # noqa: ARG002
+    def test_csv_export_skips_excluded_items(self, tmp_path: Path, qtbot) -> None:
         from PyQt6.QtCore import Qt as _Qt
         QApplication.instance() or QApplication([])
         scene = CanvasScene(width_cm=5000, height_cm=3000)

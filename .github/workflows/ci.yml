@@ -3,9 +3,13 @@ name: CI
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 on:
   push:
-    branches: ["**"]
+    branches: [master]
   pull_request:
     branches: [master]
 
@@ -208,8 +212,43 @@ jobs:
           name: types-${{ matrix.os }}
           path: type-report.json
 
+  # Two disjoint non-perf slices plus one quiet serial perf run (#601).
+  # Keep branch coverage. The required Coverage context combines ALL THREE data
+  # files and fails if any measurement failed, skipped, or did not upload its data.
   coverage:
-    name: Coverage
+    name: Coverage partition (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install Qt system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+      - uses: ./.github/actions/setup-locked-env
+      - name: Prepare coverage directory
+        run: mkdir -p coverage-data
+      - name: Measure non-perf branch coverage
+        env:
+          QT_QPA_PLATFORM: offscreen
+          COVERAGE_FILE: coverage-data/nonperf-${{ matrix.shard }}.coverage
+        run: >
+          python -m pytest tests/ -v -m 'not perf' --durations=0
+          -p scripts.ci_coverage_shard --coverage-shard=${{ matrix.shard }}/2
+          --cov=open_garden_planner --cov-branch --cov-report=
+      - name: Upload partition coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-data-${{ matrix.shard }}
+          path: coverage-data/
+          if-no-files-found: error
+
+  coverage-perf:
+    name: Coverage performance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -218,68 +257,46 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
       - uses: ./.github/actions/setup-locked-env
+      - name: Prepare coverage directory
+        run: mkdir -p coverage-data
+      - name: Measure the perf tests serially
+        env:
+          QT_QPA_PLATFORM: offscreen
+          COVERAGE_FILE: coverage-data/perf.coverage
+        run: >
+          python -m pytest tests/ -m perf -n 0 -v --durations=0
+          --cov=open_garden_planner --cov-branch --cov-report=
+      - name: Upload performance coverage
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-data-perf
+          path: coverage-data/
+          if-no-files-found: error
 
-      # The `perf` marker means "wall-clock sensitive" (see ADR-058). `addopts` carries
-      # `-n auto --dist worksteal -m 'not perf'`, so this job has to say what it wants
-      # instead of inheriting it, and it says two different things in two steps:
-      #
-      #   step 1  deselects the perf tests  - three of the fourteen carry no CI slack and
-      #                                        must not share a runner with 4 workers
-      #   step 2  runs exactly those 14 at `-n 0` and appends
-      #
-      # Step 2 is load-bearing, not tidiness, and the two steps are ONE decision:
-      #   step 1 alone (`-m 'not perf'`, -n auto, --cov)  agent_api 2012/2195  gate EXIT 1
-      #   step 1 + step 2 (-n 0, --cov-append)            agent_api 2026/2195  gate EXIT 0
-      # Delete step 2 and this job goes red on `agent_api`; drop the deselect from step 1
-      # and step 2 becomes redundant while three budgets run under load. The gate needs
-      # 92% of 2195 = 2020 covered statements, so the margin is SIX either way - the
-      # append does not widen it, it restores what the deselect removed.
-      #
-      # The fourteen statements, from diffing two full `--cov` reports (with and without
-      # the filter) rather than listed from memory: 2686, 2691, 2715, 2716, 2718, 2719,
-      # 2720, 2728, 2729, 2733, 2734, 2735, 2737, 2768. All are `stop()`'s forced-shutdown
-      # escalation in agent_api/server.py - `_run`'s `_forced_stop` branch,
-      # `_cancel_loop_tasks`, `_force_stop`, the #373 fix - and the ONLY coverage of it is
-      # the two `perf`-marked tests in tests/integration/test_agent_api_shutdown.py.
-      #
-      # The three that carry no CI slack, and why they are the reason step 1 deselects:
-      #   tests/integration/test_map_picker_dialog.py  - close() under 0.5 s
-      #   tests/unit/test_point_snapper.py              - mean under 16 ms
-      #   tests/unit/test_snap_spatial_index.py         - 200 ms build / 1 ms query medians
-      # The last one's own docstring records "a single wall-clock sample previously produced
-      # a false failure at 284 ms" against a 200 ms budget. (The docstring says CI runners are shared; the "unloaded" reading is the author's, from that 284 ms overrun.)
-      #
-      # A footgun worth keeping next to the code: `tests/perf/test_nfr_budgets.py` reads
-      # `_IS_CI = os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true"`
-      # and `FRAME_BUDGET_MS = 50.0 if _IS_CI else 16.7`. The `== "true"` is load-bearing -
-      # a runner that sets `CI=1` takes the LOCAL 16.7 ms budget - so `_IS_CI = CI or ...`
-      # written into a new test would silently take the wrong branch.
-      #
-      # Measured job durations (`gh run view <id> --json jobs`), same workflow and runner
-      # class throughout. Every run is cited with the head it measured, because an ID
-      # alone does not say what code it ran:
-      #   master 412f01bd, run 39076508170   Coverage 1270 s, Test 1047 s
-      #   head 1b2398f7, run 39115631489     Coverage  339 s, Test  354 s
-      #   head 1b2398f7, run 39115635791     Coverage  456 s, Test  245 s
-      # The two head runs give 2.8x-3.7x on Coverage and 3.0x-4.3x on Test - read the
-      # spread, not the smaller figure. One CI sample is one reading of a shared runner.
-      #
-      # Coverage is a required status check (ADR-058 addendum; #514). A floor
-      # regression or unparseable report blocks merge.
-      - name: Measure full-suite line and branch coverage
-        env:
-          QT_QPA_PLATFORM: offscreen
-        run: >
-          python -m pytest tests/ -v -m 'not perf'
-          -o addopts="-v --tb=short -n auto --dist worksteal -m 'not perf'"
-          --cov=open_garden_planner --cov-branch --cov-report=xml --cov-report=term
-      - name: Measure the perf tests serially and append
-        env:
-          QT_QPA_PLATFORM: offscreen
-        run: >
-          python -m pytest tests/ -m perf -n 0 -v
-          --cov=open_garden_planner --cov-branch --cov-append
-          --cov-report=xml --cov-report=term
+  coverage-floor:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: [coverage, coverage-perf]
+    if: always()
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/setup-locked-env
+      - name: Require every measurement
+        shell: bash
+        run: |
+          test "${{ needs.coverage.result }}" = success
+          test "${{ needs.coverage-perf.result }}" = success
+      - name: Download every coverage input
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+          path: coverage-data/
+      - name: Combine all coverage data
+        run: |
+          python -m coverage combine coverage-data/nonperf-0.coverage coverage-data/nonperf-1.coverage coverage-data/perf.coverage
+          python -m coverage xml -o coverage.xml
       - name: Enforce package line floors
         if: always()
         run: python scripts/check_coverage_floors.py --xml coverage.xml --report coverage-summary.json
@@ -346,10 +363,10 @@ jobs:
         env:
           QSG_RHI_BACKEND: opengl
           LIBGL_ALWAYS_SOFTWARE: "1"
-        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_plant_forge_workspace.py::test_real_engine_scrubs_300_models_within_16ms -m perf -n 0
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_plant_forge_workspace.py::test_real_engine_scrubs_300_models_within_frame_budget -m perf -n 0
       - name: Plant seasonal update budget (Windows)
         if: runner.os == 'Windows'
-        run: python -m pytest tests/integration/test_plant_forge_workspace.py::test_real_engine_scrubs_300_models_within_16ms -m perf -n 0
+        run: python -m pytest tests/integration/test_plant_forge_workspace.py::test_real_engine_scrubs_300_models_within_frame_budget -m perf -n 0
       - name: Upload frames, results and logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

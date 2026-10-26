@@ -52,7 +52,7 @@ def _set_fill_color(item, color: QColor) -> None:
 class TestNoRebuildOnSameSelection:
     """A property edit on the unchanged selection must not tear down the form."""
 
-    def test_widgets_are_reused(self, qtbot) -> None:  # noqa: ARG002
+    def test_widgets_are_reused(self, qtbot) -> None:
         panel = PropertiesPanel(command_manager=CommandManager())
         item = RectangleItem(0, 0, 100, 50)
         panel.set_selected_items([item])
@@ -73,7 +73,7 @@ class TestNoRebuildOnSameSelection:
 class TestValueRefresh:
     """Same-selection refresh keeps displayed values in sync with the model."""
 
-    def test_position_refreshes_after_move(self, qtbot) -> None:  # noqa: ARG002
+    def test_position_refreshes_after_move(self, qtbot) -> None:
         """A canvas drag (item.setPos) followed by the deferred panel update must
         show the new position — the staleness a naive same-selection skip causes."""
         panel = PropertiesPanel(command_manager=CommandManager())
@@ -92,7 +92,7 @@ class TestValueRefresh:
 
         assert x_spin.value() == x_before + 40.0, "Position X must refresh after a move (#206)"
 
-    def test_fill_color_refreshes_on_undo_redo(self, qtbot) -> None:  # noqa: ARG002
+    def test_fill_color_refreshes_on_undo_redo(self, qtbot) -> None:
         manager = CommandManager()
         panel = PropertiesPanel(command_manager=manager)
         item = RectangleItem(0, 0, 100, 50)
@@ -123,7 +123,7 @@ class TestValueRefresh:
         panel.set_selected_items([item])
         assert fill_btn.color.name() == QColor("blue").name(), "redo must refresh fill"
 
-    def test_diameter_refreshes_after_resize(self, qtbot) -> None:  # noqa: ARG002
+    def test_diameter_refreshes_after_resize(self, qtbot) -> None:
         panel = PropertiesPanel(command_manager=CommandManager())
         item = CircleItem(0, 0, 20)  # radius 20 -> diameter 40
         panel.set_selected_items([item])
@@ -140,7 +140,7 @@ class TestValueRefresh:
 class TestRebuildOnSelectionChange:
     """A genuine selection change still rebuilds the form."""
 
-    def test_different_item_rebuilds(self, qtbot) -> None:  # noqa: ARG002
+    def test_different_item_rebuilds(self, qtbot) -> None:
         panel = PropertiesPanel(command_manager=CommandManager())
         a = RectangleItem(0, 0, 100, 50)
         b = RectangleItem(0, 0, 100, 50)
@@ -151,7 +151,7 @@ class TestRebuildOnSelectionChange:
         name_b = _field_by_label(panel, "Name")
         assert name_b is not name_a, "selecting a different item must rebuild the form"
 
-    def test_empty_selection_clears(self, qtbot) -> None:  # noqa: ARG002
+    def test_empty_selection_clears(self, qtbot) -> None:
         panel = PropertiesPanel(command_manager=CommandManager())
         item = RectangleItem(0, 0, 100, 50)
         panel.set_selected_items([item])
@@ -174,7 +174,7 @@ class TestLayerComboRefresh:
         assert isinstance(widget, QComboBox), "Layer combo not found in panel"
         return widget
 
-    def test_layer_rename_reaches_combo_on_refresh(self, qtbot) -> None:  # noqa: ARG002
+    def test_layer_rename_reaches_combo_on_refresh(self, qtbot) -> None:
         scene = CanvasScene(2000, 2000)
         item = RectangleItem(0, 0, 100, 50)
         item.layer_id = scene.layers[0].id
@@ -195,7 +195,7 @@ class TestLayerComboRefresh:
             "Layer rename must reach the combo on the refresh path (#222)"
         )
 
-    def test_new_layer_appears_in_combo_on_refresh(self, qtbot) -> None:  # noqa: ARG002
+    def test_new_layer_appears_in_combo_on_refresh(self, qtbot) -> None:
         from open_garden_planner.models.layer import Layer
 
         scene = CanvasScene(2000, 2000)
@@ -238,7 +238,7 @@ class TestReadOnlySummaryRowsStayFresh:
     current item stays selected, must not leave the summary stale — the
     relationship summary key in _compute_identity forces a rebuild for it."""
 
-    def test_parent_bed_name_refreshes_on_rename_undo(self, qtbot) -> None:  # noqa: ARG002
+    def test_parent_bed_name_refreshes_on_rename_undo(self, qtbot) -> None:
         scene = CanvasScene(2000, 2000)
         manager = CommandManager()
         bed = _make_bed("Bed A")
@@ -275,7 +275,7 @@ class TestReadOnlySummaryRowsStayFresh:
             "Parent Bed summary went stale after undo of a related-item rename"
         )
 
-    def test_contained_plants_summary_refreshes_on_rename(self, qtbot) -> None:  # noqa: ARG002
+    def test_contained_plants_summary_refreshes_on_rename(self, qtbot) -> None:
         scene = CanvasScene(2000, 2000)
         manager = CommandManager()
         bed = _make_bed("Bed A")
@@ -301,7 +301,7 @@ class TestReadOnlySummaryRowsStayFresh:
 class TestRefreshSkipsFocusedWidget:
     """An in-place refresh must never overwrite a field the user is editing."""
 
-    def test_focused_field_not_stomped(self, qtbot, monkeypatch) -> None:  # noqa: ARG002
+    def test_focused_field_not_stomped(self, qtbot, monkeypatch) -> None:
         from PyQt6.QtWidgets import QApplication
 
         panel = PropertiesPanel(command_manager=CommandManager())
@@ -321,7 +321,7 @@ class TestRefreshSkipsFocusedWidget:
 
         assert name_edit.text() == "user typing", "refresh must not stomp focused field"
 
-    def test_refresher_skips_only_the_focused_widget(self, qtbot, monkeypatch) -> None:  # noqa: ARG002
+    def test_refresher_skips_only_the_focused_widget(self, qtbot, monkeypatch) -> None:
         """_refresh_field_values skips the focused widget but still refreshes the
         rest — exercised directly to bypass the whole-call focus backstop."""
         from PyQt6.QtWidgets import QApplication

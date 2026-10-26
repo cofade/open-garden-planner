@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QGraphicsItem,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QPushButton,
     QScrollArea,
@@ -77,6 +78,36 @@ _TEXT_PROPERTY_LABELS = {
     "italic": "italic",
 }
 
+#: Shared width of every short Properties input: numeric fields, combo boxes
+#: and colour buttons. The panel's one control column (#596 manual pass).
+FIELD_WIDTH = 120
+
+
+def _style_numeric_field(field: QAbstractSpinBox) -> None:
+    """Give a single-row numeric field the shared width and right alignment.
+
+    The #596 manual pass showed four widths and three alignments for adjacent
+    rows (grid spacing, stroke width, soil depth, object height); the
+    object-height field's shape is the reference. Composite widgets (the
+    position X/Y pair) keep their own layout.
+    """
+    field.setFixedWidth(FIELD_WIDTH)
+    field.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+
+def _style_combo(combo: QComboBox) -> None:
+    """Give a combo box the same width as every other short input (#596).
+
+    A fixed width clips a long selected value (Qt draws no ellipsis), so the
+    full text stays reachable as a tooltip; the popup already shows every item
+    in full.
+    """
+    combo.setFixedWidth(FIELD_WIDTH)
+    combo.setToolTip(combo.currentText())
+    combo.currentTextChanged.connect(combo.setToolTip)
+
+
+
 # Free-text fields (Name, Text Content) live-update the item on every keystroke
 # but only commit ONE undo command per typing burst. The command is committed
 # after the user pauses for this long, or immediately on focus-out — whichever
@@ -97,7 +128,7 @@ class FocusOutTextEdit(QTextEdit):
 
     editing_finished = pyqtSignal()
 
-    def focusOutEvent(self, event: QFocusEvent) -> None:  # noqa: N802 (Qt)
+    def focusOutEvent(self, event: QFocusEvent) -> None:
         """Emit ``editing_finished`` after the default focus-out handling."""
         super().focusOutEvent(event)
         self.editing_finished.emit()
@@ -115,6 +146,7 @@ class ColorButton(QPushButton):
         """
         super().__init__(parent)
         self._color = color
+        self.setFixedWidth(FIELD_WIDTH)
         self.setFixedHeight(30)
         self._update_style()
         self.clicked.connect(self._pick_color)
@@ -615,6 +647,7 @@ class PropertiesPanel(QWidget):
             # Layer
             if hasattr(item, 'layer_id'):
                 layer_combo = QComboBox()
+                _style_combo(layer_combo)
                 self._populate_layer_combo(layer_combo, item)
                 layer_combo.currentIndexChanged.connect(
                     lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
@@ -655,6 +688,7 @@ class PropertiesPanel(QWidget):
         # Object Type (if applicable)
         if hasattr(item, 'object_type'):
             type_combo = QComboBox()
+            _style_combo(type_combo)
             self._populate_object_type_combo(type_combo, item)
             type_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'object_type', type_combo.currentData())
@@ -708,6 +742,7 @@ class PropertiesPanel(QWidget):
         # Layer
         if hasattr(item, 'layer_id'):
             layer_combo = QComboBox()
+            _style_combo(layer_combo)
             self._populate_layer_combo(layer_combo, item)
             layer_combo.currentIndexChanged.connect(
                 lambda: self._on_property_changed(item, 'layer_id', layer_combo.currentData())
@@ -1072,32 +1107,33 @@ class PropertiesPanel(QWidget):
 
         # Create horizontal layout for X and Y spin boxes
         pos_layout = QHBoxLayout()
-        pos_layout.setSpacing(4)
+        pos_layout.setSpacing(8)
         pos_layout.setContentsMargins(0, 0, 0, 0)
+        pos_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
         # X coordinate
-        x_label = QLabel("X:")
         x_spin = QDoubleSpinBox()
         x_spin.setRange(-100000.0, 100000.0)
         x_spin.setDecimals(1)
         x_spin.setSingleStep(10.0)
         x_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+        x_spin.setPrefix("X: ")
         x_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(x_spin)
         x_spin.setValue(bottom_left_x)
-        pos_layout.addWidget(x_label)
-        pos_layout.addWidget(x_spin, 1)
+        pos_layout.addWidget(x_spin)
 
         # Y coordinate
-        y_label = QLabel("Y:")
         y_spin = QDoubleSpinBox()
         y_spin.setRange(-100000.0, 100000.0)
         y_spin.setDecimals(1)
         y_spin.setSingleStep(10.0)
         y_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+        y_spin.setPrefix("Y: ")
         y_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(y_spin)
         y_spin.setValue(bottom_left_y)
-        pos_layout.addWidget(y_label)
-        pos_layout.addWidget(y_spin, 1)
+        pos_layout.addWidget(y_spin)
 
         # Connect after both spin boxes are created
         x_spin.valueChanged.connect(
@@ -1107,9 +1143,9 @@ class PropertiesPanel(QWidget):
             lambda _: self._on_position_changed(item, x_spin, y_spin)
         )
 
-        # Create a widget to hold the layout; Expanding so it fills the field column
+        # Hug the two 120 px fields rather than stretching across the column.
         pos_widget = QWidget()
-        pos_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        pos_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         pos_widget.setLayout(pos_layout)
         self._form_layout.addRow(self.tr("Position:"), pos_widget)
 
@@ -1128,7 +1164,7 @@ class PropertiesPanel(QWidget):
             diameter_spin.setDecimals(1)
             diameter_spin.setSingleStep(10.0)
             diameter_spin.setSuffix(" cm")
-            diameter_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            _style_numeric_field(diameter_spin)
             diameter_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
             diameter_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
             diameter_spin.setValue(item.radius * 2)
@@ -1142,30 +1178,31 @@ class PropertiesPanel(QWidget):
         elif isinstance(item, RectangleItem):
             rect = item.rect()
             size_layout = QHBoxLayout()
-            size_layout.setSpacing(4)
+            size_layout.setSpacing(8)
             size_layout.setContentsMargins(0, 0, 0, 0)
+            size_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            w_label = QLabel("W:")
             w_spin = QDoubleSpinBox()
             w_spin.setRange(1.0, 100000.0)
             w_spin.setDecimals(1)
             w_spin.setSingleStep(10.0)
             w_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            w_spin.setPrefix(self.tr("W: "))
             w_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(w_spin)
             w_spin.setValue(rect.width())
-            size_layout.addWidget(w_label)
-            size_layout.addWidget(w_spin, 1)
+            size_layout.addWidget(w_spin)
 
-            h_label = QLabel("H:")
             h_spin = QDoubleSpinBox()
             h_spin.setRange(1.0, 100000.0)
             h_spin.setDecimals(1)
             h_spin.setSingleStep(10.0)
             h_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            h_spin.setPrefix(self.tr("H: "))
             h_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(h_spin)
             h_spin.setValue(rect.height())
-            size_layout.addWidget(h_label)
-            size_layout.addWidget(h_spin, 1)
+            size_layout.addWidget(h_spin)
 
             w_spin.valueChanged.connect(
                 lambda _: self._on_dimension_changed(item, 'rect_size', None, w_spin, h_spin)
@@ -1175,7 +1212,7 @@ class PropertiesPanel(QWidget):
             )
 
             size_widget = QWidget()
-            size_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            size_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
             size_widget.setLayout(size_layout)
             self._form_layout.addRow(self.tr("Size:"), size_widget)
             self._register_refresh(
@@ -1187,32 +1224,33 @@ class PropertiesPanel(QWidget):
         elif isinstance(item, EllipseItem):
             rect = item.rect()
             axes_layout = QHBoxLayout()
-            axes_layout.setSpacing(4)
+            axes_layout.setSpacing(8)
             axes_layout.setContentsMargins(0, 0, 0, 0)
+            axes_layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
-            rx_label = QLabel("X:")
             rx_spin = QDoubleSpinBox()
             rx_spin.setRange(0.5, 100000.0)
             rx_spin.setDecimals(1)
             rx_spin.setSingleStep(5.0)
             rx_spin.setSuffix(" cm")
             rx_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            rx_spin.setPrefix("X: ")
             rx_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(rx_spin)
             rx_spin.setValue(rect.width() / 2)
-            axes_layout.addWidget(rx_label)
-            axes_layout.addWidget(rx_spin, 1)
+            axes_layout.addWidget(rx_spin)
 
-            ry_label = QLabel("Y:")
             ry_spin = QDoubleSpinBox()
             ry_spin.setRange(0.5, 100000.0)
             ry_spin.setDecimals(1)
             ry_spin.setSingleStep(5.0)
             ry_spin.setSuffix(" cm")
             ry_spin.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.UpDownArrows)
+            ry_spin.setPrefix("Y: ")
             ry_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+            _style_numeric_field(ry_spin)
             ry_spin.setValue(rect.height() / 2)
-            axes_layout.addWidget(ry_label)
-            axes_layout.addWidget(ry_spin, 1)
+            axes_layout.addWidget(ry_spin)
 
             rx_spin.valueChanged.connect(
                 lambda _: self._on_dimension_changed(item, 'ellipse_axes', None, rx_spin, ry_spin)
@@ -1222,7 +1260,7 @@ class PropertiesPanel(QWidget):
             )
 
             axes_widget = QWidget()
-            axes_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            axes_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
             axes_widget.setLayout(axes_layout)
             self._form_layout.addRow(self.tr("Semi-axes:"), axes_widget)
             self._register_refresh(
@@ -1256,6 +1294,7 @@ class PropertiesPanel(QWidget):
         spacing_spin.setRange(1.0, 200.0)
         spacing_spin.setSuffix(" cm")
         spacing_spin.setDecimals(1)
+        _style_numeric_field(spacing_spin)
         spacing_spin.setValue(item.grid_spacing)
 
         def on_grid_check(checked: bool) -> None:
@@ -1329,6 +1368,7 @@ class PropertiesPanel(QWidget):
         depth_spin = QSpinBox()
         depth_spin.setRange(1, 200)
         depth_spin.setSuffix(" cm")
+        _style_numeric_field(depth_spin)
         depth_spin.setValue(int(item.metadata.get("soil_depth_cm", 30)))
         depth_spin.setToolTip(self.tr("Fill depth used to calculate soil volume in the Shopping List"))
 
@@ -1388,6 +1428,7 @@ class PropertiesPanel(QWidget):
             cm.METAL: self.tr("Metal"),
         }
         material_combo = QComboBox()
+        _style_combo(material_combo)
         for ident in cm.MATERIALS:
             material_combo.addItem(material_labels[ident], ident)
         material_combo.setCurrentIndex(cm.MATERIALS.index(cm.container_material(meta)))
@@ -1402,6 +1443,7 @@ class PropertiesPanel(QWidget):
         height_spin = QSpinBox()
         height_spin.setRange(1, 300)
         height_spin.setSuffix(" cm")
+        _style_numeric_field(height_spin)
         height_spin.setValue(int(cm.container_height_cm(meta)))
         self._form_layout.addRow(self.tr("Height:"), height_spin)
 
@@ -1410,6 +1452,7 @@ class PropertiesPanel(QWidget):
         volume_spin.setRange(0.0, 100000.0)
         volume_spin.setDecimals(1)
         volume_spin.setSuffix(" L")
+        _style_numeric_field(volume_spin)
         volume_spin.setSpecialValueText(self.tr("Auto"))
         override = meta.get("container_soil_volume_l")
         volume_spin.setValue(float(override) if override else 0.0)
@@ -1583,8 +1626,7 @@ class PropertiesPanel(QWidget):
         # Non-empty special-value text — an empty string DISABLES the feature
         # (the #231/#232 Qt trap).
         height_spin.setSpecialValueText(self.tr("Auto"))
-        height_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        height_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(height_spin)
 
         source_texts = {
             oh.SOURCE_CUSTOM: self.tr("Custom height (0 = back to automatic)"),
@@ -1600,10 +1642,17 @@ class PropertiesPanel(QWidget):
             s.setValue(effective if effective is not None else 0.0)
             s.setToolTip(source_texts[oh.height_source(it.object_type, it.metadata)])
 
+        def update_height_source() -> None:
+            height_spin.setToolTip(
+                source_texts[oh.height_source(item.object_type, item.metadata)]
+            )
+
+        def on_height_changed(val: float) -> None:
+            self._on_object_height_changed(item, val)
+            update_height_source()
+
         refresh_height()
-        height_spin.valueChanged.connect(
-            lambda val, it=item: self._on_object_height_changed(it, val)
-        )
+        height_spin.valueChanged.connect(on_height_changed)
         self._form_layout.addRow(self.tr("Object height:"), height_spin)
         self._register_refresh(height_spin, refresh_height)
 
@@ -1775,6 +1824,7 @@ class PropertiesPanel(QWidget):
             widget: QWidget
             if param.type == "choice":
                 combo = QComboBox()
+                _style_combo(combo)
                 for choice in param.choices:
                     combo.addItem(choice, choice)
                 idx = combo.findData(current)
@@ -1806,6 +1856,7 @@ class PropertiesPanel(QWidget):
                     spin.setValue(float(current))
                     if param.unit:
                         spin.setSuffix(f" {param.unit}")
+                _style_numeric_field(spin)
                 spin.valueChanged.connect(
                     lambda val, it=item, p=param.name: self._on_symbol_param_changed(it, p, val)
                 )
@@ -1853,8 +1904,7 @@ class PropertiesPanel(QWidget):
         spacing_spin.setSingleStep(5.0)
         spacing_spin.setSuffix(" cm")
         spacing_spin.setSpecialValueText(self.tr("—"))  # Show dash when 0 (no data)
-        spacing_spin.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        spacing_spin.setAlignment(Qt.AlignmentFlag.AlignRight)
+        _style_numeric_field(spacing_spin)
         effective = item.effective_spacing_radius()
         spacing_spin.setValue(effective if effective is not None else 0.0)
         spacing_spin.setToolTip(self.tr("Recommended spacing radius (half of plant spread)"))
@@ -1983,6 +2033,7 @@ class PropertiesPanel(QWidget):
 
         # Font family
         font_combo = QFontComboBox()
+        _style_combo(font_combo)
         font_combo.setCurrentFont(item.font())
         font_combo.currentFontChanged.connect(
             lambda f: self._on_text_property_changed(item, "font_family", f.family())
@@ -1998,6 +2049,7 @@ class PropertiesPanel(QWidget):
         size_spin.setSingleStep(0.5)
         size_spin.setDecimals(1)
         size_spin.setSuffix(" cm")
+        _style_numeric_field(size_spin)
         size_spin.setValue(item.font_size)
         size_spin.valueChanged.connect(
             lambda v: self._on_text_property_changed(item, "font_size", v)
@@ -2117,6 +2169,7 @@ class PropertiesPanel(QWidget):
         # Path/fence style preset (only for polylines)
         if isinstance(item, PolylineItem):
             style_combo = QComboBox()
+            _style_combo(style_combo)
             # Add "Paths" group
             style_combo.addItem(self.tr("── Paths ──"), None)
             idx = style_combo.count() - 1
@@ -2179,6 +2232,7 @@ class PropertiesPanel(QWidget):
 
             # Fill pattern
             pattern_combo = QComboBox()
+            _style_combo(pattern_combo)
             _pattern_names = {
                 FillPattern.SOLID: self.tr("Solid"),
                 FillPattern.GRASS: self.tr("Grass"),
@@ -2247,6 +2301,7 @@ class PropertiesPanel(QWidget):
         width_spin.setSingleStep(5.0 if is_line else 0.5)
         width_spin.setDecimals(1)
         width_spin.setSuffix(" cm" if is_line else " px")
+        _style_numeric_field(width_spin)
         width_spin.setValue(
             item.stroke_width if hasattr(item, 'stroke_width') and item.stroke_width else item.pen().widthF()
         )
@@ -2263,6 +2318,7 @@ class PropertiesPanel(QWidget):
 
         # Stroke style
         stroke_style_combo = QComboBox()
+        _style_combo(stroke_style_combo)
         _style_names = {
             StrokeStyle.SOLID: self.tr("Solid"),
             StrokeStyle.DASHED: self.tr("Dashed"),

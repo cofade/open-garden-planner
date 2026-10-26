@@ -21,7 +21,7 @@ from open_garden_planner.ui.canvas.items import (
 
 
 @pytest.fixture
-def scene(qtbot) -> CanvasScene:  # noqa: ARG001
+def scene(qtbot) -> CanvasScene:
     return CanvasScene(2000, 2000)
 
 

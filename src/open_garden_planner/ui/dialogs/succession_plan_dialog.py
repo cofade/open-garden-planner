@@ -154,7 +154,7 @@ class _SeasonBandWidget(QWidget):
         # band area (30) + per-row pill stack
         self.setMinimumHeight(int(34 + max(n_rows, 1) * 16))
 
-    def paintEvent(self, event: Any) -> None:  # noqa: ANN001, ARG002
+    def paintEvent(self, event: Any) -> None:  # noqa: ARG002
         if not self._segments:
             return
         painter = QPainter(self)
@@ -347,10 +347,10 @@ class _EntryDialog(QDialog):
         # first (gives scientific_name); falls back to companion service's
         # alias / localised-name index so e.g. "Tomate" → "tomato" for the
         # companion-relationship lookup.
-        from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
+        from open_garden_planner.services.bundled_species_db import (
             get_species_by_common_name,
         )
-        from open_garden_planner.services.companion_planting_service import (  # noqa: PLC0415
+        from open_garden_planner.services.companion_planting_service import (
             CompanionPlantingService,
         )
 
@@ -586,10 +586,10 @@ class SuccessionPlanDialog(QDialog):
         # ImportError is the only failure we tolerate — anything else (e.g.
         # malformed companion DB) should surface so it can be fixed.
         try:
-            from open_garden_planner.app.application import (  # noqa: PLC0415
+            from open_garden_planner.app.application import (
                 GardenPlannerApp,
             )
-            from open_garden_planner.services.companion_planting_service import (  # noqa: PLC0415
+            from open_garden_planner.services.companion_planting_service import (
                 CompanionPlantingService,
             )
         except ImportError:

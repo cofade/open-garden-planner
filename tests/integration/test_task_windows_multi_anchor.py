@@ -15,7 +15,6 @@ Observed failing on master before the fix:
 * the Gantt recomputed its bars from the current year's frost, so a window
   anchored on another year had no bar at all.
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 

@@ -350,7 +350,7 @@ def _portable(golden: dict[str, Any]) -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def current(qapp: Any) -> dict[str, Any]:  # noqa: ARG001 — Qt for the scenes
+def current(qapp: Any) -> dict[str, Any]:
     # through JSON, so tuples and float formatting compare like the stored file
     return json.loads(json.dumps(build_golden()))  # type: ignore[no-any-return]
 
@@ -442,7 +442,7 @@ def _assert_summary(now: dict[str, Any], then: dict[str, Any], exact: bool) -> N
 
 @pytest.mark.parametrize("plan", PLAN_NAMES)
 def test_with_the_real_casters_only_the_plants_on_raised_soil_changed(
-    qtbot: Any, golden: dict[str, Any], plan: str  # noqa: ARG001
+    qtbot: Any, golden: dict[str, Any], plan: str
 ) -> None:
     """The statement of what L1.6 changes in the shipped 2D shadows, on real plans.
 
@@ -481,7 +481,7 @@ def test_with_the_real_casters_only_the_plants_on_raised_soil_changed(
 
 
 @pytest.mark.parametrize("plan", PLAN_NAMES)
-def test_the_oracle_walk_is_the_production_walk(qtbot: Any, plan: str) -> None:  # noqa: ARG001
+def test_the_oracle_walk_is_the_production_walk(qtbot: Any, plan: str) -> None:
     """``_walk`` is an independent re-derivation; it must see exactly the casters
     ``collect_shadow_casters`` sees, in the same order, or the golden's two unions
     would describe another scene."""

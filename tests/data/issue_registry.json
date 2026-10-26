@@ -1144,25 +1144,20 @@
     "state": "CLOSED",
     "title": "Preferences dialog compresses controls below their minimum height on short screens"
   },
-  "571": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "CI: required Dependencies checks fail on master (setuptools GHSA-xmj3-9gf7-h52w, filelock 4.2.0)"
-  },
-  "572": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Remove the stale pip-audit waiver PYSEC-2026-3447 (setuptools is past 83.0.0)"
-  },
   "573": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
   },
-  "575": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#571,#572): setuptools 84.1.0 and filelock 4.2.4 unblock the required Dependencies checks; end the dead waiver"
+  "574": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "pyproject license metadata is deprecated by setuptools (due 2027-02-18)"
+  },
+  "581": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "One resolver for (height, source) instead of three copies of the precedence ladder"
   },
   "584": {
     "is_pr": true,
@@ -1179,6 +1174,16 @@
     "state": "OPEN",
     "title": "Beauty Board renders without the ground bake"
   },
+  "587": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Probes outside scripts/ bypass script_isolation - nothing stops one writing the owner's real settings (it switched off the Welcome dialog)"
+  },
+  "590": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "finalize-us §5: version sync must also update ADR status lines and the README Status paragraph"
+  },
   "592": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1188,6 +1193,16 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(3D): Phase 17 L3 Plant Forge: procedural species models from sprite recipes (#387)"
+  },
+  "594": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "A selected 16,384-vertex polygon re-samples its vertex overlay on every scrollbar step (~100 ms)"
+  },
+  "596": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#562,#573,#574,#581,#587,#590,#592,#594): non-3D follow-up hardening batch 2"
   },
   "597": {
     "is_pr": true,
@@ -1204,6 +1219,11 @@
     "state": "OPEN",
     "title": "Render tier: the selection oracle builds v0 plants while the workspace shows L3 forged plants"
   },
+  "601": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "CI bottleneck: Coverage job takes ~16-17 min on 18.7k tests; deeper investigation and optimization without sacrificing coverage"
+  },
   "603": {
     "is_pr": false,
     "state": "OPEN",
@@ -1213,6 +1233,11 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "2D paths: at an outer bend the fill and the border lines disagree (mitre vs chord, V spike)"
+  },
+  "606": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "chore(#601): shorten Coverage critical path while retaining branch data"
   },
   "607": {
     "is_pr": false,

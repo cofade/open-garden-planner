@@ -303,9 +303,9 @@ def _class_modules(trees: Mapping[str, ast.Module]) -> dict[str, str]:
     defined in exactly one of the analysed modules."""
     owners: dict[str, str | None] = {}
     for key, tree in trees.items():
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                owners[node.name] = None if node.name in owners else key
+        for scope in _function_index(tree).classes:
+            name = scope[-1]
+            owners[name] = None if name in owners else key
     return {name: key for name, key in owners.items() if key is not None}
 
 
@@ -538,23 +538,16 @@ def collect_duration_asserts(
     timed_attributes = _timed_attributes(trees)
     class_modules = _class_modules(trees)
     sensitive = _sensitive_names(tree, module_key, timed_attributes, class_modules)
-    found: list[tuple[str, bool]] = []
-
-    def visit(node: ast.AST, marked: bool, scope: Scope) -> None:
-        for child in ast.iter_child_nodes(node):
-            if isinstance(child, ast.ClassDef):
-                visit(child, marked or is_perf_marked(child), (*scope, child.name))
-            elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                own = marked or is_perf_marked(child)
-                key = (*scope, child.name)
-                if child.name.startswith("test_") and key in sensitive:
-                    found.append(("::".join(key), own))
-                visit(child, own, key)
-            else:
-                visit(child, marked, scope)
-
-    visit(tree, False, ())
-    return sorted(set(found))
+    # The index already visited every definition, including nested classes and
+    # helpers. Marker inheritance follows its lexical prefixes; walking every
+    # expression in the repository again adds no information (#601).
+    index = _function_index(tree)
+    definitions = index.classes | index.functions
+    return sorted(
+        ("::".join(key), any(is_perf_marked(definitions[key[:size]])
+                            for size in range(1, len(key) + 1)))
+        for key in sensitive if key[-1].startswith("test_")
+    )
 
 
 def _python_files() -> list[Path]:
@@ -566,7 +559,7 @@ def test_no_wall_clock_assertion_is_unmarked() -> None:
     offenders: list[str] = []
     scanned = 0
     for path in _python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        tree = _parsed(path)
         support = _support_modules(path)
         for node_id, marked in collect_duration_asserts(
             tree, module_key=_module_key(path), support=support
@@ -587,6 +580,47 @@ def test_no_wall_clock_assertion_is_unmarked() -> None:
         + "\n  ".join(offenders)
         + "\nAdd the marker, or rewrite the assertion to be robust (§11.4 #354)."
     )
+
+
+def test_repository_scan_parses_each_module_once(tmp_path, monkeypatch) -> None:
+    """The import-support scan and the main scan must share their AST (#601)."""
+    root = tmp_path / "tests"
+    root.mkdir()
+    path = root / "test_budgets.py"
+    path.write_text(
+        "import pytest, time\n" + "\n".join(
+            f"@pytest.mark.perf\ndef test_budget_{i}():\n"
+            "    started = time.monotonic()\n"
+            "    assert time.monotonic() - started < 1.0\n"
+            for i in range(12)
+        ), encoding="utf-8",
+    )
+    monkeypatch.setitem(globals(), "TESTS_ROOT", root)
+    monkeypatch.setitem(globals(), "_python_files", lambda: [path])
+    parsed: list[str] = []
+    real = ast.parse
+
+    def parse(source, filename="<unknown>", *args, **kwargs):
+        parsed.append(str(filename))
+        return real(source, filename, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(ast, "parse", parse)
+        test_no_wall_clock_assertion_is_unmarked()
+    assert parsed == [str(path)]
+
+
+@pytest.mark.parametrize(("relative", "class_name"), [
+    ("ui/test_quick3d_host.py", "TestWaitReady"),
+    ("perf/test_scene3d_plants_budget.py", "TestPlantBuildBudget"),
+    ("perf/test_nfr_budgets.py", "TestNfrPerf01LinePaintBudgets"),
+])
+def test_mixed_budget_groups_mark_methods_instead_of_the_class(relative, class_name) -> None:
+    """A budget must not serialize its deterministic sibling contracts (#601)."""
+    tree = ast.parse((TESTS_ROOT / relative).read_text(encoding="utf-8"))
+    group = next(node for node in tree.body if isinstance(node, ast.ClassDef)
+                 and node.name == class_name)
+    assert not is_perf_marked(group)
 
 
 def test_a_measurement_that_travels_in_an_attribute_is_seen() -> None:

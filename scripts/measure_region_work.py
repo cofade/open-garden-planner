@@ -58,13 +58,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import script_isolation  # noqa: E402  (before the app is imported)
+import script_isolation
 
 if __name__ == "__main__":  # run as a script: nothing from here on may reach the user's own stores
     script_isolation.isolate_profile()
 
-from open_garden_planner.core.scene3d import polygon  # noqa: E402
-from open_garden_planner.core.scene3d.polygon import (  # noqa: E402
+from open_garden_planner.core.scene3d import polygon
+from open_garden_planner.core.scene3d.polygon import (
     Region,
     RegionTooLargeError,
     Ring,
@@ -74,8 +74,8 @@ from open_garden_planner.core.scene3d.polygon import (  # noqa: E402
     exceeds_work_bound,
     region_work,
 )
-from open_garden_planner.core.shadow_geometry import polyline_footprint  # noqa: E402
-from open_garden_planner.ui.view3d import snapshot  # noqa: E402
+from open_garden_planner.core.shadow_geometry import polyline_footprint
+from open_garden_planner.ui.view3d import snapshot
 
 Path2 = tuple[tuple[float, float], ...]
 

@@ -44,10 +44,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from open_garden_planner.core import roof_style as rs  # noqa: E402
-from open_garden_planner.core.scene3d import Material, Params, Record, Transform, ccw  # noqa: E402
-from open_garden_planner.core.scene3d.builders import buildings  # noqa: E402
-from open_garden_planner.core.scene3d.builders.roofs import GableRoof, RoofStyle, eave_floor  # noqa: E402
+from open_garden_planner.core import roof_style as rs
+from open_garden_planner.core.scene3d import Material, Params, Record, Transform, ccw
+from open_garden_planner.core.scene3d.builders import buildings
+from open_garden_planner.core.scene3d.builders.roofs import GableRoof, RoofStyle, eave_floor
 
 Point = tuple[float, float]
 
@@ -151,7 +151,7 @@ def main() -> int:
                                    height: float = height) -> GableRoof | None:
                                 return real(rec, style, height, dataclasses.replace(used, overhang_cm=cm))
 
-                            def holds(cm: float, at=at, floor: float = floor) -> bool:  # noqa: ANN001
+                            def holds(cm: float, at=at, floor: float = floor) -> bool:
                                 built = at(cm)
                                 return built is not None and float(built.roof.positions[:, 2].min()) >= floor - 1e-6
 

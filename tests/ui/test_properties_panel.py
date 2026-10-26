@@ -1,28 +1,31 @@
 """Tests for properties panel."""
 
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6.QtWidgets import QAbstractSpinBox, QComboBox, QFormLayout
 
+from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
+from open_garden_planner.ui.panels.properties_panel import FIELD_WIDTH, ColorButton
 
 
 class TestPropertiesPanel:
     """Tests for the PropertiesPanel class."""
 
-    def test_creation(self, qtbot):  # noqa: ARG002
+    def test_creation(self, qtbot):
         """Test that a properties panel can be created."""
         panel = PropertiesPanel()
         assert panel is not None
 
-    def test_no_selection(self, qtbot):  # noqa: ARG002
+    def test_no_selection(self, qtbot):
         """Test panel shows 'no selection' when nothing is selected."""
         panel = PropertiesPanel()
         panel.set_selected_items([])
         # Panel should show no selection message
         assert panel._form_layout.rowCount() > 0
 
-    def test_single_item_selection(self, qtbot):  # noqa: ARG002
+    def test_single_item_selection(self, qtbot):
         """Test panel shows properties for single selected item."""
         panel = PropertiesPanel()
         item = RectangleItem(0, 0, 100, 50)
@@ -34,7 +37,7 @@ class TestPropertiesPanel:
 class TestObjectTypeChange:
     """Tests for changing object types in the properties panel."""
 
-    def test_change_rectangle_to_house(self, qtbot):  # noqa: ARG002
+    def test_change_rectangle_to_house(self, qtbot):
         """Test changing a rectangle to a house."""
         item = RectangleItem(0, 0, 100, 50)
         assert item.object_type == ObjectType.GENERIC_RECTANGLE
@@ -43,7 +46,7 @@ class TestObjectTypeChange:
         item.object_type = ObjectType.HOUSE
         assert item.object_type == ObjectType.HOUSE
 
-    def test_change_polygon_to_garden_bed(self, qtbot):  # noqa: ARG002
+    def test_change_polygon_to_garden_bed(self, qtbot):
         """Test changing a polygon to a garden bed."""
         vertices = [QPointF(0, 0), QPointF(100, 0), QPointF(100, 50), QPointF(0, 50)]
         item = PolygonItem(vertices)
@@ -53,7 +56,7 @@ class TestObjectTypeChange:
         item.object_type = ObjectType.GARDEN_BED
         assert item.object_type == ObjectType.GARDEN_BED
 
-    def test_change_circle_to_tree(self, qtbot):  # noqa: ARG002
+    def test_change_circle_to_tree(self, qtbot):
         """Test changing a circle to a tree."""
         item = CircleItem(50, 50, 25)
         assert item.object_type == ObjectType.GENERIC_CIRCLE
@@ -62,7 +65,7 @@ class TestObjectTypeChange:
         item.object_type = ObjectType.TREE
         assert item.object_type == ObjectType.TREE
 
-    def test_change_house_to_pool(self, qtbot):  # noqa: ARG002
+    def test_change_house_to_pool(self, qtbot):
         """Test changing a house to a pool."""
         vertices = [QPointF(0, 0), QPointF(100, 0), QPointF(100, 50), QPointF(0, 50)]
         item = PolygonItem(vertices, object_type=ObjectType.HOUSE)
@@ -72,7 +75,7 @@ class TestObjectTypeChange:
         item.object_type = ObjectType.POND_POOL
         assert item.object_type == ObjectType.POND_POOL
 
-    def test_change_garden_bed_to_terrace(self, qtbot):  # noqa: ARG002
+    def test_change_garden_bed_to_terrace(self, qtbot):
         """Test changing a garden bed to a terrace."""
         vertices = [QPointF(0, 0), QPointF(100, 0), QPointF(100, 50), QPointF(0, 50)]
         item = PolygonItem(vertices, object_type=ObjectType.GARDEN_BED)
@@ -82,7 +85,7 @@ class TestObjectTypeChange:
         item.object_type = ObjectType.TERRACE_PATIO
         assert item.object_type == ObjectType.TERRACE_PATIO
 
-    def test_properties_panel_type_combo_includes_garden_bed(self, qtbot):  # noqa: ARG002
+    def test_properties_panel_type_combo_includes_garden_bed(self, qtbot):
         """Test that the properties panel type combo includes Garden Bed."""
         from PyQt6.QtWidgets import QComboBox
 
@@ -138,7 +141,7 @@ class TestNumericDimensionInput:
                     spinboxes.append(child)
         return spinboxes
 
-    def test_circle_diameter_spin_present(self, qtbot):  # noqa: ARG002
+    def test_circle_diameter_spin_present(self, qtbot):
         """Diameter spin box is shown for circles with correct initial value."""
         item = CircleItem(50.0, 50.0, 25.0)
         panel = PropertiesPanel()
@@ -150,7 +153,7 @@ class TestNumericDimensionInput:
             f"Expected 50.0 cm diameter spin box, found values: {diameter_values}"
         )
 
-    def test_circle_diameter_change_updates_radius(self, qtbot):  # noqa: ARG002
+    def test_circle_diameter_change_updates_radius(self, qtbot):
         """Changing diameter spin updates circle radius and keeps center fixed."""
         item = CircleItem(50.0, 50.0, 25.0)
         # Initial center in item coords (since pos is at 0,0): (25, 25) in item local space
@@ -169,7 +172,7 @@ class TestNumericDimensionInput:
         # Radius should now be 50 cm
         assert abs(item.radius - 50.0) < 0.01, f"Expected radius 50, got {item.radius}"
 
-    def test_circle_diameter_change_preserves_center(self, qtbot):  # noqa: ARG002
+    def test_circle_diameter_change_preserves_center(self, qtbot):
         """Changing diameter keeps scene center position fixed."""
         item = CircleItem(0.0, 0.0, 30.0)
         # pos = (0,0), rect = (0,0,60,60), scene center = (30, 30)
@@ -202,7 +205,7 @@ class TestNumericDimensionInput:
             f"Center Y shifted: was {old_center_y}, now {new_center_y}"
         )
 
-    def test_rectangle_size_spinboxes_present(self, qtbot):  # noqa: ARG002
+    def test_rectangle_size_spinboxes_present(self, qtbot):
         """Width and height spin boxes are shown for rectangles."""
         item = RectangleItem(0.0, 0.0, 120.0, 80.0)
         panel = PropertiesPanel()
@@ -238,11 +241,11 @@ class TestNumericDimensionInput:
             field_widget = field_item.widget()
             if isinstance(field_widget, QWidget):
                 children = field_widget.findChildren(QDoubleSpinBox)
-                if len(children) == 2:  # noqa: PLR2004
+                if len(children) == 2:
                     return children[0], children[1]
         return None, None
 
-    def test_rectangle_width_change_updates_rect(self, qtbot):  # noqa: ARG002
+    def test_rectangle_width_change_updates_rect(self, qtbot):
         """Changing width spin updates rectangle width."""
         item = RectangleItem(0.0, 0.0, 100.0, 50.0)
         panel = PropertiesPanel()
@@ -259,7 +262,7 @@ class TestNumericDimensionInput:
             f"Expected width 200, got {item.rect().width()}"
         )
 
-    def test_rectangle_height_change_updates_rect(self, qtbot):  # noqa: ARG002
+    def test_rectangle_height_change_updates_rect(self, qtbot):
         """Changing height spin updates rectangle height."""
         item = RectangleItem(0.0, 0.0, 100.0, 50.0)
         panel = PropertiesPanel()
@@ -274,7 +277,7 @@ class TestNumericDimensionInput:
             f"Expected height 90, got {item.rect().height()}"
         )
 
-    def test_circle_resize_creates_undo_command(self, qtbot):  # noqa: ARG002
+    def test_circle_resize_creates_undo_command(self, qtbot):
         """Resizing a circle via the panel creates a ResizeItemCommand."""
         from open_garden_planner.core.commands import CommandManager
 
@@ -294,7 +297,7 @@ class TestNumericDimensionInput:
             "Expected undo command to be created after diameter change"
         )
 
-    def test_rectangle_resize_creates_undo_command(self, qtbot):  # noqa: ARG002
+    def test_rectangle_resize_creates_undo_command(self, qtbot):
         """Resizing a rectangle via the panel creates a ResizeItemCommand."""
         from open_garden_planner.core.commands import CommandManager
 
@@ -341,7 +344,7 @@ class TestFocusPreservation:
                 return field_item.widget()
         return None
 
-    def test_name_field_survives_rebuild_while_focused(self, qtbot, monkeypatch):  # noqa: ARG002
+    def test_name_field_survives_rebuild_while_focused(self, qtbot, monkeypatch):
         """Issue #200: the Name field keeps its widget (and focus) across a rebuild."""
         from PyQt6.QtWidgets import QApplication, QLineEdit
 
@@ -365,7 +368,7 @@ class TestFocusPreservation:
             "Name field was rebuilt while focused — focus/caret would be lost (#200)"
         )
 
-    def test_name_field_rebuilds_when_unfocused(self, qtbot, monkeypatch):  # noqa: ARG002
+    def test_name_field_rebuilds_when_unfocused(self, qtbot, monkeypatch):
         """Guard is not over-broad: an unfocused panel still rebuilds normally."""
         from PyQt6.QtWidgets import QApplication, QLineEdit
 
@@ -382,7 +385,7 @@ class TestFocusPreservation:
             "Name field should still render after an unfocused rebuild"
         )
 
-    def test_panel_updates_when_focus_outside_panel(self, qtbot, monkeypatch):  # noqa: ARG002
+    def test_panel_updates_when_focus_outside_panel(self, qtbot, monkeypatch):
         """Guard fires only for the panel's own widgets: external focus still updates.
 
         Locks the ``and self.isAncestorOf(fw)`` clause — a focused editable widget
@@ -414,7 +417,7 @@ class TestFocusPreservation:
             "external focus must not suppress the in-place value refresh"
         )
 
-    def test_text_content_field_survives_rebuild_while_focused(self, qtbot, monkeypatch):  # noqa: ARG002
+    def test_text_content_field_survives_rebuild_while_focused(self, qtbot, monkeypatch):
         """Latent #200 sibling: the Text annotation Content box must also survive."""
         from PyQt6.QtWidgets import QApplication, QTextEdit
 
@@ -450,7 +453,7 @@ class TestContainerProperties:
                 out.append(field.widget().text())
         return out
 
-    def test_container_section_shown_for_container(self, qtbot):  # noqa: ARG002
+    def test_container_section_shown_for_container(self, qtbot):
         item = RectangleItem(0, 0, 80, 50, object_type=ObjectType.CONTAINER)
         panel = PropertiesPanel()
         panel.set_selected_items([item])
@@ -459,13 +462,13 @@ class TestContainerProperties:
         assert "Height:" in labels
         assert "Soil volume:" in labels
 
-    def test_container_section_absent_for_plain_bed(self, qtbot):  # noqa: ARG002
+    def test_container_section_absent_for_plain_bed(self, qtbot):
         item = RectangleItem(0, 0, 80, 50, object_type=ObjectType.GARDEN_BED)
         panel = PropertiesPanel()
         panel.set_selected_items([item])
         assert "Material:" not in self._labels(panel)
 
-    def test_editing_material_updates_metadata(self, qtbot):  # noqa: ARG002
+    def test_editing_material_updates_metadata(self, qtbot):
         from PyQt6.QtWidgets import QComboBox
 
         from open_garden_planner.core import container_model as cm
@@ -486,7 +489,7 @@ class TestContainerProperties:
         combo.setCurrentIndex(idx)
         assert item.metadata["container_material"] == cm.WOOD
 
-    def test_effective_volume_refreshes_on_footprint_change(self, qtbot):  # noqa: ARG002
+    def test_effective_volume_refreshes_on_footprint_change(self, qtbot):
         """The derived 'Effective' volume must re-compute on incremental refresh
         (e.g. after a canvas resize changes the footprint), not go stale."""
         from PyQt6.QtWidgets import QLabel
@@ -515,3 +518,89 @@ class TestContainerProperties:
         assert before and after and before != after, (
             f"Effective volume did not refresh on footprint change: {before!r} -> {after!r}"
         )
+
+
+class TestObjectHeightField:
+    """Every short input shares one control column; the height source tooltip updates (#596)."""
+
+    @staticmethod
+    def _fields(panel: PropertiesPanel) -> dict[str, object]:
+        fields: dict[str, object] = {}
+        for row in range(panel._form_layout.rowCount()):
+            label = panel._form_layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            field = panel._form_layout.itemAt(row, QFormLayout.ItemRole.FieldRole)
+            if label and field and label.widget() and field.widget():
+                fields[label.widget().text()] = field.widget()
+        return fields
+
+    def test_width_and_source_tooltip_follow_an_explicit_edit(self, qtbot) -> None:
+        item = RectangleItem(0, 0, 400, 250)
+        item.object_type = ObjectType.RAISED_BED
+        panel = PropertiesPanel(CommandManager())
+        qtbot.addWidget(panel)
+        panel.set_selected_items([item])
+        panel.resize(450, 900)
+        panel.show()
+        qtbot.wait(30)
+
+        fields = self._fields(panel)
+        # The owner's screenshot (#596) showed four widths and three alignments
+        # for these adjacent rows; the object-height field is the reference.
+        for label in ("Spacing:", "Soil depth:", "Object height:", "Stroke Width:"):
+            assert fields[label].width() == 120, label
+            assert fields[label].alignment() & Qt.AlignmentFlag.AlignRight, label
+        # Every short input shares that column, not only the four in the first
+        # screenshot: position/size fields, combos and colour buttons too.
+        for spin in panel.findChildren(QAbstractSpinBox):
+            assert spin.width() == 120, spin
+            assert spin.alignment() & Qt.AlignmentFlag.AlignRight, spin
+        for combo in panel.findChildren(QComboBox):
+            assert combo.width() == 120, combo
+            # A fixed 120 px clips a long selected value (Qt draws no ellipsis);
+            # the full text must stay reachable as a tooltip.
+            assert combo.toolTip() == combo.currentText(), combo
+        for button in panel.findChildren(ColorButton):
+            assert button.width() == 120, button
+        # The position/size pairs start at the column edge, and their second
+        # box is one field plus the layout's 8 px away (the external labels
+        # used to indent the first box by ~20 px).
+        position = fields["Position:"]
+        assert (
+            position.mapTo(panel, QPoint(0, 0)).x()
+            == fields["Type:"].mapTo(panel, QPoint(0, 0)).x()
+        )
+        pair = position.findChildren(QAbstractSpinBox)
+        assert len(pair) == 2
+        assert pair[1].x() - pair[0].x() == FIELD_WIDTH + 8
+
+        fields["Object height:"].setValue(70.0)
+        qtbot.wait(30)
+        height = self._fields(panel)["Object height:"]
+        assert "Custom height" in height.toolTip()
+
+        height.setValue(0.0)
+        qtbot.wait(30)
+        height = self._fields(panel)["Object height:"]
+        assert (
+            "Default for this object type" in height.toolTip()
+            or "No height" in height.toolTip()
+        )
+
+    def test_plant_spacing_radius_shares_the_same_shape(self, qtbot) -> None:
+        item = CircleItem(0, 0, 50)
+        item.object_type = ObjectType.TREE
+        item.metadata["plant_species"] = {
+            "common_name": "Apple Tree",
+            "max_height_cm": 800.0,
+            "max_spread_cm": 600.0,
+        }
+        panel = PropertiesPanel(CommandManager())
+        qtbot.addWidget(panel)
+        panel.set_selected_items([item])
+        panel.resize(450, 900)
+        panel.show()
+        qtbot.wait(30)
+
+        spacing = self._fields(panel)["Spacing radius:"]
+        assert spacing.width() == 120
+        assert spacing.alignment() & Qt.AlignmentFlag.AlignRight

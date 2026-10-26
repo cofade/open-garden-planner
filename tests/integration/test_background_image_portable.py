@@ -7,7 +7,6 @@ Verifies that:
   - Legacy project files (no image_data key) still load without crashing.
 """
 
-# ruff: noqa: ARG002
 
 import json
 from pathlib import Path

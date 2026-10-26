@@ -50,12 +50,12 @@ class TestProjectDataSeasonFields:
 
 
 class TestProjectManagerSeasonAPI:
-    def test_initial_state(self, qtbot) -> None:  # noqa: ARG002
+    def test_initial_state(self, qtbot) -> None:
         pm = ProjectManager()
         assert pm.season_year is None
         assert pm.linked_seasons == []
 
-    def test_set_season_emits_signal(self, qtbot) -> None:  # noqa: ARG002
+    def test_set_season_emits_signal(self, qtbot) -> None:
         pm = ProjectManager()
         emitted = []
         pm.season_changed.connect(emitted.append)
@@ -63,13 +63,13 @@ class TestProjectManagerSeasonAPI:
         assert emitted == [2025]
         assert pm.season_year == 2025
 
-    def test_set_season_with_linked(self, qtbot) -> None:  # noqa: ARG002
+    def test_set_season_with_linked(self, qtbot) -> None:
         pm = ProjectManager()
         linked = [{"year": 2024, "file": "old.ogp"}]
         pm.set_season(2025, linked)
         assert pm.linked_seasons == linked
 
-    def test_new_project_resets_season(self, qtbot) -> None:  # noqa: ARG002
+    def test_new_project_resets_season(self, qtbot) -> None:
         pm = ProjectManager()
         pm.set_season(2025, [{"year": 2024, "file": "old.ogp"}])
         emitted = []
@@ -79,7 +79,7 @@ class TestProjectManagerSeasonAPI:
         assert pm.linked_seasons == []
         assert None in emitted
 
-    def test_marks_dirty_on_set_season(self, qtbot) -> None:  # noqa: ARG002
+    def test_marks_dirty_on_set_season(self, qtbot) -> None:
         pm = ProjectManager()
         assert not pm.is_dirty
         pm.set_season(2025)
@@ -90,7 +90,7 @@ class TestProjectManagerSeasonAPI:
 
 
 class TestCreateNewSeason:
-    def test_creates_file_without_plants(self, qtbot, tmp_path) -> None:  # noqa: ARG002
+    def test_creates_file_without_plants(self, qtbot, tmp_path) -> None:
         """New season file should contain only structural objects when keep_plants=False."""
         from PyQt6.QtWidgets import QGraphicsScene
 
@@ -132,7 +132,7 @@ class TestCreateNewSeason:
         assert "GARDEN_BED" in obj_types
         assert data["season_year"] == 2025
 
-    def test_creates_file_with_plants(self, qtbot, tmp_path) -> None:  # noqa: ARG002
+    def test_creates_file_with_plants(self, qtbot, tmp_path) -> None:
         """New season file should contain plants when keep_plants=True."""
         from PyQt6.QtWidgets import QGraphicsScene
 
@@ -158,7 +158,7 @@ class TestCreateNewSeason:
         obj_types = [o.get("object_type") for o in data.get("objects", [])]
         assert "TREE" in obj_types
 
-    def test_linked_seasons_recorded(self, qtbot, tmp_path) -> None:  # noqa: ARG002
+    def test_linked_seasons_recorded(self, qtbot, tmp_path) -> None:
         """Previous season should appear in linked_seasons of new file."""
         from PyQt6.QtWidgets import QGraphicsScene
 

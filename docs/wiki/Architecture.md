@@ -73,3 +73,12 @@ acceptance. It adds shared sprite traits, procedural species
 meshes, camera LOD and background upgrades. Its seasonal material state uses
 the same recorded frost-relative harvest calendar as tasks; flower and fruit
 parts are independent. See the [Plant Forge decision](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-064-plant-forge--procedural-3d-species-models-from-the-2d-sprite-recipes-lods-and-phenology-387).
+
+
+## CI coverage scheduling
+
+The #601 implementation preserves the protected Coverage check and all branch
+data. Two non-perf test-ID partitions and one serial performance measurement feed
+a required combine/floor check; the uninstrumented Test job remains separate.
+See the [investigation and evidence](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md)
+and [deployment contract](https://github.com/cofade/open-garden-planner/blob/master/docs/07-deployment-view/README.md#74-cicd-pipeline-github-actions).

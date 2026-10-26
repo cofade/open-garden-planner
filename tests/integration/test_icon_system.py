@@ -6,7 +6,7 @@ toolbars and menus carry provider icons, a live theme switch re-tints them,
 and the text fallback for unknown icon names still works.
 """
 
-# ruff: noqa: ARG001, ARG002, ARG005
+# ruff: noqa: ARG005
 
 import pytest
 from PyQt6.QtCore import QSize

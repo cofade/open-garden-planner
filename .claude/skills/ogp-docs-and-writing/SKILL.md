@@ -65,7 +65,7 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | Crosscutting concepts | `docs/08-crosscutting-concepts/README.md` | §8.1–§8.25: coordinate system, commands, **i18n (§8.3)**, **QGraphicsView patterns (§8.9)**, **integration-test policy (§8.10)**, **SAST (§8.11)**, **bed-only features (§8.14)**, sidebar accordion (§8.17), smart symbols (§8.18), agent API (§8.19), icon/sprite/texture pipelines (§8.21–§8.24), stacking order (§8.25) |
 | ADR register | `docs/09-architecture-decisions/README.md` | **All** ADRs (ADR-001…043) in this ONE file — append new ADRs here, never create a separate file |
 | Quality requirements | `docs/10-quality-requirements/README.md` | Quality scenarios |
-| Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots under `audits/YYYY-MM/`), **§11.4 index of the pitfall catalogue** (`pitfalls/NN-*.md`, ADR-061) |
+| Risks & technical debt | `docs/11-risks-and-technical-debt/README.md` | §11.1 open questions, §11.2 risks, §11.3 TD-* debt register (living: Status + Issue columns, ADR-047; dated audit snapshots under `audits/YYYY-MM/`), **§11.4 navigation table to the pitfall area indexes** (`pitfalls/index/NN-*.md`, ADR-061) |
 | Glossary | `docs/12-glossary/README.md` | §12.1 terms, §12.2 keyboard shortcuts, §12.3 references |
 | Roadmap | `docs/roadmap.md` | User stories, acceptance criteria, per-US completion notes, "Docs updated on completion" tables |
 | FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
@@ -96,7 +96,7 @@ synced") assumes they were followed.
 
 | Issue Category | Document In | Capture |
 |----------------|-------------|---------|
-| PyQt6 quirks | `docs/11-risks-and-technical-debt/pitfalls/` (area file; index row in §11.4) | Rule → Pinned by → Fix |
+| PyQt6 quirks | `docs/11-risks-and-technical-debt/pitfalls/` (area file; index row in pitfalls/index/) | Rule → Pinned by → Fix |
 | Performance issues | `docs/08-crosscutting-concepts/` | Optimization technique |
 | Testing patterns | `docs/08-crosscutting-concepts/` §8.10 | How to test this pattern |
 | Security fixes | `docs/08-crosscutting-concepts/` §8.11 | Vulnerability + mitigation |
@@ -122,7 +122,7 @@ Additional targets observed in practice (beyond the AGENTS.md tables):
 
 Standing rules live in `docs/11-risks-and-technical-debt/pitfalls/NN-<area>.md`, one entry
 per lesson, each with a permanent ID `PF-<AREA>-<NN>`. Take the next free number for the
-area; IDs are never reused. The §11.4 index in the chapter README gets one row per entry.
+area; IDs are never reused. The corresponding area index in `docs/11-risks-and-technical-debt/pitfalls/index/NN-<area>.md` gets one row per entry (and §11.4 in the chapter README links to each area index).
 Read a few entries of the area before writing one, and match their shape.
 
 An entry is a heading and five fields; the body follows:

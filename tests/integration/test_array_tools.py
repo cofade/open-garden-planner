@@ -28,7 +28,6 @@ first draft and are now pinned deliberately:
 * circular copies are placed by CHORD offset, so they lie on a circle of radius
   ``r`` centred one radius *behind* the source — not at distance ``r`` from it.
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 
@@ -103,7 +102,7 @@ def _rect_centres(scene: CanvasScene, exclude: Any = None) -> list[tuple[float, 
 
 def _stack_len(view: CanvasView) -> int:
     """The undo-stack depth — asserted as a NUMBER, not as "undo works"."""
-    return len(view._command_manager._undo_stack)  # noqa: SLF001 - the count IS the contract
+    return len(view._command_manager._undo_stack)
 
 
 def _circle_centre(src: Any, radius: float, start_deg: float) -> tuple[float, float]:

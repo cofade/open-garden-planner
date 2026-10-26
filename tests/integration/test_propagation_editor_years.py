@@ -11,7 +11,6 @@ Observed failing on master before the fix:
   * a step in another calendar year moved into the current one;
   * the ``29 Feb`` edge stretched or inverted depending on leap-ness.
 """
-# ruff: noqa: ARG001, ARG002
 
 from __future__ import annotations
 
@@ -334,7 +333,7 @@ class TestPersistedProjectRoundTrip:
         """
         pm = ProjectManager()
         stored = {"start": "2026-12-24", "end": "2026-01-22"}
-        pm._propagation_overrides = {  # noqa: SLF001 - simulating a legacy .ogp
+        pm._propagation_overrides = {
             "solanum_lycopersicum": {"indoor_sow": dict(stored)}
         }
 

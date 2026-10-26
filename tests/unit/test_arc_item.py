@@ -21,7 +21,7 @@ def _approx(a: float, b: float, tol: float = 1e-4) -> bool:
 
 
 @pytest.fixture()
-def basic_arc(qtbot: object) -> ArcItem:  # noqa: ARG001
+def basic_arc(qtbot: object) -> ArcItem:
     """A standard semicircle arc: center (0, 0), radius 100, from 0° to 180°."""
     return ArcItem(
         center=QPointF(0, 0),
@@ -38,11 +38,11 @@ class TestArcItemConstruction:
         assert basic_arc.span_deg == 180.0
         assert isinstance(basic_arc.item_id, uuid.UUID)
 
-    def test_rejects_zero_radius(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_rejects_zero_radius(self, qtbot: object) -> None:
         with pytest.raises(ValueError, match="radius"):
             ArcItem(center=QPointF(0, 0), radius=0.0, start_deg=0, span_deg=90)
 
-    def test_rejects_negative_radius(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_rejects_negative_radius(self, qtbot: object) -> None:
         with pytest.raises(ValueError, match="radius"):
             ArcItem(center=QPointF(0, 0), radius=-5.0, start_deg=0, span_deg=90)
 
@@ -94,7 +94,7 @@ class TestArcItemSerialization:
         assert clone.span_deg == basic_arc.span_deg
         assert clone.item_id == basic_arc.item_id
 
-    def test_roundtrip_preserves_stroke(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_roundtrip_preserves_stroke(self, qtbot: object) -> None:
         """Stroke color and width survive the roundtrip."""
         from PyQt6.QtGui import QColor
 
@@ -105,7 +105,7 @@ class TestArcItemSerialization:
         assert clone.stroke_color.red() == 255
         assert _approx(clone.stroke_width, 3.5)
 
-    def test_negative_span_roundtrip(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_negative_span_roundtrip(self, qtbot: object) -> None:
         """A CW arc (negative span) preserves its sign through roundtrip."""
         arc = ArcItem(QPointF(0, 0), 50, 90, -135)
         clone = ArcItem.from_dict(arc.to_dict())

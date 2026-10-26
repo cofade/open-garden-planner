@@ -105,7 +105,7 @@ class MainThreadBridge(QObject):
             return  # aborted (abort_pending) before we got here
         try:
             result = fn()
-        except BaseException as exc:  # noqa: BLE001 - propagate to the caller thread
+        except BaseException as exc:
             # InvalidStateError: raced with abort_pending; the caller already saw
             # BridgeClosedError, so dropping this result is correct.
             with contextlib.suppress(InvalidStateError):

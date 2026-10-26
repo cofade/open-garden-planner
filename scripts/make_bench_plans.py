@@ -62,7 +62,7 @@ from typing import Any
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import script_isolation  # noqa: E402  (before the app is imported)
+import script_isolation
 
 if __name__ == "__main__":  # run as a script: nothing from here on may reach the user's own stores
     script_isolation.isolate_profile()

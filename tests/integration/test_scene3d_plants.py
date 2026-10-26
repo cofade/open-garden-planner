@@ -421,6 +421,16 @@ def test_every_gallery_plant_is_built_as_the_sprite_the_canvas_draws(canvas: Can
                   QPointF(80.0 + 110.0 * (n % 40), 200.0 + 400.0 * (n // 40)))
              for n, entry in enumerate(entries)]
     assert _drawn_and_built(canvas, items) == []
+    # Every known species is planted at its mature spread, not the type default
+    # (#596): a future DB rename that stops the lookup must fail here instead of
+    # silently returning the 200/100/60 cm placeholder.
+    for item in items:
+        species = item.metadata.get("plant_species")
+        if not isinstance(species, dict) or not species.get("max_spread_cm"):
+            continue
+        assert item.radius == pytest.approx(float(species["max_spread_cm"]) / 2.0), (
+            f"{item.plant_species}: drawn radius {item.radius} != max_spread/2"
+        )
     pumpkin = next(item for item in items if item.plant_species == "pumpkin")
     assert pumpkin.metadata["plant_species"]["common_name"] == "Winter Squash"   # the trap
     record = snapshot_records(canvas.scene(), JUNE_2026)[str(pumpkin.item_id)]

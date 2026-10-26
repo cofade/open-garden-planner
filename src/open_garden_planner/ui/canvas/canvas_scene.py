@@ -516,12 +516,23 @@ class CanvasScene(QGraphicsScene):
         self.constraint_graph = ConstraintGraph()
 
     def update_dimension_lines(self) -> None:
-        """Rebuild all dimension line visuals from the constraint graph."""
+        """Rebuild all dimension line visuals from the constraint graph.
+
+        The lock badge is derived from a FIXED constraint, so only an item that is
+        fixed NOW or still shows a badge that may need clearing is refreshed. The
+        old loop called ``refresh_lock_badge`` on every item, and each call walked
+        the whole constraint dict: 600 single-item commands produced 360 600
+        badge refreshes on a 600-item plan (#592).
+        """
         from open_garden_planner.ui.canvas.items.garden_item import PositionLockMixin
 
         self._dimension_line_manager.update_all()
+        fixed_ids = self.constraint_graph.fixed_item_ids()
         for item in self.items():
-            if isinstance(item, PositionLockMixin):
+            if not isinstance(item, PositionLockMixin):
+                continue
+            if (getattr(item, "item_id", None) in fixed_ids
+                    or getattr(item, "_lock_badge_item", None) is not None):
                 item.refresh_lock_badge()
 
     def project_vertex_drag(
@@ -1271,17 +1282,37 @@ class CanvasScene(QGraphicsScene):
         items' bands no longer say what they are. Runs after every executed, undone
         or redone command (``set_command_manager``) — every writer of a type, a group
         or a height in the app commits through one; O(items), about 1 ms on 500
-        items, and it restacks nothing when nothing moved between the bands."""
-        low, high = GROUND_Z_RANGE
+        items, and it restacks nothing when nothing moved between the bands.
+
+        A command that cannot reclassify anything says so with
+        ``Command.changes_ground_band = False`` (#592), and the O(items) scan is
+        skipped: an agent or a user adding one item per command used to pay
+        O(items) per command for a classification that could not have changed.
+        The base default is True, so an unclassified command keeps the old,
+        safe scan.
+        """
+        command = getattr(self._command_manager, "last_command", None)
+        if command is not None and not getattr(command, "changes_ground_band", True):
+            return
         stale = {
             getattr(item, "layer_id", None)
             for item in self.items()
             if item.parentItem() is None
             and stacking.supports_stacking(item)
-            and (low < item.zValue() < high) != on_ground(item)
+            and self._ground_band_is_stale(item)
         }
         for layer_id in stale:
             self._refresh_layer_z(layer_id)
+
+    @staticmethod
+    def _ground_band_is_stale(item: QGraphicsItem) -> bool:
+        """Whether *item*'s z band disagrees with what it now is (#592).
+
+        Extracted so a test can count the classification work itself: a check
+        that runs while the scan is skipped is a check that did not happen.
+        """
+        low, high = GROUND_Z_RANGE
+        return (low < item.zValue() < high) != on_ground(item)
 
     def get_layer_by_id(self, layer_id: UUID) -> Layer | None:
         """Get a layer by its ID.

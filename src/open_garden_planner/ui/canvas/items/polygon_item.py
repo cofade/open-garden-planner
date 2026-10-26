@@ -275,6 +275,11 @@ def polygon_resize_apply(item: QGraphicsItem, geom: dict[str, Any]) -> None:
     # every polygon-apply path must re-derive it. Adding a new apply path
     # without this call silently rots the invariant.
     item._update_ridge_on_boundary()
+    # A resize re-enters this path from undo/redo while the polygon may be in
+    # vertex edit mode; the dense sample's candidate set and the handle
+    # positions must follow the new vertices (#594, senior review).
+    if getattr(item, "_is_vertex_edit_mode", False):
+        item._update_vertex_handles()
 
 
 class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGraphicsPolygonItem):

@@ -246,9 +246,10 @@ class TestFrozenSelftestWorkflow:
         steps = re.findall(r"^      - (?:name|uses): (.+)$", code, re.MULTILINE)
         limits = [int(n) for n in re.findall(r"^        timeout-minutes: (\d+)$", code, re.MULTILINE)]
         job = int(re.search(r"^    timeout-minutes: (\d+)$", FROZEN, re.MULTILINE).group(1))  # type: ignore[union-attr]
-        assert len(steps) == 6 and steps[:2] == ["actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0",
-                                                 "./.github/actions/setup-locked-env"]
-        assert limits == [5, 10, 30, 5, 10, 2], "one limit per step, in the steps' order"
+        assert len(steps) == 7 and steps[:3] == ["actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0",
+                                                 "./.github/actions/setup-locked-env",
+                                                 "Read the version this bundle will report"]
+        assert limits == [5, 10, 1, 30, 5, 10, 2], "one limit per step, in the steps' order"
         for name, after in zip(steps, re.split(r"^      - (?:name|uses): .+$", code, flags=re.MULTILINE)[1:],
                                strict=True):
             assert len(re.findall(r"^        timeout-minutes: \d+$", after, re.MULTILINE)) == 1, name
@@ -266,7 +267,11 @@ class TestFrozenSelftestWorkflow:
         script = (REPO / "installer" / "build_installer.py").read_text(encoding="utf-8")
         assert "APP_VERSION = _manifest_version()" in script
         assert 'tomllib.load(fh)["project"]["version"]' in script
-        assert re.search(r"if not args\.skip_pyinstaller:\n\s+_write_version_module\(APP_VERSION\)", script)
+        assert re.search(
+            r"if not args\.skip_pyinstaller:\n\s+_write_version_module\(APP_VERSION\)"
+            r"\n\s+try:\n\s+run_pyinstaller\(\)\n\s+finally:\n\s+_remove_version_module\(\)",
+            script,
+        ), "the generated module must be removed after PyInstaller (PF-CI-15)"
         application = (REPO / "src/open_garden_planner/app/application.py").read_text(encoding="utf-8")
         start = application.index("    def _start_update_check(self) -> None:")
         body = application[start:application.index("\n    def ", start + 10)]
@@ -274,7 +279,7 @@ class TestFrozenSelftestWorkflow:
         assert "environ" not in body and "argv" not in body, (
             "the app has a switch for the update check now: use it for the smoke, and say so")
         checker = (REPO / "src/open_garden_planner/services/update_checker.py").read_text(encoding="utf-8")
-        assert "except Exception:  # noqa: BLE001" in checker[checker.index("class UpdateChecker"):]
+        assert "except Exception:" in checker[checker.index("class UpdateChecker"):]
         comments = "\n".join(line for line in FROZEN.splitlines() if line.lstrip().startswith("#"))
         assert "no _version.py" not in comments.lower()
         for statement in ("writes _version.py with the version in pyproject.toml", "calls itself by the last synced release",
@@ -327,7 +332,7 @@ class TestRenderJob:
     def test_both_platforms_run_the_same_existing_opt_in_files(self) -> None:
         job = _code(self._job())
         runs = [line for line in job.splitlines() if "python -m pytest" in line]
-        budget_runs = [line for line in runs if "::test_real_engine_scrubs_300_models_within_16ms" in line]
+        budget_runs = [line for line in runs if "::test_real_engine_scrubs_300_models_within_frame_budget" in line]
         scene_runs = [line for line in runs if line not in budget_runs]
         assert len(scene_runs) == len(budget_runs) == 2
         for line in scene_runs:

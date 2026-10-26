@@ -36,7 +36,7 @@ class _Listener(QObject):
         self.seen.append(value)
 
 
-def test_a_connected_slot_is_called(qtbot) -> None:  # noqa: ARG001 - Qt init
+def test_a_connected_slot_is_called(qtbot) -> None:
     channel: Channel[int] = Channel()
     listener = _Listener()
     connect_qobject(channel, listener.on_value)
@@ -45,7 +45,7 @@ def test_a_connected_slot_is_called(qtbot) -> None:  # noqa: ARG001 - Qt init
     assert channel.receiver_count() == 1
 
 
-def test_a_destroyed_receiver_is_never_called(qtbot) -> None:  # noqa: ARG001 - Qt init
+def test_a_destroyed_receiver_is_never_called(qtbot) -> None:
     """Qt deletes a child with its parent; the Python wrapper is still referenced
     here. Without the helper the next emit raises from inside the dead slot."""
     channel: Channel[int] = Channel()
@@ -64,7 +64,7 @@ def test_a_destroyed_receiver_is_never_called(qtbot) -> None:  # noqa: ARG001 - 
     assert channel.receiver_count() == 0, "the first delivery after its death took it off"
 
 
-def test_without_the_helper_the_same_teardown_raises(qtbot) -> None:  # noqa: ARG001 - Qt init
+def test_without_the_helper_the_same_teardown_raises(qtbot) -> None:
     """The control: a plain ``channel.connect`` keeps calling into the dead object."""
     channel: Channel[int] = Channel()
     parent = QObject()
@@ -75,7 +75,7 @@ def test_without_the_helper_the_same_teardown_raises(qtbot) -> None:  # noqa: AR
         channel.emit(1)
 
 
-def test_deleting_the_receiver_itself_takes_it_off(qtbot) -> None:  # noqa: ARG001 - Qt init
+def test_deleting_the_receiver_itself_takes_it_off(qtbot) -> None:
     channel: Channel[int] = Channel()
     listener = _Listener()
     connect_qobject(channel, listener.on_value)
@@ -85,7 +85,7 @@ def test_deleting_the_receiver_itself_takes_it_off(qtbot) -> None:  # noqa: ARG0
     assert channel.receiver_count() == 0
 
 
-def test_a_live_listener_after_a_dead_one_still_hears_the_clock(qtbot) -> None:  # noqa: ARG001
+def test_a_live_listener_after_a_dead_one_still_hears_the_clock(qtbot) -> None:
     """The channel re-raises the first listener error after the last listener — a dead
     receiver that raised would not starve the others, but it would fail every write."""
     channel: Channel[int] = Channel()
@@ -98,7 +98,7 @@ def test_a_live_listener_after_a_dead_one_still_hears_the_clock(qtbot) -> None: 
     assert channel.receiver_count() == 1
 
 
-def test_the_subscription_does_not_keep_its_receiver_alive(qtbot) -> None:  # noqa: ARG001
+def test_the_subscription_does_not_keep_its_receiver_alive(qtbot) -> None:
     """An unparented controller still dies with its last reference (ADR-053)."""
     channel: Channel[int] = Channel()
     listener = _Listener()
@@ -111,7 +111,7 @@ def test_the_subscription_does_not_keep_its_receiver_alive(qtbot) -> None:  # no
     channel.emit(1)
 
 
-def test_connecting_twice_registers_once(qtbot) -> None:  # noqa: ARG001 - Qt init
+def test_connecting_twice_registers_once(qtbot) -> None:
     channel: Channel[int] = Channel()
     listener = _Listener()
     connect_qobject(channel, listener.on_value)
@@ -121,7 +121,7 @@ def test_connecting_twice_registers_once(qtbot) -> None:  # noqa: ARG001 - Qt in
     assert listener.seen == [3]
 
 
-def test_two_receivers_of_one_class_are_two_subscriptions(qtbot) -> None:  # noqa: ARG001
+def test_two_receivers_of_one_class_are_two_subscriptions(qtbot) -> None:
     channel: Channel[int] = Channel()
     first, second = _Listener(), _Listener()
     connect_qobject(channel, first.on_value)
@@ -130,7 +130,7 @@ def test_two_receivers_of_one_class_are_two_subscriptions(qtbot) -> None:  # noq
     assert (first.seen, second.seen) == ([4], [4])
 
 
-def test_a_slot_can_be_taken_off_by_hand(qtbot) -> None:  # noqa: ARG001 - Qt init
+def test_a_slot_can_be_taken_off_by_hand(qtbot) -> None:
     channel: Channel[int] = Channel()
     listener = _Listener()
     connect_qobject(channel, listener.on_value)
@@ -142,7 +142,7 @@ def test_a_slot_can_be_taken_off_by_hand(qtbot) -> None:  # noqa: ARG001 - Qt in
         disconnect_qobject(channel, listener.on_value)
 
 
-def test_a_dead_subscription_never_stands_in_for_a_new_receiver(qtbot) -> None:  # noqa: ARG001
+def test_a_dead_subscription_never_stands_in_for_a_new_receiver(qtbot) -> None:
     """Receivers come and go on one channel (every test builds a main window on a
     clock of its own; a long session rebuilds controllers): each new one subscribes,
     whatever is left of the ones before it, and the books do not grow."""
@@ -153,6 +153,7 @@ def test_a_dead_subscription_never_stands_in_for_a_new_receiver(qtbot) -> None: 
     others = list(sim_clock_subscription._GUARDS.keys())
     for round_number in range(50):
         listener = _Listener()
+        alive = weakref.ref(listener)
         connect_qobject(channel, listener.on_value)
         assert len(sim_clock_subscription._GUARDS) == len(others) + 1, "this receiver is booked"
         channel.emit(round_number)
@@ -160,15 +161,33 @@ def test_a_dead_subscription_never_stands_in_for_a_new_receiver(qtbot) -> None: 
         if round_number % 2:
             sip.delete(listener)  # destroyed by Qt, wrapper still referenced here
         del listener
-        gc.collect()
+        # These wrappers have no cycle. Prove immediate weak-reference cleanup on
+        # every round instead of traversing the whole suite's object graph 50 times.
+        assert alive() is None
+        assert channel.receiver_count() == 0
+        assert len(sim_clock_subscription._GUARDS) == len(others)
     channel.emit(-1)  # the Qt-destroyed ones leave at this delivery
     assert channel.receiver_count() == 0
     assert len(sim_clock_subscription._GUARDS) == len(others), "not one of the fifty is left"
     del others
 
 
+def test_a_cyclic_receiver_leaves_after_collection(qtbot) -> None:
+    """Keep real cyclic-GC coverage separate from the fifty acyclic rounds (#601)."""
+    channel: Channel[int] = Channel()
+    listener = _Listener()
+    listener.cycle = listener
+    alive = weakref.ref(listener)
+    connect_qobject(channel, listener.on_value)
+    del listener
+    gc.collect()
+    assert alive() is None
+    assert channel.receiver_count() == 0
+    channel.emit(1)
+
+
 @pytest.mark.parametrize("bad", ["function", "lambda", "plain_object", "builtin"])
-def test_only_a_bound_method_of_a_qobject_is_taken(qtbot, bad: str) -> None:  # noqa: ARG001
+def test_only_a_bound_method_of_a_qobject_is_taken(qtbot, bad: str) -> None:
     """For anything else there is no Qt object whose life could be asked — and a bound
     signal's ``emit`` is the trap ADR-053 names: a builtin, held strongly."""
 
@@ -188,7 +207,7 @@ def test_only_a_bound_method_of_a_qobject_is_taken(qtbot, bad: str) -> None:  # 
     assert channel.receiver_count() == 0
 
 
-def test_a_receiver_that_is_already_gone_is_refused(qtbot) -> None:  # noqa: ARG001 - Qt init
+def test_a_receiver_that_is_already_gone_is_refused(qtbot) -> None:
     channel: Channel[int] = Channel()
     listener = _Listener()
     slot = listener.on_value
@@ -198,7 +217,7 @@ def test_a_receiver_that_is_already_gone_is_refused(qtbot) -> None:  # noqa: ARG
     assert channel.receiver_count() == 0
 
 
-def test_both_clock_channels_take_a_qobject(qtbot) -> None:  # noqa: ARG001 - Qt init
+def test_both_clock_channels_take_a_qobject(qtbot) -> None:
     class Both(QObject):
         def __init__(self) -> None:
             super().__init__()

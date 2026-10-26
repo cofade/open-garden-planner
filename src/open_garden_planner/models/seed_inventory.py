@@ -297,7 +297,7 @@ class SeedInventoryStore:
             for item in raw:
                 packet = SeedPacket.from_dict(item)
                 self._packets[packet.id] = packet
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass  # Corrupt / missing file — start empty
 
     def save(self) -> None:

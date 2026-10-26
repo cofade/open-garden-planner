@@ -24,7 +24,7 @@ def test_get_icon_path_backward_compat() -> None:
     assert "OGP_logo.png" in p.name
 
 
-def test_get_app_icon_resolutions(qtbot) -> None:  # noqa: ARG001
+def test_get_app_icon_resolutions(qtbot) -> None:
     """Ensure get_app_icon() provides multi-resolution frames."""
     _app = QApplication.instance() or QApplication([])
     icon = get_app_icon()
@@ -51,7 +51,7 @@ def test_windows_app_id_format() -> None:
     assert WINDOWS_APP_ID == "cofade.opengardenplanner.app"
 
 
-def test_setup_windows_taskbar_icon(qtbot) -> None:  # noqa: ARG001
+def test_setup_windows_taskbar_icon(qtbot) -> None:
     """Ensure _setup_windows_taskbar_icon runs safely on top-level window."""
     from PyQt6.QtWidgets import QMainWindow
 

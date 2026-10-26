@@ -270,7 +270,7 @@ class TestMainSpeciesNullSafety:
             try:
                 client.get_by_id("443432")
                 raised = None
-            except Exception as e:  # noqa: BLE001 -- capturing to assert the type
+            except Exception as e:
                 raised = e
 
         assert isinstance(raised, PlantDetailUnavailableError)

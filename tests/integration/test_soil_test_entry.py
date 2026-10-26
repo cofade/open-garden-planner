@@ -21,12 +21,12 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
 
 @pytest.fixture()
-def scene(qtbot: object) -> CanvasScene:  # noqa: ARG001 — Qt init required
+def scene(qtbot: object) -> CanvasScene:
     return CanvasScene(width_cm=1000, height_cm=800)
 
 
 @pytest.fixture()
-def project_manager(qtbot: object) -> ProjectManager:  # noqa: ARG001
+def project_manager(qtbot: object) -> ProjectManager:
     return ProjectManager()
 
 
@@ -121,7 +121,7 @@ class TestSoilServiceHierarchy:
 
 class TestAddSoilTestCommand:
     def test_execute_then_undo_restores_empty(
-        self, project_manager: ProjectManager, qtbot: object  # noqa: ARG002
+        self, project_manager: ProjectManager, qtbot: object
     ) -> None:
         cm = CommandManager()
         record = SoilTestRecord(date="2026-04-25", ph=6.2, n_level=1, p_level=1, k_level=1)
@@ -140,7 +140,7 @@ class TestAddSoilTestCommand:
         assert project_manager.soil_tests["bed-1"]["records"][-1]["ph"] == 6.2
 
     def test_undo_when_prior_record_existed_restores_just_prior(
-        self, project_manager: ProjectManager, qtbot: object  # noqa: ARG002
+        self, project_manager: ProjectManager, qtbot: object
     ) -> None:
         # Seed a prior record
         first = SoilTestRecord(date="2025-04-25", ph=5.5)
@@ -169,7 +169,7 @@ class TestOgpRoundTrip:
     def test_save_then_load_preserves_soil_tests(
         self,
         scene: CanvasScene,
-        qtbot: object,  # noqa: ARG002
+        qtbot: object,
         tmp_path: Path,
     ) -> None:
         bed = _make_bed()
@@ -214,7 +214,7 @@ class TestOgpRoundTrip:
     def test_load_pre_v13_file_has_empty_soil_tests(
         self,
         scene: CanvasScene,
-        qtbot: object,  # noqa: ARG002
+        qtbot: object,
         tmp_path: Path,
     ) -> None:
         """A v1.2 file (no soil_tests key) loads with an empty soil_tests dict."""

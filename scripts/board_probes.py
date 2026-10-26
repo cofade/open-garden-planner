@@ -333,7 +333,7 @@ def horizon_step(rgb: Any, camera: Pinhole, *, reach_deg: float = 0.4, line_deg:
     rows, cols = frame.shape[:2]
     view = camera.scaled((cols, rows))
     horizon = view.horizon_row()
-    per_degree = math.tan(math.radians(1.0)) * view._focal  # noqa: SLF001 - its own module
+    per_degree = math.tan(math.radians(1.0)) * view._focal
     left, right = int(columns[0] * cols), max(int(columns[1] * cols), int(columns[0] * cols) + 1)
     row_luma = luma(frame[:, left:right]).mean(axis=1)
     apart = max(2, int(round(line_deg * per_degree)))

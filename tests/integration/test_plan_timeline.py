@@ -1,9 +1,7 @@
 """US-F4: real scrubber → shared clock → visibility, history and outputs."""
 
 import json
-import os
 from datetime import date
-from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import QDate, QPointF, QRectF, Qt
@@ -407,7 +405,7 @@ def test_png_svg_dxf_and_pdf_use_current_presence(win, tmp_path):
     assert len(circles) == 1
     assert circles[0].dxf.center.x == 400
     assert png.stat().st_size > 1000 and svg.stat().st_size > 1000
-    from PyQt6.QtGui import QFontDatabase, QImage, QPainter
+    from PyQt6.QtGui import QImage, QPainter
     from PyQt6.QtSvg import QSvgRenderer
 
     png_image = QImage(str(png))
@@ -422,11 +420,9 @@ def test_png_svg_dxf_and_pdf_use_current_presence(win, tmp_path):
     for image in (png_image, svg_image):
         assert pixel_at(image, 400, 400) != win.canvas_scene.CANVAS_COLOR
         assert pixel_at(image, 1000, 400) == win.canvas_scene.CANVAS_COLOR
-    # Windows' offscreen platform does not discover native fonts automatically.
-    # Register the system face used by the report; Linux uses fontconfig in CI.
-    windows_font = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts/arial.ttf"
-    if windows_font.is_file():
-        assert QFontDatabase.addApplicationFont(str(windows_font)) >= 0
+    # Real fonts: the session's `ui_font_family` fixture registers the Windows
+    # faces on the offscreen platform (PF-TST-26, #562/#573), so the report's
+    # Arial face resolves here instead of this test registering it globally.
     PdfReportService.generate(win.canvas_scene, PdfReportOptions(), pdf)
     doc = QPdfDocument(None)
     assert doc.load(str(pdf)) == QPdfDocument.Error.None_

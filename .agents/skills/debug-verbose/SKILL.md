@@ -4166,6 +4166,92 @@ contract with the ground bake rather than adding a second walk; and when a
 derivation can be avoided, do the arithmetic that makes the value final instead
 of scheduling a second pass - a deferred pass is a second visible change.
 
+## Case study: the Plan & Sun layout test measured a box font engine (#562/#573)
+
+**Symptom.** `tests/integration/test_plan_sun_controls.py` failed 20 cases on the Windows dev box and passed on Linux CI; German/Spanish groups wrapped into 3–4 rows at 800 px instead of 2.
+**Wrong theories.** The translated labels were too long; the theme padding differed; a leaked `arial.ttf` registration from `test_plan_timeline.py` changed the font (a separate defect, not the cause).
+**Evidence.** Under `QT_QPA_PLATFORM=offscreen`, `QFontDatabase.families()` was empty and `horizontalAdvance("i") == horizontalAdvance("W") == 12`; Verdana 9 pt "Today" measured 60 px. Registering `C:/Windows/Fonts/verdana.ttf` and setting `qapp.setFont(QFont("Verdana", 10))` made it 34 px, and the file passed 78/78. `QT_QPA_PLATFORM=minimal:enable_fonts` gave the same real-engine answer.
+**Root cause/fix.** Offscreen Windows has no font database, so every family resolves to the box engine; the assertions were right and the environment was wrong. `tests/conftest.py::ui_font_family` registers the real faces once and sets the application font; `tests/unit/test_test_font_contract.py` fails on a box engine; the per-test `addApplicationFont` in `test_plan_timeline.py` is gone.
+**Lesson.** A text-metric failure that disappears on CI is an environment fact, not a translation fact. Assert `i` and `W` differ before trusting a width, and register the font at session scope rather than inside one test, where it leaks into every later test.
+
+## Case study: a probe "isolated" its settings with the QApplication name (#587)
+
+**Symptom.** The owner's startup Welcome dialog disappeared; the code was intact and the registry key held `startup/show_welcome = false`. The owner had not changed it.
+**Wrong theories.** A regression in the startup path; a settings migration; the dialog's own default. The code path was correct.
+**Evidence.** The registry key was written four seconds after a review probe saved it. The probe built `GardenPlannerApp`, gave the QApplication a throwaway name and called `QSettings.setDefaultFormat(IniFormat)`, believing both isolated it. `create_qsettings()` passes the module's `(organization, application)` to `QSettings(org, app)`, and that constructor always uses the native format.
+**Root cause/fix.** A probe outside `scripts/` is outside `test_script_isolation.py`'s gate, and nothing refused the production names. `create_qsettings()` now refuses them under `offscreen`/`minimal` or an exact agent-session variable unless `main()` (`OGP_PRODUCT_PROCESS`) or `script_isolation`'s rebound names marked the process; `OGP_ALLOW_PRODUCTION_SETTINGS` is the deliberate override.
+**Lesson.** A throwaway QApplication name and `setDefaultFormat` are not isolation. Guard the store at the chokepoint, not in the probe's discipline, and make the refusal name the fix.
+
+## Case study: one item per command stayed quadratic after the z fix (#592)
+
+**Symptom.** 1 000 one-item `CreateItemCommand`s took 3.18 s even after #450 made the z derivation one-per-layer; 2 000 took 12.1 s. A direct `addItem` loop was linear.
+**Wrong theories.** The z derivation was still per add; the command manager's signal fan-out was slow; item construction was the cost.
+**Evidence.** cProfile of 600 commands: `CanvasScene.update_dimension_lines` 1.84 s (1 200 calls, each looping `self.items()` and calling `refresh_lock_badge` → `_is_item_fixed`, 360 600 badge refreshes) and `_restack_ground_changes` 1.03 s (600 × O(items)). A neutral `CreateItemCommand` cannot change any item's type, height or group, and no item had a FIXED constraint.
+**Root cause/fix.** Two scene-wide listeners ran on every `stack_changed` regardless of what changed. `ConstraintGraph.fixed_item_ids()` bounds the badge refresh to fixed items plus badges already shown; `Command.changes_ground_band` (default true) lets the neutral commands skip the classification scan. 600 adds: 0.31 s → 0.11 s; the pin counts zero classifications and zero badge refreshes.
+**Lesson.** A command-boundary listener must be scoped to what the command can change. Measure call counts per command, not only total time, and keep the default safe so a future command cannot silently opt out.
+
+## Case study: a selected 16 384-vertex outline re-sampled on every scroll (#594)
+
+**Symptom.** After #551 capped the dense overlay at 128 handles, dragging the scrollbar on a selected 16 384-vertex polygon hitched ~100 ms per step; master did not.
+**Wrong theories.** Creating the handle items was the cost (only 128 exist); the selection highlight; the paint bound.
+**Evidence.** `_dense_overlay_indices` walks every vertex, maps it through the item's device transform and buckets it into 24-px cells. A forced re-sample measured 98.58 ms; reusing the cached sample measured 0.01 ms. `CanvasView.scrollContentsBy` called `refresh_vertex_edit_overlay` on every step.
+**Root cause/fix.** The sample is viewport-derived, and the code treated every pan as a new viewport. `_remember_dense_sample` stores the sampler's actual candidate region — the viewport grown by `DENSE_HANDLE_SPACING_PX` (24 px) — plus the zoom and the item pose; `_dense_sample_covers_view` skips the re-sample while the new viewport is inside it, the zoom is unchanged and the item has not moved. A pan translates the points, so their pairwise spacing is unchanged; a zoom, a pose/geometry change or a pan beyond the region samples again. The first version cached a region twice as large as the one the sampler tested, which left newly visible vertices without handles after a 25-px pan; the reviewer measured 276 such vertices after 300 px.
+**Lesson.** A viewport-derived sample has a validity region, not just a validity moment. Cache the region, and pin the skip with a call count on the sampler, not a wall-clock assertion.
+
+## Case study: About said 1.2.0 while the manifest said 1.31.1 (#596 manual pass)
+
+**Symptom.** A direct `python -m PyInstaller installer/ogp.spec` build showed Version 1.2.0 in Help → About; `pyproject.toml` and `__init__.py` said 1.31.1.
+**Wrong theories.** The About dialog cached a version; the build did not pass `--version`; the update checker displayed the latest release.
+**Evidence.** `get_current_version()` reads `open_garden_planner._version` when `sys.frozen`. `_version.py` was tracked, last written 2026-03-01 with 1.2.0. `installer/build_installer.py` rewrites it on the release path; a raw PyInstaller build does not.
+**Root cause/fix.** `_version.py` is a build artifact. It is removed from git and gitignored; the release build writes the release version, and a direct build falls back to `__version__`. `tests/unit/test_packaging_metadata.py` monkeypatches `sys.frozen` and removes the module from `sys.modules` to pin the fallback.
+**Lesson.** A version shown by the shipped artifact must come from that artifact's build path, not from a file tracked months ago. Build the exact command the gate uses and read About.
+
+
+## Case study: Coverage became the delivery bottleneck (#601)
+
+**Symptom.** The required Coverage job took 16–17 minutes as the suite grew to
+18,748 cases, including 116 serialized perf cases.
+**Wrong theories.** Dropping the CLI branch flag would disable branch tracing
+(TOML independently enabled it); most host wait tests were mocks (30 of 47
+actually depended on real time); CLI startup explained the sweep hotspot (the
+wide sweep's computation dominated).
+**Evidence.** A tagged probe recorded `[601-GC] 52` full collections, with the
+unexpected repeated caller's `traceback.format_stack()` pointing into the fifty
+receiver rounds. cProfile recorded 1,069 parses for 528 test modules. Two sweep
+consumers cost 37.47 s locally. Collection showed 27 deterministic cases inherited
+a class perf marker. Controlled runner measurements live in the #601 audit report.
+**Root cause/fix.** Repeated suite-wide work and unnecessary serialization compounded
+the larger traced suite. Reuse AST indices, apply invariant/prose assertions to one
+CLI sweep result, assert immediate acyclic receiver cleanup, and retain one cyclic-GC
+case. Mark methods individually. Measure two stable test-ID coverage partitions and
+the serial perf set concurrently, then require all three inputs under the protected
+Coverage check. Keep branch data and the uninstrumented Test budgets.
+**Lesson.** Measure the effective configuration and each expensive operation before
+claiming a saving. A shorter required check must still fail on every missing or failed
+measurement. The real xdist/coverage fixture needs perf-only code, or a full combined
+report does not prove the perf input mattered. No diagnostic prints remain.
+
+
+## Case study: a product frame budget measured coverage's tracer (#601)
+
+**Symptom.** The fresh serial coverage producer failed the 300-plant phenology
+batch at 17.85 ms against 16 ms. The protected Coverage check correctly failed.
+**Wrong theory.** The new test-ID partition dropped data or changed the product;
+the failed test was serial and no application file changed.
+**Evidence.** The temporary wrapped-call probe recorded untraced scrubs at
+1.89–2.36 ms and a 2.17 ms batch. With the same branch tracer it recorded
+`[601-PHENO] scrub_date True 22.69`, then the original assertion failed. The
+probe captured traceback.format_stack() when installing its wrappers and retained
+all results; no event-loop or source behavior was substituted.
+**Root cause/fix.** This single-sample gate had no tracer allowance, unlike the
+snapshot budgets. It now reuses their `budget_factor` and `traced` with CI slack
+disabled: the uninstrumented Test job still enforces 16 ms, while traced runs
+retain every state/date assertion and a 160 ms tracer tripwire. Controls reject
+17 ms untraced and 161 ms traced. No application or renderer change.
+**Lesson.** Keep an uninstrumented product budget when collecting coverage; an
+instrumented call measures the tracer too. Reuse the existing tracing policy,
+and pin the unchanged real threshold rather than silently loosening it on CI.
+
 ## Case study: the ground drew mirrored north–south under the detail-normal material (#388, L4.5)
 
 **Symptom.** With the ground tiles switched from the flat `PrincipledMaterial` to the new

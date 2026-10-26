@@ -206,7 +206,7 @@ class TestWeatherWidgetFetchTrigger:
 
 @pytest.mark.real_weather_worker
 class TestWeatherWidgetLifecycle:
-    def test_worker_cancel_suppresses_signals(self, monkeypatch, qtbot) -> None:  # noqa: ARG002
+    def test_worker_cancel_suppresses_signals(self, monkeypatch, qtbot) -> None:
         import time
 
         from open_garden_planner.ui.widgets.weather_widget import _WeatherFetchWorker

@@ -89,7 +89,7 @@ class TestNormalise:
             assert normalise_text(text) == text
         assert normalise_text(12.5) == "12.5"
 
-    def test_after_it_a_line_is_a_line_to_python_and_to_qt(self, qtbot) -> None:  # noqa: ARG002
+    def test_after_it_a_line_is_a_line_to_python_and_to_qt(self, qtbot) -> None:
         text = normalise_text("".join(f"line{sep}" for sep in SEPARATORS) + "end")
         assert len(text.splitlines()) == text.count("\n") + 1 == len(SEPARATORS) + 1
         document = QTextDocument()
@@ -127,21 +127,21 @@ class TestTheCapCountsWhatTheConsumerSees:
         assert len(old.splitlines()) != NOTICE_MAX_LINES
         assert old != new
 
-    def test_a_tooltip_never_shows_more_lines_than_its_cap(self, qtbot) -> None:  # noqa: ARG002
+    def test_a_tooltip_never_shows_more_lines_than_its_cap(self, qtbot) -> None:
         for separator in SEPARATORS:
             shown = _rendered(plain_tooltip(separator.join(str(n) for n in range(200))))
             assert shown.count("\n") == TOOLTIP_MAX_LINES - 1, repr(separator)
 
 
 class TestTooltip:
-    def test_markup_in_the_text_is_shown_as_its_characters(self, qtbot) -> None:  # noqa: ARG002
+    def test_markup_in_the_text_is_shown_as_its_characters(self, qtbot) -> None:
         tooltip = plain_tooltip(HOSTILE)
         assert "<img" not in tooltip and "<b>" not in tooltip
         assert tooltip == ('<qt>&lt;b&gt;x&lt;/b&gt;&lt;img src=&quot;file:///C:/Windows/win.ini'
                            '&quot;&gt;</qt>')
         assert _rendered(tooltip) == HOSTILE
 
-    def test_the_control_the_same_text_unescaped_is_markup_to_qt(self, qtbot) -> None:  # noqa: ARG002
+    def test_the_control_the_same_text_unescaped_is_markup_to_qt(self, qtbot) -> None:
         """Without the helper Qt takes the string for rich text and renders it: the
         bold tag is gone and an image object stands in the text."""
         assert Qt.mightBeRichText(HOSTILE) is True
@@ -152,13 +152,13 @@ class TestTooltip:
         "plain words", "a < b and b > c", "Tom & Jerry", "<qt>nested</qt>", "</qt><h1>Title</h1>",
         "&lt;already escaped&gt;", "ünïcödé — „quotes“", "x" * 50,
     ])
-    def test_whatever_goes_in_comes_out_of_the_renderer_unchanged(self, qtbot, text: str) -> None:  # noqa: ARG002
+    def test_whatever_goes_in_comes_out_of_the_renderer_unchanged(self, qtbot, text: str) -> None:
         assert _rendered(plain_tooltip(text)) == text
 
-    def test_line_breaks_are_kept_as_line_breaks(self, qtbot) -> None:  # noqa: ARG002
+    def test_line_breaks_are_kept_as_line_breaks(self, qtbot) -> None:
         assert _rendered(plain_tooltip("ValueError: one\ntwo\nthree")) == "ValueError: one\ntwo\nthree"
 
-    def test_a_huge_text_is_cut_before_it_is_looked_at(self, qtbot) -> None:  # noqa: ARG002
+    def test_a_huge_text_is_cut_before_it_is_looked_at(self, qtbot) -> None:
         tooltip = plain_tooltip("<table><tr><td>" * 100_000)
         shown = _rendered(tooltip)
         assert len(shown) == TOOLTIP_MAX_CHARS + 1 and shown.endswith(ELLIPSIS)
@@ -167,7 +167,7 @@ class TestTooltip:
     def test_no_text_no_tooltip(self) -> None:
         assert plain_tooltip("") == "" and plain_tooltip("   \n ") == ""
 
-    def test_something_that_is_not_a_string_is_shown_as_its_text(self, qtbot) -> None:  # noqa: ARG002
+    def test_something_that_is_not_a_string_is_shown_as_its_text(self, qtbot) -> None:
         assert _rendered(plain_tooltip(ValueError("<i>bad</i>"))) == "<i>bad</i>"
 
 

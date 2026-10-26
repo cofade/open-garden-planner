@@ -139,8 +139,8 @@ def test_overlay_mirrors_buffer(window: GardenPlannerApp) -> None:
     overlay = window.canvas_view._dynamic_overlay
     assert overlay is not None
     # Internal accessors (test-only) - distance/angle fields reflect buffer.
-    assert overlay._distance_edit.text() == "300"  # noqa: SLF001
-    assert overlay._angle_edit.text() == "45"  # noqa: SLF001
+    assert overlay._distance_edit.text() == "300"
+    assert overlay._angle_edit.text() == "45"
 
 
 def _press_text(view, text: str) -> None:
@@ -172,7 +172,7 @@ def test_canvas_typing_routes_to_overlay_polar(
     overlay = view._dynamic_overlay
     assert overlay is not None
     assert overlay.isVisible()
-    assert overlay._distance_edit.text() == "@300<45"  # noqa: SLF001
+    assert overlay._distance_edit.text() == "@300<45"
     # Buffer mirrors the raw distance text in raw-mode.
     assert view.coordinate_input_buffer.text == "@300<45"
 
@@ -183,9 +183,9 @@ def test_canvas_typing_routes_to_overlay_polar(
         Qt.KeyboardModifier.NoModifier,
         "\r",
     )
-    overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
+    overlay._distance_edit.keyPressEvent(enter)
 
-    pts = tool._points  # noqa: SLF001
+    pts = tool._points
     assert len(pts) == 2
     # 300 east, math-up-positive angle 45deg -> dx=300*cos45, dy=-300*sin45.
     assert pts[1].x() == pytest.approx(300 * 0.7071, abs=0.01)
@@ -221,9 +221,9 @@ def test_canvas_typing_routes_to_overlay_relative_cartesian(
         Qt.KeyboardModifier.NoModifier,
         "\r",
     )
-    overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
+    overlay._distance_edit.keyPressEvent(enter)
 
-    pts = tool._points  # noqa: SLF001
+    pts = tool._points
     assert len(pts) == 2
     assert pts[1].x() == pytest.approx(600.0)  # 100 + 500
     # Parser interprets user-entered Y math-up-positive and subtracts on
@@ -291,12 +291,12 @@ def test_typed_enter_does_not_finalize_polyline(
         Qt.KeyboardModifier.NoModifier,
         "\r",
     )
-    overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
+    overlay._distance_edit.keyPressEvent(enter)
 
     # Two vertices placed, tool still in drawing mode — the polyline must
     # NOT have been finalized.
-    assert len(tool._points) == 2  # noqa: SLF001
-    assert tool._is_drawing  # noqa: SLF001
+    assert len(tool._points) == 2
+    assert tool._is_drawing
 
 
 def test_empty_enter_forwards_to_active_tool(
@@ -332,7 +332,7 @@ def test_empty_enter_forwards_to_active_tool(
         Qt.KeyboardModifier.NoModifier,
         "\r",
     )
-    overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
+    overlay._distance_edit.keyPressEvent(enter)
 
     # Real finalize: a new PolylineItem is committed and the tool stops drawing.
     polys_after = [i for i in view.scene().items() if isinstance(i, PolylineItem)]
@@ -340,7 +340,7 @@ def test_empty_enter_forwards_to_active_tool(
         "Empty-Enter on the overlay must forward Return so the polyline tool "
         "finalizes a real PolylineItem."
     )
-    assert not tool._is_drawing  # noqa: SLF001
+    assert not tool._is_drawing
     # Overlay hidden after the empty-Enter forward.
     assert not overlay.isVisible()
 
@@ -366,7 +366,7 @@ def test_overlay_resumes_tracking_after_commit(
         Qt.KeyboardModifier.NoModifier,
         "\r",
     )
-    overlay._distance_edit.keyPressEvent(enter)  # noqa: SLF001
+    overlay._distance_edit.keyPressEvent(enter)
 
     # Fields cleared, focus returned to view -> not capturing.
     assert not overlay.is_capturing_input()

@@ -470,7 +470,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
         # Collect EQUAL-constraint partner resize undo data
         from open_garden_planner.core.tools.constraint_tool import (
-            _build_equal_resize_fn,  # noqa: PLC0415
+            _build_equal_resize_fn,
         )
         partner_resizes = []
         for p_item, old_size, apply_fn, p_anchor_type in getattr(self, '_equal_partner_pre_states', []):

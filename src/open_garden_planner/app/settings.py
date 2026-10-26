@@ -10,6 +10,7 @@ import math
 import os
 import stat
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 from PyQt6.QtCore import QSettings
@@ -26,8 +27,33 @@ from open_garden_planner.ui.theme import ThemeMode
 # the test suite rebinds them at `tests/conftest.py` import time, before any test
 # module is imported. The mechanism is specified once, in docs §8.8 — read it
 # there before changing anything here. Decision + alternatives: ADR-041.
-ORGANIZATION_NAME = "cofade"
-APPLICATION_NAME = "Open Garden Planner"
+PRODUCTION_ORGANIZATION_NAME = "cofade"
+PRODUCTION_APPLICATION_NAME = "Open Garden Planner"
+ORGANIZATION_NAME = PRODUCTION_ORGANIZATION_NAME
+APPLICATION_NAME = PRODUCTION_APPLICATION_NAME
+
+#: Set by the product's own entry point (``main()`` in ``main.py``) before it
+#: builds anything. A probe that constructs ``GardenPlannerApp`` or a scene
+#: directly does not set it — and that is the process this guard exists for (#587).
+PRODUCT_PROCESS_ENV = "OGP_PRODUCT_PROCESS"
+#: The deliberate override for a one-off tool that really must read the real
+#: store. Never set it in a product run or a test.
+ALLOW_PRODUCTION_ENV = "OGP_ALLOW_PRODUCTION_SETTINGS"
+#: Exact environment-variable names that identify an agent/tooling shell.
+#: Deliberately exact: ``CODEX_API_KEY`` or ``GEMINI_API_KEY`` must not trigger
+#: the guard — only a session marker does.
+TOOLING_ENV_MARKERS = frozenset({
+    "CLAUDECODE",
+    "CLAUDE_CODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CODEX_HOME",
+    "CODEX_MANAGED_BY_NPM",
+    "CODEX_SANDBOX",
+    "OPENCODE",
+    "OPENCODE_BINARY",
+    "OPENCODE_SESSION_ID",
+    "OPENCODE_TERMINAL",
+})
 
 
 class SettingsSecurityError(OSError):
@@ -36,6 +62,56 @@ class SettingsSecurityError(OSError):
     def __init__(self, path: Path) -> None:
         self.path = path
         super().__init__("Cannot secure the settings file")
+
+
+class SettingsIsolationError(RuntimeError):
+    """A probe or test tried to open the owner's real settings store (#587)."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(
+            "Refusing to open the owner's real settings store: "
+            f"{reason}. Call scripts/script_isolation.isolate() before building "
+            "anything (it redirects the store and the Qt locations), or set "
+            f"{ALLOW_PRODUCTION_ENV}=1 only if this process really must read the "
+            "real store."
+        )
+
+
+def _tooling_environment_marker(environ: Mapping[str, str] | None = None) -> str | None:
+    """The first exact agent-session variable in ``environ`` (``os.environ`` by default)."""
+    source = os.environ if environ is None else environ
+    for name in source:
+        if name in TOOLING_ENV_MARKERS:
+            return name
+    return None
+
+
+def _unsafe_production_settings_reason() -> str | None:
+    """Why this process must not open the owner's real store, or ``None``.
+
+    The product's own entry point marks itself (``PRODUCT_PROCESS_ENV``); a probe
+    that builds an application or a scene directly does not. A test or script
+    that rebinds the names is already isolated. The two remaining dangerous
+    contexts are a headless Qt platform (the product never runs on one) and an
+    agent/tooling shell (where review probes run — one switched off the owner's
+    Welcome dialog on 2026-10-24, PF-TST-27).
+    """
+    if (ORGANIZATION_NAME, APPLICATION_NAME) != (
+        PRODUCTION_ORGANIZATION_NAME, PRODUCTION_APPLICATION_NAME,
+    ):
+        return None
+    if os.environ.get(PRODUCT_PROCESS_ENV) == "1":
+        return None
+    if os.environ.get(ALLOW_PRODUCTION_ENV) == "1":
+        return None
+    platform = os.environ.get("QT_QPA_PLATFORM", "").split(":", 1)[0].strip().lower()
+    if platform in {"offscreen", "minimal"}:
+        return f"the Qt platform is {platform!r}, which the product never uses"
+    marker = _tooling_environment_marker()
+    if marker is not None:
+        return f"the process looks like an agent/tooling shell ({marker} is set)"
+    return None
 
 
 def _secure_linux_settings(path: Path) -> None:
@@ -78,7 +154,15 @@ def create_qsettings() -> QSettings:
     real store. Before #285 ``UiStateStore`` built its own, escaped the test
     isolation layered on :class:`AppSettings`, and full-app tests read *and
     overwrote* the developer's real window state (see docs §11.4).
+
+    The chokepoint is also the guard (#587): under a headless Qt platform, or in
+    an agent/tooling shell without the product's own marker, the production names
+    are refused instead of opening the owner's registry. That is what stops a
+    review probe that "looked isolated" from switching off the Welcome dialog.
     """
+    unsafe = _unsafe_production_settings_reason()
+    if unsafe is not None:
+        raise SettingsIsolationError(unsafe)
     settings = QSettings(ORGANIZATION_NAME, APPLICATION_NAME)
     if sys.platform.startswith("linux"):
         _secure_linux_settings(Path(settings.fileName()))
@@ -896,5 +980,5 @@ def active_language() -> str:
     """
     try:
         return get_settings().language or "en"
-    except Exception:  # noqa: BLE001
+    except Exception:
         return "en"

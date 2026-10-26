@@ -14,7 +14,6 @@ The panel/scene wiring here mirrors MainWindow (application.py:1205-1212):
   panel.active_layer_changed -> scene.set_active_layer (via get_layer_by_id)
 """
 
-# ruff: noqa: ARG001, ARG002
 
 from unittest.mock import MagicMock
 

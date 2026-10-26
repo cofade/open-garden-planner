@@ -39,7 +39,7 @@ def _types(scene: CanvasScene) -> Counter:
 
 
 class TestBenchSmall:
-    def test_loads_with_location_and_canvas(self, qtbot) -> None:  # noqa: ARG002
+    def test_loads_with_location_and_canvas(self, qtbot) -> None:
         scene, pm = _load("bench_small.ogp")
         # the frost dates decide whether the 3D view shows fruit and flowers on a date
         # (the L0 spike's in_frost_free_season read them) — in the format the Location dialog writes
@@ -48,7 +48,7 @@ class TestBenchSmall:
                                                "first_fall_frost": "10-31"}}
         assert (scene.width_cm, scene.height_cm) == (2400.0, 1600.0)
 
-    def test_contains_every_3d_object_class(self, qtbot) -> None:  # noqa: ARG002
+    def test_contains_every_3d_object_class(self, qtbot) -> None:
         scene, _ = _load("bench_small.ogp")
         types = _types(scene)
         required = {
@@ -63,7 +63,7 @@ class TestBenchSmall:
         }
         assert required <= set(types), sorted(t.name for t in required - set(types))
 
-    def test_house_ridge_is_linked_both_ways(self, qtbot) -> None:  # noqa: ARG002
+    def test_house_ridge_is_linked_both_ways(self, qtbot) -> None:
         scene, _ = _load("bench_small.ogp")
         items = {str(i.item_id): i for i in scene.items() if hasattr(i, "item_id")}
         house = next(i for i in items.values() if getattr(i, "object_type", None) == ObjectType.HOUSE)
@@ -71,7 +71,7 @@ class TestBenchSmall:
         assert ridge.object_type == ObjectType.ROOF_RIDGE
         assert ridge.metadata["owner_polygon_id"] == str(house.item_id)
 
-    def test_planted_children_and_species(self, qtbot) -> None:  # noqa: ARG002
+    def test_planted_children_and_species(self, qtbot) -> None:
         scene, _ = _load("bench_small.ogp")
         items = {i.item_id: i for i in scene.items() if hasattr(i, "item_id")}
         plants = [
@@ -91,7 +91,7 @@ class TestBenchSmall:
 
 
 class TestBenchLarge:
-    def test_loads_at_performance_scale(self, qtbot) -> None:  # noqa: ARG002
+    def test_loads_at_performance_scale(self, qtbot) -> None:
         scene, _ = _load("bench_large.ogp")
         types = _types(scene)
         plants = types[ObjectType.TREE] + types[ObjectType.SHRUB] + types[ObjectType.PERENNIAL]
@@ -99,7 +99,7 @@ class TestBenchLarge:
         assert plants >= 300
 
 
-def test_generator_reproduces_committed_fixtures(qtbot, tmp_path) -> None:  # noqa: ARG001
+def test_generator_reproduces_committed_fixtures(qtbot, tmp_path) -> None:
     """Regenerating writes the same plans (modulo the save timestamp)."""
     spec = importlib.util.spec_from_file_location(
         "make_bench_plans", REPO / "scripts" / "make_bench_plans.py"
@@ -123,7 +123,7 @@ def test_generator_reproduces_committed_fixtures(qtbot, tmp_path) -> None:  # no
         )
 
 
-def test_the_built_world_plan_holds_every_object_and_every_roof_style(qtbot) -> None:  # noqa: ARG001
+def test_the_built_world_plan_holds_every_object_and_every_roof_style(qtbot) -> None:
     """bench_built.ogp (Phase 17 L4, #388) is the L4 board's scene: every L4 object kind,
     every path style at its own width, a house in each roof style, a deck, a stone
     terrace, a driveway, a pond and a lawn."""
@@ -146,7 +146,7 @@ def test_the_built_world_plan_holds_every_object_and_every_roof_style(qtbot) -> 
     assert roofs == {None, *ROOF_STYLES} - {"gable"}  # the house's gable is the automatic one
 
 
-def test_the_older_bench_plans_keep_their_path_widths(qtbot) -> None:  # noqa: ARG001
+def test_the_older_bench_plans_keep_their_path_widths(qtbot) -> None:
     """L4 gave paths real widths; bench_small and bench_large keep the ones they were
     made with, so every number measured on them stays measured on the same plan."""
     spec = importlib.util.spec_from_file_location("make_bench_plans_widths",

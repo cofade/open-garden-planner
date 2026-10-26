@@ -232,7 +232,7 @@ def test_the_roof_survives_a_save_and_a_load(garden: Garden, tmp_path) -> None:
 
 
 @pytest.mark.parametrize("kind", ["TOOL_SHED", "GARAGE_SHED", "TABLE_RECTANGULAR", "LAWN"])
-def test_only_a_building_has_roof_rows(qtbot, garden: Garden, kind: str) -> None:  # noqa: ARG001
+def test_only_a_building_has_roof_rows(qtbot, garden: Garden, kind: str) -> None:
     item = RectangleItem(0.0, 0.0, 300.0, 200.0, object_type=ObjectType[kind])
     panel = PropertiesPanel(command_manager=garden.commands)
     panel.set_selected_items([item])

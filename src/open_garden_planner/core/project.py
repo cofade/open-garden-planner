@@ -338,7 +338,7 @@ class ProjectManager(QObject):
         """
         if done:
             self.set_task_status(
-                task_id, "done", done_date=datetime.now().date().isoformat()  # noqa: DTZ005
+                task_id, "done", done_date=datetime.now().date().isoformat()
             )
         else:
             self.set_task_status(task_id, "open")
@@ -561,7 +561,7 @@ class ProjectManager(QObject):
 
     def get_pest_log_history(self, target_id: str) -> Any:
         """Return the ``PestLogHistory`` for ``target_id`` (empty when absent)."""
-        from open_garden_planner.models.pest_log import PestLogHistory  # noqa: PLC0415
+        from open_garden_planner.models.pest_log import PestLogHistory
 
         raw = self._pest_logs.get(target_id)
         if raw is None:
@@ -596,7 +596,7 @@ class ProjectManager(QObject):
 
     def get_harvest_history(self, target_id: str) -> Any:
         """Return the ``HarvestHistory`` for ``target_id`` (empty when absent)."""
-        from open_garden_planner.models.harvest_log import HarvestHistory  # noqa: PLC0415
+        from open_garden_planner.models.harvest_log import HarvestHistory
 
         raw = self._harvest_logs.get(target_id)
         if raw is None:
@@ -661,7 +661,7 @@ class ProjectManager(QObject):
 
     def get_journal_note(self, note_id: str) -> Any:
         """Return the ``JournalNote`` for ``note_id`` (``None`` when absent)."""
-        from open_garden_planner.models.journal_note import JournalNote  # noqa: PLC0415
+        from open_garden_planner.models.journal_note import JournalNote
 
         raw = self._garden_journal_notes.get(note_id)
         if raw is None:
@@ -701,7 +701,7 @@ class ProjectManager(QObject):
 
     def get_manual_task(self, task_id: str) -> Any:
         """Return the ``ManualTask`` for ``task_id`` (``None`` when absent)."""
-        from open_garden_planner.models.task import ManualTask  # noqa: PLC0415
+        from open_garden_planner.models.task import ManualTask
 
         raw = self._manual_tasks.get(task_id)
         if raw is None:
@@ -783,7 +783,7 @@ class ProjectManager(QObject):
         save-time reconciliation, a dragged pin's note would stay stuck at its
         original placement coordinates after save/reload.
         """
-        from open_garden_planner.ui.canvas.items.journal_pin_item import (  # noqa: PLC0415
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
             JournalPinItem,
         )
 
@@ -1175,7 +1175,7 @@ class ProjectManager(QObject):
         current_data.soil_tests = dict(self._soil_tests)
         # US-12.7: only carry unresolved pest/disease records to the new season
         # (resolved entries stay in the previous season as historical record).
-        from open_garden_planner.models.pest_log import PestLogHistory  # noqa: PLC0415
+        from open_garden_planner.models.pest_log import PestLogHistory
 
         carried_pests: dict[str, Any] = {}
         for tid, raw in self._pest_logs.items():
@@ -1192,7 +1192,7 @@ class ProjectManager(QObject):
         # so totals survive even when the plant objects are not kept). The new
         # season starts with a blank journal (cleared below), so sever each
         # carried record's journal_note_id to avoid a dangling reference.
-        from open_garden_planner.models.harvest_log import (  # noqa: PLC0415
+        from open_garden_planner.models.harvest_log import (
             HarvestHistory,
         )
 
@@ -1222,7 +1222,7 @@ class ProjectManager(QObject):
         # US-C2: carry forward only still-relevant manual tasks (due today or in
         # the future, or undated); past-due manual tasks stay in the old season.
         # Local "today" to match the manual-task dates entered in the dialog.
-        today_iso = datetime.now().date().isoformat()  # noqa: DTZ005
+        today_iso = datetime.now().date().isoformat()
         current_data.manual_tasks = {
             tid: raw
             for tid, raw in self._manual_tasks.items()

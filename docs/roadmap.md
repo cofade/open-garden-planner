@@ -2563,7 +2563,7 @@ Shipped together in one PR. Four defects found while dogfooding the agent toolin
 | ✅ | D1.6 | **AI client onboarding** (issue #240) — in-app "Connect your AI assistant" helper, reached from Help → "Connect AI Assistant…" and Preferences → Agent API: shows/copies the connect URL, **detects installed clients** by their known config locations, and one-click registers the server where each client's own docs support a safe automatic path — **Cursor** (direct JSON merge into `~/.cursor/mcp.json`), **Claude Code** (`claude mcp add --transport http --scope user` CLI, preferred over hand-editing `~/.claude.json`'s nested schema). **Claude Desktop is detection-only** (verified against `modelcontextprotocol.io`'s own docs: its local config only documents stdio servers; a plain local HTTP endpoint is registered through the app's own Settings → Connectors → "Add custom connector" UI, not a config file — auto-writing a guessed schema, or reaching for the `mcp-remote` npm bridge workaround, was rejected as unnecessary risk). Every client, detected or not, also gets a copy-paste snippet + a short "where to put this" note. New Qt-free `services/ai_client_onboarding.py` introduces this codebase's **first atomic-write pattern** (temp file + `os.replace`, backup-before-overwrite, preserves every other key/server) since every prior JSON writer here only ever wrote its own file. Three senior-review rounds: round 1 caught an unguarded `subprocess.TimeoutExpired`/`OSError` from the Claude Code CLI call reaching the Qt slot uncaught; round 2 caught the resulting install having zero visual feedback despite up to ~45s of blocking CLI calls (added a WaitCursor + button-disable, mirroring `preferences_dialog._test_api`'s existing precedent for a blocking call); round 3 caught the deeper bug those two obscured — the Preferences entry point derived its connect URL from settings/widget state rather than asking whether the server was actually **running**, so a saved-but-dead port (e.g. a `PortInUseError` at launch) would have been silently registered as if it worked. Fixed by adding one shared `GardenPlannerApp.agent_api_running_url()` accessor both the Help menu and Preferences entry points now call — the only source of truth is "is the server actually up," never a reconstruction. No token auth needed (registering a client isn't scene-mutating); no `FILE_VERSION` change. See ADR-035, §8.19, FR-AGENT-12. |
 | ✅ | D2.1 | **Agent object creation** (v1.26.3, PR [#290](https://github.com/cofade/open-garden-planner/pull/290)) — `create_object(object_type, x, y, width?, height?, radius?, name?, species?)` behind the D2.0 double gate. Slice scope = plants (`TREE`/`SHRUB`/`PERENNIAL`, radius optional → the gallery-drop defaults 100/50/30 cm) + soil containers (`GARDEN_BED`/`RAISED_BED`/`CONTAINER`/`WALL_PLANTER` rectangular, `CONTAINER_ROUND` round, radius required). Coordinates are **centres** in the read tools' own Y-up frame; the rectangle centre→anchor conversion (`anchor = centre − extent/2`) is frame-agnostic by construction. Items are built by the loader's own `_deserialize_item_core`, so there is no second construction path to drift from the serializer. Mirrors the GUI gallery-drop orchestration in full: bundled-species auto-populate, the US-E8 planting-date stamp on **every** new plant (species or not), and active-layer assignment. **Investigation finding:** the initial design assumed the GUI never links a dropped plant to its bed and planned an explicit reconcile — a probe of the real path disproved it. `CreateItemCommand.execute` already calls `_auto_parent_plant` (and `undo` calls `_detach_from_parent`), so the bed link rides *inside* the one create step; the reconcile was removed as dead code and `create_object` is **always exactly one undo step** (unlike `move_object`, whose `MoveItemsCommand` has no such hook). Refuses (leaving scene + undo stack untouched) on an out-of-slice type, a dimension that doesn't fit the shape, a missing/zero/negative extent, a non-finite number, or a locked active layer. New Qt-free `agent_api/creates.py` (validation + `.ogp`-dict building) with drift guards on its inlined `ObjectType` name sets. No `FILE_VERSION` change. See ADR-036 (D2.1 addendum), FR-AGENT-14. |
 | ✅ | D2.2 | **Agent resize + rotate, and the canonical geometry-apply path** (PR [#335](https://github.com/cofade/open-garden-planner/pull/335), issue [#326](https://github.com/cofade/open-garden-planner/issues/326)) — `resize_object(item_id, width?, height?, radius?)` (absolute target dimensions in cm; **the object's scene centre is preserved for every type**) and `rotate_object(item_id, angle, relative?)` (degrees, **positive = counter-clockwise**, absolute by default, normalised to `[0, 360)`) behind the D2.0 double gate. The load-bearing half is the extraction: `ResizeItemCommand`/`RotateItemCommand` take a caller-supplied `apply_func`, so every call site had its own closure — the panel's three numeric-entry branches plus a drag-release handler per item class — and adding the agent would have made another. New `ui/canvas/geometry_apply.py` is now the single apply path for every **rect-backed** resize, with the two anchor policies as one parameter and `pos` solved through `resize_handle.anchored_position`/`scene_point_of` (the transform pair extracted from #218's `resize_rect_item_keeping_anchor` so the mutating primitive and the undo-record builders share one formula). `apply_rotation` now has exactly **one** definition in the codebase, drift-guarded. The authoritative list of callers — and of the two deliberate exceptions — is that module's own docstring, stated **there only**: during review five paraphrases of it drifted into three inconsistent answers, which is the very failure the extraction exists to prevent. **The extraction exposed three live GUI bugs, none of them introduced here**, all invisible at rotation 0 and all growing with angle: the panel's copies never re-pinned `transformOriginPoint` (**73.2 cm** displacement for a 30° / 50→100 cm case); `_move_corner_to` had the same omission (**331 cm** between the stored and visible centres); and the EQUAL-constraint partner appliers solved for `pos` as if unrotated (**70.7 cm** at 90°). Senior review caught the last two — and caught that the first fix for the corner drag was a *swap*, trading the save-time bug for a 671 cm interaction bug, because it re-pinned the origin without re-deriving the `pos` that depended on it. The rotation sign was **measured against a real item, then documented, then pinned** against a corner position (never the stored angle) — the #267 lesson applied prospectively. Refuses vertex-backed objects by name (polygons/polylines — vertex editing is US-D2.6), plus D2.0's constrained/pin/group/locked-layer list via a new shared `_agent_require_unconstrained`. Qt-free validation in `agent_api/edits.py` with drift guards. One undo step each. No `FILE_VERSION` change. See ADR-036 (D2.2 addendum), FR-AGENT-15, §8.19, §11.4. |
-| ✅ | D2.3 | **Agent species assignment + explicit bed reparenting** (PR [#335](https://github.com/cofade/open-garden-planner/pull/335), issue [#327](https://github.com/cofade/open-garden-planner/issues/327)) — `set_species(item_id, species?, apply_database_size?)` and `set_parent_bed(item_id, bed_id?)` behind the same gate, closing the two gaps that only existed for objects that already exist. `set_species` resolves the name against the bundled DB through the same resolver `create_object` uses and delegates to **`ui/plant_species_assignment.apply_species_to_item`** — the #213 helper the plant panel and species search already share — so the agent is a third *caller*, not a third implementation. **The issue's premise about `apply_database_size` was wrong and the code corrected it**: the app always adopts the species' `max_spread_cm` footprint silently, asking only when a manual spacing override conflicts, so the flag defaults to **`True`** and is the agent's answer to that dialog rather than a "don't resize" switch — defaulting it to `False` as specified would have made the agent behave differently from the GUI on the common path. The D2.1 asymmetry (creation sizes from gallery defaults because `radius` is an explicit parameter a species must not overrule) is **decided and documented**, with `create_object` → `set_species` as the stated two-step for database sizing. `set_parent_bed` is a link change only — the plant does not move — reaching the one state `move_object` cannot: a plant already inside a bed drawn around it. It deliberately does **not** require geometric containment (neither does the app's Link action) and reports `link_is_geometric` instead. `TRELLIS` is accepted as a plant parent though it is not a soil container (§8.14/ADR-017); a `HOUSE` is refused by name with the valid options listed. Undo restores the plant's original z. One undo step each. No `FILE_VERSION` change. See ADR-036 (D2.3 addendum), FR-AGENT-16, §8.19. |
+| ✅ | D2.3 | **Agent species assignment + explicit bed reparenting** (PR [#335](https://github.com/cofade/open-garden-planner/pull/335), issue [#327](https://github.com/cofade/open-garden-planner/issues/327)) — `set_species(item_id, species?, apply_database_size?)` and `set_parent_bed(item_id, bed_id?)` behind the same gate, closing the two gaps that only existed for objects that already exist. `set_species` resolves the name against the bundled DB through the same resolver `create_object` uses and delegates to **`ui/plant_species_assignment.apply_species_to_item`** — the #213 helper the plant panel and species search already share — so the agent is a third *caller*, not a third implementation. **The issue's premise about `apply_database_size` was wrong and the code corrected it**: the app always adopts the species' `max_spread_cm` footprint silently, asking only when a manual spacing override conflicts, so the flag defaults to **`True`** and is the agent's answer to that dialog rather than a "don't resize" switch — defaulting it to `False` as specified would have made the agent behave differently from the GUI on the common path. The D2.1 asymmetry (creation sizes from the fixed 100/50/30 cm defaults because `radius` is an explicit parameter a species must not overrule; the GUI's gallery drop sizes a *named* species from `max_spread_cm`) is **decided and documented**, with `create_object` → `set_species` as the stated two-step for database sizing. `set_parent_bed` is a link change only — the plant does not move — reaching the one state `move_object` cannot: a plant already inside a bed drawn around it. It deliberately does **not** require geometric containment (neither does the app's Link action) and reports `link_is_geometric` instead. `TRELLIS` is accepted as a plant parent though it is not a soil container (§8.14/ADR-017); a `HOUSE` is refused by name with the valid options listed. Undo restores the plant's original z. One undo step each. No `FILE_VERSION` change. See ADR-036 (D2.3 addendum), FR-AGENT-16, §8.19. |
 | ✅ | D2.4 | **Layer tools** (v1.27.8, PR [#352](https://github.com/cofade/open-garden-planner/pull/352), issue [#328](https://github.com/cofade/open-garden-planner/issues/328)) — curated UUID-addressed `Layer` records and `list_layers`; `set_object_layer`, `create_layer`, `rename_layer`, `delete_layer`, `set_active_layer`, and visibility/opacity writes reuse the existing layer commands and one-undo contract. **Layer locking is agent-writable in both directions since issue #365** — a deliberate policy reversal of the original decision, recorded as such rather than as a bug: `set_layer_property(layer_id, locked=...)` locks and unlocks through the same `SetLayerPropertyCommand` the Layers panel uses. The *object-level* protection is unchanged and still tests the layer's current lock state, so agents still may not delete a locked layer, move objects onto it, or edit its objects; "unlock, then edit" is simply two ordinary undoable calls. `set_active_layer` is session state and has no undo step. See ADR-034/036 addenda, FR-AGENT-17, §8.19. |
 | ✅ | D2.5 | **`create_object` for shapes & structures** (v1.27.8, PR [#352](https://github.com/cofade/open-garden-planner/pull/352), issue [#329](https://github.com/cofade/open-garden-planner/issues/329)) — loader-backed circle, rectangle, ellipse, polygon, polyline, and callout families with native Y-up vertices, a machine-readable `list_creatable_types` roster, and a full `ObjectType` drift guard. `HOUSE` creates its linked `ROOF_RIDGE` in one undo step; direct ridge, journal-pin, generic-text, and legacy hedge-section creation are explicit refusals under the approved contract recorded in the issue-237 implementation session. See ADR-036, FR-AGENT-18, §8.19. |
 | ✅ | D2-H1 | **Live MCP QA hardening** ([#353](https://github.com/cofade/open-garden-planner/issues/353)) — shipped in v1.27.10 via PR #360: same-scene load removes every serialized document item so layer counts and object enumeration agree; duplicate UUIDs fail closed; concurrent deletes are deterministic; authenticated `undo`/`redo` operate one command at a time on the global GUI stack. Covered by real-client integration tests. |
@@ -2815,7 +2815,7 @@ the active display. Existing ground-texture/wind issues #532/#534 remain separat
 - **L2.4 Cutaway / X-ray.** Roofs off by one scene property; the items between the eye and the selection fade (Qt-free segment casts over the meshes the engine holds, the pick oracle's own triangle test), unpickable while faded.
 - **Tests:** the §8.10 workflow `tests/integration/test_view3d_analysis.py` (real shadow overlay and heatmap worker beside the workspace), four new unit files, the QML scene without a GPU, the render tier on GPU / WARP / OpenGL, the frozen `--selftest` (both overlay shaders compiled and judged).
 - **Owner acceptance (2026-10-24), two manual passes.** Pass 1 found the 3D hours-of-sun drape not following the toolbar switch going on, and the 2D shadows and heatmap hidden under lawns (ground surfaces now lie in `GROUND_Z_RANGE` under the overlays; PF-L3D-09, PF-CAN-22, FR-STACK-09). Pass 2 replaced the strip's separate Past/Future label with the Today button saying Past or Future in place at one width (ADR-062 addendum, PF-TST-26), and found the startup Welcome dialog switched off in the owner's real settings by a review probe, not by the code (PF-TST-27; the startup path is now pinned by `tests/integration/test_startup_welcome.py`; guard follow-up #587). Every checklist step was then confirmed and release authorized. Every CI job passed on the merged head (12 jobs, 23 check runs); the frozen smoke and `--selftest` passed; senior review ended with no P0/P1. The required `Dependencies` checks were unblocked by #575 (v1.30.21), merged first. Open owner questions (X-ray look, fading plants in a selected bed, flat vs tinted sun map, floor inside buildings, near half of the arcs #578, generic shapes under the sun study; the other five tracked in #589) keep the shipped behaviour until decided. Follow-ups: #573, #574, #576–#583, #586–#589; the sync's own process gap is #590.
-### Parallel non-3D hardening (2026-10-24, draft PR)
+### Parallel non-3D hardening — **shipped 2026-10-25 as v1.31.1, PR #585**
 
 Built beside L2 without touching the 3D/sun/sim-clock stack: a styled line's walk
 is clipped to the visible viewport and budgeted (#450), `addItem` gives an appended
@@ -2830,9 +2830,73 @@ alias-table case the owner declined. Contributed content: @Sevoiger's personal-f
 implementation informed #550/#551; #569 was reported by @jbuijgers (fork branch
 `fix/preferences-dialog-height`). §8.25 (one derivation per layer), §8.9 (shared
 path clip), ADR-043 and ADR-061 addenda, FR-EDIT-19, FR-UI-14; the residual
-per-command UI refresh is #592 and the dense-overlay scroll re-sample is #594.
-The local full suite still carries the 24 pre-existing Windows-offscreen Plan &
-Sun layout failures tracked by #562; native Windows passes them.
+per-command UI refresh (#592) and the dense-overlay scroll re-sample (#594) shipped
+in the follow-up batch below.
+
+### Non-3D follow-up hardening, batch 2 — **shipped 2026-10-26 as v1.32.1, PR #596**
+
+Seven work items from the review ledger of L2 (#584) and the non-3D batch (#585), built
+without changing the 3D/forge product code, the sun model or serialization:
+
+- **Test signal (#562, #573).** Windows' `offscreen` Qt has no font database, so
+  every family resolved to a box engine and the Plan & Sun layout file failed 20
+  cases on the dev box while Linux CI passed. `tests/conftest.py::ui_font_family`
+  now registers the real Windows faces once and makes Verdana 10 the application
+  font; `tests/unit/test_test_font_contract.py` pins the real-engine contract;
+  `test_plan_timeline.py`'s leaked `arial.ttf` registration is gone. The file is
+  **78 passed / 76.9 s** on the dev box (was 20 failed / 55 passed / 3 skipped).
+- **Settings safety (#587).** `create_qsettings()` refuses the production names
+  under `offscreen`/`minimal` or in an exact agent/tooling shell unless the
+  product's `main()` (`OGP_PRODUCT_PROCESS`) or `script_isolation`'s rebound
+  names marked the process; `OGP_ALLOW_PRODUCTION_SETTINGS`
+  is the deliberate one-off override. A probe can no longer switch off the
+  owner's Welcome dialog. ADR-041 addendum, PF-TST-29.
+- **Command-proportional refresh (#592).** `ConstraintGraph.fixed_item_ids()`
+  scopes the lock-badge refresh; `Command.changes_ground_band` (default true) lets
+  move/resize/rotate/vertex/curve/copy/link/constraint commands skip the
+  scene-wide ground-band scan. 600 single adds: **0.31 s → 0.11 s**; a 100-command
+  pin counts zero classifications and zero badge refreshes. ADR-043 addendum,
+  PF-CAN-25, FR-EDIT-20.
+- **Dense overlay scroll (#594).** A selected 16 384-vertex outline re-sampled
+  every scrollbar step (~98 ms). The sample is now reused while the viewport stays
+  inside the scene region it was taken over; a zoom or a pan beyond it samples
+  again (**0.01 ms** cached). ADR-057 addendum, PF-CAN-26, FR-EDIT-20.
+- **One height resolver (#581).** `core/object_height.resolve_height()` is the
+  single precedence ladder; `effective_height_cm`, `height_source` and
+  `height_source_at` project it. Answers unchanged, ADR-037 addendum.
+- **PEP 639 license metadata (#574).** SPDX `license`, `license-files`, no license
+  classifier, and a `setuptools>=77` build floor; the wheel is Metadata 2.4 with
+  `License-Expression` and the LICENSE file, and builds without the deprecation
+  warning. ADR-050 addendum, PF-CI-14.
+- **Release-status duty (#590).** `finalize-us` §5 now also updates the feature
+  ADR/addendum Status line and the README Status paragraph, the two statements
+  three syncs in a row left stale.
+
+The local full suite no longer carries the Windows-offscreen Plan & Sun failures:
+the file is **78/78** on the dev box and the full suite is green; the root cause
+was the box font engine. `docs/08` §8.8/§8.9/§8.10/§8.25, the five ADR addenda, FR-EDIT-20,
+PF-CAN-25/26, PF-TST-28/29 and PF-CI-14 record the rules.
+
+**Owner manual pass (2026-10-25) added three fixes to the same release PR.**
+Help → About reported **1.2.0** in a direct PyInstaller build because a tracked, stale
+`_version.py` shadowed `__version__`; the module is now a gitignored build artifact,
+written before PyInstaller and removed after it, read dynamically, with a `__version__`
+fallback, a conditional PyInstaller hidden import and a `--selftest` version check against
+the version being built (PF-CI-15, ADR-050 addendum). Every short Properties input now shares one **120 px** control column: every numeric
+field (right-aligned, including grid spacing, stroke width, soil and object height,
+plant spacing, diameter, container height/volume, text size, symbol parameters, and
+the position/size/semi-axes pairs) plus every combo (object type, layer, material,
+fill pattern, stroke/path style, symbol choice, font) and the colour buttons
+(`FIELD_WIDTH`, `_style_numeric_field`, `_style_combo`). A combo value longer than
+the column keeps its full text in a tooltip; the popup always shows full names.
+Position and size fields carry `X:`/`Y:`/`W:`/`H:` inside the box so both start at
+the column edge. Name and text fields stay full width by design; the height tooltip
+refreshes on every edit. A gallery drop of a **named** species now adopts
+`max_spread_cm` like the Plant Database and Plant Lists drops, so an 8 m apple tree is
+no longer 2 m wide in 3D; the display rule for a plant the owner resized is unchanged
+(FR-PLANT-15). The only 3D-tier change is its test gate: **16 ms locally**, **25 ms on
+CI's software rasterisers** (the 20 ms negative control still exceeds either budget),
+after WARP timing failures across runners.
 
 ### L1.0 acceptance highlights — one sim clock (#385, ADR-053) — **shipped v1.29.10, [PR #429](https://github.com/cofade/open-garden-planner/pull/429)**
 
@@ -3326,3 +3390,19 @@ Windows and green Linux CI (#562). Independent senior/3D review and frozen smoke
 and self-test passed. The published installer checksum and source-bound build
 provenance attestation were independently verified against the release merge SHA.
 
+
+
+### CI latency follow-up #601 — owner-approved chore (PR #606)
+
+Coverage retains all line/branch data and unchanged package/file floors. Two
+stable test-ID hash partitions plus one serial perf producer feed the protected
+Coverage check, which requires every measurement and all three files. The
+uninstrumented Test job and its duration artifact remain. The perf audit moves
+27 deterministic cases from the 116-case serial set; AST reuse, consolidated CLI
+sweep consumers and immediate acyclic receiver cleanup remove repeated work.
+
+See ADR-058, §8.10.4, deployment §7.4 and the
+[investigation, marker inventory and measured results](11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md).
+No application or render-tier scope change; #540/#600/#603 remain separate.
+Owner authorized protected merge on 26 October 2026 without GUI testing because
+the change is limited to CI/tests/documentation. No release or version sync is needed.

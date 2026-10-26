@@ -186,6 +186,21 @@ class ConstraintGraph:
         """All constraints indexed by constraint_id."""
         return self._constraints
 
+    def fixed_item_ids(self) -> set[UUID]:
+        """Item ids carrying a FIXED constraint — the lock-badge refresh index (#592).
+
+        ``CanvasScene.update_dimension_lines`` used to call ``refresh_lock_badge``
+        on EVERY item after every command; each call walked this whole dict. With
+        the set, only items whose badge can be on (fixed now, or showing a badge
+        that must be cleared) are refreshed. The scan is O(constraints), not
+        O(items x constraints).
+        """
+        return {
+            constraint.anchor_a.item_id
+            for constraint in self._constraints.values()
+            if constraint.constraint_type == ConstraintType.FIXED
+        }
+
     def has_rotation_constraint(self, item_id: UUID) -> bool:
         """Return True if *item_id* participates in any PARALLEL or PERPENDICULAR constraint."""
         rotation_types = {ConstraintType.PARALLEL, ConstraintType.PERPENDICULAR}
@@ -759,7 +774,7 @@ class ConstraintGraph:
         deformable: set[UUID] = {
             uid
             for uid, idxs in vertex_constraint_counts.items()
-            if len(idxs) >= 2  # noqa: PLR2004
+            if len(idxs) >= 2
         }
 
         def _is_vtx(item_id: UUID, anchor: AnchorRef) -> bool:
@@ -1256,7 +1271,7 @@ class ConstraintGraph:
         # the remaining residuals so the solver actually converges on the
         # intersection set.  See docs §8.12 and ADR-012.
         if max_error > tolerance:
-            from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
+            from open_garden_planner.core.constraint_solver_newton import (
                 newton_refine,
             )
 
@@ -1395,7 +1410,7 @@ class ConstraintGraph:
         ``solve_anchored`` keeps its cm-scale tolerance for full-graph solves;
         only the live-drag path is tightened here.
         """
-        from open_garden_planner.core.constraint_solver_newton import (  # noqa: PLC0415
+        from open_garden_planner.core.constraint_solver_newton import (
             newton_refine,
         )
 

@@ -147,7 +147,7 @@ To enable online plant search, see the [Plant API Setup Guide](docs/03-context-a
 
 **Core 2D, 3D, and visual-refresh phases shipped** — CAD precision tooling and garden
 smart features are complete; the embedded AI Agent Integration's read/export and
-token-gated D1/D2 tools and D3 domain intelligence are live; Phase 17 Living Garden 3D is in progress (package L1 replaced the Qt 3D window with the Qt Quick 3D view beside the plan in v1.30.14, and L2 added Analyze in 3D in v1.31.0; L3 is next). See the
+token-gated D1/D2 tools and D3 domain intelligence are live; Phase 17 Living Garden 3D is in progress (package L1 replaced the Qt 3D window with the Qt Quick 3D view beside the plan in v1.30.14, L2 added Analyze in 3D in v1.31.0, and L3 added the Plant Forge in v1.32.0; L4 is next). See the
 [Development Roadmap](docs/roadmap.md) for the authoritative, up-to-date phase/user-story
 table and current version.
 

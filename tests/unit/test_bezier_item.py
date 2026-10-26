@@ -16,7 +16,7 @@ def _approx(a: float, b: float, tol: float = 1e-6) -> bool:
 
 
 @pytest.fixture()
-def simple_bezier(qtbot: object) -> BezierItem:  # noqa: ARG001
+def simple_bezier(qtbot: object) -> BezierItem:
     """Two-anchor curve: corner anchors at (0, 0) and (100, 0).
 
     Zero-length handles render as a straight-line cubic segment.
@@ -29,7 +29,7 @@ def simple_bezier(qtbot: object) -> BezierItem:  # noqa: ARG001
 
 
 @pytest.fixture()
-def smooth_bezier(qtbot: object) -> BezierItem:  # noqa: ARG001
+def smooth_bezier(qtbot: object) -> BezierItem:
     """Three-anchor smooth S-curve through (0,0), (100,50), (200,0)."""
     return BezierItem(
         anchors=[QPointF(0, 0), QPointF(100, 50), QPointF(200, 0)],
@@ -46,7 +46,7 @@ class TestBezierItemConstruction:
     def test_item_id_is_uuid(self, simple_bezier: BezierItem) -> None:
         assert isinstance(simple_bezier.item_id, uuid.UUID)
 
-    def test_rejects_single_anchor(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_rejects_single_anchor(self, qtbot: object) -> None:
         with pytest.raises(ValueError, match="at least"):
             BezierItem(
                 anchors=[QPointF(0, 0)],
@@ -54,7 +54,7 @@ class TestBezierItemConstruction:
                 handles_out=[QPointF(0, 0)],
             )
 
-    def test_rejects_mismatched_handle_lengths(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_rejects_mismatched_handle_lengths(self, qtbot: object) -> None:
         with pytest.raises(ValueError, match="one entry per anchor"):
             BezierItem(
                 anchors=[QPointF(0, 0), QPointF(1, 1)],
@@ -144,7 +144,7 @@ class TestBezierItemSerialization:
         clone = BezierItem.from_dict(simple_bezier.to_dict())
         assert clone.item_id == simple_bezier.item_id
 
-    def test_roundtrip_preserves_stroke(self, qtbot: object) -> None:  # noqa: ARG002
+    def test_roundtrip_preserves_stroke(self, qtbot: object) -> None:
         from PyQt6.QtGui import QColor
         item = BezierItem(
             anchors=[QPointF(0, 0), QPointF(10, 0)],

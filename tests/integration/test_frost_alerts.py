@@ -22,9 +22,6 @@ from open_garden_planner.services.weather_service import (
 )
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
 
-# ruff: noqa: ARG002
-
-
 # ─── helpers ────────────────────────────────────────────────────────────────────
 
 

@@ -281,7 +281,7 @@ class TestTheGroundPathIsTheReleasedCode:
         from tests.unit import shadow_geometry_v1_29_10 as released
 
         content = Path(released.__file__).read_bytes().replace(b"\r\n", b"\n")
-        blob = hashlib.sha1(b"blob %d\0" % len(content) + content).hexdigest()  # noqa: S324 — git's id
+        blob = hashlib.sha1(b"blob %d\0" % len(content) + content).hexdigest()
         assert blob == self.RELEASED_BLOB
         assert not hasattr(released, "ShadowCaster") and not hasattr(released, "base_offset_cm")
 

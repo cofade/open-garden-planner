@@ -172,7 +172,7 @@ def test_script_runs_as_a_subprocess_and_reports(tmp_path: Path) -> None:
     """The documented command in the docstring has to actually work."""
     report = tmp_path / "durations.txt"
     report.write_text("\n".join(FIXTURE), encoding="utf-8")
-    proc = subprocess.run(  # noqa: S603 - fixed argv
+    proc = subprocess.run(
         [sys.executable, str(SCRIPT), str(report)],
         capture_output=True, text=True, encoding="utf-8", timeout=120, check=False,
     )

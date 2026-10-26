@@ -21,7 +21,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.i18n_catalog import (  # noqa: E402
+from scripts.i18n_catalog import (
     CatalogError,
     active_messages,
     read_catalog,

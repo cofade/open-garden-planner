@@ -168,7 +168,7 @@ class HarvestView(QWidget):
             self.navigate_to_species.emit(str(key))
 
     def _on_export_csv(self) -> None:
-        from open_garden_planner.services.export_service import (  # noqa: PLC0415
+        from open_garden_planner.services.export_service import (
             ExportService,
         )
 

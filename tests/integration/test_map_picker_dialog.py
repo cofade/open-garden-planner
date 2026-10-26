@@ -34,10 +34,10 @@ class _DummyWebView(QWidget):
         self._page = MagicMock()
         self._settings = MagicMock()
 
-    def page(self):  # noqa: D401
+    def page(self):
         return self._page
 
-    def settings(self):  # noqa: D401
+    def settings(self):
         return self._settings
 
     def setUrl(self, *_args, **_kwargs) -> None:

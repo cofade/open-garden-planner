@@ -108,7 +108,7 @@ class TestPanelEditReachesTheShadow:
 class TestLoadNeverStampsAPlantingDate:
     """The stamp is a FRESH-CREATION rule; loading must not rewrite a plan."""
 
-    def test_dateless_plant_round_trips_untouched(self, qtbot, tmp_path) -> None:  # noqa: ARG002
+    def test_dateless_plant_round_trips_untouched(self, qtbot, tmp_path) -> None:
         scene = CanvasScene(2000.0, 2000.0)
         tree = _tree(scene)
         assert "planting_date" not in tree.metadata["plant_instance"]

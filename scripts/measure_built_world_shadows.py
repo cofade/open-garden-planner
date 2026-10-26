@@ -67,10 +67,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import numpy as np  # noqa: E402
-import pyclipper  # noqa: E402
+import numpy as np
+import pyclipper
 
-from open_garden_planner.core.scene3d import (  # noqa: E402
+from open_garden_planner.core.scene3d import (
     Material,
     MeshPart,
     Params,
@@ -78,8 +78,8 @@ from open_garden_planner.core.scene3d import (  # noqa: E402
     Transform,
     group_rings,
 )
-from open_garden_planner.core.scene3d.builders import production_registry  # noqa: E402
-from open_garden_planner.core.shadow_geometry import (  # noqa: E402
+from open_garden_planner.core.scene3d.builders import production_registry
+from open_garden_planner.core.shadow_geometry import (
     circle_footprint,
     compute_scene_shadows,
     polyline_footprint,

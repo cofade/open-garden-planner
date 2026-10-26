@@ -14,7 +14,7 @@ there is one home:
 Standard library only (pinned by an AST scan in ``tests/unit/test_object_sprite_conformance.py``).
 """
 
-# ruff: noqa: C408 - dict() keyword style matches the sprite generator tables.
+
 
 from __future__ import annotations
 
