@@ -1121,7 +1121,7 @@
   },
   "562": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Windows offscreen Plan & Sun layout checks depend on font discovery and test order"
   },
   "565": {
@@ -1141,17 +1141,17 @@
   },
   "573": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
   },
   "574": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "pyproject license metadata is deprecated by setuptools (due 2027-02-18)"
   },
   "581": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "One resolver for (height, source) instead of three copies of the precedence ladder"
   },
   "584": {
@@ -1166,17 +1166,17 @@
   },
   "587": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Probes outside scripts/ bypass script_isolation - nothing stops one writing the owner's real settings (it switched off the Welcome dialog)"
   },
   "590": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "finalize-us §5: version sync must also update ADR status lines and the README Status paragraph"
   },
   "592": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Every command refreshes every scene item: a one-item-per-command loop is still quadratic (lock badges + ground band)"
   },
   "593": {
@@ -1186,12 +1186,12 @@
   },
   "594": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A selected 16,384-vertex polygon re-samples its vertex overlay on every scrollbar step (~100 ms)"
   },
   "596": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(#562,#573,#574,#581,#587,#590,#592,#594): non-3D follow-up hardening batch 2"
   },
   "597": {
