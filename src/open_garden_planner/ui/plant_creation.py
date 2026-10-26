@@ -10,6 +10,7 @@ from open_garden_planner.core.growth_model import stamp_default_planting_date
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.permaculture_commands import placement_layer
 from open_garden_planner.core.plant_renderer import PlantCategory
+from open_garden_planner.core.plant_sizing import species_drop_diameter_cm
 from open_garden_planner.services.bundled_species_db import populate_item_species_metadata
 from open_garden_planner.ui.canvas.items import CircleItem
 
@@ -40,8 +41,7 @@ def build_species_plant(scene: Any, position: QPointF, species: dict[str, Any], 
     category = {ObjectType.TREE: PlantCategory.ROUND_DECIDUOUS,
                 ObjectType.SHRUB: PlantCategory.SPREADING_SHRUB,
                 ObjectType.PERENNIAL: PlantCategory.FLOWERING_PERENNIAL}[object_type]
-    diameter = species.get("max_spread_cm") or {ObjectType.TREE: 200, ObjectType.SHRUB: 100,
-                                               ObjectType.PERENNIAL: 60}[object_type]
+    diameter = species_drop_diameter_cm(species, object_type.name)
     return build_plant(scene, position, object_type, diameter / 2,
                        species_name=species.get("common_name") or species.get("scientific_name", ""),
                        plant_category=category, species_dict=species, auto_assign=auto_assign)

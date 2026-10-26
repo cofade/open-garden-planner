@@ -1,10 +1,13 @@
 """Tests for properties panel."""
 
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6.QtWidgets import QAbstractSpinBox, QComboBox, QFormLayout
 
+from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
+from open_garden_planner.ui.panels.properties_panel import FIELD_WIDTH, ColorButton
 
 
 class TestPropertiesPanel:
@@ -515,3 +518,89 @@ class TestContainerProperties:
         assert before and after and before != after, (
             f"Effective volume did not refresh on footprint change: {before!r} -> {after!r}"
         )
+
+
+class TestObjectHeightField:
+    """Every short input shares one control column; the height source tooltip updates (#596)."""
+
+    @staticmethod
+    def _fields(panel: PropertiesPanel) -> dict[str, object]:
+        fields: dict[str, object] = {}
+        for row in range(panel._form_layout.rowCount()):
+            label = panel._form_layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            field = panel._form_layout.itemAt(row, QFormLayout.ItemRole.FieldRole)
+            if label and field and label.widget() and field.widget():
+                fields[label.widget().text()] = field.widget()
+        return fields
+
+    def test_width_and_source_tooltip_follow_an_explicit_edit(self, qtbot) -> None:
+        item = RectangleItem(0, 0, 400, 250)
+        item.object_type = ObjectType.RAISED_BED
+        panel = PropertiesPanel(CommandManager())
+        qtbot.addWidget(panel)
+        panel.set_selected_items([item])
+        panel.resize(450, 900)
+        panel.show()
+        qtbot.wait(30)
+
+        fields = self._fields(panel)
+        # The owner's screenshot (#596) showed four widths and three alignments
+        # for these adjacent rows; the object-height field is the reference.
+        for label in ("Spacing:", "Soil depth:", "Object height:", "Stroke Width:"):
+            assert fields[label].width() == 120, label
+            assert fields[label].alignment() & Qt.AlignmentFlag.AlignRight, label
+        # Every short input shares that column, not only the four in the first
+        # screenshot: position/size fields, combos and colour buttons too.
+        for spin in panel.findChildren(QAbstractSpinBox):
+            assert spin.width() == 120, spin
+            assert spin.alignment() & Qt.AlignmentFlag.AlignRight, spin
+        for combo in panel.findChildren(QComboBox):
+            assert combo.width() == 120, combo
+            # A fixed 120 px clips a long selected value (Qt draws no ellipsis);
+            # the full text must stay reachable as a tooltip.
+            assert combo.toolTip() == combo.currentText(), combo
+        for button in panel.findChildren(ColorButton):
+            assert button.width() == 120, button
+        # The position/size pairs start at the column edge, and their second
+        # box is one field plus the layout's 8 px away (the external labels
+        # used to indent the first box by ~20 px).
+        position = fields["Position:"]
+        assert (
+            position.mapTo(panel, QPoint(0, 0)).x()
+            == fields["Type:"].mapTo(panel, QPoint(0, 0)).x()
+        )
+        pair = position.findChildren(QAbstractSpinBox)
+        assert len(pair) == 2
+        assert pair[1].x() - pair[0].x() == FIELD_WIDTH + 8
+
+        fields["Object height:"].setValue(70.0)
+        qtbot.wait(30)
+        height = self._fields(panel)["Object height:"]
+        assert "Custom height" in height.toolTip()
+
+        height.setValue(0.0)
+        qtbot.wait(30)
+        height = self._fields(panel)["Object height:"]
+        assert (
+            "Default for this object type" in height.toolTip()
+            or "No height" in height.toolTip()
+        )
+
+    def test_plant_spacing_radius_shares_the_same_shape(self, qtbot) -> None:
+        item = CircleItem(0, 0, 50)
+        item.object_type = ObjectType.TREE
+        item.metadata["plant_species"] = {
+            "common_name": "Apple Tree",
+            "max_height_cm": 800.0,
+            "max_spread_cm": 600.0,
+        }
+        panel = PropertiesPanel(CommandManager())
+        qtbot.addWidget(panel)
+        panel.set_selected_items([item])
+        panel.resize(450, 900)
+        panel.show()
+        qtbot.wait(30)
+
+        spacing = self._fields(panel)["Spacing radius:"]
+        assert spacing.width() == 120
+        assert spacing.alignment() & Qt.AlignmentFlag.AlignRight

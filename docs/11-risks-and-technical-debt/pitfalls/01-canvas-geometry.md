@@ -225,3 +225,23 @@ The sun study's shadow overlay (`-500`) and hours-of-sun map (`-450`) were place
 - **Source:** #450
 - **Status:** standing
 - **Legacy:** none (new entry)
+
+### PF-CAN-25
+
+- **Rule:** A per-command refresh is scoped to what the command can change: the lock badge refreshes only items carrying a FIXED constraint (or already showing a badge that may need clearing), and `CanvasScene._restack_ground_changes` classifies items only when `Command.changes_ground_band` is true. The base default stays true, so a new command is safe until it opts out with proof that it cannot change a type, a height or a group.
+- **Pinned by:** `tests/integration/test_canvas_command_refresh.py`
+- **Source:** #592
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A 600-command loop of one-item `CreateItemCommand`s produced 360 600 `refresh_lock_badge` calls on a 600-item plan, each walking the whole constraint dict (`_is_item_fixed`), and `_restack_ground_changes` walked every item per command after #450 had already made the z derivation one-per-layer. The two loops are independent of what the command actually changed. The fix is the same shape in both places: derive the set of items whose badge can exist (`ConstraintGraph.fixed_item_ids()`), keep the badge-refresh loop to that set plus badges already on screen, and let a command declare itself ground-band neutral. The neutral flag defaults to true because a missing opt-out costs one O(items) scan; a wrong opt-out leaves a lawn in the solid band.
+
+### PF-CAN-26
+
+- **Rule:** A dense vertex-edit overlay stays sampled while the viewport remains inside the scene region the sample was taken over; a pan only translates the points, so the chosen indices keep their pairwise screen spacing. Re-sample on a zoom change, when the item's pose or geometry changes, or when the viewport leaves that region. Re-sampling on every `scrollContentsBy` walks every vertex.
+- **Pinned by:** `tests/integration/test_dense_polygon_edit.py::test_a_pan_inside_the_sampled_region_does_not_resample`
+- **Source:** #594
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`_dense_overlay_indices` maps every vertex through the item's device transform to decide which 128 handles to show. #551 capped the number of scene ITEMS, not the CPU: a selected 16 384-vertex polygon (the loader's cap) re-sampled in ~98 ms per scrollbar step, against 0.01 ms when the sample is reused. The cache records the sampler's actual candidate region — the viewport grown by `DENSE_HANDLE_SPACING_PX` (24 px) — plus the zoom and the item pose; a pan inside that region is free, while a larger pan, a pose/geometry change or a zoom re-samples. The invariant that makes reuse correct is that translation does not change distances; the region must be the one the sampler really tested, not a larger convenience box.

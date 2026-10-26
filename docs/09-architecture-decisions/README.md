@@ -1053,7 +1053,7 @@ Scope is deliberately narrow (plants + the five `SOIL_CONTAINER_TYPES`); resize/
 
 **The `apply_database_size` parameter is narrower than its name suggests, and the issue's premise about it was wrong.** #327 specified it as "default `False`, leaves the drawn footprint alone". Reading `apply_species_to_item` disproved that: the app *always* resizes the footprint to the species' `max_spread_cm` when assigning a species — silently — and only asks the user anything when a manual `spacing_radius_cm` override disagrees with the database, via a two-button dialog. Defaulting the agent to "don't resize" would therefore have made the agent behave differently from the GUI on the common path, which is exactly the divergence this package exists to prevent. So `apply_database_size` **defaults to `True` and is the agent's answer to that dialog**: `True` takes the database values and clears the override, `False` keeps the user's. Without a conflicting override the footprint adopts the database size either way. Both the tool docstring and the provider docstring say so in those terms.
 
-**The D2.1 asymmetry, decided rather than left implicit.** `create_object` sizes a new plant from the *gallery defaults* (radius 100/50/30 cm for TREE/SHRUB/PERENNIAL); `set_species` sizes from `max_spread_cm`. That is kept, deliberately: `radius` is an explicit `create_object` parameter, and having `species` silently overrule it would make two arguments fight with no way for the caller to express which it meant. An agent that wants a database-sized new plant calls `create_object` and then `set_species` — two documented steps, not a gap. Recorded here because #327 required the decision to be made either way and said silence was not acceptable.
+**The D2.1 asymmetry, decided rather than left implicit.** `create_object` sizes a new plant from the *gallery defaults* (radius 100/50/30 cm for TREE/SHRUB/PERENNIAL); `set_species` sizes from `max_spread_cm`. That is kept, deliberately: `radius` is an explicit `create_object` parameter, and having `species` silently overrule it would make two arguments fight with no way for the caller to express which it meant. An agent that wants a database-sized new plant calls `create_object` and then `set_species` — two documented steps, not a gap. The GUI's own gallery drop is not that second copy: when the entry names a known species it sizes the footprint from `max_spread_cm` (FR-PLANT-15, #596), while `create_object` keeps the caller's explicit `radius`. The asymmetry is therefore agent-vs-GUI argument handling, not two sizing rules. Recorded here because #327 required the decision to be made either way and said silence was not acceptable.
 
 **`set_species` is a geometry mutation, so it clears the geometry gate.** Assigning a species resizes the footprint to `max_spread_cm`, which makes it an arbitrary agent-driven resize — so it calls the same `_agent_require_unconstrained` check `resize_object` does. The first cut did not, and the senior review proved the consequence: an agent refused by `resize_object` on a constrained plant could obtain the identical resize by calling `set_species` on the same item one line later. A shared gate that three of four geometry-mutating tools honour is a perimeter with a door in it. Clearing a species (`species=None`) resizes nothing and is therefore not gated. Both D2.3 tools also refuse a **no-op**: linking a plant to the bed it is already in, or clearing a species that was never set — a success report plus a junk undo step for a state that did not change is exactly the kind of lie that makes an agent's model of the plan diverge from the plan.
 
@@ -1177,6 +1177,25 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **Validation.** `tests/unit/test_shadow_caster_base.py` — tip shift = `base / tan α` at 15° / 35° / 60° × five azimuths × three footprints (≤ 0.1 cm; measured ≤ 2e-3, the integer grid); `S(F, b, h)` = the translated ground shadow; a ray oracle that knows no polygons (a ground point is shaded iff the ray toward the sun crosses the solid), 4,000 points per case; the bed casts the part below; `TestTheGroundPathIsTheReleasedCode` — the v1.29.10 functions against today's (decision 3 i); `TestACasterIsATypeNotALength`; the soil rule for beds and for containers. `tests/integration/test_shadow_caster_golden.py` — the golden on every platform as far as that platform can hold it, plus on both bench plans: same walk, grounded union unchanged, ground casters unchanged, raised count = an independent oracle's. `tests/integration/test_scene3d_base_stacking.py` — gate G3 through a real scene; 3D base = 2D caster base for nine parent cases; `TestTheLinkAloneNeverLifts` — (a) the bed shrunk with the real resize command, (b)–(d) the three known limits, an explicit link without containment, a turned bed, and the one-predicate drift guard (both spellings of a containment test of a mapped point; its limit is in its docstring); `TestWhereAPlantStandsDoesNotDependOnABadge` — badge on and off: the 3D record, the 2D caster base and the real overlay's path unchanged; `TestWhichPointEachDecisionAsks` — create, bulk create / paste, the drop, the agent's move re-link and `link_is_geometric` on the real application window, each with the bounding rect's centre, the lift with the stable one; `TestTheParentShapeIsBuiltOncePerWalk` — the cached path against Qt's `contains` on 7,128 points over four parent shapes, one shape per parent and walk, and the lookup's lifetime (constructed only in the two walks, never kept); `TestTheOneRule::test_a_parent_without_a_record_lifts_nothing` (30 km wide; a failed record; an unbuildable outline) and `::test_a_plant_is_grounded_whichever_of_the_two_is_stacked_higher`; `TestTheOverlaysOwnEcho` — the overlay's own `scene.changed` echo, made deterministic; one caster walk and its consumers (AST guard); a bed height change and a re-parent reaching the real overlay through the command stack; `TestHeatmapEndToEnd` — a raised plant through `SunHeatmapController` and its worker, the tip read off the grid. `tests/unit/test_object_height.py::test_soil_parent_names_match_the_soil_predicate`.
 
+### ADR-037 addendum — one resolver for (height, source) (#581, 2026-10-25)
+
+**Context.** L2's info card added `height_source_at` beside `effective_height_cm` and
+`height_source`; the three carried hand-copied versions of the same precedence ladder
+(custom → container → grown → current → species → default). Any change to the ladder had
+to be made three times.
+
+**Decision.** `core/object_height.resolve_height(object_type, metadata, at_date)`
+returns `(height, source)` and is the only implementation. `effective_height_cm` returns
+`resolve_height(...)[0]`; `height_source` and `height_source_at` return the source from
+the same call (with and without the date). The public names, their docstrings and their
+answers are unchanged; the private `_species_height_cm` copy is gone. The growth branch
+is the only date-dependent one and reports `SOURCE_GROWN`.
+
+**Pins.** `tests/unit/test_object_height.py::TestOneResolver` projects the public
+functions from the resolver over explicit/container/species/current/grown/default/none
+cases and checks the grown source; all existing precedence, shadow and 3D height tests
+are unchanged. No `.ogp`, UI or behaviour change.
+
 ## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
 
 **Status**: **Superseded** by ADR-048 (2026-10-05); the code this decision chose was deleted in Phase 17 L1.10 (2026-10-19, ADR-060 addendum "the default and the removal", ADR-048's closing addendum). Was: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
@@ -1225,7 +1244,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **One interpolation, consumed everywhere.** `core/growth_model.py` (Qt-free): `size(t) = current + (max−current)·clamp(years_since_planting / years_to_maturity, 0, 1)` for height AND canopy spread. The low end is the plant's **own measured size** (`current_height_cm` / `current_spread_cm`), not the species minimum — see the redesign note below. `years_to_maturity` = the species' `days_to_maturity_min/max` average when present (annual vegetables ripen within the season), else TREE 10 y / everything else 3 y / annual-cycle ≈150 days. Growth engages only when a planting date **and** a current size are both present; otherwise the model returns `None` and the resolver falls back to the static current size, else the mature max. An already-oversized plant (current ≥ max) stays flat at max. **No new metadata key**: the issue's "verify first" paid off — plants already carry `metadata["plant_instance"]` with `planting_date`, `current_height_cm` and `current_spread_cm` (editable in the Plant Details panel since Phase 8), serialized wholesale and old-app compatible. New plants get today's `planting_date` stamped at creation (`stamp_default_planting_date`, fresh-creation sites only — never on load, which must preserve saved metadata verbatim). No FILE_VERSION change.
 
-**Routing**: `object_height.effective_height_cm` gained an optional `at_date`; when given, a measured + dated plant resolves to its projected height. Independently of any date, a plant's measured `current_height_cm` now outranks the species `max_height_cm` in the precedence chain (new `SOURCE_CURRENT` for the properties tooltip) — explicit user override still wins; un-measured plants and non-plants are byte-identical to pre-E8. `collect_shadow_casters(scene, at_date)` mirrors this for the canopy: the projected spread with a date, the measured `current_spread_cm` without one. The canopy radius is **absolute cm, not a scale of the drawn circle** — both measured fields therefore mean literal centimetres (type a 150 cm spread, get a 150 cm shadow canopy). A proportional scale was rejected on two counts found by dogfooding: the drawn circle only equals the mature spread when a species was applied to an *existing* plant (#213), while the gallery drop uses a fixed 200/100/60 cm default, so a typed 100 cm read as 33 cm; and clamping the scale to ≤1 capped canopy growth at the placeholder circle, so a tree could never shadow wider than the size it happened to be dropped at. Consumers all pass the **sim timeline's date**: the shadow overlay (`sim_datetime_utc.date()`), the heatmap (its chosen day), and the 3D snapshot — so scrubbing the sun slider ahead five years regrows every dated tree in 2D shadows, hours-of-sun, and 3D at once, from ONE model.
+**Routing**: `object_height.effective_height_cm` gained an optional `at_date`; when given, a measured + dated plant resolves to its projected height. Independently of any date, a plant's measured `current_height_cm` now outranks the species `max_height_cm` in the precedence chain (new `SOURCE_CURRENT` for the properties tooltip) — explicit user override still wins; un-measured plants and non-plants are byte-identical to pre-E8. `collect_shadow_casters(scene, at_date)` mirrors this for the canopy: the projected spread with a date, the measured `current_spread_cm` without one. The canopy radius is **absolute cm, not a scale of the drawn circle** — both measured fields therefore mean literal centimetres (type a 150 cm spread, get a 150 cm shadow canopy). A proportional scale was rejected on two counts found by dogfooding: the drawn circle only equals the mature spread when a species was applied to an *existing* plant (#213), while the gallery drop used a fixed 200/100/60 cm default (a gallery entry naming a known species now takes its `max_spread_cm` at drop - FR-PLANT-15, #596), so a typed 100 cm read as 33 cm; and clamping the scale to ≤1 capped canopy growth at the placeholder circle, so a tree could never shadow wider than the size it happened to be dropped at. Consumers all pass the **sim timeline's date**: the shadow overlay (`sim_datetime_utc.date()`), the heatmap (its chosen day), and the 3D snapshot — so scrubbing the sun slider ahead five years regrows every dated tree in 2D shadows, hours-of-sun, and 3D at once, from ONE model.
 
 **Redesigned before merge (owner manual test).** The first cut interpolated the *species'* `min_height_cm → max_height_cm` and keyed everything off the planting date alone. Manual testing found it inert and unintuitive: nothing set a planting date at creation, so `grown_height_cm` always returned `None` and every plant fell straight through to the mature `max_height_cm` — "shadow scales only based on max height". Worse, the Plant Details **Current height** / **Current spread** fields the user would naturally reach for were read by *nothing* in the sun/shade path, and the species-min curve meant the user could not state how big their plant actually is. The owner chose "current size anchors it": the measured fields become the truth (with or without a date), growth interpolates from them toward the species max, and new plants get today's planting date so scrubbing works immediately. **Lesson**: a derived-from-age model is only as good as the inputs the UI actually captures — check that the creation flow sets them before building the curve on top.
 
@@ -1344,6 +1363,44 @@ and 000, exercise an existing 0644 store, repeated atomic sync, safe symlinks,
 special files and simulated chmod failure. The factory does not alter global
 umask, QSettings format or path statics. A protection failure produces a sanitized,
 translated startup error using the system locale and exits before the main window.
+
+### ADR-041 addendum — the chokepoint refuses an unsafe production context (#587, 2026-10-25)
+
+**Context.** A review probe built `GardenPlannerApp` in a scratchpad to measure the
+Plan & Sun strip. It gave the QApplication a throwaway name and called
+`QSettings.setDefaultFormat(IniFormat)`, both of which look like isolation; neither
+redirects `create_qsettings()`, which passes the module's own names to
+`QSettings(org, app)` and that constructor always uses the native format. The write
+reached the owner's registry and switched off the startup Welcome dialog; three more
+probes that day had the same defect. Written rules and the existing
+`tests/integration/test_script_isolation.py` gate cover only `scripts/`, not a probe in
+a temp directory.
+
+**Decision.** The chokepoint itself refuses the production names in a process that is
+not the product or a deliberately isolated script. `SettingsIsolationError` is raised
+when `(ORGANIZATION_NAME, APPLICATION_NAME)` is the production pair and any of these
+holds: the Qt platform is `offscreen`/`minimal` (the product never runs there), or an
+exact agent-session variable is set (`CODEX_HOME`, `CODEX_SANDBOX`, `CLAUDECODE`,
+`CLAUDE_CODE*`, `OPENCODE*` — exact names, so an API key such as `CODEX_API_KEY` does
+not trigger it). The product marks itself with `OGP_PRODUCT_PROCESS=1` in `main()`
+(not at module import: a probe that imports `main` for a helper must not inherit it).
+`script_isolation.isolate_settings()` rebinds the names to a throwaway pair, which is
+the other sanctioned way through. `OGP_ALLOW_PRODUCTION_SETTINGS=1` is the explicit
+override for a one-off tool that really must read the real store. A plain desktop
+shell with production names is allowed — that is how the app runs. The check keys
+on the *production* pair, so a test or script that rebinds the names is unaffected.
+
+**Rejected alternatives.** Logging loudly instead of refusing was the incident's shape
+with a different verb: a probe that ignores a warning still writes the registry. Keying
+on the QApplication name or on `setDefaultFormat` is what the probe already did and is
+not an isolation mechanism. Refusing while the real GUI runs from an agent shell was
+avoided by the product marker, so the frozen exe and `python -m open_garden_planner`
+still start from a tooling terminal.
+
+**Consequences.** `tests/unit/test_settings_isolation_guard.py` pins the refusal, the
+product marker's placement inside `main()`, the explicit override and the exact-name
+scan; the suite and `scripts/script_isolation.py` rebind the names rather than set a
+marker. PF-TST-29 and §8.8 record the rule. No stored key, `.ogp` field or product behaviour changes.
 
 ## ADR-042: Visual Refresh Package 3 — Generated Object Sprites, Forge Textures, Comprehensive Iconography
 
@@ -1474,6 +1531,37 @@ is tracked in #592.
 adds, one for 200 commands), ordering, uniqueness, band membership, the layer-reorder case,
 the parent-bed synchronous case, and `test_a_ground_surface_takes_its_band_at_once_and_seeds_from_it`
 for the merge with the ground band.
+
+### ADR-043 addendum — the per-command refresh is scoped to what a command can change (#592, 2026-10-25)
+
+**Context.** The #450 addendum above measured the residual: 1 000 one-item
+`CreateItemCommand` executions took 3.18 s because two `stack_changed` listeners walked
+the whole scene after every command — `update_dimension_lines` called
+`refresh_lock_badge` on every item (each call scanned the whole constraint dict: 360 600
+badge refreshes for 600 commands on a 600-item plan), and `_restack_ground_changes`
+classified every item (about 1.0 s). Both are independent of what the command changed.
+
+**Decision.** Two indexed/scoped refreshes, no new write path. `ConstraintGraph` gains
+`fixed_item_ids()`; `update_dimension_lines` refreshes only items in that set or already
+showing a badge (so an unlock clears it), and skips the rest. `Command` gains
+`changes_ground_band`, default **True** for safety; the move/resize/rotate/vertex/curve/
+copy/link/constraint commands declare `False`. Create is neutral because `addItem`
+derives a ground surface's band synchronously and bulk adds end in
+`_update_items_z_order`; Delete/Group/Ungroup/Boolean/ChangeProperty keep the scan
+because they can change a type, a height or a group.
+`CommandManager.last_command` lets the `stack_changed` slot ask what just happened. A
+ground surface added one command at a time still gets its band from `addItem`'s own
+synchronous derivation, so the neutral `CreateItemCommand` flag does not trade correctness
+for speed.
+
+**Measurements (dev box, 2026-10-25).** 600 single-item adds: 0.31 s with the scan, 0.11 s
+with the flag (2.8×); a 100-command pin counts zero badge refreshes and zero ground-band
+classifications, and still sees the badge on `AddConstraintCommand` and the band change on
+`ChangePropertyCommand` (execute and undo).
+
+**Pins.** `tests/integration/test_canvas_command_refresh.py` (zero classifications and
+zero badge refreshes for neutral commands; a FIXED constraint refreshes only its item; a
+type change still restacks; a move is neutral). PF-CAN-25 and §8.25.4 record the rule.
 
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
@@ -3219,6 +3307,54 @@ read-only; no file format, runtime behaviour or `.ogp` version changes.
 3. Match labels with exact set equality (`"major"`, `"minor"`), eliminating substring matches.
 4. Pin the behavior in `tests/unit/test_release_version.py` covering multi-PR timestamp ordering, squash subject regex, exact label matching, subprocess error recovery, CLI output formats, and workflow static guards.
 
+### ADR-050 addendum — PEP 639 license metadata in the project manifest (#574, 2026-10-25)
+
+**Context.** The senior review of #571/#575 found setuptools 82.0.0/84.1.0 warning
+about two `[project]` forms: `license = {text = "GPL-3.0-or-later"}` and the
+`License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)`
+classifier. The warning carries a 2027-02-18 due date, after which setuptools may
+refuse to build. The build group pins `setuptools==84.1.0`, but
+`[build-system] requires = ["setuptools>=61.0", "wheel"]` floats for an isolated
+build, so a plain `pip install .` or `uv build` picks the newest setuptools.
+
+**Decision.** `pyproject.toml` uses the PEP 639 form: `license = "GPL-3.0-or-later"`,
+`license-files = ["LICENSE"]`, no license classifier, and the build floor is
+`setuptools>=77` (the first release with PEP 639 support). The wheel's metadata is
+`Metadata-Version: 2.4` with `License-Expression: GPL-3.0-or-later` and
+`License-File: LICENSE`; the LICENSE is inside `dist-info/licenses/`. No runtime
+dependency, SBOM schema, notices format or `.ogp` field changes.
+
+**Evidence.** A no-isolation `pip wheel` with 84.1.0 and an isolated `uv build` both
+complete with no `SetuptoolsDeprecationWarning`; the wheel metadata above was read
+from the built artifact. `tests/unit/test_packaging_metadata.py` pins the SPDX
+string, the license file, the absence of a `License ::` classifier and the floor.
+PF-CI-14 records the rule.
+
+### ADR-050 addendum — the frozen version module is generated, not tracked (#596 manual pass, 2026-10-25)
+
+**Context.** A direct `python -m PyInstaller installer/ogp.spec` build showed **1.2.0** in
+Help → About while `pyproject.toml` and `src/open_garden_planner/__init__.py` said
+1.31.1. `get_current_version()` reads `open_garden_planner._version` when frozen; the
+release path (`installer/build_installer.py`) writes that module, but a direct PyInstaller
+build bundled a tracked file last written on 2026-03-01. The 2026-10 audit had already
+recorded the three disagreeing version sources as AUD-072.
+
+**Decision.** `_version.py` is a build artifact. It is removed from the repository and
+gitignored; `build_installer.py` writes it before PyInstaller (the release version may lead
+`pyproject.toml` until the sync) and deletes it in a `finally` afterwards, and a direct
+PyInstaller build has no such file, so the frozen app falls back to `__version__`. The module is read with
+`importlib.import_module` so type checkers do not require a tracked file; that removes the
+static import edge PyInstaller followed, so `installer/ogp.spec` lists
+`open_garden_planner._version` as a hidden import when the file exists. Either build path
+reports a version, and neither can report a tracked stale one.
+**Evidence.** `tests/unit/test_packaging_metadata.py` pins the write/remove pair, the
+fallback (`sys.frozen` + no module), the release direction (a module whose `__version__`
+differs from the package's wins) and the spec's conditional hidden import; `--selftest`
+checks the frozen version against `OGP_EXPECTED_VERSION`. The rebuilt direct exe's About
+reports 1.31.1. The release path is unchanged: `build_installer.py` still writes the module before
+PyInstaller, and the frozen bundle includes it. No runtime dependency, `.ogp` field or
+product behaviour changes.
+
 ## ADR-051: Repository-owned wiki sources and manual publication (issue #417)
 
 **Status**: Accepted (9 October 2026). Publication requires owner approval and protected merge.
@@ -3618,6 +3754,39 @@ Two measurements decided the remedy, and both were needed:
 **Consequences (limitations, stated).** Full detail is a bounded, stated budget, **per item per paint — not a plan-wide one**. Above the bound, *all* polygons — including a large convex one whose fill would be cheap — render as an outline interactively; a future refinement could exempt convex outlines. Full-detail paths that stay open above the bound, each capped only by the load ceiling: at exactly the bound a pathological comb still costs about two frames (~31 ms at 256 vertices); a **selected** over-budget item paints full detail on every interactive frame (5.6 s at 16,384); and every export/report/print/agent render, which disables caches and renders through `QGraphicsScene.render`, keeps the exact fill and can stall at the ceiling. The **minimap** renders through `scene.render` *without* disabling caches, so it degrades like the canvas — desirable for a thumbnail, and the one render path whose full-fidelity convention is deliberately different. The same `widget`-based idiom lived in `should_use_lod_flat_fill` (#409); it was re-checked on report and the LOD flat fill was **removed** rather than repaired — it never ran and bought no measurable time, so `should_use_lod_flat_fill` and `get_lod_fill_color` no longer exist and `is_interactive_paint` now serves the paint bound above alone (see the ADR-057 addendum, #503). The two constants are plain module values so a future measurement can retune them in one place.
 
 **Evidence.** The committed `tests/integration/test_polygon_paint_bound.py` pins that an over-budget polygon paints an outline (not a fill) on screen, that the degraded paint is many times cheaper than full detail **with the item's own wide pen**, that a polygon at the bound, an offscreen render and a selected item paint the exact fill, and that a hostile polygon is refused at the seam without dropping the rest of a plan. The cost table above is reproducible with the shapes in that test file.
+
+### ADR-057 addendum — a dense vertex-edit sample is reused until the viewport leaves its region (#594, 2026-10-25)
+
+**Context.** §8.9.11's #551 sample caps the number of overlay handles, not the CPU that
+chooses them. `_dense_overlay_indices` maps every vertex through the item's device
+transform to decide which 128 to show, and `CanvasView.scrollContentsBy` asked for a
+fresh sample on every scrollbar step. The senior review of PR #585 measured a selected
+16 384-vertex polygon (the loader's cap) at ~100 ms per scrollbar step and ~176 ms per
+zoom step; master did no per-scroll re-sampling, so the scroll cost was new.
+
+**Decision.** The sample is still viewport-derived, but it is **cached with the scene
+region it actually covered**. `_remember_dense_sample` records the sampler's own
+candidate region — the viewport grown by `DENSE_HANDLE_SPACING_PX` (24 viewport
+pixels), the same rect `_dense_overlay_indices` tests candidates in — together with
+the zoom and the item's pose. `_dense_sample_covers_view` lets
+`refresh_vertex_edit_overlay` return immediately while the current viewport is
+inside that region, the zoom is unchanged and the item has not moved. A pan
+translates the points, which does not change their pairwise distances, so the
+chosen indices keep their 24-px spacing; every vertex now visible was a candidate
+when the sample was taken. A zoom change, a pose/geometry change, or a pan beyond
+the region samples again. The cache lives on the item (polygon and polyline
+mixins) and is cleared when the outline is no longer dense, on a geometry update,
+and on leaving edit mode.
+
+**Measurements (dev box, 2026-10-25).** 16 384-vertex polygon at 1100×650, zoom 1.0:
+**98.58 ms** per forced re-sample, **0.01 ms** with the cache. The pin is a call count on
+`_dense_overlay_indices` after ten 2-px scrollbar steps (zero), a 100-px pan beyond the
+24-px candidate margin (>0, and the new viewport gets handles), a far pan (>0) and a
+zoom (>0), for both a polygon and a polyline; not a timer.
+
+**Pins.** `tests/integration/test_dense_polygon_edit.py::test_a_pan_inside_the_sampled_region_does_not_resample`.
+PF-CAN-26 records the rule. The saved geometry is unchanged; entering, zooming and leaving
+edit mode still compare the polygon before and after.
 
 ## ADR-058: The suite runs in parallel, and the timing tests do not (issue #509)
 

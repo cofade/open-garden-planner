@@ -73,7 +73,9 @@ src/open_garden_planner/
 │   ├── sim_clock.py              # Qt-free ONE sim moment: local plan date + wall time → UTC; date_changed / instant_changed channels (Phase 17 L1.0, ADR-053)
 │   ├── plain_text.py             # Qt-free: plan text as TEXT — normalise, then cap, then escape; for tooltips, labels and log lines (Phase 17 L1.3, §8.11)
 │   ├── object_height.py          # Qt-free effective-height resolver — explicit/container/species/type-default (US-E2, ADR-037);
-│   │                             #   and where an item STANDS: standing_base_cm / soil_surface_cm (Phase 17 L1.6)
+│   │                             #   resolve_height() is the ONE precedence ladder, projected by effective_height_cm /
+│   │                             #   height_source / height_source_at (#581); and where an item STANDS: standing_base_cm /
+│   │                             #   soil_surface_cm (Phase 17 L1.6)
 │   ├── shadow_geometry.py        # Qt-free shadow sweep/union — L=h/tanα, Minkowski sweep, pyclipper union (US-E3, ADR-037);
 │   │                             #   ShadowCaster(footprint, height, base): a raised caster's shadow starts base/tanα out (L1.6)
 │   ├── shade_aggregation.py      # Qt-free hours-of-sun sampling/bands/grid — rasterizer injected (US-E4, ADR-037)

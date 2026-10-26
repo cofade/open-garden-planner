@@ -21,12 +21,15 @@ from open_garden_planner.core.object_height import (
     SOURCE_CURRENT,
     SOURCE_CUSTOM,
     SOURCE_DEFAULT,
+    SOURCE_GROWN,
     SOURCE_NONE,
     SOURCE_SPECIES,
     effective_height_cm,
     explicit_height_cm,
     has_height_semantics,
     height_source,
+    height_source_at,
+    resolve_height,
 )
 
 
@@ -274,6 +277,54 @@ class TestCurrentHeightAnchor:
         }
         assert effective_height_cm("TREE", meta, at_date=date(2031, 1, 1)) == 500.0
         assert height_source("TREE", meta) == SOURCE_SPECIES
+
+
+class TestOneResolver:
+    """#581: the three public entry points are projections of one ladder."""
+
+    @pytest.mark.parametrize(
+        ("object_type", "metadata", "at_date"),
+        [
+            ("CONTAINER", {METADATA_KEY: 90.0, "container_height_cm": 30.0}, None),
+            ("CONTAINER", {"container_height_cm": 45.0}, None),
+            ("TREE", {"plant_species": {"max_height_cm": 180.0}}, None),
+            ("TREE", {"plant_instance": {"current_height_cm": 200.0}}, date(2031, 1, 1)),
+            (
+                "TREE",
+                {
+                    "plant_species": {"max_height_cm": 500.0},
+                    "plant_instance": {
+                        "planting_date": "2026-01-01",
+                        "current_height_cm": 100.0,
+                    },
+                },
+                date(2031, 1, 1),
+            ),
+            ("FENCE", {}, None),
+            ("GENERIC_RECTANGLE", {}, None),
+        ],
+    )
+    def test_the_public_entry_points_are_projections(
+        self, object_type: str, metadata: dict, at_date: date | None,
+    ) -> None:
+        height, source = resolve_height(object_type, metadata, at_date)
+        assert effective_height_cm(object_type, metadata, at_date) == height
+        assert height_source_at(object_type, metadata, at_date) == source
+        assert height_source(object_type, metadata) == resolve_height(object_type, metadata)[1]
+
+    def test_the_growth_branch_reports_grown(self) -> None:
+        metadata = {
+            "plant_species": {"max_height_cm": 500.0},
+            "plant_instance": {
+                "planting_date": "2026-01-01",
+                "current_height_cm": 100.0,
+            },
+        }
+        height, source = resolve_height("TREE", metadata, date(2031, 1, 1))
+        assert source == SOURCE_GROWN
+        assert height == pytest.approx(300.0, abs=2.0)
+        # Without a date the same metadata is the static CURRENT branch.
+        assert height_source("TREE", metadata) == SOURCE_CURRENT
 
 
 class TestOpenStructuresHeightField:

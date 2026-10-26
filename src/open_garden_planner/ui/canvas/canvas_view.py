@@ -1914,6 +1914,9 @@ class CanvasView(QGraphicsView):
                     return
                 species_obj = entry.species
 
+            from open_garden_planner.core.plant_sizing import (  # noqa: PLC0415
+                species_drop_diameter_cm,
+            )
             from open_garden_planner.services.bundled_species_db import (  # noqa: PLC0415
                 merge_calendar_data,
             )
@@ -1934,11 +1937,7 @@ class CanvasView(QGraphicsView):
                 obj_type = ObjectType.PERENNIAL
                 cat = PlantCategory.FLOWERING_PERENNIAL
 
-            if species_obj.max_spread_cm and species_obj.max_spread_cm > 0:
-                diameter = species_obj.max_spread_cm
-            else:
-                size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
-                diameter = size_map.get(tool_type, 60.0)
+            diameter = species_drop_diameter_cm(species_obj.to_dict(), obj_type.name)
 
             merged_dict = merge_calendar_data(species_obj.to_dict())
             self._create_plant_item_at_scene_pos(
@@ -1976,9 +1975,6 @@ class CanvasView(QGraphicsView):
 
         # For plant tools (circle-based), create the item directly at the drop location
         if tool_type in (TT.TREE, TT.SHRUB, TT.PERENNIAL):
-            size_map = {TT.TREE: 200.0, TT.SHRUB: 100.0, TT.PERENNIAL: 60.0}
-            default_diameter = size_map.get(tool_type, 100.0)
-
             obj_map = {
                 TT.TREE: ObjectType.TREE,
                 TT.SHRUB: ObjectType.SHRUB,
@@ -1986,11 +1982,22 @@ class CanvasView(QGraphicsView):
             }
             obj_type = obj_map.get(tool_type, ObjectType.TREE)
 
+            # A gallery entry that names a known species is planted at its real
+            # mature spread, exactly like a Plant Database or Plant Lists drop;
+            # the type default is only for an unknown/custom name. An 8 m apple
+            # tree dropped 2 m wide made the 3D tree unnaturally slim while its
+            # height came from the species (#596).
+            from open_garden_planner.core.plant_sizing import species_drop_diameter_cm  # noqa: PLC0415
+            from open_garden_planner.services.bundled_species_db import lookup_species  # noqa: PLC0415
+
+            record = lookup_species(species) if species else None
+            diameter = species_drop_diameter_cm(record, obj_type.name)
+
             self._create_plant_item_at_scene_pos(
                 scene_pos=scene_pos,
                 tool_type=tool_type,
                 obj_type=obj_type,
-                radius=default_diameter / 2,
+                radius=diameter / 2,
                 species_name=species,
                 plant_category=plant_category,
             )

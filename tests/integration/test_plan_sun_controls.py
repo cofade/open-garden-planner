@@ -548,9 +548,13 @@ def test_groups_wrap_without_clipping_and_calendar_fits(win, qtbot, width):
 @pytest.mark.parametrize("theme", [None, "dark"])
 @pytest.mark.parametrize("language", ["de", "es"])
 @pytest.mark.parametrize("font_points", [9, 10])
-def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_points, theme):
+def test_translated_controls_fit_two_rows_at_narrow_width(
+    qtbot, language, font_points, theme, ui_font_family,
+):
     # themed too: the theme's padding put German at 10 pt on a third row once the
-    # Today button made room for "Vergangenheit" (PR #584 review)
+    # Today button made room for "Vergangenheit" (PR #584 review). The family is
+    # the session's real one (PF-TST-26): offscreen Windows has no font database,
+    # so conftest registers a Windows face instead of measuring the box engine.
     from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.ui.theme import ThemeMode, apply_theme, is_dark_theme
 
@@ -559,7 +563,8 @@ def test_translated_controls_fit_two_rows_at_narrow_width(qtbot, language, font_
     original_stylesheet = app.styleSheet()
     original_theme = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
     try:
-        app.setFont(QFont("Verdana", font_points))
+        app.setFont(QFont(ui_font_family, font_points))
+
         assert load_translator(app, language)
         if theme is not None:
             apply_theme(app, ThemeMode(theme))

@@ -198,3 +198,9 @@ scripts/.verify_lod_removal_mutations.lock
 # rewrites .github/workflows/ci.yml; never belong in the tree.
 scripts/.replay_gate_mutations.lock
 scripts/.replay_gate_mutations.backup
+
+# Frozen-app version module written by installer/build_installer.py for ONE
+# PyInstaller run and removed afterwards (a release version may be ahead of
+# pyproject.toml). A direct PyInstaller build has no such file and falls back
+# to open_garden_planner.__version__.
+src/open_garden_planner/_version.py

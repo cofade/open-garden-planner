@@ -386,6 +386,8 @@ TRANSLATIONS = {
         "{title} — {names}": "{title} — {names}",
     },
     "PropertiesPanel": {
+        "H: ": "Al: ",
+        "W: ": "An: ",
         "0 = auto-compute from footprint × height; set a value to override": "0 = calcular automáticamente a partir de huella × altura; introduzca un valor para anular",
         "Arrange": "Organizar",
         "Auto": "Automático",

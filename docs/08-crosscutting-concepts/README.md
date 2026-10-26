@@ -275,6 +275,22 @@ Three further rules, each gated, each worth understanding before touching this:
   `isolate_qsettings`'s teardown, which restores the captured `defaultFormat()`
   and then asserts it had not changed — a tripwire, not a silent repair.
 
+**The chokepoint refuses an unsafe production context (#587).** A process that is
+not the product or a deliberately isolated script has no business opening the
+owner's registry. `create_qsettings()` therefore raises `SettingsIsolationError`
+when the module holds the **production** names and any of these is true: the Qt
+platform is `offscreen`/`minimal` (the product never runs there), or an exact
+agent-session variable is set (`CODEX_SANDBOX`, `CODEX_HOME`, `CLAUDECODE`,
+`CLAUDE_CODE*`, `OPENCODE*` — exact names, so `CODEX_API_KEY` does not trigger
+it). `OGP_PRODUCT_PROCESS=1`, set by `main()` in `main.py` (not at module import:
+a probe that imports `main` for a helper must not inherit the permission), is
+the product's way through. A test or script that rebinds the names is allowed;
+`script_isolation.isolate_settings()` does that, so no second marker is needed.
+`OGP_ALLOW_PRODUCTION_SETTINGS=1` is the explicit override for a one-off tool;
+neither the product nor the suite sets it. A plain desktop shell with production
+names is allowed — that is how the app runs; the guard refuses headless and
+agent/tooling contexts. Pinned by `tests/unit/test_settings_isolation_guard.py`.
+
 **Child processes.** The redirection lives in the test PROCESS. A child that a test
 starts does not import `tests/conftest.py`, and on Windows no environment variable
 moves the store — it is a registry key. A child that imports the app and builds a
@@ -466,6 +482,18 @@ moves into handle tooltips, and only edges long enough on screen get a midpoint.
 re-sample; a handle that is currently being dragged is never removed.
 The saved geometry is never changed by this: the tests compare the polygon
 before and after entering, zooming and leaving edit mode.
+
+**A pan inside the sampled region does not re-sample (#594).** The sample is
+taken over the viewport grown by `DENSE_HANDLE_SPACING_PX` (24 viewport pixels) —
+the same region `_dense_overlay_indices` tests candidates in. While the new
+viewport stays inside that scene region and the item has not moved, every
+now-visible vertex was a candidate and the chosen indices keep their pairwise
+screen spacing under translation. A zoom, a pose/geometry change, or a pan that
+leaves the region samples again. Measured on a 16 384-vertex polygon (the
+loader's cap): ~98 ms per forced re-sample, 0.01 ms when the cached sample is
+reused; the pin is a call count on `_dense_overlay_indices`, not a timer.
+`_remember_dense_sample` / `_dense_sample_covers_view` in
+`ui/canvas/items/resize_handle.py`.
 
 ## 8.10 Integration Test Policy
 
@@ -674,7 +702,7 @@ def canvas(qtbot):
 
 Integration tests run automatically in CI (`ci.yml`) alongside unit and widget tests. Qt rendering uses `QT_QPA_PLATFORM=offscreen` — no display server required.
 
-**Fonts on the dev box (PF-TST-26).** On Windows the `offscreen` platform has no font database: Qt falls back to a box engine in which every glyph is as wide as the pixel size and every advance is a whole number (Verdana 9 pt "Today": 60 px, really 37 px). A width, a row count or a rounding claim measured there says nothing about real fonts. This is also why the Plan & Sun strip's layout tests fail locally and pass on CI's Linux, which has real fonts (#573). For real font metrics without a window on screen, run with `QT_QPA_PLATFORM=minimal:enable_fonts` (`tests/conftest.py` only sets `offscreen` as a default):
+**Fonts on the dev box (PF-TST-26, #562/#573).** On Windows the `offscreen` platform has no font database: Qt falls back to a box engine in which every glyph is as wide as the pixel size and every advance is a whole number (Verdana 9 pt "Today": 60 px, really 34–37 px). A width, a row count or a rounding claim measured there says nothing about real fonts. The suite now registers `verdana.ttf`, `arial.ttf` and `segoeui.ttf` from `%WINDIR%/Fonts` once in the session fixture `tests/conftest.py::ui_font_family`, and makes Verdana 10 the application font when the platform's database is empty. `tests/unit/test_test_font_contract.py` fails if either the chosen family or the application font resolves to the box engine. Measured: `tests/integration/test_plan_sun_controls.py` went from 20 failed / 55 passed / 3 skipped to **78 passed in 76.9 s** on the Windows dev box; Linux CI already had real fonts. `test_plan_timeline.py` no longer registers `arial.ttf` inside one test and leaves it in the process-global database; the session fixture owns it. For real font metrics without a window on screen, `minimal:enable_fonts` remains the manual alternative (`tests/conftest.py` only sets `offscreen` as a default):
 
 ```bash
 QT_QPA_PLATFORM="minimal:enable_fonts" venv/Scripts/python.exe -m pytest tests/integration/test_plan_sun_controls.py -n 0
@@ -4101,10 +4129,25 @@ cleanup). Only the four writers in 8.25.1 ever touch `stack_order`.
 
 **A command can move an item between the bands** — a type change makes a shed a
 lawn, a group of lawns is made or broken. `CanvasScene._restack_ground_changes`
-refreshes each layer holding an item whose band no longer matches `on_ground`, after
-every executed, undone or redone command (`stack_changed`, wired in
+refreshes each layer holding an item whose band no longer matches `on_ground` after
+an executed, undone or redone command (`stack_changed`, wired in
 `set_command_manager`). It costs about 1 ms on 500 items and restacks nothing when
 nothing moved between the bands.
+
+Since #592 that scan runs **only when the command can reclassify something**. The
+base `Command.changes_ground_band` is `True`, so an unclassified or future command
+keeps the safe scan; the move/resize/rotate/vertex/curve/copy/link/constraint
+commands say `False`. Create is neutral because `addItem` takes the synchronous
+derivation for a ground surface and bulk adds end in `_update_items_z_order`;
+Delete/Group/Ungroup/Boolean/ChangeProperty keep the scan. The
+same command-boundary work included the lock badge: `update_dimension_lines` used
+to call `refresh_lock_badge` on every item, and each call walked the whole
+constraint dict — 600 single-item commands produced 360 600 badge refreshes on a
+600-item plan. `ConstraintGraph.fixed_item_ids()` gives the set of items that can
+carry a badge; the loop refreshes those plus any item already showing one (so an
+unlock clears it) and skips everything else. Measured on the dev box, 600 single
+adds: 0.31 s → 0.11 s; the pin counts zero classification calls and zero badge
+refreshes for a neutral command, and still pins the badge and the band change.
 
 Beyond `addItem`'s automatic refresh, an **explicit** refresh is needed
 wherever an item becomes top-level or gets re-linked to a parent without

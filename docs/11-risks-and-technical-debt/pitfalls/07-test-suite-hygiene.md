@@ -430,3 +430,23 @@ The suite silences the dialog for every test (PF-TST-11), so the startup path ha
 pin at all. `tests/integration/test_startup_welcome.py` now runs it: the dialog, its
 recent plans, and its wiring to the window. It cannot see a flag stored as false:
 the app then does what the setting says.
+
+### PF-TST-28
+
+- **Rule:** Windows' `offscreen` Qt platform has no font database; every family resolves to a box engine whose glyphs are all one em wide. Register a real Windows face once in the session fixture and make it the application font before measuring a width, a row count or a rounding. `test_plan_timeline.py` registering `arial.ttf` inside one test and never removing it is the leak, not the fix.
+- **Pinned by:** `tests/unit/test_test_font_contract.py`; `tests/integration/test_plan_sun_controls.py`
+- **Source:** #562, #573
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Verdana 9 pt "Today" measures 60 px on the box engine and 34–37 px on a real one, so the Plan & Sun strip's row count was 3–4 instead of 2 and 20 cases failed only on the Windows dev box while Linux CI (fontconfig) passed. Registering `verdana.ttf`/`arial.ttf`/`segoeui.ttf` and setting `qapp.setFont` took the file from 20 failed / 55 passed / 3 skipped to 78 passed in 76.9 s. The contract test fails if the fixture stops producing a real engine: the box engine's `horizontalAdvance("i")` equals `horizontalAdvance("W")`.
+
+### PF-TST-29
+
+- **Rule:** A probe that builds the app is refused the owner's real settings store when it runs under `offscreen`/`minimal`, or in an agent/tooling shell without the product's entry-point marker. `create_qsettings()` is the guard; `scripts/script_isolation.isolate()` and the product's `main.py` are the two sanctioned ways through. A throwaway QApplication name and `QSettings.setDefaultFormat()` redirect nothing.
+- **Pinned by:** `tests/unit/test_settings_isolation_guard.py`
+- **Source:** #587
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The guard keys on the module's production names, the Qt platform and exact agent-session variables (`CODEX_SANDBOX`, `OPENCODE_SESSION_ID`, …). `OGP_PRODUCT_PROCESS`, set inside `main()` (not at import), lets the product through; `script_isolation` rebinds the names, which is the other sanctioned way. `CODEX_API_KEY`/`GEMINI_API_KEY` are deliberately not markers. The explicit `OGP_ALLOW_PRODUCTION_SETTINGS` override exists for a one-off tool that really must read the real store; it is never set by the product or the suite.

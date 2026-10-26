@@ -47,13 +47,15 @@ NOT_ISOLATED: dict[str, str] = {
         "the isolation itself: it imports app.settings inside the function that rebinds its names",
     "dogfood_agent_api.py":
         "drives the developer's REAL app on purpose (the Agent API against the installed exe): it "
-        "snapshots the real settings, Recent Files included, and restores them itself",
+        "snapshots the real settings, Recent Files included, and restores them itself; it sets "
+        "OGP_ALLOW_PRODUCTION_SETTINGS so the #587 guard does not refuse it in a tooling shell",
     "live_capture_harness.py":
         "a live harness for the real map picker with the developer's own API key and web profile; "
         "it builds a dialog and saves or loads no plan",
     "validate_exports.py":
         "a personal one-off: it loads the developer's OWN plan from Downloads and exports it — the "
-        "Recent Files entry it records is that plan",
+        "Recent Files entry it records is that plan; it sets OGP_ALLOW_PRODUCTION_SETTINGS so the "
+        "#587 guard does not refuse it on its headless Qt platform",
     "svg_preview.py":
         "builds a QApplication to rasterise one SVG; imports nothing of the app, builds no store",
     "measure_harvest_offsets.py":

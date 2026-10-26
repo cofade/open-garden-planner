@@ -17,6 +17,14 @@ SRC = ROOT / "src"
 RESOURCES = SRC / "open_garden_planner" / "resources"
 INSTALLER = ROOT / "installer"
 
+# The frozen app's version module is written by build_installer.py (a release
+# version may lead pyproject.toml until the version-sync PR) and imported
+# DYNAMICALLY by services/update_checker.py, so a direct PyInstaller build has
+# no file to bundle and falls back to __version__. PyInstaller sees only static
+# imports: a release build must list the module when it exists, or the release
+# exe's About would report the previous synced version (PF-CI-15, #596).
+GENERATED_VERSION_MODULE = SRC / "open_garden_planner" / "_version.py"
+
 # Collect all resource files preserving directory structure
 datas = []
 
@@ -241,7 +249,9 @@ a = Analysis(
         "ezdxf",
         "ezdxf.xclip",
         "ezdxf.fonts",
-    ] + _mcp_hiddenimports,
+    ]
+    + (["open_garden_planner._version"] if GENERATED_VERSION_MODULE.exists() else [])
+    + _mcp_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

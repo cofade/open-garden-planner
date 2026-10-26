@@ -237,6 +237,97 @@ def isolate_qsettings():
     )
 
 
+# ── One real font engine for the whole suite (PF-TST-26, #562/#573) ──────────
+# Windows' `offscreen` platform has no font database: every family resolves to a
+# box engine whose glyphs are all one em wide (Verdana 9 pt "Today" measures
+# 60 px, really 34–37 px). A row count or a rounding claim measured there says
+# nothing about a real font, which is why the Plan & Sun strip's layout tests
+# failed locally and passed on CI's Linux (which has fontconfig). Register a
+# real Windows face once, and make it the application font, so every test in the
+# session measures the same real engine. `test_plan_timeline.py` used to
+# register `arial.ttf` inside one test and never remove it; that leak is gone.
+_WINDOWS_TEST_FONTS = ("verdana.ttf", "arial.ttf", "segoeui.ttf")
+_REAL_FONT_CANDIDATES = (
+    "Verdana", "DejaVu Sans", "Noto Sans", "Liberation Sans", "Arial", "Segoe UI",
+)
+
+
+def _register_windows_offscreen_fonts() -> str | None:
+    """Register real Windows faces when the platform has none; the chosen family.
+
+    Returns ``None`` when the process already has a real font database (native
+    Windows, or ``minimal:enable_fonts``) or when no Windows face can be found.
+    """
+    from PyQt6.QtGui import QFont, QFontDatabase, QFontMetrics
+
+    if sys.platform != "win32":
+        return None
+    probe = QFontMetrics(QFont())
+    if QFontDatabase.families() and probe.horizontalAdvance("i") != probe.horizontalAdvance("W"):
+        return None  # a real database already
+    fonts = Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts"
+    families: list[str] = []
+    for filename in _WINDOWS_TEST_FONTS:
+        path = fonts / filename
+        if not path.is_file():
+            continue
+        font_id = QFontDatabase.addApplicationFont(str(path))
+        if font_id >= 0:
+            families.extend(QFontDatabase.applicationFontFamilies(font_id))
+    if not families:
+        return None
+    return next((family for family in _REAL_FONT_CANDIDATES if family in families), families[0])
+
+
+@pytest.fixture(scope="session")
+def ui_font_family(qapp) -> str:
+    """The real family the suite's text metrics are measured with (PF-TST-26).
+
+    On Windows' offscreen platform this registers the real Windows faces and
+    sets the application font to one of them; on Linux/macOS fontconfig already
+    provides real metrics, so the first available family is reported and the
+    application font is left alone. The Plan & Sun layout tests set this family
+    explicitly rather than naming one that exists only on Windows.
+    """
+    from PyQt6.QtGui import QFont, QFontDatabase
+
+    registered = _register_windows_offscreen_fonts()
+    if registered is not None:
+        qapp.setFont(QFont(registered, 10))
+        return registered
+    families = set(QFontDatabase.families())
+    for family in _REAL_FONT_CANDIDATES:
+        if family in families:
+            return family
+    return qapp.font().family()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def deterministic_ui_font(ui_font_family):
+    """Session-wide: every test measures the same real font engine (PF-TST-26)."""
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _restore_settings_guard_environment():
+    """Put the settings-guard markers back around every test.
+
+    ``main()`` sets ``OGP_PRODUCT_PROCESS`` and never clears it. ``monkeypatch``
+    cannot undo a direct ``os.environ`` write, so a test that calls ``main()``
+    would otherwise grant every later test in that xdist worker the product's
+    permission — and a future guard test that forgot to delete it would pass
+    vacuously.
+    """
+    names = ("OGP_PRODUCT_PROCESS", "OGP_ALLOW_PRODUCTION_SETTINGS")
+    before = {name: os.environ.get(name) for name in names}
+    yield
+    for name, value in before.items():
+        if value is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = value
+
+
 @pytest.fixture(autouse=True)
 def _reset_app_settings():
     """Give every test a pristine settings store, independent of run order.

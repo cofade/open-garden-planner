@@ -1,6 +1,7 @@
 """Main entry point for Open Garden Planner."""
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -89,8 +90,10 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
     block below: exercise the REAL artifact's lazily-loaded parts — the Agent API
     server binds a port, the A1 checks run, and the 3D engine (Qt Quick 3D) loads
     its scene from the bundle and RENDERS a frame, which fails on a mismatched or
-    missing Qt Quick 3D library as the #277 import did. Returns non-zero on any
-    failure so a broken frozen build fails the release instead of shipping.
+    missing Qt Quick 3D library as the #277 import did. It also checks the version the
+    build reports against OGP_EXPECTED_VERSION when the workflow sets it (PF-CI-15).
+    Returns non-zero on any failure so a broken frozen build fails the release instead
+    of shipping.
 
     A windowed (console=False) frozen exe is given no CONSOLE, so when it is
     launched detached -- `Start-Process -Wait -PassThru`, what CI does -- it has
@@ -99,6 +102,29 @@ def _run_selftest(log: "RenderLog | None" = None) -> int:
     below are visible; that is the local/dev case.
     """
     ok = True
+
+    # --- version (PF-CI-15, #596) -----------------------------------------
+    #
+    # About is read only by hand, so the frozen gate would pass a bundle whose
+    # About reports a tracked stale version (the #596 manual finding). A direct
+    # build checks the shape; the release and pull-request workflows also pass
+    # the version they are building in OGP_EXPECTED_VERSION.
+    try:
+        from open_garden_planner.services.update_checker import get_current_version
+
+        version = get_current_version()
+        parts = version.split(".")
+        if len(parts) != 3 or not all(part.isascii() and part.isdigit() for part in parts):
+            raise AssertionError(f"version {version!r} is not X.Y.Z")
+        expected = os.environ.get("OGP_EXPECTED_VERSION", "").strip()
+        if expected and version != expected:
+            raise AssertionError(f"version {version!r} != OGP_EXPECTED_VERSION {expected!r}")
+        if log is not None:
+            log("selftest_version", version=version, expected=expected or "not set")
+        print(f"  OK   version {version}")
+    except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+        ok = False
+        print(f"  FAIL version selftest -> {exc!r}")
 
     # --- Agent API embedded server (issue #291) ---------------------------
     #
@@ -416,6 +442,14 @@ def _install_excepthook() -> None:
 
 def main() -> int:
     """Run the Open Garden Planner application."""
+    # This is the product's own entry point, so it is allowed to open the owner's
+    # real settings store even when launched from an agent/tooling shell (#587,
+    # ADR-041 addendum). Keep the name in sync with
+    # app.settings.PRODUCT_PROCESS_ENV; tests/unit/test_settings_isolation_guard.py
+    # pins it. Set HERE, not at module import: a probe that imports `main` for a
+    # helper must not inherit the product's permission. A probe that builds an
+    # application directly is refused unless it calls script_isolation first.
+    os.environ["OGP_PRODUCT_PROCESS"] = "1"
     # The process that supervises a running self-test (runlog.py). FIRST: its
     # arguments name what it supervises, and nothing of them may start anything else.
     if _SUPERVISOR_FLAG in sys.argv:

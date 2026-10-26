@@ -98,6 +98,22 @@ class TestSelfTest:
         assert _run_selftest() == 1
         assert "SELFTEST: FAIL" in capsys.readouterr().out
 
+    def test_a_mismatched_expected_version_fails_the_selftest(self, monkeypatch, capsys) -> None:
+        _stub_3d(monkeypatch)
+        monkeypatch.setenv("OGP_EXPECTED_VERSION", "9.9.9")
+        assert _run_selftest() == 1
+        out = capsys.readouterr().out
+        assert "FAIL version selftest" in out
+        assert "SELFTEST: FAIL" in out
+
+    def test_the_reported_version_is_the_running_package_version(self, monkeypatch, capsys) -> None:
+        import open_garden_planner
+
+        _stub_3d(monkeypatch)
+        monkeypatch.delenv("OGP_EXPECTED_VERSION", raising=False)
+        assert _run_selftest() == 0
+        assert f"OK   version {open_garden_planner.__version__}" in capsys.readouterr().out
+
     def test_the_real_blocks_build_no_settings_store(self, monkeypatch) -> None:
         """The real Agent API server and A1 checks, in this process: no settings
         store is asked for. (The 3D block and the whole command are shown the same way
