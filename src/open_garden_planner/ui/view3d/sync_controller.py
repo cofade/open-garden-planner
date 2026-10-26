@@ -583,10 +583,12 @@ class Scene3DController(QObject):
         is never dropped while snapshots go on, and with the view closed none runs
         (the contract story measured about 30 MB for a large plan's outlines)."""
         from open_garden_planner.core.scene3d.builders.plants import clear_shape_cache
+        from open_garden_planner.core.scene3d.builders.surfaces import clear_lawn_cache
 
         from .snapshot import clear_outline_cache
 
         clear_shape_cache()    # the plant builder's shapes
+        clear_lawn_cache()     # the lawns' blades (L4)
         clear_outline_cache()  # the record layer's outlines: regions, cuts, ring facts
         if self._baker is not None:
             # the ground's tiles: a new plan must not show the old one's ground as

@@ -6996,7 +6996,12 @@ construction, `surfaces.MAX_SWARD_GRID` points and `MAX_SWARD_WORK` point-in-rin
 so a thin lawn in a huge box gets a sparser sward). All are geometry for `SceneSync`,
 and all are `record.BUILD_ONLY_PARAMS`: the
 ground bake compares records with `Record.same_ground_geometry`, which ignores them,
-so a cut-out that moves rebuilds the lawn's blades without re-baking its tiles.
+so a cut-out that moves rebuilds the lawn's blades without re-baking its tiles. The
+lawn's blades are remembered whole (`surfaces.SWARD_CACHE_BYTES`, 64 MB, least recently
+used first), so that rebuild only re-masks them: a move of a flat item over the lawn
+costs 4.6 / 12.8 / 8.0 ms on bench_small / bench_large / bench_built (median of 15,
+2026-10-26; 11.7 / 28.2 / 18.1 ms when every blade was regrown). The sync controller
+forgets them with the plan (`clear_lawn_cache`).
 
 **Ground detail.** A part that is relief on painted ground sets
 `MeshPart.ground_detail` (and must not cast a shadow: `MeshPart.__post_init__`). It is

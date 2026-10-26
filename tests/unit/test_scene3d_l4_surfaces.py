@@ -253,10 +253,22 @@ def test_a_lawn_s_blades_are_remembered_by_its_own_geometry() -> None:
     surfaces.clear_lawn_cache()
     REGISTRY.build(lawn())
     REGISTRY.build(lawn({"lawn_cutouts": (((-10.0, -10.0), (10.0, -10.0), (0.0, 10.0)),)}))
-    info = surfaces._sward.cache_info()
-    assert info.misses == 1 and info.hits == 1  # the cut-out re-masks the same sward
+    info = surfaces.sward_cache_info()
+    assert info["misses"] == 1 and info["hits"] == 1  # the cut-out re-masks the same sward
+    assert 0 < info["bytes"] <= surfaces.SWARD_CACHE_BYTES
     surfaces.clear_lawn_cache()
-    assert surfaces._sward.cache_info().currsize == 0
+    assert surfaces.sward_cache_info() == {"hits": 0, "misses": 0, "entries": 0, "bytes": 0}
+
+
+def test_the_sward_memory_is_capped_in_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
+    surfaces.clear_lawn_cache()
+    one = surfaces._sward((rectangle(800.0, 600.0),), (), "a", None).nbytes
+    monkeypatch.setattr(surfaces, "SWARD_CACHE_BYTES", int(2.5 * one))
+    for seed in "bcdef":
+        surfaces._sward((rectangle(800.0, 600.0),), (), seed, None)
+    info = surfaces.sward_cache_info()
+    assert info["entries"] == 2 and info["bytes"] <= 2.5 * one
+    surfaces.clear_lawn_cache()
 
 
 # ── the context pass ─────────────────────────────────────────────────────────

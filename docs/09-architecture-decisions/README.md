@@ -7479,7 +7479,10 @@ owner added that a path capped at 20 px is not a path.
    use going to the others. They grow nowhere under a flat item painted above the
    lawn, nor inside an enclosed building on it (at most 96 cut-outs per lawn, the
    largest first). They are built at every preset, because a preset step changes no
-   geometry, and drawn from High up (QML `lawnBlades`).
+   geometry, and drawn from High up (QML `lawnBlades`). A flat item moved over a lawn
+   rebuilds its blades; the blades are remembered whole (64 MB cap), so that rebuild
+   re-masks them in 4.6–12.8 ms on the bench plans (median of 15) instead of
+   regrowing them in 11.7–28.2 ms.
 8. **Detail normals come from the baked ground, in a shader.** From Medium up, the
    ground tiles use `ground.frag`, which tilts the normal by the luminance gradient
    of the tile's own texture (strength 1.0, slope clamped to ±0.35). No normal-map

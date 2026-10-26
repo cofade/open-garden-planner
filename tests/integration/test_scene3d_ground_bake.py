@@ -703,7 +703,10 @@ def _loaded(plan: str) -> CanvasScene:
 
 
 def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
-    """The largest painted item of the plan that is no longer than 3 m."""
+    """The largest painted item of the plan that is no longer than 3 m. A plan without
+    one (since L4, #388, a plan's small flat items were its furniture sprites, and
+    furniture is built now) gets a 2.5 x 1.5 m terrace in its middle, baked before
+    the gate measures anything."""
     painted = set(bake.baker.painted_ids())
     best: tuple[float, Any] | None = None
     for item in scene.items():
@@ -713,7 +716,15 @@ def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
         size = max(rect.width(), rect.height())
         if size <= 300.0 and (best is None or size > best[0]):
             best = (size, item)
-    assert best is not None
+    if best is None:
+        middle = scene.sceneRect().center()
+        added = RectangleItem(middle.x() - 125.0, middle.y() - 75.0, 250.0, 150.0,
+                              object_type=ObjectType.TERRACE_PATIO)
+        scene.addItem(added)
+        bake.step()
+        bake.finish()
+        assert str(added.item_id) in set(bake.baker.painted_ids())
+        return added
     return best[1]
 
 
@@ -725,8 +736,10 @@ class TestOneSmallEdit:
     # follows a measurement that travels in an attribute (#528) - so it demands
     # this marker here.
     @pytest.mark.perf
-    @pytest.mark.parametrize(("plan", "tiles", "painted"), [("bench_small.ogp", 20, 11),
-                                                           ("bench_large.ogp", 60, 45)])
+    # painted: since L4 (#388) the objects without a height are built, no longer painted
+    # (bench_small 11 -> 9, bench_large 45 -> 25)
+    @pytest.mark.parametrize(("plan", "tiles", "painted"), [("bench_small.ogp", 20, 9),
+                                                           ("bench_large.ogp", 60, 25)])
     def test_a_move_repaints_at_most_four_tiles_in_ten_milliseconds(
             self, qtbot: Any, plan: str, tiles: int, painted: int) -> None:
         """G3 — with the time budget ON, as in the product. Move one flat item of at
@@ -752,8 +765,12 @@ class TestOneSmallEdit:
             delta = QPointF(37.5, -22.25) if index % 2 == 0 else QPointF(-37.5, 22.25)
             MoveItemsCommand([item], delta).execute()
             result = bake.step()
-            assert result == SceneDiff(transform=(str(item.item_id),))
-            assert baker.last_examined == 1
+            # L4 (#388): a flat item drawn over a lawn is one of its cut-outs, so the lawn's
+            # BLADES may be rebuilt too; the bake ignores that (build-only params) and still
+            # looks at the moved record alone
+            lawns = tuple(i for i in result.geometry if bake.sync.records[i].kind == "LAWN")
+            assert result == SceneDiff(transform=(str(item.item_id),), geometry=lawns)
+            assert baker.last_examined == 1 + len(lawns)  # each lawn compared, none repainted
             repainted = set(baker.last_repainted)
             while bake.sync.ground_pending:  # a pass the budget cut short (a loaded machine)
                 bake.sync.continue_ground()

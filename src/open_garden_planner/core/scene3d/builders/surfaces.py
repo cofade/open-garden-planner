@@ -33,10 +33,11 @@ the tallest is a deck's boards, 6 cm.
 from __future__ import annotations
 
 import math
-from functools import lru_cache
-from typing import Final
+from collections import OrderedDict
+from typing import Final, NamedTuple
 
 import numpy as np
+from numpy.typing import NDArray
 
 from ..build import BuilderRegistry, default_builder, item_seed, prism_mesh
 from ..mesh import Mesh, MeshPart
@@ -449,13 +450,10 @@ def _inside(points: F64, ring: F64) -> np.ndarray:
     return hit
 
 
-@lru_cache(maxsize=16)
-def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
-           wanted: int | None) -> tuple[F64, ...]:
+def _blades(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
+            wanted: int | None) -> tuple[F64, ...]:
     """The blades of a lawn before any cut-out: roots on a jittered grid inside its
-    regions, and each blade's height, heading, lean, width, shade and phase.
-    Remembered by the lawn's own geometry, so a path dragged across it re-masks
-    the same blades instead of growing new ones."""
+    regions, and each blade's height, heading, lean, width, shade and phase."""
     rings = [np.asarray(ring, dtype=np.float64) for ring in footprints]
     area = sum(abs(signed_area(ring)) for ring in rings)
     area -= sum(abs(signed_area(hole)) for group in holes for hole in group)
@@ -489,6 +487,86 @@ def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], se
             rng.uniform(0.1, 0.45, n), rng.uniform(0.8, 1.3, n), rng.uniform(0.82, 1.0, n), rng.random(n))
 
 
+class _Sward(NamedTuple):
+    """A lawn's blades as the engine gets them, before any cut-out: the roots
+    ``(n, 2)`` and, per blade, its five vertices' positions, normals, colours and
+    uvs (``(n, 5, 3|3|4|2)``, float32)."""
+
+    roots: F64
+    positions: NDArray[np.float32]
+    normals: NDArray[np.float32]
+    colors: NDArray[np.float32]
+    uvs: NDArray[np.float32]
+
+    @property
+    def nbytes(self) -> int:
+        return sum(int(array.nbytes) for array in self)
+
+
+#: A blade's two triangles at its foot and one at its tip, over its five vertices.
+_BLADE_CORNERS: Final = np.array([0, 1, 3, 0, 3, 2, 2, 3, 4])
+_BLADE_FRACTIONS: Final = np.array([0.0, 0.0, 0.45, 0.45, 1.0])
+
+
+def _grow(roots: F64, height: F64, heading: F64, lean: F64, width: F64, shade: F64,
+          phase: F64) -> _Sward:
+    """Every blade's vertices (``_Sward``)."""
+    k = len(roots)
+    direction = np.stack([np.cos(heading), np.sin(heading), np.zeros(k)], axis=1)
+    side = np.stack([-np.sin(heading), np.cos(heading), np.zeros(k)], axis=1)
+    base = np.concatenate([roots, np.full((k, 1), 0.3)], axis=1)
+    rows = []
+    for fraction, narrowing in ((0.0, 1.0), (0.45, 0.75), (1.0, 0.0)):
+        centre = (base + direction * (lean * height * fraction * fraction)[:, None]
+                  + np.array([0.0, 0.0, 1.0]) * (height * fraction)[:, None])
+        half = (width * narrowing * 0.5)[:, None]
+        rows.append((centre - side * half, centre + side * half))
+    positions = np.stack([rows[0][0], rows[0][1], rows[1][0], rows[1][1], rows[2][0]], axis=1)
+    normal = direction * 0.4 + np.array([0.0, 0.0, 1.0])
+    normal /= np.linalg.norm(normal, axis=1, keepdims=True)
+    normals = np.repeat(normal[:, None, :], 5, axis=1)
+    weight = (0.62 + 0.38 * _BLADE_FRACTIONS)[None, :] * shade[:, None]
+    colors = np.stack([weight, weight, weight, np.ones_like(weight)], axis=-1)
+    uvs = np.stack([np.broadcast_to(_BLADE_FRACTIONS, (k, 5)), np.repeat(phase[:, None], 5, axis=1)],
+                   axis=-1)
+    return _Sward(roots, *(np.ascontiguousarray(array, dtype=np.float32)
+                           for array in (positions, normals, colors, uvs)))
+
+
+#: The lawns' swards are remembered, keyed by the lawn's own geometry, seed and blade
+#: share, so a path or terrace dragged across a lawn only re-masks its blades: on
+#: bench_large a move rebuilt every blade in 28 ms (median of 15), measured
+#: 2026-10-26 (#388). At most this many bytes; the least recently used goes first.
+SWARD_CACHE_BYTES: Final = 64 * 1024 * 1024
+_SWARDS: OrderedDict[tuple[object, ...], _Sward] = OrderedDict()
+_SWARD_STATS: dict[str, int] = {"hits": 0, "misses": 0}
+
+
+def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
+           wanted: int | None) -> _Sward:
+    """The lawn's blades before any cut-out, remembered (``SWARD_CACHE_BYTES``)."""
+    key = (footprints, holes, seed, wanted)
+    held = _SWARDS.get(key)
+    if held is not None:
+        _SWARDS.move_to_end(key)
+        _SWARD_STATS["hits"] += 1
+        return held
+    _SWARD_STATS["misses"] += 1
+    grown = _grow(*_blades(footprints, holes, seed, wanted))
+    _SWARDS[key] = grown
+    total = sum(sward.nbytes for sward in _SWARDS.values())
+    while total > SWARD_CACHE_BYTES and len(_SWARDS) > 1:
+        _key, dropped = _SWARDS.popitem(last=False)
+        total -= dropped.nbytes
+    return grown
+
+
+def sward_cache_info() -> dict[str, int]:
+    """How the sward memory has done: hits, misses, entries and bytes held."""
+    return {**_SWARD_STATS, "entries": len(_SWARDS),
+            "bytes": sum(sward.nbytes for sward in _SWARDS.values())}
+
+
 def _cutouts(record: Record) -> list[F64]:
     value = record.params.get(PARAM_LAWN_CUTOUTS)
     if not isinstance(value, tuple):
@@ -506,7 +584,8 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
     seed = str(record.params.get(PARAM_SEED, ""))
     wanted = record.params.get(PARAM_LAWN_BLADES)
     share = wanted if isinstance(wanted, int) and not isinstance(wanted, bool) else None
-    roots, height, heading, lean, width, shade, phase = _sward(record.footprints, record.holes, seed, share)
+    sward = _sward(record.footprints, record.holes, seed, share)
+    roots = sward.roots
     if not len(roots):
         return ()
     keep = np.ones(len(roots), dtype=bool)
@@ -517,38 +596,21 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
         if near.any():
             index = np.flatnonzero(near)
             keep[index[_inside(roots[index], ring)]] = False
-    if not keep.any():
+    k = int(keep.sum())
+    if not k:
         return ()
-    roots, height, heading, lean, width, shade, phase = (
-        array[keep] for array in (roots, height, heading, lean, width, shade, phase))
-    k = len(roots)
-    direction = np.stack([np.cos(heading), np.sin(heading), np.zeros(k)], axis=1)
-    side = np.stack([-np.sin(heading), np.cos(heading), np.zeros(k)], axis=1)
-    base = np.concatenate([roots, np.full((k, 1), 0.3)], axis=1)
-    rows = []
-    for fraction, narrowing in ((0.0, 1.0), (0.45, 0.75), (1.0, 0.0)):
-        centre = (base + direction * (lean * height * fraction * fraction)[:, None]
-                  + np.array([0.0, 0.0, 1.0]) * (height * fraction)[:, None])
-        half = (width * narrowing * 0.5)[:, None]
-        rows.append((centre - side * half, centre + side * half))
-    positions = np.stack([rows[0][0], rows[0][1], rows[1][0], rows[1][1], rows[2][0]], axis=1).reshape(-1, 3)
-    normal = direction * 0.4 + np.array([0.0, 0.0, 1.0])
-    normal /= np.linalg.norm(normal, axis=1, keepdims=True)
-    normals = np.repeat(normal, 5, axis=0)
-    fractions = np.array([0.0, 0.0, 0.45, 0.45, 1.0])
-    weight = (0.62 + 0.38 * fractions)[None, :] * shade[:, None]
-    colors = np.stack([weight, weight, weight, np.ones_like(weight)], axis=-1).reshape(-1, 4)
-    uvs = np.stack([np.tile(fractions, k), np.repeat(phase, 5)], axis=1)
-    corner = np.array([0, 1, 3, 0, 3, 2, 2, 3, 4])
-    indices = (corner[None, :] + (np.arange(k) * 5)[:, None]).reshape(-1)
+    arrays = sward[1:] if k == len(roots) else tuple(array[keep] for array in sward[1:])
+    positions, normals, colors, uvs = arrays
+    indices = (_BLADE_CORNERS[None, :] + (np.arange(k) * 5)[:, None]).reshape(-1)
     mesh = Mesh.from_arrays(positions, normals, colors, uvs, indices)
     return (MeshPart(mesh, "grass", casts_shadow=False, tinted=True, name=LAWN_BLADES,
                      ground_detail=True),)
 
 
 def clear_lawn_cache() -> None:
-    """Forget every lawn's blades (a plan was closed)."""
-    _sward.cache_clear()
+    """Forget every lawn's blades (a plan was closed, the 3D view closed)."""
+    _SWARDS.clear()
+    _SWARD_STATS.update(hits=0, misses=0)
 
 
 BUILDERS: Final = {
@@ -565,5 +627,5 @@ def register(registry: BuilderRegistry) -> None:
         registry.register(kind, builder)
 
 
-__all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "clear_lawn_cache", "register",
+__all__ = ["BUILDERS", "DECK_PATTERNS", "KINDS", "LAWN_BLADES", "clear_lawn_cache", "register", "sward_cache_info",
            "walk_path"]
