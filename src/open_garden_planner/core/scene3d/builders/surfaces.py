@@ -46,8 +46,10 @@ from ..record import (
     PARAM_LAWN_BLADES,
     PARAM_LAWN_CUTOUTS,
     PARAM_PATH_STYLE,
+    PARAM_RADIUS_CM,
     PARAM_SEED,
     PARAM_SURFACE_PATTERN,
+    SHAPE_CIRCLE,
     Record,
     Ring,
 )
@@ -71,6 +73,9 @@ MIN_RELIEF_WIDTH_CM: Final = 20.0
 STONE_CM: Final = 4.0
 KERB_CM: Final = 3.0
 BOARD_TOP_CM: Final = 6.0
+#: A terrace's deck boards: low, because the furniture on a deck stands on the plan's
+#: ground (z 0) — at 6 cm a chair's legs sank into the boards (3D review of #388).
+DECK_TOP_CM: Final = 2.5
 WATER_CM: Final = 1.0
 #: A pond's coping: how far it reaches over the water, out over the bank, and up (cm).
 COPING_IN_CM: Final = 13.0
@@ -146,17 +151,84 @@ def _closed(record: Record) -> tuple[F64, bool]:
     return np.asarray(line, dtype=np.float64), closed
 
 
+def _offset_line(line: F64, closed: bool, offset: float) -> F64:
+    """``line`` moved ``offset`` cm to the left of travel, its joints kept inside the
+    path's own outline. The outline (``shadow_geometry.polyline_footprint``) squares
+    a bend off at half the path's width from the joint; a MITRED offset line reaches
+    ``offset / cos(turn / 2)`` there (3D review of #388: a gravel edging 18.6 cm past
+    the path). So on the outside of a bend the two segments' offset ends are joined
+    by a chord — no point further than ``|offset|`` from the joint — and on the inside
+    the two offset lines meet where they cross (the two ends where they do not)."""
+    points = np.asarray(line, dtype=np.float64)
+    if closed and len(points) > 1 and np.allclose(points[0], points[-1]):
+        points = points[:-1]
+    keep = np.ones(len(points), dtype=bool)
+    keep[1:] = np.linalg.norm(np.diff(points, axis=0), axis=1) > 1e-6
+    points = points[keep]
+    if len(points) < 2:
+        return points
+    starts = points if closed else points[:-1]
+    ends = np.roll(points, -1, axis=0) if closed else points[1:]
+    lengths = np.linalg.norm(ends - starts, axis=1)
+    if closed and lengths[-1] <= 1e-6:
+        starts, ends, lengths = starts[:-1], ends[:-1], lengths[:-1]
+    along = (ends - starts) / np.maximum(lengths, 1e-12)[:, None]
+    left = np.stack([-along[:, 1], along[:, 0]], axis=1)
+    out: list[F64] = [] if closed else [starts[0] + left[0] * offset]
+    for joint in (range(len(along)) if closed else range(1, len(along))):
+        before, after = joint - 1, joint
+        corner = starts[after]
+        first, second = corner + left[before] * offset, corner + left[after] * offset
+        turn = float(along[before, 0] * along[after, 1] - along[before, 1] * along[after, 0])
+        if abs(turn) < 1e-9:
+            out.append(first)
+            continue
+        if offset * turn > 0.0:  # the inside of the bend: where the two offset lines cross
+            gap = second - first
+            back = float(gap[0] * along[after, 1] - gap[1] * along[after, 0]) / turn
+            crossing = first + along[before] * back
+            forward = float(np.dot(crossing - second, along[after]))
+            if -lengths[before] <= back <= 0.0 and 0.0 <= forward <= lengths[after]:
+                out.append(crossing)
+                continue
+        out.extend((first, second))
+    if not closed:
+        out.append(ends[-1] + left[-1] * offset)
+    return np.asarray(out)
+
+
 def _rails(line: F64, closed: bool, offsets: tuple[float, ...], width: float, height: float,
            color: Color) -> list[Mesh]:
-    """Low rails swept along the line at each lateral ``offset`` (left of travel)."""
+    """Low rails swept along the line at each lateral ``offset`` (left of travel), each
+    along its own offset line (``_offset_line``: inside the path's outline)."""
     meshes = []
+    half = width / 2.0
+    cut = min(0.6, 0.3 * half, 0.3 * height)
+    profile = [(-half, 0.0), (half, 0.0), (half, height - cut), (half - cut, height),
+               (-half + cut, height), (-half, height - cut)]
     for offset in offsets:
-        half = width / 2.0
-        cut = min(0.6, 0.3 * half, 0.3 * height)
-        profile = [(offset - half, 0.0), (offset + half, 0.0), (offset + half, height - cut),
-                   (offset + half - cut, height), (offset - half + cut, height), (offset - half, height - cut)]
-        meshes.append(sweep(profile, line, color, closed=closed))
+        rail = _offset_line(line, closed, offset)
+        if len(rail) >= 2:
+            meshes.append(sweep(profile, rail, color, closed=closed))
     return meshes
+
+
+def _trimmed(line: F64, distance: float) -> F64:
+    """An open polyline shortened by ``distance`` at both ends (no points when it is
+    not longer than twice that)."""
+    lengths = np.linalg.norm(np.diff(line, axis=0), axis=1)
+    total = float(lengths.sum())
+    if total <= 2.0 * distance:
+        return line[:0]
+    reach = np.concatenate([[0.0], np.cumsum(lengths)])
+
+    def at(where: float) -> F64:
+        index = int(min(np.searchsorted(reach, where, side="right") - 1, len(lengths) - 1))
+        share = (where - reach[index]) / lengths[index] if lengths[index] > 0.0 else 0.0
+        return np.asarray(line[index] + (line[index + 1] - line[index]) * share)
+
+    inner = [line[k] for k in range(len(line)) if distance < reach[k] < total - distance]
+    return np.asarray([at(distance), *inner, at(total - distance)])
 
 
 def _on_ground(points: F64, record: Record, margin: float) -> np.ndarray:
@@ -195,6 +267,9 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
     line, closed = _closed(record)
     if len(line) < 2:
         return ()
+    # the 2D walk goes round a loop and on; the GROUND (``polyline_footprint``: the
+    # stroke with butt ends) is open at a loop's first point too — a square notch
+    # there — so the relief that follows the outline treats every path as open
     walked = np.concatenate([line, line[:1]]) if closed else line
     if style == "STEPPING_STONES":
         points, along = walk_path(walked, width * 1.8)
@@ -230,7 +305,13 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
                                 min(STONE_CM, 0.08 * width), min(2.0, 0.1 * width), angles, colors)
         return _relief([stones], "stones")
     if style == "WOODEN_BOARDWALK":
-        points, along = walk_path(walked, width * 0.35)
+        # a plank is 0.3 widths along the path: the first and the last stand half a
+        # plank in from an open path's ends (3D review of #388: centred on the end,
+        # it reached 15 cm past it)
+        planked = _trimmed(walked, 0.15 * width)
+        if len(planked) < 2:
+            return ()
+        points, along = walk_path(planked, width * 0.35)
         if not len(points) or len(points) > MAX_PATH_ELEMENTS:
             return ()
         angles = np.degrees(np.arctan2(along[:, 1], along[:, 0]))
@@ -239,16 +320,16 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
         top = min(BOARD_TOP_CM - 1.0, 0.08 * width)
         planks = bevelled_boxes(points, (0.3 * width, width), top - min(2.5, 0.5 * top), top,
                                 0.4, angles, colors)
-        stringers = _rails(line, closed, (-0.35 * width, 0.35 * width), min(6.0, 0.08 * width),
+        stringers = _rails(walked, False, (-0.35 * width, 0.35 * width), min(6.0, 0.08 * width),
                            top - min(2.5, 0.5 * top), _shade(0.7))
         return _relief([planks, *stringers], "boardwalk")
     if style == "PAVED_PATH":
         kerb = min(5.0, 0.06 * width)
-        return _relief(_rails(line, closed, (-width / 2.0 + kerb / 2.0, width / 2.0 - kerb / 2.0), kerb,
+        return _relief(_rails(walked, False, (-width / 2.0 + kerb / 2.0, width / 2.0 - kerb / 2.0), kerb,
                               min(KERB_CM, 0.05 * width), _shade(0.74)), "kerb")
     if style == "GRAVEL_PATH":
         edge = min(2.5, 0.04 * width)
-        meshes = _rails(line, closed, (-width / 2.0 + edge / 2.0, width / 2.0 - edge / 2.0), edge,
+        meshes = _rails(walked, False, (-width / 2.0 + edge / 2.0, width / 2.0 - edge / 2.0), edge,
                         min(KERB_CM, 0.05 * width), _shade(0.55))
         points, along = walk_path(walked, 25.0)
         if 0 < len(points) <= MAX_PATH_ELEMENTS:
@@ -365,17 +446,35 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
         return (MeshPart(mesh, "vc", tinted=True, name="deck" if deck else "platform"),) \
             if mesh.vertex_count else ()
     if deck:
-        return _relief(_deck(record, BOARD_TOP_CM, solid=False), "deck")
+        return _relief(_deck(record, DECK_TOP_CM, solid=False), "deck")
     return _relief(_kerbs(record, KERB_CM, 8.0, _shade(0.72)), "kerb")
 
 
 # ── ponds ────────────────────────────────────────────────────────────────────
 
 
+#: A round pond's water and coping are built from this many segments: the record's
+#: 24-point ring showed its facets at 3-4 m (3D review of #388).
+ROUND_POND_SEGMENTS: Final = 64
+
+
+def _pond_regions(record: Record) -> tuple[tuple[Ring, tuple[Ring, ...]], ...]:
+    """The pond's regions — for a round pond (one plain circle) its circle of
+    ``ROUND_POND_SEGMENTS`` points instead of the record's coarser ring."""
+    radius = record.params.get(PARAM_RADIUS_CM)
+    regions = record.regions
+    if (record.shape == SHAPE_CIRCLE and isinstance(radius, int | float) and not isinstance(radius, bool)
+            and 0.0 < radius < 1e6 and len(regions) == 1 and not regions[0][1]):
+        turn = np.linspace(0.0, 2.0 * math.pi, ROUND_POND_SEGMENTS, endpoint=False)
+        ring = tuple((float(radius * math.cos(a)), float(radius * math.sin(a))) for a in turn)
+        return ((ring, ()),)
+    return tuple(regions)
+
+
 def _water_plan(record: Record) -> F64 | None:
-    """The record's regions (holes cut out) as plan triangles (t, 3, 2), or None."""
+    """The pond's regions (holes cut out) as plan triangles (t, 3, 2), or None."""
     triangles: list[F64] = []
-    for outer, holes in record.regions:
+    for outer, holes in _pond_regions(record):
         try:
             vertices, faces = cut_region(tuple(outer), tuple(holes))
         except ValueError:
@@ -397,7 +496,7 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
     the water a hand under the wall's top."""
     walls = []
     thick = min(18.0, 0.2 * min(np.ptp(np.asarray(record.footprints[0]), axis=0)))
-    for outer, holes in record.regions:
+    for outer, holes in _pond_regions(record):
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)
             if len(points) < 3:
@@ -419,7 +518,7 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
         return _raised_pool(record, record.height_cm, plan)
     water = _water(plan, WATER_CM)
     coping = []
-    for outer, holes in record.regions:
+    for outer, holes in _pond_regions(record):
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)
             if len(points) < 3:
@@ -484,7 +583,7 @@ def _blades(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], s
     roots = roots[keep]
     n = len(roots)
     return (roots, BLADE_CM * rng.uniform(0.7, 1.3, n), rng.uniform(0.0, 2.0 * math.pi, n),
-            rng.uniform(0.1, 0.45, n), rng.uniform(0.8, 1.3, n), rng.uniform(0.82, 1.0, n), rng.random(n))
+            rng.uniform(0.1, 0.45, n), rng.uniform(0.8, 1.3, n), rng.uniform(0.92, 1.0, n), rng.random(n))
 
 
 class _Sward(NamedTuple):
@@ -525,7 +624,10 @@ def _grow(roots: F64, height: F64, heading: F64, lean: F64, width: F64, shade: F
     normal = direction * 0.4 + np.array([0.0, 0.0, 1.0])
     normal /= np.linalg.norm(normal, axis=1, keepdims=True)
     normals = np.repeat(normal[:, None, :], 5, axis=1)
-    weight = (0.62 + 0.38 * _BLADE_FRACTIONS)[None, :] * shade[:, None]
+    # near the lawn's own value, a little darker at the foot: at 0.62 + 0.38·f with a
+    # shade of 0.82-1 the blades read as dark stubble on the painted lawn (142.5 luma
+    # against 182.7, 3D review of #388)
+    weight = (0.92 + 0.08 * _BLADE_FRACTIONS)[None, :] * shade[:, None]
     colors = np.stack([weight, weight, weight, np.ones_like(weight)], axis=-1)
     uvs = np.stack([np.broadcast_to(_BLADE_FRACTIONS, (k, 5)), np.repeat(phase[:, None], 5, axis=1)],
                    axis=-1)

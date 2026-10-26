@@ -5132,6 +5132,14 @@ only, and correct their heights with a fit after the fact.
   | round tub | 0.91 / 0.89 / 0.89 | 0.91 / 0.89 / 0.89 | −0.5 / −0.5 / −0.3 | taper |
   | hedge (polygon) | 0.98 / 0.96 / 0.94 | 0.97 / 0.96 / 0.94 | +3.6 / +4.0 / +4.4 | leaf shell |
   | hedge (section) | 0.97 / 0.96 / 0.94 | 0.96 / 0.95 / 0.93 | +2.7 / +3.0 / +3.2 | leaf shell |
+  | house, hip roof | 0.83 / 0.80 / 0.92 | 0.79 / 0.74 / 0.83 | −270.0 / −270.0 / −105.3 | hip roof vs prism (L4) |
+  | house, single-slope roof | 1.06 / 1.08 / 1.10 | 0.94 / 0.93 / 0.91 | +30.0 / +30.0 / +30.0 | single-slope roof vs prism (L4) |
+  | house, flat roof | 1.02 / 1.03 / 1.04 | 0.98 / 0.97 / 0.96 | +15.0 / +15.0 / +15.0 | flat roof: the prism (L4) |
+  | table | 0.38 / 0.54 / 0.70 | 0.38 / 0.54 / 0.70 | −0.5 / −0.5 / −0.3 | porosity: a top on legs (L4) |
+  | picnic table | 0.37 / 0.41 / 0.57 | 0.37 / 0.41 / 0.57 | −38.5 / −38.5 / −20.6 | porosity: boards and A-frames (L4) |
+  | grill | 0.28 / 0.30 / 0.36 | 0.28 / 0.30 / 0.36 | −27.3 / −23.0 / −17.5 | porosity: a kettle on legs (L4) |
+  | greenhouse | 0.30 / 0.23 / 0.25 | 0.30 / 0.23 / 0.25 | −97.5 / −93.3 / −38.3 | porosity: the glass casts nothing (L4) |
+  | trampoline | 0.47 / 0.64 / 0.76 | 0.47 / 0.64 / 0.76 | −1.0 / −1.0 / −1.0 | porosity: a mat on legs (L4) |
 
   The four reasons: **(1) nominal section** — a polyline's stroke is a line weight (fence 3 cm,
   wall 4–5 cm, hedge 8 cm), the 2D model extrudes that strip, and the 3D bodies use the L0
@@ -7519,3 +7527,25 @@ items (objects are solids now), which changes the counts that the bake and rende
 tests pin. Every L4 builder passes `verify_builder` on hostile input, and the
 integration story `tests/integration/test_l4_built_world.py` drives the panel,
 undo, snapshot, context pass and production registry end to end.
+
+**3D review round 1 (2026-10-26).** The independent `ogp-3d-reviewer` board found:
+- **P0, older than L4:** the endless meadow lay 1 cm under the plan and won the depth
+  test from 14 of 36 orbit cameras on `bench_built`, so the pond, terraces and paths
+  vanished. #586's baked board made it visible, and it showed in the live view too. The
+  meadow now lies 5 cm under the plan; a render-tier gate keys the meadow's colour and
+  finds it on no plan pixel in 36 orbit views (`test_the_meadow_never_shows_through_the_plan`;
+  at −1 cm it read up to 21,141 key pixels).
+- **P1:** path relief reached 15–18.6 cm past the path. Boardwalk end planks were centred
+  on the path's ends, and rails were swept on the mitred centre line where the outline
+  (`polyline_footprint`) squares a bend off at half the width. Now end planks stand half a
+  plank in, each rail runs on its own offset line chorded outside a bend, and a path is
+  open at a loop's first point (its outline is). The per-area `verify_builder` check could
+  not see this, so a per-vertex and per-triangle reach test holds every surface to
+  footprint + 10 cm.
+- P2s fixed: lawn blades at the lawn's own value (they read as dark stubble), deck boards
+  2.5 cm high (chairs sank 6 cm into them), round ponds from 64 segments, splayed legs and
+  rods lifted where their end caps dipped under the ground, a low parasol's canopy and pole
+  bounded by its height, the pergola's rafters in mid oak, the orientation probe without
+  relief, and the eight L4 shadow cases in the measured table. Left as owner questions:
+  roof colour (terracotta, or the item's fill as the walls), windows beside a centred
+  door on a long wall, and object porosity (as for the fences).

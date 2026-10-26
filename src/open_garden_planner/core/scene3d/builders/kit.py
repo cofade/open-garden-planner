@@ -172,24 +172,50 @@ def beam(p0: ArrayLike, p1: ArrayLike, width: float, thickness: float, color: Co
          across: ArrayLike = (0.0, 0.0, 1.0)) -> Mesh:
     """A box from 3D point ``p0`` to ``p1``: ``width`` along ``across`` (made square to
     the beam's axis), ``thickness`` along the third axis. A leg, a slanted slat, an
-    A-frame's rafter. Closed: two end caps and four sides, 12 triangles."""
-    a = np.asarray(p0, dtype=np.float64)
-    b = np.asarray(p1, dtype=np.float64)
+    A-frame's rafter. Closed: two end caps and four sides, 12 triangles.
+
+    An end that stands on the ground (z >= 0) never reaches under it: a slanted
+    beam's end cap tips one corner below its axis, and a splayed leg dipped 0.4-1.4 cm
+    into the ground (3D review of #388) — that end is raised by its dip."""
+    a = np.asarray(p0, dtype=np.float64).copy()
+    b = np.asarray(p1, dtype=np.float64).copy()
+    for _ in range(3):
+        corners = _beam_corners(a, b, width, thickness, across)
+        if corners is None:
+            return Mesh.empty()
+        dips = [-float((end + corners)[:, 2].min()) if end[2] >= -1e-9 else 0.0 for end in (a, b)]
+        if max(dips) <= 1e-6:
+            break
+        a[2] += max(dips[0], 0.0)
+        b[2] += max(dips[1], 0.0)
+    return _beam_mesh(a, b, width, thickness, color, across)
+
+
+def _beam_corners(a: F64, b: F64, width: float, thickness: float, across: ArrayLike) -> F64 | None:
+    """The four corners of ``beam``'s section about its axis, or None for no beam."""
     axis = b - a
     length = float(np.linalg.norm(axis))
     if length < 1e-6 or width <= 0.0 or thickness <= 0.0:
-        return Mesh.empty()
-    axis /= length
+        return None
+    axis = axis / length
     wide = np.asarray(across, dtype=np.float64)
     wide = wide - axis * float(wide @ axis)
-    if float(np.linalg.norm(wide)) < 1e-6:  # ``across`` along the axis: any square direction
+    if float(np.linalg.norm(wide)) < 1e-6:
         helper = np.array([1.0, 0.0, 0.0]) if abs(axis[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
         wide = helper - axis * float(helper @ axis)
     wide /= float(np.linalg.norm(wide))
     thick = np.cross(axis, wide)
     hw, ht = width / 2.0, thickness / 2.0
-    corners = np.array([-wide * hw - thick * ht, wide * hw - thick * ht,
-                        wide * hw + thick * ht, -wide * hw + thick * ht])
+    return np.array([-wide * hw - thick * ht, wide * hw - thick * ht,
+                     wide * hw + thick * ht, -wide * hw + thick * ht])
+
+
+def _beam_mesh(a: F64, b: F64, width: float, thickness: float, color: Color,
+               across: ArrayLike) -> Mesh:
+    corners = _beam_corners(a, b, width, thickness, across)
+    if corners is None:
+        return Mesh.empty()
+    axis = (b - a) / float(np.linalg.norm(b - a))
     low, high = a + corners, b + corners
     sides = np.stack([low, np.roll(low, -1, axis=0), np.roll(high, -1, axis=0), high], axis=1)
     centre = (a + b) / 2.0
@@ -271,11 +297,22 @@ def ball(cx: float, cy: float, cz: float, radius: float, color: Color, *, squash
 
 
 def rod(starts: ArrayLike, ends: ArrayLike, radius: float, color: Color, sides: int = 6) -> Mesh:
-    """Thin round bars (legs, ropes, rails) from ``starts[i]`` to ``ends[i]``."""
-    start = np.asarray(starts, dtype=np.float64).reshape(-1, 3)
+    """Thin round bars (legs, ropes, rails) from ``starts[i]`` to ``ends[i]``. An end
+    that stands on the ground (z >= 0) never reaches under it: a slanted bar's end
+    disc dips ``radius · |horizontal part of its axis|`` below its centre (a splayed
+    grill leg 1.2 cm, 3D review of #388), and that end is raised by it."""
+    start = np.asarray(starts, dtype=np.float64).reshape(-1, 3).copy()
     if not len(start):
         return Mesh.empty()
-    return tubes(start, ends, radius, radius, color, sides)
+    end = np.asarray(ends, dtype=np.float64).reshape(-1, 3).copy()
+    axis = end - start
+    length = np.linalg.norm(axis, axis=1)
+    level = np.where(length > 1e-9, np.linalg.norm(axis[:, :2], axis=1) / np.maximum(length, 1e-9), 0.0)
+    dip = radius * level
+    for point in (start, end):
+        grounded = point[:, 2] >= -1e-9
+        point[grounded, 2] = np.maximum(point[grounded, 2], dip[grounded])
+    return tubes(start, end, radius, radius, color, sides)
 
 
 # ── turning a finished part ──────────────────────────────────────────────────

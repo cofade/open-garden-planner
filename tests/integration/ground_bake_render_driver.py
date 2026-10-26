@@ -661,9 +661,61 @@ def scenario_ground_keepalive_grab(ctx: base.Context) -> dict[str, Any]:
     return _keepalive(ctx, "keepalive_grab", grab=True)
 
 
+#: The orbit sweep of ``scenario_ground_visible``: bearings round the plan, eye heights
+#: and the distance as shares of the plan's diagonal (the board's cameras lie in it).
+VISIBLE_BEARINGS = tuple(float(bearing) for bearing in range(0, 360, 30))
+VISIBLE_HEIGHTS = (0.12, 0.22, 0.40)
+VISIBLE_DISTANCE = 0.95
+VISIBLE_KEY = "#ff00ff"  # the meadow, keyed: a colour no plan surface has
+VISIBLE_PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_built.ogp"
+
+
+def scenario_ground_visible(ctx: base.Context) -> dict[str, Any]:
+    """The plan's baked ground wins the depth test against the endless meadow under it,
+    from every orbit camera (3D review of #388, P0: the meadow 1 cm under the plan
+    overwrote it from 14 of 36 cameras on bench_built). The meadow is drawn in a key
+    colour; the test projects the plan into each frame and counts that colour there."""
+    import dataclasses
+    import math
+
+    from open_garden_planner.core import ProjectManager
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+    scene = CanvasScene(width_cm=2600, height_cm=1800)
+    ProjectManager().load(scene, VISIBLE_PLAN)
+    ground = GroundSpec(float(scene.width_cm), float(scene.height_cm))
+    records = snapshot_records(scene, date(2026, 6, 21))
+    host = ctx.shown_host(PLAN_VIEW)
+    try:
+        rig = _Rig(host, production_registry())
+        rig.sync.apply(records, sun=HIGH_SUN, ground=ground)
+        host.set_look(dataclasses.replace(host.look, meadow_albedo=VISIBLE_KEY))
+        cx, cy = ground.width_cm / 2.0, ground.depth_cm / 2.0
+        diag = math.hypot(ground.width_cm, ground.depth_cm)
+        views = []
+        for height in VISIBLE_HEIGHTS:
+            for bearing in VISIBLE_BEARINGS:
+                turn = math.radians(bearing)
+                eye = (cx + VISIBLE_DISTANCE * diag * math.sin(turn),
+                       cy - VISIBLE_DISTANCE * diag * math.cos(turn), height * diag)
+                shot = PerspectiveShot(eye=eye, target=(cx, cy, 60.0), fov_deg=44.0)
+                host.set_shot(shot)
+                name = f"visible_{int(bearing):03d}_{int(height * 100):02d}"
+                views.append({"eye": list(eye), "target": [cx, cy, 60.0], "fov": 44.0,
+                              **ctx.save(name, host.grab(name))})
+        return {"ground": [ground.width_cm, ground.depth_cm], "view": list(PLAN_VIEW),
+                "views": views, **rig.facts()}
+    finally:
+        host.close()
+        base._pump()
+
+
 base.SCENARIOS.update({
     "ground_offscreen": scenario_ground_offscreen,
     "ground_plan": scenario_ground_plan,
+    "ground_visible": scenario_ground_visible,
     "ground_retexture": scenario_ground_retexture,
     "ground_seams": scenario_ground_seams,
     "ground_seams_gap": scenario_ground_seams_gap,

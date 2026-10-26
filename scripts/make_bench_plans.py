@@ -439,7 +439,9 @@ def build_built() -> PlanBuilder:
     # --- the deck: dining and lounging ---
     b.rect(260, 1320, 160, 90, T.TABLE_RECTANGULAR, "Table")
     for cx, cy in [(290, 1300), (390, 1300), (290, 1430), (390, 1430)]:
-        b.rect(cx - 22, cy - 22, 45, 45, T.CHAIR, "Chair")
+        chair = b.rect(cx - 22, cy - 22, 45, 45, T.CHAIR, "Chair")
+        if cy < 1320:  # south of the table: turned round, its back away from it (a
+            chair._apply_rotation(180.0)  # chair's back is its sprite's top, local +y)
     b.circle(560, 1370, 110, T.PARASOL, "Parasol")
     b.rect(720, 1310, 70, 190, T.LOUNGER, "Lounger")
     b.rect(820, 1310, 70, 190, T.LOUNGER, "Lounger")

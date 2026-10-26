@@ -817,10 +817,14 @@ Item {
             castsShadow: false
         }
 
-        // endless meadow (4 x 4 km, past the 800 m far plane), 1 cm under the plan
+        // endless meadow (4 x 4 km, past the 800 m far plane), 5 cm under the plan. At 1 cm
+        // it won the depth test against the plan's ground tiles from 14 of 36 orbit cameras
+        // on bench_built (a 24-bit depth buffer resolves ~1.2 cm at 100 m from the 5 cm near
+        // plane): the pond, terraces and paths vanished (3D review of #388, P0; gated by
+        // test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan)
         Model {
             source: "#Rectangle"
-            position: Qt.vector3d(root.groundCenter.x, -1.0, root.groundCenter.z)
+            position: Qt.vector3d(root.groundCenter.x, -5.0, root.groundCenter.z)
             eulerRotation.x: -90
             scale: Qt.vector3d(4000, 4000, 1)
             receivesShadows: true

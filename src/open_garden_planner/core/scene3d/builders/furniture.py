@@ -335,8 +335,11 @@ def _parasol(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     base_h = min(8.0, 0.05 * h)
     finial = min(7.0, 0.05 * h)
     apex = h - finial - 2.0
-    rim = apex - 0.32 * reach
-    valance = min(8.0, 0.25 * (apex - rim) + 2.0)
+    # the canopy drops a third of its reach — never more than a third of the apex's
+    # height: a 30 cm parasol put its rim and pole base under the ground (3D review of #388)
+    drop = min(0.32 * reach, 0.35 * apex)
+    rim = apex - drop
+    valance = min(8.0, 0.25 * drop + 2.0, 0.5 * rim)
     pole_r = min(2.5, 0.2 * base_r)
     frame = [cylinder(0.0, 0.0, base_r, 0.0, base_h, palette.CONCRETE.linear, top_radius=base_r * 0.85),
              cylinder(0.0, 0.0, pole_r, base_h, h - finial, palette.STEEL.linear, segments=8),
@@ -358,7 +361,7 @@ def _parasol(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
             triangles += [lower, lower[[0, 2, 1]], lower2, lower2[[0, 2, 1]]]
             colors += [color] * 6
     canopy = flat_mesh(np.stack(triangles), np.asarray(colors))
-    ribs = rod([(0.0, 0.0, rim - 0.35 * (apex - rim) - 10.0)] * panels,
+    ribs = rod([(0.0, 0.0, max(base_h + 1.0, rim - 0.35 * drop - 10.0))] * panels,
                [(x * 0.98, y * 0.98, rim - 1.0) for x, y in rim_points[::2]], 0.8,
                palette.STEEL.linear, sides=4)
     return (_part([*frame, ribs], box, "pole"), _part([canopy], box, "canopy"))

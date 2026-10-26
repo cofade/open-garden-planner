@@ -645,7 +645,7 @@ class Board:
     def orientation(self, at: date) -> None:
         """North is up and nothing is mirrored: a top-down frame of the plan against the
         records' own footprints, projected with OUR arithmetic."""
-        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.core.scene3d.builders import SURFACE_KINDS, production_registry
         from open_garden_planner.ui.view3d.quick3d.shots import TopDownShot, top_down_pixel
 
         records = self.records_for(at)
@@ -654,8 +654,12 @@ class Board:
                            px_per_cm=min(width / self.width, height / self.depth) * 0.9)
         high = SunState(80.0, 180.0)
         look = look_for(high, "high")
+        # the plan's flat records without their L4 relief (stones, blades, water stand on
+        # the ground the probe compares; 3D review of #388)
+        flat = production_registry()
+        flat.register_many(SURFACE_KINDS, lambda _record: (), replace=True)
         plan, _frame, info = self.frame("orient_plan_topdown", records, shot=shot, sun=high, look=look,
-                                        ground=self.plan_ground(), registry=production_registry(),
+                                        ground=self.plan_ground(), registry=flat,
                                         sky=False)
         bare, _frame, _info = self.frame("orient_bare_topdown", {}, shot=shot, sun=high, look=look,
                                          ground=self.plan_ground(), sky=False)

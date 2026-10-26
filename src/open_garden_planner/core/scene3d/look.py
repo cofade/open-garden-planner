@@ -339,8 +339,9 @@ class PresetSpec:
 #: against FXAA's 67-152 under a shared CPU. No ambient occlusion, no glow — fog stays.
 #: Medium: the 2048 map too (it had 1024, smaller than low's): on bench_large it cost
 #: +4 % of a WARP frame (183 -> 191 ms) and nothing measurable on the GPU (30-40 ms).
-#: The ground's detail-normal strength from Medium up (L4.5; the board's ``--edge``
-#: and ``--orient`` probes hold it to the meadow and to north-up).
+#: The ground's detail-normal strength from Medium up (L4.5). North-up with it is the
+#: render tier's G2 gate (``test_scene3d_ground_render.py``, High preset); the board's
+#: ``--edge`` and ``--orient`` probes render bare ground and do not run it.
 DETAIL_NORMALS: Final = 1.0
 PRESET_SPECS: Final[Mapping[str, PresetSpec]] = MappingProxyType({
     "low": PresetSpec("low", "very_high", 1, "pcf4", 15.0, "msaa", "high", False, 2, False,

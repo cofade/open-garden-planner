@@ -7028,6 +7028,14 @@ shapes keep `MAX_STROKE_WIDTH` (20 px). Bench plans older than L4 keep their wid
 (`make_bench_plans.LEGACY_PATH_WIDTH_CM`); `bench_built.ogp` holds every L4 kind,
 path style and roof style for the board.
 
+**Truth details from the 3D review.** The endless meadow lies 5 cm under the plan (at
+1 cm it won the depth test against the ground tiles from orbit distances; gated by a keyed
+meadow in 36 views). Path relief treats every path as open, because its outline is: a
+rail runs on its own offset line, chorded outside a bend where the outline squares off,
+and a boardwalk's end planks stand half a plank in. A deck's boards are 2.5 cm high
+(`DECK_TOP_CM`), so furniture standing at z 0 does not sink into them. `kit.beam` and
+`kit.rod` lift an end that stands on the ground by what its tilted end cap dips.
+
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on
 hostile input), `tests/integration/test_l4_built_world.py` (panel → undo → snapshot →

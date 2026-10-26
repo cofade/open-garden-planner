@@ -198,6 +198,22 @@ def cases() -> tuple[Case, ...]:
              "leaf shell"),
         Case("hedge (section)", _polygon("HEDGE_SECTION", _rectangle(200.0, 50.0), 150.0), SOUTH,
              "leaf shell"),
+        # Phase 17 L4 (#388): the roof styles and the objects that cast
+        Case("house, hip roof", _polygon("HOUSE", _rectangle(900.0, 540.0), 450.0, ridge=RIDGE,
+                                         roof_style="hip"), SOUTH, "hip roof vs prism"),
+        Case("house, single-slope roof", _polygon("HOUSE", _rectangle(900.0, 540.0), 450.0,
+                                                  ridge=RIDGE, roof_style="shed"),
+             SOUTH, "single-slope roof vs prism"),
+        Case("house, flat roof", _polygon("HOUSE", _rectangle(900.0, 540.0), 450.0, ridge=RIDGE,
+                                          roof_style="flat"), SOUTH, "flat roof: the prism"),
+        Case("table", _polygon("TABLE_RECTANGULAR", _rectangle(160.0, 90.0), 75.0), SOUTH,
+             "porosity: a top on legs"),
+        Case("picnic table", _polygon("PICNIC_TABLE", _rectangle(180.0, 150.0), 75.0), SOUTH,
+             "porosity: boards and A-frames"),
+        Case("grill", _circle("BBQ_GRILL", 30.0, 90.0), SOUTH, "porosity: a kettle on legs"),
+        Case("greenhouse", _polygon("GREENHOUSE", _rectangle(300.0, 200.0), 220.0), SOUTH,
+             "porosity: the glass casts nothing"),
+        Case("trampoline", _circle("TRAMPOLINE", 150.0, 90.0), SOUTH, "porosity: a mat on legs"),
     )
 
 
@@ -309,6 +325,15 @@ DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
     "round tub": ((0.91, 0.89, 0.89), (0.91, 0.89, 0.89), (-0.5, -0.5, -0.3)),
     "hedge (polygon)": ((0.98, 0.96, 0.94), (0.97, 0.96, 0.94), (3.6, 4.0, 4.4)),
     "hedge (section)": ((0.97, 0.96, 0.94), (0.96, 0.95, 0.93), (2.7, 3.0, 3.2)),
+    # Phase 17 L4 (#388), measured 2026-10-26
+    "house, hip roof": ((0.83, 0.80, 0.92), (0.79, 0.74, 0.83), (-270.0, -270.0, -105.3)),
+    "house, single-slope roof": ((1.06, 1.08, 1.10), (0.94, 0.93, 0.91), (30.0, 30.0, 30.0)),
+    "house, flat roof": ((1.02, 1.03, 1.04), (0.98, 0.97, 0.96), (15.0, 15.0, 15.0)),
+    "table": ((0.38, 0.54, 0.70), (0.38, 0.54, 0.70), (-0.5, -0.5, -0.3)),
+    "picnic table": ((0.37, 0.41, 0.57), (0.37, 0.41, 0.57), (-38.5, -38.5, -20.6)),
+    "grill": ((0.28, 0.30, 0.36), (0.28, 0.30, 0.36), (-27.3, -23.0, -17.5)),
+    "greenhouse": ((0.30, 0.23, 0.25), (0.30, 0.23, 0.25), (-97.5, -93.3, -38.3)),
+    "trampoline": ((0.47, 0.64, 0.76), (0.47, 0.64, 0.76), (-1.0, -1.0, -1.0)),
 }
 
 

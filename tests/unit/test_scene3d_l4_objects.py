@@ -103,6 +103,9 @@ def test_the_truth_gate_of_issue_388(kind: str, size: object, height: float | No
     assert builder.fit_scale(record) == pytest.approx(1.0, abs=1e-6)
     top = max(float(part.mesh.positions[:, 2].max()) for part in parts)
     assert top == pytest.approx(builder.height_for(record), rel=1e-4)
+    # nothing under the ground: splayed legs' end caps and a low parasol's canopy did
+    # (3D review of #388)
+    assert min(float(part.mesh.positions[:, 2].min()) for part in parts) >= -0.01  # 0.1 mm
     triangles = sum(part.mesh.triangle_count for part in parts)
     assert triangles <= OBJECT_TRIANGLE_BUDGET == triangle_budget(record)
 

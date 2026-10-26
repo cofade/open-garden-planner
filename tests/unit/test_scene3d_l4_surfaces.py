@@ -45,6 +45,8 @@ from tests.unit.scene3d_builder_cases import (
     HAIRPIN_PATH,
     L_SHAPE,
     ZIGZAG_PATH,
+    circle_record,
+    distance_to_path,
     line_record,
     polygon_record,
     rectangle,
@@ -74,6 +76,50 @@ def test_a_path_s_relief_is_ground_detail_on_its_footprint(style, path, width) -
     else:
         assert parts
         assert float(max(part.mesh.positions[:, 2].max() for part in parts)) <= surfaces.BOARD_TOP_CM
+
+
+def reach_outside(record) -> float:
+    """How far any relief of ``record`` lies outside its ground (the regions less
+    their holes), in plan cm — per vertex and per triangle, which ``verify_builder``'s
+    area check is not (3D review of #388: a boardwalk 15 cm, a gravel edging 18.6 cm
+    past the path)."""
+    parts = REGISTRY.build(record)
+    if not parts:
+        return 0.0
+    samples = []
+    for part in parts:  # every vertex, and every triangle's edge midpoints and centre: a
+        # face may span a notch whose corners both lie on the outline
+        corners = part.mesh.positions[:, :2].astype(np.float64)[part.mesh.indices.astype(np.int64)]
+        samples += [corners.reshape(-1, 2), corners.mean(axis=1),
+                    (corners + np.roll(corners, -1, axis=1)).reshape(-1, 2) / 2.0]
+    points = np.concatenate(samples)
+    inside = np.zeros(len(points), dtype=bool)
+    for outer, holes in record.regions:
+        here = surfaces._inside(points, np.asarray(outer, dtype=np.float64))
+        for hole in holes:
+            here &= ~surfaces._inside(points, np.asarray(hole, dtype=np.float64))
+        inside |= here
+    if inside.all():
+        return 0.0
+    rest = points[~inside]
+    rings = [ring for outer, holes in record.regions for ring in (outer, *holes)]
+    return float(np.min([distance_to_path(rest, ring, closed=True) for ring in rings], axis=0).max())
+
+
+@pytest.mark.parametrize("style", PATH_STYLES[:4])
+@pytest.mark.parametrize("path", [BENT_PATH, CLOSED_PATH, HAIRPIN_PATH, ZIGZAG_PATH],
+                         ids=["bent", "closed", "hairpin", "zigzag"])
+@pytest.mark.parametrize("width", [40.0, 90.0, 150.0])
+def test_no_relief_vertex_lies_more_than_10_cm_past_the_path(style, path, width) -> None:
+    record = line_record("PATH", path, None, width=width, style=style)
+    assert reach_outside(record) <= 10.0
+
+
+@pytest.mark.parametrize("kind,params", [("TERRACE_PATIO", {}), ("TERRACE_PATIO", {"surface_pattern": "DECKING"}),
+                                         ("DRIVEWAY", {}), ("POND_POOL", {})])
+@pytest.mark.parametrize("ring", [rectangle(400.0, 300.0), L_SHAPE], ids=["box", "L"])
+def test_no_relief_vertex_lies_more_than_10_cm_past_a_surface(kind, params, ring) -> None:
+    assert reach_outside(polygon_record(kind, ring, None, params=params)) <= 10.0
 
 
 def test_the_stones_lie_where_the_2d_painter_draws_them() -> None:
@@ -134,7 +180,7 @@ def test_a_terrace_has_kerbs_or_deck_boards_inside_its_outline(kind, pattern, ri
     assert part.ground_detail and not part.casts_shadow and part.tinted
     assert part.name == ("deck" if pattern in surfaces.DECK_PATTERNS else "kerb")
     top = float(part.mesh.positions[:, 2].max())
-    assert top == pytest.approx(surfaces.BOARD_TOP_CM if part.name == "deck" else surfaces.KERB_CM)
+    assert top == pytest.approx(surfaces.DECK_TOP_CM if part.name == "deck" else surfaces.KERB_CM)
 
 
 @pytest.mark.parametrize("pattern", ["DECKING", "STONE"])
@@ -165,6 +211,16 @@ def test_a_pond_is_water_inside_a_stone_coping() -> None:
     assert all(part.ground_detail and not part.casts_shadow for part in (water, coping))
     assert float(water.mesh.positions[:, 2].max()) == pytest.approx(surfaces.WATER_CM)
     assert float(coping.mesh.positions[:, 2].max()) == pytest.approx(surfaces.COPING_UP_CM)
+
+
+def test_a_round_pond_is_round_not_the_records_24_facets() -> None:
+    record = circle_record("POND_POOL", 150.0, None)
+    assert len(record.footprints[0]) < surfaces.ROUND_POND_SEGMENTS
+    water, coping = verify_builder(REGISTRY.builder_for("POND_POOL"), record, plan_margin_cm=10.0)
+    rim = coping.mesh.positions[np.isclose(coping.mesh.positions[:, 2], 0.0), :2]
+    angles = np.unique(np.round(np.degrees(np.arctan2(rim[:, 1], rim[:, 0])), 3))
+    assert len(angles) >= surfaces.ROUND_POND_SEGMENTS
+    assert reach_outside(record) <= 10.0
 
 
 def test_a_pond_the_user_gave_a_height_is_a_raised_pool() -> None:

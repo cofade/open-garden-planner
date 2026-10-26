@@ -89,8 +89,9 @@ def _pergola(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     span = box.width - 2.0 * min(30.0, 0.1 * box.width)
     rafter_w = min(8.0, 0.03 * box.width)
     xs = -span / 2.0 + span * np.arange(count) / (count - 1)
+    # oak mid, as the beams: the light oak clipped on the rafters' sunlit sides
     meshes.append(slabs([(x, 0.0, rafter_w, box.depth - 2.0) for x in xs], deck, h,
-                        palette.OAK_LIGHT.linear, 0.8))
+                        palette.PLANK.linear, 0.8))
     return (_part(meshes, box, "pergola"),)
 
 
