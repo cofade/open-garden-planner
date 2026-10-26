@@ -623,15 +623,7 @@ class Record:
         """Equal geometry part — the signature first, then the values (collisions)."""
         return (
             self.geometry_sig == other.geometry_sig
-            and self.kind == other.kind
-            and self.shape == other.shape
-            and self.height_cm == other.height_cm
-            and self.path_width_cm == other.path_width_cm
-            and self.footprints == other.footprints
-            and self.holes == other.holes
-            and self.path == other.path
-            and self.params == other.params
-            and self.outline == other.outline
+            and all(getattr(self, name) == getattr(other, name) for name in GEOMETRY_FIELDS)
         )
 
     def same_ground_geometry(self, other: Record) -> bool:

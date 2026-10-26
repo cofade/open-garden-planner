@@ -7051,17 +7051,23 @@ A lawn's cut-outs are one keyhole ring per region, so a loop of path keeps the l
 it. A pond's cut-out is grown by its coping (`POND_CLEARANCE_CM`). An open gravel or dirt
 path's cut-out is the rounded stroke the canvas paints (`ROUND_PATH_STYLES`). An object
 without a height cuts the lawn only when it covers its footprint at the ground
-(`GROUND_COVERING_KINDS`); a pergola or a parasol stands in the grass.
+(`GROUND_COVERING_KINDS`, whatever its height: a cold frame's soil and a fire pit's ash
+lie under a blade's 7 cm); a pergola or a parasol stands in the grass.
 
 **Bounds from the senior review.** A deck's boards are found before a mesh is built,
-with numpy row crossings; beyond `MAX_DECK_BOARDS` (2,000) boards a deck gets a kerb, or
-its plain solid when raised (a 402-vertex comb had built 446,364 triangles in 14 s). A
+with numpy row crossings; beyond `MAX_DECK_BOARDS` (2,000) boards, or `MAX_DECK_ROWS`
+(1,000) rows scanned over all its regions, a deck gets a kerb, or its plain solid when
+raised (a 402-vertex comb had built 446,364 triangles in 14 s; a sawtooth of 601 regions
+narrower than 1 cm, which are now skipped, scanned rows for 2.8 s). A
 kerb, skirt or coping is swept along at most `MAX_RELIEF_VERTICES` (4,096) outline
 vertices; beyond, the surface keeps its painted ground. A pitched roof's lowest edge stays
 at least `EDGE_FLOOR_SHARE` (half) of the eave floor above the ground: the overhang is
-shortened by bisection and the chosen style and pitch kept (a 60 × 100 cm shed at 60°
+shortened (a secant's guess, then halvings while a guess fails: three roofs built
+instead of twelve) and the chosen style and pitch kept (a 60 × 100 cm shed at 60°
 and 150 cm reached 91.5 cm into the ground). Context params change at most once per
-`CONTEXT_REBUILD_MIN_MS` during a drag (§8.29, "A move or a recolour uploads nothing").
+`CONTEXT_REBUILD_MIN_MS` during a drag (§8.29, "A move or a recolour uploads nothing"); a
+held lawn never keeps a larger blade share than its new one, so the plan's 60,000 hold in
+every pass, and a document change, a pause and a recovery from scratch end the hold.
 
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on

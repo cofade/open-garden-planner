@@ -7650,3 +7650,29 @@ had only moved the failing views.
   - Test nits.
 - **Left, in #607:** lawn masking per edge in Python, blades built at presets that draw
   none, the two copies of the roof clamp, and degenerate sizes under 1 cm.
+
+**Senior review round 2 (2026-10-26): one P1, introduced by the round-1 throttle.**
+- **P1:** the blade share is a context param, so a held lawn kept its old, larger share
+  while new lawns got theirs. Two lawns created within one interval put 80,000 blades in
+  the scene, against a plan budget of 60,000.
+  - Fix: a held share is never above its new one, so the budget holds in every pass.
+  - Pinned with the fake clock; without the fix the test reads 30,000 + 30,000 + 20,000.
+- **P2s fixed:**
+  - The hold now ends at a document change (its first pass is a plain apply), at a pause
+    and at `shutdown()`. A recovery from scratch applies the plan unheld.
+  - The deck's work is bounded too: `MAX_DECK_ROWS` counts row scans over all regions, and
+    regions narrower than 1 cm are skipped. A 601-region sawtooth took 2.8 s and now
+    takes 0 ms.
+  - The roof's overhang search tries a secant's guess first: about three builds instead of
+    twelve. A 64-corner hip went from 472 ms to 175 ms.
+  - Ground-covering objects cut a lawn whatever their height and paint order.
+  - Smaller fixes:
+    - `same_geometry` also derives from `GEOMETRY_FIELDS`.
+    - The pond case left the relief-cap test (the water refuses first), and the dead
+      raised-pool fallback is gone.
+    - The hip check asserts four slopes instead of comparing the builder with itself.
+    - The FR wording is corrected.
+    - The glossary gained "Context playback".
+- **Left as smells, not defects:** the throttle keeps one timestamp for all records (an
+  unrelated context change may wait up to 400 ms), and the caps bound each builder's output
+  one at a time, not a per-record work budget (#607).

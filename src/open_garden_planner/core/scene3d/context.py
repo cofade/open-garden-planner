@@ -64,11 +64,12 @@ DOOR_TARGETS: Final[dict[str, tuple[str, ...]]] = {
 }
 #: Kinds that never cut a lawn: plants stand in it, and a second lawn grows its own.
 _NOT_A_CUTOUT: Final = frozenset({"TREE", "SHRUB", "PERENNIAL", "LAWN"})
-#: The objects whose build covers their footprint at the ground — a pot, a pit, a box:
-#: without a height (``object_height_estimate``) they still cut a lawn. Every other
-#: object is built as a solid on legs, posts, a pole or ropes and the lawn grows under
-#: it; a cut-out left a bald patch there (senior review of #388: a pergola 12 m²,
-#: a parasol 6 m²). An object WITH a height is a solid and cuts nothing anyway.
+#: The objects whose build covers their footprint at the ground — a pot, a pit, a box.
+#: They cut a lawn whatever their height and their place in the paint order, as an
+#: enclosed building does: a cold frame's soil and a fire pit's ash bed lie a few cm up,
+#: under a blade's 7 cm (senior review of #388, round 2). Every other object is built on
+#: legs, posts, a pole or ropes and the lawn grows under it; a cut-out left a bald patch
+#: there (round 1: a pergola 12 m², a parasol 6 m²).
 GROUND_COVERING_KINDS: Final = frozenset({
     "COLD_FRAME", "COMPOST_BIN", "FIRE_PIT", "HOT_TUB", "PLANTER_POT", "RAIN_BARREL", "SANDBOX"})
 #: Enclosed buildings cut a lawn whatever their place in the paint order: their
@@ -221,10 +222,10 @@ def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
     candidates = []  # every record that cuts a lawn it lies on: collected once
     for index, item_id in enumerate(order):
         other = records[item_id]
-        enclosed = other.kind in ENCLOSED_KINDS
+        enclosed = other.kind in ENCLOSED_KINDS or other.kind in GROUND_COVERING_KINDS
         if not other.footprints or (not enclosed and (
                 other.kind in _NOT_A_CUTOUT or other.height_cm is not None or other.material.paint is None
-                or (other.kind in OBJECT_KINDS and other.kind not in GROUND_COVERING_KINDS))):
+                or other.kind in OBJECT_KINDS)):
             continue
         own = _cutout_rings(other)
         if not own:

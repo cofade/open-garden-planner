@@ -83,8 +83,11 @@ from .roofs import (
 #: of #388). The OVERHANG is shortened to the longest that keeps the edge up — the
 #: style and the pitch the user chose are kept.
 EDGE_FLOOR_SHARE: Final = 0.5
-#: Halvings of the overhang's search (150 cm to within 0.15 cm).
-OVERHANG_STEPS: Final = 10
+#: The most roofs built to find the overhang beyond the first two (the style's and
+#: none): the lowest edge falls nearly linearly with the overhang, so a secant's guess
+#: (2 % short) is tried first, and halvings only while a guess fails (round 2: ten
+#: halvings built a 64-corner hip twelve times, 472 ms).
+OVERHANG_TRIES: Final = 4
 
 HOUSE_ROOF: Final = RoofStyle(
     tile=palette.ROOF_TILE, cap=palette.ROOF_TILE_CAP, timber=palette.TIMBER,
@@ -208,13 +211,17 @@ def _kept_up(record: Record, chosen: str, height_cm: float, style: RoofStyle) ->
     if best is None:
         return built   # this style builds no roof here at all: the caller falls back
     low, high = 0.0, style.overhang_cm
-    for _step in range(OVERHANG_STEPS):
-        middle = (low + high) / 2.0
-        trial = _pitched(record, chosen, height_cm, dataclasses.replace(style, overhang_cm=middle))
-        if up(trial):
-            best, low = trial, middle
-        else:
-            high = middle
+    at_none = float(best.roof.positions[:, 2].min())
+    at_full = float(built.roof.positions[:, 2].min()) if built is not None else None
+    guess = (0.98 * high * (at_none - floor) / (at_none - at_full)   # the secant's
+             if at_full is not None and at_none - at_full > 1e-6 else high / 2.0)
+    for _try in range(OVERHANG_TRIES):
+        guess = min(max(guess, low), high)
+        trial = _pitched(record, chosen, height_cm, dataclasses.replace(style, overhang_cm=guess))
+        if up(trial):   # the secant's guess, or a halving: the longest that held
+            return trial
+        high = guess
+        guess = (low + high) / 2.0
     return best
 
 

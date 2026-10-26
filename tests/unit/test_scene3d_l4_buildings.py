@@ -208,10 +208,9 @@ def test_no_roof_reaches_the_ground_at_the_panels_extremes(kind, width, depth, h
             style_used = buildings.style_for(record, base)
             floor = buildings.EDGE_FLOOR_SHARE * eave_floor(style_used, height)
             assert float(roof.mesh.positions[:, 2].min()) >= floor - 1e-3, (pitch, overhang)
-            if style == "hip":   # a convex outline keeps its hip: never the gable
-                assert roof.mesh == buildings._kept_up(record, "hip", height, style_used).roof  # noqa: SLF001
-                gable = buildings._kept_up(record, "gable", height, style_used)  # noqa: SLF001
-                assert gable is None or roof.mesh != gable.roof
+            if style == "hip":   # a rectangle keeps its hip: a slope facing each way, never the gable's two
+                slopes = roof.mesh.normals[roof.mesh.normals[:, 2] > 0.1]
+                assert len({(round(float(x), 2), round(float(y), 2)) for x, y in slopes[:, :2]}) == 4
 
 
 def test_style_for_clamps_like_the_metadata() -> None:

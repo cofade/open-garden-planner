@@ -103,6 +103,11 @@ MAX_BOARDS: Final = 400
 #: review of #388: a comb-shaped deck of 402 vertices built 446,364 triangles in 14 s
 #: on the GUI thread, one of 8,002 did not finish).
 MAX_DECK_BOARDS: Final = 2_000
+#: The most board rows a deck's scan looks at, over ALL its regions: with
+#: ``MAX_RELIEF_VERTICES`` this bounds the WORK, not only the boards — a self-crossing
+#: sawtooth of 601 regions narrower than a board scanned 400 rows each and built
+#: nothing in 2.8 s (senior review of #388, round 2). Beyond it: a kerb or the solid.
+MAX_DECK_ROWS: Final = 1_000
 #: The most outline vertices a surface's relief is swept along (a kerb, a raised deck's
 #: skirt, a pond's coping: 12-16 triangles a vertex): beyond it the surface keeps its
 #: painted ground and no relief — a raised deck is its plain solid (senior review of
@@ -456,13 +461,19 @@ def _deck(record: Record, top: float, solid: bool) -> list[Mesh] | None:
     gap = 0.8
     thick = min(3.0, 0.5 * top) if solid else top
     boards: list[tuple[float, float, float, float, int]] = []   # x0, x1, y, width, row
+    rows_scanned = 0
     for outer, holes in record.regions:
+        xs, ys = [x for x, _y in outer], [y for _x, y in outer]
+        if max(xs) - min(xs) < 1.0 or max(ys) - min(ys) < 1.0:
+            continue   # narrower than a board run: no row can hold one
         edges = _region_edges(outer, holes)
-        ys = [y for _x, y in outer]
         board = max(14.0, (max(ys) - min(ys)) / MAX_BOARDS - gap)
         y = min(ys) + board / 2.0 + 0.5
         row = 0
         while y + board / 2.0 <= max(ys) - 0.5:
+            rows_scanned += 1
+            if rows_scanned > MAX_DECK_ROWS:
+                return None
             for x0, x1 in _board_runs(edges, y, board / 2.0):
                 boards.append((x0, x1, y, board, row))
                 if len(boards) > MAX_DECK_BOARDS:
@@ -539,10 +550,7 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
     the water a hand under the wall's top."""
     walls = []
     thick = min(18.0, 0.2 * min(np.ptp(np.asarray(record.footprints[0]), axis=0)))
-    regions = pond_regions(record)
-    if _outline_vertices(regions) > MAX_RELIEF_VERTICES:  # the plain prism, as before L4
-        return default_builder(record)
-    for outer, holes in regions:
+    for outer, holes in pond_regions(record):
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)
             if len(points) < 3:
@@ -564,7 +572,7 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
         return _raised_pool(record, record.height_cm, plan)
     water = _water(plan, WATER_CM)
     coping = []
-    regions = pond_regions(record)
+    regions = pond_regions(record)   # (the water's own work bound usually refuses first)
     for outer, holes in regions if _outline_vertices(regions) <= MAX_RELIEF_VERTICES else ():
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)

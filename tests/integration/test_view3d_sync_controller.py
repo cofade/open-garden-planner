@@ -1600,3 +1600,71 @@ def test_a_drag_over_a_lawn_re_cuts_its_blades_at_most_once_per_interval(
     applied = rig.controller.sync.records[lawn_id].params["lawn_cutouts"]
     assert applied == snapshot_records(rig.scene, rig.clock.plan_date)[lawn_id].params["lawn_cutouts"]
     rig.assert_equals_a_from_scratch_apply()
+
+
+def _fake_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    now = [1000.0]
+    monkeypatch.setattr(sync_controller, "time", SimpleNamespace(
+        monotonic=lambda: now[0], perf_counter=time_module.perf_counter))
+    return now
+
+
+def _lawn(rig: Rig, x: float) -> Any:
+    lawn = RectangleItem(x, 0.0, 3000.0, 3000.0, object_type=ObjectType.LAWN,
+                         layer_id=rig.scene.active_layer.id)
+    rig.commands.execute(CreateItemCommand(rig.scene, lawn, "lawn"))
+    return lawn
+
+
+def test_a_held_blade_share_never_breaks_the_plans_blade_budget(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Senior review of #388, round 2, P1: the blade share is a context param, so a held
+    lawn kept its old, larger share while new lawns got theirs — 80,000 blades in the
+    scene against a plan budget of 60,000. A held share is never above its new one."""
+    from open_garden_planner.core.scene3d.context import MAX_PLAN_BLADES
+
+    _fake_clock(monkeypatch)
+    rig = Rig(canvas, qtbot)
+    _lawn(rig, 0.0)
+    rig.controller.set_active(True)
+    rig.settle()
+    _lawn(rig, 4000.0)       # two more lawns inside one interval: the first lawn's
+    rig.settle()             # cut-outs are not touched, its share is
+    _lawn(rig, 8000.0)
+    rig.settle()
+    applied = [record.params["lawn_blades"] for record in rig.controller.sync.records.values()
+               if record.kind == "LAWN"]
+    assert len(applied) == 3 and sum(applied) <= MAX_PLAN_BLADES, applied
+
+
+def test_a_document_change_and_a_pause_end_a_held_context(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Round 2 of the senior review: the hold outlived a document change (whose first
+    pass must be a plain apply of the new plan), and its timer outlived a pause and
+    ``shutdown()``."""
+    _fake_clock(monkeypatch)
+    rig = Rig(canvas, qtbot)
+    lawn, terrace = _lawn_and_terrace(rig)
+    rig.controller.set_active(True)
+    rig.settle()
+    lawn_id = str(lawn.item_id)
+    for _step in range(2):
+        terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))
+        rig.settle()
+    assert rig.controller._context_timer.isActive()   # noqa: SLF001 - a change is held
+    rig.controller.document_changed()
+    assert not rig.controller._context_timer.isActive()   # noqa: SLF001
+    rig.settle()
+    truth = snapshot_records(rig.scene, rig.clock.plan_date)[lawn_id].params["lawn_cutouts"]
+    assert rig.controller.sync.records[lawn_id].params["lawn_cutouts"] == truth
+
+    terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))   # held again …
+    rig.settle()
+    terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))
+    rig.settle()
+    assert rig.controller._context_timer.isActive()   # noqa: SLF001
+    rig.controller.set_active(False)                    # … and a pause stops its timer
+    assert not rig.controller._context_timer.isActive()   # noqa: SLF001
+    assert rig.controller.dirty, "the catch-up pass applies what was held"
+    rig.controller.shutdown()
+    assert not rig.controller._context_timer.isActive()   # noqa: SLF001

@@ -141,6 +141,7 @@ from open_garden_planner.core.scene3d import (
 )
 from open_garden_planner.core.scene3d.camera import Bounds
 from open_garden_planner.core.scene3d.context import CONTEXT_PARAMS
+from open_garden_planner.core.scene3d.record import PARAM_LAWN_BLADES
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
@@ -502,6 +503,9 @@ class Scene3DController(QObject):
                 if self._date_timer.isActive():
                     self._date_timer.stop()
                     self._records_dirty = True  # the catch-up pass reads the date
+                if self._context_timer.isActive():
+                    self._context_timer.stop()
+                    self._records_dirty = True  # the catch-up pass applies what was held
             return
         if self.dirty or self._selection_dirty:
             self._schedule(max(self._tick_ms, CATCH_UP_MS))  # … and that pass reads everything
@@ -587,6 +591,7 @@ class Scene3DController(QObject):
             self._timer.stop()
             self._net.stop()
             self._date_timer.stop()
+            self._context_timer.stop()
         scene = self._scene
         connections: list[tuple[Any, Callable[..., None]]] = [
             (scene.changed, self._on_scene_changed),
@@ -620,6 +625,10 @@ class Scene3DController(QObject):
             # pending tiles while its own is painted (bare until it is)
             self._baker.clear()
         self._ground_owed = False
+        # CONTEXT PLAYBACK belongs to the plan: a new one is applied as it is
+        self._context_at = -math.inf
+        with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+            self._context_timer.stop()
 
     def _change_came(self, *, plan: bool) -> None:
         """A change arrived. A pass that was given up is tried again (``idle``); a
@@ -751,7 +760,9 @@ class Scene3DController(QObject):
         ``CONTEXT_REBUILD_MIN_MS``, ``records`` with the context params of the records
         the sink holds (CONTEXT PLAYBACK): the first change at once, the rest held back
         until the trailing pass. Only those params are held: the record's own move,
-        size or style is never late."""
+        size or style is never late. A lawn's blade share is held at most at its new
+        value — the plan's blade budget holds in every pass (senior review of #388,
+        round 2: a held share and a new lawn's put 80,000 blades in the scene)."""
         applied = self._sync.records
         changed = [item_id for item_id, record in records.items()
                    if (before := applied.get(item_id)) is not None
@@ -771,6 +782,9 @@ class Scene3DController(QObject):
             record = records[item_id]
             kept = {key: value for key, value in record.params.items() if key not in CONTEXT_PARAMS}
             kept.update(_context_of(applied[item_id]))
+            share, held_share = record.params.get(PARAM_LAWN_BLADES), kept.get(PARAM_LAWN_BLADES)
+            if isinstance(share, int) and isinstance(held_share, int) and share < held_share:
+                kept[PARAM_LAWN_BLADES] = share
             held[item_id] = replace(record, params=Params(kept))
         return held
 
@@ -912,7 +926,8 @@ class Scene3DController(QObject):
             return
         self.snapshot_count += 1
         snapshot_ms = (time.perf_counter() - started) * 1000.0
-        records = self._hold_context(records)
+        snapshot = records
+        records = self._hold_context(snapshot)
         sun = self._sun()
         width, depth = self._plan_size()
         started = time.perf_counter()
@@ -941,8 +956,9 @@ class Scene3DController(QObject):
             self._retired_by_reset += len(self._sync.records)
             try:
                 self._sync.reset()
+                # a rebuild from scratch applies the plan as it is: nothing held back
                 changes = self._sync.apply(
-                    records, sun=sun, ground=self._ground({}, records, width, depth))
+                    snapshot, sun=sun, ground=self._ground({}, snapshot, width, depth))
             except Exception as again:  # noqa: BLE001 - give up for this tick, never crash
                 self._give_up("the 3D scene could not be rebuilt", again)
                 return

@@ -243,11 +243,40 @@ def test_a_hostile_deck_is_bounded_by_construction(teeth: int, height: float | N
         assert names == ({"platform"} if height is not None else {"kerb"})
 
 
-@pytest.mark.parametrize("kind", ["TERRACE_PATIO", "DRIVEWAY", "POND_POOL"])
+@pytest.mark.parametrize("width", [0.8, 20.0])
+def test_a_deck_of_many_regions_scans_a_bounded_number_of_rows(
+        width: float, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Senior review of #388, round 2: the board cap counted boards, not the rows
+    scanned to find them — a self-crossing sawtooth resolved into 601 regions narrower
+    than a board scanned 400 rows each and built nothing in 2.8 s. Rows are budgeted
+    over ALL regions (``MAX_DECK_ROWS``), and a region narrower than 1 cm is skipped."""
+    regions = tuple(((x, 0.0), (x + width, 0.0), (x + width, 3000.0), (x, 3000.0))
+                    for x in np.arange(601) * (width + 5.0))
+    record = dataclasses.replace(
+        polygon_record("TERRACE_PATIO", regions[0], None, params={"surface_pattern": "DECKING"}),
+        footprints=regions, holes=tuple(() for _ in regions))
+    scans: list[float] = []
+    real = surfaces._inside_at
+
+    def counting(edges, at):  # noqa: ANN001, ANN202
+        scans.append(at)
+        return real(edges, at)
+
+    monkeypatch.setattr(surfaces, "_inside_at", counting)
+    parts = REGISTRY.build(record)
+    assert len(scans) <= 3 * (surfaces.MAX_DECK_ROWS + 1)   # a row: its centre and two edges
+    if width < 1.0:
+        assert scans == [] and parts == ()   # no region can hold a board: none scanned
+    else:
+        assert {part.name for part in parts} == {"kerb"}   # beyond the budget: the kerb
+
+
+@pytest.mark.parametrize("kind", ["TERRACE_PATIO", "DRIVEWAY"])
 def test_an_outline_of_too_many_vertices_gets_no_relief(kind: str) -> None:
-    """A kerb, a skirt or a coping is 12-16 triangles a vertex: beyond
-    ``MAX_RELIEF_VERTICES`` the surface keeps its painted ground and no relief (an
-    outline of 64,000 vertices built a kerb of 768,000 triangles)."""
+    """A kerb or a skirt is 12 triangles a vertex: beyond ``MAX_RELIEF_VERTICES`` the
+    surface keeps its painted ground and no relief (an outline of 64,000 vertices built
+    a kerb of 768,000 triangles). (A pond's water refuses such an outline first: its
+    triangulation's own work bound.)"""
     count = surfaces.MAX_RELIEF_VERTICES + 4
     ring = [(2000.0 * np.cos(2 * np.pi * k / count), 2000.0 * np.sin(2 * np.pi * k / count))
             for k in range(count)]
@@ -508,11 +537,13 @@ def test_an_object_without_a_height_cuts_the_lawn_only_where_it_covers_the_groun
     height) and so no longer painted, but its outline still cut the lawn — a pergola
     left 12 m² of bald lawn, a parasol 6 m². Only an object that covers its footprint
     at the ground cuts it."""
-    lawn_record = painted(at(polygon_record("LAWN", rectangle(2000.0, 2000.0), None, item_id="lawn"), 0.0, 0.0))
-    thing = painted(at(polygon_record(kind, rectangle(200.0, 200.0), None, item_id="thing"), 300.0, 0.0))
-    records = {r.item_id: r for r in (lawn_record, thing)}
-    with_context(records)
-    assert ("lawn_cutouts" in records["lawn"].params) is cuts
+    for height in (None, 30.0):   # round 2: a cold frame's soil is a few cm up, with a height too
+        lawn_record = painted(at(polygon_record("LAWN", rectangle(2000.0, 2000.0), None, item_id="lawn"),
+                                 0.0, 0.0))
+        thing = painted(at(polygon_record(kind, rectangle(200.0, 200.0), height, item_id="thing"), 300.0, 0.0))
+        records = {r.item_id: r for r in (thing, lawn_record)}   # drawn under the lawn, even
+        with_context(records)
+        assert ("lawn_cutouts" in records["lawn"].params) is cuts, height
     assert GROUND_COVERING_KINDS <= OBJECT_KINDS
 
 
