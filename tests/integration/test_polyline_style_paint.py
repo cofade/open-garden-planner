@@ -194,8 +194,10 @@ def test_the_table_of_style_painters_is_built_once_and_names_every_style() -> No
 @pytest.mark.parametrize("style", [PathFenceStyle.NONE, PathFenceStyle.PAVED_PATH],
                          ids=lambda s: s.name)
 def test_a_selected_line_shows_its_selection(style: PathFenceStyle, qtbot: Any) -> None:
-    """Plain or styled, the selection is drawn after the style — outside the line."""
-    item = _line(AN_L, style)
+    """Plain or styled, the selection is drawn after the style — outside the line.
+    10 cm wide: a path preset's real width (L4, #388) puts the selection's rectangle
+    outside this 420 px frame."""
+    item = _line(AN_L, style, 10.0)
     alone = np.any(_rendered(item) != 255, axis=2)
     scene = QGraphicsScene()
     scene.setSceneRect(QRectF(0.0, 0.0, SIZE, SIZE))

@@ -125,7 +125,13 @@ def test_every_frame_goes_through_the_production_pipeline_and_no_shown_host() ->
                  "restore_check"):
         body = ast.unparse(methods[name])
         assert "self.frame(" in body and "Quick3DHost" not in body and "wind" not in body, name
-    assert "THE GROUND BAKE (L1.5) JOINS HERE" in source, "the one line the bake's baker goes into"
+    # every frame that shows the plan paints its ground with the product's baker (#586);
+    # the probes whose oracles are the records' own footprints stay bare
+    assert "ground_baker=GroundBaker(budget_s=None) if baked else None" in ast.unparse(methods["frame"])
+    for name in ("shoot", "mood_strip", "horizon", "restore_check"):
+        assert "baked=True" in ast.unparse(methods[name]), name
+    for name in ("shadow_iou", "orientation", "sky_azimuth"):
+        assert "baked=True" not in ast.unparse(methods[name]), name
 
 
 def test_plan_derived_text_is_logged_through_the_plain_text_helper() -> None:

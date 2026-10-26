@@ -81,6 +81,17 @@ def objects_unbuilt() -> Any:
     return registry
 
 
+
+def _gravel(points: list[QPointF]) -> PolylineItem:
+    """A gravel path 8 cm wide: the width the hostile plans' numbers were measured
+    with (the gravel preset before L4 gave paths real widths, #388)."""
+    path = PolylineItem(points, object_type=ObjectType.PATH, path_fence_style=PathFenceStyle.GRAVEL_PATH)
+    pen = path.pen()
+    pen.setWidthF(8.0)
+    adopt_pen(path, pen)
+    return path
+
+
 REPO = Path(__file__).resolve().parents[2]
 PLANS = REPO / "tests" / "fixtures" / "plans"
 #: The gate's bound: mean absolute difference per channel, 0..255.
@@ -1494,9 +1505,7 @@ class TestHostilePlans:
 
         scene = _hostile_scene()
         for k in range(256):
-            scene.addItem(PolylineItem(
-                [QPointF(-30_000.0, 100.0 + k), QPointF(34_000.0, 101.0 + k)],
-                object_type=ObjectType.PATH, path_fence_style=PathFenceStyle.GRAVEL_PATH))
+            scene.addItem(_gravel([QPointF(-30_000.0, 100.0 + k), QPointF(34_000.0, 101.0 + k)]))
         bake = Bake(scene, registry=production_registry())
         bake.step()
         assert bake.skipped == [] and bake.baker.records_painted == 5 * 256
@@ -1514,9 +1523,8 @@ class TestHostilePlans:
 
         def scene_with(count: int) -> tuple[CanvasScene, list[Any]]:
             scene = _hostile_scene()
-            paths = [PolylineItem([QPointF(60.0, 100.0 + 150.0 * k), QPointF(400.0, 110.0 + 150.0 * k)],
-                                  object_type=ObjectType.PATH,
-                                  path_fence_style=PathFenceStyle.GRAVEL_PATH) for k in range(count)]
+            paths = [_gravel([QPointF(60.0, 100.0 + 150.0 * k), QPointF(400.0, 110.0 + 150.0 * k)])
+                     for k in range(count)]
             for path in paths:
                 scene.addItem(path)
             return scene, paths

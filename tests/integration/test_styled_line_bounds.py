@@ -12,7 +12,7 @@ from PyQt6.QtGui import QColor, QImage, QPainter, QPen
 from PyQt6.QtWidgets import QComboBox, QDoubleSpinBox, QGraphicsItem, QStyleOptionGraphicsItem
 
 from open_garden_planner.core.commands import CommandManager
-from open_garden_planner.core.item_look import adopt_pen
+from open_garden_planner.core.item_look import MAX_LINE_WIDTH_CM, adopt_pen
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -243,7 +243,9 @@ def test_cached_edits_history_and_move_match_an_uncached_frame(
     check()
     if angle == 0:
         assert len(paints) == populated, "the initial cache must actually be reused"
-    widths = [spin for spin in panel.findChildren(QDoubleSpinBox) if spin.suffix() == " px"]
+    # a line's width is set in cm, up to the line maximum (L4, #388)
+    widths = [spin for spin in panel.findChildren(QDoubleSpinBox)
+              if spin.suffix() == " cm" and spin.maximum() == MAX_LINE_WIDTH_CM]
     assert len(widths) == 1
     widths[0].setValue(20.0)
     check()

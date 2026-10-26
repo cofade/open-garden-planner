@@ -427,7 +427,7 @@ class TestAFreshLineStatesItsPen:
     def test_a_preset_picked_in_the_panel_is_stated_too(self, canvas: CanvasView, panel: PropertiesPanel) -> None:
         line = on_canvas(canvas, panel, fresh_line("path"))
         panel._on_property_changed(line, "path_fence_style", PathFenceStyle.GRAVEL_PATH)  # noqa: SLF001
-        assert pen_of(line) == stated_as_pen(line) == ("#ffb4aa96", 8.0, Qt.PenStyle.SolidLine)
+        assert pen_of(line) == stated_as_pen(line) == (*GRAVEL, Qt.PenStyle.SolidLine)
         assert style_gaps(line) == []
 
 
@@ -525,21 +525,23 @@ class TestUndoOnAFreshLine:
 
 # ── a file the app did not write (review 2) ───────────────────────────────────
 
-GRAVEL = ("#ffb4aa96", 8.0)  # the gravel preset's stroke
+#: the gravel preset's stroke (its width a real path width since L4, #388)
+GRAVEL_WIDTH = get_path_fence_style_info(PathFenceStyle.GRAVEL_PATH).stroke_width
+GRAVEL = ("#ffb4aa96", GRAVEL_WIDTH)
 SAVED = {"stroke_color": "#ff102030", "stroke_width": 12.0}
 #: a saved stroke on a preset line → the (colour, width) the line is loaded with
 PRESET_STROKES: dict[str, tuple[dict[str, Any], tuple[str, float]]] = {
     "as the app writes it": (SAVED, ("#ff102030", 12.0)),
-    "width null": ({**SAVED, "stroke_width": None}, ("#ff102030", 8.0)),
-    'width "8"': ({**SAVED, "stroke_width": "8"}, ("#ff102030", 8.0)),
-    "width [8.0]": ({**SAVED, "stroke_width": [8.0]}, ("#ff102030", 8.0)),
-    "width true": ({**SAVED, "stroke_width": True}, ("#ff102030", 8.0)),
-    "width 0.0": ({**SAVED, "stroke_width": 0.0}, ("#ff102030", 8.0)),
-    "width -3.0": ({**SAVED, "stroke_width": -3.0}, ("#ff102030", 8.0)),
-    "width 0.01": ({**SAVED, "stroke_width": 0.01}, ("#ff102030", 8.0)),
-    "width just under the panel's minimum": ({**SAVED, "stroke_width": 0.499}, ("#ff102030", 8.0)),
+    "width null": ({**SAVED, "stroke_width": None}, ("#ff102030", GRAVEL_WIDTH)),
+    'width "8"': ({**SAVED, "stroke_width": "8"}, ("#ff102030", GRAVEL_WIDTH)),
+    "width [8.0]": ({**SAVED, "stroke_width": [8.0]}, ("#ff102030", GRAVEL_WIDTH)),
+    "width true": ({**SAVED, "stroke_width": True}, ("#ff102030", GRAVEL_WIDTH)),
+    "width 0.0": ({**SAVED, "stroke_width": 0.0}, ("#ff102030", GRAVEL_WIDTH)),
+    "width -3.0": ({**SAVED, "stroke_width": -3.0}, ("#ff102030", GRAVEL_WIDTH)),
+    "width 0.01": ({**SAVED, "stroke_width": 0.01}, ("#ff102030", GRAVEL_WIDTH)),
+    "width just under the panel's minimum": ({**SAVED, "stroke_width": 0.499}, ("#ff102030", GRAVEL_WIDTH)),
     "width at the panel's minimum": ({**SAVED, "stroke_width": 0.5}, ("#ff102030", 0.5)),
-    "no width": ({"stroke_color": "#ff102030"}, ("#ff102030", 8.0)),
+    "no width": ({"stroke_color": "#ff102030"}, ("#ff102030", GRAVEL_WIDTH)),
     "colour null": ({**SAVED, "stroke_color": None}, ("#ffb4aa96", 12.0)),
     "colour a number": ({**SAVED, "stroke_color": 7}, ("#ffb4aa96", 12.0)),
     "colour a list": ({**SAVED, "stroke_color": ["#ff102030"]}, ("#ffb4aa96", 12.0)),
@@ -660,7 +662,7 @@ class TestAFileTheAppDidNotWrite:
         from open_garden_planner.ui.panels import properties_panel
 
         for module in (properties_panel, properties_dialog):
-            assert "setRange(MIN_STROKE_WIDTH, 20.0)" in inspect.getsource(module), module.__name__
+            assert "setRange(MIN_STROKE_WIDTH, " in inspect.getsource(module), module.__name__
 
     @pytest.mark.parametrize("shape", sorted(UNPATTERNED))
     def test_a_fill_colour_without_a_pattern_is_painted_the_same_before_and_after_a_save(
