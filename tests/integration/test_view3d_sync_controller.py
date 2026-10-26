@@ -15,6 +15,7 @@ snapshot). The same in the real main window: ``test_view3d_plan_revision.py``.
 from __future__ import annotations
 
 import logging
+import time as time_module
 from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
 from typing import Any
@@ -1543,3 +1544,59 @@ def test_the_old_plans_outlines_are_gone_with_the_plan_and_with_the_view(rig: Ri
 
     rig.controller.shutdown()              # the 3D view closes
     assert _outlines_held() == 0
+
+
+# ── L4: a drag over a lawn re-cuts its blades at most once per interval (#388) ──
+
+
+def _lawn_and_terrace(rig: Rig) -> tuple[Any, Any]:
+    layer = rig.scene.active_layer.id
+    lawn = RectangleItem(0.0, 0.0, 2000.0, 1500.0, object_type=ObjectType.LAWN, layer_id=layer)
+    rig.commands.execute(CreateItemCommand(rig.scene, lawn, "lawn"))
+    terrace = RectangleItem(400.0, 400.0, 300.0, 200.0, object_type=ObjectType.TERRACE_PATIO,
+                            layer_id=layer)
+    rig.commands.execute(CreateItemCommand(rig.scene, terrace, "terrace"))
+    return lawn, terrace
+
+
+def _rebuilds(rig: Rig, item_id: str) -> int:
+    return sum(1 for report in rig.reports if item_id in report.changes.geometry)
+
+
+@pytest.mark.parametrize("dragged", ["terrace", "lawn"])
+def test_a_drag_over_a_lawn_re_cuts_its_blades_at_most_once_per_interval(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch, dragged: str) -> None:
+    """Senior review of #388, P1: a lawn's cut-outs are the other items' outlines in
+    the lawn's own frame, so every drag step of a flat item over it — and of the lawn
+    itself — changed them, and the sink destroyed and rebuilt the lawn's blade Model
+    (up to 36,000 blades, and about 15-20 kB Qt Quick 3D keeps of every destroyed
+    Model, #531) at the pointer's rate: 12 rebuilds in 12 steps. A change of the
+    CONTEXT params alone is now applied at most once per ``CONTEXT_REBUILD_MIN_MS``:
+    the first at once, the last when the interval is over; the item's own move is
+    never held back. The controller's clock is a fake one, so that how fast this
+    machine runs the steps decides nothing."""
+    now = [1000.0]
+    monkeypatch.setattr(sync_controller, "time", SimpleNamespace(
+        monotonic=lambda: now[0], perf_counter=time_module.perf_counter))
+    rig = Rig(canvas, qtbot)
+    lawn, terrace = _lawn_and_terrace(rig)
+    rig.controller.set_active(True)
+    rig.settle()
+    lawn_id, moved = str(lawn.item_id), (terrace if dragged == "terrace" else lawn)
+    rig.reports.clear()
+    steps = 12
+    for _step in range(steps):   # a drag: a step a turn, all inside one interval
+        moved.setPos(moved.pos() + QPointF(15.0, 5.0))
+        rig.settle()
+    assert _rebuilds(rig, lawn_id) == 1, "the first step at once, the rest held back"
+    assert rig.controller.context_deferrals >= steps - 1   # a pass a step at least
+    if dragged == "lawn":   # its own move is in 3D at every step
+        moves = sum(1 for report in rig.reports if lawn_id in report.changes.transform)
+        assert moves == steps
+    now[0] += sync_controller.CONTEXT_REBUILD_MIN_MS / 1000.0 + 0.01   # the interval is over …
+    qtbot.wait(sync_controller.CONTEXT_REBUILD_MIN_MS + 150)    # … and its timer fired
+    rig.settle()
+    assert _rebuilds(rig, lawn_id) == 2, "the trailing pass"
+    applied = rig.controller.sync.records[lawn_id].params["lawn_cutouts"]
+    assert applied == snapshot_records(rig.scene, rig.clock.plan_date)[lawn_id].params["lawn_cutouts"]
+    rig.assert_equals_a_from_scratch_apply()

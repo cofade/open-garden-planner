@@ -41,7 +41,9 @@ from .primitives import F64, ccw_ring, flat_mesh, quad_triangles
 
 #: The most a facade element stands out of its wall (cm): a step, a sill.
 MAX_PROUD_CM: Final = 9.0
-#: The most windows one wall gets (a wall kilometres long: wider apart), and in all.
+#: The most window PLACES one wall gets (a wall kilometres long: wider apart), and in
+#: all. A place is a ground-floor window and, on a building with an upper row, the one
+#: above it: at most twice as many windows (the count runs on the ground row).
 MAX_WINDOWS_PER_WALL: Final = 24
 MAX_WINDOWS_TOTAL: Final = 96
 #: A window or a door keeps this far under the wall's top (cm).

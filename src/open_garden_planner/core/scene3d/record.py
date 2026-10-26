@@ -640,10 +640,10 @@ class Record:
         moved path cuts anew is painted as it was — its tiles are not re-baked)."""
         if self.same_geometry(other):
             return True
-        return (self.kind == other.kind and self.shape == other.shape
-                and self.height_cm == other.height_cm and self.path_width_cm == other.path_width_cm
-                and self.footprints == other.footprints and self.holes == other.holes
-                and self.path == other.path and self.outline == other.outline
+        # every geometry field but the params, from the ONE list of them (a field added
+        # to GEOMETRY_FIELDS is compared here too)
+        return (all(getattr(self, name) == getattr(other, name)
+                    for name in GEOMETRY_FIELDS if name != "params")
                 and _painted_params(self.params) == _painted_params(other.params))
 
     def same_transform(self, other: Record) -> bool:

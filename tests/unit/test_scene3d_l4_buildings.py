@@ -21,6 +21,7 @@ from open_garden_planner.core.scene3d.builders import buildings, production_regi
 from open_garden_planner.core.scene3d.builders.facade import SPECS, door_wall_index, facade
 from open_garden_planner.core.scene3d.builders.roofs import (
     MAX_HIP_CORNERS,
+    eave_floor,
     flat_roof,
     gable_roof,
     hip_roof,
@@ -185,6 +186,32 @@ def test_a_steeper_pitch_lowers_the_eaves_and_a_longer_overhang_reaches_further(
     assert float(steep[:, 2].min()) < float(base[:, 2].min())
     assert float(np.abs(wide[:, 1]).max()) == pytest.approx(270.0 + 90.0, abs=1.0)
     assert float(np.abs(base[:, 1]).max()) == pytest.approx(270.0 + 30.0, abs=1.0)
+
+
+@pytest.mark.parametrize("kind,width,depth,height", [
+    ("TOOL_SHED", 60.0, 100.0, 200.0), ("TOOL_SHED", 240.0, 180.0, 250.0),
+    ("HOUSE", 600.0, 1000.0, 700.0), ("HOUSE", 900.0, 540.0, 450.0), ("GARAGE_SHED", 300.0, 500.0, 250.0)])
+@pytest.mark.parametrize("style", ["gable", "hip", "shed"])
+def test_no_roof_reaches_the_ground_at_the_panels_extremes(kind, width, depth, height, style) -> None:
+    """Senior review of #388, P1: the eave floor held only where the roof met the
+    walls; the overhang went on down the slope, and at the panel's own extremes
+    (pitch 60°, overhang 150 cm) a 60 x 100 cm tool shed's roof reached 91.5 cm into
+    the ground — its hip fell back to a gable that sank the same. Over the panel's
+    ranges no roof edge is lower than ``EDGE_FLOOR_SHARE`` of the eave floor, and the
+    style the user chose is kept: the OVERHANG is shortened."""
+    for pitch in (rs.MIN_PITCH_DEG, 30.0, 45.0, rs.MAX_PITCH_DEG):
+        for overhang in (0.0, 50.0, 100.0, rs.MAX_OVERHANG_CM):
+            params = {"roof_style": style, "roof_pitch_deg": pitch, "roof_overhang_cm": overhang}
+            record = house(params, ring=rectangle(width, depth), height=height, kind=kind)
+            roof = roof_of(record)
+            base = buildings.HOUSE_ROOF if kind == "HOUSE" else buildings.SHED_ROOF
+            style_used = buildings.style_for(record, base)
+            floor = buildings.EDGE_FLOOR_SHARE * eave_floor(style_used, height)
+            assert float(roof.mesh.positions[:, 2].min()) >= floor - 1e-3, (pitch, overhang)
+            if style == "hip":   # a convex outline keeps its hip: never the gable
+                assert roof.mesh == buildings._kept_up(record, "hip", height, style_used).roof  # noqa: SLF001
+                gable = buildings._kept_up(record, "gable", height, style_used)  # noqa: SLF001
+                assert gable is None or roof.mesh != gable.roof
 
 
 def test_style_for_clamps_like_the_metadata() -> None:

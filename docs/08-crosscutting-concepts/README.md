@@ -4834,7 +4834,12 @@ again, and the whole scene cleared and re-sent, come back pixel-identical and pi
 
 **A move or a recolour uploads nothing.** `update_transform` sets the Models' `position` and
 `eulerRotation.y`; `update_material` sets their tint. The upload counter (`BufferGeometry.uploads`,
-read by the render tier around each edit) does not move.
+read by the render tier around each edit) does not move. One exception since L4, and it
+is throttled: a lawn's cut-outs are the other items' outlines in its frame, so a move
+over a lawn (or of the lawn) changes the lawn's geometry. The controller applies a change
+of the context params alone at most once per `CONTEXT_REBUILD_MIN_MS` (400 ms), the
+first at once and the last in a trailing pass; the item's own move is never late
+(senior review of #388: 30 lawn rebuilds in 30 drag steps before).
 
 **Frames, once.** A mesh is mapped to the engine frame in `engine_buffers`; a record's transform
 becomes a Model pose in `engine_pose` — position `(east, base, −north)`, `eulerRotation.y =
@@ -7044,7 +7049,19 @@ them. `kit.beam` and `kit.rod` lift an end that stands on the ground by what its
 end cap dips.
 A lawn's cut-outs are one keyhole ring per region, so a loop of path keeps the lawn inside
 it. A pond's cut-out is grown by its coping (`POND_CLEARANCE_CM`). An open gravel or dirt
-path's cut-out is the rounded stroke the canvas paints (`ROUND_PATH_STYLES`).
+path's cut-out is the rounded stroke the canvas paints (`ROUND_PATH_STYLES`). An object
+without a height cuts the lawn only when it covers its footprint at the ground
+(`GROUND_COVERING_KINDS`); a pergola or a parasol stands in the grass.
+
+**Bounds from the senior review.** A deck's boards are found before a mesh is built,
+with numpy row crossings; beyond `MAX_DECK_BOARDS` (2,000) boards a deck gets a kerb, or
+its plain solid when raised (a 402-vertex comb had built 446,364 triangles in 14 s). A
+kerb, skirt or coping is swept along at most `MAX_RELIEF_VERTICES` (4,096) outline
+vertices; beyond, the surface keeps its painted ground. A pitched roof's lowest edge stays
+at least `EDGE_FLOOR_SHARE` (half) of the eave floor above the ground: the overhang is
+shortened by bisection and the chosen style and pitch kept (a 60 × 100 cm shed at 60°
+and 150 cm reached 91.5 cm into the ground). Context params change at most once per
+`CONTEXT_REBUILD_MIN_MS` during a drag (§8.29, "A move or a recolour uploads nothing").
 
 **Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
 `test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on

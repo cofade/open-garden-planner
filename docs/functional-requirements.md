@@ -755,6 +755,9 @@ The built world complete (L4, #388, ADR-065).
   roof's highest point stays the building's height, so a steeper pitch lowers the
   eaves. Automatic is a gable along the house's ridge line, or a flat roof on a
   house without one. A hip on an outline that is not convex is built as a gable.
+  No roof reaches lower than half its eaves' floor (min(220 cm, 0.75 × the
+  walls' height)) above the ground: at a steep pitch on a small building the
+  overhang is shortened, and the chosen style and pitch are kept.
   The 2D plan and its sun study are unchanged by these settings.
 - **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
   wall that faces the nearest path (a garage: the nearest driveway, then path).
@@ -768,12 +771,15 @@ The built world complete (L4, #388, ADR-065).
   ground, as on the flat surface before L4. A surface given a height is a raised solid with that top.
 - **FR-3D-BUILT-05** (L4.2): A path's width is its width on the ground in cm. New
   paths start 70–100 cm wide by style (80 cm without one), and the Properties panel
-  sets a path's, fence's or wall's width up to 500 cm. Saved plans keep their
-  widths.
+  sets a path's width up to 500 cm, a fence's or wall's up to 100 cm. Saved plans
+  keep their widths.
 - **FR-3D-BUILT-06** (L4.5): At the High and Ultra presets, a lawn grows grass
   blades that sway with the wind. No blades grow under a path, terrace or bed drawn
-  on the lawn, or inside a house, shed, garage or greenhouse standing on it. A plan
-  grows at most 60,000 blades in all; a large lawn is sparser rather than slower.
+  on the lawn, under a pond's coping, past a gravel or dirt path's round ends, or
+  inside a house, shed, garage or greenhouse standing on it; they do grow under a
+  pergola, parasol, swing or hammock, and inside a loop of path. A plan grows at
+  most 60,000 blades in all; a large lawn is sparser rather than slower. While an
+  item is dragged over a lawn, its blades are cut anew at most every 0.4 s.
 - **FR-3D-BUILT-07** (L4.5): From the Medium preset up, the 3D ground is shaded by
   the relief of its own textures (paving joints, gravel, bark), with no new picture
   of the ground and nothing mirrored.

@@ -1213,5 +1213,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "2D paths: at an outer bend the fill and the border lines disagree (mitre vs chord, V spike)"
+  },
+  "607": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L4 follow-ups from the senior review: lawn mask cost, blades per preset, roof clamp copies, degenerate sizes"
   }
 }

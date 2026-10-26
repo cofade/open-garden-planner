@@ -119,7 +119,7 @@ import logging
 import math
 import time
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
 
@@ -132,12 +132,15 @@ from open_garden_planner.core.scene3d import (
     BuildFailure,
     EngineSink,
     GroundSpec,
+    Params,
+    ParamValue,
     Record,
     SceneDiff,
     SceneSync,
     SunState,
 )
 from open_garden_planner.core.scene3d.camera import Bounds
+from open_garden_planner.core.scene3d.context import CONTEXT_PARAMS
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
@@ -177,6 +180,15 @@ NET_MAX_WAIT_S: Final = 5.0
 #: at 30 steps a second were an estimated 0.7 GB a minute; at two a second it is a
 #: fifteenth of that (the measured numbers are in §8.29.9).
 DATE_REGROW_MIN_MS: Final = 500
+#: CONTEXT PLAYBACK (L4, #388). A drag over a lawn changes the lawn's cut-outs (the
+#: other items' outlines in its frame: ``core.scene3d.context``) at every step, and a
+#: changed cut-out rebuilds the lawn's blades — up to 36,000, a re-mask and an upload,
+#: and a destroyed Model Qt Quick 3D keeps 15 to 20 kB of (#531). A change of a
+#: record's ``CONTEXT_PARAMS`` alone is applied at most once per this interval: the
+#: first at once, the last when the interval is over (one trailing pass). Everything
+#: else of the record — a dragged lawn's own move — is applied at every step. Senior
+#: review of #388 measured 30 lawn rebuilds in 30 drag steps.
+CONTEXT_REBUILD_MIN_MS: Final = 400
 #: How many distinct failures of one outage are remembered (and so logged at ERROR
 #: once each); a failure beyond that is a DEBUG line.
 _MAX_FAILURES_REMEMBERED: Final = 32
@@ -203,6 +215,11 @@ def _kinds(changes: SceneDiff) -> str:
     if changes.reordered:
         parts.append("reordered")
     return ", ".join(parts)
+
+
+def _context_of(record: Record) -> dict[str, ParamValue]:
+    """A record's context params (``core.scene3d.context.CONTEXT_PARAMS``)."""
+    return {key: value for key, value in record.params.items() if key in CONTEXT_PARAMS}
 
 
 def plain_ground(_previous: Mapping[str, Record], _records: Mapping[str, Record],
@@ -371,6 +388,14 @@ class Scene3DController(QObject):
         self._date_timer.timeout.connect(self._regrow_if_the_date_moved)
         #: Date changes that did not regrow at once (an instrument).
         self.date_deferrals = 0
+        # CONTEXT PLAYBACK (#388): when context params were last applied, and the one
+        # timer that books the trailing pass of a change held back
+        self._context_at = -math.inf
+        self._context_timer = QTimer(self)
+        self._context_timer.setSingleShot(True)
+        self._context_timer.timeout.connect(self.mark_dirty)
+        #: Passes that held a change of context params back (an instrument).
+        self.context_deferrals = 0
         self._revision_at_changed = self._revision()
         announced = getattr(scene, "plan_changed", None)  # a CanvasScene has it
         if announced is not None:
@@ -721,6 +746,34 @@ class Scene3DController(QObject):
         self._regrown_at = time.monotonic()
         self.mark_dirty()
 
+    def _hold_context(self, records: dict[str, Record]) -> dict[str, Record]:
+        """``records`` — or, while their context params change faster than once per
+        ``CONTEXT_REBUILD_MIN_MS``, ``records`` with the context params of the records
+        the sink holds (CONTEXT PLAYBACK): the first change at once, the rest held back
+        until the trailing pass. Only those params are held: the record's own move,
+        size or style is never late."""
+        applied = self._sync.records
+        changed = [item_id for item_id, record in records.items()
+                   if (before := applied.get(item_id)) is not None
+                   and _context_of(before) != _context_of(record)]
+        if not changed:
+            return records
+        waited_ms = (time.monotonic() - self._context_at) * 1000.0
+        if waited_ms >= CONTEXT_REBUILD_MIN_MS:
+            self._context_at = time.monotonic()
+            return records
+        self.context_deferrals += 1
+        with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+            if not self._context_timer.isActive():
+                self._context_timer.start(max(1, math.ceil(CONTEXT_REBUILD_MIN_MS - waited_ms)))
+        held = dict(records)
+        for item_id in changed:
+            record = records[item_id]
+            kept = {key: value for key, value in record.params.items() if key not in CONTEXT_PARAMS}
+            kept.update(_context_of(applied[item_id]))
+            held[item_id] = replace(record, params=Params(kept))
+        return held
+
     def _regrow_if_the_date_moved(self) -> None:
         """The trailing regrowth of a date that kept changing: only if the plan date is
         not the one the last records pass read (an edit's pass may have read it).
@@ -859,6 +912,7 @@ class Scene3DController(QObject):
             return
         self.snapshot_count += 1
         snapshot_ms = (time.perf_counter() - started) * 1000.0
+        records = self._hold_context(records)
         sun = self._sun()
         width, depth = self._plan_size()
         started = time.perf_counter()

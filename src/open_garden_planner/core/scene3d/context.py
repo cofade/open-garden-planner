@@ -40,6 +40,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ..shadow_geometry import grown_polygon, polyline_round_outline
+from .builders import OBJECT_KINDS
 from .builders.common import centre_line
 from .builders.facade import door_wall_index
 from .builders.surfaces import BLADES_PER_M2, COPING_OUT_CM, pond_regions
@@ -63,10 +64,22 @@ DOOR_TARGETS: Final[dict[str, tuple[str, ...]]] = {
 }
 #: Kinds that never cut a lawn: plants stand in it, and a second lawn grows its own.
 _NOT_A_CUTOUT: Final = frozenset({"TREE", "SHRUB", "PERENNIAL", "LAWN"})
+#: The objects whose build covers their footprint at the ground — a pot, a pit, a box:
+#: without a height (``object_height_estimate``) they still cut a lawn. Every other
+#: object is built as a solid on legs, posts, a pole or ropes and the lawn grows under
+#: it; a cut-out left a bald patch there (senior review of #388: a pergola 12 m²,
+#: a parasol 6 m²). An object WITH a height is a solid and cuts nothing anyway.
+GROUND_COVERING_KINDS: Final = frozenset({
+    "COLD_FRAME", "COMPOST_BIN", "FIRE_PIT", "HOT_TUB", "PLANTER_POT", "RAIN_BARREL", "SANDBOX"})
 #: Enclosed buildings cut a lawn whatever their place in the paint order: their
 #: inside is seen — through a greenhouse's glass, into a house with its roof off
 #: (Cutaway) — and no grass grows on a floor.
 ENCLOSED_KINDS: Final = frozenset({"HOUSE", "GARAGE_SHED", "TOOL_SHED", "GREENHOUSE"})
+#: The params this pass writes — what one record takes from the OTHERS. A drag changes
+#: them at every step (a lawn's cut-outs are the other items' outlines in its frame);
+#: the 3D controller applies a change of these alone at most once per
+#: ``sync_controller.CONTEXT_REBUILD_MIN_MS`` (senior review of #388).
+CONTEXT_PARAMS: Final = frozenset({PARAM_DOOR_WALL, PARAM_LAWN_CUTOUTS, PARAM_LAWN_BLADES})
 #: Path styles the canvas paints with round caps and joins (``path_style_paint``): their
 #: cut-out is that rounded stroke, half a width past each end — blades grew through the
 #: painted round ends of the square-ended outline (3D review of #388).
@@ -210,7 +223,8 @@ def _lawn_cutouts(records: MutableMapping[str, Record]) -> None:
         other = records[item_id]
         enclosed = other.kind in ENCLOSED_KINDS
         if not other.footprints or (not enclosed and (
-                other.kind in _NOT_A_CUTOUT or other.height_cm is not None or other.material.paint is None)):
+                other.kind in _NOT_A_CUTOUT or other.height_cm is not None or other.material.paint is None
+                or (other.kind in OBJECT_KINDS and other.kind not in GROUND_COVERING_KINDS))):
             continue
         own = _cutout_rings(other)
         if not own:
@@ -255,4 +269,4 @@ def with_context(records: MutableMapping[str, Record]) -> None:
     _lawn_cutouts(records)
 
 
-__all__ = ["DOOR_TARGETS", "MAX_CUTOUTS", "MAX_CUTOUT_VERTICES", "MAX_PLAN_BLADES", "with_context"]
+__all__ = ["CONTEXT_PARAMS", "DOOR_TARGETS", "GROUND_COVERING_KINDS", "MAX_CUTOUTS", "MAX_CUTOUT_VERTICES", "MAX_PLAN_BLADES", "with_context"]

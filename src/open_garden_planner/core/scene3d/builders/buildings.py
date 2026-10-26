@@ -69,11 +69,22 @@ from .roofs import (
     GableRoof,
     RoofStyle,
     bounding_box_ridge,
+    eave_floor,
     flat_roof,
     gable_roof,
     hip_roof,
     shed_roof,
 )
+
+#: A pitched roof's lowest edge — the underside at its overhang's outline — stays at
+#: least this share of the walls' eave floor above the ground. The overhang continues
+#: down the slope past the walls, and at the panel's own extremes (pitch 60°, overhang
+#: 150 cm) a 60 x 100 cm tool shed's eaves went 91.5 cm into the ground (senior review
+#: of #388). The OVERHANG is shortened to the longest that keeps the edge up — the
+#: style and the pitch the user chose are kept.
+EDGE_FLOOR_SHARE: Final = 0.5
+#: Halvings of the overhang's search (150 cm to within 0.15 cm).
+OVERHANG_STEPS: Final = 10
 
 HOUSE_ROOF: Final = RoofStyle(
     tile=palette.ROOF_TILE, cap=palette.ROOF_TILE_CAP, timber=palette.TIMBER,
@@ -162,17 +173,49 @@ def _roof(record: Record, height_cm: float, base: RoofStyle) -> GableRoof | None
     has_ridge = record.kind != "HOUSE" or ridge_of(record.params.get(PARAM_RIDGE)) is not None
     if chosen is None:
         chosen = GABLE if has_ridge else FLAT
-    if chosen == HIP:
-        built = hip_roof(footprint, height_cm, style)
-        if built is not None:
-            return built
-        chosen = GABLE  # not convex: the gable, along its ridge
-    if chosen == SHED:
-        return shed_roof(footprint, height_cm, style)
     if chosen == FLAT:
         return flat_roof(footprint, height_cm, style_for(record, FLAT_ROOF))
+    built = _kept_up(record, chosen, height_cm, style)
+    if built is None and chosen == HIP:
+        built = _kept_up(record, GABLE, height_cm, style)  # not convex: the gable, along its ridge
+    return built
+
+
+def _pitched(record: Record, chosen: str, height_cm: float, style: RoofStyle) -> GableRoof | None:
+    footprint = footprint_of(record)
+    if chosen == HIP:
+        return hip_roof(footprint, height_cm, style)
+    if chosen == SHED:
+        return shed_roof(footprint, height_cm, style)
     ridge = _ridge(record)
     return gable_roof(footprint, ridge, height_cm, style) if ridge is not None else None
+
+
+def _kept_up(record: Record, chosen: str, height_cm: float, style: RoofStyle) -> GableRoof | None:
+    """The ``chosen`` pitched roof with the longest overhang (up to the style's) whose
+    lowest edge stays ``EDGE_FLOOR_SHARE`` of the eave floor above the ground. A hip
+    whose eaves the overhang would sink is built with a shorter overhang, not turned
+    into a gable; None only when no overhang gives this style a roof."""
+    floor = EDGE_FLOOR_SHARE * eave_floor(style, height_cm)
+
+    def up(built: GableRoof | None) -> bool:
+        return built is not None and float(built.roof.positions[:, 2].min()) >= floor - 1e-6
+
+    built = _pitched(record, chosen, height_cm, style)
+    if up(built) or style.overhang_cm <= 0.0:
+        return built
+    best = _pitched(record, chosen, height_cm, dataclasses.replace(style, overhang_cm=0.0))
+    if best is None:
+        return built   # this style builds no roof here at all: the caller falls back
+    low, high = 0.0, style.overhang_cm
+    for _step in range(OVERHANG_STEPS):
+        middle = (low + high) / 2.0
+        trial = _pitched(record, chosen, height_cm, dataclasses.replace(style, overhang_cm=middle))
+        if up(trial):
+            best, low = trial, middle
+        else:
+            high = middle
+    return best
 
 
 def _block(record: Record, height_cm: float) -> tuple[MeshPart, ...]:

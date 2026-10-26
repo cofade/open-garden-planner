@@ -8,9 +8,9 @@ path south of it, a lawn with a terrace laid over it and a greenhouse standing o
 a table and a parasol. Asserted:
 
 1. the roof rows of the properties panel — style, pitch, overhang — are one undo step
-   each, mark the plan modified, write nothing for "Automatic"/"Auto", refresh after an
-   undo, survive a save and a load with no FILE_VERSION bump, and only a building has
-   them; the 3D roof follows each edit;
+   each (the undo stack's change signal: what marks a plan modified), write nothing
+   for "Automatic"/"Auto", refresh after an undo, survive a save and a load with no
+   FILE_VERSION bump, and only a building has them; the 3D roof follows each edit;
 2. the house's door faces the path, and moving the house along it is still a
    transform only (ADR-059);
 3. the lawn's blades are cut out under the terrace and the greenhouse, and the lawn's
@@ -46,7 +46,7 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
-from open_garden_planner.ui.canvas.sun_shadow_controller import collect_shadow_casters
+from open_garden_planner.ui.canvas.sun_shadow_controller import collect_identified_casters
 from open_garden_planner.ui.panels import PropertiesPanel
 from open_garden_planner.ui.view3d.snapshot import snapshot_records
 
@@ -162,7 +162,8 @@ def test_the_roof_rows_edit_the_3d_roof_one_undo_step_each(garden: Garden) -> No
     overhang = _field(panel, "Roof overhang")
     assert isinstance(style, QComboBox) and isinstance(pitch, QDoubleSpinBox)
     assert isinstance(overhang, QDoubleSpinBox)
-    assert style.currentData() is None and pitch.value() == 0.0 and overhang.value() == -1.0
+    assert style.currentData() is None and overhang.value() == -1.0
+    assert pitch.value() == pitch.minimum() == rs.MIN_PITCH_DEG - 1.0
     assert (pitch.specialValueText(), overhang.specialValueText()) == ("Auto", "Auto")
 
     changes: list[bool] = []
@@ -204,9 +205,17 @@ def test_the_roof_rows_edit_the_3d_roof_one_undo_step_each(garden: Garden) -> No
         garden.commands.undo()
     panel.set_selected_items([garden.house])
     assert not {rs.STYLE_KEY, rs.PITCH_KEY, rs.OVERHANG_KEY} & set(garden.house.metadata)
-    assert style.currentData() is None and pitch.value() == 0.0 and overhang.value() == -1.0
+    assert style.currentData() is None and overhang.value() == -1.0
+    assert pitch.value() == pitch.minimum() == rs.MIN_PITCH_DEG - 1.0
     pipeline.tick()
     assert _ridge_length(pipeline.posed(garden.house, "roof")) == pytest.approx(_ridge_length(gable))
+
+    # the spin shows only pitches it stores: one step down from the least is "Auto"
+    # (senior review of #388: 1-4 degrees read as themselves and were stored as 5)
+    pitch.setValue(rs.MIN_PITCH_DEG)
+    assert garden.house.metadata[rs.PITCH_KEY] == rs.MIN_PITCH_DEG
+    pitch.stepBy(-1)
+    assert pitch.text() == "Auto" and rs.PITCH_KEY not in garden.house.metadata
 
 
 def test_the_roof_survives_a_save_and_a_load(garden: Garden, tmp_path) -> None:
@@ -333,7 +342,6 @@ def test_a_parasol_is_built_at_its_illustrative_height_and_casts_no_shadow(garde
     top = max(float(pipeline.posed(garden.parasol, part.name)[:, 2].max()) for part in parts)
     assert top == pytest.approx(ESTIMATED_OBJECT_HEIGHTS_CM["PARASOL"], rel=0.01)
     # the 2D sun study: no caster for it — and the table (a real height) is one
-    casters = collect_shadow_casters(garden.scene)
-    heights = sorted(round(caster.height_cm) for caster in casters)
-    assert ESTIMATED_OBJECT_HEIGHTS_CM["PARASOL"] not in heights
+    owners = {caster.item_id for caster in collect_identified_casters(garden.scene)}
+    assert parasol_id not in owners and Garden.id(garden.table) in owners
     assert any(part.casts_shadow for part in pipeline.sink.item(Garden.id(garden.table)).parts)

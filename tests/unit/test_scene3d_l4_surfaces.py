@@ -30,9 +30,15 @@ from open_garden_planner.core.scene3d import (
     verify_builder,
 )
 from open_garden_planner.core.scene3d.build import BuilderRegistry
-from open_garden_planner.core.scene3d.builders import SURFACE_KINDS, production_registry, surfaces
+from open_garden_planner.core.scene3d.builders import (
+    OBJECT_KINDS,
+    SURFACE_KINDS,
+    production_registry,
+    surfaces,
+)
 from open_garden_planner.core.scene3d.context import (
     ENCLOSED_KINDS,
+    GROUND_COVERING_KINDS,
     MAX_CUTOUTS,
     MAX_PLAN_BLADES,
     POND_CLEARANCE_CM,
@@ -40,6 +46,7 @@ from open_garden_planner.core.scene3d.context import (
     with_context,
 )
 from open_garden_planner.core.scene3d.pick_oracle import pick_scene
+from open_garden_planner.core.scene3d.polygon import RegionTooLargeError
 from open_garden_planner.core.scene3d.record import BUILD_ONLY_PARAMS, Params
 from tests.unit.scene3d_builder_cases import (
     BENT_PATH,
@@ -204,6 +211,51 @@ def test_a_deck_s_boards_stay_inside_an_l() -> None:
     assert not inner_corner.any()
 
 
+def comb(teeth: int, width: float = 4000.0, depth: float = 3000.0) -> list[tuple[float, float]]:
+    """A 40 x 30 m outline with ``teeth`` teeth: every board row crosses every tooth."""
+    points = [(0.0, 0.0), (width, 0.0), (width, 300.0)]
+    step = width / teeth
+    for k in range(teeth - 1, -1, -1):
+        x0 = k * step
+        points += [(x0 + 0.6 * step, 300.0), (x0 + 0.6 * step, depth),
+                   (x0 + 0.2 * step, depth), (x0 + 0.2 * step, 300.0)]
+    return [*points, (0.0, 300.0)]
+
+
+@pytest.mark.parametrize("teeth", [5, 100, 2000])
+@pytest.mark.parametrize("height", [None, 40.0])
+def test_a_hostile_deck_is_bounded_by_construction(teeth: int, height: float | None) -> None:
+    """Senior review of #388, P1: the boards were rows x runs and each run was found by
+    a Python loop over every edge, per run — a 402-vertex comb built 446,364 triangles
+    in 14 s, an 8,002-vertex one never finished. The runs are now found with numpy, and
+    a deck that would need more than ``MAX_DECK_BOARDS`` boards gets none: a kerb on the
+    ground, the plain solid when raised (which refuses what its own bound refuses)."""
+    record = polygon_record("TERRACE_PATIO", comb(teeth), height, params={"surface_pattern": "DECKING"})
+    try:
+        parts = REGISTRY.build(record)
+    except RegionTooLargeError:   # the raised plain solid's own bound: a contained build failure
+        assert height is not None and teeth == 2000
+        return
+    triangles = sum(part.mesh.triangle_count for part in parts)
+    assert triangles <= surfaces.MAX_DECK_BOARDS * 12 + 12 * surfaces.MAX_RELIEF_VERTICES
+    names = {part.name for part in parts}
+    if teeth == 100:   # 4 runs a row over 100 teeth: far beyond the cap
+        assert names == ({"platform"} if height is not None else {"kerb"})
+
+
+@pytest.mark.parametrize("kind", ["TERRACE_PATIO", "DRIVEWAY", "POND_POOL"])
+def test_an_outline_of_too_many_vertices_gets_no_relief(kind: str) -> None:
+    """A kerb, a skirt or a coping is 12-16 triangles a vertex: beyond
+    ``MAX_RELIEF_VERTICES`` the surface keeps its painted ground and no relief (an
+    outline of 64,000 vertices built a kerb of 768,000 triangles)."""
+    count = surfaces.MAX_RELIEF_VERTICES + 4
+    ring = [(2000.0 * np.cos(2 * np.pi * k / count), 2000.0 * np.sin(2 * np.pi * k / count))
+            for k in range(count)]
+    assert REGISTRY.build(polygon_record(kind, ring, None)) == ()
+    small = ring[::2]   # half the vertices: under the cap, the relief is there
+    assert REGISTRY.build(polygon_record(kind, small, None)) != ()
+
+
 # ── ponds ────────────────────────────────────────────────────────────────────
 
 
@@ -281,7 +333,8 @@ def test_the_plan_s_share_caps_a_lawn_s_blades() -> None:
     tuple((100_000.0 * np.cos(a), 100_000.0 * np.sin(a))
           for a in np.linspace(0.0, 2.0 * np.pi, 16_000, endpoint=False)),
 ], ids=["diagonal strip", "thin box", "many edges"])
-def test_a_lawn_with_a_small_area_in_a_huge_box_grows_a_bounded_grid(ring) -> None:
+def test_a_lawn_with_a_small_area_in_a_huge_box_grows_a_bounded_grid(
+        ring, monkeypatch: pytest.MonkeyPatch) -> None:
     """Security review of #388: the roots' grid lies over the bounding box, so its
     size is bounded by construction (``MAX_SWARD_GRID``, ``MAX_SWARD_WORK``), not by
     the lawn's area."""
@@ -293,11 +346,10 @@ def test_a_lawn_with_a_small_area_in_a_huge_box_grows_a_bounded_grid(ring) -> No
         calls.append(int(np.prod([len(a) for a in arrays])))
         return real(*arrays, **kwargs)
 
-    np.meshgrid = counting  # type: ignore[assignment]
+    monkeypatch.setattr(np, "meshgrid", counting)
     try:
         parts = REGISTRY.build(polygon_record("LAWN", ring, None))
     finally:
-        np.meshgrid = real  # type: ignore[assignment]
         surfaces.clear_lawn_cache()
     bound = min(surfaces.MAX_SWARD_GRID, surfaces.MAX_SWARD_WORK // len(ring))
     assert calls and max(calls) <= bound
@@ -446,6 +498,22 @@ def test_a_closed_gravel_loop_keeps_its_outline() -> None:
     _whole, cut = _blade_roots_cut(loop)
     inside = (np.abs(cut[:, 0]) < 300.0) & (np.abs(cut[:, 1]) < 200.0)
     assert inside.any(), "the blades inside the loop stay"
+
+
+@pytest.mark.parametrize("kind,cuts", [("PERGOLA", False), ("PARASOL", False), ("HAMMOCK", False),
+                                       ("SWING", False), ("WATER_TAP", False), ("PLANTER_POT", True),
+                                       ("FIRE_PIT", True), ("COLD_FRAME", True)])
+def test_an_object_without_a_height_cuts_the_lawn_only_where_it_covers_the_ground(kind, cuts) -> None:
+    """Senior review of #388: an object without a height is BUILT (at its illustrative
+    height) and so no longer painted, but its outline still cut the lawn — a pergola
+    left 12 m² of bald lawn, a parasol 6 m². Only an object that covers its footprint
+    at the ground cuts it."""
+    lawn_record = painted(at(polygon_record("LAWN", rectangle(2000.0, 2000.0), None, item_id="lawn"), 0.0, 0.0))
+    thing = painted(at(polygon_record(kind, rectangle(200.0, 200.0), None, item_id="thing"), 300.0, 0.0))
+    records = {r.item_id: r for r in (lawn_record, thing)}
+    with_context(records)
+    assert ("lawn_cutouts" in records["lawn"].params) is cuts
+    assert GROUND_COVERING_KINDS <= OBJECT_KINDS
 
 
 def test_the_cutouts_are_in_the_lawn_s_own_frame() -> None:

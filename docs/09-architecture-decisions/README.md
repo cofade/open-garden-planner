@@ -7611,3 +7611,42 @@ had only moved the failing views.
     the window. Before, it ended the board in an error on a 2560 × 1440 display.
 - **Owner question added:** from far out (×3 the default distance, about 7 wheel notches)
   the fog washes the garden out. Should the fog follow the camera distance?
+
+**Senior review round 1 (2026-10-26): three P1s, none visible on the board.**
+- **A drag over a lawn rebuilt the lawn at every step.**
+  - A lawn's cut-outs are the other items' outlines in its frame. So every drag step of a
+    flat item over it (and of the lawn itself) replaced the lawn's blade Model: 30 of 30
+    steps, Model churn of about 15–20 kB each (#531).
+  - Decision: `CONTEXT_PARAMS` (door wall, lawn cut-outs, lawn blades), changing alone, are
+    applied at most once per `CONTEXT_REBUILD_MIN_MS` (400 ms). The first change goes at
+    once and the last in a trailing pass, like date playback; the item's own move is never
+    held back.
+  - Pinned with a fake controller clock: 12 steps give 1 rebuild, then the trailing pass.
+    Without the throttle: 12.
+- **The deck builder was unbounded.**
+  - A 402-vertex comb took 14 s and built 446,364 triangles; an 8,002-vertex one never
+    finished.
+  - Decision: board runs come from numpy crossings, and `MAX_DECK_BOARDS` caps the total
+    before any mesh is built. A capped deck falls back to a kerb, or to the plain solid when
+    raised.
+  - Relief along an outline is capped at `MAX_RELIEF_VERTICES`: a kerb of 64,000 vertices
+    was 768,000 triangles.
+- **Roof eaves went below the ground at the panel's own extremes.**
+  - At 60° and 150 cm a small shed reached −91.5 cm, and "Hip" fell back to a gable that
+    sank the same.
+  - Decision: the overhang is shortened by bisection until the roof's lowest edge is at
+    least half the eave floor above the ground. Style and pitch are kept, and a hip falls
+    back to a gable only when its outline cannot hold one.
+  - No default roof is affected: 0 of 180 default cases change.
+- **P2s fixed:**
+  - Objects without a height cut a lawn only when they cover the ground
+    (`GROUND_COVERING_KINDS`).
+  - Fences and walls are capped at 100 cm wide; their builds reached a metre past the line
+    at 200 cm.
+  - The pitch spin shows only stored values.
+  - The agent's polyline text now gives a path's width.
+  - `same_ground_geometry` derives from `GEOMETRY_FIELDS`.
+  - The window cap's comment now says what the code counts.
+  - Test nits.
+- **Left, in #607:** lawn masking per edge in Python, blades built at presets that draw
+  none, the two copies of the roof clamp, and degenerate sizes under 1 cm.

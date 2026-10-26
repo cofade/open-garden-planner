@@ -96,8 +96,18 @@ MAX_SWARD_WORK: Final = 400_000_000
 #: The most stones, planks or pebbles one path gets: a path kilometres long gets
 #: no relief rather than an unbounded mesh (the 2D pattern stays on the ground).
 MAX_PATH_ELEMENTS: Final = 2_000
-#: The most deck boards one surface gets; beyond, each board is wider.
+#: The most ROWS of deck boards one surface gets; beyond, each board is wider.
 MAX_BOARDS: Final = 400
+#: The most deck boards one surface gets in all (rows × the runs of each row): a deck
+#: beyond it gets no boards — a kerb on the ground, the plain solid when raised (senior
+#: review of #388: a comb-shaped deck of 402 vertices built 446,364 triangles in 14 s
+#: on the GUI thread, one of 8,002 did not finish).
+MAX_DECK_BOARDS: Final = 2_000
+#: The most outline vertices a surface's relief is swept along (a kerb, a raised deck's
+#: skirt, a pond's coping: 12-16 triangles a vertex): beyond it the surface keeps its
+#: painted ground and no relief — a raised deck is its plain solid (senior review of
+#: #388: a kerb of 768,000 triangles for an outline of 64,000 vertices).
+MAX_RELIEF_VERTICES: Final = 4_096
 #: A blade's height (cm), before its ±30 % variation.
 BLADE_CM: Final = 7.0
 
@@ -370,9 +380,16 @@ def _pebbles(centres: F64, radius: F64, shade: F64) -> Mesh:
 # ── terraces, driveways, decks ───────────────────────────────────────────────
 
 
+def _outline_vertices(regions: tuple[tuple[Ring, tuple[Ring, ...]], ...]) -> int:
+    return sum(len(outer) + sum(len(hole) for hole in holes) for outer, holes in regions)
+
+
 def _kerbs(record: Record, height: float, width: float, color: Color) -> list[Mesh]:
     """A kerb just inside every ring of the record's ground (left of travel round a
-    counter-clockwise outer ring, and round a clockwise hole: inside the region)."""
+    counter-clockwise outer ring, and round a clockwise hole: inside the region). None
+    beyond ``MAX_RELIEF_VERTICES``."""
+    if _outline_vertices(record.regions) > MAX_RELIEF_VERTICES:
+        return []
     meshes = []
     for outer, holes in record.regions:
         for ring in (outer, *holes):
@@ -386,50 +403,75 @@ def _kerbs(record: Record, height: float, width: float, color: Color) -> list[Me
     return meshes
 
 
-def _board_runs(outer: Ring, holes: tuple[Ring, ...], y: float, half: float) -> list[tuple[float, float]]:
-    """Where a board centred on ``y`` (``half`` its half width) lies inside the region:
-    the x intervals inside along its centre line AND both of its edges."""
+def _region_edges(outer: Ring, holes: tuple[Ring, ...]) -> F64:
+    """Every edge of a region's rings as ``(x1, y1, x2, y2)`` rows."""
+    rings = [np.asarray(ring, dtype=np.float64) for ring in (outer, *holes) if len(ring) >= 3]
+    return np.concatenate([np.column_stack([ring, np.roll(ring, -1, axis=0)]) for ring in rings]) \
+        if rings else np.zeros((0, 4))
 
-    def inside(at: float) -> list[tuple[float, float]]:
-        hits: list[float] = []
-        for ring in (outer, *holes):
-            for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1], strict=True):
-                if (y1 > at) != (y2 > at):
-                    hits.append(x1 + (at - y1) * (x2 - x1) / (y2 - y1))
-        hits.sort()
-        return [(hits[i], hits[i + 1]) for i in range(0, len(hits) - 1, 2)]
 
-    runs = inside(y)
+def _inside_at(edges: F64, at: float) -> list[tuple[float, float]]:
+    """The x intervals of the line ``y = at`` inside the region (even-odd), in order."""
+    crossing = (edges[:, 1] > at) != (edges[:, 3] > at)
+    if not crossing.any():
+        return []
+    x1, y1, x2, y2 = edges[crossing].T
+    hits = np.sort(x1 + (at - y1) * (x2 - x1) / (y2 - y1))
+    return list(zip(hits[0::2].tolist(), hits[1::2].tolist(), strict=False))
+
+
+def _overlap(first: list[tuple[float, float]], second: list[tuple[float, float]]
+             ) -> list[tuple[float, float]]:
+    """The intervals in both ordered lists, longer than 1 cm (one merge pass)."""
+    out: list[tuple[float, float]] = []
+    i = j = 0
+    while i < len(first) and j < len(second):
+        lo, hi = max(first[i][0], second[j][0]), min(first[i][1], second[j][1])
+        if hi - lo > 1.0:
+            out.append((lo, hi))
+        if first[i][1] < second[j][1]:
+            i += 1
+        else:
+            j += 1
+    return out
+
+
+def _board_runs(edges: F64, y: float, half: float) -> list[tuple[float, float]]:
+    """Where a board centred on ``y`` (``half`` its half width) lies inside the region
+    whose ``_region_edges`` are ``edges``: the x intervals inside along its centre line
+    AND both of its edges."""
+    runs = _inside_at(edges, y)
     for edge in (y - half + 0.01, y + half - 0.01):
-        clipped = []
-        for a, b in runs:
-            for c, d in inside(edge):
-                lo, hi = max(a, c), min(b, d)
-                if hi - lo > 1.0:
-                    clipped.append((lo, hi))
-        runs = clipped
+        runs = _overlap(runs, _inside_at(edges, edge))
     return runs
 
 
-def _deck(record: Record, top: float, solid: bool) -> list[Mesh]:
+def _deck(record: Record, top: float, solid: bool) -> list[Mesh] | None:
     """Boards across the outline (along its local x), their top at ``top``. A deck on the
     ground lies on it (its boards were 1.25 cm off it: 3D review of #388); a raised deck's
-    boards are at most 3 cm thick, on its skirt."""
+    boards are at most 3 cm thick, on its skirt. None for a deck that would need more
+    than ``MAX_DECK_BOARDS`` boards: the board runs are found BEFORE a mesh is built."""
+    if _outline_vertices(record.regions) > MAX_RELIEF_VERTICES:
+        return None
     gap = 0.8
     thick = min(3.0, 0.5 * top) if solid else top
-    meshes = []
+    boards: list[tuple[float, float, float, float, int]] = []   # x0, x1, y, width, row
     for outer, holes in record.regions:
+        edges = _region_edges(outer, holes)
         ys = [y for _x, y in outer]
         board = max(14.0, (max(ys) - min(ys)) / MAX_BOARDS - gap)
         y = min(ys) + board / 2.0 + 0.5
         row = 0
         while y + board / 2.0 <= max(ys) - 0.5:
-            for x0, x1 in _board_runs(outer, holes, y, board / 2.0):
-                shade = 0.95 + 0.05 * (((row * 7) % 5) - 2) / 2.0
-                meshes.append(beam((x0 + 0.5, y, top - thick / 2.0), (x1 - 0.5, y, top - thick / 2.0),
-                                   board, thick, _shade(shade), across=(0.0, 1.0, 0.0)))
+            for x0, x1 in _board_runs(edges, y, board / 2.0):
+                boards.append((x0, x1, y, board, row))
+                if len(boards) > MAX_DECK_BOARDS:
+                    return None
             y += board + gap
             row += 1
+    meshes = [beam((x0 + 0.5, y, top - thick / 2.0), (x1 - 0.5, y, top - thick / 2.0), width, thick,
+                   _shade(0.95 + 0.05 * (((row * 7) % 5) - 2) / 2.0), across=(0.0, 1.0, 0.0))
+              for x0, x1, y, width, row in boards]
     if solid:  # a raised deck: a skirt round it, from the ground to under the boards
         meshes += _kerbs(record, max(top - thick, 0.5), 3.0, _shade(0.78))
     return meshes
@@ -440,15 +482,14 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
     deck = isinstance(pattern, str) and pattern in DECK_PATTERNS
     if record.height_cm is not None:  # a raised terrace: a solid, its top the height
         top = record.height_cm
-        if deck:
-            meshes = _deck(record, top, solid=True)
-        else:
-            meshes = [prism_mesh(record.footprints, top, record.holes)]
+        boarded = _deck(record, top, solid=True) if deck else None
+        meshes = boarded if boarded is not None else [prism_mesh(record.footprints, top, record.holes)]
         mesh = Mesh.merge(meshes)
-        return (MeshPart(mesh, "vc", tinted=True, name="deck" if deck else "platform"),) \
+        return (MeshPart(mesh, "vc", tinted=True, name="deck" if boarded is not None else "platform"),) \
             if mesh.vertex_count else ()
-    if deck:
-        return _relief(_deck(record, DECK_TOP_CM, solid=False), "deck")
+    boarded = _deck(record, DECK_TOP_CM, solid=False) if deck else None
+    if boarded is not None:
+        return _relief(boarded, "deck")
     return _relief(_kerbs(record, KERB_CM, 8.0, _shade(0.72)), "kerb")
 
 
@@ -498,7 +539,10 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
     the water a hand under the wall's top."""
     walls = []
     thick = min(18.0, 0.2 * min(np.ptp(np.asarray(record.footprints[0]), axis=0)))
-    for outer, holes in pond_regions(record):
+    regions = pond_regions(record)
+    if _outline_vertices(regions) > MAX_RELIEF_VERTICES:  # the plain prism, as before L4
+        return default_builder(record)
+    for outer, holes in regions:
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)
             if len(points) < 3:
@@ -520,7 +564,8 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
         return _raised_pool(record, record.height_cm, plan)
     water = _water(plan, WATER_CM)
     coping = []
-    for outer, holes in pond_regions(record):
+    regions = pond_regions(record)
+    for outer, holes in regions if _outline_vertices(regions) <= MAX_RELIEF_VERTICES else ():
         for ring in (outer, *holes):
             points = np.asarray(ring, dtype=np.float64)
             if len(points) < 3:

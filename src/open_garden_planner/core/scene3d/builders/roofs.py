@@ -328,6 +328,12 @@ def _floor(style: RoofStyle, top_cm: float) -> float:
     return min(style.eave_floor_cm, style.eave_floor_share * (top_cm - style.slab_cm))
 
 
+def eave_floor(style: RoofStyle, top_cm: float) -> float:
+    """The lowest the walls may end under a pitched roof of ``style`` topping out at
+    ``top_cm`` (what the gable and the hip hold their eaves to)."""
+    return _floor(style, top_cm)
+
+
 def is_convex(footprint: ArrayLike) -> bool:
     """True for a convex counter-clockwise outline (collinear corners allowed)."""
     ring = ccw_ring(footprint)

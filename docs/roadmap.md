@@ -2753,6 +2753,16 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   enclosed buildings on it, built at every preset and drawn from High up. From Medium
   up, `ground.frag` derives detail normals from the baked ground's own luminance; no
   asset. #586: the Beauty Board's shots include the ground bake.
+- **Reviews:** `ogp-3d-reviewer` approved in round 3. The endless meadow is a frame in the
+  plan's plane, because one 4 km quad under the plan lost the depth test to it (PF-L3D-13/14).
+  Path relief stays within the path. Deck boards lie on the ground. No blades grow through a
+  pond's coping or past a gravel or dirt path's round ends, and a path loop keeps its lawn.
+  `senior-reviewer` round 1 found three P1s, now fixed:
+  - a drag over a lawn re-cuts its blades at most every 0.4 s;
+  - decks and other relief are bounded by construction;
+  - a roof's lowest edge stays at least half its eave floor above the ground, the style kept.
+
+  Follow-ups: #600, #603–#605, #607.
 
 ### L3 acceptance highlights — Plant Forge (#387, ADR-064) — **shipped v1.32.0, PR #593**
 

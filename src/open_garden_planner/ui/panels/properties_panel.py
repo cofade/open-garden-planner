@@ -36,6 +36,7 @@ from open_garden_planner.core.commands import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
 from open_garden_planner.core.item_look import (
+    MAX_FENCE_WIDTH_CM,
     MAX_LINE_WIDTH_CM,
     MAX_STROKE_WIDTH,
     MIN_STROKE_WIDTH,
@@ -1667,7 +1668,9 @@ class PropertiesPanel(QWidget):
         self._register_refresh(style_combo, refresh_style)
 
         pitch_spin = QDoubleSpinBox()
-        pitch_spin.setRange(0.0, rs.MAX_PITCH_DEG)
+        # one below the least pitch: "Auto" (the spin shows only pitches it stores — 1-4°
+        # read as themselves but were stored as 5°: senior review of #388)
+        pitch_spin.setRange(rs.MIN_PITCH_DEG - 1.0, rs.MAX_PITCH_DEG)
         pitch_spin.setDecimals(0)
         pitch_spin.setSingleStep(1.0)
         pitch_spin.setSuffix("°")
@@ -1676,7 +1679,7 @@ class PropertiesPanel(QWidget):
         pitch_spin.setToolTip(hint)
 
         def refresh_pitch(s: QDoubleSpinBox = pitch_spin, it: Any = building) -> None:
-            s.setValue(rs.roof_pitch_deg(it.metadata) or 0.0)
+            s.setValue(rs.roof_pitch_deg(it.metadata) or s.minimum())
 
         refresh_pitch()
         pitch_spin.valueChanged.connect(lambda value, it=item: self._on_roof_pitch_changed(it, value))
@@ -1725,7 +1728,7 @@ class PropertiesPanel(QWidget):
         from open_garden_planner.core import roof_style as rs
 
         old = rs.roof_pitch_deg(item.metadata)
-        new = min(rs.MAX_PITCH_DEG, max(rs.MIN_PITCH_DEG, float(value))) if value > 0.0 else None
+        new = min(rs.MAX_PITCH_DEG, float(value)) if value >= rs.MIN_PITCH_DEG else None
         if self._updating or new == old:
             return
         self._commit_edit(item, ChangePropertyCommand(
@@ -2238,7 +2241,9 @@ class PropertiesPanel(QWidget):
         # Stroke width — a line's (a path's, a fence's) is its width on the ground, in cm
         width_spin = QDoubleSpinBox()
         is_line = isinstance(item, PolylineItem)
-        width_spin.setRange(MIN_STROKE_WIDTH, MAX_LINE_WIDTH_CM if is_line else MAX_STROKE_WIDTH)
+        is_path = is_line and getattr(item, "object_type", None) == ObjectType.PATH
+        width_spin.setRange(MIN_STROKE_WIDTH, MAX_LINE_WIDTH_CM if is_path
+                            else MAX_FENCE_WIDTH_CM if is_line else MAX_STROKE_WIDTH)
         width_spin.setSingleStep(5.0 if is_line else 0.5)
         width_spin.setDecimals(1)
         width_spin.setSuffix(" cm" if is_line else " px")
