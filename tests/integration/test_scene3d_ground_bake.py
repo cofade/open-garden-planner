@@ -721,13 +721,13 @@ def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake, across: str | 
             best = (size, item)
     assert (best is None) == (across is not None), "the case names the item the plan has"
     if best is None:
-        middle = scene.sceneRect().center()
-        tile_cm = bake.grid.tile_px / bake.grid.px_per_cm
-        border = round(middle.x() / tile_cm) * tile_cm
+        middle_x, middle_y = bake.grid.width_cm / 2.0, bake.grid.depth_cm / 2.0   # the plan's
+        tile_cm = bake.grid.tile_px / bake.grid.px_per_cm   # middle, not the scene rect's
+        border = round(middle_x / tile_cm) * tile_cm
         if across == "corner":
-            row = round(middle.y() / tile_cm) * tile_cm
+            row = round(middle_y / tile_cm) * tile_cm
         else:
-            row = (math.floor(middle.y() / tile_cm) + 0.5) * tile_cm
+            row = (math.floor(middle_y / tile_cm) + 0.5) * tile_cm
         added = RectangleItem(border - 125.0, row - 75.0, 250.0, 150.0,
                               object_type=ObjectType.TERRACE_PATIO)
         scene.addItem(added)
@@ -795,13 +795,13 @@ class TestOneSmallEdit:
             most_tiles = max(most_tiles, len(repainted))
             most_records = max(most_records, baker.records_painted - painted_before)
             assert 1 <= len(repainted) <= 4
+            if across is not None:   # every move repaints the stand-in's tiles, no fewer
+                assert len(repainted) == {"border": 2, "corner": 4}[across]
             for tile in bake.tiles:
                 if tile.key not in repainted:
                     assert tile is before[tile.key]  # untouched: the same object, the same bits
             uploaded, dropped = changed_tiles(tuple(before.values()), bake.tiles)
             assert dropped == () and {tile.key for tile in uploaded} <= repainted
-        if across is not None:  # the stand-in measures the tiles its case names
-            assert most_tiles == {"border": 2, "corner": 4}[across]
         median = statistics.median(per_edit)
         print(f"\nG3 {plan} {across or ''}: opened in {open_passes} passes, {full_ms:.1f} ms of bake; per move: "
               f"median {median:.2f} ms, max {max(per_edit):.2f} ms, at most {most_tiles} tiles and "

@@ -35,5 +35,5 @@ def test_no_tracked_text_file_has_doubled_carriage_returns() -> None:
         if b"\0" in data[:8000]:   # binary after all
             continue
         if b"\r\r\n" in data:
-            doubled.append(str(path.relative_to(REPO)))
+            doubled.append(path.relative_to(REPO).as_posix())
     assert not doubled, f"CR CR LF line endings: {doubled}"

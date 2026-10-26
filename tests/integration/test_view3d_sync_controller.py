@@ -33,7 +33,7 @@ from open_garden_planner.core.commands import (
     MoveItemsCommand,
     ResizeItemCommand,
 )
-from open_garden_planner.core.object_height import METADATA_KEY
+from open_garden_planner.core.object_height import METADATA_KEY, explicit_height_cm
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d import (
     GroundSpec,
@@ -99,6 +99,7 @@ class Rig:
         self.reports: list[TickReport] = []
         self.controller.applied.connect(self.reports.append)
         self.item: Any = None   # the net's tests keep their one bed here
+        self.height_panel: Any = None   # ``_set_height``'s Properties panel
 
     def settle(self) -> list[tuple[str, str | None]]:
         """Let the event loop run until the pipeline is quiet; the sink calls since
@@ -1672,8 +1673,12 @@ def _set_height(rig: Rig, item: Any, height_cm: float) -> None:
     """The Properties panel's own height edit (0 = automatic): one command, after which
     the scene restacks the ground band (PF-CAN-22). A bare metadata write skips that
     restack and leaves the 2D paint order — which a lawn's cut-outs follow — in a state
-    no user can reach."""
-    PropertiesPanel(command_manager=rig.commands)._on_object_height_changed(item, height_cm)   # noqa: SLF001
+    no user can reach. One panel per rig: each panel connects to the scene's history
+    signals."""
+    if rig.height_panel is None:
+        rig.height_panel = PropertiesPanel(command_manager=rig.commands)
+    rig.height_panel._on_object_height_changed(item, height_cm)   # noqa: SLF001
+    assert explicit_height_cm(item.metadata) == (height_cm or None), "the edit was a no-op"
 
 
 def _lawn(rig: Rig, x: float) -> Any:
@@ -1852,6 +1857,9 @@ def test_a_raised_lawn_lowered_inside_a_hold_keeps_the_blade_budget(
     assert "lawn_cutouts" in lowered, "no blades through the terrace on it, not even for an interval"
     shares = _applied_shares(rig)
     assert all(isinstance(share, int) for share in shares) and sum(shares) <= MAX_PLAN_BLADES, shares
+    # nothing is left held: the budget check already gave the other lawn its new share
+    # (it did not fit beside the lowered one), so the trailing pass has nothing to apply
+    assert _held(rig) == []
     _trailing_pass(rig, now)
     rig.assert_equals_a_from_scratch_apply()
 

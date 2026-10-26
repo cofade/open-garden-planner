@@ -1698,12 +1698,6 @@ class PropertiesPanel(QWidget):
         building: Any = item  # a building item: its ``metadata`` dict is the roof's home
         hint = self.tr("Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.")
 
-        def label(text: str) -> QLabel:
-            # the hint sits on the label: the combo's tooltip is its own text (#596)
-            row_label = QLabel(text)
-            row_label.setToolTip(hint)
-            return row_label
-
         style_combo = QComboBox()
         _style_combo(style_combo)
         for value, text in ((None, self.tr("Automatic")), (rs.GABLE, self.tr("Gable")),
@@ -1719,7 +1713,8 @@ class PropertiesPanel(QWidget):
         style_combo.currentIndexChanged.connect(
             lambda _index, it=item, c=style_combo: self._on_roof_style_changed(it, c.currentData())
         )
-        self._form_layout.addRow(label(self.tr("Roof style:")), style_combo)
+        self._form_layout.addRow(self.tr("Roof style:"), style_combo)
+        self._hint_on_label(style_combo, hint)
         self._register_refresh(style_combo, refresh_style)
 
         pitch_spin = QDoubleSpinBox()
@@ -1739,7 +1734,8 @@ class PropertiesPanel(QWidget):
 
         refresh_pitch()
         pitch_spin.valueChanged.connect(lambda value, it=item: self._on_roof_pitch_changed(it, value))
-        self._form_layout.addRow(label(self.tr("Roof pitch:")), pitch_spin)
+        self._form_layout.addRow(self.tr("Roof pitch:"), pitch_spin)
+        self._hint_on_label(pitch_spin, hint)
         self._register_refresh(pitch_spin, refresh_pitch)
 
         overhang_spin = QDoubleSpinBox()
@@ -1757,8 +1753,16 @@ class PropertiesPanel(QWidget):
 
         refresh_overhang()
         overhang_spin.valueChanged.connect(lambda value, it=item: self._on_roof_overhang_changed(it, value))
-        self._form_layout.addRow(label(self.tr("Roof overhang:")), overhang_spin)
+        self._form_layout.addRow(self.tr("Roof overhang:"), overhang_spin)
+        self._hint_on_label(overhang_spin, hint)
         self._register_refresh(overhang_spin, refresh_overhang)
+
+    def _hint_on_label(self, field: QWidget, hint: str) -> None:
+        """Put ``hint`` on the row label Qt made for ``field`` (its buddy): a combo's own
+        tooltip is its current text (#596), so the label carries what the row is for."""
+        label = self._form_layout.labelForField(field)
+        if label is not None:
+            label.setToolTip(hint)
 
     @staticmethod
     def _roof_setter(key: str) -> Callable[[Any, object], None]:

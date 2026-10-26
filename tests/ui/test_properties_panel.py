@@ -588,34 +588,6 @@ class TestObjectHeightField:
             or "No height" in height.toolTip()
         )
 
-    @pytest.mark.parametrize("kind", sorted(BUILDING_KINDS))
-    def test_a_building_s_roof_rows_share_the_column(self, qtbot, kind: str) -> None:
-        # The roof rows (#388) were written before #596's column and missed it in
-        # the merge: style 111 px, pitch 54 px, overhang 79 px under a 120 px height.
-        item = RectangleItem(0, 0, 400, 250, object_type=ObjectType[kind])
-        panel = PropertiesPanel(CommandManager())
-        qtbot.addWidget(panel)
-        panel.set_selected_items([item])
-        panel.resize(450, 900)
-        panel.show()
-        qtbot.wait(30)
-
-        fields = self._fields(panel)
-        for label in ("Roof style:", "Roof pitch:", "Roof overhang:"):
-            assert fields[label].width() == FIELD_WIDTH, label
-        for spin in panel.findChildren(QAbstractSpinBox):
-            assert spin.width() == FIELD_WIDTH, spin
-            assert spin.alignment() & Qt.AlignmentFlag.AlignRight, spin
-        for combo in panel.findChildren(QComboBox):
-            assert combo.width() == FIELD_WIDTH, combo
-            assert combo.toolTip() == combo.currentText(), combo
-        # the roof hint moved to the row labels, where the combo cannot overwrite it
-        hints = {
-            panel._form_layout.labelForField(fields[label]).toolTip()
-            for label in ("Roof style:", "Roof pitch:", "Roof overhang:")
-        }
-        assert len(hints) == 1 and "3D view" in hints.pop()
-
     def test_plant_spacing_radius_shares_the_same_shape(self, qtbot) -> None:
         item = CircleItem(0, 0, 50)
         item.object_type = ObjectType.TREE
@@ -634,3 +606,44 @@ class TestObjectHeightField:
         spacing = self._fields(panel)["Spacing radius:"]
         assert spacing.width() == 120
         assert spacing.alignment() & Qt.AlignmentFlag.AlignRight
+
+
+def _building(kind: str, shape: str) -> object:
+    if shape == "polygon":   # how the HOUSE tool draws one (polygon_tool)
+        vertices = [QPointF(0, 0), QPointF(400, 0), QPointF(400, 250), QPointF(0, 250)]
+        return PolygonItem(vertices, object_type=ObjectType[kind])
+    return RectangleItem(0, 0, 400, 250, object_type=ObjectType[kind])
+
+
+class TestRoofRows:
+    """The roof rows (#388) share #596's control column; the 3D hint is on their labels."""
+
+    @pytest.mark.parametrize(("kind", "shape"), [("HOUSE", "polygon"), ("HOUSE", "rectangle"),
+                                                 ("TOOL_SHED", "rectangle"),
+                                                 ("GARAGE_SHED", "rectangle")])
+    def test_a_building_s_roof_rows_share_the_column(self, qtbot, kind: str, shape: str) -> None:
+        # Written before #596's column, the rows missed it in the merge: style 111 px,
+        # pitch 54 px, overhang 79 px under a 120 px height field.
+        assert kind in BUILDING_KINDS
+        panel = PropertiesPanel(CommandManager())
+        qtbot.addWidget(panel)
+        panel.set_selected_items([_building(kind, shape)])
+        panel.resize(450, 900)
+        panel.show()
+        qtbot.wait(30)
+
+        fields = TestObjectHeightField._fields(panel)
+        roof = [fields[label] for label in ("Roof style:", "Roof pitch:", "Roof overhang:")]
+        for field in roof:
+            assert field.width() == FIELD_WIDTH, field
+        for spin in panel.findChildren(QAbstractSpinBox):
+            assert spin.width() == FIELD_WIDTH, spin
+            assert spin.alignment() & Qt.AlignmentFlag.AlignRight, spin
+        for combo in panel.findChildren(QComboBox):
+            assert combo.width() == FIELD_WIDTH, combo
+            assert combo.toolTip() == combo.currentText(), combo
+        # the hint is on each row's own label, which stays the field's buddy
+        labels = [panel._form_layout.labelForField(field) for field in roof]
+        assert all(label.buddy() is field for label, field in zip(labels, roof, strict=True))
+        hints = {label.toolTip() for label in labels}
+        assert len(hints) == 1 and "3D view" in hints.pop()
