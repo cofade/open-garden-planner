@@ -106,7 +106,7 @@ MAX_DECK_BOARDS: Final = 2_000
 #: The most board rows a deck's scan looks at, over ALL its regions: with
 #: ``MAX_RELIEF_VERTICES`` this bounds the WORK, not only the boards — a self-crossing
 #: sawtooth of 601 regions narrower than a board scanned 400 rows each and built
-#: nothing in 2.8 s (senior review of #388, round 2). Beyond it: a kerb or the solid.
+#: nothing in 2.8 s (senior review of #388). Beyond it: a kerb or the solid.
 MAX_DECK_ROWS: Final = 1_000
 #: The most outline vertices a surface's relief is swept along (a kerb, a raised deck's
 #: skirt, a pond's coping: 12-16 triangles a vertex): beyond it the surface keeps its

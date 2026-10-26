@@ -37,11 +37,14 @@ from open_garden_planner.core.object_height import METADATA_KEY
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d import (
     GroundSpec,
+    Material,
+    Params,
     Record,
     RecordingSink,
     SceneSync,
     SinkProtocolError,
     SunState,
+    Transform,
 )
 from open_garden_planner.core.scene3d import polygon as polygon_module
 from open_garden_planner.core.scene3d.builders import plants, production_registry
@@ -1686,12 +1689,14 @@ def test_an_item_that_becomes_a_lawn_inside_a_hold_keeps_the_blade_budget(
     assert sum(shares) <= MAX_PLAN_BLADES, shares
 
 
-def test_a_lawn_turned_into_a_terrace_inside_a_hold_keeps_no_lawn_params(
-        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Round 4 of the senior review: a held record took the context params of the record
-    the sink held, whatever its kind — a lawn turned into a terrace inside the interval
-    carried its blade share and cut-outs onto the terrace, which the trailing pass then
-    rebuilt once more. A record whose kind changed is applied as it is."""
+@pytest.mark.parametrize("change", ["a terrace", "a height"])
+def test_a_lawn_that_stops_being_one_inside_a_hold_keeps_no_lawn_params(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch, change: str) -> None:
+    """Rounds 4 and 5 of the senior review: a held record took the context params of the
+    record the sink held — a lawn turned into a terrace, or given a height (a plain
+    prism), inside the interval carried its blade share and cut-outs on, and the
+    trailing pass rebuilt it once more. A record whose context gains or loses a param is
+    applied as it is."""
     _fake_clock(monkeypatch)
     rig = Rig(canvas, qtbot)
     _lawn(rig, 0.0)
@@ -1705,17 +1710,31 @@ def test_a_lawn_turned_into_a_terrace_inside_a_hold_keeps_no_lawn_params(
     rig.settle()
     deferred = rig.controller.context_deferrals
 
-    def retype(item: Any, kind: ObjectType) -> None:
-        item.object_type = kind
-        item.update()
+    if change == "a terrace":
+        def retype(item: Any, kind: ObjectType) -> None:
+            item.object_type = kind
+            item.update()
 
-    rig.commands.execute(ChangePropertyCommand(
-        turned, "type", ObjectType.LAWN, ObjectType.TERRACE_PATIO, retype))
+        rig.commands.execute(ChangePropertyCommand(
+            turned, "type", ObjectType.LAWN, ObjectType.TERRACE_PATIO, retype))
+    else:
+        turned.metadata[METADATA_KEY] = 50.0
+        rig.commands.stack_changed.emit()
     rig.settle()
     assert rig.controller.context_deferrals == deferred + 1, "the other lawn's share was held"
     applied = rig.controller.sync.records[str(turned.item_id)]
-    assert applied.kind == "TERRACE_PATIO"
     assert "lawn_blades" not in applied.params and "lawn_cutouts" not in applied.params
+
+
+def test_a_held_lawn_without_a_share_never_fits_the_blade_budget() -> None:
+    """The budget check's guard: were a lawn ever held with params that carry no share,
+    its builder would take the lawn's own count — the check says it does not fit."""
+    lawn = Record("lawn", "LAWN", "polygon", (((0.0, 0.0), (100.0, 0.0), (100.0, 100.0)),),
+                  Transform(), Material("LAWN", (90, 160, 70, 255)), params=Params({"lawn_blades": 100}))
+    assert sync_controller._fits_the_blade_budget({"lawn": lawn}, {})   # noqa: SLF001
+    assert not sync_controller._fits_the_blade_budget({"lawn": lawn}, {"lawn": {}})   # noqa: SLF001
+    assert not sync_controller._fits_the_blade_budget(   # noqa: SLF001
+        {"lawn": lawn}, {"lawn": {"lawn_blades": sync_controller.MAX_PLAN_BLADES + 1}})
 
 
 def test_a_lawn_resized_inside_a_hold_leaves_the_other_lawns_alone(
@@ -1750,9 +1769,9 @@ def test_a_lawn_resized_inside_a_hold_leaves_the_other_lawns_alone(
 def test_a_raised_lawn_lowered_inside_a_hold_keeps_the_blade_budget(
         canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
     """A lawn with a height is a plain solid and takes no blade share. Lowered inside a
-    held interval it is a lawn whose held params carry no share — its builder would take
-    the lawn's own count (36,000) beside the other lawn's held 36,000. Such a lawn counts
-    as unbounded, so the held pass takes the new shares."""
+    held interval it gains its share and cut-outs at once (nothing old to hold), while
+    the other lawn's share is held: its old 36,000 and the new lawn's 30,000 do not fit,
+    so the held share gives way to its new one."""
     from open_garden_planner.core.scene3d.context import MAX_PLAN_BLADES
 
     now = _fake_clock(monkeypatch)
@@ -1768,9 +1787,11 @@ def test_a_raised_lawn_lowered_inside_a_hold_keeps_the_blade_budget(
     assert sorted(_applied_shares(rig), key=str) == [36_000, None]   # the raised lawn takes none
     terrace.setPos(terrace.pos() + QPointF(40.0, 0.0))   # a cut-out moves: applied at once,
     rig.settle()                                         # and the interval begins
+    deferred = rig.controller.context_deferrals
     del raised.metadata[METADATA_KEY]
     rig.commands.stack_changed.emit()
     rig.settle()
+    assert rig.controller.context_deferrals == deferred + 1, "the other lawn's share was held"
     shares = _applied_shares(rig)
     assert all(isinstance(share, int) for share in shares) and sum(shares) <= MAX_PLAN_BLADES, shares
     _trailing_pass(rig, now)

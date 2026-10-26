@@ -227,8 +227,9 @@ def _context_of(record: Record) -> dict[str, ParamValue]:
 def _fits_the_blade_budget(records: Mapping[str, Record],
                            held: Mapping[str, Mapping[str, ParamValue]]) -> bool:
     """Whether the lawns of ``records`` stay within ``MAX_PLAN_BLADES`` with the params
-    of ``held`` in place of their own: a lawn is a record with a share, and a lawn whose
-    held params carry none would take its own count — it never fits."""
+    of ``held`` in place of their own: a lawn is a record with a share. A lawn whose held
+    params carried none would take its own count and never fits — a guard, as a held
+    record keeps its context's params (``_hold_context``)."""
     total = 0
     for item_id, record in records.items():
         if lawn_blade_share(record.params) is None:   # no lawn of this plan
@@ -779,16 +780,21 @@ class Scene3DController(QObject):
         until the trailing pass. Only those params are held: the record's own move,
         size or style is never late.
 
-        A held pass keeps the plan's blade budget (``MAX_PLAN_BLADES``): the old blade
-        shares are kept while the lawns' total fits it — so a resized lawn leaves the
-        other lawns alone — and otherwise no held share is above its new one. A lawn
-        without a held share (a raised lawn lowered) counts as unbounded: its builder
-        would take the lawn's own count. A record whose kind changed is not held — its
-        old context means nothing to it (a lawn turned terrace kept its blade params)."""
+        A record whose context GAINS or LOSES a param is not held: there is no old value
+        to hold, or one it no longer takes (a lawn turned into a terrace, or given a
+        height, carried its blade share and cut-outs). A held pass keeps the plan's
+        blade budget (``MAX_PLAN_BLADES``): the old blade shares are kept while the lawns'
+        total fits it — so a resized lawn leaves the other lawns alone — and otherwise no
+        held share is above its new one."""
         applied = self._sync.records
-        changed = [item_id for item_id, record in records.items()
-                   if (before := applied.get(item_id)) is not None and before.kind == record.kind
-                   and _context_of(before) != _context_of(record)]
+        changed = []
+        for item_id, record in records.items():
+            before = applied.get(item_id)
+            if before is None:
+                continue
+            old, new = _context_of(before), _context_of(record)
+            if old != new and old.keys() == new.keys():
+                changed.append(item_id)
         if not changed:
             return records
         waited_ms = (time.monotonic() - self._context_at) * 1000.0

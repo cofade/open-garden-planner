@@ -7735,15 +7735,17 @@ had only moved the failing views.
     under 2.5 % of the overhang found, or under a centimetre.
   - A building too low for the floor even without an overhang keeps that roof, as before
     round 3, because there is no overhang left to shorten. The function returns None
-    only when the style builds no roof at all.
+    only when the style builds no roof at all. **Wrong, round 5:** a gable is also no
+    roof at exactly no overhang when the ridge lies on an edge (an L drawn on a grid),
+    and the house lost its roof.
   - The measurement is committed: `scripts/measure_roof_overhang.py` (9,072 cases, the
     grid in its docstring). Of the 569 cases it shortens to at least 5 cm, the worst
     found 97.0 % of the longest overhang that holds, with 0 floor violations and 0 roofs
-    lost. It builds 1.30 roofs per case on average and 6 at most.
+    lost. It builds 1.30 roofs per case on average and 6 at most. **Wrong, round 5:** its
+    "lost" counted only cases whose zero overhang builds, and its grid had no L drawn on
+    a grid and no small shed roof. Round 5's numbers replace these.
   - A 64-corner hip at 700 cm, 60° and 150 cm takes 3 roofs, 266 ms (round 3: 6 roofs,
     527 ms; the long end builds no roof).
-  - The reviewer's own 26,880-case sweep on the round-4 search: 0 of 1,553 shortened
-    roofs below 97 %, worst 0.970 (round 3: 351 below, 45 at exactly 50 %).
 - **P2s fixed:**
   - One reading of a lawn's blade share, `record.lawn_blade_share`, now serves the
     builder and the budget check.
@@ -7764,3 +7766,49 @@ had only moved the failing views.
   - a lawn turned into a terrace inside a hold.
 
   Eight mutants, one per fix, each fail their test.
+
+**Senior review round 5 (2026-10-26): no P0. One P1, the same trap at the other end.**
+- **P1:** a builder also returns no roof on an exact coincidence at NO overhang. An L
+  drawn on a grid with the HOUSE tool has its ridge on the inner edge. At 700 cm, 60° and
+  100–150 cm the house lost its roof and facade, although every overhang from 0.01 cm to
+  about 100 cm holds. Round 4's "lost" could not see the case, and its test pinned it as
+  right.
+- **Decisions:**
+  - The short end is tried at `OVERHANG_NUDGE_CM` too, and a guess, 1 % short of its
+    estimate, never lands on the long end. None means no roof at either end. (Round 4's
+    nudge at the long end is gone: the shading does its work, and a mutant without it
+    survived every test.)
+  - A guess is the nearer of two estimates: the chord to a roof that sank, and the line
+    from the last roof that held at its measured fall (that roof's own `slope`, then two
+    roofs). On a curve that flattens or steepens, the nearer is short of the root. After
+    a guess sank, the next goes at most halfway.
+  - `OVERHANG_TRIES` is 5. A single-slope roof on a small shed kinks where its slope
+    clamp starts, and with 4 tries it ended at 87 % of the longest overhang that holds.
+  - The walls' own roof stays. A gable holds its eaves to 0.75 × (top − ridge cap −
+    slab), lower than `eave_floor`, so a gable 18–22 cm tall cannot reach the floor
+    without an overhang. `eave_floor`'s docstring now says so. Unifying the two floors
+    would change the roofs of buildings under about 3.1 m, so they are left as they are.
+- **The measurement now:** `scripts/measure_roof_overhang.py` covers 17,424 cases.
+  - The grid gained an L and a U drawn on a grid, small sheds of 100 × 50 and
+    150 × 60 cm, and 400 and 600 cm heights.
+  - "Lost" now means no roof although one of 31 overhangs in range holds.
+  - Results: 0 violations, 0 lost, and 528 gables at 20 cm that keep the walls' own
+    roof.
+  - Of 1,482 shortened cases the median is 99.0 % of the longest overhang that holds and
+    the worst is 95.5 %. The 6 under 97 % are those small shed roofs at 4 m.
+  - It builds 1.46 roofs per case, 7 at most, and 3 for the 64-corner hip.
+  - Round 4 cited a reviewer's sweep that is not in the repo; that line is gone.
+- **P2s fixed:**
+  - A record whose context gains or loses a param is not held. This replaces the kind
+    filter: a lawn given a height carried its blade params onto the prism, the twin of
+    the terrace case.
+  - The budget check's guard for a held lawn without a share is pinned directly.
+  - The script-isolation exemption states the import facts correctly.
+  - The round numbers are gone from this branch's code comments. Measured facts keep
+    their source, as elsewhere in the code.
+  - The tests count every build, and the hexagon case is a polygon.
+- **Pins:** the overhang test covers 11 cases at 95 % of the longest overhang that holds,
+  including the L on a grid and the two small sheds. These are pinned too:
+  - an L on a grid, and a tool shed with an L outline, keep a roof and facade;
+  - a hip on an L is None, and the caller builds the gable;
+  - a lawn given a height inside a hold carries no lawn params.

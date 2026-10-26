@@ -759,7 +759,7 @@ The built world complete (L4, #388, ADR-065).
   may have (2.2 m, or three quarters of a lower building's height under its roof
   slab) above the ground: at a steep pitch on a small building the overhang is
   shortened, and the chosen style and pitch are kept. A building too low even for
-  that (a gabled house about 20 cm tall) keeps its roof without an overhang.
+  that (a gabled house 18–22 cm tall) keeps its roof without an overhang.
   The 2D plan and its sun study are unchanged by these settings.
 - **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
   wall that faces the nearest path (a garage: the nearest driveway, then path).

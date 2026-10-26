@@ -83,17 +83,15 @@ from .roofs import (
 #: OVERHANG is shortened; the style and the pitch the user chose are kept. A roof
 #: without an overhang ends at its walls and is kept as it is.
 EDGE_FLOOR_SHARE: Final = 0.5
-#: The overhang's search: a regula falsi on the measured edge heights (the lowest edge
-#: falls nearly linearly with the overhang), at most this many roofs beyond the first
-#: two (the style's overhang and none). ``scripts/measure_roof_overhang.py`` measures
-#: how close to the longest overhang that holds it lands, and how many roofs it builds.
-OVERHANG_TRIES: Final = 4
+#: The overhang's search (``_kept_up``): at most this many roofs beyond the ends of the
+#: range. ``scripts/measure_roof_overhang.py`` measures how close to the longest
+#: overhang that holds it lands, and how many roofs it builds.
+OVERHANG_TRIES: Final = 5
 #: … and done once its next step would gain less than this share of the overhang found
 #: (or a centimetre).
 OVERHANG_GAIN_SHARE: Final = 0.025
-#: A guess stays this much short of an overhang that built no roof: that may be an exact
-#: coincidence (an offset edge on the ridge line — a U outline's courtyard at 100 cm),
-#: and a hair shorter builds.
+#: Where no overhang builds no roof — maybe an exact coincidence: the ridge on an edge of
+#: the outline (an L drawn on a grid) — the search tries this much overhang instead.
 OVERHANG_NUDGE_CM: Final = 0.5
 
 HOUSE_ROOF: Final = RoofStyle(
@@ -206,7 +204,8 @@ def _kept_up(record: Record, chosen: str, height_cm: float, style: RoofStyle) ->
     whose lowest edge stays ``EDGE_FLOOR_SHARE`` of the eave floor above the ground. A
     hip whose eaves the overhang would sink is built with a shorter overhang, not
     turned into a gable. A building too low for that floor even without an overhang
-    keeps its roof without one; None when this style builds no roof here at all."""
+    keeps its roof without one. None when the style builds no roof at either end of the
+    overhang's range (the short one also tried ``OVERHANG_NUDGE_CM`` in)."""
     floor = EDGE_FLOOR_SHARE * eave_floor(style, height_cm)
 
     def build(overhang_cm: float) -> GableRoof | None:
@@ -220,42 +219,49 @@ def _kept_up(record: Record, chosen: str, height_cm: float, style: RoofStyle) ->
     built = build(high)
     if (built is not None and above(built) >= -1e-6) or high <= 0.0:
         return built
-    best = build(0.0)
+    # A builder returns None on an exact coincidence — an offset edge on the ridge line (a
+    # U's courtyard at 100 cm), the ridge on an edge of the outline (an L drawn on a grid,
+    # at no overhang) — and a hair beside it builds: the short end is tried there too.
+    low = 0.0
+    best = build(low)
+    if best is None and high > 2.0 * OVERHANG_NUDGE_CM:
+        low = OVERHANG_NUDGE_CM
+        best = build(low)
     if best is None:
-        return None   # this style builds no roof here at all: the caller falls back
-    low, at_low = 0.0, above(best)
+        return None   # no roof at the short end: the caller falls back
+    at_low = above(best)
     if at_low < -1e-6:
-        return best   # too low for the floor without an overhang: the walls' own roof
-    # A roof built where the edge sank brackets the search (regula falsi). Without one —
-    # no roof at the long end — the edge's fall per cm of overhang comes from the last
-    # two roofs that held, or at first from the pitch (the eaves run down the slope); a
-    # guess never reaches the long end, which may be an exact coincidence that builds
-    # nothing (OVERHANG_NUDGE_CM).
+        # Too low for the floor without an overhang — only a gable 18-22 cm tall: it
+        # holds its eaves to 0.75 x (top - ridge cap - slab), lower than ``eave_floor``.
+        return best
     at_high = None if built is None else above(built)
     held: tuple[float, float] | None = None   # the roof that held before ``low``
-    fall = math.tan(math.radians(style.pitch_deg))
-    kept_low, weight = 0, 1.0
+    sank = False
     for _try in range(OVERHANG_TRIES):
-        if at_high is not None and weight * at_low - at_high > 1e-6:   # the secant's root, 2 % short
-            gain = 0.98 * (high - low) * weight * at_low / (weight * at_low - at_high)
-        else:
-            slope = (held[1] - at_low) / (low - held[0]) if held is not None and held[1] > at_low else fall
-            gain = min(0.98 * at_low / max(slope, 1e-6), high - low - OVERHANG_NUDGE_CM)
-        if kept_low == 0 and low > 0.0 and gain < max(1.0, OVERHANG_GAIN_SHARE * low):
+        # Two estimates of where the edge meets the floor. The chord to the roof that sank
+        # lies beyond it where the edge's fall flattens (a shed's slope clamp); the line
+        # through the two last roofs that held — at first the held roof's own slope, the
+        # edge's fall per cm of overhang there — lies short of it there, and the other way
+        # round where the fall steepens (a hip's clamp). The nearer is short of it on
+        # either kind of curve; after a guess sank, a guess goes at most halfway. A guess
+        # is 1 % short of its estimate, so it never lands on the long end itself (maybe a
+        # coincidence). A gable's edge falls in a straight line.
+        estimates = [high - low]
+        if at_high is not None and at_low - at_high > 1e-6:
+            estimates.append((high - low) * at_low / (at_low - at_high))
+        slope = (held[1] - at_low) / (low - held[0]) if held is not None and held[1] > at_low else best.slope
+        estimates.append(at_low / max(slope, 1e-6))
+        gain = 0.99 * min(estimates)
+        if sank:
+            gain = min(gain, (high - low) / 2.0)
+        if gain < max(1.0, OVERHANG_GAIN_SHARE * low):
             break   # what is left to gain is under a centimetre, or a few per cent
-        if gain <= 0.0:
-            break
         trial = build(low + gain)
         if trial is not None and above(trial) >= -1e-6:
             held = (low, at_low)
-            best, low, at_low, kept_low, weight = trial, low + gain, above(trial), 0, 1.0
+            best, low, at_low, sank = trial, low + gain, above(trial), False
         else:
-            high, at_high = low + gain, None if trial is None else above(trial)
-            kept_low += 1
-            if kept_low >= 2:   # Illinois: the low end kept twice running pulls the guess down
-                weight /= 2.0
-        if high - low < 1.0:
-            break
+            high, at_high, sank = low + gain, None if trial is None else above(trial), True
     return best
 
 

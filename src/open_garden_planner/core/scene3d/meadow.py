@@ -1,4 +1,4 @@
-"""The endless meadow around the plan (Phase 17 L4, #388: 3D review round 2). Qt-free.
+"""The endless meadow around the plan (Phase 17 L4, #388). Qt-free.
 
 The meadow is a square ``2 × MEADOW_HALF_CM`` wide (4 km, past the workspace's 800 m far
 plane) centred on the plan, IN the plan's plane, with the plan's rectangle cut out —
@@ -39,7 +39,7 @@ MEADOW_HALF_CM: Final = 200_000.0
 MEADOW_CELL_CM: Final = 10_000.0
 #: How far the meadow reaches under the plan's edge, cm (module docstring). At 1 cm the
 #: meadow won the strip's equal depth test and took the outer centimetre of a surface
-#: painted up to the edge (3D review of #388, round 3: 4 px at 0.5 m); 1 mm shows none,
+#: painted up to the edge (4 px at 0.5 m); 1 mm shows none,
 #: and no crack either.
 MEADOW_OVERLAP_CM: Final = 0.1
 #: A cell line this close to one of the plan's edges is dropped for the edge, cm.

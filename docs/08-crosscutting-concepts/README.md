@@ -7063,25 +7063,41 @@ kerb, skirt or coping is swept along at most `MAX_RELIEF_VERTICES` (4,096) outli
 vertices; beyond, the surface keeps its painted ground. An overhang never takes a pitched
 roof's lowest edge below `EDGE_FLOOR_SHARE` (half) of the eave floor: the overhang is
 shortened and the chosen style and pitch kept (a 60 × 100 cm shed at 60° and 150 cm
-reached 91.5 cm into the ground). The overhang is found by a regula falsi on the measured
-edge heights. Where the long end builds no roof, the fall per centimetre comes from the
-last two roofs that held, or at first from the pitch, and a guess stays half a centimetre
-short of that end: a U outline's gable is no roof at exactly 100 cm. A building too low
-for the floor even without an overhang keeps its roof without one; a gabled house 18.5–21.5
-cm tall ends about 1 cm above the ground. A style that builds no roof there at all is
-left to the caller: a hip falls back to the gable, otherwise the building is its plain
-block. `scripts/measure_roof_overhang.py` measures the search over 9,072 cases (three
-building kinds; rectangles, an L, a U, a hexagon and a 64-gon; 20–700 cm; every style;
-four pitches and four overhangs). Of the 569 cases it shortens to at least 5 cm, the worst
-found 97.0 % of the longest overhang that holds, with 0 floor violations and 0 roofs
-lost. It builds 1.30 roofs per case on average and 6 at most. A 64-corner hip at 700 cm,
-60° and 150 cm takes 3 roofs, 266 ms.
+reached 91.5 cm into the ground). How the overhang is found:
+- Each guess is the nearer of two estimates of where the edge meets the floor. One is
+  the chord to a roof that sank. The other is the line from the last roof that held, at
+  the measured fall: that roof's own slope at first, then the line through the two last
+  roofs that held.
+- On a curve that flattens, the chord lands beyond the root and the line short of it;
+  on one that steepens, the other way round. The nearer one is short either way.
+- After a guess sinks, the next goes at most halfway.
+- A builder returns no roof on an exact coincidence: a U outline's offset edge on the
+  ridge line at 100 cm, or the ridge on the inner edge of an L drawn on a grid at no
+  overhang. A guess is 1 % short of its estimate, so it never lands on the long end, and
+  the short end is tried at half a centimetre too.
+- A gable holds its eaves to 0.75 × (top − ridge cap − slab), lower than the eave floor.
+  So a gabled building 18–22 cm tall is too low for the floor even without an overhang,
+  and keeps that roof (its edge 0.8–3.7 cm above the ground).
+- A style that builds no roof at either end is left to the caller: a hip falls back to
+  the gable, otherwise the building is its plain block.
+
+`scripts/measure_roof_overhang.py` measures the search over 17,424 cases (the grid in
+its docstring). It reports:
+- 0 floor violations, and 0 roofs lost, where "lost" means no roof although some overhang
+  in range holds;
+- 528 gables at 20 cm that keep the walls' own roof;
+- for the 1,482 cases it shortens: median 99.0 % of the longest overhang that holds,
+  worst 95.5 %. The 6 under 97 % are single-slope roofs on sheds of 1–1.5 m at 4 m,
+  where the slope clamp kinks the edge's fall;
+- 1.46 roofs built per case, 7 at most;
+- 3 roofs for a 64-corner hip at 700 cm, 60° and 150 cm.
+
 Context params change at most once per `CONTEXT_REBUILD_MIN_MS` during a drag (§8.29,
 "A move or a recolour uploads nothing"). A held pass keeps the plan's 60,000 blades:
 - The old shares are kept while the lawns' total fits, so a resized lawn leaves the
   others alone. Otherwise no held share is above its new one.
-- A lawn without a held share (a raised lawn lowered) counts as unbounded.
-- A record whose kind changed is not held.
+- A record whose context gains or loses a param is not held: a lawn turned into a
+  terrace, given a height, or lowered from one.
 - A lawn with a height grows no blades and takes no share.
 
 A document change and a pause end the hold, and a recovery from scratch applies the plan

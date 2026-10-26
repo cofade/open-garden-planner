@@ -324,13 +324,15 @@ def _slab(triangles: F64, top_at: Callable[[F64], F64], slab: float, tile: Array
 
 
 def _floor(style: RoofStyle, top_cm: float) -> float:
-    """The lowest the walls may end under a pitched roof: a door still fits."""
+    """The lowest the walls may end under a hip or a shed roof (220 cm: a door fits)."""
     return min(style.eave_floor_cm, style.eave_floor_share * (top_cm - style.slab_cm))
 
 
 def eave_floor(style: RoofStyle, top_cm: float) -> float:
     """The lowest the walls may end under a pitched roof of ``style`` topping out at
-    ``top_cm`` (what the gable and the hip hold their eaves to)."""
+    ``top_cm``: what the hip and the shed hold their eaves to. The gable holds its own
+    to the same share of its apex under the ridge cap — the same 220 cm on a building
+    above about 3.1 m, lower by ``0.75 x cap_rise_cm`` (3.75 cm) on a lower one."""
     return _floor(style, top_cm)
 
 

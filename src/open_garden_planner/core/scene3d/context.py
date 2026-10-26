@@ -68,9 +68,9 @@ _NOT_A_CUTOUT: Final = frozenset({"TREE", "SHRUB", "PERENNIAL", "LAWN"})
 #: The objects whose build covers their footprint at the ground — a pot, a pit, a box.
 #: They cut a lawn whatever their height and their place in the paint order, as an
 #: enclosed building does: a cold frame's soil and a fire pit's ash bed lie a few cm up,
-#: under a blade's 7 cm (senior review of #388, round 2). Every other object is built on
-#: legs, posts, a pole or ropes and the lawn grows under it; a cut-out left a bald patch
-#: there (round 1: a pergola 12 m², a parasol 6 m²).
+#: under a blade's 7 cm. Every other object is built on legs, posts, a pole or ropes and
+#: the lawn grows under it; a cut-out left a bald patch there (a pergola 12 m², a
+#: parasol 6 m²).
 GROUND_COVERING_KINDS: Final = frozenset({
     "COLD_FRAME", "COMPOST_BIN", "FIRE_PIT", "HOT_TUB", "PLANTER_POT", "RAIN_BARREL", "SANDBOX"})
 #: Enclosed buildings cut a lawn whatever their place in the paint order: their
@@ -80,7 +80,7 @@ ENCLOSED_KINDS: Final = frozenset({"HOUSE", "GARAGE_SHED", "TOOL_SHED", "GREENHO
 #: The params this pass writes — what one record takes from the OTHERS. A drag changes
 #: them at every step (a lawn's cut-outs are the other items' outlines in its frame);
 #: the 3D controller applies a change of these alone at most once per
-#: ``sync_controller.CONTEXT_REBUILD_MIN_MS`` (senior review of #388).
+#: ``sync_controller.CONTEXT_REBUILD_MIN_MS``.
 CONTEXT_PARAMS: Final = frozenset({PARAM_DOOR_WALL, PARAM_LAWN_CUTOUTS, PARAM_LAWN_BLADES})
 #: Path styles the canvas paints with round caps and joins (``path_style_paint``): their
 #: cut-out is that rounded stroke, half a width past each end — blades grew through the

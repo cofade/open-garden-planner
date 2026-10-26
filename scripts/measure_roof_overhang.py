@@ -2,23 +2,32 @@
 
 A pitched roof's overhang is shortened when it would take the roof's lowest edge below
 ``EDGE_FLOOR_SHARE`` of the eave floor (``_kept_up``, ADR-065, §8.29.12). This script
-builds every case of a panel grid and reports, for each case the search shortens:
+builds every case of a grid and reports:
 
-- the overhang found against the LONGEST that holds (a 30-step bisection on the same
-  builder), and how many found less than 97 % of it;
-- how many roofs the search built (the count of ``_pitched`` calls);
-- whether any roof's lowest edge is below the floor (a violation), and whether a
-  roof was lost (the search returned None where an overhang of 0 builds one).
+- for each case the search shortens: the overhang found against the LONGEST that holds
+  (a 30-step bisection on the same builder, between the short end that builds — 0, or
+  ``OVERHANG_NUDGE_CM`` — and the style's overhang), and how many found less than 97 %;
+- how many roofs the search built (every ``_pitched`` call, a roof or not);
+- floor violations: a roof whose lowest edge is below the floor, except the walls' own
+  roof without an overhang (a gable 18-22 cm tall, which no overhang can lift);
+- roofs lost: the search returned None although some overhang in its range builds a
+  roof that holds (31 overhangs scanned from 0.01 cm to the style's).
 
-The grid: HOUSE, TOOL_SHED and GARAGE_SHED; a 60 x 100, 240 x 180 and 900 x 540 cm
-rectangle, an L, a U (its ridge crosses the courtyard), a hexagon (r 300 cm) and a
-64-gon (r 400 cm); heights 20, 25, 40, 60, 90, 150, 250, 450 and 700 cm; the gable, hip
-and shed styles; pitch 5, 30, 45 and 60°; overhang 25, 50, 100 and 150 cm. Cases whose
-longest holding overhang is under 5 cm are counted but kept out of the share
-statistics (a share of a few millimetres says nothing). Last, it times the worst case
-the reviews used: a 64-corner hip, r 250 cm, 700 cm, 60°, 150 cm.
+The grid: HOUSE, TOOL_SHED and GARAGE_SHED, each with a gable, hip and shed roof. The
+outlines:
+- rectangles of 60 x 100, 100 x 50, 150 x 60, 240 x 180 and 900 x 540 cm;
+- an L and a U whose ridge crosses them;
+- an L and a U drawn on a grid, whose ridge lies on an edge of the outline (the
+  HOUSE tool's ridge: the bounding box's centre line);
+- a hexagon (r 300 cm) and a 64-gon (r 400 cm).
 
-Run: ``venv/Scripts/python.exe scripts/measure_roof_overhang.py`` (about a minute).
+Heights are 20, 25, 40, 60, 90, 150, 250, 400, 450, 600 and 700 cm; pitches 5, 30, 45
+and 60°; overhangs 25, 50, 100 and 150 cm. Cases whose longest holding overhang is under
+5 cm are counted but kept out of the shares, since a share of a few millimetres says
+nothing. Last, it times the worst case the reviews used: a 64-corner hip, r 250 cm,
+700 cm, 60°, 150 cm.
+
+Run: ``venv/Scripts/python.exe scripts/measure_roof_overhang.py`` (several minutes).
 """
 
 from __future__ import annotations
@@ -35,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from open_garden_planner.core import roof_style as rs  # noqa: E402
 from open_garden_planner.core.scene3d import Material, Params, Record, Transform, ccw  # noqa: E402
 from open_garden_planner.core.scene3d.builders import buildings  # noqa: E402
-from open_garden_planner.core.scene3d.builders.roofs import RoofStyle, eave_floor  # noqa: E402
+from open_garden_planner.core.scene3d.builders.roofs import GableRoof, RoofStyle, eave_floor  # noqa: E402
 
 Point = tuple[float, float]
 
@@ -52,17 +61,23 @@ def _round(corners: int, radius: float) -> tuple[Point, ...]:
 
 OUTLINES: dict[str, tuple[str, tuple[Point, ...]]] = {
     "rect 60x100": ("rectangle", _rectangle(60.0, 100.0)),
+    "rect 100x50": ("rectangle", _rectangle(100.0, 50.0)),
+    "rect 150x60": ("rectangle", _rectangle(150.0, 60.0)),
     "rect 240x180": ("rectangle", _rectangle(240.0, 180.0)),
     "rect 900x540": ("rectangle", _rectangle(900.0, 540.0)),
     "L": ("polygon", ((-450.0, -300.0), (450.0, -300.0), (450.0, 100.0), (0.0, 100.0), (0.0, 300.0),
                       (-450.0, 300.0))),
+    "L on a grid": ("polygon", ((-450.0, -300.0), (450.0, -300.0), (450.0, 0.0), (0.0, 0.0), (0.0, 300.0),
+                                (-450.0, 300.0))),
     "U": ("polygon", ((-450.0, -300.0), (450.0, -300.0), (450.0, 300.0), (250.0, 300.0), (250.0, -100.0),
                       (-250.0, -100.0), (-250.0, 300.0), (-450.0, 300.0))),
+    "U on a grid": ("polygon", ((-450.0, -300.0), (450.0, -300.0), (450.0, 300.0), (250.0, 300.0),
+                                (250.0, 0.0), (-250.0, 0.0), (-250.0, 300.0), (-450.0, 300.0))),
     "hexagon": ("polygon", _round(6, 300.0)),
     "64-gon": ("polygon", _round(64, 400.0)),
 }
 KINDS = ("HOUSE", "TOOL_SHED", "GARAGE_SHED")
-HEIGHTS = (20.0, 25.0, 40.0, 60.0, 90.0, 150.0, 250.0, 450.0, 700.0)
+HEIGHTS = (20.0, 25.0, 40.0, 60.0, 90.0, 150.0, 250.0, 400.0, 450.0, 600.0, 700.0)
 STYLES = ("gable", "hip", "shed")
 PITCHES = (rs.MIN_PITCH_DEG, 30.0, 45.0, rs.MAX_PITCH_DEG)
 OVERHANGS = (25.0, 50.0, 100.0, rs.MAX_OVERHANG_CM)
@@ -78,14 +93,14 @@ def record(kind: str, shape: str, ring: tuple[Point, ...], height: float, style:
 
 def main() -> int:
     real = buildings._pitched
-    tried: list[tuple[object, float]] = []
+    tried: list[tuple[GableRoof | None, float]] = []
 
-    def counting(rec: Record, chosen: str, height_cm: float, style: RoofStyle) -> object:
+    def counting(rec: Record, chosen: str, height_cm: float, style: RoofStyle) -> GableRoof | None:
         built = real(rec, chosen, height_cm, style)
-        tried.append((None if built is None else built.roof, style.overhang_cm))
+        tried.append((built, style.overhang_cm))
         return built
 
-    cases = shortened = violations = lost = 0
+    cases = shortened = violations = lost = own_roofs = 0
     shares: list[float] = []
     builds: list[int] = []
     worst: list[tuple[float, str]] = []
@@ -98,35 +113,44 @@ def main() -> int:
                         for overhang in OVERHANGS:
                             rec = record(kind, shape, ring, height, style, pitch, overhang)
                             used = buildings.style_for(rec, base)
-                            chosen = style
                             floor = buildings.EDGE_FLOOR_SHARE * eave_floor(used, height)
+
+                            def at(cm: float, rec: Record = rec, style: str = style, used: RoofStyle = used,
+                                   height: float = height) -> GableRoof | None:
+                                return real(rec, style, height, dataclasses.replace(used, overhang_cm=cm))
+
+                            def holds(cm: float, at=at, floor: float = floor) -> bool:  # noqa: ANN001
+                                built = at(cm)
+                                return built is not None and float(built.roof.positions[:, 2].min()) >= floor - 1e-6
+
                             tried.clear()
                             buildings._pitched = counting
                             try:
-                                roof = buildings._kept_up(rec, chosen, height, used)
+                                roof = buildings._kept_up(rec, style, height, used)
                             finally:
                                 buildings._pitched = real
                             cases += 1
                             builds.append(len(tried))
                             if roof is None:
-                                if real(rec, chosen, height, dataclasses.replace(used, overhang_cm=0.0)) is not None:
+                                scan = [0.01] + [used.overhang_cm * k / 30.0 for k in range(1, 31)]
+                                if any(holds(cm) for cm in scan):
                                     lost += 1
+                                    worst.append((-1.0, f"LOST {kind} {name} h{height:g} {style} {pitch:g}° "
+                                                        f"{overhang:g} cm"))
                                 continue
-                            found = next(cm for mesh, cm in tried if mesh is roof.roof)
+                            found = next(cm for built, cm in tried if built is roof)
                             lowest = float(roof.roof.positions[:, 2].min())
-                            without = real(rec, chosen, height, dataclasses.replace(used, overhang_cm=0.0))
-                            if lowest < floor - 1e-3 and not (found == 0.0 and without is not None):
-                                violations += 1
+                            if lowest < floor - 1e-3:
+                                if found <= buildings.OVERHANG_NUDGE_CM:
+                                    own_roofs += 1
+                                else:
+                                    violations += 1
                             if found >= used.overhang_cm - buildings.OVERHANG_NUDGE_CM - 1e-9:
                                 continue
-
-                            def holds(cm: float, rec: Record = rec, chosen: str = chosen,
-                                      used: RoofStyle = used, floor: float = floor,
-                                      height: float = height) -> bool:
-                                built = real(rec, chosen, height, dataclasses.replace(used, overhang_cm=cm))
-                                return built is not None and float(built.roof.positions[:, 2].min()) >= floor - 1e-6
-
-                            low, high = 0.0, used.overhang_cm
+                            short = 0.0 if at(0.0) is not None else buildings.OVERHANG_NUDGE_CM
+                            if not holds(short):
+                                continue   # the walls' own roof: no overhang holds
+                            low, high = short, used.overhang_cm
                             for _step in range(30):
                                 middle = (low + high) / 2.0
                                 low, high = (middle, high) if holds(middle) else (low, middle)
@@ -140,7 +164,7 @@ def main() -> int:
     shares.sort()
     print(f"cases {cases}; shortened {shortened}; with a longest holding overhang >= {SHARE_FLOOR_CM:g} cm: "
           f"{len(shares)}")
-    print(f"floor violations {violations}; roofs lost {lost}")
+    print(f"floor violations {violations}; roofs lost {lost}; the walls' own roof (no overhang holds) {own_roofs}")
     if shares:
         tenth = shares[len(shares) // 10]
         print(f"found / longest: min {shares[0]:.3f}, p10 {tenth:.3f}, median {statistics.median(shares):.3f}; "

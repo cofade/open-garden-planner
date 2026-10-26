@@ -63,8 +63,9 @@ NOT_ISOLATED: dict[str, str] = {
         "imports the species database and the task generator; no application, no plan saved or "
         "loaded; a unit test imports it into the pytest process",
     "measure_roof_overhang.py":
-        "imports core.roof_style and core.scene3d's building and roof builders (Qt-free); no "
-        "application, no store, no plan saved or loaded",
+        "imports core.roof_style and core.scene3d's builders — the core package's import loads "
+        "PyQt6 and app.settings, but builds no application and no settings store, and the "
+        "script calls no get_settings(); no plan saved or loaded",
     "probe_widget_leaks.py":
         "master's #515 widget-leak probe: before it builds an application it imports "
         "tests.conftest, whose module-level code IS the suite's isolation (settings names, "
