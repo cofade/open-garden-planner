@@ -322,7 +322,7 @@ ask the ONE rule.
 ### PF-DOM-28
 
 - **Rule:** One caster's footprints are ONE region: a ring whose enclosed area is negative is a hole and must be bridged before the sweep, and a ring that crosses itself must be split into its lobes. Sweep simple rings only.
-- **Pinned by:** `tests/integration/test_shadow_region.py::test_the_shadow_of_the_loop_is_its_stroke`; `tests/integration/test_shadow_region.py::test_a_self_crossing_outline_is_shaded_as_its_lobes`; `tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself`
+- **Pinned by:** `tests/integration/test_shadow_region.py::test_the_shadow_of_the_loop_is_its_stroke`; `tests/integration/test_shadow_region.py::test_a_self_crossing_outline_is_shaded_as_its_lobes`; `tests/integration/test_shadow_region.py::test_a_pentagram_is_split_even_though_its_lobes_are_smaller_than_its_print`; `tests/integration/test_shadow_region.py::test_a_hole_belongs_to_the_innermost_outer_that_contains_it`; `tests/integration/test_shadow_region.py::test_an_outline_above_the_vertex_bound_pays_no_simplify_call`
 - **Source:** #444
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -340,9 +340,13 @@ The repair is `core.shadow_geometry.shadow_region`, asked once per item by the
 one caster walk: a hole is cut open by a ZERO-WIDTH slit from its topmost vertex
 to the nearest boundary above (the region is unchanged, so the sweep is), and a
 self-crossing ring is split by `SimplifyPolygons` into lobes. Detection is
-structural - a negative area in a multi-ring set, or a ring whose printed area
-differs from what its outline encloses - never a type test, and a LONE ring is
-never treated as a hole whatever its winding (a clockwise solid is a solid).
+structural - a negative area in a multi-ring set, or a ring whose even-odd
+decomposition is not exactly ONE ring - never a type test and never an area
+difference (a pentagram decomposes into an outer plus a hole: 235,114 cm2 printed
+against 124,108 in five lobes), and a LONE ring is never treated as a hole
+whatever its winding (a clockwise solid is a solid). Above 256 vertices a ring
+skips the self-crossing test, so a crafted outline cannot stall the walk; the
+hole repair is still done.
 Simple rings come back point for point, which is what keeps the shadow golden
 fixture valid; measured, neither bench plan has a hole-bearing caster.
 

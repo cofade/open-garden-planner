@@ -1222,15 +1222,17 @@ pentagram of radius 400 drew **334,617 cm²** where its five lobes give **321,56
 the item is still known — `core.shadow_geometry.shadow_region(footprints)`.
 
 1. **Detection is structural, not a type test.** A ring set needs the repair when (a) some
-   ring's enclosed area is negative while there is more than one ring — a hole — or (b)
-   any ring's printed area differs from what its own outline encloses
-   (`SimplifyPolygons`, one grid step of slack) — a self-crossing outline. A LONE ring is
-   never a hole whatever its winding: a solid drawn clockwise is a solid, and the sweep
-   already normalises winding. Everything else is returned **point for point**, which is
-   what keeps `tests/fixtures/shadows/shadow_golden.json` valid — every footprint it pins
+   ring's enclosed area is negative while there is more than one ring - a hole - or (b)
+   some ring's even-odd decomposition is not exactly ONE ring (`SimplifyPolygons`) - a
+   self-crossing outline. (b) is not an area difference: a pentagram decomposes into an
+   outer plus a hole whose total area is SMALLER than the ring's printed area (235,114
+   cm² printed, 124,108 in five lobes), so the sign of that difference is not fixed. A
+   LONE ring is never a hole whatever its winding: a solid drawn clockwise is a solid,
+   and the sweep already normalises winding. Everything else is returned **point for
+   point**, which is what keeps `tests/fixtures/shadows/shadow_golden.json` valid - every footprint it pins
    is a simple ring (measured: no hole-bearing and no self-crossing caster in
    `bench_small.ogp`'s 87 or `bench_large.ogp`'s 379).
-    2. **A hole is cut open by a zero-width slit.** `_bridge_holes_int` runs a vertical ray
+2. **A hole is cut open by a zero-width slit.** `_bridge_holes_int` runs a vertical ray
    from the hole's topmost vertex to the nearest boundary above it (at x offsets
    0, ±1, ±2 … grid steps; a ray that still lands on a vertex duplicates it, and the
    region is exact either way — measured), and the ring visits it down

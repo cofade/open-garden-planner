@@ -213,7 +213,15 @@ def shadow_region(footprints: Iterable[Sequence[Point]]) -> list[Polygon]:
     ``tests/fixtures/shadows/shadow_golden.json``, which stays bit-for-bit (the
     golden's stated rule). Roles come from the sign of the enclosed area —
     outers counter-clockwise, holes clockwise — which is what every
-    ``pyclipper`` offset hands out.
+    ``pyclipper`` offset hands out. A ring that touches itself (a pinched
+    outline) is rebuilt into its lobes; its ground is the same.
+
+    The self-crossing test and split are per RING and bounded by
+    ``MAX_REGION_VERTICES``: above it a ring is taken as it comes (measured, one
+    ``SimplifyPolygons`` call over a 16,384-vertex ring costs 257 ms, and over a
+    whole ring set of a crafted fence 2.4 s — per walk). The hole repair has no
+    such bound: a stroke's rings are grouped by winding and bridged, which is
+    linear in the ring and cheap next to that stroke's own sweep.
 
     Callers: the two caster walks (``collect_identified_casters``, which the
     overlay's ``collect_shadow_casters`` flattens) ask this once per item per
@@ -227,9 +235,17 @@ def shadow_region(footprints: Iterable[Sequence[Point]]) -> list[Polygon]:
     int_rings = [_to_int(ring) for ring in rings]
     if not _region_needs_repair(int_rings):
         return rings
+    pieces: list[list[tuple[int, int]]] = []
+    for ring in int_rings:
+        # Only a ring that is not a hole can be a crossing outline, and only a
+        # ring within the bound is tested: per ring, never over the whole set.
+        if len(ring) <= MAX_REGION_VERTICES and pyclipper.Area(ring) >= 0:
+            lobes = pyclipper.SimplifyPolygons([ring], pyclipper.PFT_EVENODD)
+            pieces.extend(lobes if len(lobes) > 1 else [ring])
+        else:
+            pieces.append(ring)
     regions: list[Polygon] = []
-    simple = pyclipper.SimplifyPolygons(int_rings, pyclipper.PFT_EVENODD)
-    for outer, holes in _group_holes_int(simple):
+    for outer, holes in _group_holes_int(pieces):
         regions.append(_from_int(_bridge_holes_int(outer, holes) if holes else outer))
     return regions
 

@@ -3,7 +3,7 @@
 A fence or wall drawn as a closed loop comes back from the offset as an outer ring
 and a hole. The sweep took every ring as a solid, so the hole was cast as a slab the
 size of the enclosed garden: a 10 m x 8 m loop at a 60° sun drew **88.8 m²** where its
-stroke's prism gives **17.5 m²** (ADR-056 addendum, issue #444). A self-crossing
+stroke's prism gives **17.5 m²** (ADR-037 addendum "one caster's ring set is one REGION", issue #444). A self-crossing
 outline had the same shape of defect: swept as one ring it lost a lobe (**80,000 cm²**
 where the two lobes' prisms give **129,282 cm²**).
 
@@ -60,7 +60,10 @@ AZIMUTH_DEG = 180.0
 #: What the loop's shadow measures — its stroke's prism. The four-piece reference of
 #: the issue (the stroke cut into triangles) gives 174,564 cm², 38 cm² more, because
 #: its rectangles have square corners while the offset ring's corners are chamfered by
-#: 38 cm² in total; the ray oracle below settles it in the sweep's favour.
+#: 38 cm² in total (the outer ring's printed area is 818,062.1, not the rectangles'
+#: 818,100). The ray oracle below cannot adjudicate that difference — its grid cell is
+#: 400 cm² — and does not need to: it settles the REPAIR, and the ring's own outline
+#: settles the rest.
 LOOP_SHADOW_CM2 = 174_526.0
 #: What it measured before #444: both rings swept as solids, i.e. the garden as a slab.
 LOOP_SHADOW_BEFORE_CM2 = 888_037.0
@@ -233,6 +236,11 @@ def test_a_hole_belongs_to_the_innermost_outer_that_contains_it() -> None:
     rings = [outer, hole, island, island_hole]
     region = shadow_region(rings)
     assert len(region) == 2
+    # The PIECES, not their sum: attaching the island's hole to the outermost ring
+    # (the pre-review rule) gives [2,000, 80,000] — the same total ground, but a
+    # bridged ring that crosses itself, so the sweep differs from the true sweep.
+    assert sorted(abs(signed_area([piece])) for piece in region) == pytest.approx(
+        [11_600.0, 70_400.0], abs=1.0)
     expected = (signed_area([outer]) + signed_area([hole])
                 + signed_area([island]) + signed_area([island_hole]))
     assert sum(signed_area([piece]) for piece in region) == pytest.approx(expected, abs=1.0)
@@ -373,5 +381,6 @@ def test_only_a_polygon_s_own_outline_can_cross_itself(qtbot: Any) -> None:
          QPointF(100.0, 900.0), QPointF(100.0, 700.0)], object_type=ObjectType.FENCE)
     raw = item_footprints(crossing)
     assert len(raw) > 1, "a crossing centre line is the multi-ring case"
-    assert len(shadow_region(raw)) < len(raw) or any(
-        signed_area([piece]) > 0.0 for piece in shadow_region(raw))
+    region = shadow_region(raw)
+    assert len(region) == 1, "the repair collapses the stroke to one simple ring"
+    assert signed_area(region) == pytest.approx(signed_area(raw), abs=5.0)

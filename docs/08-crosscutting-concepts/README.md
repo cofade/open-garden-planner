@@ -1205,9 +1205,9 @@ Established by `tests/integration/test_shadow_caster_golden.py`,
   lobes. The repair that makes them simple rings (a zero-width bridge, `SimplifyPolygons`) is
   judged by the same ray oracle on a grid of cells — the polygon answer and "is some point between
   it and the sun inside the region" must agree cell for cell, and the swept-rings answer must not.
-  That is what makes "the slit costs no ground" a measurement, and it explains a 38 cm² difference
-  between the issue's four-rectangle reference and the offset ring's chamfered corners, which an
-  area comparison alone would have read as a bug in the fix
+  That is what makes "the slit costs no ground" a measurement. It does not adjudicate the 38 cm²
+  between the issue's four-rectangle reference and the offset ring (its cells are 400 cm²);
+  the ring's own printed area, 818,062.1 against the rectangles' 818,100, does.
   (`tests/integration/test_shadow_region.py`).
 - **A builder matrix turns the local geometry, not only the item.** A builder never sees an
   item's rotation (it is the transform's), so "parametrise over rotation" has to mean the
@@ -3578,7 +3578,7 @@ the item's ring set into ONE region before the sweep
 slit, a self-crossing outline is split into its lobes). The shadow of a fence
 drawn as a closed loop is its stroke, not the slab it encloses: measured, the
 10 m × 8 m loop of the reproduction went from 888,037 cm² of shade to 174,526.
-ADR-037 addendum "one caster's ring set is one REGION", PF-DOM-28.
+ADR-037 addendum "one caster's ring set is one REGION", PF-DOM-28. The self-crossing half is bounded at `MAX_REGION_VERTICES = 256` (a crafted 16,384-vertex outline pays no `SimplifyPolygons` on every walk) and the hole half is not.
 
 **Recompute discipline** for canvas-scale overlays (shadow overlay,
 heatmap): precompute on change — `scene.changed` debounced (150 ms) +
@@ -4320,7 +4320,7 @@ Guild links are orthogonal to §8.14 plant-parent relationships; no new bed pred
 
 ## 8.27 Cached sun exposure and shared diagnostics
 
-US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposure` shares the explicit day's sample loop with the existing grid aggregator. `collect_identified_casters` is the single footprint / height / base collector (one `ItemLookup` per walk; `collect_shadow_casters` flattens it for the overlay). Sparse coverage uses unioned owner footprints - each swept from where its owner stands - and excludes the receiver's own UUID, every soil solid whose outline contains the receiver (a bed, raised bed, container or wall planter with a height: `IdentifiedCaster.holds_plants`, so a plant inside a bed it was never linked to reads the bed's real sun, #481) and, for a plant that stands in a soil parent with a height, that parent (`SunReceiver.stands_on`, from `footprints.standing_parent`: without it every plant in a raised bed read 0 hours, ADR-056 addendum). Receiver coordinates use base-shape centres transformed by `mapToScene`; badge/decorative bounds are never sampling geometry. Row zero remains south.
+US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposure` shares the explicit day's sample loop with the existing grid aggregator. `collect_identified_casters` is the single footprint / height / base collector (one `ItemLookup` per walk; `collect_shadow_casters` flattens it for the overlay). Sparse coverage uses unioned owner footprints — each swept from where its owner stands — and excludes the receiver's own UUID, every soil solid whose outline contains the receiver (a bed, raised bed, container or wall planter with a height: `IdentifiedCaster.holds_plants`, so a plant inside a bed it was never linked to reads the bed's real sun, #481) and, for a plant that stands in a soil parent with a height, that parent (`SunReceiver.stands_on`, from `footprints.standing_parent`: without it every plant in a raised bed read 0 hours, ADR-056 addendum). Receiver coordinates use base-shape centres transformed by `mapToScene`; badge/decorative bounds are never sampling geometry. Row zero remains south.
 
 `SunExposureCoordinator` compares immutable runtime snapshots in 60 ms and publishes cached evaluations. Commands are subscribed separately because metadata-only changes need not repaint. Requirement-only edits reclassify without recomputing. No panel, selection, repaint or Agent API read can start work. Ordinary edits retain the grid's visual snapshot with a stale tooltip, but clear receiver minutes, badges and mismatches. Missing location, cancellation, absent results, hidden plants and out-of-grid centres remain unavailable rather than becoming zero hours. Known unavailable requirements produce `sun_evaluation` information diagnostics; Information is a panel severity filter and counts say diagnostics.
 
