@@ -310,8 +310,9 @@ def _house_walls(parts: tuple[MeshPart, ...]) -> tuple[MeshPart, ...]:
     """A HOUSE's walls are ``HOUSE_WALL`` on EVERY route — under its roof, the block of
     a house whose roof cannot be built (``_block``) and ``BuiltBuilder``'s plain block of
     a house that is not one plain outline — never the item's fill (module docstring).
-    A block's top is the roof seen from above, so it is roof tiles, as the 2D plan draws
-    it (3D review of the owner's second pass); walls under a roof have no top.
+    A block's top is the roof seen from above, so it is roof tiles: the 2D plan's look at
+    the default fill (3D review of the owner's second pass). Like the real roof, it does
+    not follow another fill. Walls under a roof have no top.
     The rule of the kind, applied once to whatever was built: the tinted parts."""
     wall = np.asarray(HOUSE_WALL.linear, dtype=np.float32)
     tile = np.asarray(HOUSE_ROOF.tile.linear, dtype=np.float32)

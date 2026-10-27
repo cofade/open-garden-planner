@@ -58,6 +58,11 @@ from tests.unit.test_quick3d_adapter import FakeScene
 
 PLAN = Path(__file__).resolve().parents[1] / "fixtures" / "plans" / "bench_small.ogp"
 JUNE = date(2026, 6, 21)
+#: bench_small in the engine: 98 records (a roof ridge has none: it is a param of its
+#: house), 9 of them flat (the fire pit and the rain barrel have a default height since
+#: L4's second owner pass), 89 parts. One number for both tiers: e4df9674 raised the
+#: recording engine's copy and left the render tier's, and CI's Render 3D went red.
+RECORDS, ENGINE_PARTS = 98, 89
 SOFTWARE_ADAPTERS = ("basic render", "llvmpipe", "softpipe", "swiftshader", "lavapipe")
 
 
@@ -125,9 +130,7 @@ class TestAgainstARecordingEngine:
 
         fresh_pipelines()
         tick()
-        # 98 records (a roof ridge has none: it is a param of its house), 9 of them flat
-        # (the fire pit and the rain barrel have a default height since L4's second owner pass)
-        assert len(quick.item_ids()) == 98 and len(engine.parts) == 89
+        assert len(quick.item_ids()) == RECORDS and len(engine.parts) == ENGINE_PARTS
         uploads = quick.geometry_uploads
         target, victim = largest_solids(scene, {p.spec.item_id for p in engine.parts})
 
@@ -146,10 +149,10 @@ class TestAgainstARecordingEngine:
 
         commands.execute(DeleteItemsCommand(scene, [victim]))
         tick()
-        assert len(engine.parts) == 88
+        assert len(engine.parts) == ENGINE_PARTS - 1
         commands.undo()
         tick()
-        assert len(engine.parts) == 89 and quick.geometry_uploads == uploads + 1
+        assert len(engine.parts) == ENGINE_PARTS and quick.geometry_uploads == uploads + 1
         commands.undo()
         commands.undo()
         tick()
@@ -158,7 +161,7 @@ class TestAgainstARecordingEngine:
         assert engine.parts == [] and engine.sun is None and engine.ground is None
         fresh_pipelines()
         tick()         # … and the same plan comes back complete
-        assert len(engine.parts) == 89
+        assert len(engine.parts) == ENGINE_PARTS
 
 
 @pytest.fixture(scope="module")
@@ -220,7 +223,7 @@ class TestOnTheRealRenderer:
                 assert got["position"] == pytest.approx(want["position"], abs=1e-2), (step["name"], key)
                 assert got["yaw"] == pytest.approx(want["yaw"], abs=1e-3), (step["name"], key)
         first = steps[0]
-        assert first["records"] == 98 and len(first["engine_parts"]) == 89
+        assert first["records"] == RECORDS and len(first["engine_parts"]) == ENGINE_PARTS
 
     def test_the_frame_shows_the_plan(self, run: tuple[dict[str, Any], Path]) -> None:
         result, out = run

@@ -602,8 +602,8 @@ def test_a_house_s_walls_are_sandstone_on_every_route(route: str) -> None:
     block of a house that is not one plain outline gave the walls the house's fill — now
     terracotta, the "one terracotta block" the owner rejected. One rule of the kind,
     whatever the route: no part of a house takes its fill. A block's top is the roof
-    seen from above, roof tiles as the 2D plan draws it (3D review of the owner's second
-    pass: a sandstone top was 24° of hue from the plan's)."""
+    seen from above, roof tiles as the 2D plan draws a house at its default fill (3D
+    review of the owner's second pass: a sandstone top was 24° of hue from the plan's)."""
     from open_garden_planner.core.scene3d.builders import palette
 
     records = {
