@@ -758,20 +758,23 @@ class TestOneSmallEdit:
                               ("bench_large.ogp", 60, 25, "border", 2, 10.0, 1),
                               # PROVISIONAL (#615): a four-tile edit can run over the
                               # budget by its last tile. CI read <= 10 ms in one run,
-                              # 12.15 ms in the next, 13.29 ms under coverage. Its 2 passes
-                              # are no separate pin: a third pass needs 20 ms of bake first,
-                              # which edit_ms already rejects.
+                              # 12.15 ms in the next, 13.29 ms under coverage. It sits on
+                              # the budget's edge (at 12.15 ms for four tiles, three take
+                              # about 9 ms), so its last tile may fall into a second pass,
+                              # as on CI (max 2): 2, not 1. A
+                              # third pass would need 20 ms of bake, which edit_ms rejects.
                               ("bench_large.ogp", 60, 25, "corner", 4, 20.0, 2)])
     def test_a_small_move_repaints_few_tiles_within_its_bound(
-            self, qtbot: Any, plan: str, tiles: int, painted: int, across: str | None,
-            edit_tiles: int, edit_ms: float, edit_passes: int) -> None:
+            self, qtbot: Any, capsys: pytest.CaptureFixture[str], plan: str, tiles: int,
+            painted: int, across: str | None, edit_tiles: int, edit_ms: float,
+            edit_passes: int) -> None:
         """G3 — with the time budget ON, as in the product. Move one flat item of at
         most 3 m, 31 times: every move re-paints at most four tiles (the count its case
         names), looks at ONE record, and leaves every other tile the very object it
         was. A two-tile edit's bake takes at most 10 ms in the median and is ONE pass
         (an edit that fits the gate is not spread over frames). A four-tile edit can run
-        over the budget by its last tile (10-13.3 ms on CI). Its bound is provisional
-        until #615."""
+        over the budget by its last tile (on CI up to 12.15 ms uninstrumented, 13.29 ms
+        under coverage). Its bound is provisional until #615."""
         scene = _loaded(plan)
         baker = TimedBaker()
         bake = Bake(scene, registry=production_registry(), baker=baker)
@@ -797,7 +800,7 @@ class TestOneSmallEdit:
             assert result == SceneDiff(transform=(str(item.item_id),), geometry=lawns)
             assert baker.last_examined == 1 + len(lawns)  # each lawn compared, none repainted
             repainted = set(baker.last_repainted)
-            while bake.sync.ground_pending:  # a pass the budget cut short (a loaded machine)
+            while bake.sync.ground_pending:  # a pass the budget cut short
                 bake.sync.continue_ground()
                 assert baker.last_examined == 0
                 repainted |= set(baker.last_repainted)
@@ -814,10 +817,11 @@ class TestOneSmallEdit:
             uploaded, dropped = changed_tiles(tuple(before.values()), bake.tiles)
             assert dropped == () and {tile.key for tile in uploaded} <= repainted
         median = statistics.median(per_edit)
-        print(f"\nG3 {plan} {across or ''}: opened in {open_passes} passes, {full_ms:.1f} ms of bake; per move: "
-              f"median {median:.2f} ms, max {max(per_edit):.2f} ms, at most {most_tiles} tiles and "
-              f"{most_records} record paints; passes per move: median "
-              f"{statistics.median(passes)}, max {max(passes)}")
+        with capsys.disabled():   # in every run's log, passed or not: the readings #615 needs
+            print(f"\nG3 {plan} {across or ''}: opened in {open_passes} passes, {full_ms:.1f} ms of "
+                  f"bake; per move: median {median:.2f} ms, max {max(per_edit):.2f} ms, at most "
+                  f"{most_tiles} tiles and {most_records} record paints; passes per move: median "
+                  f"{statistics.median(passes)}, max {max(passes)}")
         assert median <= edit_ms and statistics.median(passes) <= edit_passes
         assert bake.sink.state().ground == bake.sync.expected_state().ground
 

@@ -8127,32 +8127,39 @@ had only moved the failing views.
   - §8.29.12 now says that the cut-outs follow the 2D paint order, which is right only
     after the restack scan. The scan is skipped when `last_command` is marked
     `changes_ground_band = False` (#592).
-- **G3, corrected (after two more review rounds).** bench_large has no flat item of its
+- **G3, corrected (after four more review rounds).** bench_large has no flat item of its
   own since L4, so the gate moves a stand-in terrace, placed from the plan's middle, across
   one tile border (two tiles) and where four tiles meet (four). Every move must repaint
   exactly those tiles.
   - **A four-tile edit does not reliably hold 10 ms on CI.** It can run over the budget by
-    its last tile, as `BAKE_BUDGET_S`'s contract allows ("the budget plus ONE tile"). CI read
-    ≤ 10 ms in one uninstrumented run (c8b13647), 12.15 ms in the next (run 40407192860,
-    passes median 1, max 2) and 13.29 ms under coverage (run 40405246734, median 1, max 1).
-    G3 prints its readings only when it fails, so the runs that passed recorded no value.
-  - On the dev box, master costs the same; CI has never run a four-tile case on master. In
-    the reviewer's probe (not committed), over 5 alternating pairs of 61 moves, the medians
-    were 8.25 ms here against 8.36 ms on master for the corner, and 4.39 against 4.46 ms
-    for the border. Single pairs differ from −9.5 % to +11.7 %.
+    its last tile, as `BAKE_BUDGET_S`'s contract allows ("the budget plus ONE tile").
+    CI run 40405246734 passed it uninstrumented, at ≤ 10 ms, and read 13.29 ms under
+    coverage (passes median 1, max 1). Run 40407192860 read 12.15 ms uninstrumented
+    (median 1, max 2). Until this PR, G3 printed its readings only when it failed. It now
+    prints them on every run, so #615 can be decided on a distribution.
+  - **Master against the branch,** measured with `scripts/measure_ground_edit.py` (committed:
+    it opts out of power throttling and takes the other tree through `OGP_MEASURE_TREE`).
+    Five alternating pairs of 61 moves on the dev box gave these medians:
+    - across a border: 3.50 ms on master, 3.78 ms here (+8 %);
+    - on the corner: 6.73 ms on master, 7.02 ms here (+4 %).
+    The branch was slower in 4 of 5 border pairs and in 5 of 5 corner pairs. So L4 makes
+    the bake a few percent slower, but the four-tile cost is master's. CI has never run a
+    four-tile case on master.
   - Readings of 14–17 ms in two passes on the dev box came from Windows power throttling
-    (EcoQoS), not from load or the code. With the test process opted out, the corner read
-    6.8–9.5 ms in one pass across this PR's runs (#616). The first fix blamed machine load.
-    e7916be7 then blamed CI's uninstrumented overrun on coverage's tracer. The tracer is a
-    real cost (about 1.4× on bench_large, §8.10.10), but it does not explain an
-    uninstrumented run.
-  - **The gate:** each case states its tiles, passes and median bound as literals. Two
-    tiles: a median of one pass and at most 10 ms, as on master, also under coverage. Four
-    tiles: a median of at most 20 ms. Its pass literal (2) adds nothing, because a third
-    pass needs 20 ms of bake first. That bound is **provisional** until the owner decides
-    #615: should a four-tile pass hold 10 ms on CI? The test is renamed
-    `test_a_small_move_repaints_few_tiles_within_its_bound`, because the old name promised
-    four tiles in 10 ms. FR-3D-GROUND-03 now states this gate.
+    (EcoQoS), not from load or the code (#616). The first fix blamed machine load.
+    e7916be7 then blamed the coverage job's 13.29 ms on the tracer and skipped the clock
+    under a tracer. Its own CI run then failed uninstrumented, at 12.15 ms. The tracer is a
+    real cost (about 1.4× on bench_large, §8.10.10) and pushed that one coverage reading
+    over the bound, but the corner overruns without it too.
+  - **The gate:** each case states its tiles, passes and median bound as literals.
+    - Two tiles: a median of one pass and at most 10 ms, as on master, also under coverage.
+    - Four tiles: a median of at most 20 ms and of two passes. The edit sits on the
+      budget's edge (at 12.15 ms for four tiles, three take about 9 ms), so its last tile
+      may fall into a second pass, as on CI.
+    - That bound is **provisional** until the owner decides #615: should a four-tile pass
+      hold 10 ms on CI?
+    - The test is renamed `test_a_small_move_repaints_few_tiles_within_its_bound`, because
+      the old name promised four tiles in 10 ms. FR-3D-GROUND-03 now states this gate.
 - The roof hint stays a tooltip (on the row labels and the spin boxes, and as the
   inputs' accessible description). The review proposed a visible hint row instead, but
   that would add a line of text to every building's panel, while the other 3D-only rows
