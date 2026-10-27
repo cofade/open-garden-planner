@@ -21,7 +21,7 @@
 | **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
 | **15** | **v1.25.0 – v1.27.0** | **✅ Complete** (Packages 1–3; epic [#284](https://github.com/cofade/open-garden-planner/issues/284)) | **Visual Refresh** |
 | 16 | — | Future | Platform & Community |
-| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
+| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
 
 ---
 
@@ -2713,7 +2713,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ---
 
-## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L3 complete, L4 in review
+## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L4 complete
 
 **Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 
@@ -2725,12 +2725,12 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 ✅ sim clock shipped v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)); L1.1–L1.10 ✅ shipped v1.30.14 ([PR #484](https://github.com/cofade/open-garden-planner/pull/484))** — see below | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
 | ✅ | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **✅ shipped v1.31.0 ([PR #584](https://github.com/cofade/open-garden-planner/pull/584)) after owner acceptance (ADR-063, FR-3D-ANALYZE-01 … 08)** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
-| 🔄 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **Implemented on `feature/388-l4-built-world`, draft [PR #613](https://github.com/cofade/open-garden-planner/pull/613) awaiting owner manual test (ADR-065, FR-3D-BUILT-01 … 07)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
+| ✅ | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **✅ shipped v1.34.0 ([PR #613](https://github.com/cofade/open-garden-planner/pull/613)) after owner acceptance (ADR-065, FR-3D-BUILT-01 … 08)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
-### L4 acceptance highlights — Built world complete (#388, ADR-065) — **draft [PR #613](https://github.com/cofade/open-garden-planner/pull/613), owner test pending**
+### L4 acceptance highlights — Built world complete (#388, ADR-065) — **shipped v1.34.0, PR #613**
 
 - **L4.1 roofs and facades:** Roof style (Automatic / Gable / Hip / Single slope /
   Flat), pitch (5–60°) and overhang (0–150 cm) are optional, additive item metadata
@@ -2761,7 +2761,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   - a drag over a lawn re-cuts its blades at most every 0.4 s;
   - decks and other relief are bounded by construction;
   - a roof's lowest edge stays at least half its eave floor above the ground, the style kept.
-- **Owner manual passes (2026-10-27, ADR-065 addenda):** gravel and dirt paths are their
+- **Owner manual passes (2026-10-27, ADR-065's "Owner's manual pass" and "Owner's second manual pass" addenda):** gravel and dirt paths are their
   textures, opaque, in 2D and 3D; a new house is terracotta in 2D, with sandstone 3D walls;
   windows sit either side of a centred door; the fog follows the camera's distance. The
   parasol, fire pit, planter pot, cold frame, rain barrel, water tap, swing, hammock and
@@ -2769,6 +2769,36 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   ground's detail-normal strength is 3.0.
 
   Follow-ups: #600, #603–#605, #607, #609, #611, #615–#621, #623, #624.
+
+**Delivery (27 October 2026):** [v1.34.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.0)
+shipped via [PR #613](https://github.com/cofade/open-garden-planner/pull/613), merge
+`bcdbb5fd`, after the owner's third manual pass ("all perfect") confirmed every
+checklist step, including the second pass's two decisions built into this round
+(every standing object without a 2D default now has a real, settable height; the
+detail-normal strength is 3.0). `ogp-3d-reviewer` re-reviewed the second pass's
+changes and found two P1s, both fixed before merge: the AO fade switched SSAO on at
+Low quality regardless of `aoEnabled` (PF-L3D-15), and a house built as a plain
+block (a hole, two regions, or an unbuildable ridge) had a sandstone top instead of
+roof tiles. `senior-reviewer`'s re-review found one P1, filed rather than fixed per
+the owner's non-blocking-defect policy: a plant inside a cold frame or planter pot
+now reads 0 h of sun (#621), because both holders gained a height and a shadow in
+this round and the per-plant sun estimate was never taught to spare them. Local
+validation at the final head (feea6faf): the default tier passed 19,470 (252
+skipped; the one local failure is the frozen inventory test, which needs the 3.11
+builder interpreter and passes 29/29 there); the perf tier passed 104 at the first
+merge, not re-run locally since (the dev box's timings drift with load, #616); the
+render tier (Direct3D 11, RTX 4070) passed 198, 6 xfailed, 1 skipped — the looks
+file's 9 board tests errored at setup when the Beauty Board driver finished
+(`status=ok`) and then crashed while exiting with 0xC000041D (#623), and that file
+run alone passed 21 (1 xpassed). The frozen exe (rebuilt at feea6faf): the 8-s
+smoke exited 124 once; `--selftest` exited 0 five times in a row (each a Direct3D
+11 frame on the RTX 4070, `result=PASS`, 0 Qt errors). All 15 CI checks passed
+before protected merge; the matching Release workflow passed, including
+provenance attestation. Deliberately left open:
+#615 (whether a four-tile ground bake must hold 10 ms on CI), #619 (detail 3.0's
+sky-blue gravel crescents under a low sun — owner taste), #621 (the cold-frame/
+planter sun regression above), #623 (the intermittent exit crash) and #624 (far
+shadows and the meadow edge at extreme zoom/pitch).
 
 ### L3 acceptance highlights — Plant Forge (#387, ADR-064) — **shipped v1.32.0, PR #593**
 
