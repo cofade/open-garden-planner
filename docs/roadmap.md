@@ -3503,7 +3503,10 @@ unlinked; a linked plant costs no geometry at all, and a layer whose highest par
 every plant costs one comparison each. The parents' shapes are cached for the pass — without
 that cache the adversarial 200-plants-under-50-concave-beds plan cost 43 / 330 / 1 661 ms at
 6 / 200 / 1 200 vertices, against 8 / 30 / 133 ms with it. ADR-043 addendum, FR-STACK-10,
-PF-CAN-28.
+PF-CAN-28. The merge that landed this section had pasted FR-STACK-10 twice; the duplicate is
+gone and the FR-id uniqueness gate now covers **every** FR id instead of only FR-AGENT-*
+(it found four pre-existing collisions — FR-SNAP-04/05, FR-PLANT-19, FR-LAYER-09 — which are
+renumbered here: FR-SNAP-11/12, FR-PLANT-24, FR-LAYER-10).
 
 ### Every item with a footprint can be given a height (#628)
 
