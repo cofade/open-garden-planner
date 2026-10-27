@@ -826,7 +826,7 @@ class TestFogDepth:
         from open_garden_planner.core.scene3d.camera import MAX_DISTANCE_CM
         from open_garden_planner.core.scene3d.meadow import MEADOW_HALF_CM
 
-        assert clip_far >= MEADOW_HALF_CM + MAX_DISTANCE_CM
+        assert clip_far >= math.sqrt(2.0) * MEADOW_HALF_CM + MAX_DISTANCE_CM
         for distance in (0.0, 10_000.0, 30_000.0, MAX_DISTANCE_CM):
             near, far = L.fog_depth_cm(distance)
             assert near <= L.FOG_NEAR_MAX_SHARE * far and far <= L.FOG_FAR_MAX_CM < MEADOW_HALF_CM

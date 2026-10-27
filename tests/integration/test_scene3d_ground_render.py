@@ -514,8 +514,11 @@ def test_low_along_a_border_the_lawn_has_no_line(run: Run) -> None:
             assert _spread(lum) < 40  # lawn all over, lit a little unevenly by the low view
         dips[scenario] = float(dip.max())
     print(f"\nG7 (oblique): largest line dip {dips}")
-    assert dips["ground_seams"] < 2.0, dips
-    assert dips["ground_seams_gap"] >= 2.0, dips  # control: the gap is a line there too
+    # With detail normals active at 3.0 (Phase 17 L4 #388), normal map texture detail
+    # produces micro line variations up to ~3.2 luma. The 2 cm gap control produces
+    # ~17.7 luma, cleanly distinguished above 10.0.
+    assert dips["ground_seams"] < 4.0, dips
+    assert dips["ground_seams_gap"] >= 10.0, dips  # control: the gap is a line there too
 
 
 def test_bare_ground_in_tiles_is_the_bare_rectangles_colour(run: Run) -> None:
@@ -559,6 +562,8 @@ def soak(run: Run, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         out, "ground_keepalive,ground_keepalive_leak,ground_keepalive_grab", **SOFTWARE)
     assert proc.returncode == 0 and result.get("status") == "ok", failure_report(proc, out)
     assert "Basic Render" in str(result["qt_messages"]["adapter"]), result["qt_messages"]["adapter"]
+    for scenario in result["scenarios"].values():
+        assert min(scenario["frames_per_cycle"]) >= 2, "WARP samples require retired uploads"
     return dict(result["scenarios"])
 
 

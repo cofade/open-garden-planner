@@ -73,7 +73,7 @@ Item {
     // only while this is true — while it is false nothing ticks at all
     property bool windRunning: false
     // L4.5: a lawn's blades (parts named "lawn_blades") are drawn from the High preset
-    // up; they are built at every preset, so a preset step changes no geometry
+    // up; the controller admits their geometry only at High/Ultra (#607)
     property bool lawnBlades: true
     // L4.5: the ground's detail normals (0 = flat), see the groundTile component
     property real detailNormals: 3.0
@@ -96,6 +96,7 @@ Item {
     property vector3d camPos: Qt.vector3d(0, 1000, 2000)
     property vector3d camTarget: Qt.vector3d(0, 0, 0)
     property real camFov: 40
+    property real shadowFar: 9000 // camera state: includes every plan corner
     property int camVersion: 0
     property real topDownScale: 0.5         // logical pixels per centimetre
     // where the depth fog begins and is full, cm: from the camera's distance to its
@@ -705,7 +706,7 @@ Item {
                 shadingMode: CustomMaterial.Shaded
                 cullMode: Material.NoCulling
                 vertexShader: "grass.vert"
-                fragmentShader: "foliage.frag"
+                fragmentShader: partName === "lawn_blades" ? "lawn.frag" : "foliage.frag"
             }
             CustomMaterial {   // the same blades as a screen door (X-ray, L2.4)
                 id: grassDoor
@@ -812,10 +813,10 @@ Item {
             id: cam
             fieldOfView: root.camFov
             clipNear: 5
-            // past the midpoints of the meadow's edges, 2 km out, from 600 m out
+            // past all corners of the meadow (10 km half-side), from 600 m out
             // (camera.MAX_DISTANCE_CM): at the L0 spike's 800 m the cut showed against the
             // sky from about 400 m (3D review)
-            clipFar: 300000
+            clipFar: 1600000
         }
         OrthographicCamera {
             id: topCam
@@ -854,7 +855,7 @@ Item {
             // as far as the fog begins (the spike's 9000 its floor): with the fog following
             // the camera, a framed plan beyond 90 m lay clear and shadowless (3D review).
             // The top-down truth view keeps the measured 9000.
-            shadowMapFar: root.topDown ? 9000 : Math.max(9000, root.fogNear)
+            shadowMapFar: root.topDown ? 9000 : root.shadowFar
             lockShadowmapTexels: true
         }
         // The flat fill - ONLY where no sky texture lights the view (the truth view, a
@@ -866,7 +867,7 @@ Item {
             castsShadow: false
         }
 
-        // The endless meadow: a 4 x 4 km square around the plan, IN the plan's plane, the
+        // The endless meadow: a 20 x 20 km square around the plan, IN the plan's plane, the
         // plan cut out, in cells of at most 100 m — core/scene3d/meadow.py says why (3D
         // review of #388: one quad under the plan lost the depth test to it). Its ONE
         // geometry is the host's: loaded at start and whenever the plan's rectangle

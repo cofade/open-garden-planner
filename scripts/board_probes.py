@@ -306,6 +306,33 @@ def bearing_error_deg(measured: float, expected: float) -> float:
 # ── gate G5: fog meets sky ───────────────────────────────────────────────────
 
 
+def outer_row_step(rgb: Any) -> dict[str, float | int]:
+    """Largest adjacent-row luma change in either outer 18% band (#618).
+
+    Average each side separately before comparing rows, so a cliff on one side
+    cannot disappear by cancelling a cliff of the opposite sign on the other.
+    """
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    width = max(1, int(math.ceil(frame.shape[1] * 0.18)))
+    # The two-pixel postprocessing border samples outside the viewport. It is not
+    # a world-space horizon/ground row and is reported separately from the gate.
+    border = min(2, max(0, (frame.shape[0] - 2) // 2))
+    valid = frame[border:frame.shape[0] - border]
+    bands = (luma(valid[:, :width]).mean(axis=1), luma(valid[:, -width:]).mean(axis=1))
+    steps = [float(np.abs(np.diff(band)).max()) if len(band) > 1 else 0.0 for band in bands]
+    two_rows = [float(np.abs(band[2:] - band[:-2]).max()) if len(band) > 2 else 0.0 for band in bands]
+    full_bands = (luma(frame[:, :width]).mean(axis=1), luma(frame[:, -width:]).mean(axis=1))
+    full_deltas = [np.abs(np.diff(band)) for band in full_bands]
+    full_step = max((float(delta.max()) for delta in full_deltas if len(delta)), default=0.0)
+    border_step = max((float(value) for delta in full_deltas
+                       for value in np.concatenate((delta[:border], delta[-border:]))),
+                      default=0.0) if border else 0.0
+    return {"step": round(max(steps), 3), "left_step": round(steps[0], 3),
+            "right_step": round(steps[1], 3), "two_row_step": round(max(two_rows), 3),
+            "full_step": round(full_step, 3), "border_step": round(border_step, 3),
+            "columns_per_side": width, "rows_excluded_each_edge": border}
+
+
 def horizon_step(rgb: Any, camera: Pinhole, *, reach_deg: float = 0.4, line_deg: float = 0.25,
                  step_deg: float = 0.15, columns: tuple[float, float] = (0.0, 1.0)) -> dict[str, Any]:
     """How the fogged ground meets the sky at the geometric horizon — three numbers

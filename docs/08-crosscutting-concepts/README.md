@@ -2096,6 +2096,29 @@ frozen data:
   with its reason, and only the ADR-048 evidence folder (measured runs, never edited) as a
   folder.
 
+### 8.10.14 Render measurements after Plant Forge (#600, #603, #609, #626, #536)
+
+Use `tests/integration/workspace_render_state.py` as the shared rest predicate:
+controller records and ground settled, camera stationary, forge queue/in-flight
+admission empty and no forge timer due. Capture the sink's admitted meshes for
+the selection oracle, then run independent CPU rays. Rest wind at zero; pausing
+a nonzero shader clock preserves displaced vertices. Wait again after a walk
+restores its orbit camera because that also restores distance LODs.
+
+A reload clears document-scoped forge admission; its upload budget includes the
+v0 stage plus forged replacements for a full rebuild. Retaining SceneSync records
+still re-admits forged plants. Assert zero uploads separately for an unchanged
+pass inside one document. Always assert wait success before measuring a frame
+or memory. G6 samples after two presented frames retire texture uploads; a grab
+cannot substitute for presentation. Preserve its upper bound, statistic and
+retained-texture control. A non-presenting display reports a bounded refusal.
+
+Qt's application scale multiplies the screen scale. A test that specifically
+needs DPR 1.25 pins screen scale 1 as well as application scale 1.25. Full windows
+use the available desktop geometry. Test-driver startup can retry STARTING
+refusals within one total deadline; do not extend the product host's idle wait.
+See [the measurement report](../11-risks-and-technical-debt/audits/2026-10/3d-hardening-611.md).
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
@@ -5467,9 +5490,11 @@ screen-space reflections — and no preset costs less than the one below it in a
 MSAA still did (PF-L3D-05). Fog is on at every preset (low without it drew a one-row cliff where
 the meadow meets the sky). Its distances follow the camera, not the preset (L4 owner pass, ADR-065):
 `look.fog_depth_cm(distance)` begins it at 1.5× and fills it at 6× the camera's distance to its
-target, floors 26 m / 160 m, full by 760 m, inside the meadow's 2 km edge and the 3 km far plane, set with every
+target, floors 26 m / 160 m, full by 760 m, inside the meadow's 10 km edge and the 16 km far plane, set with every
 `Quick3DHost.set_camera`. Sharpening is 0 everywhere; screen-space GI is never on. A preset
-change is one `set_look` call: no camera, no geometry, no sky.
+change applies one `set_look` call without moving the camera or rebuilding sky.
+Crossing the Medium/High boundary also updates lawn-blade admission through the
+existing scene diff (#607).
 
 **Automatic quality.** With the setting `auto` (the default), `AutoPreset` chooses among low,
 medium and high from the frames the view PRESENTS (`health().frames_presented`, Qt's own frame
@@ -6004,7 +6029,7 @@ leaves nothing behind. A SOLID fill has no picture and shows its colour through 
 UVs are (position - paint_origin) / 256 on a cap — the canvas's phase, paint_origin being the anchor the bake uses — (the forge's 256 px at 1 px = 1 cm, pinned against every texture) and distance along the ring / height on the walls. Measured, Direct3D 11,
 1000 × 400 top-down, two 300 cm squares at 40 cm: GRASS reads luma std 26.0, SOLID 0.0, at the
 same mean (121.3 / 120.8). The X-ray screen door does not sample the map (a ghosted solid loses
-its texture); PF-L3D-16 holds the two engine traps — a `var` map must bind as
+its texture); PF-L3D-17 holds the two engine traps — a `var` map must bind as
 `patternMap ? patternMap : null`, and a `Texture` gets its data at birth because a re-pointed one
 goes white (`ogp-3d-renderer` §5).
 
@@ -7181,9 +7206,11 @@ Stepping stones follow the 2D painter's walk (`surfaces.walk_path` =
 `PathStylePaint._walk_path`); a stone that would hang past the path's end is slid half
 a stone along it, one that cannot be slid onto the footprint is left out.
 
-**Presets.** Lawn blades are built at every preset and drawn from High up (QML
-`lawnBlades`, re-applied to `lawn_blades` parts on change): a preset step changes no
-geometry. From Medium up the ground tiles use `ground.frag` (`detailNormals`), which
+**Presets.** Lawn blades are synthesized and uploaded only for High/Ultra.
+`LookController.preset_changed` updates `Scene3DController.set_lawn_blades`; its
+next snapshot adds/removes the geometry through SceneSync. Offscreen rendering
+uses the same admission rule. QML `lawnBlades` also gates visibility. The lawn-only
+`lawn.frag` folds normals upward; plant grass keeps its original shader. From Medium up the ground tiles use `ground.frag` (`detailNormals`), which
 tilts the normal by the tile texture's own luminance gradient (clamped ±0.35). It
 flips `v` itself: a `CustomMaterial`'s `TextureInput` ignores `Texture.flipV`
 (measured: the tiles drew mirrored north–south). Scene-wide OIT is not used: it broke
@@ -7196,7 +7223,7 @@ shapes keep `MAX_STROKE_WIDTH` (20 px). Bench plans older than L4 keep their wid
 path style and roof style for the board.
 
 **Truth details from the 3D review.** The endless meadow is a frame IN the plan's plane
-(`core/scene3d/meadow.py`): a 4 km square around the plan in cells of at most 100 m, the
+(`core/scene3d/meadow.py`): a 20 km square around the plan in cells of at most 100 m, the
 plan cut out less a 1 mm strip under its edge. Nothing lies under the plan. One quad of two
 triangles 1 cm, then 5 cm, under the plan lost the depth test to it: its depth, interpolated
 across 2 km, was more than 5 cm off at 55–90 m. The 5 cm step also drew an ambient-occlusion

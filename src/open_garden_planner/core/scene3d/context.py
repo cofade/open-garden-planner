@@ -33,7 +33,7 @@ those. The ground bake paints neither param (``record.BUILD_ONLY_PARAMS``).
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import replace
 from typing import Final
 
@@ -96,6 +96,22 @@ MAX_CUTOUT_VERTICES: Final = 6000
 MAX_PLAN_BLADES: Final = 60_000
 
 _F64 = NDArray[np.float64]
+
+
+def context_params_for(record: Record) -> frozenset[str]:
+    """The context a record consumes, including an absent value of that context."""
+    if record.kind in DOOR_TARGETS:
+        return frozenset({PARAM_DOOR_WALL})
+    if record.kind == "LAWN" and record.height_cm is None:
+        return frozenset({PARAM_LAWN_BLADES, PARAM_LAWN_CUTOUTS})
+    return frozenset()
+
+
+def without_lawn_blades(records: Mapping[str, Record]) -> dict[str, Record]:
+    """A Low/Medium presentation: no blade synthesis or upload; ground paint stays."""
+    return {item_id: replace(record, params=record.params.merged({PARAM_LAWN_BLADES: 0}))
+            if PARAM_LAWN_BLADES in context_params_for(record) else record
+            for item_id, record in records.items()}
 
 
 def _local(transform: Transform, x: float, y: float) -> tuple[float, float]:

@@ -206,6 +206,16 @@ preset and four distances, and in the top-down view.
 
 ### PF-L3D-16
 
+- **Rule:** Derive held context from both records' consumers and admit lawn blades only where the active preset draws them; detail geometry must degrade to exact prisms below its dimensional floor.
+- **Pinned by:** `tests/integration/test_view3d_sync_controller.py`; `tests/unit/test_scene3d_l4_objects.py`; `tests/unit/test_scene3d_l4_surfaces.py`
+- **Source:** #611; #607; ADR-065
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Door targets and the heightless-lawn predicate determine which old parameters remain valid after a retype. A universal lawn-blade special case retained irrelevant door params. Nominal furniture joints can flip tiny faces; the verified 3 cm detail floor keeps exact dimensions. Y-batched masks preserve the even-odd rule with bounded temporary pair arrays.
+
+### PF-L3D-17
+
 - **Rule:** A solid that should keep its 2D fill shows it through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — with UVs `(position - paint_origin) / 256` (the canvas's phase, its `params["paint_origin"]`). Every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it. A fill part's fade tint (`tintLinear`) is its fill colour even when the picture's `tint` is white: the screen door samples no picture.
 - **Pinned by:** `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`; `tests/unit/test_quick3d_adapter.py`; `tests/unit/test_fill_patterns.py`; `tests/unit/test_scene3d_mesh.py`; `tests/integration/test_quick3d_render.py`
 - **Source:** #628 follow-up (owner manual pass of #627), ADR-037 addendum

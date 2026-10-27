@@ -54,7 +54,7 @@ class TestSpec:
         assert loop is not None, "ogp.spec no longer bundles ui/view3d/quick3d/qml/*"
         assert sorted(p.name for p in (PACKAGE / "qml").iterdir()) == [
             "Garden.qml", "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
-            "grass.vert", "grass_door.vert", "ground.frag", "overlay.frag", "overlay.vert", "ring.frag",
+            "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert", "ring.frag",
             "ring.vert",
             "screen.frag", "screen.vert", "water.frag", "water_door.frag"]
 

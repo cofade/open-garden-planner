@@ -946,7 +946,7 @@
   },
   "536": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Render tier: one slow first frame errors all of test_quick3d_render.py (wait_ready no-progress cutoff)"
   },
   "537": {
@@ -1121,7 +1121,7 @@
   },
   "600": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Render tier: the selection oracle builds v0 plants while the workspace shows L3 forged plants"
   },
   "601": {
@@ -1131,8 +1131,13 @@
   },
   "603": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Render tier: the G7 workspace soaks compare frames before L3's forge has finished"
+  },
+  "604": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: lawn blades read as dark stubble at High (back faces lit from below)"
   },
   "605": {
     "is_pr": false,
@@ -1146,12 +1151,12 @@
   },
   "607": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L4 follow-ups from the senior review: lawn mask cost, blades per preset, roof clamp copies, degenerate sizes"
   },
   "609": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Two 3D render tests fail when the display is scaled (DPR 2.0, 1280x720 logical): a hard-coded 1.25 and a 1500x900 window"
   },
   "610": {
@@ -1161,7 +1166,7 @@
   },
   "611": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D context hold: hold only the params both the old and new record take (follow-up to #388)"
   },
   "613": {
@@ -1183,6 +1188,16 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Windows power throttling raises local perf-tier timings ~1.8x partway through a run"
+  },
+  "617": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Gravel rim and dirt margin show through a translucent path (layer opacity under 100 %)"
+  },
+  "618": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Beauty Board horizon probe cannot see the fog's distance (camera 10 m from its target)"
   },
   "619": {
     "is_pr": false,
@@ -1206,8 +1221,13 @@
   },
   "624": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L4 3D: shadow reach from the plan's corners, the meadow edge at a low pitch, rendered pins (follow-up to #388)"
+  },
+  "626": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Flaky G6 memory-growth gate on windows-latest CI (WARP): 2.06 MB/cycle vs 2.0 bound"
   },
   "627": {
     "is_pr": true,
@@ -1223,5 +1243,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "A plant is hidden behind a raised bed, container, wall planter or trellis drawn around it (only the in-ground garden bed keeps it visible)"
+  },
+  "630": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#611): 3D hardening after L4 (#607, #604, #617, #624, #618, #609, #600, #603, #626, #536)"
   }
 }

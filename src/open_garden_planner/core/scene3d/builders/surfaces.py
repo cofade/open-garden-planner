@@ -57,7 +57,7 @@ from ..record import (
 )
 from . import palette
 from .common import centre_line
-from .kit import beam
+from .kit import MIN_DETAIL_DIMENSION_CM, beam
 from .primitives import F64, bevelled_boxes, flat_mesh, signed_area, sweep
 
 #: The kinds this module builds.
@@ -552,6 +552,10 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
 
 
 def _pond(record: Record) -> tuple[MeshPart, ...]:
+    points = np.asarray([point for ring in record.footprints for point in ring], dtype=np.float64)
+    if len(points) and ((np.ptp(points, axis=0) < MIN_DETAIL_DIMENSION_CM).any()
+                       or (record.height_cm is not None and record.height_cm < MIN_DETAIL_DIMENSION_CM)):
+        return default_builder(record)
     plan = _water_plan(record)
     if plan is None:
         return ()
@@ -580,16 +584,41 @@ def _pond(record: Record) -> tuple[MeshPart, ...]:
 
 
 def _inside(points: F64, ring: F64) -> np.ndarray:
-    """Even-odd point-in-polygon, vectorised over ``points``."""
-    x, y = points[:, 0], points[:, 1]
+    """Exact even-odd mask in y-sorted batches, with bounded temporary arrays.
+
+    A batch considers only edges crossing its y range. A 6,000-edge ring no
+    longer visits every root once per edge; at most 65,536 pairs live at once.
+    Horizontal edges and the strict endpoint convention match ray casting.
+    """
     hit = np.zeros(len(points), dtype=bool)
+    if not len(points) or len(ring) < 3:
+        return hit
     following = np.roll(ring, -1, axis=0)
-    for (x1, y1), (x2, y2) in zip(ring, following, strict=True):
-        if y1 == y2:
-            continue
-        crosses = (y1 > y) != (y2 > y)
-        at = x1 + (y - y1) * (x2 - x1) / (y2 - y1)
-        hit ^= crosses & (x < at)
+    vertical = following[:, 1] != ring[:, 1]
+    start, end = ring[vertical], following[vertical]
+    if len(start) <= 16:
+        x, y = points[:, 0], points[:, 1]
+        for first, last in zip(start, end, strict=True):
+            crosses = (first[1] > y) != (last[1] > y)
+            at = first[0] + (y - first[1]) * (last[0] - first[0]) / (last[1] - first[1])
+            hit ^= crosses & (x < at)
+        return hit
+    low, high = np.minimum(start[:, 1], end[:, 1]), np.maximum(start[:, 1], end[:, 1])
+    order = np.argsort(points[:, 1], kind="stable")
+    batch_size = max(1, min(256, math.ceil(len(points) / 128)))
+    for begin in range(0, len(points), batch_size):
+        index = order[begin:begin + batch_size]
+        x, y = points[index, 0, None], points[index, 1, None]
+        near = (low <= float(y.max())) & (high > float(y.min()))
+        a, b = start[near], end[near]
+        edge_batch = max(1, 65536 // len(index))
+        inside = np.zeros(len(index), dtype=bool)
+        for edge in range(0, len(a), edge_batch):
+            first, last = a[edge:edge + edge_batch], b[edge:edge + edge_batch]
+            crosses = (first[:, 1] > y) != (last[:, 1] > y)
+            at = first[:, 0] + (y - first[:, 1]) * (last[:, 0] - first[:, 0]) / (last[:, 1] - first[:, 1])
+            inside ^= np.logical_xor.reduce(crosses & (x < at), axis=1)
+        hit[index] = inside
     return hit
 
 
@@ -727,6 +756,8 @@ def _cutouts(record: Record) -> list[F64]:
 def _lawn(record: Record) -> tuple[MeshPart, ...]:
     if record.height_cm is not None:  # a lawn the user gave a height: the plain prism, as before L4
         return default_builder(record)
+    if lawn_blade_share(record.params) == 0:
+        return ()  # Low/Medium: do not synthesize or cache even an empty sward
     seed = str(record.params.get(PARAM_SEED, ""))
     sward = _sward(record.footprints, record.holes, seed, lawn_blade_share(record.params))
     roots = sward.roots

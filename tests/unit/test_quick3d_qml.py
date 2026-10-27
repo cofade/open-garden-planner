@@ -10,6 +10,7 @@ part components the Python side asks for exist, the look it starts with is
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 
@@ -282,7 +283,7 @@ def test_the_overlays_blend_as_their_layer_says() -> None:
 def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> None:
     """A shader the scene names but the bundle lacks only fails when a Model uses it —
     in front of a user. The data loop of ``installer/ogp.spec`` ships this directory."""
-    named = set(re.findall(r'(?:vertexShader|fragmentShader):\s*"([^"]+)"', _scene()))
+    named = set(re.findall(r'"([^"\n]+\.(?:vert|frag))"', _scene()))
     shipped = {path.name for path in QML_DIR.iterdir() if path.suffix in (".frag", ".vert")}
     assert named == shipped == {"foliage.vert", "foliage.frag", "grass.vert", "water.frag",
                                 "ring.vert", "ring.frag",           # the selection ring: L1.8
@@ -290,7 +291,7 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "screen.frag", "screen.vert",       # X-ray and Cutaway: L2.4
                                 "foliage_door.frag", "water_door.frag",
                                 "foliage_door.vert", "grass_door.vert",
-                                "ground.frag"}                      # detail normals: L4.5
+                                "ground.frag", "lawn.frag"}         # detail normals and lawn lighting
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {"Garden.qml"}
 
 
@@ -443,7 +444,7 @@ def test_the_environments_constants_are_the_spikes() -> None:
     # perspective camera's far plane lies past the midpoints of the meadow's edges (the spike's 800 m cut
     # it in view); the top-down camera keeps the spike's far plane
     (shadow_far,) = environment["shadowMapFar"]
-    assert f"shadowMapFar: root.topDown ? {shadow_far:g} : Math.max({shadow_far:g}, root.fogNear)" in code
+    assert f"shadowMapFar: root.topDown ? {shadow_far:g} : root.shadowFar" in code
     assert "aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)" in code
     assert "aoEnabled: !root.topDown && root.ambientOcclusion && root.aoFade > 0" in code
     assert "(9000 - camPos.minus(camTarget).length()) / 4500" in code
@@ -452,7 +453,7 @@ def test_the_environments_constants_are_the_spikes() -> None:
 
     clip_far = sorted(float(v) for v in re.findall(r"\bclipFar:\s*([\d.]+)", code))
     assert clip_far[0] == min(environment["clipFar"])  # the top-down camera
-    assert clip_far[1] >= MEADOW_HALF_CM + MAX_DISTANCE_CM > max(environment["clipFar"])
+    assert clip_far[1] >= math.sqrt(2.0) * MEADOW_HALF_CM + MAX_DISTANCE_CM > max(environment["clipFar"])
     # the fog's distances follow the camera since L4's owner pass (look.fog_depth_cm):
     # the spike's depthNear / depthFar are their floors and the scene's defaults
     from open_garden_planner.core.scene3d import look

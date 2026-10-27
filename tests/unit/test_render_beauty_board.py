@@ -30,6 +30,19 @@ SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_ref
 SCRIPT = Path(board.__file__)
 
 
+def test_distant_horizon_cameras_exercise_the_fog_distance_and_low_pitch() -> None:
+    from open_garden_planner.core.scene3d.camera import DEFAULT_PITCH_DEG
+
+    cameras = board.distant_horizon_cameras(5000.0, 3000.0, (960, 540), 225.0)
+    assert len(cameras) == 8
+    assert {pitch for _distance, pitch, _camera in cameras} == {15.0, DEFAULT_PITCH_DEG}
+    assert {distance for distance, _pitch, _camera in cameras} == {67, 202, 403, 600}
+    for distance, pitch, camera in cameras:
+        assert math.dist(camera.eye, camera.target) == pytest.approx(distance * 100.0)
+        assert math.degrees(math.asin(camera.eye[2] / (distance * 100.0))) == pytest.approx(pitch)
+    assert fog_depth_cm(600 * 100.0)[0] > fog_depth_cm(67 * 100.0)[0]
+
+
 @pytest.mark.parametrize("size", [(2400.0, 1600.0), (5000.0, 4000.0), (800.0, 3000.0)])
 def test_the_shots_are_the_spikes(size: tuple[float, float]) -> None:
     """Same dates, times and cameras as the L0 board (frozen when L1.10 deleted the

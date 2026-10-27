@@ -692,7 +692,7 @@ def _fill_luma(rgb: np.ndarray) -> np.ndarray:
 def test_a_raised_solid_shows_the_items_own_fill(run: Run) -> None:
     """The owner's metric, on the real engine: the patterned top varies, the flat twin
     of the same colour does not, and both average the fill colour. A white slab — the
-    picture never reaching the Model — reads std 0.0 (PF-L3D-16)."""
+    picture never reaching the Model — reads std 0.0 (PF-L3D-17)."""
     fill = run[0]["scenarios"]["fill"]
     rgb, dpr = _frame(run, fill["top"])
     luma = _fill_luma(rgb)

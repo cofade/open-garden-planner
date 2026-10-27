@@ -1414,7 +1414,7 @@ the one-Texture-per-data rule); and the render gate
 `tests/integration/test_quick3d_render.py` — the raised GRASS square's top std > 5 against a
 SOLID twin's < 0.5 at the same mean, a faded GRASS ghost below 235 (no white), and the live
 lifetime counts (1 picture, 2 after a recolour, 0 after the removal, geometry uploads 1).
-PF-L3D-16 records the traps, FR-3D-BUILT-09 and FR-SUN-02 state the rule, and
+PF-L3D-17 records the traps, FR-3D-BUILT-09 and FR-SUN-02 state the rule, and
 `ogp-lush-cinematic`'s owner taste log holds the pass itself.
 
 ## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
@@ -5705,6 +5705,32 @@ only, and correct their heights with a fit after the fact.
   | grill | 0.28 / 0.30 / 0.36 | 0.28 / 0.30 / 0.36 | −27.3 / −23.0 / −17.5 | porosity: a kettle on legs (L4) |
   | greenhouse | 0.30 / 0.23 / 0.25 | 0.30 / 0.23 / 0.25 | −97.5 / −93.3 / −38.3 | porosity: the glass casts nothing (L4) |
   | trampoline | 0.47 / 0.64 / 0.76 | 0.47 / 0.64 / 0.76 | −1.0 / −1.0 / −1.0 | porosity: a mat on legs (L4) |
+  | table round | 0.35 / 0.50 / 0.67 | 0.35 / 0.50 / 0.67 | -1.2 / -1.2 / -0.7 | shape and porosity vs solid 2D prism |
+  | chair | 0.49 / 0.54 / 0.62 | 0.49 / 0.54 / 0.62 | -4.3 / -4.3 / -4.0 | shape and porosity vs solid 2D prism |
+  | bench | 0.39 / 0.45 / 0.54 | 0.39 / 0.45 / 0.54 | -7.6 / -7.6 / -7.3 | shape and porosity vs solid 2D prism |
+  | lounger | 0.64 / 0.71 / 0.77 | 0.64 / 0.71 / 0.77 | -9.7 / -9.7 / -9.7 | shape and porosity vs solid 2D prism |
+  | parasol | 0.24 / 0.41 / 0.60 | 0.24 / 0.41 / 0.60 | -150.0 / -82.5 / -34.5 | shape and porosity vs solid 2D prism |
+  | fire pit | 0.94 / 0.94 / 0.93 | 0.94 / 0.94 / 0.93 | -2.1 / -2.1 / -2.1 | shape and porosity vs solid 2D prism |
+  | planter pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | -0.6 / -0.6 / -0.3 | shape and porosity vs solid 2D prism |
+  | sandbox | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
+  | hot tub | 1.00 / 0.85 / 0.60 | 1.00 / 0.85 / 0.60 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
+  | swing | 0.17 / 0.16 / 0.15 | 0.17 / 0.16 / 0.15 | -71.0 / -71.0 / -70.6 | shape and porosity vs solid 2D prism |
+  | hammock | 0.21 / 0.26 / 0.30 | 0.21 / 0.26 / 0.30 | -56.3 / -56.3 / -56.0 | shape and porosity vs solid 2D prism |
+  | compost bin | 0.93 / 0.94 / 0.89 | 0.93 / 0.94 / 0.89 | -0.8 / -0.8 / -0.5 | shape and porosity vs solid 2D prism |
+  | cold frame | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | shape and porosity vs solid 2D prism |
+  | rain barrel | 0.81 / 0.79 / 0.76 | 0.81 / 0.79 / 0.76 | -20.1 / -10.9 / -7.5 | shape and porosity vs solid 2D prism |
+  | water tap | 0.64 / 0.63 / 0.61 | 0.64 / 0.63 / 0.61 | -6.0 / -6.0 / -6.0 | shape and porosity vs solid 2D prism |
+  | wheelbarrow | 0.44 / 0.45 / 0.46 | 0.44 / 0.45 / 0.46 | -22.0 / -22.0 / -22.0 | shape and porosity vs solid 2D prism |
+  | bird bath | 0.40 / 0.47 / 0.61 | 0.40 / 0.47 / 0.61 | -0.8 / -0.8 / -0.8 | shape and porosity vs solid 2D prism |
+  | pergola | 0.25 / 0.28 / 0.29 | 0.25 / 0.28 / 0.29 | -1.8 / -1.8 / -1.5 | shape and porosity vs solid 2D prism |
+  | trellis | 0.32 / 0.34 / 0.39 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | shape and porosity vs solid 2D prism |
+
+  Follow-up #624 extends the analytic reference to all 24 L4 object kinds.
+  The script uses each new case's production default height, its stated footprint
+  in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. Swing, hammock
+  and pergola shadows are porous geometry; the analytical 2D caster remains a
+  solid prism (ADR-065). The table records that deliberate difference, rather
+  than changing analytical sun estimates to match decoration.
 
   The four reasons: **(1) nominal section** — a polyline's stroke is a line weight (fence 3 cm,
   wall 4–5 cm, hedge 8 cm), the 2D model extrudes that strip, and the 3D bodies use the L0
@@ -8693,6 +8719,45 @@ step fell from 71 to 3.2 luma at 403 m. It found two regressions of this pass, b
   from 400–600 m (#624). Detail 3.0's pits and sky-blue crescents under a low sun are
   measured on #619.
 
+
+### Addendum — L4 hardening (#611, #607, #604, #617, #624, #618, #609, #600, #603, #626, #536)
+
+**Status:** Accepted; owner acceptance confirmed on 27 October 2026, shipped in [v1.34.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.1) via [PR #630](https://github.com/cofade/open-garden-planner/pull/630).
+
+**Decision (27 October 2026).** Hold context only for parameters applicable to both
+records, derived from door targets and the lawn predicate. Type changes apply
+newly relevant or irrelevant parameters immediately. Quality changes admit lawn
+geometry only when its preset draws it. Lawn normals use a dedicated material;
+plant grass keeps its own material. Roof clamping remains in `core/roof_style.py`;
+objects too small for detail use the plain verified prism. Mask batching retains
+the original even-odd membership, holes and exact root positions.
+
+Perspective shadows use reach from the eye to all four plan corners plus a
+margin, bounded by fog reach with the existing floor. The meadow and clip plane
+hold the full far frame including its corners. Distant horizon rows cover
+67/202/403/600 m at default and 15 degree pitch; the outer-column adjacent-row
+luma step is bounded by 3. The two-row statistic is retained separately. Far-plan
+probes pin shadow presence and AO continuity at two and four times framing.
+The shadow-agreement table now measures all 24 L4 object kinds; porous structures
+retain the documented difference from solid analytical shadows.
+
+For translucent paths, raster-mask only the rim in bounded 512-pixel device
+tiles. A pair of odd-even stroke contours fails at overlaps; exact subtraction
+was measured at 6.6 seconds for 4,096 points. DestinationOut removes the complete
+inner stroke before one opacity composition. Opaque items retain the fast path;
+textures remain vector pattern fills for SVG/PDF. The mask follows the painter's
+device transform, clip and viewport, with bounded temporary memory.
+
+Render oracles export actual sink-held meshes while keeping independent CPU ray
+math. They rest the wind and wait for ground, camera LOD and forge admissions.
+Document replacement legitimately re-admits forged meshes; unchanged same-document
+passes still upload none. Geometry budgets count v0 and forge stages separately.
+G6 retains its 20 cycles, 2 MB/cycle bound, positive control and median statistic,
+but samples after two presented frames rather than a fixed 20 ms pump. No
+readbacks are introduced into the memory loop. Fractional-DPR probes pin both
+Qt scale factors, desktop windows fit their work area, and startup drivers retry
+short idle refusals within one total deadline; the product host's idle contract
+is unchanged. Evidence: `audits/2026-10/3d-hardening-611.md` in the risk chapter.
 
 ## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
 

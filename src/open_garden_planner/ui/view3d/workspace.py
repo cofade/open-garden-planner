@@ -829,6 +829,11 @@ class Workspace(QWidget):
             # for at most its budget (10 ms) a pass — the controller runs the rest
             controller = Scene3DController(scene, clock, self._location, sink, parent=self,
                                            ground_baker=GroundBaker())
+            from ...core.scene3d.look import PRESET_SPECS
+
+            controller.set_lawn_blades(PRESET_SPECS[look.preset].lawn_blades)
+            look.preset_changed.connect(
+                lambda preset: controller.set_lawn_blades(PRESET_SPECS[preset].lawn_blades))
         except Exception as error:  # noqa: BLE001 - an import, the scene file, anything
             guard.init_failed()
             _log_failure("The 3D view could not be started", error)

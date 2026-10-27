@@ -1645,6 +1645,56 @@ def _fake_clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return now
 
 
+def test_a_house_retyped_as_a_greenhouse_inside_a_hold_drops_its_door_wall(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#611: only context parameters BOTH kinds consume can survive a hold."""
+    now = _fake_clock(monkeypatch)
+    rig = Rig(canvas, qtbot)
+    house = RectangleItem(500.0, 500.0, 400.0, 300.0, object_type=ObjectType.HOUSE,
+                          layer_id=rig.scene.active_layer.id)
+    rig.commands.execute(CreateItemCommand(rig.scene, house, "house"))
+    rig.controller.set_active(True)
+    rig.settle()
+    item_id = str(house.item_id)
+    before = rig.controller.sync.records[item_id]
+    with_door = Record(before.item_id, before.kind, before.shape, before.footprints,
+                       before.transform, before.material, height_cm=before.height_cm,
+                       params=before.params.merged({"door_wall": 0}))
+    rig.controller.sync.apply({item_id: with_door})
+    rig.controller._context_at = now[0]  # noqa: SLF001 - deterministic active hold
+    house.object_type = ObjectType.GREENHOUSE
+    rig.controller.mark_dirty()
+    rig.settle()
+    assert "door_wall" not in rig.controller.sync.records[item_id].params
+    rebuilt = _rebuilds(rig, item_id)
+    _trailing_pass(rig, now)
+    assert _rebuilds(rig, item_id) == rebuilt, "no redundant trailing greenhouse rebuild"
+
+
+def test_lawn_blades_follow_the_active_preset_without_a_delayed_context_rebuild(
+        canvas: CanvasView, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#607: Low removes geometry; High rebuilds from the current lawn and cutouts."""
+    from open_garden_planner.core.scene3d.builders.surfaces import sward_cache_info
+
+    _fake_clock(monkeypatch)
+    rig = Rig(canvas, qtbot, registry=production_registry())
+    lawn = _lawn(rig, 0.0)
+    rig.controller.set_lawn_blades(False)
+    before = sward_cache_info()["misses"]
+    rig.controller.set_active(True)
+    rig.settle()
+    item_id = str(lawn.item_id)
+    assert not rig.sink.state().items[item_id].parts
+    assert sward_cache_info()["misses"] == before
+    rig.controller.set_lawn_blades(True)
+    rig.settle()
+    assert rig.sink.state().items[item_id].parts
+    assert rig.controller.sync.records[item_id].params["lawn_blades"] > 0
+    rig.controller.set_lawn_blades(False)
+    rig.settle()
+    assert not rig.sink.state().items[item_id].parts
+
+
 def _held(rig: Rig) -> list[str]:
     """The records whose applied context params are not the plan's: what a hold keeps
     back. The timer cannot say it: the real one may have fired already on a slow runner

@@ -181,13 +181,17 @@ MUTANTS: tuple[Mutant, ...] = (
            (MESH,)),
     Mutant("the default prism is 1 % too tall",
            SRC + "core/scene3d/build.py",
-           "    mesh = prism_mesh(record.footprints, record.height_cm, record.holes)\n",
-           "    mesh = prism_mesh(record.footprints, record.height_cm * 1.01, record.holes)\n",
+           "    mesh = prism_mesh(record.footprints, record.height_cm, record.holes,\n"
+           "                      uv_origin=uv_origin_of(record))\n",
+           "    mesh = prism_mesh(record.footprints, record.height_cm * 1.01, record.holes,\n"
+           "                      uv_origin=uv_origin_of(record))\n",
            (MESH, SNAPSHOT)),
     Mutant("the default builder ignores the holes (review P1-1: the fence becomes a slab)",
            SRC + "core/scene3d/build.py",
-           "    mesh = prism_mesh(record.footprints, record.height_cm, record.holes)\n",
-           "    mesh = prism_mesh(record.footprints, record.height_cm)\n",
+           "    mesh = prism_mesh(record.footprints, record.height_cm, record.holes,\n"
+           "                      uv_origin=uv_origin_of(record))\n",
+           "    mesh = prism_mesh(record.footprints, record.height_cm,\n"
+           "                      uv_origin=uv_origin_of(record))\n",
            (MESH, SNAPSHOT, EDGE_PLAN)),
     Mutant("the cap is triangulated without its holes",
            SRC + "core/scene3d/build.py",
@@ -196,7 +200,7 @@ MUTANTS: tuple[Mutant, ...] = (
            (MESH,)),
     Mutant("a hole gets no walls",
            SRC + "core/scene3d/build.py",
-           "        for hole in inner:\n            _walls(hole, height_cm, positions, normals, uvs)\n", "",
+           "        for hole in inner:\n            _walls(hole, height_cm, positions, normals, uvs, uv_origin)\n", "",
            (MESH,)),
     Mutant("a ring that crosses itself is extruded anyway (review P2-6)",
            SRC + "core/scene3d/polygon.py",

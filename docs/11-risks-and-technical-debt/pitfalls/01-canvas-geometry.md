@@ -258,6 +258,16 @@ The owner pass made gravel and dirt paths their fill textures, drawn as a textur
 
 ### PF-CAN-28
 
+- **Rule:** Exclude underpaint from a translucent textured path; rim masking must follow the device transform, remain bounded and preserve bends and self-crossings.
+- **Pinned by:** `tests/integration/test_translucent_path_rims.py`
+- **Source:** #617; ADR-065
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A pair of odd-even stroke outlines is insufficient: Qt stroke contours overlap at bends. Exact subtraction was measured at 6.6 s for 4,096 points. Use DestinationOut on bounded device tiles for translucent rims and retain the opaque fast path. Textures remain pattern fills for SVG/PDF.
+
+### PF-CAN-29
+
 - **Rule:** A parenting clamp must follow the GEOMETRY, not only the link: a plant renders above the plant-parent whose outline contains its stable centre, linked or not. When a visual guarantee can be satisfied by a category accident (a ground surface sitting under everything), check the guarantee on the categories where the accident does not apply.
 - **Pinned by:** `tests/integration/test_plant_above_parent_stacking.py::test_a_parent_drawn_around_a_standing_plant_keeps_it_on_top`; `tests/integration/test_plant_above_parent_stacking.py::test_a_plant_moved_into_a_bed_is_raised_by_the_command`; `tests/integration/test_plant_above_parent_stacking.py::test_a_healthy_layer_asks_no_shape_question`; `tests/integration/test_plant_above_parent_stacking.py::test_the_scan_builds_each_parent_shape_once`; `tests/perf/test_nfr_budgets.py::TestNfrPerf01ContainmentScanBudget`
 - **Source:** #629 (owner manual pass of #627)

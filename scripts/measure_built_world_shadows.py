@@ -78,7 +78,8 @@ from open_garden_planner.core.scene3d import (
     Transform,
     group_rings,
 )
-from open_garden_planner.core.scene3d.builders import production_registry
+from open_garden_planner.core.scene3d.builders import OBJECT_KINDS, production_registry
+from open_garden_planner.core.scene3d.builders.common import nominal_height_cm
 from open_garden_planner.core.shadow_geometry import (
     circle_footprint,
     compute_scene_shadows,
@@ -161,6 +162,36 @@ STROKE_CM = {"WOODEN_FENCE": 3.0, "METAL_FENCE": 2.5, "CHAIN_LINK": 2.0, "HEDGE_
              "STONE_WALL": 5.0, "WALL": 4.0}
 RIDGE = ((-450.0, 0.0), (450.0, 0.0))
 
+#: Representative footprints, cm; the height is always the production type default.
+#: Existing L4 cases below retain their original dimensions for table continuity.
+L4_OBJECT_SIZES: dict[str, float | tuple[float, float]] = {
+    "TABLE_RECTANGULAR": (160.0, 90.0), "TABLE_ROUND": 50.0, "CHAIR": (50.0, 50.0),
+    "BENCH": (180.0, 60.0), "LOUNGER": (70.0, 190.0), "PICNIC_TABLE": (180.0, 150.0),
+    "PARASOL": 150.0, "BBQ_GRILL": 30.0, "FIRE_PIT": 50.0, "PLANTER_POT": 25.0,
+    "SANDBOX": (150.0, 150.0), "HOT_TUB": (220.0, 220.0), "TRAMPOLINE": 150.0,
+    "SWING": (200.0, 150.0), "HAMMOCK": (300.0, 120.0), "COMPOST_BIN": (100.0, 100.0),
+    "COLD_FRAME": (120.0, 60.0), "RAIN_BARREL": 30.0, "WATER_TAP": 10.0,
+    "WHEELBARROW": (60.0, 140.0), "BIRD_BATH": 25.0, "PERGOLA": (300.0, 300.0),
+    "TRELLIS": (200.0, 20.0), "GREENHOUSE": (300.0, 200.0),
+}
+
+
+def l4_cases() -> tuple[Case, ...]:
+    """Every object missing from the original L4 table, with its actual default height."""
+    existing = {"TABLE_RECTANGULAR", "PICNIC_TABLE", "BBQ_GRILL", "GREENHOUSE", "TRAMPOLINE"}
+    assert set(L4_OBJECT_SIZES) == OBJECT_KINDS
+    result = []
+    for kind, size in L4_OBJECT_SIZES.items():
+        if kind in existing:
+            continue
+        height = nominal_height_cm(kind)
+        assert height is not None
+        record = (_circle(kind, size, height) if isinstance(size, float)
+                  else _polygon(kind, _rectangle(*size), height))
+        result.append(Case(kind.lower().replace("_", " "), record, SOUTH,
+                           "shape and porosity vs solid 2D prism"))
+    return tuple(result)
+
 
 def cases() -> tuple[Case, ...]:
     porous, section = "porosity", "nominal section"
@@ -214,7 +245,7 @@ def cases() -> tuple[Case, ...]:
         Case("greenhouse", _polygon("GREENHOUSE", _rectangle(300.0, 200.0), 220.0), SOUTH,
              "porosity: the glass casts nothing"),
         Case("trampoline", _circle("TRAMPOLINE", 150.0, 90.0), SOUTH, "porosity: a mat on legs"),
-    )
+    ) + l4_cases()
 
 
 def _to_grid(polygon: Sequence[Sequence[float]]) -> list[tuple[int, int]]:
@@ -334,6 +365,25 @@ DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
     "grill": ((0.28, 0.30, 0.36), (0.28, 0.30, 0.36), (-27.3, -23.0, -17.5)),
     "greenhouse": ((0.30, 0.23, 0.25), (0.30, 0.23, 0.25), (-97.5, -93.3, -38.3)),
     "trampoline": ((0.47, 0.64, 0.76), (0.47, 0.64, 0.76), (-1.0, -1.0, -1.0)),
+    "table round": ((0.35, 0.50, 0.67), (0.35, 0.50, 0.67), (-1.2, -1.2, -0.7)),
+    "chair": ((0.49, 0.54, 0.62), (0.49, 0.54, 0.62), (-4.3, -4.3, -4.0)),
+    "bench": ((0.39, 0.45, 0.54), (0.39, 0.45, 0.54), (-7.6, -7.6, -7.3)),
+    "lounger": ((0.64, 0.71, 0.77), (0.64, 0.71, 0.77), (-9.7, -9.7, -9.7)),
+    "parasol": ((0.24, 0.41, 0.60), (0.24, 0.41, 0.60), (-150.0, -82.5, -34.5)),
+    "fire pit": ((0.94, 0.94, 0.93), (0.94, 0.94, 0.93), (-2.1, -2.1, -2.1)),
+    "planter pot": ((0.83, 0.81, 0.81), (0.83, 0.81, 0.81), (-0.6, -0.6, -0.3)),
+    "sandbox": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
+    "hot tub": ((1.00, 0.85, 0.60), (1.00, 0.85, 0.60), (0.0, 0.0, 0.0)),
+    "swing": ((0.17, 0.16, 0.15), (0.17, 0.16, 0.15), (-71.0, -71.0, -70.6)),
+    "hammock": ((0.21, 0.26, 0.30), (0.21, 0.26, 0.30), (-56.3, -56.3, -56.0)),
+    "compost bin": ((0.93, 0.94, 0.89), (0.93, 0.94, 0.89), (-0.8, -0.8, -0.5)),
+    "cold frame": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
+    "rain barrel": ((0.81, 0.79, 0.76), (0.81, 0.79, 0.76), (-20.1, -10.9, -7.5)),
+    "water tap": ((0.64, 0.63, 0.61), (0.64, 0.63, 0.61), (-6.0, -6.0, -6.0)),
+    "wheelbarrow": ((0.44, 0.45, 0.46), (0.44, 0.45, 0.46), (-22.0, -22.0, -22.0)),
+    "bird bath": ((0.40, 0.47, 0.61), (0.40, 0.47, 0.61), (-0.8, -0.8, -0.8)),
+    "pergola": ((0.25, 0.28, 0.29), (0.25, 0.28, 0.29), (-1.8, -1.8, -1.5)),
+    "trellis": ((0.32, 0.34, 0.39), (0.32, 0.34, 0.39), (-7.0, -7.0, -6.8)),
 }
 
 

@@ -126,3 +126,6 @@ canvas performance [#409](https://github.com/cofade/open-garden-planner/issues/4
 and harvest-data correction [#418](https://github.com/cofade/open-garden-planner/issues/418)
 are complete. Use [the canonical roadmap](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md)
 and [audit epic #392](https://github.com/cofade/open-garden-planner/issues/392) for the remaining work.
+
+L4 follow-up hardening shipped in v1.34.1 via PR #630 after owner executable acceptance;
+the included canonical Phase 17 section records its scope and evidence.
