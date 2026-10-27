@@ -1368,10 +1368,11 @@ part shows the item's own fill", and the sink supplies
 `_tint_texture`, RGBA8, opaque, its mean the fill colour) — as `vcPart`'s `baseColorMap`
 (the Model's `patternMap`). It is per (pattern, colour), shared and refcounted by the sink
 (`release_fill` with the last Model), so a recolour is a material update and leaves no texture
-behind. UVs are `(position − paint_origin) / PATTERN_TILE_CM` on a cap — `paint_origin` is
+behind. UVs are `(position + paint_origin) / PATTERN_TILE_CM` on a cap — `paint_origin` is
 `params["paint_origin"]`, the anchor the canvas phases the fill from, so the solid shows the
-bake's own picture: NCC 0.988 at zero shift against it, 0.051 against a vertical mirror
-(measured 2026-10-27) — and distance along the ring / height on the walls; the 256 cm ruler is
+bake's own picture: NCC **0.995** against the bake with the mesh's own UVs on a real
+rectangle (MULCH; BRICK 0.995), while the opposite sign reads 0.759 / 0.866
+(`tests/integration/test_scene3d_fill_phase.py`, measured 2026-10-27) — and distance along the ring / height on the walls; the 256 cm ruler is
 pinned against every shipped texture's size. A SOLID fill has no picture and shows its colour
 through the same `set_part_fill` call, so the two cases cannot diverge. A GARDEN_BED's soil cap
 is the item's fill too — the Properties panel calls it "Boden-Substrat" — while a raised bed's
@@ -1403,14 +1404,16 @@ re-pointing one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer
 **Pins.** `tests/unit/test_fill_patterns.py::TestThe3DFillPicture` (the picture is the canvas's:
 256 × 256 RGBA, opaque, mean = the fill; names resolve; every texture is 256 px);
 `tests/unit/test_scene3d_mesh.py` (the prism asks for the fill and carries
-`(position − paint_origin) / 256` UVs on its top and wrapped UVs on its walls; a fill part
+`(position + paint_origin) / 256` UVs on its top and wrapped UVs on its walls; a fill part
 must be `vc`, untinted and not ground detail); `tests/unit/test_scene3d_builders.py::TestSoilRule`
 (a garden bed's soil is the item's fill, a container's is not);
 `tests/unit/test_scene3d_l4_surfaces.py` (a raised platform is a fill part, a raised deck is
 not); `tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill` (the picture reaches the engine,
 a recolour swaps it without an upload, one picture per key, released with its last user);
 `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture` (the binding and
-the one-Texture-per-data rule); and the render gate
+the one-Texture-per-data rule); `tests/unit/test_quick3d_pure.py` (the fill branch of the one
+tint rule); `tests/integration/test_scene3d_fill_phase.py` (the mesh's own UVs against the
+ground bake: NCC 0.995, the opposite sign 0.759 / 0.866); and the render gate
 `tests/integration/test_quick3d_render.py` — the raised GRASS square's top std > 5 against a
 SOLID twin's < 0.5 at the same mean, a faded GRASS ghost below 235 (no white), and the live
 lifetime counts (1 picture, 2 after a recolour, 0 after the removal, geometry uploads 1).

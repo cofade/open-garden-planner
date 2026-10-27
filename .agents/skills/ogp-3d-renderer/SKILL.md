@@ -335,9 +335,10 @@ lives now; the values production was drift-guarded against are frozen in
   texture behind (`PatternTexture.uploads` 1 -> 2, `textures_alive()` 0 after the removal).
   A `var`-typed map must bind as `patternMap ? patternMap : null`: `baseColorMap: patternMap`
   with no picture logs "Unable to assign [undefined] to QQuick3DTexture*" and fails the render
-  gate (PF-L3D-17). UVs are `(position - paint_origin) / 256` on a cap — `paint_origin` is
-  the snapshot's `params["paint_origin"]`, the anchor the canvas phases the fill from; raw record
-  coordinates scored NCC 0.000 against the bake and 0.985 at the anchor shift — and
+  gate (PF-L3D-17). UVs are `(position + paint_origin) / 256` on a cap — `paint_origin` is
+  the record's anchor (its footprint is centred on it, so the canvas's item coordinate is
+  `position + paint_origin`); `tests/integration/test_scene3d_fill_phase.py` correlates the
+  mesh's own UVs against the ground bake (NCC 0.995; the opposite sign 0.759 / 0.866) — and
   distance-along-the-ring / height on the walls (the wall wrap has one seam on an edge, visible
   only if the pattern has a strong feature there). A `fill_texture` part is not tinted (the
   picture carries the colour), but `set_part_fill` still writes `tintLinear` from the fill

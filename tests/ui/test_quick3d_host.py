@@ -2509,3 +2509,44 @@ def test_a_broken_scene_file_fails_the_tier_instead_of_skipping_it(tmp_path: Pat
     assert broken_tests >= 30, summary
     assert "skipped" not in summary, f"a broken scene file must not be skipped away: {summary}"
     assert "did not load" in proc.stdout, "and the failure names the cause"
+
+
+class TestFillPictures:
+    """The items' own fill pictures (#628): the host's side of their lifetime."""
+
+    def test_a_failed_clear_keeps_the_picture_of_a_model_it_could_not_destroy(
+            self, qtbot) -> None:  # noqa: ARG002
+        """Pictures are forgotten only after EVERY step of clear() succeeded.
+
+        A Model the engine could not destroy is still on screen, showing its picture;
+        freeing that texture under it renders white (PF-L3D-17). The next clear()
+        finishes and lets the picture go.
+        """
+        from open_garden_planner.core.scene3d import Material, MeshPart, Transform, prism_mesh
+        from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
+        from open_garden_planner.ui.view3d.quick3d.host import EngineError
+
+        made = _new_host()
+        sink = Quick3DSink(made)
+        part = MeshPart(prism_mesh([SQUARE], 40.0), "vc", fill_texture=True)
+        try:
+            sink.begin()
+            sink.add("lawn", (part,), Transform(),
+                     Material("LAWN", fill_rgba=(90, 160, 60, 255), pattern="GRASS"))
+            sink.commit()
+            assert len(made._fill_pictures) == 1  # noqa: SLF001 - the books under test
+            original = made._destroy  # noqa: SLF001
+
+            def failing(_part: Any) -> None:
+                raise EngineError("the engine refused to destroy it")
+
+            made._destroy = failing  # type: ignore[method-assign]  # noqa: SLF001
+            with pytest.raises(EngineError):
+                made.clear()
+            assert made._fill_pictures, "a surviving Model must keep its picture"  # noqa: SLF001
+            made._destroy = original  # type: ignore[method-assign]  # noqa: SLF001
+            made.clear()
+            assert made._fill_pictures == {} and made.engine_parts() == []  # noqa: SLF001
+        finally:
+            sink.clear()
+            made.close()

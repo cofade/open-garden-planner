@@ -249,8 +249,8 @@ def tinted_pattern_pixels(pattern: FillPattern, color: QColor) -> tuple[int, int
     shows the fill colour alone, which is what the canvas does for SOLID too.
 
     Rows are the texture's own rows (row 0 is the image's top) and one tile is
-    ``PATTERN_TILE_CM`` wide in the plan's coordinates; the mesh's UVs use that
-    same ruler. Alpha is forced opaque: a 3D solid body does not show the 2D
+    256 cm wide in the plan's coordinates (``core.scene3d.PATTERN_TILE_CM``); the
+    mesh's UVs use that same ruler. Alpha is forced opaque: a 3D solid body does not show the 2D
     fill's transparency (``Material.tint_rgba`` forces it too).
     """
     if pattern == FillPattern.SOLID:

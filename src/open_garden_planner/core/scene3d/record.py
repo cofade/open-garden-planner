@@ -86,10 +86,11 @@ SHAPES: Final[tuple[str, ...]] = (
 #: One fill texture tile in centimetres: the asset forge ships every pattern at
 #: 256 x 256 px and the canvas lays it at 1 px = 1 cm, so a pattern repeats every
 #: 256 cm. A mesh that shows the item's fill texture sets
-#: ``uv = (position - paint_origin) / PATTERN_TILE_CM`` — the item's own coordinates
-#: less the anchor the snapshot writes as ``params["paint_origin"]``, the phase the
-#: canvas gives the fill. Every shipped texture is 256 x 256 (a test pins it), so a
-#: resized texture cannot silently stretch the 3D pattern.
+#: ``uv = (position + paint_origin) / PATTERN_TILE_CM`` — the record's footprint is
+#: centred on the anchor the snapshot writes as ``params["paint_origin"]``, so the
+#: canvas's item coordinate is ``position + paint_origin``, the phase it gives the
+#: fill. Every shipped texture is 256 x 256 (a test pins it), so a resized texture
+#: cannot silently stretch the 3D pattern.
 PATTERN_TILE_CM: Final = 256.0
 
 

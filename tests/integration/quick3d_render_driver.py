@@ -456,7 +456,8 @@ def _fill_record(item_id: str, east: float, pattern: str) -> Record:
     return Record(item_id=item_id, kind="GENERIC_POLYGON", shape="polygon",
                   footprints=(FILL_SQUARE,), transform=Transform(east_cm=east),
                   material=Material("GENERIC_POLYGON", fill_rgba=FILL_RGBA, pattern=pattern),
-                  height_cm=40.0, params=Params({"seed": item_id}))
+                  height_cm=40.0,
+                  params=Params({"seed": item_id, "paint_origin": (east, 0.0)}))
 
 
 def scenario_fill(ctx: Context) -> dict[str, Any]:
@@ -480,7 +481,7 @@ def scenario_fill(ctx: Context) -> dict[str, Any]:
     faded = ctx.offscreen("fill_faded", records, shot=shot, sun=SunState(60.0, 180.0),
                           size=(1000, 400), registry=BuilderRegistry(), faded=("grass",))
 
-    host = Quick3DHost((320, 200), log=ctx.log)
+    host = Quick3DHost((320, 200), qml_dir=ctx.qml_dir, log=ctx.log)
     sink = Quick3DSink(host)
     part = MeshPart(prism_mesh([FILL_SQUARE], 40.0), "vc", fill_texture=True, name="prism")
     alive0, uploads0 = textures_alive(), PatternTexture.uploads

@@ -3544,8 +3544,11 @@ height lost its texture (a 40 cm lawn became a flat green slab, a 10 cm soil bed
 New `MeshPart.fill_texture`: such a part shows the item's own fill — the 2D pattern tinted by
 the fill colour, or that colour alone for SOLID — supplied by
 `core.fill_patterns.tinted_pattern_pixels` and cached per (pattern, colour), refcounted by the
-sink so a recolour or a removal leaves no picture behind. UVs are (position - paint_origin) / 256 on a
+sink so a recolour or a removal leaves no picture behind. UVs are (position + paint_origin) / 256 on a
 cap (the canvas's phase) and distance-along-the-ring / height on the walls. A garden bed's soil cap is its
 "Boden-Substrat"; a container's soil stays the palette's. Measured on Direct3D 11, 1000 × 400
 top-down, two 300 cm squares at 40 cm: luma std 26.0 for GRASS against 0.0 for SOLID at the same
-mean (121.3 / 120.8). ADR-037 addendum, FR-3D-BUILT-09, PF-L3D-17.
+mean (121.3 / 120.8). The phase is pinned against the canvas's own painter, not a formula:
+`tests/integration/test_scene3d_fill_phase.py` bakes a real rectangle and correlates the
+mesh's UVs (NCC 0.995; the opposite sign 0.759 / 0.866). ADR-037 addendum, FR-3D-BUILT-09,
+PF-L3D-17.

@@ -216,8 +216,8 @@ Door targets and the heightless-lawn predicate determine which old parameters re
 
 ### PF-L3D-17
 
-- **Rule:** A solid that should keep its 2D fill shows it through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — with UVs `(position - paint_origin) / 256` (the canvas's phase, its `params["paint_origin"]`). Every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it. A fill part's fade tint (`tintLinear`) is its fill colour even when the picture's `tint` is white: the screen door samples no picture.
-- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`; `tests/unit/test_quick3d_adapter.py`; `tests/unit/test_fill_patterns.py`; `tests/unit/test_scene3d_mesh.py`; `tests/integration/test_quick3d_render.py`
+- **Rule:** A solid that should keep its 2D fill shows it through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — with UVs `(position + paint_origin) / 256` (the canvas's phase, its `params["paint_origin"]`). Every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it. A fill part's fade tint (`tintLinear`) is its fill colour even when the picture's `tint` is white: the screen door samples no picture.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`; `tests/unit/test_quick3d_adapter.py`; `tests/unit/test_fill_patterns.py`; `tests/unit/test_scene3d_mesh.py`; `tests/integration/test_scene3d_fill_phase.py`; `tests/integration/test_quick3d_render.py`
 - **Source:** #628 follow-up (owner manual pass of #627), ADR-037 addendum
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -236,11 +236,14 @@ value above white, so every highlight above the texture's mean would be clipped 
 light specks that make it read as soil. `materials.part_tint` is the ONE tint rule the engine
 read-backs compare against; a recolour swaps the picture and uploads no geometry.
 
-**The phase was wrong in the first cut.** UVs from raw record coordinates scored NCC **0.000**
-against the bake and **0.985** at a 106 cm shift (the paint origin, 150 cm, mod 256), visible on
-DECKING, FLAGSTONE and BRICK and invisible on noise textures. The snapshot writes the anchor as
-`params["paint_origin"]`; a cap samples `(position - paint_origin) / 256` and a wall's `u`
-starts at the first vertex's own phase.
+**The phase was wrong twice.** Raw record coordinates ignore the anchor; the first fix
+subtracted it, and the sign was wrong: the record's footprint is CENTRED on the anchor, so
+the canvas's item coordinate is `position + paint_origin`. Measured on a real 300 x 200 cm
+rectangle at `paint_origin` (760, 480), against the bake: the plus sign reads NCC **0.995**
+with the mesh's own UVs; the minus sign **0.759** (MULCH) / **0.866** (BRICK).
+`tests/integration/test_scene3d_fill_phase.py` bakes the record and correlates the mesh's UVs,
+so the source of truth is the canvas's own painter, not a re-derived formula. Visible on
+DECKING, FLAGSTONE and BRICK; invisible on noise textures.
 
 **Measured** (dev box, Direct3D 11, 1000 × 400 top-down frame, two 300 cm squares at 40 cm): the
 GRASS-patterned one reads luma std **26.0**, the SOLID one **0.0**, at the same mean

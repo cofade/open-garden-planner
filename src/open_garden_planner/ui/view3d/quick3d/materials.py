@@ -56,10 +56,11 @@ def part_tint(part: MeshPart, material: Material) -> Rgba:
     """The sRGB tint the Model of ``part`` carries for an item with ``material``.
 
     THE rule — the engine read-backs (``quick3d_render_driver``, the engine test,
-    ``host.engine_parts``) must call it rather than copy it. A ``fill_texture`` part
+    the adapter's double) must call it rather than copy it. A ``fill_texture`` part
     shows the item's own picture, which carries the colour, so its tint is white —
     except for a SOLID fill, which has no picture and shows the fill colour through
-    the same ``set_part_fill`` call.
+    the same ``set_part_fill`` call. (``host.engine_parts`` reads the QML ``tint``
+    property; it does not call this.)
     """
     if part.fill_texture:
         return WHITE if pattern_texture_name(material.pattern) is not None else material.tint_rgba

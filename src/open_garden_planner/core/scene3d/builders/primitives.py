@@ -342,16 +342,17 @@ def plan_cap(ring: ArrayLike, z: float, color: ArrayLike = _WHITE, *, up: bool =
              uv_origin: tuple[float, float] = (0.0, 0.0)) -> Mesh:
     """``polygon_cap`` whose UVs are the ring's plan coordinates / ``PATTERN_TILE_CM``.
 
-    For a part that shows the item's fill texture: the canvas phases a pattern from
-    the item's own origin, so a vertex at item coordinate ``(x, y)`` samples the
-    texture at ``((x - ox) / 256, (y - oy) / 256)`` — ``uv_origin`` is the record's
-    ``params["paint_origin"]`` (``build.uv_origin_of``) and (0, 0) when it has none.
+    For a part that shows the item's fill texture: the record's ring is centred on
+    the item's anchor, so a vertex at record coordinate ``(x, y)`` is item coordinate
+    ``(x + ox, y + oy)`` and samples the texture at ``((x + ox) / 256, (y + oy) /
+    256)`` — ``uv_origin`` is the record's ``params["paint_origin"]``
+    (``build.uv_origin_of``) and (0, 0) when it has none.
     """
     plan = polygon_triangles(ring)
     if not len(plan):
         return Mesh.empty()
     triangles = np.concatenate([plan, np.full((len(plan), 3, 1), float(z))], axis=2)
-    uvs = (triangles[:, :, :2] - np.asarray(uv_origin, dtype=np.float64)) / PATTERN_TILE_CM
+    uvs = (triangles[:, :, :2] + np.asarray(uv_origin, dtype=np.float64)) / PATTERN_TILE_CM
     return flat_mesh(triangles, color, outward=(0.0, 0.0, 1.0 if up else -1.0),
                      vertex_uvs=uvs)
 

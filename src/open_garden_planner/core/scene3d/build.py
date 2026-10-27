@@ -80,11 +80,12 @@ def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[f
     from the solid - for a clockwise hole ring. The UVs wrap the fill texture
     round the ring (one cm of travel per cm of texture) and up it: ``u`` counts
     the distance along the ring from the first vertex's own texture phase
-    (``x - uv_origin[0]``), ``v`` the height, both / ``PATTERN_TILE_CM``.
+    (``x + uv_origin[0]``, the record being centred on its anchor), ``v`` the
+    height, both / ``PATTERN_TILE_CM``.
     A prism that shows its item's fill texture therefore reads as one material on
     every face; the top's own UVs are its plan coordinates less the anchor."""
     n = len(ring)
-    travelled = ring[0][0] - uv_origin[0] if n else 0.0
+    travelled = ring[0][0] + uv_origin[0] if n else 0.0
     for i in range(n):
         x1, y1 = ring[i]
         x2, y2 = ring[(i + 1) % n]
@@ -140,12 +141,11 @@ def prism_mesh(
     into the hole, and a cap that covers the outer MINUS the holes. Neutral white
     vertex colours (a tinted part), flat normals, no bottom cap.
 
-    ``uv_origin``: the item's ``params["paint_origin"]`` — the anchor its record
-    coordinates are measured from. The fill texture's phase is ``position - anchor``
-    (the canvas anchors it at the item's own origin and the ground bake reproduces
-    exactly that), so a cap samples ``(x - ox) / PATTERN_TILE_CM`` and a wall's
-    ``u`` starts at the first ring vertex's own phase. (0, 0) for a caller with no
-    record.
+    ``uv_origin``: the item's ``params["paint_origin"]`` — its anchor in ITEM
+    coordinates, which the record's footprint is centred on. The canvas paints the
+    item at ``anchor + position`` and phases the fill from that scene point, so a
+    cap samples ``(x + ox) / PATTERN_TILE_CM`` and a wall's ``u`` starts at the
+    first ring vertex's own phase. (0, 0) for a caller with no record.
 
     A hole-free ring of fewer than ``polygon.ARRAY_EAR_CLIP_FROM`` (256) vertices
     produces exactly the vertices of the Qt 3D view's ``extrude_footprint`` (same
@@ -198,8 +198,8 @@ def prism_mesh(
             for x, y in ((ax, ay), (bx, by), (cx, cy)):
                 positions.extend((x, y, height_cm))
                 normals.extend((0.0, 0.0, 1.0))
-                uvs.extend(((x - uv_origin[0]) / PATTERN_TILE_CM,
-                            (y - uv_origin[1]) / PATTERN_TILE_CM))  # the canvas's phase
+                uvs.extend(((x + uv_origin[0]) / PATTERN_TILE_CM,
+                            (y + uv_origin[1]) / PATTERN_TILE_CM))  # the canvas's phase
     if not positions:
         return Mesh.empty()
     count = len(positions) // 3
@@ -218,7 +218,8 @@ def uv_origin_of(record: Record) -> tuple[float, float]:
 
     ``params["paint_origin"]`` is written by the snapshot for every item the ground
     bake paints: it is the record's anchor (a rectangle's centre, a circle's centre)
-    in item coordinates, and the canvas's fill texture is phased from it.
+    in item coordinates. The record's footprint is CENTRED on it, so the canvas's
+    item coordinate is ``position + paint_origin`` — the phase a fill texture needs.
     """
     origin = record.params.get(PARAM_PAINT_ORIGIN)
     if isinstance(origin, tuple) and len(origin) == 2:
