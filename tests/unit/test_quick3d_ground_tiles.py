@@ -151,9 +151,10 @@ class TestTheTileComponent:
         a luma step where a baked lawn meets the meadow at the plan's edge (0.92 / 0.2
         measured 2-8 luma darker). The tile takes the meadow's roughness and
         specular amount, whatever they are."""
-        # the endless meadow: the Model 4 x 4 km wide (comments are stripped from CODE)
+        # the endless meadow: the Model with id meadow (comments are stripped from CODE)
         (meadow,) = [block for found in re.finditer(r"Model\s*\{", CODE)
-                     if "4000, 4000" in (block := _block(CODE[found.start():], r"Model\s*\{"))]
+                     if re.search(r"\bid:\s*meadow\b",
+                                  block := _block(CODE[found.start():], r"Model\s*\{"))]
         values = {}
         for name, block in (("tile", TILE), ("meadow", meadow)):
             roughness = re.search(r"roughness:\s*([0-9.]+)", block)

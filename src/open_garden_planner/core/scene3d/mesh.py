@@ -247,12 +247,19 @@ class MeshPart:
     """One mesh of an item plus how the sink shows it.
 
     ``material_kind``: one of ``MATERIAL_KINDS``. ``casts_shadow``: False for
-    glass, water and for decoration without a resolved height (it casts none in
-    2D either). ``tinted``: the sink multiplies the vertex colours with the
+    glass, water and ground detail; whatever else is built casts (L4's owner
+    pass). ``tinted``: the sink multiplies the vertex colours with the
     item's ``Material.tint_linear()`` — the builder leaves them neutral (white,
     or a shading weight), so a recolour reaches the engine as
     ``update_material`` and never rebuilds this mesh. ``name`` labels the part
     ("walls", "roof") for logs and tests.
+
+    ``ground_detail`` (Phase 17 L4, ADR-065): the part is RELIEF on a surface the
+    ground bake paints — the stones of a stepping-stone path, the kerb of a
+    terrace, a lawn's blades, a pond's water. Such a part does not make its item a
+    solid (``SceneSync.solid_ids``): the bake keeps painting the item's 2D picture
+    under it. It is never picked (a click on a path or a lawn reaches the ground,
+    as before L4) and casts no shadow — the plan gives a surface no height.
     """
 
     mesh: Mesh
@@ -260,11 +267,17 @@ class MeshPart:
     casts_shadow: bool = True
     tinted: bool = False
     name: str = ""
+    ground_detail: bool = False
 
     def __post_init__(self) -> None:
         if self.material_kind not in MATERIAL_KINDS:
             raise ValueError(
                 f"unknown material_kind {self.material_kind!r}; expected one of {sorted(MATERIAL_KINDS)}"
+            )
+        if self.ground_detail and self.casts_shadow:
+            raise ValueError(
+                "a ground_detail part casts no shadow: it is relief on a surface the plan "
+                "gives no height (pass casts_shadow=False)"
             )
 
     def validate(self) -> None:

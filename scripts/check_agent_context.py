@@ -116,10 +116,18 @@ def _check_root_docs(root: Path, errors: list[str]) -> None:
     ):
         errors.append("CLAUDE.md and AGENTS.md differ")
     max_bytes = _configured_doc_max_bytes(root, errors)
-    if codex.is_file() and max_bytes is not None and codex.stat().st_size > max_bytes:
-        errors.append(
-            f"AGENTS.md exceeds the Codex project-doc budget of {max_bytes} bytes"
-        )
+    if codex.is_file() and max_bytes is not None:
+        # The budget is Codex's project-doc size: the DOCUMENT's bytes, not the
+        # checkout's. Counting ``stat().st_size`` made the gate disagree with itself
+        # across platforms — a CRLF working copy (the Windows default here) is one
+        # byte a line larger than the LF blob CI checks out, so the same commit
+        # passed on CI and failed on the dev box (#444's batch hit it with 34 bytes
+        # of headroom).
+        document = _normalise_line_endings(codex.read_text(encoding="utf-8"))
+        if len(document.encode("utf-8")) > max_bytes:
+            errors.append(
+                f"AGENTS.md exceeds the Codex project-doc budget of {max_bytes} bytes"
+            )
 
 
 def _check_skills(root: Path, errors: list[str]) -> None:

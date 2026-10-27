@@ -20,7 +20,9 @@ survive a squash merge — the tag will):
 - ``plans`` — both bench plans on 21 June: the caster walk itself, the union of
   every caster's shadow as the code computed it then, and the union of the
   casters that stand on the ground (everything but the plants in raised beds —
-  22 and 240 of them);
+  22 and 240 of them). The walk hides the nine kinds L4's second owner pass gave
+  a default height (``GIVEN_A_HEIGHT_IN_L4``), which had none in v1.29.10; a test
+  of its own pins what they add;
 - ``overlay`` — the painter path of the real ``SunShadowController`` overlay on a
   hand-built scene without raised plants, at a high and a low sun;
 - ``heatmap`` — ``compute_heatmap`` minutes for the campaign's wall toy case.
@@ -82,7 +84,12 @@ import pytest
 from PyQt6.QtCore import QPointF
 
 from open_garden_planner.core import ProjectManager
-from open_garden_planner.core.object_height import METADATA_KEY, effective_height_cm
+from open_garden_planner.core.object_height import (
+    DEFAULT_HEIGHTS_CM,
+    METADATA_KEY,
+    effective_height_cm,
+    explicit_height_cm,
+)
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle, is_bed_type
 from open_garden_planner.core.shade_aggregation import (
     HeatmapGrid,
@@ -103,6 +110,7 @@ from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.sun_shadow_controller import (
     SunShadowController,
     SunShadowOverlayItem,
+    collect_identified_casters,
     collect_shadow_casters,
 )
 
@@ -164,9 +172,29 @@ def _summary(polygons: list[list[tuple[float, float]]]) -> dict[str, Any]:
     }
 
 
-def _load(plan: str) -> CanvasScene:
+#: The kinds L4's second owner pass gave a default height (ADR-065). v1.29.10 — the
+#: golden's "before" — gave them none, so the golden's plan walk sees the bench plans
+#: without them; what they add is pinned on its own
+#: (``test_the_kinds_given_a_height_in_l4_add_only_their_own_casters``).
+GIVEN_A_HEIGHT_IN_L4 = frozenset({"PARASOL", "FIRE_PIT", "PLANTER_POT", "COLD_FRAME", "RAIN_BARREL",
+                                  "WATER_TAP", "SWING", "HAMMOCK", "PERGOLA"})
+
+
+def _given_a_height_in_l4(item: Any) -> bool:
+    object_type = getattr(item, "object_type", None)
+    return (object_type is not None and object_type.name in GIVEN_A_HEIGHT_IN_L4
+            and explicit_height_cm(getattr(item, "metadata", None)) is None)
+
+
+def _load(plan: str, *, with_l4_heights: bool = False) -> CanvasScene:
+    """A bench plan as v1.29.10 saw its casters (the kinds without a height then are
+    hidden), or as it is (``with_l4_heights``)."""
     scene = CanvasScene()
     ProjectManager().load(scene, PLANS / plan)
+    if not with_l4_heights:
+        for item in scene.items():
+            if _given_a_height_in_l4(item):
+                item.setVisible(False)
     return scene
 
 
@@ -490,3 +518,29 @@ def test_the_oracle_walk_is_the_production_walk(qtbot: Any, plan: str) -> None:
     production = collect_shadow_casters(scene, at_date=JUNE)
     assert [(list(c[0]), c[1]) for c in production] == [(list(fp), h) for fp, h in every]
     assert len(every) == len(ground) + raised and raised > 0
+
+
+@pytest.mark.parametrize(("plan", "added"), [("bench_small.ogp", 2), ("bench_large.ogp", 20)])
+def test_the_kinds_given_a_height_in_l4_add_only_their_own_casters(
+        qtbot: Any, plan: str, added: int) -> None:
+    """L4's second owner pass (ADR-065): "doesn't make sense that a parasol doesn't
+    have a height, while a trampoline has it". The nine kinds without a height got a
+    default, so they cast in the 2D sun study — and that is ALL that changes: with them
+    the walk is the golden's walk plus their own casters, each at its kind's default
+    height, standing on the ground (bench_small: a fire pit and a rain barrel;
+    bench_large: twenty rain barrels)."""
+    before = [(list(c.footprint), c.height_cm, c.base_cm)
+              for c in collect_shadow_casters(_load(plan), at_date=JUNE)]
+    scene = _load(plan, with_l4_heights=True)
+    after = [(list(c.footprint), c.height_cm, c.base_cm)
+             for c in collect_shadow_casters(scene, at_date=JUNE)]
+    by_id = {str(item.item_id): item for item in scene.items() if hasattr(item, "item_id")}
+    theirs = [caster for caster in collect_identified_casters(scene, at_date=JUNE)
+              if _given_a_height_in_l4(by_id[caster.item_id])]
+    assert len(theirs) == added and len(after) == len(before) + added
+    assert [pair for pair in after if pair not in before] == [
+        (list(footprint), caster.height_cm, caster.base_cm)
+        for caster in theirs for footprint in caster.footprints]
+    for caster in theirs:
+        assert caster.height_cm == DEFAULT_HEIGHTS_CM[by_id[caster.item_id].object_type.name]
+        assert caster.base_cm == 0.0

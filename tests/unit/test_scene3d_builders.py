@@ -8,8 +8,9 @@ resolved height). This file adds what a planning tool needs on top:
 G1  over the whole matrix (``scene3d_builder_cases.CASES``: every kind x sizes x
     turned local geometry x with / without a height): the top is the height to
     the float32, the base is the ground, the fit scale is 1, the triangle budget
-    holds, flat faces store their winding normal, an item without a height casts
-    no shadow, and the solid stays on its footprint.
+    holds, flat faces store their winding normal, every solid casts — with or
+    without a height of the plan's (owner, L4 manual pass) — and the solid stays
+    on its footprint.
 G2  the roof's ridge line IS the record's ridge, run on to the roof's edge; the
     slope that faces the sun is the lit one.
 G5  every vertex colour is a ``palette`` entry — or pure white on a tinted part.
@@ -37,6 +38,7 @@ from open_garden_planner.core.scene3d import (
     BuilderContractError,
     BuilderRegistry,
     Material,
+    Mesh,
     MeshPart,
     Params,
     Record,
@@ -52,6 +54,8 @@ from open_garden_planner.core.scene3d import (
 )
 from open_garden_planner.core.scene3d.builders import (
     BUILT_WORLD_KINDS,
+    OBJECT_KINDS,
+    SURFACE_KINDS,
     beds,
     buildings,
     fences,
@@ -110,11 +114,31 @@ from tests.unit.scene3d_builder_cases import (
 )
 
 REGISTRY = production_registry()
+#: A HOUSE's walls on every route (``buildings._house_walls``), as vertex colours.
+HOUSE_WALL_LINEAR = np.asarray(buildings.HOUSE_WALL.linear, dtype=np.float32)
 HEIGHT_TOLERANCE_CM = 0.5  # gate G1; every builder is in fact exact to the float32
 #: How far a hedge leaf's tip may pass the footprint's outline. Measured over the matrix:
 #: 4.9 cm where the core is drawn in by 4 cm; 8.8 cm on a hedge too narrow to draw in
 #: (10 cm wide), where leaves root on the outline itself — bounded by the leaf length.
 LEAF_OVERSHOOT_CM = 6.0
+
+
+def assert_the_block(part: MeshPart, block: Mesh, kind: str) -> None:
+    """``part`` is the plain block ``block``: its shape, in the item's fill (``tinted``) —
+    a HOUSE's in its sandstone with a top of roof tiles, whatever the route
+    (``buildings._house_walls``)."""
+    assert np.array_equal(part.mesh.positions, block.positions)
+    assert np.array_equal(part.mesh.indices, block.indices)
+    house = kind == "HOUSE"
+    assert part.tinted is not house
+    assert np.allclose(part.mesh.colors, block.colors * (house_colours(block) if house else 1.0))
+
+
+def house_colours(block: Mesh) -> np.ndarray:
+    """What a HOUSE's plain block is coloured with, vertex by vertex: roof tiles on top,
+    sandstone below."""
+    tile = np.asarray(buildings.HOUSE_ROOF.tile.linear, dtype=np.float32)
+    return np.where(block.normals[:, 2:3] > 0.99, tile, HOUSE_WALL_LINEAR)
 
 
 @functools.cache
@@ -173,9 +197,10 @@ def budget_of(record: Record) -> int:
 
 
 class TestRegistration:
-    """``production_registry()`` holds two families and nothing else: the built world
-    (this story's ``register``) and the plants (the plant story's ``plants.register``,
-    wired in at the merge of 5c44578)."""
+    """``production_registry()`` holds four families and nothing else: the built world
+    (this story's ``register``), the L4 objects and surfaces (#388:
+    ``register_objects``, ``register_surfaces``) and the plants (the plant story's
+    ``plants.register``, wired in at the merge of 5c44578)."""
 
     def test_exactly_the_built_world_kinds_and_the_plant_kinds(self) -> None:
         assert frozenset({
@@ -183,9 +208,14 @@ class TestRegistration:
             "WALL_PLANTER", "CONTAINER_ROUND", "GARDEN_BED", "HEDGE_SECTION", "HEDGE_POLYGON",
         }) == BUILT_WORLD_KINDS
         assert frozenset({"TREE", "SHRUB", "PERENNIAL"}) == PLANT_KINDS
-        assert not BUILT_WORLD_KINDS & PLANT_KINDS                        # no kind belongs to both
-        assert REGISTRY.kinds() == BUILT_WORLD_KINDS | PLANT_KINDS       # … and nothing else is registered
-        assert len(REGISTRY.kinds()) == len(BUILT_WORLD_KINDS) + len(PLANT_KINDS) == 15
+        assert len(OBJECT_KINDS) == 24 and len(SURFACE_KINDS) == 5
+        families = (BUILT_WORLD_KINDS, OBJECT_KINDS, SURFACE_KINDS, PLANT_KINDS)
+        for index, family in enumerate(families):                      # no kind belongs to two
+            for other in families[index + 1:]:
+                assert not family & other
+        everything = BUILT_WORLD_KINDS | OBJECT_KINDS | SURFACE_KINDS | PLANT_KINDS
+        assert REGISTRY.kinds() == everything                           # … and nothing else is registered
+        assert len(REGISTRY.kinds()) == sum(len(family) for family in families) == 44
 
     def test_every_plant_kind_resolves_to_the_plant_builder(self) -> None:
         for kind in sorted(PLANT_KINDS):
@@ -225,9 +255,10 @@ class TestRegistration:
         the built world, by the plant builder, or by the default prism."""
         from open_garden_planner.core.object_types import ObjectType
 
-        others = {member.name for member in ObjectType} - BUILT_WORLD_KINDS - PLANT_KINDS
-        assert {"PATH", "ROOF_RIDGE", "LAWN", "GREENHOUSE", "PERGOLA", "TABLE_RECTANGULAR",
-                "POND_POOL", "TRELLIS"} <= others
+        others = ({member.name for member in ObjectType} - BUILT_WORLD_KINDS - PLANT_KINDS
+                  - OBJECT_KINDS - SURFACE_KINDS)
+        assert others == {"ROOF_RIDGE", "GENERIC_RECTANGLE", "GENERIC_POLYGON", "GENERIC_CIRCLE",
+                          "GENERIC_ELLIPSE", "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN"}
         for kind in sorted(others) + ["NO_SUCH_KIND"]:
             assert REGISTRY.builder_for(kind) is default_builder, kind
 
@@ -240,10 +271,17 @@ class TestRegistration:
         plants.register(registry)          # the plants once: fine …
         with pytest.raises(ValueError, match="already registered"):
             plants.register(registry)      # … twice: refused
+        from open_garden_planner.core.scene3d.builders import register_objects, register_surfaces
+
+        register_objects(registry)
+        register_surfaces(registry)
+        with pytest.raises(ValueError, match="already registered"):
+            register_objects(registry)     # the objects twice: refused
         # the registry refuses a second claim on a kind, so production_registry() could not
-        # have been built if the two families shared one
+        # have been built if two families shared one
         assert registry.kinds() == production_registry().kinds()
-        assert production_registry().version == len(BUILT_WORLD_KINDS) + len(PLANT_KINDS)
+        assert production_registry().version == (len(BUILT_WORLD_KINDS) + len(OBJECT_KINDS)
+                                                 + len(SURFACE_KINDS) + len(PLANT_KINDS))
 
     def test_the_matrix_covers_every_registered_kind(self) -> None:
         assert {case.record.kind for case in CASES} == BUILT_WORLD_KINDS
@@ -276,10 +314,10 @@ class TestGateG1:
         assert triangle_count(parts) <= budget_of(record)
         assert all(part.mesh.vertex_count for part in parts)  # no empty part reaches the sink
 
-    def test_no_height_no_shadow(self, case: Case) -> None:
-        parts = built(case.record)
-        casts = {part.casts_shadow for part in parts}
-        assert casts <= ({True} if case.record.height_cm is not None else {False})
+    def test_every_solid_casts(self, case: Case) -> None:
+        """Built at the plan's height or the kind's nominal one, a solid casts in 3D
+        (owner, L4 manual pass; the 2D sun study keeps its own caster rule)."""
+        assert {part.casts_shadow for part in built(case.record)} <= {True}
 
     def test_every_face_looks_the_way_its_normal_does(self, case: Case) -> None:
         for part in built(case.record):
@@ -310,6 +348,8 @@ class TestGateG1:
         overhang = {"HOUSE": buildings.HOUSE_ROOF.overhang_cm,
                     "GARAGE_SHED": buildings.SHED_ROOF.overhang_cm,
                     "TOOL_SHED": buildings.SHED_ROOF.overhang_cm}.get(record.kind, 0.0)
+        if record.kind == "HOUSE" and "ridge" not in record.params:
+            overhang = buildings.FLAT_ROOF.overhang_cm  # L4.1: a house without a ridge: flat
         if len(parts) == 1 and record.kind in ("HOUSE", "GARAGE_SHED", "TOOL_SHED"):
             overhang = 0.0  # a plain block
         if overhang:  # a roof: inside the footprint grown by the overhang, on its edge somewhere
@@ -498,28 +538,38 @@ class TestRidgeIsTheRecordsRidge:
         assert float(np.abs(outline[:, 1]).max()) == pytest.approx(300.0, abs=1e-3)
 
     def test_a_house_without_a_usable_ridge_is_a_plain_block(self) -> None:
+        """A ridge that is there but cannot carry a roof is the honest block. A house with
+        NO ridge — no param, or one that is not two points — gets a flat roof (L4.1: the
+        automatic style; ``TestRoofStyles``)."""
         ring = rectangle(900.0, 540.0)
         block = default_builder(polygon_record("HOUSE", ring, 450.0))
-        for params in ({}, {"ridge": ((10.0, 0.0), (10.0, 0.0))}, {"ridge": "nonsense"},
-                       {"ridge": ((0.0, 0.0),)}, {"ridge": ((0.0, True), (1.0, 2.0))},
+        for params in ({"ridge": ((10.0, 0.0), (10.0, 0.0))},
                        {"ridge": ((2000.0, 0.0), (2000.0, 500.0))}):  # a line that misses the house
             parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
-            assert len(parts) == 1 and parts[0].name == "walls" and parts[0].tinted
-            assert parts[0].mesh == block[0].mesh
+            assert len(parts) == 1 and parts[0].name == "walls"
+            assert_the_block(parts[0], block[0].mesh, "HOUSE")  # in its sandstone, never its fill
+        for params in ({}, {"ridge": "nonsense"}, {"ridge": ((0.0, 0.0),)},
+                       {"ridge": ((0.0, True), (1.0, 2.0))}):
+            parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
+            assert [part.name for part in parts] == ["walls", "roof", "facade"], params
         too_low = built(polygon_record("HOUSE", ring, 15.0,
                                        params={"ridge": ((-450.0, 0.0), (450.0, 0.0))}))
         assert [part.name for part in too_low] == ["walls"]  # no room for a slab: a block
 
-    def test_buildings_have_tinted_walls_and_a_roof_of_their_own_material(self) -> None:
-        for record in (
-            polygon_record("HOUSE", rectangle(900.0, 540.0), 450.0,
-                           params={"ridge": ((-450.0, 0.0), (450.0, 0.0))}),
-            polygon_record("GARAGE_SHED", rectangle(400.0, 300.0), 250.0),
-            polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0),
+    def test_buildings_have_their_walls_and_a_roof_of_their_own_material(self) -> None:
+        """A shed's walls take the item's fill colour; a house's are sandstone: its 2D
+        fill is its roof's colour (owner, L4 manual pass)."""
+        for record, tinted in (
+            (polygon_record("HOUSE", rectangle(900.0, 540.0), 450.0,
+                            params={"ridge": ((-450.0, 0.0), (450.0, 0.0))}), False),
+            (polygon_record("GARAGE_SHED", rectangle(400.0, 300.0), 250.0), True),
+            (polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0), True),
         ):
-            walls_part, roof_part = built(record)
-            assert (walls_part.name, walls_part.material_kind, walls_part.tinted) == ("walls", "vc", True)
+            walls_part, roof_part, facade_part = built(record)
+            assert (walls_part.name, walls_part.material_kind, walls_part.tinted) == ("walls", "vc", tinted)
             assert (roof_part.name, roof_part.material_kind, roof_part.tinted) == ("roof", "roof", False)
+            assert (facade_part.name, facade_part.material_kind, facade_part.tinted) == (
+                "facade", "vc", False)
 
 
 class TestShedRidge:
@@ -580,7 +630,7 @@ class TestAcuteCorners:
         overhang = buildings.HOUSE_ROOF.overhang_cm
         record = polygon_record("HOUSE", ring, 450.0, params={"ridge": ridge})
         parts = verify_builder(REGISTRY.builder_for("HOUSE"), record)
-        assert [part.name for part in parts] == ["walls", "roof"]  # a real roof, not the block
+        assert [part.name for part in parts] == ["walls", "roof", "facade"]  # a real roof, not the block
         roof = positions([parts[1]])[:, :2]
         walls_plan = positions([parts[0]])[:, :2]
         assert outside_distance(walls_plan, ring) <= 1e-3  # the walls stand on the footprint
@@ -1304,9 +1354,10 @@ def test_which_colours_each_kind_uses() -> None:
 
     house = polygon_record("HOUSE", rectangle(900.0, 540.0), 450.0,
                            params={"ridge": ((-450.0, 0.0), (450.0, 0.0))})
-    assert used(house) == {"TINT", "ROOF_TILE", "ROOF_TILE_CAP", "TIMBER"}
+    facade = {"STEEL_LIGHT", "GLASS_OCC", "STONE_LIGHT", "STONE", "BRASS"}  # L4.1: windows, a door
+    assert used(house) == {"SANDSTONE", "ROOF_TILE", "ROOF_TILE_CAP", "TIMBER"} | facade
     assert used(polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0)) == {
-        "TINT", "SHINGLE", "SHINGLE_CAP", "TIMBER"}
+        "TINT", "SHINGLE", "SHINGLE_CAP", "TIMBER"} | facade
     assert used(polygon_record("RAISED_BED", rectangle(300.0, 120.0), 40.0)) == {
         "PLANK", "PLANK_GROOVE", "SOIL"}
     assert used(circle_record("CONTAINER_ROUND", 25.0, 30.0)) == {"TINT", "SOIL"}
@@ -1381,10 +1432,10 @@ class TestGroundThatIsNotOnePlainRing:
         parts = verify_builder(builder, record, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)  # nothing outside, nothing over a hole
         assert [part.name for part in parts] == ["prism"]
-        assert parts[0].mesh == default_builder(record)[0].mesh  # the default prism's mesh
+        assert_the_block(parts[0], default_builder(record)[0].mesh, kind)  # the default prism
         assert plan_area([parts[0].mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         assert float(positions(parts)[:, 2].max()) == 150.0 and builder.fit_scale(record) == 1.0
-        assert parts[0].tinted and parts[0].casts_shadow
+        assert parts[0].casts_shadow
         if record.holes:
             assert not covers([parts[0].mesh], 37.0, 11.0)   # the hole stays open
         else:
@@ -1394,13 +1445,14 @@ class TestGroundThatIsNotOnePlainRing:
     @pytest.mark.parametrize("make", NOT_ONE_RING.values(), ids=NOT_ONE_RING.keys())
     @pytest.mark.parametrize(("kind", "nominal"), [("HOUSE", 450.0), ("RAISED_BED", 40.0),
                                                    ("HEDGE_POLYGON", 150.0), ("CONTAINER", 30.0)])
-    def test_without_a_height_it_is_decoration_like_any_other(self, kind: str, nominal: float,
-                                                               make) -> None:
-        """"No height, no shadow" holds for the plain block too: the kind's nominal
-        height, every part ``casts_shadow=False`` — and nothing for a kind without one."""
+    def test_without_a_height_it_is_built_like_any_other(self, kind: str, nominal: float,
+                                                          make) -> None:
+        """The plain block of a record without a height: the kind's nominal height,
+        casting like every built object (owner, L4 manual pass) — and nothing for a
+        kind without one."""
         record = make(kind, None)
         parts = built(record)
-        assert [part.name for part in parts] == ["prism"] and not parts[0].casts_shadow
+        assert [part.name for part in parts] == ["prism"] and parts[0].casts_shadow
         assert float(positions(parts)[:, 2].max()) == nominal
         assert plan_area([parts[0].mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         assert built(make("GARDEN_BED", None)) == ()
@@ -1487,7 +1539,7 @@ class TestGroundThatIsNotOnePlainRing:
         parts = verify_builder(builder, flagged, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)
         assert [part.name for part in parts] == ["prism"]
-        assert parts[0].mesh == default_builder(flagged)[0].mesh
+        assert_the_block(parts[0], default_builder(flagged)[0].mesh, kind)
         assert float(positions(parts)[:, 2].max()) == 150.0 and builder.fit_scale(flagged) == 1.0
         # … where the very same ring WITHOUT the flag is built as its kind
         as_its_kind = built(plain)
@@ -1509,12 +1561,11 @@ class TestGroundThatIsNotOnePlainRing:
         flagged = polygon_record("HOUSE", ring, 450.0,
                                  params={"ridge": ridge, "outline_resolved": True})
         function = getattr(buildings, shape)
-        assert [part.name for part in function(plain, 450.0)] == ["walls", "roof"]
+        assert [part.name for part in function(plain, 450.0)] == ["walls", "roof", "facade"]
         (block,) = function(flagged, 450.0)
         assert block.name == "walls" and block.mesh == default_builder(flagged)[0].mesh
 
     @pytest.mark.parametrize(("name", "record"), [
-        ("no ridge", polygon_record("HOUSE", L_SHAPE, 450.0)),
         ("a ridge without length", polygon_record("HOUSE", L_SHAPE, 450.0,
                                                   params={"ridge": ((10.0, 0.0), (10.0, 0.0))})),
         ("a ridge whose line misses the building", polygon_record(
@@ -1525,9 +1576,9 @@ class TestGroundThatIsNotOnePlainRing:
     def test_every_plain_block_of_a_house_is_the_whole_footprint(self, name: str, record: Record) -> None:
         (walls_part,) = verify_builder(builder_of(record), record, height_tolerance_cm=0.5,
                                        plan_margin_cm=0.0)
-        assert (walls_part.name, walls_part.material_kind, walls_part.tinted) == ("walls", "vc", True)
+        assert (walls_part.name, walls_part.material_kind) == ("walls", "vc")
         assert plan_area([walls_part.mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6), name
-        assert walls_part.mesh == default_builder(record)[0].mesh  # concave L and all
+        assert_the_block(walls_part, default_builder(record)[0].mesh, "HOUSE")  # concave L and all
 
     def test_one_plain_ring_is_what_every_matrix_record_is(self) -> None:
         for case in CASES:

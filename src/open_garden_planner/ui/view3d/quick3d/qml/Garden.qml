@@ -72,6 +72,11 @@ Item {
     // the animation policy's switch (Quick3DHost.set_wind_running): the clock runs
     // only while this is true — while it is false nothing ticks at all
     property bool windRunning: false
+    // L4.5: a lawn's blades (parts named "lawn_blades") are drawn from the High preset
+    // up; they are built at every preset, so a preset step changes no geometry
+    property bool lawnBlades: true
+    // L4.5: the ground's detail normals (0 = flat), see the groundTile component
+    property real detailNormals: 3.0
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
     property bool sunUp: false              // false until the first sun, and whenever there is no key light
@@ -93,6 +98,15 @@ Item {
     property real camFov: 40
     property int camVersion: 0
     property real topDownScale: 0.5         // logical pixels per centimetre
+    // where the depth fog begins and is full, cm: from the camera's distance to its
+    // target (set_camera, core/scene3d/look.fog_depth_cm; L4 owner pass). The
+    // defaults are its floors, the L0 spike's measured constants
+    property real fogNear: 2600
+    property real fogFar: 16000
+    // what the fog hid until it followed the camera (3D review of L4's second owner
+    // pass): the ambient-occlusion pass draws a hard line about 101 m out, so its
+    // strength fades out between 45 m and 90 m from the camera's target
+    readonly property real aoFade: Math.max(0, Math.min(1, (9000 - camPos.minus(camTarget).length()) / 4500))
 
     onCamVersionChanged: {
         cam.position = camPos
@@ -190,7 +204,9 @@ Item {
         part.seasonOpacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
                              part.partName === "fruits" ? (state[5] > 0.0 ? 1.0 : 0.0) : 1.0
         // Seasonal absence removes its shadow too. X-ray's independent fade keeps it.
+        // A lawn's blades show only at the presets that draw them (lawnBlades).
         part.visible = !part.retired && part.seasonOpacity > 0.0
+                       && (part.partName !== "lawn_blades" || root.lawnBlades)
         return true
     }
     function setPlantSeasons(states) {
@@ -313,6 +329,15 @@ Item {
     // stroke) and under a crown seen from above.
     property real ringDepthScale: 0.01
 
+    function meadowModel() {
+        return meadow
+    }
+
+    function setMeadowGeometry(geometry) {
+        meadow.geometry = geometry
+        return true
+    }
+
     function selectionRingModel() {
         return selectionRing
     }
@@ -340,7 +365,13 @@ Item {
     // shadow; the walls drop back-face culling so the house reads as a room, not as one
     // wall and a free gable.
     property bool roofsHidden: false
-
+    onLawnBladesChanged: {
+        for (var i = 0; i < parts.children.length; ++i) {
+            var part = parts.children[i]
+            if (!part.retired && part.partName === "lawn_blades")
+                applyPlantSeason(part)
+        }
+    }
     function overlayModel(layer) {
         return layer === "shade" ? shadeOverlay : layer === "drape" ? drapeOverlay
              : layer === "lines" ? linesOverlay : null
@@ -384,8 +415,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [vcScreen] : [vcLook]
             PrincipledMaterial {
                 id: vcLook
@@ -424,8 +456,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0 && !root.roofsHidden
+            pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
             // screen door with nothing left, still casting its shadow
             materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]
@@ -464,8 +497,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             materials: PrincipledMaterial {
                 vertexColorsEnabled: true
                 baseColor: tint
@@ -494,8 +528,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             // a custom shader keeps the water's hue in every mood; see water.frag for why
             // this is not a PrincipledMaterial (measured in the spike: lavender at golden hour)
             materials: fade < 1.0 ? [waterDoor] : [waterLook]
@@ -540,21 +575,36 @@ Item {
             eulerRotation.x: -90
             receivesShadows: true
             castsShadows: false
-            materials: PrincipledMaterial {
-                baseColorMap: Texture {
-                    textureData: tileData
-                    flipV: true
-                    tilingModeHorizontal: Texture.ClampToEdge
-                    tilingModeVertical: Texture.ClampToEdge
-                    generateMipmaps: true
-                    mipFilter: Texture.Linear
-                }
+            // ONE Texture for the tile's life, shared by its two materials (a Texture
+            // re-pointed at another texture goes white: ogp-3d-renderer section 5)
+            Texture {
+                id: tileTexture
+                textureData: tileData
+                flipV: true
+                tilingModeHorizontal: Texture.ClampToEdge
+                tilingModeVertical: Texture.ClampToEdge
+                generateMipmaps: true
+                mipFilter: Texture.Linear
+            }
+            // L4.5: from the Medium preset up the ground shades with detail normals of its
+            // own picture (ground.frag); Low and the compatibility mode keep the flat look
+            materials: root.detailNormals > 0.0 ? [tileDetail] : [tileFlat]
+            PrincipledMaterial {
+                id: tileFlat
+                baseColorMap: tileTexture
                 // the endless meadow's values (below): PrincipledMaterial scales the
                 // sky's diffuse light by (1 - specularAmount), so any other pair puts a
                 // luma step where a baked lawn meets the meadow at the plan's edge
                 // (the L1.4 look review measured 2-8 luma for 0.92 / 0.2)
                 roughness: 1.0
                 specularAmount: 0.15
+            }
+            CustomMaterial {
+                id: tileDetail
+                property TextureInput uBaseMap: TextureInput { texture: tileTexture }
+                property real uDetail: root.detailNormals
+                shadingMode: CustomMaterial.Shaded
+                fragmentShader: "ground.frag"
             }
         }
     }
@@ -573,8 +623,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [foliageDoor] : [foliageLook]
             CustomMaterial {
                 id: foliageLook
@@ -618,8 +669,9 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
+            property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0
+            pickable: fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [grassDoor] : [grassLook]
             CustomMaterial {
                 id: grassLook
@@ -687,8 +739,11 @@ Item {
                                       : SceneEnvironment.TonemapModeFilmic
             exposure: root.topDown ? 1.0 : root.exposure
             ditheringEnabled: !root.topDown
-            aoEnabled: !root.topDown && root.ambientOcclusion
-            aoStrength: 55
+            aoEnabled: !root.topDown && root.ambientOcclusion && root.aoFade > 0
+            // 0 wherever AO is off: Qt's setAoStrength turns AO on whenever the strength
+            // is not 0, whatever aoEnabled says (3D review of L4's second owner pass: Low
+            // drew SSAO once the fade had changed it)
+            aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
             aoDistance: 14
             aoSoftness: 45
             aoSampleRate: root.aoSampleRate
@@ -704,8 +759,8 @@ Item {
                 enabled: !root.topDown && root.fog
                 color: root.fogColor
                 depthEnabled: true
-                depthNear: 2600
-                depthFar: 16000
+                depthNear: root.fogNear
+                depthFar: root.fogFar
                 depthCurve: 1.4
                 density: 1.0
             }
@@ -735,7 +790,10 @@ Item {
             id: cam
             fieldOfView: root.camFov
             clipNear: 5
-            clipFar: 80000
+            // past the midpoints of the meadow's edges, 2 km out, from 600 m out
+            // (camera.MAX_DISTANCE_CM): at the L0 spike's 800 m the cut showed against the
+            // sky from about 400 m (3D review)
+            clipFar: 300000
         }
         OrthographicCamera {
             id: topCam
@@ -771,7 +829,10 @@ Item {
                              : root.softShadows === "pcf32" ? Light.PCF32 : Light.PCF16
             pcfFactor: root.pcfFactor
             shadowBias: root.shadowBias
-            shadowMapFar: 9000
+            // as far as the fog begins (the spike's 9000 its floor): with the fog following
+            // the camera, a framed plan beyond 90 m lay clear and shadowless (3D review).
+            // The top-down truth view keeps the measured 9000.
+            shadowMapFar: root.topDown ? 9000 : Math.max(9000, root.fogNear)
             lockShadowmapTexels: true
         }
         // The flat fill - ONLY where no sky texture lights the view (the truth view, a
@@ -783,12 +844,15 @@ Item {
             castsShadow: false
         }
 
-        // endless meadow (4 x 4 km, past the 800 m far plane), 1 cm under the plan
+        // The endless meadow: a 4 x 4 km square around the plan, IN the plan's plane, the
+        // plan cut out, in cells of at most 100 m — core/scene3d/meadow.py says why (3D
+        // review of #388: one quad under the plan lost the depth test to it). Its ONE
+        // geometry is the host's: loaded at start and whenever the plan's rectangle
+        // changes, as the selection ring's (Quick3DHost._show_meadow).
         Model {
-            source: "#Rectangle"
-            position: Qt.vector3d(root.groundCenter.x, -1.0, root.groundCenter.z)
-            eulerRotation.x: -90
-            scale: Qt.vector3d(4000, 4000, 1)
+            id: meadow
+            visible: geometry !== null
+            pickable: false
             receivesShadows: true
             castsShadows: false
             materials: PrincipledMaterial {

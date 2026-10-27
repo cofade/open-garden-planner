@@ -172,6 +172,33 @@ def polyline_footprint(points: Sequence[Point], width_cm: float) -> list[Polygon
     return [_from_int(path) for path in result]
 
 
+#: How far a rounded outline's arcs may stray from the true circle, cm.
+ROUND_ARC_TOLERANCE_CM = 0.5
+
+
+def polyline_round_outline(points: Sequence[Point], width_cm: float) -> list[Polygon]:
+    """The ground an open polyline covers when it is stroked with round caps and round
+    joins — what the canvas paints for a gravel or a dirt path (``path_style_paint``),
+    half a width past each end. Not a caster: a fence's footprint is
+    ``polyline_footprint``."""
+    if len(points) < 2 or width_cm <= 0:
+        return []
+    pco = pyclipper.PyclipperOffset(arc_tolerance=ROUND_ARC_TOLERANCE_CM * CLIPPER_SCALE)
+    pco.AddPath(_to_int(points), pyclipper.JT_ROUND, pyclipper.ET_OPENROUND)
+    result = pco.Execute(round(width_cm / 2.0 * CLIPPER_SCALE))
+    return [_from_int(path) for path in result]
+
+
+def grown_polygon(ring: Sequence[Point], distance_cm: float) -> list[Polygon]:
+    """``ring`` grown outwards by ``distance_cm``, its corners rounded."""
+    if len(ring) < 3 or distance_cm <= 0:
+        return [list(ring)] if len(ring) >= 3 else []
+    pco = pyclipper.PyclipperOffset(arc_tolerance=ROUND_ARC_TOLERANCE_CM * CLIPPER_SCALE)
+    pco.AddPath(_to_int(ring), pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+    result = pco.Execute(round(distance_cm * CLIPPER_SCALE))
+    return [_from_int(path) for path in result]
+
+
 def base_offset_cm(base_cm: float | None, elevation_deg: float) -> float:
     """How far along the shadow direction a raised caster's shadow STARTS:
     ``base / tan α``. 0.0 for a caster on the ground — and for a base that is

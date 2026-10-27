@@ -77,7 +77,7 @@ def test_the_measurement_matches_the_documented_table() -> None:
     assert script.TOLERANCE == 0.05 and script.ELEVATIONS_DEG == (15.0, 35.0, 60.0)
     assert script.REACH_TOLERANCE_CM == 1.0
     assert script.drift(tuple(_rows().values())) == []
-    assert set(_rows()) == set(script.DOCUMENTED) and len(script.DOCUMENTED) == 16
+    assert set(_rows()) == set(script.DOCUMENTED) and len(script.DOCUMENTED) == 24
     for ratio, iou, reach in script.DOCUMENTED.values():
         assert len(ratio) == len(iou) == len(reach) == 3
 
@@ -152,7 +152,8 @@ def test_which_kinds_meet_the_box_gate_at_every_elevation() -> None:
     measuring: the prisms, the two hedges and the round tub — no building, no terracotta
     pot, no wall and no styled fence."""
     meets = {name for name, row in _rows().items() if min(row.iou) >= BOX_GATE_IOU}  # type: ignore[attr-defined]
-    assert meets == {*PRISMS, "hedge (polygon)", "hedge (section)", "round tub"}
+    assert meets == {*PRISMS, "hedge (polygon)", "hedge (section)", "round tub",
+                     "house, flat roof", "house, single-slope roof"}  # L4's roofs (#388)
     below = {name: min(row.iou) for name, row in _rows().items() if name not in meets}  # type: ignore[attr-defined]
     assert max(below.values()) < BOX_GATE_IOU - 0.01  # none of the others is a borderline case
 
@@ -257,7 +258,7 @@ def _table_cells(text: str, name: str) -> list[list[str]]:
 
 
 def test_the_adr_s_table_is_the_documented_one() -> None:
-    """ADR-059's builders addendum holds the full table: sixteen rows, each with the
+    """ADR-059's builders addendum holds the full table: 24 rows (16, and L4's eight), each with the
     script's three number cells, character for character."""
     script = _script()
     text = ADR.read_text(encoding="utf-8")

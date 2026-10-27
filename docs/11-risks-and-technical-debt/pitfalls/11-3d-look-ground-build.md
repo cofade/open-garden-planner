@@ -103,3 +103,103 @@ Climber guides retain actual finite support geometry: orientation alone left a
 13.3945 cm gap to a reachable fence. Support discovery runs on the worker and
 reuses structural dependencies; the production workspace timing gate includes
 300 climbers and 100 supports, rather than bypassing admission with an evaluator.
+
+### PF-L3D-11
+
+- **Rule:** A `CustomMaterial`'s `TextureInput` ignores the `Texture`'s `flipV`, so a shader that samples a north-up ground tile flips `v` itself.
+- **Pinned by:** `tests/integration/test_scene3d_ground_render.py::test_the_engine_shows_the_bake_north_up`; `tests/unit/test_quick3d_qml.py::test_the_ground_detail_shader_flips_v_itself`
+- **Source:** #388, ADR-065 decision 8
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+L4.5 moved the ground tiles from a `PrincipledMaterial` to a custom material (`ground.frag`,
+detail normals from the tile's own luminance). The tiles still carried `flipV: true` on
+their `Texture`, and the plan drew mirrored north–south: the flat material honours the
+flag, a `TextureInput` does not. The fix samples at `vec2(UV0.x, 1.0 - UV0.y)`. The
+north-up gate runs at the High preset, so it judges the custom material, not the flat one.
+Mutation check (2026-10-26, RTX 4070): sampling at `UV0` again drops the gate's identity
+NCC to 0.47 against its bound of 0.9 (each tile mirrored in itself, so no whole-plan
+mirror matches either: north–south 0.13).
+
+### PF-L3D-12
+
+- **Rule:** Do not switch on scene-wide order-independent transparency: `OITWeightedBlended` re-blends L2's multiply drapes and brightens what a shadow drape covers.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_scene_uses_no_order_independent_transparency`; `tests/integration/test_view3d_analysis_render.py`
+- **Source:** #388, ADR-065 decision 9
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Issue #388 asked for greenhouse glass "with OIT". With `oitMethod: OITWeightedBlended` on the
+scene environment, four drape tests failed: pixels under the shade layer read up to 243
+levels LIGHTER, the PF-L3D-06/07 class of P0. Weighted-blended OIT accumulates every
+blended Model into its own buffers and composites them with its own equation, so the
+drape's multiply blend no longer multiplies. The greenhouse and cold-frame glass keep the
+existing sorted `glass` material.
+
+### PF-L3D-13
+
+- **Rule:** Never fill round the plan with a large surface just under it: a triangle kilometres wide is centimetres off in depth and wins against the plan. Keep one plane, cut the plan out, cells of at most 100 m.
+- **Pinned by:** `tests/integration/test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan`; `tests/unit/test_scene3d_meadow.py`; `tests/integration/test_view3d_looks_render.py::test_the_plan_ground_meets_the_meadow_without_a_step`
+- **Source:** #388, ADR-065 3D review rounds 1 and 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The endless meadow was one 4 × 4 km quad of two triangles, 1 cm under the plan. From 14 of 36
+orbit cameras on `bench_built` it drew over the pond, the terraces and the paths. Lowering it
+to 5 cm passed a 36-view orbit gate but not the workspace's own framing a few wheel notches
+out: 13 of 120 views lost up to 52 % of the plan.
+
+The wrong theory was depth-buffer resolution. A 24-bit buffer at a 5 cm near plane resolves
+about 0.3 cm at 50 m. The deciding control was the reviewer's: the same quad at −5 cm, cut
+into 100 m cells, lost no view. The error is in interpolating a triangle 2 km across.
+
+The 5 cm step had two costs of its own: an ambient-occlusion line of ±14 luma along every
+plan edge, and shadows that jumped where they crossed it. The fitted step probe read 0.45
+under that line, and `plan_edge_step` now also reports `line`.
+
+Fix: a frame in the plan's plane with the plan cut out (`core/scene3d/meadow.py`). Mutation
+check: the old quad, re-created at −5 cm, reads 27,726 key pixels; the gate's bound is 20.
+
+### PF-L3D-14
+
+- **Rule:** Do not feed changing geometry through QML's `ProceduralMesh`: replaced lists kept drawing the first data, and one created later drew nothing. Use a `ReloadableGeometry` on a declared Model.
+- **Pinned by:** `tests/ui/test_quick3d_meadow_host.py`; `tests/integration/test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan`
+- **Source:** #388, ADR-065 3D review round 2
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Measured on D3D11 (RTX 4070), building the meadow's frame in QML:
+- A declared `ProceduralMesh` bound to a computed frame drew its first frame (no hole: no
+  plan yet) after the plan arrived. Reading back its lists showed the new data; the engine
+  never drew it.
+- A new `ProceduralMesh` given to the live Model drew nothing, with its lists set either as
+  initial properties or afterwards.
+- So did a new Model holding a new `ProceduralMesh`.
+
+The selection ring's route works: a `ReloadableGeometry` parented to a Model that
+`Garden.qml` declares, set once as its geometry, then reloaded for the Model's life. The
+render gate asserts that the meadow is drawn round the plan. It is the same rule as `ogp-3d-renderer` §2's
+geometry-lifetime row.
+
+### PF-L3D-15
+
+- **Rule:** Keep `aoStrength` 0 wherever ambient occlusion is off: Qt's `setAoStrength` switches AO on whenever the strength is not 0, whatever `aoEnabled` says.
+- **Pinned by:** `tests/ui/test_quick3d_host.py::test_ambient_occlusion_runs_only_where_the_look_asks_for_it`; `tests/unit/test_quick3d_qml.py`
+- **Source:** #388, ADR-065 3D re-review of the owner's second pass
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+L4 faded the AO strength with the camera's distance (`aoStrength: 55 * root.aoFade`) and
+left `aoEnabled: !root.topDown && root.ambientOcclusion` as the switch. The Low preset, and
+so compatibility mode, then drew SSAO as soon as the camera stood 45-90 m from its target.
+Read back from the scene's `ExtendedSceneEnvironment` at Low: `aoEnabled` True with a
+strength of 42.8 at 55 m. The look depended on where the camera had been. On bench_large
+at noon, Low read 153.89 luma without AO and 150.43 with this bug at 67 m.
+
+The board could not see it: its cameras stand within 25 m, where the fade stays 1, and a
+strength that never changes is never written again after the scene loads.
+
+Fix: the strength is 0 unless AO is on (`55 * (!root.topDown && root.ambientOcclusion ?
+root.aoFade : 0)`), and `aoEnabled` also requires a fade above 0, so the pass does not run
+at strength 0. The host test reads `aoEnabled` and `aoStrength` off the environment at every
+preset and four distances, and in the top-down view.

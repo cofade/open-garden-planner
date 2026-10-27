@@ -97,6 +97,8 @@ lives now; the values production was drift-guarded against are frozen in
 | Textures from Python | `QQuick3DTextureData`, `Format.RGBA8` | detached from its `Texture` and attached again, the same object draws the surface **untextured (white)**; `update()` does not help, `setTextureData(textureData())` + `update()` (or a fresh object) does — §5 |
 | Instancing | not bound → merge meshes (static batching) | — |
 | Geometry lifetime | one `QQuick3DGeometry` per Model lifetime | once its Model is destroyed, the same geometry given to a new Model **renders and picks nothing** (frame = empty scene, 0/20 picks); `update()` does not help, a full re-upload (`set_mesh`) does |
+| Geometry built in QML (L4) | not `ProceduralMesh` (`QtQuick3D.Helpers`): load the data from Python into a `ReloadableGeometry` that a declared Model holds for life, as the selection ring and the meadow do | a declared `ProceduralMesh` whose lists were replaced kept DRAWING its first data, though its lists read back the new ones; a `ProceduralMesh` created later — set at creation or after, in the live Model or in a new one — drew NOTHING (D3D11, RTX 4070; PF-L3D-14) |
+| One large triangle near another surface (L4) | triangles of at most 100 m, and no surface just under another | a 4 km quad of two triangles 5 cm under the plan won the depth test against it from normal cameras: its interpolated depth was more than 5 cm off at 55-90 m; the same quad in 100 m cells lost no view (24-bit depth resolves about 0.3 cm at 50 m; PF-L3D-13) |
 | `Repeater3D` over a JS array | fine for a fixed set | **any** change of the array destroys and recreates **every** delegate — combined with the row above, every model came back blank; use per-item creation or a list model with incremental inserts |
 | Pick result | `View3D.pick()` inside a QML helper that returns a plain JS object | the return value arrives as **`QJSValue`**: call `.toVariant()` before `dict()` |
 | Surface format | — | `QQuick3D.idealSurfaceFormat()` **before** `QGuiApplication` exists **segfaults** (Linux) |
@@ -109,6 +111,8 @@ lives now; the values production was drift-guarded against are frozen in
 | Fill light without a probe (L1.2) | a second `DirectionalLight { brightness: 0; ambientColor: … }` | — (measured: it still contributes its ambient term, so the fill stays when the sun is switched off) |
 | `baseColor` vs a shader uniform (L1.2) | `PrincipledMaterial.baseColor` takes sRGB and is linearised by the engine; a `vector3d` uniform of a `CustomMaterial` is passed as it is | the engine's sRGB curve is an approximation: the same tint read 171 through `baseColor` and 169 through an exact linear uniform |
 | Vertex colour in a fragment-only custom shader (L1.2) | `VAR_COLOR` | — (D3D11 on GPU and WARP; OpenGL unverified) |
+| A texture in a `CustomMaterial` (L4.5) | `property TextureInput uBaseMap: TextureInput { texture: … }`, sampled with `texture(uBaseMap, uv)` | the `Texture`'s `flipV` is NOT applied to a `TextureInput` (it is applied by `PrincipledMaterial`'s own lookup): the north-up ground tiles drew mirrored north–south until `ground.frag` sampled at `vec2(UV0.x, 1.0 - UV0.y)` (PF-L3D-11) |
+| Transparency (L4.3) | the sorted per-Model blend (the `glass` material) | scene-wide `oitMethod: OITWeightedBlended` re-blends L2's MULTIPLY drapes with its own equation: under a shadow drape pixels read up to 243 levels lighter (four drape tests failed; PF-L3D-12) — not used |
 
 ## 3. Frame and geometry
 
@@ -182,6 +186,23 @@ lives now; the values production was drift-guarded against are frozen in
 - **Shadow bias at grazing light:** 1024-texel maps (low, medium) at `shadowBias` 5 left a
   sun-grazed roof acned and stair-stepped (33–40 % of the slope); 15 measured clean with the IoU
   gate unchanged. VeryHigh quality alone: 33 %; one cascade split: 8 %; 32-bit map: 15 %.
+- **Fog distance (L4 owner pass):** fixed at 26 m → 160 m, the fog drowned a plan framed from
+  80 m (a third of the way in) and washed it out three times further. `look.fog_depth_cm`
+  ties `Fog.depthNear` / `depthFar` to the camera's distance to its target (1.5× / 6×, floors
+  26 m / 160 m, far ≤ 760 m, near ≤ 0.75 far); `set_camera` sets them. What the fog hid
+  then showed (3D review): `shadowMapFar` follows `fogNear` (top-down keeps 9000), AO fades
+  out from 45 m to 90 m (its pass draws a line about 101 m out), and `clipFar` is 3 km —
+  at 800 m the cut meadow showed against the sky's darker lower half, fog or not. Still
+  open (#624): `shadowMapFar` follows the target's distance, not the plan's reach, so a
+  camera aimed at a plan corner, or 600 m out, loses the far shadows.
+- **`setAoStrength` switches AO on (L4, PF-L3D-15):** whenever the strength is not 0, Qt
+  sets `aoEnabled` true, whatever its binding says. A strength that changes after load (a
+  fade) must be 0 wherever AO is meant to be off, or Low draws SSAO. Read the live state
+  off the `ExtendedSceneEnvironment` (`test_quick3d_host.py::_scene_environment`).
+- **`clipFar` moves the cascaded shadow fit** even when `shadowMapFar` is below it (L4,
+  3D re-review): 800 m → 3 km changed 1–6 % of every board frame by more than 8 luma (at
+  most 114) through the cascades, and the shadow IoU by at most 0.0023. A far-plane change
+  is not "bit-identical" without a board that says so.
 - **Fog vs sky:** the skybox is drawn × `probeExposure`, `Fog` is not — fog = sky horizon ×
   probe exposure × 0.8 (linear) meets the sky within ±1.3 luma. The sky's
   `groundHorizonColor` shows in a sliver under a far-clipped ground plane: give it the sky
@@ -1181,7 +1202,7 @@ the same machine, 2026-10-24):
   `uOpacity: root.roofsHidden ? 0.0 : fade`: no iteration over Models, a roof built while
   Cutaway is on is born cut, and it still casts (`tests/ui/test_view3d_analysis_host.py`).
   The vc walls bind `cullMode` to `roofsHidden` (their inner faces show).
-- **The drape lies 1.5 cm above the ground** (tiles at 0, meadow at −1): a 24-bit depth
+- **The drape lies 1.5 cm above the ground** (the tiles and the meadow's frame at 0): a 24-bit depth
   buffer at a 5 cm near plane resolves about 0.3 cm at 50 m and 1.2 cm at 100 m.
 
 Running the story's tiers:
@@ -1201,3 +1222,25 @@ OGP_RENDER3D=1 QSG_RHI_BACKEND=opengl venv/Scripts/python.exe -m pytest \
 **Not measured (L2):** the overlays' cost per frame on the large bench plan; the X-ray's
 GUI-thread cost on a large selection of a dense plan (bounded to 16 selected items and
 box-culled, not timed); the drape under the looks' post effects at grazing angles.
+
+## 17. The built world complete on the engine (L4)
+
+Concept: docs §8.29.12; decisions: ADR-065; lessons: PF-L3D-11, PF-L3D-12. Measured on the
+RTX 4070 (Direct3D 11), 2026-10-26:
+
+- **Relief on the painted ground is a `ground_detail` part** (`MeshPart.ground_detail`): a
+  Model with `groundDetail: true`, never pickable, no shadow, and the item stays painted by the
+  bake. The "ground alone" gates take it off (`ground_bake_render_driver._without_relief`):
+  they judge the tiles, and stones, water and blades stand on them.
+- **Lawn blades are one Model per lawn**, built at every preset and shown by the root's
+  `lawnBlades` (re-applied to `lawn_blades` parts when it changes): a preset step creates
+  and destroys nothing. They are the grass material, so the wind sways them.
+- **Detail normals are a material switch, not a texture:** `materials: root.detailNormals > 0.0
+  ? [tileDetail] : [tileFlat]` on the ground tile; `tileDetail` is `ground.frag` with the tile's
+  own `Texture` as a `TextureInput` (one Texture per tile for life, PF-L3D-04, unchanged).
+- **The scene file's look defaults ARE `NEUTRAL_DAY`** (High): `lawnBlades: true`,
+  `detailNormals: 3.0`, inside the look block (`test_quick3d_qml.py` holds them to the mapping).
+
+**Not measured (L4):** the blades' fill-rate cost at Ultra on a weak GPU (they are bounded at
+60,000 per plan, 180,000 triangles); the detail normals at grazing angles under the looks'
+post effects.

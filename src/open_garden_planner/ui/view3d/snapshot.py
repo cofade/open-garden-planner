@@ -60,6 +60,16 @@ from open_garden_planner.core.container_model import container_material
 from open_garden_planner.core.object_height import effective_height_cm
 from open_garden_planner.core.object_types import PathFenceStyle, is_container_type
 from open_garden_planner.core.plant_art import PLANT_KINDS
+from open_garden_planner.core.plant_height_estimate import (
+    ESTIMATED_HEIGHT_PARAM,
+    estimated_height_cm,
+)
+from open_garden_planner.core.roof_style import (
+    BUILDING_KINDS,
+    roof_overhang_cm,
+    roof_pitch_deg,
+    roof_style,
+)
 from open_garden_planner.core.scene3d import (
     PARAM_CONTAINER_MATERIAL,
     PARAM_PATH_STYLE,
@@ -85,6 +95,7 @@ from open_garden_planner.core.scene3d import (
     quantize_cm,
     ring_area,
 )
+from open_garden_planner.core.scene3d.context import with_context
 from open_garden_planner.core.scene3d.polygon import (
     MAX_ITEM_VERTICES,
     RegionTooLargeError,
@@ -103,6 +114,10 @@ from open_garden_planner.core.scene3d.record import (
     MAX_LENGTH_CM,
     PARAM_OUTLINE_RESOLVED,
     PARAM_PAINT_ORIGIN,
+    PARAM_ROOF_OVERHANG,
+    PARAM_ROOF_PITCH,
+    PARAM_ROOF_STYLE,
+    PARAM_SURFACE_PATTERN,
     PEN_CAPS,
     PEN_JOINS,
     PEN_STYLES,
@@ -140,6 +155,8 @@ _log = logging.getLogger(__name__)
 #: rotation of the house (measured: on 400 of 400) — "rotate → transform only"
 #: would be false for the one item a house owns.
 _NO_RECORD_KINDS = frozenset({"ROOF_RIDGE"})
+#: Surfaces whose 3D relief depends on their fill pattern (L4.2: a deck has boards).
+_PATTERNED_SURFACES: Final = frozenset({"TERRACE_PATIO", "DRIVEWAY"})
 
 
 class SkipReason(StrEnum):
@@ -1039,6 +1056,16 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         params[PARAM_PLANT_CATEGORY] = category.name
     if is_container_type(object_type):
         params[PARAM_CONTAINER_MATERIAL] = container_material(metadata)
+    if kind in BUILDING_KINDS:  # the roof the user chose (L4.1, core/roof_style)
+        style = roof_style(metadata)
+        if style is not None:
+            params[PARAM_ROOF_STYLE] = style
+        pitch = roof_pitch_deg(metadata)
+        if pitch is not None:
+            params[PARAM_ROOF_PITCH] = pitch
+        overhang = roof_overhang_cm(metadata)
+        if overhang is not None:
+            params[PARAM_ROOF_OVERHANG] = quantize_cm(overhang)
     if kind == "HOUSE" and not resolved:  # a drawn ridge belongs to the DRAWN outline
         ridge_id = metadata.get("ridge_item_id")
         if ridge_id:
@@ -1056,11 +1083,6 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         # height None (unknown stays unknown); the transient record carries
         # the estimate separately so the builder can render the plant form.
         try:
-            from open_garden_planner.core.plant_height_estimate import (
-                ESTIMATED_HEIGHT_PARAM,
-                estimated_height_cm,
-            )
-
             _cat = getattr(item, "plant_category", None)
             _est = estimated_height_cm(
                 kind, _cat.name if _cat is not None else None
@@ -1085,6 +1107,8 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
     if refused is not None and (paint is None or height is not None):
         raise refused  # a solid needs regions: left out and reported, as before
     pattern = getattr(item, "fill_pattern", None)
+    if kind in _PATTERNED_SURFACES and pattern is not None:  # a deck's boards are geometry (L4.2)
+        params[PARAM_SURFACE_PATTERN] = pattern.name
     parent = getattr(item, "parent_bed_id", None)
     base = item_base_cm(item, lookup, at_date) if parent is not None else 0.0
     holes = tuple(region_holes for _outer, region_holes in regions)
@@ -1158,7 +1182,8 @@ def snapshot_records(
       satisfies ``core.scene3d.is_buildable_region``: the default builder's own
       triangulation has cut it.
     - ``height_cm``: ``effective_height_cm(..., at_date)`` — the 2D shadow's
-      resolver; None means decoration that casts no shadow.
+      resolver; None for a surface, a generic shape or a plant without data (its
+      3D estimate rides in ``params``, #557): no caster in 2D.
     - ``transform.base_cm`` (L1.6): where the item STANDS — the soil of the bed
       or container it is linked to AND stands inside (``footprints.item_base_cm``,
       the rule the 2D shadow casters use: 2 cm under a bed's rim, at a
@@ -1209,6 +1234,7 @@ def snapshot_records(
             continue
         records[item_id] = record
     _ground_items_without_a_parent_record(records)
+    with_context(records)  # a door toward the nearest path, a lawn's cut-outs (L4)
     return records
 
 

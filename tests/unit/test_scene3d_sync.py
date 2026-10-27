@@ -296,7 +296,7 @@ class TestMinimalCalls:
         assert sink_of(sync).ops() == [("begin", None), ("add", "a"), ("add", "b"), ("add", "c"),
                                        ("commit", None)]
         assert builder.calls == ["a", "b", "c"]
-        assert sink_of(sync).item("c").parts == ()  # decoration: in the engine's books, no solid
+        assert sink_of(sync).item("c").parts == ()  # no height: in the engine's books, no solid
         assert len(sink_of(sync).item("a").parts) == 1
 
     def test_unchanged_scene_makes_no_call_at_all(self, sync, builder) -> None:

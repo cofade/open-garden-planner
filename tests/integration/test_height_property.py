@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import QDoubleSpinBox, QGraphicsScene, QLabel
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.commands import CommandManager
 from open_garden_planner.core.object_height import (
-    _HEIGHT_FIELD_TYPES,
+    DEFAULT_HEIGHTS_CM,
     METADATA_KEY,
     effective_height_cm,
 )
@@ -32,6 +32,10 @@ from open_garden_planner.core.project import FILE_VERSION
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.panels import PropertiesPanel
+
+#: The kinds that had no height until L4's second owner pass (ADR-065).
+FORMERLY_HEIGHT_LESS = ["COLD_FRAME", "FIRE_PIT", "HAMMOCK", "PARASOL", "PERGOLA",
+                        "PLANTER_POT", "RAIN_BARREL", "SWING", "WATER_TAP"]
 
 
 @pytest.fixture
@@ -188,16 +192,25 @@ class TestPanelUndo:
         panel.set_selected_items([generic])
         assert _field_by_label(panel, "Object height") is None
 
-    @pytest.mark.parametrize("type_name", sorted(_HEIGHT_FIELD_TYPES))
-    def test_open_structures_offer_the_field_without_a_default(self, qtbot, type_name: str) -> None:
-        """Package 3a (#308): swing/pergola/hammock have no default height (the
-        shadow model extrudes a solid footprint) but the panel MUST still offer
-        the row so a user can opt in — the predicate alone was proven
-        insufficient evidence in senior review round 2."""
-        panel = PropertiesPanel(command_manager=CommandManager())
+    @pytest.mark.parametrize("type_name", FORMERLY_HEIGHT_LESS)
+    def test_every_standing_object_shows_its_default_and_takes_a_height(
+            self, qtbot, type_name: str) -> None:
+        """L4's second owner pass (ADR-065): the kinds that had no height — a parasol,
+        a fire pit, the open frames — show their default in the panel, like a
+        trampoline, and a typed height is one undo step. Through the real panel: the
+        predicate alone was proven insufficient evidence (#308, review round 2)."""
+        cmd_mgr = CommandManager()
+        panel = PropertiesPanel(command_manager=cmd_mgr)
         item = RectangleItem(0, 0, 200, 150, object_type=ObjectType[type_name])
         panel.set_selected_items([item])
         spin = _field_by_label(panel, "Object height")
         assert spin is not None, f"{type_name}: Height row missing"
-        assert spin.value() == 0.0 and spin.text() == "Auto"
-        assert effective_height_cm(item.object_type, item.metadata) is None
+        default = DEFAULT_HEIGHTS_CM[type_name]
+        assert spin.value() == default and spin.text() != "Auto"
+        assert spin.toolTip() == "Default for this object type"
+        assert METADATA_KEY not in item.metadata  # a default is never written
+        spin.setValue(default + 40.0)
+        assert effective_height_cm(item.object_type, item.metadata) == default + 40.0
+        cmd_mgr.undo()
+        assert METADATA_KEY not in item.metadata
+        assert effective_height_cm(item.object_type, item.metadata) == default

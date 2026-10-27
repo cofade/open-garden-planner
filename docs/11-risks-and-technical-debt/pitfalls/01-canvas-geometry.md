@@ -245,3 +245,13 @@ A 600-command loop of one-item `CreateItemCommand`s produced 360 600 `refresh_lo
 - **Legacy:** none (new entry)
 
 `_dense_overlay_indices` maps every vertex through the item's device transform to decide which 128 handles to show. #551 capped the number of scene ITEMS, not the CPU: a selected 16 384-vertex polygon (the loader's cap) re-sampled in ~98 ms per scrollbar step, against 0.01 ms when the sample is reused. The cache records the sampler's actual candidate region — the viewport grown by `DENSE_HANDLE_SPACING_PX` (24 px) — plus the zoom and the item pose; a pan inside that region is free, while a larger pan, a pose/geometry change or a zoom re-samples. The invariant that makes reuse correct is that translation does not change distances; the region must be the one the sampler really tested, not a larger convenience box.
+
+### PF-CAN-27
+
+- **Rule:** Never paint a texture with a pen. A `QPen` whose brush is a texture is right on screen, in PNG and in PDF, but `QSvgGenerator` writes a pen as its colour, and a texture brush's colour is black. Fill the outline instead: `QPainterPathStroker` (width, cap, join) and `drawPath(stroker.createStroke(path))` with `NoPen` and the texture brush. The SVG then carries a pattern fill.
+- **Pinned by:** `tests/integration/test_path_style_export.py::test_no_style_exports_as_a_black_bar_to_svg`
+- **Source:** #388 (senior review of the owner pass)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The owner pass made gravel and dirt paths their fill textures, drawn as a texture-brush pen along the line. Every raster and PDF check passed, and the ground bake matched the canvas, but every gravel and dirt path came out of an SVG export as an opaque black bar, as wide as the path. `path_style_paint` serves the canvas, the ground bake, the minimap and every export, and its tests covered raster output only. The test now exports every `PathFenceStyle` to SVG, and the textured styles also to PNG and PDF.

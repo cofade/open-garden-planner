@@ -1763,13 +1763,16 @@ class Workspace(QWidget):
 
     def _has_model(self, item_id: str) -> bool:
         """True when the engine holds at least one mesh for the item (asked of the
-        sink's own books — the recording double answers the same question)."""
+        sink's own books — the recording double answers the same question) that is
+        more than relief on the painted ground (L4: a lawn's blades, a path's stones —
+        such an item is still "drawn on the ground")."""
         controller = self._controller
         held = getattr(controller.sync.sink, "item", None) if controller is not None else None
         if not callable(held):
             return False
         try:
-            return any(part.mesh.triangle_count for part in held(item_id).parts)
+            return any(part.mesh.triangle_count and not part.ground_detail
+                       for part in held(item_id).parts)
         except KeyError:
             return False
 

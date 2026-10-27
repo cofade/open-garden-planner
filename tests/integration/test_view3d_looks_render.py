@@ -280,12 +280,17 @@ def test_the_low_preset_does_not_alias_the_pickets(board) -> None:
 #: (960 x 540, low / high): the meadow's material on both, at most 0.21; the plan ground's
 #: old material (roughness 0.92, specular 0.2) up to 4.65 — the positive control.
 MAX_PLAN_EDGE_STEP = 1.0
+#: 3D review of #388: a thin LINE on the edge, which the fitted step cannot see. With the
+#: meadow 5 cm under the plan, ambient occlusion drew one of +-14 luma along every edge
+#: (the step read 0.45); in the plan's plane, 0.09 (the reviewer's measurement).
+MAX_PLAN_EDGE_LINE = 2.0
 
 
 def test_the_plan_ground_meets_the_meadow_without_a_step(board) -> None:
     metrics, _out = board
     edge = metrics["plan_edge"]
     assert edge["max_abs_step"] <= MAX_PLAN_EDGE_STEP, edge
+    assert edge["max_line"] <= MAX_PLAN_EDGE_LINE, edge
     for preset in PRESETS:
         for mood in ("golden_hour", "noon"):
             rows = edge[preset][mood]
@@ -310,7 +315,11 @@ def test_the_horizon_hue_seam_is_reported(board) -> None:
 #: same with and without sharpening and so not the look's — and its December frame has
 #: almost none. The bounds are per shot, each a third above what was measured; the gate
 #: for the LOOK is the December frame, where the control is 75 times the clean count.
-MAX_SPECKLES = {"noon": 260, "december_noon": 30}
+#: Re-measured 2026-10-26 (#388): the December frame reads 33 on master and 32 with L4 —
+#: L3's forged crowns (#387) show their own shade through gaps between leaves, the tall
+#: columnar tree most; none is a sharpening overshoot. A third above: 44. Noon reads
+#: 162 on master and 191 with L4, inside its bound.
+MAX_SPECKLES = {"noon": 260, "december_noon": 44}
 MIN_CONTROL_EXTRA = 80
 
 

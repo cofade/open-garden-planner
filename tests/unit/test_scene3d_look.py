@@ -787,3 +787,56 @@ class TestAutoPreset:
         feed = Feed(AutoPreset("high"))
         feed.run(5.0, SLOW)
         assert [(before, after) for _at, before, after in feed.auto.steps] == [("high", "medium")]
+
+
+class TestFogDepth:
+    """Owner, L4 manual pass: "when entering the 3D view I only ever see fog, until I
+    zoom in". The fog was fixed at 26 m to 160 m; it follows the camera's distance."""
+
+    def test_close_views_keep_l1s_fog(self) -> None:
+        for distance in (0.0, 50.0, 600.0, 1_700.0):
+            assert L.fog_depth_cm(distance) == (L.FOG_NEAR_CM, L.FOG_FAR_CM) == (2_600.0, 16_000.0)
+
+    @pytest.mark.parametrize(("width", "depth", "aspect"), [
+        (2_400.0, 1_600.0, 1.09), (5_000.0, 3_000.0, 1.09), (5_000.0, 3_000.0, 2.2),
+        (4_000.0, 4_000.0, 0.8), (10_000.0, 6_000.0, 1.5)])
+    def test_the_plan_a_camera_frames_lies_in_front_of_the_fog(
+            self, width: float, depth: float, aspect: float) -> None:
+        """From the framing a plan opens with, and from three times as far (about seven
+        wheel notches, where the 3D review saw the garden washed out), the fog begins
+        beyond the plan's farthest corner."""
+        from open_garden_planner.core.scene3d.camera import Bounds, frame_pose
+
+        pose = frame_pose(Bounds.of_plan(width, depth), aspect)
+        for distance in (pose.distance_cm, 3.0 * pose.distance_cm):
+            near, _far = L.fog_depth_cm(distance)
+            assert near >= distance + math.hypot(width, depth) / 2.0, (distance, near)
+
+    def test_the_meadow_ends_in_full_fog_inside_the_far_plane(self) -> None:
+        """The meadow's edge must lie in full fog, and the midpoints of its edges inside
+        the camera's far plane from every distance the camera can take: a far plane that
+        cuts the meadow shows the cut against the sky's darker lower half, fog or not (3D
+        review of L4's second owner pass: 41.6 luma a row at 403 m with the 800 m far
+        plane). The corners, 2.83 km out, can lie past it, in full fog."""
+        scene = (Path(L.__file__).resolve().parents[2] / "ui" / "view3d" / "quick3d" / "qml"
+                 / "Garden.qml").read_text(encoding="utf-8")
+        camera = scene[scene.index("PerspectiveCamera {"):]
+        clip_far = float(camera[camera.index("clipFar:") + len("clipFar:"):].split()[0])
+        assert "depthNear: root.fogNear" in scene and "depthFar: root.fogFar" in scene
+        from open_garden_planner.core.scene3d.camera import MAX_DISTANCE_CM
+        from open_garden_planner.core.scene3d.meadow import MEADOW_HALF_CM
+
+        assert clip_far >= MEADOW_HALF_CM + MAX_DISTANCE_CM
+        for distance in (0.0, 10_000.0, 30_000.0, MAX_DISTANCE_CM):
+            near, far = L.fog_depth_cm(distance)
+            assert near <= L.FOG_NEAR_MAX_SHARE * far and far <= L.FOG_FAR_MAX_CM < MEADOW_HALF_CM
+
+    def test_it_only_moves_out(self) -> None:
+        distances = np.geomspace(1.0, 60_000.0, 400)
+        nears, fars = zip(*(L.fog_depth_cm(float(d)) for d in distances), strict=True)
+        assert np.all(np.diff(nears) >= 0.0) and np.all(np.diff(fars) >= 0.0)
+
+    @pytest.mark.parametrize("bad", [-1.0, math.inf, math.nan])
+    def test_a_distance_that_is_none_is_refused(self, bad: float) -> None:
+        with pytest.raises(ValueError, match="camera distance"):
+            L.fog_depth_cm(bad)
