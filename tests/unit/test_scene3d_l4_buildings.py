@@ -625,3 +625,23 @@ def test_a_house_s_walls_are_sandstone_on_every_route(route: str) -> None:
     else:
         tile = np.asarray(palette.ROOF_TILE.linear, dtype=np.float32)
         assert top.any() and np.allclose(walls.mesh.colors[top].max(axis=0), tile, atol=1e-6), route
+
+
+def test_overhang_search_stops_when_the_bracket_is_smaller_than_the_gain(monkeypatch) -> None:
+    """#611: an uncertain edge estimate cannot spend all tries on a tiny bracket."""
+    from types import SimpleNamespace
+
+    tried = []
+
+    def pitched(record, chosen, height_cm, style):
+        tried.append(style.overhang_cm)
+        return SimpleNamespace(roof=SimpleNamespace(
+            positions=np.array([[0.0, 0.0, 1.0 if style.overhang_cm < 0.25 else -1.0]])),
+            slope=1e-6)
+
+    monkeypatch.setattr(buildings, "_pitched", pitched)
+    monkeypatch.setattr(buildings, "eave_floor", lambda _style, _height: 0.0)
+    style = dataclasses.replace(buildings.HOUSE_ROOF, overhang_cm=0.75)
+    result = buildings._kept_up(house({}), "gable", 450.0, style)
+    assert result is not None and result.roof.positions[0, 2] == 1.0
+    assert tried == [0.75, 0.0], "the whole bracket gains less than the one-centimetre stop"

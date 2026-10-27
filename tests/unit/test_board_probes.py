@@ -428,6 +428,27 @@ def test_a_supersampled_reference_is_the_box_filter_in_linear_light() -> None:
     assert down[0, 0, 0] == pytest.approx(255.0 * (1.055 * 0.25 ** (1 / 2.4) - 0.055), abs=0.01)
 
 
+def test_outer_row_step_sees_a_one_sided_cliff_without_cancelling_the_other_side() -> None:
+    rgb = np.full((30, 100, 3), 100.0)
+    assert P.outer_row_step(rgb)["step"] == 0.0
+    rgb[15:, :18] += 20
+    rgb[15:, -18:] -= 20
+    result = P.outer_row_step(rgb)
+    assert result["columns_per_side"] == 18
+    assert result["step"] == result["left_step"] == result["right_step"] == 20.0
+    rgb[:, 18:82] = 255.0
+    assert P.outer_row_step(rgb)["step"] == 20.0, "central plan contents are outside the probe"
+
+
+def test_outer_row_step_records_the_excluded_viewport_border() -> None:
+    rgb = np.full((30, 100, 3), 100.0)
+    rgb[-1] = 130.0
+    result = P.outer_row_step(rgb)
+    assert result["step"] == 0.0
+    assert result["rows_excluded_each_edge"] == 2
+    assert result["full_step"] == result["border_step"] == 30.0
+
+
 def test_pickets_that_alias_are_measured_against_their_resolved_texture() -> None:
     """Thin dark/light stripes: resolved, they average to a mid grey; aliased, each
     pixel lands on a stripe and the frame is a hard pattern. The error against the

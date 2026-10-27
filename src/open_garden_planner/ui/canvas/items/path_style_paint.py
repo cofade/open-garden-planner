@@ -57,7 +57,16 @@ from contextvars import ContextVar
 from typing import Final
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPainterPathStroker, QPen
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QImage,
+    QPainter,
+    QPainterPath,
+    QPainterPathStroker,
+    QPen,
+    QTransform,
+)
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import PathFenceStyle
@@ -274,6 +283,58 @@ class PathStylePaint:
 
     # ── Path style renderers ──
 
+    def _stroke_outline(self, width: float) -> QPainterPath:
+        stroker = QPainterPathStroker()
+        stroker.setWidth(width)
+        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        return stroker.createStroke(self.path())
+
+    def _paint_rim(self, painter: QPainter, outer: float, inner: float, color: QColor) -> None:
+        """Raster-mask the rim in bounded device tiles, then composite it once.
+
+        A vector subtraction takes seconds on a 16k-point path. An odd-even pair
+        of strokes leaves underpaint at self-overlaps. DestinationOut instead
+        removes the entire inner stroke, with Qt's own winding rule, in at most
+        512x512 pixels per temporary image. The texture itself remains a vector
+        pattern fill for SVG/PDF exports.
+        """
+        if painter.opacity() == 1.0 and self.pen().color().alpha() == 255:
+            # An opaque texture completely covers the underpaint. Keep that common
+            # canvas/ground-bake path free of temporary images.
+            pen = QPen(color, outer, Qt.PenStyle.SolidLine,
+                       Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(pen)
+            painter.drawPath(self.path())
+            return
+        outside, inside = self._stroke_outline(outer), self._stroke_outline(inner)
+        transform = painter.deviceTransform()
+        device = painter.device()
+        if device is None:
+            return  # inactive painter: there is no output surface
+        bounds = transform.mapRect(outside.controlPointRect()).toAlignedRect()
+        bounds = bounds.intersected(QRectF(0, 0, device.width(), device.height()).toAlignedRect())
+        if painter.hasClipping():
+            bounds = bounds.intersected(transform.mapRect(painter.clipBoundingRect()).toAlignedRect())
+        for y in range(bounds.top(), bounds.bottom() + 1, 512):
+            for x in range(bounds.left(), bounds.right() + 1, 512):
+                image = QImage(min(512, bounds.right() - x + 1),
+                               min(512, bounds.bottom() - y + 1), QImage.Format.Format_ARGB32_Premultiplied)
+                image.fill(Qt.GlobalColor.transparent)
+                mask = QPainter(image)
+                mask.setRenderHint(QPainter.RenderHint.Antialiasing)
+                mask.setWorldTransform(transform * QTransform.fromTranslate(-x, -y))
+                mask.fillPath(outside, color)
+                mask.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationOut)
+                mask.fillPath(inside, Qt.GlobalColor.black)
+                mask.end()
+                painter.save()
+                painter.resetTransform()
+                inverse, _ok = painter.deviceTransform().inverted()
+                painter.setWorldTransform(inverse)
+                painter.drawImage(QPointF(x, y), image)
+                painter.restore()
+
     def _textured_stroke(self, painter: QPainter, pattern: FillPattern, width: float) -> None:
         """The line ``width`` wide, round capped and joined (``context.ROUND_PATH_STYLES``),
         FILLED with ``pattern`` in the line's colour. The texture lies in the item's own
@@ -281,13 +342,9 @@ class PathStylePaint:
         the canvas does. The outline is filled, never stroked with a texture pen: the SVG
         export writes a pen as its colour, and a texture brush's colour is black (a
         black bar in every exported SVG, PF-CAN-27)."""
-        stroker = QPainterPathStroker()
-        stroker.setWidth(width)
-        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
-        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(create_pattern_brush(pattern, self.pen().color()))
-        painter.drawPath(stroker.createStroke(self.path()))
+        painter.drawPath(self._stroke_outline(width))
 
     def _paint_gravel_path(self, painter: QPainter) -> None:
         """Gravel path: the gravel texture, with a dark edging along both sides — the
@@ -299,13 +356,10 @@ class PathStylePaint:
         edge = min(GRAVEL_EDGE_CM, GRAVEL_EDGE_SHARE * width)
         # the edging is the stroke's own rim, round with its caps and joins: two
         # offset lines crossed at every inner bend (a spike across the gravel)
-        edge_pen = QPen(QColor(round(color.red() * GRAVEL_EDGE_SHADE),
+        self._paint_rim(painter, width, width - 2.0 * edge,
+                        QColor(round(color.red() * GRAVEL_EDGE_SHADE),
                                round(color.green() * GRAVEL_EDGE_SHADE),
-                               round(color.blue() * GRAVEL_EDGE_SHADE), color.alpha()), width)
-        edge_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        edge_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(edge_pen)
-        painter.drawPath(self.path())
+                               round(color.blue() * GRAVEL_EDGE_SHADE), color.alpha()))
         self._textured_stroke(painter, FillPattern.GRAVEL, width - 2.0 * edge)
         painter.restore()
 
@@ -435,12 +489,9 @@ class PathStylePaint:
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         width = self.pen().widthF()
         color = self.pen().color()
-        margin_pen = QPen(QColor(color.red(), color.green(), color.blue(), DIRT_MARGIN_ALPHA),
-                          width + 2.0 * DIRT_MARGIN_CM)
-        margin_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        margin_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(margin_pen)
-        painter.drawPath(self.path())
+        self._paint_rim(painter, width + 2.0 * DIRT_MARGIN_CM, width,
+                        QColor(color.red(), color.green(), color.blue(),
+                               round(DIRT_MARGIN_ALPHA * color.alphaF())))
         self._textured_stroke(painter, FillPattern.SOIL, width)
         painter.restore()
 

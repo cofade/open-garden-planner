@@ -140,7 +140,12 @@ from open_garden_planner.core.scene3d import (
     SunState,
 )
 from open_garden_planner.core.scene3d.camera import Bounds
-from open_garden_planner.core.scene3d.context import CONTEXT_PARAMS, MAX_PLAN_BLADES
+from open_garden_planner.core.scene3d.context import (
+    CONTEXT_PARAMS,
+    MAX_PLAN_BLADES,
+    context_params_for,
+    without_lawn_blades,
+)
 from open_garden_planner.core.scene3d.record import PARAM_LAWN_BLADES, lawn_blade_share
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
@@ -322,6 +327,15 @@ class Scene3DController(QObject):
     document_shown = pyqtSignal()
     #: A pass failed even after a reset; the text is for the log and a notice.
     failed = pyqtSignal(str)
+
+    _lawn_blades = True
+
+    def set_lawn_blades(self, enabled: bool) -> None:
+        """Build lawn blades only while the active preset draws them (#607)."""
+        if enabled != self._lawn_blades:
+            self._lawn_blades = enabled
+            self._context_at = -math.inf  # a preset step applies its new geometry at once
+            self.mark_dirty()
 
     def __init__(self, scene: QGraphicsScene, clock: SimClock, location: LocationProvider,
                  sink: EngineSink, registry: BuilderRegistry | None = None, *,
@@ -780,11 +794,11 @@ class Scene3DController(QObject):
         until the trailing pass. Only those params are held: the record's own move,
         size or style is never late.
 
-        A record that becomes or stops being a lawn — its blade share appears or goes: a
-        lawn turned into a terrace, given a height, or lowered from one — is not held:
-        there is no old share to hold, or one it no longer takes. Any other context param
-        is held at its old state, an absent one included: a lawn's cut-outs come and go as
-        an item crosses the lawn's box, and that must not end the throttle. A held pass
+        Only context both the old and new record consume is held. A house retyped to
+        a greenhouse drops its door wall immediately; a lawn given a height drops
+        blades and cut-outs immediately. Eligible context stays at its old state, an
+        absent value included: a lawn's cut-outs come and go as an item crosses its
+        box, and that must not end the throttle. A held pass
         keeps the plan's blade budget (``MAX_PLAN_BLADES``): the old blade shares are kept
         while the lawns' total fits it — so a resized lawn leaves the other lawns alone —
         and otherwise no held share is above its new one."""
@@ -795,7 +809,8 @@ class Scene3DController(QObject):
             if before is None:
                 continue
             old, new = _context_of(before), _context_of(record)
-            if old != new and (PARAM_LAWN_BLADES in old) == (PARAM_LAWN_BLADES in new):
+            common = context_params_for(before) & context_params_for(record)
+            if any(old.get(key) != new.get(key) for key in common):
                 changed.append(item_id)
         if not changed:
             return records
@@ -809,8 +824,9 @@ class Scene3DController(QObject):
                 self._context_timer.start(max(1, math.ceil(CONTEXT_REBUILD_MIN_MS - waited_ms)))
         kept: dict[str, dict[str, ParamValue]] = {}
         for item_id in changed:
-            params = {key: value for key, value in records[item_id].params.items() if key not in CONTEXT_PARAMS}
-            params.update(_context_of(applied[item_id]))
+            common = context_params_for(applied[item_id]) & context_params_for(records[item_id])
+            params = {key: value for key, value in records[item_id].params.items() if key not in common}
+            params.update({key: value for key, value in _context_of(applied[item_id]).items() if key in common})
             kept[item_id] = params
         if not _fits_the_blade_budget(records, kept):
             for item_id, params in kept.items():
@@ -955,6 +971,8 @@ class Scene3DController(QObject):
             # scene and one controller — keep it that way (L1.1's contract).
             self._pass_date = self._clock.plan_date
             records = snapshot_records(self._scene, self._pass_date, skipped=skipped)
+            if not self._lawn_blades:
+                records = without_lawn_blades(records)
         except Exception as error:  # noqa: BLE001 - one item never raises; this is the scene itself
             self._give_up("the plan could not be read for the 3D view", error)
             return

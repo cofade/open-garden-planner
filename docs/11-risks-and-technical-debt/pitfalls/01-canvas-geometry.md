@@ -255,3 +255,13 @@ A 600-command loop of one-item `CreateItemCommand`s produced 360 600 `refresh_lo
 - **Legacy:** none (new entry)
 
 The owner pass made gravel and dirt paths their fill textures, drawn as a texture-brush pen along the line. Every raster and PDF check passed, and the ground bake matched the canvas, but every gravel and dirt path came out of an SVG export as an opaque black bar, as wide as the path. `path_style_paint` serves the canvas, the ground bake, the minimap and every export, and its tests covered raster output only. The test now exports every `PathFenceStyle` to SVG, and the textured styles also to PNG and PDF.
+
+### PF-CAN-28
+
+- **Rule:** Exclude underpaint from a translucent textured path; rim masking must follow the device transform, remain bounded and preserve bends and self-crossings.
+- **Pinned by:** `tests/integration/test_translucent_path_rims.py`
+- **Source:** #617; ADR-065
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A pair of odd-even stroke outlines is insufficient: Qt stroke contours overlap at bends. Exact subtraction was measured at 6.6 s for 4,096 points. Use DestinationOut on bounded device tiles for translucent rims and retain the opaque fast path. Textures remain pattern fills for SVG/PDF.

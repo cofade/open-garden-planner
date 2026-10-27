@@ -83,6 +83,18 @@ def test_the_matrix_is_every_object_kind() -> None:
     assert set(furniture.KINDS) | set(play.KINDS) | set(utility.KINDS) | set(structures.KINDS) == OBJECT_KINDS
 
 
+@pytest.mark.parametrize("kind", sorted(OBJECT_KINDS))
+@pytest.mark.parametrize("size_cm", [0.1, 0.5, 1.0, 2.0, 3.0])
+@pytest.mark.parametrize("height_cm", [0.5, 1.0, 75.0])
+def test_tiny_objects_keep_valid_normals_and_their_actual_height(kind, size_cm, height_cm) -> None:
+    """#607: a tiny footprint must never turn a lathe's faces inside out."""
+    size = size_cm / 2.0 if kind in ROUND else (size_cm, size_cm)
+    record = record_of(kind, size, height_cm)
+    parts = verify_builder(REGISTRY.builder_for(kind), record, plan_margin_cm=10.0)
+    assert parts
+    assert max(float(part.mesh.positions[:, 2].max()) for part in parts) == pytest.approx(height_cm)
+
+
 @pytest.mark.parametrize(("kind", "size", "height"), matrix(),
                          ids=lambda v: str(v) if not isinstance(v, tuple) else "x".join(map(str, v)))
 def test_the_truth_gate_of_issue_388(kind: str, size: object, height: float | None) -> None:

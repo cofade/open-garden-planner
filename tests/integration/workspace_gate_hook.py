@@ -390,6 +390,11 @@ def _still_look() -> None:
 
 def _enter(window: Any, mode: str) -> None:
     """Switch the mode the way the View menu does: through its action."""
+    # Windows may honor an inherited minimized startup state on the app's first
+    # show. A user-facing render scenario needs a shown pane: minimized correctly
+    # pauses both SceneSync and Plant Forge, whatever their pending counts.
+    if window.isMinimized():
+        window.showNormal()
     _still_look()
     workspace = window._workspace
     index = {"plan": 0, "3d": 1, "split": 2}[mode]

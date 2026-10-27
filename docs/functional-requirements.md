@@ -794,7 +794,9 @@ The built world complete (L4, #388, ADR-065).
   inside a house, shed, garage or greenhouse standing on it; they do grow under a
   pergola, parasol, swing or hammock, and inside a loop of path. A plan grows at
   most 60,000 blades in all; a large lawn is sparser rather than slower. While an
-  item is dragged over a lawn, its blades are cut anew at most every 0.4 s.
+  item is dragged over a lawn, its blades are cut anew at most every 0.4 s. Low and
+  Medium do not synthesize or upload blade geometry; changing quality updates that
+  admission through the scene diff (#607).
 - **FR-3D-BUILT-07** (L4.5): From the Medium preset up, the 3D ground is shaded by
   the relief of its own textures (paving joints, gravel, bark), with no new picture
   of the ground and nothing mirrored.

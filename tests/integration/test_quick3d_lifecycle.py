@@ -814,7 +814,9 @@ def test_at_125_percent_a_pane_one_pixel_wider_does_not_get_its_old_frame(tmp_pa
     off the wider pane's size: 553 px for a 443 px pane at 1.25, whose own frame is 554.
     Round 4's host handed it out and picked with the old viewport. Now the host refuses,
     on the evidence of the frame, and answers again when Qt has drawn."""
-    out = observed("pane_one_pixel_wider", tmp_path, QT_SCALE_FACTOR="1.25")
+    # Pin the screen factor as well: QT_SCALE_FACTOR multiplies the system DPR (#609).
+    out = observed("pane_one_pixel_wider", tmp_path, QT_SCALE_FACTOR="1.25",
+                   QT_SCREEN_SCALE_FACTORS="1")
     assert out["ready"] is True and out["dpr"] == 1.25, out["dpr"]
     judge_step("pane_one_pixel_wider", "open", out["open"], FRAME)
     assert len(out["pairs"]) == len(child.HALF_PIXEL_WIDTHS)

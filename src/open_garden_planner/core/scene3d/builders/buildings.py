@@ -49,20 +49,16 @@ from ...roof_style import (
     FLAT,
     GABLE,
     HIP,
-    MAX_OVERHANG_CM,
-    MAX_PITCH_DEG,
-    MIN_PITCH_DEG,
-    ROOF_STYLES,
     SHED,
+    roof_overhang_cm,
+    roof_pitch_deg,
+    roof_style,
 )
 from ..build import BuilderRegistry
 from ..mesh import Mesh, MeshPart
 from ..record import (
     PARAM_DOOR_WALL,
     PARAM_RIDGE,
-    PARAM_ROOF_OVERHANG,
-    PARAM_ROOF_PITCH,
-    PARAM_ROOF_STYLE,
     SHAPE_RECTANGLE,
     ParamValue,
     Record,
@@ -138,27 +134,20 @@ def ridge_of(value: ParamValue | None) -> Ridge | None:
     return points[0], points[1]
 
 
-def _number(value: ParamValue | None) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
-        return None
-    return float(value)
-
-
 def chosen_style(record: Record) -> str | None:
     """The roof style the record asks for, or None for automatic."""
-    value = record.params.get(PARAM_ROOF_STYLE)
-    return value if isinstance(value, str) and value in ROOF_STYLES else None
+    return roof_style(record.params)
 
 
 def style_for(record: Record, base: RoofStyle) -> RoofStyle:
     """``base`` with the record's own pitch and overhang, clamped (``core/roof_style``)."""
-    pitch = _number(record.params.get(PARAM_ROOF_PITCH))
-    overhang = _number(record.params.get(PARAM_ROOF_OVERHANG))
+    pitch = roof_pitch_deg(record.params)
+    overhang = roof_overhang_cm(record.params)
     style = base
-    if pitch is not None and pitch > 0.0:
-        style = dataclasses.replace(style, pitch_deg=min(MAX_PITCH_DEG, max(MIN_PITCH_DEG, pitch)))
+    if pitch is not None:
+        style = dataclasses.replace(style, pitch_deg=pitch)
     if overhang is not None:
-        style = dataclasses.replace(style, overhang_cm=min(MAX_OVERHANG_CM, max(0.0, overhang)))
+        style = dataclasses.replace(style, overhang_cm=overhang)
     return style
 
 

@@ -78,7 +78,7 @@ import statistics
 import sys
 import time
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -184,6 +184,26 @@ SKY_AZIMUTHS = (90.0, 180.0, 270.0)
 SKY_MAX_ERROR_DEG = 6.0
 #: The moods the horizon probe looks at, by the name of the shot whose sun it uses.
 HORIZON_SHOTS = ("noon", "golden_hour", "sunset", "night")
+HORIZON_DISTANCES_M = (67, 202, 403, 600)
+HORIZON_STEP_BOUND = 3.0
+
+
+def distant_horizon_cameras(width: float, depth: float, size: tuple[int, int], bearing_deg: float
+                            ) -> list[tuple[int, float, probes.Pinhole]]:
+    """The camera distances that move fog, AO and the meadow's far edge into view."""
+    from open_garden_planner.core.scene3d.camera import DEFAULT_PITCH_DEG
+
+    bearing = math.radians(bearing_deg)
+    target = (width / 2.0, depth / 2.0, 0.0)
+    result = []
+    for pitch in (DEFAULT_PITCH_DEG, 15.0):
+        angle = math.radians(pitch)
+        for distance_m in HORIZON_DISTANCES_M:
+            reach = 100.0 * distance_m
+            eye = (target[0] - math.sin(bearing) * reach * math.cos(angle),
+                   target[1] - math.cos(bearing) * reach * math.cos(angle), reach * math.sin(angle))
+            result.append((distance_m, pitch, probes.Pinhole(eye, target, 40.0, size)))
+    return result
 
 
 def caster_footprint() -> list[tuple[float, float]]:
@@ -754,7 +774,75 @@ class Board:
                          **{f"{label}_{key}": row[label][key] for label in row for key in worst})
             self.write()
         out["max"] = {key: round(value, 2) for key, value in worst.items()}
+        distant: dict[str, Any] = {}
+        out["distance_rows"] = distant
+        for preset in presets:
+            rows = []
+            distant[preset] = rows
+            sun = self.sun_at(by_name["golden_hour"].when_utc)
+            for distance_m, pitch, camera in distant_horizon_cameras(
+                    self.width, self.depth, self.size, sun.azimuth_deg + 180.0):
+                rgb, _frame, info = self.frame(
+                    f"horizon_far_{distance_m}m_{pitch:.1f}deg_{preset}", {},
+                    sun=sun, look=look_for(sun, preset), ground=self.plan_ground(),
+                    shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), baked=True)
+                row = {"distance_m": distance_m, "pitch_deg": pitch,
+                       **probes.outer_row_step(rgb), "file": info["file"]}
+                row["ok"] = row["step"] <= HORIZON_STEP_BOUND
+                rows.append(row)
+                self.log("horizon_far", preset=preset, **row)
+                self.write()
         self.write()
+        if any(not row["ok"] for rows in distant.values() for row in rows):
+            raise RuntimeError(f"distant horizon exceeds {HORIZON_STEP_BOUND:g} luma; see metrics.json")
+
+    def far_plan(self, presets: list[str]) -> None:
+        """Rendered pins for AO continuity and shadow presence at 2x/4x framing (#624)."""
+        from open_garden_planner.core.scene3d.builders.surfaces import _inside
+        from open_garden_planner.core.scene3d.camera import Bounds, frame_pose
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        hero = next(shot for shot in default_shots(self.width, self.depth) if shot.name == "golden_hour")
+        records = self.records_for(plan_day(hero.when_utc))
+        sun = self.sun_at(hero.when_utc)
+        pose = frame_pose(Bounds.of_plan(self.width, self.depth), self.size[0] / self.size[1])
+        east, north = np.meshgrid(np.linspace(0.02 * self.width, 0.98 * self.width, 100),
+                                 np.linspace(0.02 * self.depth, 0.98 * self.depth, 80))
+        samples = np.column_stack([east.ravel(), north.ravel()])
+        ground_only = np.ones(len(samples), dtype=bool)
+        for record in records.values():
+            if record.height_cm is not None:
+                for ring in record.footprints:
+                    ground_only &= ~_inside(samples, np.asarray(pose_ring(record.transform, ring)))
+        rows = []
+        self.metrics["far_plan"] = rows
+        for preset in presets:
+            look = look_for(sun, preset)
+            for multiple in (2.0, 4.0):
+                moved = replace(pose, distance_cm=pose.distance_cm * multiple)
+                camera = probes.Pinhole(moved.eye, moved.target_scene, 40.0, self.size)
+                shot = PerspectiveShot(camera.eye, camera.target, camera.fov_deg)
+                rgb, _frame, info = self.frame(
+                    f"far_plan_{int(multiple)}x_{preset}", records, shot=shot, sun=sun,
+                    look=look, ground=self.plan_ground(), baked=True)
+                reference, _frame, clear = self.frame(
+                    f"far_plan_{int(multiple)}x_{preset}_no_shadows", records, shot=shot, sun=sun,
+                    look=replace(look, shadow=replace(look.shadow, factor=0.0)),
+                    ground=self.plan_ground(), baked=True)
+                px, py, front = camera.project(np.column_stack([samples, np.zeros(len(samples))]))
+                x, y = np.rint(px).astype(int), np.rint(py).astype(int)
+                valid = (ground_only & front & (x >= 0) & (y >= 0)
+                         & (x < self.size[0]) & (y < self.size[1]))
+                delta = probes.luma(reference)[y[valid], x[valid]] - probes.luma(rgb)[y[valid], x[valid]]
+                row = {"preset": preset, "framing_multiple": multiple,
+                       "distance_cm": moved.distance_cm, "ground_samples": int(valid.sum()),
+                       "shadowed_samples": int((delta > 2.0).sum()),
+                       "shadow_delta_max": round(float(delta.max()), 3),
+                       "outer_rows": probes.outer_row_step(rgb),
+                       "file": info["file"], "reference_file": clear["file"]}
+                rows.append(row)
+                self.log("far_plan", **row)
+                self.write()
 
     def dusk(self, shots: list[BoardShot], presets: list[str]) -> None:
         """Day into night on ONE camera and ONE date (the golden-hour shot's): the plan's
@@ -985,7 +1073,12 @@ class Board:
         try:
             sink = Quick3DSink(host)
             sync = SceneSync(sink, production_registry())
-            sync.apply(records, sun=sun, ground=self.plan_ground())
+            from open_garden_planner.core.scene3d.context import without_lawn_blades
+
+            def admitted(preset: str) -> dict[str, Record]:
+                return records if look_for(sun, preset).preset.lawn_blades else without_lawn_blades(records)
+
+            sync.apply(admitted(presets[0]), sun=sun, ground=self.plan_ground())
             while sync.ground_pending:
                 sync.continue_ground()
             self.metrics["frame_rate"]["forged_plants"] = forge_scene_plants(
@@ -1002,6 +1095,7 @@ class Board:
             ready = host.wait_ready(30.0)
             for preset in presets:
                 host.set_look(look_for(sun, preset))
+                sync.apply(admitted(preset), sun=sun, ground=self.plan_ground())
                 pump(0.5)                    # the preset's own shaders and targets
                 host.set_wind_running(True)
                 pump(0.3)
@@ -1010,6 +1104,7 @@ class Board:
                 presented = host.health().frames_presented - frames
                 elapsed = time.perf_counter() - started
                 row: dict[str, Any] = {
+                    "parts": host.part_count(),
                     "frames_presented": presented,
                     "presented_fps": round(presented / elapsed, 2) if presented >= 2 else None}
                 host.rest_wind()
@@ -1039,6 +1134,7 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--iou", action="store_true", help="shadow IoU, perspective with cascades")
     parser.add_argument("--orient", action="store_true", help="north-up and the sky's sun azimuth")
     parser.add_argument("--horizon", action="store_true", help="how fog meets sky, per mood")
+    parser.add_argument("--far-plan", action="store_true", help="2x/4x framing AO and shadow probes")
     parser.add_argument("--moods", action="store_true",
                         help="one camera and one date through noon, golden hour, sunset and night")
     parser.add_argument("--dusk", action="store_true",
@@ -1112,6 +1208,8 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
         board.sky_azimuth()
     if args.horizon:
         board.horizon(default_shots(board.width, board.depth), presets)
+    if args.far_plan:
+        board.far_plan(presets)
     if args.dusk:
         board.dusk(default_shots(board.width, board.depth), presets)
     if args.fence:

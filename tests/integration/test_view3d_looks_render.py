@@ -182,6 +182,64 @@ def test_the_production_board_runs_end_to_end_and_every_truth_row_is_green(board
     assert metrics["wind_time"] == 0.0
 
 
+def test_distant_horizon_rows_reach_the_real_fog_distances(board) -> None:
+    metrics, _out = board
+    from open_garden_planner.core.scene3d.camera import DEFAULT_PITCH_DEG
+
+    for preset in PRESETS:
+        rows = metrics["horizon"]["distance_rows"][preset]
+        assert len(rows) == 8
+        assert {row["distance_m"] for row in rows} == {67, 202, 403, 600}
+        assert {row["pitch_deg"] for row in rows} == {15.0, DEFAULT_PITCH_DEG}
+        assert all(row["step"] <= 3.0 and row["ok"] for row in rows), rows
+
+
+def test_far_plan_preserves_shadows_and_has_no_ao_line(tmp_path) -> None:
+    """#624: pixels at 2x/4x the 50x30 m bench framing, not QML text."""
+    out = tmp_path / "far-plan"
+    metrics = _ok_board(run_board(out, "--plan", str(REPO / "tests/fixtures/plans/bench_large.ogp"),
+                                  "--presets", "high", "--shots=", "--far-plan"), out)
+    rows = metrics["far_plan"]
+    assert {row["framing_multiple"] for row in rows} == {2.0, 4.0}
+    for row in rows:
+        assert row["ground_samples"] > 1000 and row["shadowed_samples"] > 100, row
+        assert row["shadow_delta_max"] > 8.0, row
+        assert row["outer_rows"]["step"] <= 3.0, row
+
+
+def test_lawn_blades_do_not_add_dark_stubble_to_the_same_high_look(tmp_path) -> None:
+    """#604: isolate blades from High's own AO, cascades and ground lighting."""
+    out = tmp_path / "lawn"
+    _ok_board(run_board(out, "--presets", "low,high", "--shots", "walk"), out)
+    hidden = tmp_path / "hidden-blades-qml"
+    shutil.copytree(QML_SOURCE, hidden)
+    scene = hidden / "Garden.qml"
+    source = scene.read_text(encoding="utf-8")
+    assert "root.lawnBlades" in source
+    scene.write_text(source.replace("root.lawnBlades", "false"), encoding="utf-8")
+    reference = tmp_path / "lawn-high-off"
+    _ok_board(run_board(reference, "--presets", "high", "--shots", "walk",
+                        "--qml-dir", str(hidden)), reference)
+    low = load_rgb(out / "walk_low.png")
+    on, off = load_rgb(out / "walk_high.png"), load_rgb(reference / "walk_high.png")
+    height, width = low.shape[:2]
+    # A fixed region of the documented walk shot: the lawn beyond the bench,
+    # excluding the foreground herb bush. Low's sunlit green pixels define it;
+    # both High frames are judged against the SAME mask, independent of their answer.
+    mask = np.zeros((height, width), dtype=bool)
+    mask[round(height * 350 / 540):round(height * 430 / 540),
+         round(width * 550 / 960):round(width * 670 / 960)] = True
+    low_luma = probes.luma(low)
+    mask &= ((low_luma > 175.0) & (low_luma < 205.0)
+             & (low[..., 1] > 1.6 * low[..., 0]) & (low[..., 1] > 1.7 * low[..., 2]))
+    assert int(mask.sum()) > 150, "the instrument must see sunlit lawn"
+    with_blades, without = probes.luma(on)[mask], probes.luma(off)[mask]
+    mean_delta = float(with_blades.mean() - without.mean())
+    dark_share_delta = float((with_blades < 150.0).mean() - (without < 150.0).mean())
+    assert abs(mean_delta) <= 3.0, (mean_delta, dark_share_delta)
+    assert dark_share_delta <= 0.03, (mean_delta, dark_share_delta)
+
+
 def test_the_shadow_of_a_box_matches_the_2d_shadow_in_perspective_with_cascades(board) -> None:
     """Gate G2. The L0 number was orthographic and without cascades; this is the view
     people look at — the preset's own cascades, map, filter and bias — at every preset."""

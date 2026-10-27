@@ -39,6 +39,8 @@ from typing import Any
 
 import workspace_gate_hook as hook  # the runner's module: already imported, first
 
+from tests.integration.workspace_render_state import workspace_settled
+
 step = hook.step
 facts = hook.workspace_facts
 
@@ -51,12 +53,15 @@ OPEN_WAIT_S = 10.0
 
 
 def _pump(ms: float) -> None:
-    from PyQt6.QtCore import QCoreApplication
+    from PyQt6.QtCore import QCoreApplication, QEvent
 
     end = time.perf_counter() + ms / 1000.0
     while time.perf_counter() < end:
         QCoreApplication.processEvents()
         time.sleep(0.001)
+    # This whole soak runs synchronously inside a timer callback. processEvents
+    # alone does not deliver DeferredDelete as returning to the outer loop would.
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
 
 
 def _pump_until(condition: Callable[[], bool], timeout_s: float = 20.0) -> bool:
@@ -213,7 +218,11 @@ def _live(window: Any) -> Any:
     host = window._workspace.host
     assert host is not None, "no engine host"
     ready = host.wait_ready(OPEN_WAIT_S)
-    assert ready, f"the host has no frame of its window's size: {host.state.value}"
+    assert ready, (f"the host has no frame of its window's size: {host.state.value}; "
+                   f"tab={window._tab_widget.currentIndex()} mode={window._workspace.mode} "
+                   f"window_visible={window.isVisible()} minimized={window.isMinimized()} "
+                   f"pane_visible={window._workspace._pane.isVisible()} "
+                   f"pane={window._workspace._pane_is_showing()}")
     return host
 
 
@@ -613,19 +622,41 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
         return _pump_until(lambda: host.health().frames_presented >= wanted, timeout_s)
 
     def settled() -> bool:
-        """No pass owed — and no GROUND pass either: the ground is painted to the end
-        (a frame taken while tiles are pending shows them bare, and differs)."""
-        return not controller.dirty and not controller.ground_owed
+        return workspace_settled(workspace)
+
+    def rest_state() -> dict[str, Any]:
+        worker = workspace._forge_worker
+        return {"dirty": controller.dirty, "ground": controller.ground_owed,
+                "moving": workspace.camera.moving,
+                "pending": worker.pending_count if worker else 0,
+                "timer": workspace._forge_timer.isActive(),
+                "showing": workspace._pane_is_showing(), "host": host.state.value,
+                "workspace": workspace.view3d_state.value}
 
     # the ONE frame before the loop — and presented frames after it, so that what
     # the readback's own frame held is given back before anything is measured
-    _pump_until(settled, 10.0)
+    assert _pump_until(settled, 60.0), f"initial ground/forge/LOD did not settle: {rest_state()}"
     present()
     first = _grab(host)[1]
     present()
     present()
     _pump(200)
     parts_before = host.part_count()
+    from open_garden_planner.core.plant_art import PLANT_KINDS
+    from open_garden_planner.core.scene3d.builders import production_registry
+
+    # A document reload invalidates forge admission even when SceneSync retains
+    # the identical v0 records. A full reset uploads v0 AND the forged replacements.
+    # Count these two production stages separately; final Model count is neither.
+    registry = production_registry()
+    v0_parts = sum(bool(part.mesh.triangle_count) for record in controller.sync.records.values()
+                   for part in registry.build(record))
+    forged_parts = sum(controller.sync.sink.part_count(record.item_id)
+                       for record in controller.sync.records.values() if record.kind in PLANT_KINDS)
+    before_unchanged = controller.sync.sink.geometry_uploads
+    controller.mark_dirty()
+    assert _pump_until(settled, 30.0), "unchanged pass did not settle"
+    unchanged_pass_uploads = controller.sync.sink.geometry_uploads - before_unchanged
     blocker: Any = None
     if frames_mode == "withheld":
         blocker = NoPaint()
@@ -655,10 +686,10 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
             traced[str(_index)] = tracemalloc.take_snapshot()
         frames = host.health().frames_presented
         window._load_project_file(plan)
-        _pump_until(settled, 30.0)
         if variant in ("rebuild_on", "control"):
             controller.reset()
-            _pump_until(lambda: settled() and len(controller.sync.records) > 0, 30.0)
+        assert _pump_until(lambda: settled() and len(controller.sync.records) > 0, 60.0), (
+            f"reload {_index} ground/forge/LOD did not settle: {rest_state()}")
         if variant == "control":
             kept.append(b"\x01" * (keep_mb * 1024 * 1024))
         releases_seen = host.cache_releases
@@ -692,7 +723,7 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     # the ONE frame after the loop: the same plan, the same camera — the same picture
     if blocker is not None:
         host._view.removeEventFilter(blocker)
-    _pump_until(lambda: settled() and host.part_count() == parts_before, 20.0)
+    assert _pump_until(lambda: settled() and host.part_count() == parts_before, 60.0)
     presented_again = present(10.0)
     last = _grab(host)[1]
     present()
@@ -742,6 +773,8 @@ def scenario_soak(window: Any, args: dict[str, Any]) -> Iterator[Any]:
              round(theil_sen(gpu_values[len(gpu_values) // 2:]), 3) if len(gpu_values) > 3 else None),
          geometry_uploads=(getattr(controller.sync.sink, "geometry_uploads", 0) - uploads_before
                            if uploads_before is not None else None),
+         v0_parts=v0_parts, forged_parts=forged_parts,
+         unchanged_pass_uploads=unchanged_pass_uploads,
          kept_mb=keep_mb * len(kept), parts=parts_before, parts_after=host.part_count(),
          frames_presented_per_reload=frames_per_reload, in_the_loop=in_the_loop,
          retired_before_release_per_reload=owed,

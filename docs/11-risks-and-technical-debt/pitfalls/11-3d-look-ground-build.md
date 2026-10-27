@@ -203,3 +203,13 @@ Fix: the strength is 0 unless AO is on (`55 * (!root.topDown && root.ambientOccl
 root.aoFade : 0)`), and `aoEnabled` also requires a fade above 0, so the pass does not run
 at strength 0. The host test reads `aoEnabled` and `aoStrength` off the environment at every
 preset and four distances, and in the top-down view.
+
+### PF-L3D-16
+
+- **Rule:** Derive held context from both records' consumers and admit lawn blades only where the active preset draws them; detail geometry must degrade to exact prisms below its dimensional floor.
+- **Pinned by:** `tests/integration/test_view3d_sync_controller.py`; `tests/unit/test_scene3d_l4_objects.py`; `tests/unit/test_scene3d_l4_surfaces.py`
+- **Source:** #611; #607; ADR-065
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Door targets and the heightless-lawn predicate determine which old parameters remain valid after a retype. A universal lawn-blade special case retained irrelevant door params. Nominal furniture joints can flip tiny faces; the verified 3 cm detail floor keeps exact dimensions. Y-batched masks preserve the even-odd rule with bounded temporary pair arrays.

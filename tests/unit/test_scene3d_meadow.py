@@ -109,7 +109,7 @@ def test_a_plan_that_is_no_rectangle_of_numbers_is_refused(bad: tuple[float, ...
 
 
 def test_its_size_is_bounded() -> None:
-    """43 lines each way at most (41 cell lines and the plan's two): the frame is built
-    once per plan rectangle, and it is small."""
+    """A 20 km square in 100 m cells, plus the plan's edges: bounded per host."""
     mesh = meadow_frame(PLAN)
-    assert mesh.vertex_count <= 43 * 43 and mesh.triangle_count <= 2 * 42 * 42
+    assert MEADOW_HALF_CM == 1_000_000.0
+    assert mesh.vertex_count <= 203 * 203 and mesh.triangle_count <= 2 * 202 * 202
