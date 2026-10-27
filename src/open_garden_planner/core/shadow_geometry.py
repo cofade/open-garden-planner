@@ -437,23 +437,46 @@ def _union_int(
 
 # ── one caster's ring set as simple rings (issue #444) ────────────
 
+#: Above this many vertices a ring is swept as it comes: the self-crossing test is a
+#: ``SimplifyPolygons`` call, and the loader accepts polygons up to
+#: ``MAX_POLYGON_VERTICES`` (16 384) — measured, that call costs 0.12 ms at 256
+#: vertices, 0.93 ms at 1 024, 20 ms at 4 096 and **257 ms at 16 384**, on every
+#: walk (the overlay recompute and every sun snapshot). The bound is ADR-057's
+#: painting bound, for the same class of crafted plan. Nothing regresses above it:
+#: such a ring is swept exactly as it was before this repair existed, and a
+#: user-drawn crossing outline stays far below it. The HOLE half of the repair has
+#: no bound — a fence stroke is a handful of vertices and its rings are still
+#: repaired at any size.
+MAX_REGION_VERTICES = 256
+
 
 def _region_needs_repair(rings: list[list[tuple[int, int]]]) -> bool:
     """Is this ring set already one simple ring per piece?
 
     Two things need the repair: a ring set in which some ring encloses a NEGATIVE
     area (a hole — the stroke of a fence that closes on itself), and a ring whose
-    own printed area is not what its outline encloses (a self-crossing outline,
-    which ``SimplifyPolygons`` splits into its lobes). A LONE ring is never a hole,
-    whatever its winding: a solid drawn clockwise is a solid, and the sweep already
-    normalises a ring's winding. Everything else is left alone, point for point —
-    the rule ``tests/fixtures/shadows/shadow_golden.json`` pins for the ground.
+    own outline is not one simple ring (a self-crossing outline). A LONE ring is
+    never a hole, whatever its winding: a solid drawn clockwise is a solid, and the
+    sweep already normalises a ring's winding. Everything else is left alone, point
+    for point — the rule ``tests/fixtures/shadows/shadow_golden.json`` pins for the
+    ground.
+
+    "Not one simple ring" is decided by the decomposition, not by an area
+    difference: a self-crossing ring can decompose into an outer **plus a hole**
+    whose total area is SMALLER than the ring's printed area (a pentagram: printed
+    235,114 cm², five lobes 124,108 cm², a hole of 110,000 — the sign of a
+    difference test is not fixed), so any decomposition into more than one ring
+    means the outline crosses itself. Above ``MAX_REGION_VERTICES`` the test is
+    skipped (see that constant).
     """
     for ring in rings:
-        area = pyclipper.Area(ring)
-        lobes = pyclipper.SimplifyPolygons([ring], pyclipper.PFT_EVENODD)
-        if sum(pyclipper.Area(lobe) for lobe in lobes) - abs(area) > _RING_AREA_SLACK:
-            return True
+        if len(ring) <= MAX_REGION_VERTICES:
+            lobes = pyclipper.SimplifyPolygons([ring], pyclipper.PFT_EVENODD)
+            if len(lobes) != 1:
+                return True
+            area = pyclipper.Area(ring)
+            if abs(pyclipper.Area(lobes[0])) - abs(area) > _RING_AREA_SLACK:
+                return True
     return len(rings) > 1 and any(pyclipper.Area(ring) < 0 for ring in rings)
 
 
@@ -462,8 +485,10 @@ def _group_holes_int(
 ) -> list[tuple[list[tuple[int, int]], list[list[tuple[int, int]]]]]:
     """``[(outer, [its holes]), ...]`` — roles from the enclosed area's sign.
 
-    A ring with a negative area is a hole and is attached to the first outer
-    ring that contains it (``pyclipper``'s offsets always nest them). A negative
+    A ring with a negative area is a hole and is attached to the SMALLEST outer
+    ring that contains it — the innermost one, so an island in a hole (a hole
+    inside an island inside a hole) keeps its own hole instead of lending it to
+    the outermost ring, which would make a bridged ring cross itself. A negative
     ring that is inside NO outer is not a hole of this region at all — a caller
     passed it on its own — so it is kept as a piece of its own, reversed;
     dropping it would lose ground, and the region it describes is the same ring.
@@ -479,12 +504,17 @@ def _group_holes_int(
         (outer, []) for outer in outers
     ]
     for hole in holes:
-        for outer, hole_list in groups:
-            if pyclipper.PointInPolygon(hole[0], outer) != 0:
-                hole_list.append(hole)
-                break
-        else:
+        innermost: tuple[list[tuple[int, int]], list[list[tuple[int, int]]]] | None = None
+        for group in groups:
+            if pyclipper.PointInPolygon(hole[0], group[0]) == 0:
+                continue
+            if innermost is None or abs(pyclipper.Area(group[0])) < abs(
+                    pyclipper.Area(innermost[0])):
+                innermost = group
+        if innermost is None:
             groups.append((list(reversed(hole)), []))
+        else:
+            innermost[1].append(hole)
     return groups
 
 

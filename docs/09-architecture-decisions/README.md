@@ -1211,11 +1211,12 @@ and −782,100 cm²). `_caster_paths_int` normalised each ring counter-clockwise
 as a **solid**, so the hole cast the shadow of a slab the size of the enclosed garden.
 Measured on master (`81d2b62f`, and in v1.30.0 as shipped): a 10 m × 8 m loop, 10 cm
 stroke, 1.2 m high, 60° sun, azimuth 180° — **888,037 cm² of shade where the stroke's
-prisms give 174,526 cm²** (the issue's four-rectangle reference gives 174,564; the 38 cm²
-is the offset ring's chamfered corners, which the four rectangles do not have — the ray
-oracle settles it in the sweep's favour). A self-crossing outline had the same shape of
-defect: `[(0,0),(400,300),(400,0),(0,300)]` at 300 cm and 60° drew **80,000 cm²** where
-its two lobes' prisms give **129,282 cm²**.
+prisms give 174,526 cm²**. The issue's four-rectangle reference gives 174,564: the 38 cm²
+is the ring's own chamfered corners (outer area 818,062.1, not the rectangles' 818,100),
+so the repaired ring's figure is the exact one for the outline the plan holds. A
+self-crossing outline had the same shape of defect: `[(0,0),(400,300),(400,0),(0,300)]` at
+300 cm and 60° drew **80,000 cm²** where its two lobes' prisms give **129,282 cm²**, and a
+pentagram of radius 400 drew **334,617 cm²** where its five lobes give **321,565**.
 
 **Decision.** One caster is one REGION, and the region is repaired once per WALK, where
 the item is still known — `core.shadow_geometry.shadow_region(footprints)`.
@@ -1229,15 +1230,25 @@ the item is still known — `core.shadow_geometry.shadow_region(footprints)`.
    what keeps `tests/fixtures/shadows/shadow_golden.json` valid — every footprint it pins
    is a simple ring (measured: no hole-bearing and no self-crossing caster in
    `bench_small.ogp`'s 87 or `bench_large.ogp`'s 379).
-2. **A hole is cut open by a zero-width slit.** `_bridge_holes_int` runs a vertical ray
+    2. **A hole is cut open by a zero-width slit.** `_bridge_holes_int` runs a vertical ray
    from the hole's topmost vertex to the nearest boundary above it (at x offsets
-   0, ±1, ±2 … grid steps, so a ray never lands on a vertex), and the ring visits it down
+   0, ±1, ±2 … grid steps; a ray that still lands on a vertex duplicates it, and the
+   region is exact either way — measured), and the ring visits it down
    and up again. The slit encloses no ground, so the ring's region is exactly
    `outer − holes`; the sweep of a region is the sweep of its rings, so nothing else
    changes. Holes are bridged highest-first, so a lower hole's slit meets the boundary
-   above it and the result stays simple.
+   above it and the result stays simple; a hole is attached to the INNERMOST outer ring
+   that contains it, so an island inside a hole keeps its own hole.
 3. **A self-crossing outline is split into its lobes** by `SimplifyPolygons` (even-odd),
-   and each lobe is swept as the solid it is.
+   and each lobe is swept as the solid it is. "Crosses itself" is decided by the
+   decomposition returning more than one ring — not by an area difference, because a
+   pentagram decomposes into an outer **plus a hole** whose total area is SMALLER than
+   the ring's printed area (printed 235,114 cm², five lobes 124,108). Measured: one
+   5-vertex pentagram swept as one ring drew 334,617 cm² where its five lobes' prisms
+   give 321,565 cm². Above `MAX_REGION_VERTICES = 256` the test is skipped, so a
+   crafted 16,384-vertex outline pays no `SimplifyPolygons` call on every walk (measured
+   257 ms) and is swept exactly as it was before this repair — the hole half of the
+   repair has no such bound.
 4. **The role of a ring is its winding sign**, which is what every pyclipper offset hands
    out; a negative ring inside no outer ring is kept as a piece of its own rather than
    dropped (it is a caller's lone reversed ring, not a hole).
@@ -1258,20 +1269,30 @@ centre/radius/rect). Measured on bench_large (379 casters: 320 circles, 56 recta
 polygons, 1 polyline; best of 30, Windows, against an `origin/master` worktree in the same
 session): **10.5 ms a walk with the repair on every ring, 6.7 ms with the gate, 6.8 ms on
 master.** The base-stacking addendum measured this walk at 5.0–5.3 ms, so the gate restores
-the released cost. The premise is measured, not asserted:
-`tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself`
-builds all five shapes and checks both the predicate and that each non-polygon ring is one
-positively wound ring.
+the released cost. A ring above `MAX_REGION_VERTICES = 256` skips only the self-crossing
+test: the loader's ceiling is 16,384 vertices and one `SimplifyPolygons` call costs 0.12 ms
+at 256, 20 ms at 4,096 and **257 ms at 16,384**, per walk. The premise is measured, not
+asserted: `tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself`
+walks every `OUTLINE_SHAPES` value, checks the predicate and that each non-polygon ring is
+one positively wound ring, and pins that a crossing closed polyline arrives as several
+rings. Two known limits of this decision, both stated rather than hidden: a self-crossing
+outline above 256 vertices is swept as one ring (as it was before this repair), and an
+outline whose crossing the decomposition resolves into ONE ring would not be detected (no
+such ring was produced by 4,000 fuzzed 5–9-gons; a ring that touches itself is resolved
+into two).
 
-**Validation.** `tests/integration/test_shadow_region.py` — both before/after numbers
-above; a **ray oracle** that knows no polygons (a ground point is shaded iff some point
-between it and the sun's footprint of it is in the region) agreeing with the polygon
-answer on every cell of a 20 cm grid over the loop, and rejecting the old answer on
->1,500 cells; the simple-ring pass-through (including a clockwise ring); idempotence; the
+**Validation.** `tests/integration/test_shadow_region.py` - both before/after numbers
+above; a pentagram whose decomposition is an outer plus a hole; a hole inside an island
+inside a hole (the innermost-outer rule); a **ray oracle** that knows no polygons (a
+ground point is shaded iff some point between it and the sun's footprint of it is in the
+region) agreeing with the polygon answer on every cell of a 20 cm grid over the loop, and
+rejecting the old answer on >1,500 cells; the simple-ring pass-through (including a
+clockwise ring); a 16,384-vertex ring passing through with no `SimplifyPolygons` call at
+all (the vertex bound, pinned by a monkeypatch that raises); idempotence; the
 walk handing out one ring and one `ShadowCaster` for a closed `FENCE` item; the real
 `SunShadowController` overlay leaving the garden inside a loop in the sun while still
 drawing the fence's own shadow; and a self-crossing `PolygonItem` in a plan keeping both
-lobes. The full golden gate is unchanged — regenerating it was not needed and was not
+lobes. The full golden gate is unchanged - regenerating it was not needed and was not
 done. The mutation check keeps its shadow mutants killed (`scripts/mutation_check_built_world.py`).
 
 **Left out.** The pore/gable modelling of a porous fence or a gabled roof (#440) is a

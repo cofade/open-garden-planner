@@ -452,6 +452,7 @@ def footprints_can_self_cross(item: Any) -> bool:
     circles and rectangles, and a call each cost 4.5 ms a walk (measured: 10.5 ms
     against master's 6.1 ms, Windows, before this gate). A new footprint shape
     that can cross must answer True here — pinned by
-    ``tests/unit/test_footprint_shapes.py``.
+    ``tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself``,
+    which walks every ``OUTLINE_SHAPES`` value.
     """
     return isinstance(item, PolygonItem)

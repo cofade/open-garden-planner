@@ -166,10 +166,23 @@ def test_a_simple_ring_is_handed_back_point_for_point() -> None:
     assert shadow_region([]) == []
 
 
-def test_the_repair_is_idempotent() -> None:
+def test_the_repair_keeps_the_ground_when_it_is_asked_again() -> None:
+    """A region handed back in describes the same ground (idempotent in coverage).
+
+    It is not necessarily the same vertex list: a bridged ring touches itself at the
+    slit's two ends, so a second pass may decompose it differently — which is why the
+    walk always starts from the item's own rings, never from a repaired region.
+    """
     for rings in (polyline_footprint(LOOP, STROKE_CM), [BOW_TIE]):
         once = shadow_region(rings)
-        assert shadow_region(once) == once
+        twice = shadow_region(once)
+        assert sum(signed_area([piece]) for piece in twice) == pytest.approx(
+            sum(signed_area([piece]) for piece in once), abs=1.0)
+        xs = np.arange(-250.0, 1251.0, 5.0)
+        ys = np.arange(-250.0, 1151.0, 5.0)
+        xx, yy = np.meshgrid(xs, ys)
+        points = np.stack([xx.ravel(), yy.ravel()], axis=1)
+        assert (points_in_polygons(once, points) == points_in_polygons(twice, points)).all()
 
 
 def test_a_self_crossing_outline_is_shaded_as_its_lobes() -> None:
@@ -180,6 +193,82 @@ def test_a_self_crossing_outline_is_shaded_as_its_lobes() -> None:
     assert [signed_area([piece]) for piece in region] == pytest.approx([30_000.0, 30_000.0],
                                                                        abs=1.0)
     assert swept(region, height=300.0) == pytest.approx(BOW_TIE_SHADOW_CM2, abs=1.0)
+
+
+def _pentagram(cx: float, cy: float, radius: float) -> list[tuple[float, float]]:
+    return [(cx + radius * math.cos(math.radians(-90 + 144 * k)),
+             cy + radius * math.sin(math.radians(-90 + 144 * k))) for k in range(5)]
+
+
+def test_a_pentagram_is_split_even_though_its_lobes_are_smaller_than_its_print() -> None:
+    """A self-crossing ring whose decomposition is an OUTER PLUS A HOLE (#444 review).
+
+    The first cut of the detection compared the decomposition's total area with the
+    ring's printed area and demanded it be larger — true for a bow-tie, false for a
+    pentagram: printed 235,114 cm², five lobes 124,108, and the even-odd fill of the
+    outline is an outer with a pentagonal hole. Measured: swept as one ring 334,617
+    cm² where its five lobes' prisms give 321,565.
+    """
+    star = _pentagram(500.0, 500.0, 400.0)
+    region = shadow_region([star])
+    assert len(region) == 5
+    assert sum(abs(signed_area([lobe])) for lobe in region) == pytest.approx(
+        124_108.3, abs=5.0)
+    assert swept([star], height=300.0) == pytest.approx(334_617.3, abs=50.0)
+    assert swept(region, height=300.0) == pytest.approx(321_564.7, abs=50.0)
+
+
+def test_a_hole_belongs_to_the_innermost_outer_that_contains_it() -> None:
+    """An island inside a hole keeps its own hole (#444 review).
+
+    Attaching every negative ring to the FIRST outer that contains it made the
+    island's hole a hole of the outermost ring, and the bridged ring crossed itself.
+    The region's ground is the same either way — outer minus hole, plus island minus
+    its hole — and each piece is now its own simple ring.
+    """
+    outer = [(0.0, 0.0), (1000.0, 0.0), (1000.0, 800.0), (0.0, 800.0)]
+    hole = [(20.0, 20.0), (20.0, 780.0), (980.0, 780.0), (980.0, 20.0)]
+    island = [(300.0, 300.0), (700.0, 300.0), (700.0, 500.0), (300.0, 500.0)]
+    island_hole = [(310.0, 310.0), (310.0, 490.0), (690.0, 490.0), (690.0, 310.0)]
+    rings = [outer, hole, island, island_hole]
+    region = shadow_region(rings)
+    assert len(region) == 2
+    expected = (signed_area([outer]) + signed_area([hole])
+                + signed_area([island]) + signed_area([island_hole]))
+    assert sum(signed_area([piece]) for piece in region) == pytest.approx(expected, abs=1.0)
+    xs = np.arange(-50.0, 1051.0, 25.0)
+    ys = np.arange(-50.0, 851.0, 25.0)
+    truth = _true_sweep(region, xs, ys)
+    xx, yy = np.meshgrid(xs, ys)
+    points = np.stack([xx.ravel(), yy.ravel()], axis=1)
+    now = points_in_polygons(
+        compute_scene_shadows([ShadowCaster(r, HEIGHT_CM) for r in region],
+                              ELEVATION_DEG, AZIMUTH_DEG),
+        points).reshape(truth.shape)
+    assert truth.sum() > 100
+    assert not (now & ~truth).any() and not (~now & truth).any()
+
+
+def test_an_outline_above_the_vertex_bound_pays_no_simplify_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The bound that keeps a crafted plan off the walk's hot path (#444 review).
+
+    ``SimplifyPolygons`` costs 257 ms on the loader's 16,384-vertex ceiling — per walk.
+    Above ``MAX_REGION_VERTICES`` the self-crossing test is skipped and the ring is
+    swept as it was before this repair; the monkeypatch proves no call is made at all.
+    """
+    import open_garden_planner.core.shadow_geometry as geometry
+
+    ring = [(500.0 + 400.0 * math.cos(2 * math.pi * i / 16_384),
+             500.0 + 400.0 * math.sin(2 * math.pi * i / 16_384)) for i in range(16_384)]
+    assert len(ring) > geometry.MAX_REGION_VERTICES
+
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("SimplifyPolygons ran on a ring above the vertex bound")
+
+    monkeypatch.setattr(geometry.pyclipper, "SimplifyPolygons", refuse)
+    assert shadow_region([ring]) == [ring]
 
 
 # ── through the real walk and the real overlay ───────────────────────
@@ -240,27 +329,49 @@ def test_only_a_polygon_s_own_outline_can_cross_itself(qtbot: Any) -> None:
     ``_shadow_footprints`` skips the repair for a single ring from a circle, ellipse,
     rectangle or offset polyline, so each of those must hand out ONE positively wound
     ring — and ``footprints_can_self_cross`` must be True exactly for the one shape
-    whose vertices are the user's own order. A new footprint shape that could cross
-    has to answer True here, or it would be swept unrepaired.
+    whose vertices are the user's own order. Every ``OUTLINE_SHAPES`` value is walked,
+    so a shape added later fails here until it answers for itself; a crossing CENTRE
+    LINE is pinned as the multi-ring case the walk always repairs.
     """
-    from open_garden_planner.ui.canvas.footprints import footprints_can_self_cross
+    from open_garden_planner.ui.canvas.footprints import (
+        OUTLINE_CIRCLE,
+        OUTLINE_ELLIPSE,
+        OUTLINE_POLYGON,
+        OUTLINE_POLYLINE,
+        OUTLINE_RECTANGLE,
+        OUTLINE_SHAPES,
+        footprints_can_self_cross,
+        item_outline,
+    )
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
     from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
     shapes = {
-        CircleItem(100.0, 100.0, 30.0, object_type=ObjectType.PERENNIAL): False,
-        EllipseItem(500.0, 100.0, 80.0, 40.0, object_type=ObjectType.LAWN): False,
-        RectangleItem(700.0, 100.0, 100.0, 60.0, object_type=ObjectType.RAISED_BED): False,
-        PolylineItem([QPointF(100.0, 500.0), QPointF(300.0, 500.0)],
-                     object_type=ObjectType.FENCE): False,
-        PolygonItem([QPointF(x, y) for x, y in BOW_TIE],
-                    object_type=ObjectType.HOUSE): True,
+        OUTLINE_CIRCLE: CircleItem(100.0, 100.0, 30.0, object_type=ObjectType.PERENNIAL),
+        OUTLINE_ELLIPSE: EllipseItem(500.0, 100.0, 80.0, 40.0, object_type=ObjectType.LAWN),
+        OUTLINE_RECTANGLE: RectangleItem(700.0, 100.0, 100.0, 60.0,
+                                         object_type=ObjectType.RAISED_BED),
+        OUTLINE_POLYLINE: PolylineItem([QPointF(100.0, 500.0), QPointF(300.0, 500.0)],
+                                       object_type=ObjectType.FENCE),
+        OUTLINE_POLYGON: PolygonItem([QPointF(x, y) for x, y in BOW_TIE],
+                                     object_type=ObjectType.HOUSE),
     }
-    for item, can_cross in shapes.items():
-        assert footprints_can_self_cross(item) is can_cross, type(item).__name__
+    assert set(shapes) == set(OUTLINE_SHAPES), "a footprint shape is not covered here"
+    for shape, item in shapes.items():
+        assert item_outline(item) is not None and item_outline(item).shape == shape  # type: ignore[union-attr]
+        assert footprints_can_self_cross(item) is (shape == OUTLINE_POLYGON), shape
         rings = item_footprints(item)
-        if can_cross:
+        if shape == OUTLINE_POLYGON:
+            assert len(rings) == 1  # the user's own order: repaired by the walk
             continue
-        assert len(rings) == 1 and signed_area(rings) > 0.0, type(item).__name__
+        assert len(rings) == 1 and signed_area(rings) > 0.0, shape
+
+    crossing = PolylineItem(
+        [QPointF(100.0, 700.0), QPointF(300.0, 900.0), QPointF(300.0, 700.0),
+         QPointF(100.0, 900.0), QPointF(100.0, 700.0)], object_type=ObjectType.FENCE)
+    raw = item_footprints(crossing)
+    assert len(raw) > 1, "a crossing centre line is the multi-ring case"
+    assert len(shadow_region(raw)) < len(raw) or any(
+        signed_area([piece]) > 0.0 for piece in shadow_region(raw))

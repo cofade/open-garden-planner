@@ -117,7 +117,8 @@ class IdentifiedCaster:
     (``core.object_height.is_solid_soil_parent`` — a bed, raised bed, container
     or wall planter with a resolved height), not a wall. A plant inside its
     outline is inside its soil, so the estimate must not count it as shade
-    whether or not the plant is LINKED to it (#481, ``SunReceiver.spared``).
+    whether or not the plant is LINKED to it (#481, the ``spared`` map in
+    ``_aggregate_day``).
     """
 
     item_id: str
