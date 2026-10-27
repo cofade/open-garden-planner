@@ -378,8 +378,12 @@ def test_a_pinched_outline_keeps_its_ground_whichever_way_it_winds(qtbot: Any) -
     now grouped by a majority of strictly interior vertices, so a lone reversed solid
     comes back as two solid lobes and a pinched hole stays a hole.
     """
-    pinched = [(100.0, 100.0), (300.0, 300.0), (100.0, 500.0),
-               (500.0, 500.0), (300.0, 300.0), (500.0, 100.0)]
+    # Two 200 x 200 square lobes sharing the vertex (300, 300), and the shared vertex
+    # is the FIRST vertex of the second piece after a decomposition — which is what the
+    # single-point grouping read as "inside" (round-4 report: 1 ring, 2,200 cm² swept).
+    pinched = [(300.0, 300.0), (500.0, 300.0), (500.0, 500.0), (300.0, 500.0),
+               (300.0, 300.0), (100.0, 300.0), (100.0, 100.0), (300.0, 100.0),
+               (300.0, 300.0)]
     assert signed_area([pinched]) != 0.0
     xs = np.arange(0.0, 601.0, 5.0)
     ys = np.arange(0.0, 601.0, 5.0)

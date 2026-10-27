@@ -1241,20 +1241,19 @@ the item is still known — `core.shadow_geometry.shadow_region(footprints)`.
    `outer − holes`; the sweep of a region is the sweep of its rings, so nothing else
    changes. Holes are bridged highest-first, so a lower hole's slit meets the boundary
    above it and the result stays simple; a hole is attached to the INNERMOST outer ring
-   that contains it, and containment asks a MAJORITY of the ring's vertices rather than
-   one — two pieces of a pinched outline share a vertex exactly, and a single-point test
-   reads that shared point as inside.
+   that contains it. Containment is asked of ONE vertex normally — a full scan would be
+   O(vertices × vertices) and cost seconds on a crafted 16,384-point closed fence — and a
+   MAJORITY only when that vertex lies exactly on the boundary, which is how two pieces
+   of a pinched outline (sharing that vertex) are told apart.
 3. **A self-crossing outline is split into its lobes** by `SimplifyPolygons` (even-odd),
    and each lobe is swept as the solid it is — whichever way the outline winds. A
    mirrored or clockwise star draws the same ground as a counter-clockwise one, and the
    app's own mirror tool flips the winding, so the split must not ask the ring's sign
    whether it is a hole (measured: a clockwise pentagram swept as one ring also drew
-   334,617 cm² where its lobes give 321,565). The sign decides the role only for a ring
-   whose decomposition adds up to its own area — a self-touching ring, whose ground is
-   the same either way; and there the role is really decided by CONTAINMENT, because a
-   lone reversed solid has a negative sign too: a ring whose majority of vertices lies
-   strictly inside another ring is a hole (its lobes reversed), and one inside nothing
-   is a solid (its lobes positive). "Crosses itself" is decided by the
+   334,617 cm² where its lobes give 321,565). The SIGN selects that branch; the ROLE is
+   decided by CONTAINMENT, because a lone reversed solid has a negative sign too: a ring
+   whose majority of vertices lies strictly inside another ring is a hole (its lobes
+   reversed), and one inside nothing is a solid (its lobes positive). "Crosses itself" is decided by the
    decomposition returning more than one ring — not by an area difference, because a
    pentagram decomposes into an outer **plus a hole** whose total area is SMALLER than
    the ring's printed area (printed 235,114 cm², five lobes 124,108). Measured: one

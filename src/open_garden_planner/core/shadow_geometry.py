@@ -536,13 +536,7 @@ def _group_holes_int(
     for hole in holes:
         innermost: tuple[list[tuple[int, int]], list[list[tuple[int, int]]]] | None = None
         for group in groups:
-            # A MAJORITY of the ring's vertices must be strictly inside, not just the
-            # one probed: two pieces of one pinched outline share a vertex exactly, and
-            # a single-vertex test reads that shared point as "inside" (on the
-            # boundary), which would make a hole of a sibling lobe.
-            inside = sum(1 for point in hole
-                         if pyclipper.PointInPolygon(point, group[0]) == 1)
-            if inside * 2 <= len(hole):
+            if not _hole_is_inside(hole, group[0]):
                 continue
             if innermost is None or abs(pyclipper.Area(group[0])) < abs(
                     pyclipper.Area(innermost[0])):
@@ -552,6 +546,32 @@ def _group_holes_int(
         else:
             innermost[1].append(hole)
     return groups
+
+
+def _hole_is_inside(hole: list[tuple[int, int]], outer: list[tuple[int, int]]) -> bool:
+    """Is ``hole`` inside ``outer``? One vertex normally, a majority on a tie.
+
+    An offset's hole lies strictly inside its outer, so the first vertex answers in
+    one ``PointInPolygon`` call — a full scan would be O(vertices × vertices) and cost
+    seconds on a crafted 16,384-point closed fence. A vertex exactly ON the outer's
+    boundary (``-1``) is the interesting case: two pieces of one pinched outline share
+    a vertex exactly, and treating that shared point as "inside" would make a hole of
+    a sibling lobe. Then, and only then, a MAJORITY of the ring's vertices must be
+    strictly inside (``== 1``), counted with an early exit.
+    """
+    first = pyclipper.PointInPolygon(hole[0], outer)
+    if first != -1:
+        return first == 1
+    needed = len(hole) // 2 + 1
+    inside = 0
+    for index, point in enumerate(hole):
+        if pyclipper.PointInPolygon(point, outer) == 1:
+            inside += 1
+            if inside >= needed:
+                return True
+        elif inside + len(hole) - index - 1 < needed:
+            return False
+    return inside >= needed
 
 
 #: X offsets tried, in grid steps, to place a bridge's vertical ray off a
@@ -592,10 +612,11 @@ def _bridge_holes_int(
             if best is not None:
                 bridge = best
                 break
-        if bridge is None:  # pragma: no cover - a hole is inside the outer by definition
+        if bridge is None:  # pragma: no cover - malformed caller rings only
             # A malformed ring set (a "hole" with no boundary above it) keeps the
             # outer ring as it came - today's over-shading - rather than taking the
-            # window down in a paint-adjacent recompute.
+            # window down in a paint-adjacent recompute. The extractor's holes always
+            # have a boundary above them; this is a hand-built set's fallback.
             return list(outer)
         index, cross = bridge
         v = (vx, vy)
