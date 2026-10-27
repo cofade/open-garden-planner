@@ -47,12 +47,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.object_height import effective_height_cm
+from open_garden_planner.core.object_height import effective_height_cm, is_solid_soil_parent
 from open_garden_planner.core.shade_aggregation import IdentifiedCaster
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
     ShadowCaster,
     compute_scene_shadows,
+    shadow_region,
 )
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
@@ -229,6 +230,16 @@ def collect_identified_casters(
     (Phase 17 L1.6, ADR-037 addendum) is where the item stands: 0 on the ground,
     the soil surface for a plant in a raised bed or container
     (``footprints.item_base_cm`` — the rule the 3D records use too).
+
+    The footprints are the item's REGION, not its raw ring list: a fence that
+    closes on itself hands out an outer ring and a hole, and
+    ``core.shadow_geometry.shadow_region`` repairs that (and a self-crossing
+    outline) into simple rings here, where the item is still known (#444). A
+    hole swept on its own would cast the enclosed garden as a slab.
+    ``holds_plants`` marks a soil solid a plant can stand in
+    (``core.object_height.is_solid_soil_parent``): the sun estimate spares such
+    a solid for a plant inside its outline, because it is under the plant, not
+    between it and the sun (#481).
     """
     casters: list[IdentifiedCaster] = []
     items = scene.items()
@@ -244,12 +255,16 @@ def collect_identified_casters(
         )
         if height is None:
             continue
-        footprints = tuple(tuple(footprint) for footprint in item_footprints(item, at_date)
-                           if len(footprint) >= 3)
+        footprints = tuple(
+            tuple(footprint)
+            for footprint in shadow_region(item_footprints(item, at_date))
+            if len(footprint) >= 3)
         if footprints:
             casters.append(IdentifiedCaster(
                 str(getattr(item, "item_id", id(item))), footprints, height,
-                item_base_cm(item, lookup, at_date)))
+                item_base_cm(item, lookup, at_date),
+                holds_plants=is_solid_soil_parent(
+                    object_type, getattr(item, "metadata", None), at_date)))
     return casters
 
 

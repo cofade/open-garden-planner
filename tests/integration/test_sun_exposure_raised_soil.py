@@ -29,10 +29,11 @@ from open_garden_planner.core.commands import (
     DeleteItemsCommand,
     SetParentBedCommand,
 )
-from open_garden_planner.core.object_height import METADATA_KEY
+from open_garden_planner.core.object_height import METADATA_KEY, is_solid_soil_parent
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.shade_aggregation import SAMPLE_STEP_MINUTES
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.sun_exposure_snapshot import collect_exposure_snapshot
@@ -163,21 +164,102 @@ def test_a_plant_on_the_ground_next_to_the_bed_is_still_shaded_by_the_bed(plot: 
         f"a 40 cm bed takes sun from the ground 15 cm north of it: {near} h")
 
 
-def test_a_plant_in_the_bed_without_a_link_stands_on_the_ground_inside_it(plot: Plot) -> None:
-    """The stated limit, pinned so that it is a decision: the base rule lifts a plant only
-    when it is LINKED to the bed. An unlinked plant inside the bed's outline stands on the
-    ground, inside the bed's solid — 0 hours, and the same plant linked: a day of sun."""
+def test_a_plant_in_the_bed_without_a_link_gets_the_sun_of_the_bed(plot: Plot) -> None:
+    """A plant inside a bed's outline reads the bed's real sun whether or not the link
+    was made (#481).
+
+    The link is bookkeeping and follows only some edit paths (#443), so a bed drawn
+    around an existing plant, or a plant moved in with the arrow keys, has no link. The
+    estimate no longer trusts the link alone: every soil solid whose outline contains
+    the plant's point is left out of its shade, exactly like a linked plant's parent
+    (ADR-056 addendum). Before #481 this read 0 hours and warned.
+    """
     bed = plot.bed(1000.0, 400.0)
     plant = plot.tomato("in the bed", 1100.0, 460.0)
     plot.commands.execute(SetParentBedCommand(plot.scene, plant, bed.item_id, None))
     assert plant.parent_bed_id is None and plot.stands_on(plant) is None
     plot.compute()
-    assert plot.hours(plant) == 0.0 and plot.warned(plant)
+    assert plot.hours(plant) == pytest.approx(16.5, abs=ONE_SAMPLE_H) and not plot.warned(plant)
 
     plot.commands.execute(SetParentBedCommand(plot.scene, plant, None, bed.item_id))
     plot.qtbot.waitUntil(lambda: plot.window._sun_heatmap.exposure_reason == "stale", timeout=2000)
     plot.compute()
     assert plot.hours(plant) == pytest.approx(16.5, abs=ONE_SAMPLE_H) and not plot.warned(plant)
+
+
+def test_a_soil_solid_spared_for_the_plant_inside_it_still_shades_the_ground_beside_it(
+    plot: Plot,
+) -> None:
+    """The containment spare is per RECEIVER, not a hole in the bed's shadow (#481).
+
+    Before #481 the only spared parent was the linked one; now every soil solid whose
+    outline contains a receiver's point is spared for that receiver alone. A plant one
+    step outside the bed - on its shadow side - must still lose sun to it, or the fix
+    would have punched a hole in every bed's shadow.
+    """
+    bed = plot.bed(1000.0, 400.0)                       # y 400 … 520, 40 cm high
+    inside = plot.tomato("in the bed", 1100.0, 460.0)    # then detached: no link at all
+    plot.commands.execute(SetParentBedCommand(plot.scene, inside, bed.item_id, None))
+    north = plot.tomato("north of the bed", 1100.0, 535.0, radius=5.0)
+    south = plot.tomato("south of the bed", 1100.0, 385.0, radius=5.0)
+    assert inside.parent_bed_id is None and north.parent_bed_id is None
+    assert south.parent_bed_id is None
+    plot.compute()
+    assert plot.hours(inside) == pytest.approx(16.5, abs=ONE_SAMPLE_H)
+    assert plot.hours(north) is not None and plot.hours(north) < 16.5 - 4 * ONE_SAMPLE_H
+    assert plot.hours(south) is not None and plot.hours(south) < 16.5 - 4 * ONE_SAMPLE_H
+
+
+def test_a_wall_around_a_plant_still_shades_it(plot: Plot) -> None:
+    """Only a SOIL solid is spared, not anything that contains the point (#481).
+
+    The negative control for the containment rule: a 3 m wall drawn as a closed box
+    round a plant stands between it and the sun (a wall is not a soil container, so
+    ``is_solid_soil_parent`` is False and the plant is not spared). Sparing by
+    containment alone would call this plant sunny.
+    """
+    box = PolygonItem([QPointF(900.0, 300.0), QPointF(1300.0, 300.0),
+                       QPointF(1300.0, 700.0), QPointF(900.0, 700.0)],
+                      object_type=ObjectType.WALL, layer_id=plot.scene.active_layer.id,
+                      metadata={METADATA_KEY: 300.0})
+    plot.commands.execute(CreateItemCommand(plot.scene, box, "wall"))
+    inside = plot.tomato("inside the wall", 1100.0, 500.0)
+    plot.compute()
+    assert plot.hours(inside) is not None and plot.hours(inside) < 16.5 - 4 * ONE_SAMPLE_H
+
+
+def test_the_walk_marks_exactly_the_soil_solids_as_able_to_hold_plants(plot: Plot) -> None:
+    """The drift guard for #481: the walk's flag IS ``is_solid_soil_parent``, for every
+    caster — so a kind the predicate learns about is spared without a second list to
+    keep in step (the gap #621 found for cold frames and pots began as such a list).
+    """
+    bed = plot.bed(1000.0, 400.0)
+    plot.tomato("on the bed", 1100.0, 460.0)
+    container = CircleItem(1600.0, 400.0, 40.0, ObjectType.CONTAINER_ROUND,
+                           layer_id=plot.scene.active_layer.id)
+    container.metadata[METADATA_KEY] = 50.0
+    plot.commands.execute(CreateItemCommand(plot.scene, container, "pot"))
+    plot.tomato("in the pot", 1600.0, 400.0, radius=10.0)
+    trellis = PolygonItem([QPointF(400.0, 900.0), QPointF(700.0, 900.0),
+                           QPointF(700.0, 1100.0), QPointF(400.0, 1100.0)],
+                          object_type=ObjectType.TRELLIS, layer_id=plot.scene.active_layer.id,
+                          metadata={METADATA_KEY: 180.0})
+    plot.commands.execute(CreateItemCommand(plot.scene, trellis, "trellis"))
+    plot.wall(100.0, 300.0, 2000.0)
+
+    snapshot = collect_exposure_snapshot(plot.scene, dict(BERLIN), DAY)
+    by_id = {str(item.item_id): item for item in plot.scene.items()
+             if hasattr(item, "item_id")}
+    checked = 0
+    for caster in snapshot.casters:
+        item = by_id[caster.item_id]
+        expected = is_solid_soil_parent(item.object_type, item.metadata)
+        assert caster.holds_plants is expected, item.object_type
+        checked += 1
+    assert checked >= 4
+    assert {by_id[c.item_id].object_type for c in snapshot.casters if c.holds_plants} == {
+        ObjectType.RAISED_BED, ObjectType.CONTAINER_ROUND}
+    assert bed.item_id is not None
 
 
 def test_where_a_plant_stands_is_part_of_what_an_estimate_was_computed_for(plot: Plot) -> None:

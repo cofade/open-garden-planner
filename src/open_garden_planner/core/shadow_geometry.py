@@ -43,6 +43,13 @@ polygons. The union of that annulus with the footprint and the translated
 footprint (all CCW, PFT_NONZERO) is the exact filled sweep for convex AND
 concave footprints; a translate-in-N-steps fallback covers builds where the
 binding misbehaves (visually identical at garden scale).
+
+One caster is one REGION, not one ring (issue #444). A fence or wall stroke
+that closes on itself is an outer ring plus a hole, and a self-crossing
+outline is two lobes: both are repaired once per walk by ``shadow_region``,
+which hands the sweep simple rings only. A hole swept as a solid would cast the
+enclosed garden as a slab (88.8 m² instead of 17.5 m² for a 10 m x 8 m loop),
+and a figure-eight swept as one ring loses a lobe.
 """
 
 from __future__ import annotations
@@ -172,6 +179,59 @@ def base_offset_cm(base_cm: float | None, elevation_deg: float) -> float:
     if base_cm is None or not math.isfinite(base_cm):
         return 0.0
     return shadow_length_cm(base_cm, elevation_deg) or 0.0
+
+
+#: How far a ring's printed area may differ from the area its own outline
+#: encloses before the ring is treated as a self-crossing one — one grid step
+#: of the 1/1000 cm grid, squared, with room for the integer rounding of a
+#: long outline (issue #444).
+_RING_AREA_SLACK = 0.5
+
+
+def shadow_region(footprints: Iterable[Sequence[Point]]) -> list[Polygon]:
+    """The ground ONE caster covers, as rings that are all simple (#444).
+
+    ``footprints`` is a caster's whole set for one item — ``item_footprints``
+    output, e.g. a fence's stroke: an outer ring and its hole. Two shapes the
+    sweep cannot take as they come are repaired here, once, where the item is
+    still known:
+
+    - **A stroke that closes on itself** comes back from an offset as an outer
+      ring and a hole ring. Swept as two solids the hole becomes a slab the
+      size of the enclosed garden: a 10 m x 8 m loop at a 60° sun drew 88.8 m²
+      instead of 17.5 m². The hole is cut open by a zero-width slit to the
+      nearest boundary above it, so the item is ONE simple ring whose region is
+      exactly the stroke's — the slit encloses no ground and the sweep of the
+      region is unchanged (measured against a ray oracle: no cell differs).
+    - **A self-crossing ring** (a polygon whose outline crosses itself) is
+      split by ``SimplifyPolygons`` into its lobes, which are then swept as the
+      separate solids they are: a bow-tie at a 60° sun drew 80,000 cm² where
+      its two lobes' prisms give 129,282 cm².
+
+    A ring that is already simple is returned **as it is** — the very same point
+    list, whatever its winding: that is the case of everything on the ground in
+    ``tests/fixtures/shadows/shadow_golden.json``, which stays bit-for-bit (the
+    golden's stated rule). Roles come from the sign of the enclosed area —
+    outers counter-clockwise, holes clockwise — which is what every
+    ``pyclipper`` offset hands out.
+
+    Callers: the two caster walks (``collect_identified_casters``, which the
+    overlay's ``collect_shadow_casters`` flattens) ask this once per item per
+    walk. The sweep functions themselves take simple rings — one item's ring
+    set is not recoverable from a single ring, and a hole passed on its own
+    would be cast as a solid.
+    """
+    rings = [list(footprint) for footprint in footprints if len(footprint) >= 3]
+    if not rings:
+        return []
+    int_rings = [_to_int(ring) for ring in rings]
+    if not _region_needs_repair(int_rings):
+        return rings
+    regions: list[Polygon] = []
+    simple = pyclipper.SimplifyPolygons(int_rings, pyclipper.PFT_EVENODD)
+    for outer, holes in _group_holes_int(simple):
+        regions.append(_from_int(_bridge_holes_int(outer, holes) if holes else outer))
+    return regions
 
 
 def shadow_polygon(
@@ -373,3 +433,103 @@ def _union_int(
     return clipper.Execute(
         pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO
     )
+
+
+# ── one caster's ring set as simple rings (issue #444) ────────────
+
+
+def _region_needs_repair(rings: list[list[tuple[int, int]]]) -> bool:
+    """Is this ring set already one simple ring per piece?
+
+    Two things need the repair: a ring set in which some ring encloses a NEGATIVE
+    area (a hole — the stroke of a fence that closes on itself), and a ring whose
+    own printed area is not what its outline encloses (a self-crossing outline,
+    which ``SimplifyPolygons`` splits into its lobes). A LONE ring is never a hole,
+    whatever its winding: a solid drawn clockwise is a solid, and the sweep already
+    normalises a ring's winding. Everything else is left alone, point for point —
+    the rule ``tests/fixtures/shadows/shadow_golden.json`` pins for the ground.
+    """
+    for ring in rings:
+        area = pyclipper.Area(ring)
+        lobes = pyclipper.SimplifyPolygons([ring], pyclipper.PFT_EVENODD)
+        if sum(pyclipper.Area(lobe) for lobe in lobes) - abs(area) > _RING_AREA_SLACK:
+            return True
+    return len(rings) > 1 and any(pyclipper.Area(ring) < 0 for ring in rings)
+
+
+def _group_holes_int(
+    rings: list[list[tuple[int, int]]],
+) -> list[tuple[list[tuple[int, int]], list[list[tuple[int, int]]]]]:
+    """``[(outer, [its holes]), ...]`` — roles from the enclosed area's sign.
+
+    A ring with a negative area is a hole and is attached to the first outer
+    ring that contains it (``pyclipper``'s offsets always nest them). A negative
+    ring that is inside NO outer is not a hole of this region at all — a caller
+    passed it on its own — so it is kept as a piece of its own, reversed;
+    dropping it would lose ground, and the region it describes is the same ring.
+    """
+    outers: list[list[tuple[int, int]]] = []
+    holes: list[list[tuple[int, int]]] = []
+    for ring in rings:
+        if pyclipper.Area(ring) < 0:
+            holes.append(ring)
+        else:
+            outers.append(ring)
+    groups: list[tuple[list[tuple[int, int]], list[list[tuple[int, int]]]]] = [
+        (outer, []) for outer in outers
+    ]
+    for hole in holes:
+        for outer, hole_list in groups:
+            if pyclipper.PointInPolygon(hole[0], outer) != 0:
+                hole_list.append(hole)
+                break
+        else:
+            groups.append((list(reversed(hole)), []))
+    return groups
+
+
+#: X offsets tried, in grid steps, to place a bridge's vertical ray off a
+#: vertex. 0 first (a straight bridge), then the nearest clear columns.
+_BRIDGE_RAY_OFFSETS = (0, 1, -1, 2, -2, 3, -3, 4, -4)
+
+
+def _bridge_holes_int(
+    outer: list[tuple[int, int]], holes: list[list[tuple[int, int]]]
+) -> list[tuple[int, int]]:
+    """One simple ring: each hole cut open along a zero-width slit (#444).
+
+    A vertical slit runs from the hole's topmost vertex to the nearest boundary
+    above it, and the ring visits it down and up again. The slit encloses no
+    area, so the ring's region is exactly ``outer - holes`` — the shadow of the
+    stroke, not of a slab. The nearest boundary above a hole's topmost vertex is
+    always there: the hole is strictly inside the outer ring. Holes are bridged
+    from the highest down, so a lower hole's slit meets the boundary above it
+    (the outer's or a higher hole's) and the result stays simple.
+    """
+    ring = list(outer)
+    for hole in sorted(holes, key=lambda h: max(y for _x, y in h), reverse=True):
+        v_index = max(range(len(hole)), key=lambda i: (hole[i][1], hole[i][0]))
+        vx, vy = hole[v_index]
+        bridge: tuple[int, tuple[int, int]] | None = None
+        for offset in _BRIDGE_RAY_OFFSETS:
+            ray_x = vx + offset
+            best: tuple[int, tuple[int, int]] | None = None
+            for index in range(len(ring)):
+                a, b = ring[index], ring[(index + 1) % len(ring)]
+                if a[0] == b[0]:  # vertical: a vertical ray cannot cross it
+                    continue
+                if min(a[0], b[0]) <= ray_x <= max(a[0], b[0]):
+                    t = (ray_x - a[0]) / (b[0] - a[0])
+                    y = a[1] + t * (b[1] - a[1])
+                    if y > vy and (best is None or y < best[1][1]):
+                        best = (index, (ray_x, round(y)))
+            if best is not None:
+                bridge = best
+                break
+        if bridge is None:  # pragma: no cover - a hole is inside the outer by definition
+            raise ValueError("a hole in a caster's outline has no boundary above it")
+        index, cross = bridge
+        v = (vx, vy)
+        around_hole = hole[v_index + 1:] + hole[:v_index]
+        ring = ring[:index + 1] + [cross, v] + around_hole + [v, cross] + ring[index + 1:]
+    return ring
