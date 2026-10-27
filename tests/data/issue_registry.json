@@ -1254,6 +1254,11 @@
     "state": "OPEN",
     "title": "Two 3D render tests fail when the display is scaled (DPR 2.0, 1280x720 logical): a hard-coded 1.25 and a 1500x900 window"
   },
+  "610": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(US-F5): offline examples and portable templates (#316, #379)"
+  },
   "611": {
     "is_pr": false,
     "state": "OPEN",

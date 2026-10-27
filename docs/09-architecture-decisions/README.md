@@ -8339,7 +8339,7 @@ step fell from 71 to 3.2 luma at 403 m. It found two regressions of this pass, b
 
 ## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
 
-**Status:** Accepted for implementation; owner executable acceptance pending.
+**Status:** Accepted; owner executable acceptance confirmed on 27 October 2026; shipped in [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0) via [PR #610](https://github.com/cofade/open-garden-planner/pull/610).
 **Date:** 2026-10-26. The number follows ADR-065 (Phase 17 L4, #388), written at the same time on another branch.
 
 **Context.** A saved plan includes site and history data. Reusing it as a starting
