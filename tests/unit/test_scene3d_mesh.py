@@ -415,16 +415,21 @@ class TestDefaultBuilder:
 
     def test_the_prism_shows_the_items_fill_with_plan_uvs(self) -> None:
         """#628 follow-up: the raised shape keeps its texture. The part asks for the
-        item's fill picture and carries plan UVs (``position / 256``) on its top; its
-        walls wrap the same texture round the ring."""
+        item's fill picture and carries the canvas's phase — ``(position - paint_origin)
+        / 256`` on its top, a wrapped ``u`` on its walls — not raw record coordinates
+        (which are shifted by the anchor the snapshot writes as ``paint_origin``)."""
         from open_garden_planner.core.scene3d import PATTERN_TILE_CM
 
-        (part,) = default_builder(record(height_cm=100.0))
+        origin = (137.0, -42.0)
+        rec = record(height_cm=100.0,
+                     params=Params({"seed": "x", "paint_origin": origin}))
+        (part,) = default_builder(rec)
         assert part.fill_texture is True and part.tinted is False
         mesh = part.mesh
         top = mesh.normals[:, 2] > 0.999
         assert top.any() and not top.all()
-        assert np.allclose(mesh.uvs[top], mesh.positions[top][:, :2] / PATTERN_TILE_CM)
+        expected = (mesh.positions[top][:, :2] - np.asarray(origin)) / PATTERN_TILE_CM
+        assert np.allclose(mesh.uvs[top], expected)
         assert not np.allclose(mesh.uvs[~top], 0.0), "the walls must sample the texture too"
 
     def test_a_fill_part_is_vc_only_and_untinted(self) -> None:

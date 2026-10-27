@@ -635,7 +635,6 @@ class Quick3DHost:
                 self._destroy(part)
             except Exception as error:  # noqa: BLE001 - finish the teardown, then report
                 failures.append(error)
-        self._forget_fill_textures()  # no Model shows a fill picture any more
         steps: tuple[Callable[[], None], ...] = (
             lambda: self.set_sun(None), lambda: self.set_ground(None),
             lambda: self.set_selection_ring(None))  # the ring is no item's: hidden, not destroyed
@@ -645,10 +644,13 @@ class Quick3DHost:
             except Exception as error:  # noqa: BLE001 - as above
                 failures.append(error)
         if failures:
+            # a Model the engine could not destroy may still show a picture: keep them
+            # all until a clear() that finishes (a freed texture under a live Model is white)
             raise EngineError(
                 f"clear(): {len(failures)} of {total + len(steps)} steps failed; the engine still holds "
                 f"{len(self._parts)} Model(s), and so do the host's books. First: "
                 f"{failures[0]}") from failures[0]
+        self._forget_fill_textures()  # no Model shows a fill picture any more
 
     def pose_part(self, handle: object, pose: EnginePose) -> None:
         self._open("pose_part")
@@ -681,7 +683,9 @@ class Quick3DHost:
             return
         _set(model, "patternMap", texture)
         _set(model, "tint", QColor(255, 255, 255))       # the picture carries the colour
-        _set(model, "tintLinear", QVector3D(1.0, 1.0, 1.0))
+        # ... but a FADED part is a screen door with no picture (vcScreen samples no map):
+        # it ghosts in the fill colour, not white (FR-3D-BUILT-09)
+        _set(model, "tintLinear", QVector3D(*tint_uniform(tint_rgba)))
 
     def release_fill(self, pattern: str | None, tint_rgba: Rgba) -> None:
         """No Model shows that fill any more: let its picture (and data) go."""

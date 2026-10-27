@@ -34,7 +34,7 @@ from numpy.typing import NDArray
 
 from .mesh import Mesh, MeshError, MeshPart
 from .polygon import Region, ccw, cut_region, cw, is_flat_ring
-from .record import PATTERN_TILE_CM, Material, Record, Ring, Transform
+from .record import PARAM_PAINT_ORIGIN, PATTERN_TILE_CM, Material, Record, Ring, Transform
 
 Builder: TypeAlias = Callable[[Record], tuple[MeshPart, ...]]
 
@@ -74,16 +74,17 @@ def item_seed(item_id: str, salt: str = "") -> int:
 
 
 def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[float],
-           uvs: list[float]) -> None:
+           uvs: list[float], uv_origin: tuple[float, float] = (0.0, 0.0)) -> None:
     """Two triangles per edge with the flat normal on the RIGHT of the direction
     of travel: outward for a counter-clockwise outer ring, into the hole - away
     from the solid - for a clockwise hole ring. The UVs wrap the fill texture
     round the ring (one cm of travel per cm of texture) and up it: ``u`` counts
-    the distance along the ring, ``v`` the height, both / ``PATTERN_TILE_CM``.
+    the distance along the ring from the first vertex's own texture phase
+    (``x - uv_origin[0]``), ``v`` the height, both / ``PATTERN_TILE_CM``.
     A prism that shows its item's fill texture therefore reads as one material on
-    every face; the top's own UVs are its plan coordinates."""
+    every face; the top's own UVs are its plan coordinates less the anchor."""
     n = len(ring)
-    travelled = 0.0
+    travelled = ring[0][0] - uv_origin[0] if n else 0.0
     for i in range(n):
         x1, y1 = ring[i]
         x2, y2 = ring[(i + 1) % n]
@@ -128,7 +129,8 @@ def _as_ring(points: Sequence[Sequence[float]]) -> Ring:
 
 
 def prism_mesh(
-    footprints: Sequence[Ring], height_cm: float, holes: Sequence[Sequence[Ring]] = ()
+    footprints: Sequence[Ring], height_cm: float, holes: Sequence[Sequence[Ring]] = (),
+    *, uv_origin: tuple[float, float] = (0.0, 0.0),
 ) -> Mesh:
     """Item-local prism(s) from z = 0 up to ``height_cm``: one solid per region.
 
@@ -137,6 +139,13 @@ def prism_mesh(
     Each region gets walls around its outer ring, walls around every hole facing
     into the hole, and a cap that covers the outer MINUS the holes. Neutral white
     vertex colours (a tinted part), flat normals, no bottom cap.
+
+    ``uv_origin``: the item's ``params["paint_origin"]`` — the anchor its record
+    coordinates are measured from. The fill texture's phase is ``position - anchor``
+    (the canvas anchors it at the item's own origin and the ground bake reproduces
+    exactly that), so a cap samples ``(x - ox) / PATTERN_TILE_CM`` and a wall's
+    ``u`` starts at the first ring vertex's own phase. (0, 0) for a caller with no
+    record.
 
     A hole-free ring of fewer than ``polygon.ARRAY_EAR_CLIP_FROM`` (256) vertices
     produces exactly the vertices of the Qt 3D view's ``extrude_footprint`` (same
@@ -177,9 +186,9 @@ def prism_mesh(
         outer = ccw(ring)
         inner = tuple(cw(_as_ring(hole)) for hole in (holes[index] if len(holes) else ()))
         vertices, triangles = cut_region(outer, inner)  # raises ValueError: no wrong cap, ever
-        _walls(outer, height_cm, positions, normals, uvs)
+        _walls(outer, height_cm, positions, normals, uvs, uv_origin)
         for hole in inner:
-            _walls(hole, height_cm, positions, normals, uvs)
+            _walls(hole, height_cm, positions, normals, uvs, uv_origin)
         for triangle in triangles:
             (ax, ay), (bx, by), (cx, cy) = (vertices[vertex] for vertex in triangle)
             reach = max(abs(ax), abs(ay), abs(bx), abs(by), abs(cx), abs(cy))
@@ -189,7 +198,8 @@ def prism_mesh(
             for x, y in ((ax, ay), (bx, by), (cx, cy)):
                 positions.extend((x, y, height_cm))
                 normals.extend((0.0, 0.0, 1.0))
-                uvs.extend((x / PATTERN_TILE_CM, y / PATTERN_TILE_CM))  # the canvas's phase
+                uvs.extend(((x - uv_origin[0]) / PATTERN_TILE_CM,
+                            (y - uv_origin[1]) / PATTERN_TILE_CM))  # the canvas's phase
     if not positions:
         return Mesh.empty()
     count = len(positions) // 3
@@ -200,6 +210,22 @@ def prism_mesh(
         uvs,
         np.arange(count, dtype=np.uint32),
     )
+
+
+def uv_origin_of(record: Record) -> tuple[float, float]:
+    """The item's fill-texture anchor in its own coordinates — ``(0, 0)`` when the
+    record carries none (a hand-made record, a kind never painted on the ground).
+
+    ``params["paint_origin"]`` is written by the snapshot for every item the ground
+    bake paints: it is the record's anchor (a rectangle's centre, a circle's centre)
+    in item coordinates, and the canvas's fill texture is phased from it.
+    """
+    origin = record.params.get(PARAM_PAINT_ORIGIN)
+    if isinstance(origin, tuple) and len(origin) == 2:
+        first, second = origin
+        if isinstance(first, float) and isinstance(second, float):
+            return (first, second)
+    return (0.0, 0.0)
 
 
 def default_builder(record: Record) -> tuple[MeshPart, ...]:
@@ -217,7 +243,8 @@ def default_builder(record: Record) -> tuple[MeshPart, ...]:
     """
     if record.height_cm is None:
         return ()
-    mesh = prism_mesh(record.footprints, record.height_cm, record.holes)
+    mesh = prism_mesh(record.footprints, record.height_cm, record.holes,
+                      uv_origin=uv_origin_of(record))
     if not mesh.vertex_count:
         return ()
     return (MeshPart(mesh, "vc", casts_shadow=True, fill_texture=True, name="prism"),)

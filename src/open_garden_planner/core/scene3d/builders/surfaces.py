@@ -41,7 +41,7 @@ from typing import Final, NamedTuple
 import numpy as np
 from numpy.typing import NDArray
 
-from ..build import BuilderRegistry, default_builder, item_seed, prism_mesh
+from ..build import BuilderRegistry, default_builder, item_seed, prism_mesh, uv_origin_of
 from ..mesh import Mesh, MeshPart
 from ..polygon import cut_region
 from ..record import (
@@ -476,7 +476,8 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
                 if mesh.vertex_count else ()
         # not a deck: the platform shows the item's own fill - a raised driveway or
         # terrace keeps the texture the ground bake painted while it lay flat (#628)
-        mesh = prism_mesh(record.footprints, top, record.holes)
+        mesh = prism_mesh(record.footprints, top, record.holes,
+                          uv_origin=uv_origin_of(record))
         return (MeshPart(mesh, "vc", fill_texture=True, name="platform"),) \
             if mesh.vertex_count else ()
     boarded = _deck(record, DECK_TOP_CM, solid=False) if deck else None

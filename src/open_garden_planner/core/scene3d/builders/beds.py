@@ -45,7 +45,7 @@ from ...container_model import (
     container_material,
 )
 from ...object_height import soil_surface_cm
-from ..build import BuilderRegistry
+from ..build import BuilderRegistry, uv_origin_of
 from ..mesh import Mesh, MeshPart
 from ..record import PARAM_CONTAINER_MATERIAL, PARAM_RADIUS_CM, SHAPE_CIRCLE, Record
 from . import palette
@@ -124,13 +124,14 @@ def thickness_cm(ring: F64, nominal_cm: float) -> float:
 
 
 def soil_mesh(ring: F64, thickness: float, soil_cm: float, *,
-              fill_texture: bool = False) -> Mesh:
+              fill_texture: bool = False,
+              uv_origin: tuple[float, float] = (0.0, 0.0)) -> Mesh:
     """The soil: the footprint drawn in by the frame, at the soil surface ``soil_cm``.
 
     ``fill_texture``: the cap shows the item's own fill (a GARDEN_BED's soil
-    substrate, #628) — its UVs are the plan coordinates and its vertex colours
-    are white, so the sink's picture supplies the colour; otherwise the cap is
-    the builder's soil colour (a raised bed's or container's soil).
+    substrate, #628) — its UVs are the plan coordinates less ``uv_origin`` and its
+    vertex colours are white, so the sink's picture supplies the colour; otherwise
+    the cap is the builder's soil colour (a raised bed's or container's soil).
     """
     if soil_cm < MIN_SOIL_CM:
         return Mesh.empty()
@@ -138,7 +139,7 @@ def soil_mesh(ring: F64, thickness: float, soil_cm: float, *,
     if signed_area(inner) <= 0.0:
         return Mesh.empty()
     if fill_texture:
-        return plan_cap(inner, soil_cm)
+        return plan_cap(inner, soil_cm, uv_origin=uv_origin)
     return polygon_cap(inner, soil_cm, palette.SOIL.linear)
 
 
@@ -182,7 +183,8 @@ def _box(record: Record, height_cm: float, material: str, *,
     soil = soil_surface_cm(record.kind, height_cm)  # a container: its height; an edged bed: 2 cm under
     walls = _frame(ring, height_cm, thickness, soil, rows=plank_rows(height_cm) if planked else 1,
                    foot_inset_cm=foot, face=palette.TINT, groove=palette.TINT)
-    soil_part = soil_mesh(ring, thickness, soil, fill_texture=soil_fill_texture)
+    soil_part = soil_mesh(ring, thickness, soil, fill_texture=soil_fill_texture,
+                          uv_origin=uv_origin_of(record))
     if soil_fill_texture:  # a garden bed's soil IS its 2D substrate: colour and pattern
         return (MeshPart(walls, "vc", tinted=True, name="walls"),
                 MeshPart(soil_part, "vc", fill_texture=True, name="soil"))

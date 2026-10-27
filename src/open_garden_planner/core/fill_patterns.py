@@ -23,13 +23,6 @@ _tinted_cache: dict[tuple["FillPattern", int], QPixmap] = {}
 # Maximum number of tinted texture cache entries before clearing
 _TINTED_CACHE_MAX = 200
 
-#: One fill texture is 256 x 256 px and the canvas lays it at 1 px = 1 cm, so a
-#: pattern repeats every 256 cm. The 3D top face's UVs use the same ruler
-#: (``core.scene3d.builders.primitives.PATTERN_TILE_CM`` is held equal by a test),
-#: and every shipped texture is 256 x 256 (pinned too): a resized texture would
-#: silently stretch the 3D pattern otherwise.
-PATTERN_TILE_CM = 256.0
-
 
 class FillPattern(Enum):
     """Available fill patterns for objects."""

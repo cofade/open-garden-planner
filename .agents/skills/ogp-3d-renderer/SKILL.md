@@ -335,9 +335,17 @@ lives now; the values production was drift-guarded against are frozen in
   texture behind (`PatternTexture.uploads` 1 -> 2, `textures_alive()` 0 after the removal).
   A `var`-typed map must bind as `patternMap ? patternMap : null`: `baseColorMap: patternMap`
   with no picture logs "Unable to assign [undefined] to QQuick3DTexture*" and fails the render
-  gate (PF-L3D-16). UVs are plan coordinates / 256 on a cap and distance-along-the-ring /
-  height on the walls; the wall wrap has one seam on an edge, visible only if the pattern has a
-  strong feature there.
+  gate (PF-L3D-16). UVs are `(position - paint_origin) / 256` on a cap — `paint_origin` is
+  the snapshot's `params["paint_origin"]`, the anchor the canvas phases the fill from; raw record
+  coordinates scored NCC 0.000 against the bake and 0.985 at the anchor shift — and
+  distance-along-the-ring / height on the walls (the wall wrap has one seam on an edge, visible
+  only if the pattern has a strong feature there). A `fill_texture` part is not tinted (the
+  picture carries the colour), but `set_part_fill` still writes `tintLinear` from the fill
+  colour: the X-ray screen door samples no picture, and a white tintLinear ghosted a faded lawn
+  white (max 255). The render gate `tests/integration/test_quick3d_render.py` measures a raised
+  GRASS square's top (std > 5 against a SOLID twin's < 0.5 at the same mean), the faded ghost
+  (max < 235) and the lifetime counts (1 picture, 2 after a recolour, 0 after the removal) —
+  a QML string match cannot see a white slab.
 
 - **ONE texture per `Texture` element, for life — a re-pointed `Texture` goes WHITE.** When a
   `QQuick3DTextureData` that a `Texture` once held is destroyed, Qt resets that element's

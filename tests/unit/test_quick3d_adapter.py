@@ -48,7 +48,7 @@ from open_garden_planner.ui.view3d.quick3d.adapter import (
     PartSpec,
     Quick3DSink,
 )
-from open_garden_planner.ui.view3d.quick3d.materials import WHITE
+from open_garden_planner.ui.view3d.quick3d.materials import WHITE, part_tint
 
 SQUARE = ((-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0))
 RED = Material("SHED", fill_rgba=(200, 30, 30, 255))
@@ -784,7 +784,7 @@ class TestThroughSceneSync:
         drawable mesh part of ``expected_state()``, with its pose and tint."""
         expected = sync.expected_state()
         want = sorted((item_id, index, engine_pose(held.transform),
-                       held.material.tint_rgba if part.tinted else WHITE)
+                       part_tint(part, held.material))
                       for item_id, held in expected.items.items()
                       for index, part in enumerate(held.parts) if part.mesh.vertex_count)
         have = sorted((p.spec.item_id, p.spec.part_index, p.pose, p.tint) for p in scene.parts)

@@ -29,6 +29,7 @@ from open_garden_planner.core.scene3d import sun_direction_scene as sun_directio
 from open_garden_planner.core.shadow_geometry import compute_scene_shadows, shadow_direction_scene
 from open_garden_planner.ui.view3d.quick3d.host import GRAPHICS_API_NAMES, RENDERING_APIS
 from open_garden_planner.ui.view3d.quick3d.look import NEUTRAL_DAY
+from open_garden_planner.ui.view3d.quick3d.shots import TopDownShot, top_down_pixel
 from tests.integration import quick3d_render_driver as driver
 from tests.integration.quick3d_render_support import (
     QML_SOURCE,
@@ -57,7 +58,7 @@ Run = tuple[dict[str, Any], Path]
 def run(tmp_path_factory: pytest.TempPathFactory) -> Run:
     out = tmp_path_factory.mktemp("quick3d_render")
     proc, result = run_driver(
-        out, "truth,materials,rest,states,edits,recovery,pick,sun,shown_materials")
+        out, "truth,materials,fill,rest,states,edits,recovery,pick,sun,shown_materials")
     assert proc.returncode == 0 and result.get("status") == "ok", failure_report(proc, out)
     return result, out
 
@@ -457,7 +458,7 @@ def test_our_projection_agrees_with_the_engines(run: Run) -> None:
 # ── G9: errors are loud; a clean run is silent ───────────────────────────────
 
 
-OFFSCREEN_SCENARIOS = ("truth", "materials", "rest")
+OFFSCREEN_SCENARIOS = ("truth", "materials", "fill", "rest")
 SHOWN_SCENARIOS = ("states", "edits", "recovery", "pick", "sun", "shown_materials")
 
 
@@ -668,3 +669,64 @@ def test_the_run_names_its_graphics_device(run: Run) -> None:
     expected = {"win32": "Direct3D11", "linux": "OpenGL"}.get(sys.platform)
     if expected is not None:
         assert {frame["graphics_api"] for frame in frames} == {expected}
+
+
+# ── #628 follow-up: the item's own fill on a raised solid ────────────────────
+
+#: The shot ``scenario_fill`` renders: the same 1000 x 400 top-down frame the owner's
+#: metric came from (two 300 cm squares at 40 cm, one GRASS and one SOLID).
+FILL_SHOT = TopDownShot((0.0, 0.0), 0.5)
+
+
+def _fill_box(rgb: np.ndarray, dpr: float, east_cm: float) -> tuple[slice, slice]:
+    """The interior of the square at ``east_cm`` in a rendered frame (device pixels)."""
+    x, y = top_down_pixel(east_cm, 0.0, FILL_SHOT, (rgb.shape[1], rgb.shape[0]), dpr)
+    half = 150.0 * FILL_SHOT.px_per_cm * dpr * 0.8   # 80 % of the half side: inside the top
+    return (slice(int(y - half), int(y + half)), slice(int(x - half), int(x + half)))
+
+
+def _fill_luma(rgb: np.ndarray) -> np.ndarray:
+    return 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
+
+
+def test_a_raised_solid_shows_the_items_own_fill(run: Run) -> None:
+    """The owner's metric, on the real engine: the patterned top varies, the flat twin
+    of the same colour does not, and both average the fill colour. A white slab — the
+    picture never reaching the Model — reads std 0.0 (PF-L3D-16)."""
+    fill = run[0]["scenarios"]["fill"]
+    rgb, dpr = _frame(run, fill["top"])
+    luma = _fill_luma(rgb)
+    grass = luma[_fill_box(rgb, dpr, -400.0)]
+    solid = luma[_fill_box(rgb, dpr, 400.0)]
+    print(f"\nfill: GRASS std {grass.std():.2f} mean {grass.mean():.1f}; "
+          f"SOLID std {solid.std():.2f} mean {solid.mean():.1f}")
+    assert grass.std() > 5.0, "the raised lawn is a flat colour: its fill picture is not on the Model"
+    assert solid.std() < 0.5, "a SOLID fill must stay flat"
+    assert abs(grass.mean() - solid.mean()) < 4.0, "the picture's mean must be the fill colour"
+
+
+def test_a_faded_raised_lawn_ghosts_in_its_colour_not_white(run: Run) -> None:
+    """X-ray fades a solid to a screen door of its COLOUR (FR-3D-BUILT-09). The door
+    samples no picture, so the fade's tint must be the fill colour: left white, the
+    ghost reaches 255 (measured before the fix)."""
+    fill = run[0]["scenarios"]["fill"]
+    rgb, dpr = _frame(run, fill["faded"])
+    ghost = _fill_luma(rgb)[_fill_box(rgb, dpr, -400.0)]
+    print(f"\nfaded fill: max {ghost.max():.1f} p90 {np.percentile(ghost, 90):.1f}")
+    assert ghost.max() < 235.0, "a white ghost: the faded fill part lost its colour"
+
+
+def test_one_fill_picture_per_pattern_and_colour(run: Run) -> None:
+    """The lifetime rule, on a live host: one picture per (pattern, colour), a recolour
+    makes the second and lets the first go, and a removal takes the last one — no
+    picture per colour left behind, and no geometry upload for a material change."""
+    lifetime = run[0]["scenarios"]["fill"]["lifetime"]
+    print(f"\nfill lifetime: {lifetime}")
+    assert lifetime == {
+        "alive_after_add": 1,
+        "uploads_after_add": 1,
+        "alive_after_recolour": 1,
+        "uploads_after_recolour": 2,
+        "geometry_uploads": 1,
+        "alive_after_remove": 0,
+    }

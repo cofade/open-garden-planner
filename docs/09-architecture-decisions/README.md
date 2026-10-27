@@ -1368,8 +1368,10 @@ part shows the item's own fill", and the sink supplies
 `_tint_texture`, RGBA8, opaque, its mean the fill colour) — as `vcPart`'s `baseColorMap`
 (the Model's `patternMap`). It is per (pattern, colour), shared and refcounted by the sink
 (`release_fill` with the last Model), so a recolour is a material update and leaves no texture
-behind. UVs are the item's plan coordinates / `PATTERN_TILE_CM` (256: the forge ships 256 px at
-1 px = 1 cm) on a cap, and distance along the ring / height on the walls; the fixed ruler is
+behind. UVs are `(position − paint_origin) / PATTERN_TILE_CM` on a cap — `paint_origin` is
+`params["paint_origin"]`, the anchor the canvas phases the fill from, so the solid shows the
+bake's own picture: NCC 0.988 at zero shift against it, 0.051 against a vertical mirror
+(measured 2026-10-27) — and distance along the ring / height on the walls; the 256 cm ruler is
 pinned against every shipped texture's size. A SOLID fill has no picture and shows its colour
 through the same `set_part_fill` call, so the two cases cannot diverge. A GARDEN_BED's soil cap
 is the item's fill too — the Properties panel calls it "Boden-Substrat" — while a raised bed's
@@ -1379,8 +1381,16 @@ and a container's soil stay the builder's palette soil, and a raised deck keeps 
 greyscale detail map per pattern with the fill colour as the tint — was rejected: an 8-bit
 texture has no value above white, so every texel brighter than the pattern's mean would clip.
 For soil those bright specks are what make it read as soil (the owner's L4 pass made the same
-point about the 2D fills). The picture costs 256 KB per (pattern, colour) actually in use, and
-the sink's refcount is what keeps that bounded.
+point about the 2D fills). The engine holds 256 KB per picture actually in use (the tinted
+QPixmap it is made from is another 256 KB, shared with the canvas and cleared with its
+200-entry cache), and the sink's refcount is what keeps the engine side bounded.
+
+**One tint rule.** `materials.part_tint` is the ONE answer every engine read-back compares
+against (the render driver, the engine test, the adapter's double): a `fill_texture` part is
+white when its pattern has a picture — the picture carries the colour — and the fill colour for
+SOLID. `set_part_fill` still writes `tintLinear` from the fill colour when `tint` is white,
+because the X-ray screen door samples no picture and must ghost in the colour: left at 1, a
+faded raised lawn measured a white ghost (max 255) instead of its green.
 
 **Measured** (dev box, Direct3D 11, 1000 × 400 top-down frame, two 300 cm squares at 40 cm): the
 GRASS square's top reads luma std **26.0**, the SOLID one **0.0**, at the same mean (121.3 /
@@ -1392,15 +1402,20 @@ re-pointing one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer
 
 **Pins.** `tests/unit/test_fill_patterns.py::TestThe3DFillPicture` (the picture is the canvas's:
 256 × 256 RGBA, opaque, mean = the fill; names resolve; every texture is 256 px);
-`tests/unit/test_scene3d_mesh.py` (the prism asks for the fill and carries plan UVs on its top
-and wrapped UVs on its walls; a fill part must be `vc`, untinted and not ground detail);
-`tests/unit/test_scene3d_builders.py::TestSoilRule` (a garden bed's soil is the item's fill, a
-container's is not); `tests/unit/test_scene3d_l4_surfaces.py` (a raised platform is a fill part,
-a raised deck is not); `tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill` (the picture
-reaches the engine, a recolour swaps it without an upload, one picture per key, released with
-its last user); `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`
-(the binding and the one-Texture-per-data rule). PF-L3D-16 records the traps, FR-3D-BUILT-09 and
-FR-SUN-02 state the rule, and `ogp-lush-cinematic`'s owner taste log holds the pass itself.
+`tests/unit/test_scene3d_mesh.py` (the prism asks for the fill and carries
+`(position − paint_origin) / 256` UVs on its top and wrapped UVs on its walls; a fill part
+must be `vc`, untinted and not ground detail); `tests/unit/test_scene3d_builders.py::TestSoilRule`
+(a garden bed's soil is the item's fill, a container's is not);
+`tests/unit/test_scene3d_l4_surfaces.py` (a raised platform is a fill part, a raised deck is
+not); `tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill` (the picture reaches the engine,
+a recolour swaps it without an upload, one picture per key, released with its last user);
+`tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture` (the binding and
+the one-Texture-per-data rule); and the render gate
+`tests/integration/test_quick3d_render.py` — the raised GRASS square's top std > 5 against a
+SOLID twin's < 0.5 at the same mean, a faded GRASS ghost below 235 (no white), and the live
+lifetime counts (1 picture, 2 after a recolour, 0 after the removal, geometry uploads 1).
+PF-L3D-16 records the traps, FR-3D-BUILT-09 and FR-SUN-02 state the rule, and
+`ogp-lush-cinematic`'s owner taste log holds the pass itself.
 
 ## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
 

@@ -206,8 +206,8 @@ preset and four distances, and in the top-down view.
 
 ### PF-L3D-16
 
-- **Rule:** A solid that should keep its 2D fill shows it through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — and every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it.
-- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`; `tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill`; `tests/unit/test_fill_patterns.py::TestThe3DFillPicture`; `tests/unit/test_scene3d_mesh.py`
+- **Rule:** A solid that should keep its 2D fill shows it through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — with UVs `(position - paint_origin) / 256` (the canvas's phase, its `params["paint_origin"]`). Every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it. A fill part's fade tint (`tintLinear`) is its fill colour even when the picture's `tint` is white: the screen door samples no picture.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`; `tests/unit/test_quick3d_adapter.py`; `tests/unit/test_fill_patterns.py`; `tests/unit/test_scene3d_mesh.py`; `tests/integration/test_quick3d_render.py`
 - **Source:** #628 follow-up (owner manual pass of #627), ADR-037 addendum
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -223,17 +223,26 @@ The picture is the canvas's, not an approximation: `core.fill_patterns.tinted_pa
 returns the same `_tint_texture` result the 2D brush uses (RGBA8, opaque, mean = the fill
 colour). A luminance map multiplied by a tint would have been simpler, but a byte texture has no
 value above white, so every highlight above the texture's mean would be clipped — for soil, the
-light specks that make it read as soil. UVs are plan coordinates / `PATTERN_TILE_CM` (256: the
-forge ships 256 px at 1 px = 1 cm) for a cap, and distance-along-the-ring / height for the walls.
+light specks that make it read as soil. `materials.part_tint` is the ONE tint rule the engine
+read-backs compare against; a recolour swaps the picture and uploads no geometry.
 
-Measured on the dev box, Direct3D 11, 1000 × 400 top-down frame of two 300 cm squares at 40 cm:
-the GRASS-patterned one reads luma std **26.0**, the SOLID one **0.0**, at the same mean
+**The phase was wrong in the first cut.** UVs from raw record coordinates scored NCC **0.000**
+against the bake and **0.985** at a 106 cm shift (the paint origin, 150 cm, mod 256), visible on
+DECKING, FLAGSTONE and BRICK and invisible on noise textures. The snapshot writes the anchor as
+`params["paint_origin"]`; a cap samples `(position - paint_origin) / 256` and a wall's `u`
+starts at the first vertex's own phase.
+
+**Measured** (dev box, Direct3D 11, 1000 × 400 top-down frame, two 300 cm squares at 40 cm): the
+GRASS-patterned one reads luma std **26.0**, the SOLID one **0.0**, at the same mean
 (121.3 / 120.8) — the texture is there and the average brightness is the fill colour.
 
 Traps, all measured: `baseColorMap: patternMap` (a `var`) logs the `undefined` warning above;
 a `Texture` re-pointed at a second data object renders white (§5 of `ogp-3d-renderer`), so a
 shared picture is created with its data at birth and the sink refcounts it — the host drops it
 with the last Model, which kept a recolour of a raised lawn from leaving one texture per colour
-behind (`PatternTexture.uploads` 1 → 2, `textures_alive()` back to 0 after a remove). The fade
-(X-ray) screen door does not sample the map: a ghosted raised surface loses its texture, which
-is visible only while it is a ghost.
+behind (`PatternTexture.uploads` 1 → 2, `textures_alive()` back to 0 after a remove). A
+`fill_texture` part is not `tinted`: the picture carries the colour, so a patterned part's Model
+tint is white — but its fade tint (`tintLinear`) must stay the fill colour, or the X-ray screen
+door (which samples no picture) ghosts white: measured max 255 before the fix. The engine holds
+256 KB per picture plus the 256 KB tinted QPixmap it was made from (shared with the canvas's
+200-entry cache).

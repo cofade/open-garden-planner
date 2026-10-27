@@ -255,14 +255,14 @@ class MeshPart:
     ("walls", "roof") for logs and tests.
 
     ``ground_detail`` (Phase 17 L4, ADR-065): the part is RELIEF on a surface the
-    ground bake paints - the stones of a stepping-stone path, the kerb of a
+    ground bake paints — the stones of a stepping-stone path, the kerb of a
     terrace, a lawn's blades, a pond's water. Such a part does not make its item a
     solid (``SceneSync.solid_ids``): the bake keeps painting the item's 2D picture
     under it. It is never picked (a click on a path or a lawn reaches the ground,
-    as before L4) and casts no shadow - the plan gives a surface no height.
+    as before L4) and casts no shadow — the plan gives a surface no height.
 
     ``fill_texture`` (#628 follow-up): the part shows the item's own FILL as the
-    canvas paints it - its fill pattern textured by its fill colour, or that
+    canvas paints it — its fill pattern textured by its fill colour, or that
     colour alone when the fill is SOLID. A ground surface given a height is no
     longer painted by the ground bake (it is a solid), so without this the owner
     saw a lawn turn into a flat green slab and a soil bed into a brown one. The

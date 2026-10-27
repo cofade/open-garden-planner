@@ -33,8 +33,14 @@ What the sink guarantees:
   creates. A geometry object is never handed to a second Model: the L0 spike
   measured a blank frame and 0/20 picks for that (``ogp-3d-renderer`` §2).
 - **A move or a recolour uploads nothing.** ``update_transform`` re-poses,
-  ``update_material`` re-tints (``materials.part_tint``); ``geometry_uploads``
-  counts every buffer handed to the engine, and neither call changes it.
+  ``update_material`` re-colours (``materials.part_tint`` — the one rule a fill part
+  changes: its picture carries the colour); ``geometry_uploads`` counts every buffer
+  handed to the engine, and neither call changes it.
+- **A fill part shows the item's own fill (#628 follow-up).** A part with
+  ``MeshPart.fill_texture`` gets ``EngineScene.set_part_fill`` with the item's pattern
+  and tint; the picture is one per (pattern, colour), shared, and the sink refcounts
+  it (``release_fill`` with the last Model that shows it). A recolour swaps the
+  picture and uploads no geometry.
 - **Errors are loud.** A protocol breach raises ``SinkProtocolError`` before the
   engine is touched; an engine error propagates (``SceneSync`` poisons itself).
 - **The selection ring is one mesh in one Model that is never destroyed (L1.8).**
@@ -366,9 +372,13 @@ class Quick3DSink:
             if part.fill_texture:
                 old_key, new_key = _fill_key(part, previous), _fill_key(part, material)
                 if old_key != new_key:
-                    assert new_key is not None  # a fill part always has one
-                    self._scene.set_part_fill(handle, *new_key)
+                    if new_key is None:  # _fill_key always answers for a fill part
+                        raise SinkProtocolError(
+                            f"update_material(): fill part {part.name!r} has no fill key")
+                    # in the books BEFORE a Model can show it; a failed set poisons the
+                    # sync, whose reset() clears these books with the engine
                     self._acquire(new_key)
+                    self._scene.set_part_fill(handle, *new_key)
                     if old_key is not None:
                         released.append(old_key)
         for key in released:  # after EVERY Model shows its new picture, not between two of them
