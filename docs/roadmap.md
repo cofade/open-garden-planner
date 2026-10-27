@@ -3484,3 +3484,31 @@ is **not** regenerated (measured: no hole-bearing caster in either bench plan). 
 and warned; it now reads **16.5 h**, and a plant one step outside the bed still loses sun
 to it (a per-receiver spare, not a hole in the bed's shadow). ADR-037 addendum "one
 caster's ring set is one REGION", ADR-056 addendum, FR-SUN-05/09/11, PF-DOM-28, §8.10.
+
+### A plant draws above the bed it stands in, linked or not (#629)
+
+Found by the owner on #627's manual pass: a raised bed, container, wall planter or trellis
+drawn AROUND a standing plant hid it in 2D — still visible in 3D, and its sun badge with it.
+The in-ground garden bed only looked immune because it is a ground surface in
+`GROUND_Z_RANGE`, under everything. The clamp that was meant to prevent this followed
+`parent_bed_id`, and drawing a bed around a plant makes no link (#443). Now a plant's
+stacking parent is its link, or the smallest plant-parent whose outline contains its stable
+centre; it is re-derived on add (only when the parent CAPTURES a plant: 600 childless bed
+adds stay at 0.24 s), on arrange, and after every command that can change containment
+(`Command.changes_containment`, not `changes_ground_band` — the geometry commands set that
+one False). Measured: 2.9 ms per command on bench_large (505 items) against 0.3 ms with the
+slot disconnected, and no shape work at all in a healthy layer. ADR-043 addendum,
+FR-STACK-10, PF-CAN-28.
+### Every item with a footprint can be given a height (#628)
+
+The Properties panel's Height field was gated on has_height_semantics, whose last clause
+for a type without a per-type default is "an explicit height already exists" — so the field
+that would create one could never appear. A generic polygon (the owner's star), an
+in-ground bed, a terrace, a pond, a lawn, a path and a driveway could not become solids
+without changing the object's TYPE (to Garage, with its look and 3D builder). The question
+now splits: the type-level predicate stays, and the panel asks
+shows_height_field(..., has_footprint=item_outline(item) is not None) — every footprint
+item gets the row, "Auto" (0) stays no height, so a ground surface keeps lying on the
+ground until someone types one (then lies_on_ground yields and it is a platform).
+Text, callouts, groups, arcs and beziers have no footprint and stay without the field.
+ADR-037 addendum, FR-SUN-02, PF-UI-29.

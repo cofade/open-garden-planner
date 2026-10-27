@@ -1328,5 +1328,15 @@
     "is_pr": true,
     "state": "OPEN",
     "title": "fix(#444, #481, #620): the 2D sun study's geometry and estimates"
+  },
+  "628": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A generic shape, an in-ground bed, a terrace or a pool cannot be given a height: the Height field can never appear"
+  },
+  "629": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A plant is hidden behind a raised bed, container, wall planter or trellis drawn around it (only the in-ground garden bed keeps it visible)"
   }
 }

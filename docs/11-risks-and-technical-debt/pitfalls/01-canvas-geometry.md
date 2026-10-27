@@ -255,3 +255,33 @@ A 600-command loop of one-item `CreateItemCommand`s produced 360 600 `refresh_lo
 - **Legacy:** none (new entry)
 
 The owner pass made gravel and dirt paths their fill textures, drawn as a texture-brush pen along the line. Every raster and PDF check passed, and the ground bake matched the canvas, but every gravel and dirt path came out of an SVG export as an opaque black bar, as wide as the path. `path_style_paint` serves the canvas, the ground bake, the minimap and every export, and its tests covered raster output only. The test now exports every `PathFenceStyle` to SVG, and the textured styles also to PNG and PDF.
+
+### PF-CAN-28
+
+- **Rule:** A parenting clamp must follow the GEOMETRY, not only the link: a plant renders above the plant-parent whose outline contains its stable centre, linked or not. When a visual guarantee can be satisfied by a category accident (a ground surface sitting under everything), check the guarantee on the categories where the accident does not apply.
+- **Pinned by:** `tests/integration/test_plant_above_parent_stacking.py::test_a_parent_drawn_around_a_standing_plant_keeps_it_on_top`; `tests/integration/test_plant_above_parent_stacking.py::test_a_plant_moved_into_a_bed_is_raised_by_the_command`; `tests/integration/test_plant_above_parent_stacking.py::test_a_healthy_layer_asks_no_shape_question`
+- **Source:** #629 (owner manual pass of #627)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`core.stacking.normalize_order` has clamped a CHILD immediately above its parent since
+#338, and the child relation it read was `parent_bed_id`. Drawing a bed AROUND a standing
+plant makes no link (#443), so the plant stayed below the new parent: hidden in 2D, drawn
+on the soil in 3D, and its sun badge hidden with it. The in-ground `GARDEN_BED` looked
+immune because it has no height and sorts into `GROUND_Z_RANGE` under everything — so the
+owner's "plants are always on top of beds" held only for the one type whose guarantee came
+from the ground band. The same bed with a stored height would have hidden the plant too.
+
+Measured before the fix: a plant added first and a `RAISED_BED`, `CONTAINER`,
+`CONTAINER_ROUND`, `WALL_PLANTER` or `TRELLIS` drawn around it left z(plant) 0.00001
+against z(parent) 0.00002. After: the clamp's parent is the link, or the smallest
+plant-parent containing the plant's centre; `_stack_entries` is still the one place that
+derives it, and a plant-parent's arrival re-derives the layer only when it CAPTURES a
+plant (`_parent_captures_a_plant`), which kept 600 childless bed adds at 0.24 s instead of
+2.12 s.
+
+Two traps to keep: `Command.changes_containment` is NOT the same gate as
+`changes_ground_band` — the commands that change containment (move/resize/rotate/vertex)
+are exactly the ones that set the ground-band flag False; and the per-command check must
+stay ONE-WAY ("is a plant below a containing parent"), because a two-way check would
+re-derive on every command in a healthy plan.

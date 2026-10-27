@@ -37,6 +37,16 @@ class Command(ABC):
     #: solid band (#592).
     changes_ground_band: bool = True
 
+    #: Whether executing or undoing this command can change which plant-parent CONTAINS
+    #: a plant, or move a plant inside/outside one — the geometric half of the stacking
+    #: clamp (#629). ``CanvasScene._restack_plant_containment`` skips its O(items) scan
+    #: for a command that says ``False``. Adds and deletes are neutral: a plant-parent's
+    #: arrival is handled synchronously by ``addItem`` (``_needs_synchronous_z_refresh``),
+    #: a new plant already lands on top, and a deletion cannot hide anything. A command
+    #: that moves, resizes, rotates, vertex-edits, groups or re-types an item must leave
+    #: this True (the default), or a bed grown around a plant leaves it behind the bed.
+    changes_containment: bool = True
+
     @property
     @abstractmethod
     def description(self) -> str:
@@ -3165,3 +3175,8 @@ _GROUND_BAND_NEUTRAL_COMMANDS: tuple[type[Command], ...] = (
 )
 for _ground_band_neutral in _GROUND_BAND_NEUTRAL_COMMANDS:
     _ground_band_neutral.changes_ground_band = False
+
+#: Commands that cannot change which plant-parent contains a plant (#629): an add is
+#: derived synchronously by `addItem` and a delete cannot hide anything.
+for _containment_neutral in (CreateItemCommand, CreateItemsCommand, DeleteItemsCommand):
+    _containment_neutral.changes_containment = False

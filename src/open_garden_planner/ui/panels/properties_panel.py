@@ -1612,10 +1612,17 @@ class PropertiesPanel(QWidget):
         now (#530), so there is no direct metadata write left in this panel.
         """
         from open_garden_planner.core import object_height as oh
+        from open_garden_planner.ui.canvas.footprints import item_outline
 
         if not hasattr(item, "object_type") or not hasattr(item, "metadata"):
             return
-        if not oh.has_height_semantics(item.object_type, item.metadata):
+        # Every item with a footprint can be GIVEN a height (#628): the field is the
+        # only way to set one, so gating it on "has a height semantic already" left a
+        # generic shape, an in-ground bed, a terrace or a pond unreachable. "Auto" (0)
+        # stays no height, so nothing changes until the user types one.
+        if not oh.shows_height_field(
+            item.object_type, item.metadata, has_footprint=item_outline(item) is not None
+        ):
             return
 
         height_spin = QDoubleSpinBox()

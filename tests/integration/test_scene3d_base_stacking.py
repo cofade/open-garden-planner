@@ -819,8 +819,14 @@ class TestTheLinkAloneNeverLifts:
             "app/application.py",           # the agent's re-link after move_object
         }
         assert users["centre_is_inside"] == {"app/application.py"}  # set_parent_bed's link_is_geometric
-        assert users["standing_point"] == {"ui/canvas/footprints.py"}  # the LIFT's point
-        assert users["contains_path"] == {"ui/canvas/footprints.py"}   # inside ItemLookup.shape_of
+        assert users["standing_point"] == {
+            "ui/canvas/footprints.py",      # the LIFT's point
+            "ui/canvas/canvas_scene.py",    # the stacking clamp asks the SAME point (#629)
+        }
+        assert users["contains_path"] == {
+            "ui/canvas/footprints.py",      # inside ItemLookup.shape_of
+            "ui/canvas/canvas_scene.py",    # the stacking clamp's per-call shape cache (#629)
+        }
         assert users["shape_of"] == {"ui/canvas/footprints.py"}        # inside item_base_cm
 
     @pytest.mark.parametrize(("source", "expected"), [
