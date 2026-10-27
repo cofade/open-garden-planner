@@ -19,7 +19,12 @@ import pytest
 from open_garden_planner.core import roof_style as rs
 from open_garden_planner.core.scene3d import DIMENSIONLESS_PARAMS, Params, verify_builder
 from open_garden_planner.core.scene3d.builders import buildings, production_registry
-from open_garden_planner.core.scene3d.builders.facade import SPECS, door_wall_index, facade
+from open_garden_planner.core.scene3d.builders.facade import (
+    SPECS,
+    door_wall_index,
+    facade,
+    window_columns,
+)
 from open_garden_planner.core.scene3d.builders.roofs import (
     MAX_HIP_CORNERS,
     eave_floor,
@@ -454,6 +459,46 @@ def test_a_door_wall_out_of_range_falls_back_to_the_front() -> None:
     assert _front(house({"ridge": RIDGE, "door_wall": 99})).mesh == _front(house({"ridge": RIDGE})).mesh
 
 
+def _panes(mesh, wall_y: float, low: float, high: float) -> list[float]:
+    """The centres (x) of the window panes on the wall at ``y = wall_y`` whose glass lies
+    between heights ``low`` and ``high``. A pane is a box: its vertices lie at two x
+    values, its two sides, so the sorted distinct x values pair up pane by pane."""
+    from open_garden_planner.core.scene3d.builders import palette
+
+    points = mesh.positions.astype(np.float64)
+    glass = np.isclose(mesh.colors.astype(np.float64), np.asarray(palette.GLASS_OCC.linear),
+                       atol=1e-5).all(axis=1)
+    on = glass & (np.abs(points[:, 1] - wall_y) < 2.0) & (points[:, 2] > low) & (points[:, 2] < high)
+    xs = sorted({round(float(x), 1) for x in points[on, 0]})
+    assert len(xs) % 2 == 0, xs
+    return [(xs[k] + xs[k + 1]) / 2.0 for k in range(0, len(xs), 2)]
+
+
+def test_a_long_wall_with_its_door_in_the_middle_gets_a_window_either_side() -> None:
+    """Owner, L4 manual pass: the studio's 5.2 m south wall had ONE window place, in
+    its middle, and the door took it — a blank wall beside the door. Now the ground
+    row is spaced on each side of the door, and the upper row over both and the door."""
+    spec = SPECS["HOUSE"]
+    door = (260.0 - spec.door_w / 2.0 - 40.0, 260.0 + spec.door_w / 2.0 + 40.0)
+    assert window_columns(520.0, spec, door) == ([115.0, 405.0], [115.0, 260.0, 405.0])
+    assert window_columns(520.0, spec, None) == ([260.0], [260.0])  # no door: one, centred
+    # built: a 520 x 380 house, its door on the south wall (y = -190), tall enough
+    # under its hip roof for the upper row
+    record = house({"roof_style": "hip", "door_wall": 0}, ring=rectangle(520.0, 380.0), height=750.0)
+    front = _front(record).mesh
+    ground = _panes(front, -190.0, spec.sill, spec.sill + spec.window_h)
+    assert ground == pytest.approx([-145.0, 145.0], abs=1.0)  # 115 and 405 cm along the wall
+    upper_sill = spec.sill + spec.upper_row
+    assert _panes(front, -190.0, upper_sill, upper_sill + spec.window_h) == pytest.approx(
+        [-145.0, 0.0, 145.0], abs=1.0)
+
+
+def test_a_side_too_short_for_a_window_stays_blank() -> None:
+    spec = SPECS["HOUSE"]
+    door = (190.0 - spec.door_w / 2.0 - 40.0, 190.0 + spec.door_w / 2.0 + 40.0)
+    assert window_columns(380.0, spec, door) == ([], [190.0])  # 40 cm each side: none
+
+
 def test_a_garage_gets_a_garage_door() -> None:
     assert SPECS["GARAGE_SHED"].garage and not SPECS["HOUSE"].garage
     mesh = facade("GARAGE_SHED", rectangle(400.0, 600.0), lambda p: np.full(len(p), 230.0), 0)
@@ -477,3 +522,16 @@ def test_the_facade_is_one_flat_mesh_call() -> None:
     calls = sum(count for (_file, _line, name), (count, *_rest) in stats.stats.items()  # type: ignore[attr-defined]
                 if name == "flat_mesh")
     assert calls <= 8  # the walls, the roof's pieces and ONE for the facade
+
+
+def test_a_house_is_drawn_in_its_3d_roofs_terracotta() -> None:
+    """Owner, L4 manual pass: a 2D house is its roof seen from above, in the 3D roof's
+    clay tiles — and its 3D walls do not take that colour (sandstone)."""
+    from open_garden_planner.core.object_types import OBJECT_STYLES, ObjectType
+    from open_garden_planner.core.scene3d.builders import palette
+
+    assert OBJECT_STYLES[ObjectType.HOUSE].fill_color.getRgb()[:3] == palette.ROOF_TILE.srgb
+    assert buildings.HOUSE_WALL is palette.SANDSTONE
+    walls = next(part for part in REGISTRY.build(house({"ridge": RIDGE})) if part.name == "walls")
+    assert not walls.tinted
+    assert np.allclose(walls.mesh.colors, np.asarray(palette.SANDSTONE.linear, dtype=np.float32), atol=1e-6)

@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-24T10:34:04.770554+00:00"
+    "modified": "2026-10-27T08:20:48.474167+00:00"
   },
   "canvas": {
     "width": 4000.0,
@@ -62,7 +62,7 @@
       "metadata": {
         "ridge_item_id": "e786d74b-d389-44c8-bc7a-399d5ce6d213"
       },
-      "fill_color": "#ffd2b48c",
+      "fill_color": "#ffb25a3e",
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 2.5,
       "fill_pattern": "ROOF_TILES",
@@ -584,7 +584,7 @@
       "metadata": {
         "ridge_item_id": "be0e49ea-2148-4cb4-847e-955e90722ba4"
       },
-      "fill_color": "#ffd2b48c",
+      "fill_color": "#ffb25a3e",
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 2.5,
       "fill_pattern": "ROOF_TILES",

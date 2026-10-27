@@ -5180,6 +5180,8 @@ only, and correct their heights with a fit after the fact.
    decoration, every part `casts_shadow=False`. A kind without a nominal height (an in-ground
    bed) gets no solid. (Honestly: this path is almost never taken. The snapshot already resolves
    a height for every registered kind but `GARDEN_BED`, so only hand-made records reach it.)
+   *Superseded for 3D by the owner in L4 (ADR-065, "Owner's manual pass"): what is built
+   casts in 3D; the 2D sun study keeps "no height, no shadow".*
 4. **A gable roof is two planes through the ridge LINE** (`roofs.gable_roof`):
    `z = top − cap rise − slope·|distance to the line|` over the footprint grown by the overhang.
    That is the model the 2D canvas paints (`_paint_with_ridge` splits the polygon along the
@@ -7671,14 +7673,13 @@ owner added that a path capped at 20 px is not a path.
    (`OBJECT_TRIANGLE_BUDGET` 4,000; slats, staves, bays and lattice cells are
    capped, so a hostile 9 km object stays bounded). Every object goes through
    `BuiltBuilder`: its top is its resolved height by construction.
-2. **An object without a height is decoration.** A parasol, fire pit, planter pot,
-   cold frame, rain barrel, water tap, swing, hammock or pergola has no 2D default
-   height (`core/object_height.py`). In 3D it is built at an illustrative height
-   (`core/object_height_estimate.py`, carried as `params["estimated_height_cm"]`,
-   as #557 does for plants) and **casts no shadow**, and the 2D sun study still
-   sees no caster. Unlike a #557 plant estimate, an object's shape is not a
-   silhouette the user would expect to shade the ground. Whether these objects
-   should cast shadows is an open owner question.
+2. **An object without a height is built at an illustrative one.** A parasol, fire
+   pit, planter pot, cold frame, rain barrel, water tap, swing, hammock or pergola has
+   no 2D default height (`core/object_height.py`). In 3D it is built at an
+   illustrative height (`core/object_height_estimate.py`, carried as
+   `params["estimated_height_cm"]`, as #557 does for plants), and the 2D sun study
+   sees no caster. It first cast no shadow in 3D either; the owner reversed that
+   (addendum "Owner's manual pass"): it casts in 3D, as a #557 plant estimate does.
 3. **Roof style is additive item metadata.** `roof_style` (gable, hip, shed, flat),
    `roof_pitch_deg` (5–60°) and `roof_overhang_cm` (0–150) on HOUSE, GARAGE_SHED and
    TOOL_SHED (`core/roof_style.py`). There is no FILE_VERSION bump: an older app
@@ -7698,8 +7699,8 @@ owner added that a path capped at 20 px is not a path.
    stays a transform only (ADR-059: "move → transform only").
 5. **Relief on painted ground is a `ground_detail` part.** Stepping stones (where
    the 2D painter's walk places them, slid onto the path at its ends and dropped at a
-   bend they would overhang), boardwalk planks, paving kerbs, gravel edging and
-   pebbles, terrace kerbs or deck boards, a pond's water and coping, and lawn blades
+   bend they would overhang), boardwalk planks, paving kerbs, gravel edging (its
+   pebbles went in the owner's manual pass), terrace kerbs or deck boards, a pond's water and coping, and lawn blades
    are `MeshPart(ground_detail=True)`. Such a part casts no shadow (enforced in
    `MeshPart`), is never picked and never makes its item a solid, so the ground
    bake still paints the item and the 2D picture stays the ground. A surface the
@@ -8174,3 +8175,66 @@ had only moved the failing views.
   (Object height's source) explain themselves in a tooltip too.
 - The merge commit's message says "three unused noqa directives". There were nine, in
   four files. The merge commit is pushed and not rewritten; ruff is clean.
+
+**Owner's manual pass (2026-10-27).** The owner ran the checklist on the frozen exe:
+everything passed except two path styles. They answered the eight questions:
+1. **Objects without a height cast in 3D.** "In 3D they are also displayed with some
+   height." Decision 2 is reversed for 3D: `BuiltBuilder` no longer clears
+   `casts_shadow` on a build at a nominal or estimated height (and ADR-059's L1.6
+   decision 3, "no height, no shadow", holds for the 2D sun study only). The 2D sun
+   study and the hours-of-sun map are unchanged: the plan holds no height, as for a
+   #557 plant estimate.
+2. **Detail-normal strength:** not decided. The owner asked how to see it; the PR
+   shows the same walk-height views at 1.0 and 3.0. The value stays 1.0.
+3. **Roof colour: "2D should also be terracotta."** The HOUSE's default fill is now
+   the 3D roof tiles' `palette.ROOF_TILE` (178, 90, 62), so a new house is the same
+   terracotta in 2D and 3D. The 3D roof keeps its own material, as the owner chose
+   over "follow the item colour". The walls took the fill colour, which would have
+   made a new house one terracotta block. A house's walls are now
+   `palette.SANDSTONE` (196, 174, 134), close to the tan the default walls had
+   (210, 180, 140). A shed's walls still take its fill. A house's 2D colour no
+   longer changes its 3D walls. Saved plans keep their stored fill, so an older
+   house stays tan in 2D.
+4. **Object porosity:** kept. Tables, the grill, the greenhouse and the trampoline
+   cast their members' shadows in 3D, as fences do.
+5. **Windows beside a centred door: yes.** `facade.window_columns` spaces the
+   ground row on each side of the door's clear stretch. The upper row runs over
+   those windows and over the door. Before, a 5.2 m wall had one window place, in
+   its middle, and the door took it.
+6. **The fog follows the camera.** "When entering the 3D view, I usually only ever
+   see fog, until I zoom in." The fog's 26 m and 160 m were fixed, so a plan framed
+   from 80 m lay a third of the way into it.
+   - `look.fog_depth_cm(distance)` begins the fog at 1.5 times the camera's distance
+     to its target and makes it full at 6 times that.
+   - The floors are the old 26 m and 160 m, so close views keep their reviewed look.
+   - The fog is full by 760 m, so the meadow's cut at the 800 m far plane stays hidden.
+   - Near that cap the fog begins at most three quarters of the way to it.
+   - `Quick3DHost.set_camera` sets `fogNear` and `fogFar`.
+   - Five plan sizes and aspects lie in front of the fog from their framing distance
+     and from three times it (`TestFogDepth`).
+7. **The silent overhang clamp is acceptable.** #612 is closed.
+8. **The "mushroom" shed stays** an honest result of its input.
+
+**Owner finding: soil and gravel did not look like soil and gravel.** The 2D
+painters were made for 6–10 cm lines:
+- gravel was the colour at 100 / 255 over the ground, so a gravel path on a lawn was
+  green, with stipple dots;
+- dirt was the colour at 140 / 255, with a darker core.
+
+The ground bake paints what the canvas paints, so 3D showed the same.
+- **Painters:** both are now their fill textures (`FillPattern.GRAVEL` / `SOIL`, 1 px =
+  1 cm in the item's frame, tinted like an area), opaque.
+- **Gravel edging:** the stroke's own rim, the 3D edging's width and shade (three
+  constants, held equal by a test). Two offset lines drew a spike inside every bend
+  (#605 for gravel).
+- **Dirt margin:** a faint 3 cm margin.
+- **Dirt preset:** new dirt paths start in the sprites' light soil (125, 92, 62);
+  150, 110, 60 read orange over the texture.
+- **3D relief:** the gravel pebbles are gone. They read as little tents on a lawn, and
+  the texture is the gravel.
+- **Element budget tests:** gravel's dots were the densest walk, so the bake's
+  element-budget tests now use a chain-link path 5 cm wide, which places an element
+  every 4 cm, the dots' spacing. The hostile numbers hold unchanged (5 × 16,001 steps).
+- **Pin:** `test_gravel_and_dirt_are_their_textures_and_hide_what_lies_under` renders
+  each path over white and over black. Its inside must be the same picture with the
+  texture's grain, and the old painters fail it.

@@ -12,9 +12,11 @@ it casts no shadow (the plan gives a surface no height).
   STEPPING_STONES — bevelled stones, 0.8 × 0.6 of the width, every 1.8 widths;
   WOODEN_BOARDWALK — planks across the path every 0.35 widths on two stringers;
   PAVED_PATH — a kerb along both edges; GRAVEL_PATH — a dark edging along both
-  edges and scattered pebbles; DIRT_PATH and a plain line — nothing: they are
+  edges (the 2D painter's rim); DIRT_PATH and a plain line — nothing: they are
   flat. All in the line's own colour (``tinted``), the 2D painter's shading
-  as weights.
+  as weights. Gravel and earth are their TEXTURES, painted by the ground bake
+  (L4 manual pass: the pebbles once scattered on a gravel path read as little
+  tents on a lawn, not as gravel).
 - **TERRACE_PATIO, DRIVEWAY**: a kerb inside the outline. A decking or wood
   pattern (``params["surface_pattern"]``) makes it a DECK: boards with gaps
   across the outline. A terrace the user gave a HEIGHT is a raised deck or
@@ -81,6 +83,12 @@ WATER_CM: Final = 1.0
 COPING_IN_CM: Final = 13.0
 COPING_OUT_CM: Final = 7.0
 COPING_UP_CM: Final = 7.0
+#: A gravel path's edging: at most this wide (cm) and this share of the path's width,
+#: in the line's colour times this — the rim the 2D painter draws
+#: (``ui/canvas/items/path_style_paint.py`` holds the same three, a test both).
+GRAVEL_EDGE_CM: Final = 2.5
+GRAVEL_EDGE_SHARE: Final = 0.04
+GRAVEL_EDGE_SHADE: Final = 0.55
 
 #: Blades per square metre of lawn, and at most this many per lawn (a large lawn
 #: gets a sparser sward rather than an unbounded mesh: 3 triangles a blade).
@@ -93,7 +101,7 @@ MAX_BLADES: Final = 36_000
 #: rather than billions of grid points.
 MAX_SWARD_GRID: Final = 4 * MAX_BLADES
 MAX_SWARD_WORK: Final = 400_000_000
-#: The most stones, planks or pebbles one path gets: a path kilometres long gets
+#: The most stones or planks one path gets: a path kilometres long gets
 #: no relief rather than an unbounded mesh (the 2D pattern stays on the ground).
 MAX_PATH_ELEMENTS: Final = 2_000
 #: The most ROWS of deck boards one surface gets; beyond, each board is wider.
@@ -343,43 +351,11 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
         return _relief(_rails(walked, False, (-width / 2.0 + kerb / 2.0, width / 2.0 - kerb / 2.0), kerb,
                               min(KERB_CM, 0.05 * width), _shade(0.74)), "kerb")
     if style == "GRAVEL_PATH":
-        edge = min(2.5, 0.04 * width)
-        meshes = _rails(walked, False, (-width / 2.0 + edge / 2.0, width / 2.0 - edge / 2.0), edge,
-                        min(KERB_CM, 0.05 * width), _shade(0.55))
-        points, along = walk_path(walked, 25.0)
-        if 0 < len(points) <= MAX_PATH_ELEMENTS:
-            index = np.arange(len(points))
-            lateral = (((index * 7) % 5) - 2) / 2.0 * 0.4 * width  # the 2D stipple's own offsets
-            normal = np.stack([-along[:, 1], along[:, 0]], axis=1)
-            centres = points + normal * lateral[:, None]
-            size = np.asarray(2.5 + 1.5 * (index % 3) / 2.0, dtype=np.float64)
-            shades = (1.0, 0.84, 0.93)
-            meshes.append(_pebbles(centres, size, np.asarray([shades[i % 3] for i in index])))
-        return _relief(meshes, "gravel")
+        # the 2D rim's width and place (``path_style_paint.GRAVEL_EDGE_*``)
+        edge = min(GRAVEL_EDGE_CM, GRAVEL_EDGE_SHARE * width)
+        return _relief(_rails(walked, False, (-width / 2.0 + edge / 2.0, width / 2.0 - edge / 2.0),
+                              edge, min(KERB_CM, 0.05 * width), _shade(GRAVEL_EDGE_SHADE)), "gravel")
     return ()
-
-
-def _pebbles(centres: F64, radius: F64, shade: F64) -> Mesh:
-    """Low squashed octahedra (8 triangles each) at ``centres``."""
-    count = len(centres)
-    if not count:
-        return Mesh.empty()
-    r = np.broadcast_to(np.asarray(radius, dtype=np.float64), (count,))
-    height = 0.45 * r
-    ring = np.array([[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0], [0.0, -1.0]])
-    rim = centres[:, None, :] + ring[None, :, :] * r[:, None, None]
-    rim3 = np.concatenate([rim, np.broadcast_to((0.2 * height)[:, None, None], (count, 4, 1))], axis=2)
-    top = np.concatenate([centres, height[:, None]], axis=1)
-    bottom = np.concatenate([centres, np.zeros((count, 1))], axis=1)
-    triangles = []
-    for k in range(4):
-        a, b = rim3[:, k], rim3[:, (k + 1) % 4]
-        triangles.append(np.stack([a, b, top], axis=1))
-        triangles.append(np.stack([b, a, bottom], axis=1))
-    tri = np.stack(triangles, axis=1).reshape(-1, 3, 3)
-    colors = np.repeat(np.stack([shade, shade, shade, np.ones(count)], axis=1), 8, axis=0)
-    centre = np.repeat(np.concatenate([centres, (0.5 * height)[:, None]], axis=1), 8, axis=0)
-    return flat_mesh(tri, colors, outward=tri.mean(axis=1) - centre)
 
 
 # ── terraces, driveways, decks ───────────────────────────────────────────────

@@ -17,8 +17,8 @@ a table and a parasol. Asserted:
    ground tiles stay the painted lawn (its blades are ground detail);
 4. a path's width is its width on the ground: the panel sets it in cm up to 5 m, a
    style preset gives a real path width, and the 3D stones follow;
-5. an object without a height (the parasol) is BUILT at its illustrative height, casts
-   no shadow in 3D and none in the 2D sun study.
+5. an object without a height (the parasol) is BUILT at its illustrative height and
+   casts its shadow in 3D (owner, L4 manual pass), but none in the 2D sun study.
 
 Nothing is rendered: the sink is the recording double.
 """
@@ -331,14 +331,14 @@ def test_a_shape_s_outline_keeps_its_pixel_range(garden: Garden) -> None:
 # ── 5. an object without a height ────────────────────────────────────────────
 
 
-def test_a_parasol_is_built_at_its_illustrative_height_and_casts_no_shadow(garden: Garden) -> None:
+def test_a_parasol_is_built_at_its_illustrative_height_and_casts_in_3d_only(garden: Garden) -> None:
     pipeline = Pipeline(garden.scene)
     pipeline.tick()
     parasol_id = Garden.id(garden.parasol)
     record = pipeline.sync.records[parasol_id]
     assert record.height_cm is None  # the plan holds no height for it
     parts = pipeline.sink.item(parasol_id).parts
-    assert parts and not any(part.casts_shadow for part in parts)
+    assert parts and any(part.casts_shadow for part in parts)
     top = max(float(pipeline.posed(garden.parasol, part.name)[:, 2].max()) for part in parts)
     assert top == pytest.approx(ESTIMATED_OBJECT_HEIGHTS_CM["PARASOL"], rel=0.01)
     # the 2D sun study: no caster for it — and the table (a real height) is one

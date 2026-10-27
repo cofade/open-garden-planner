@@ -639,10 +639,10 @@ class TestBuiltBuilder:
         assert top_cm(parts) == 77.0 and parts[0].casts_shadow
         assert builder.fit_scale(_record("FENCE", 77.0)) == 1.0
 
-    def test_no_height_is_decoration_at_the_nominal_height_without_a_shadow(self) -> None:
+    def test_no_height_is_built_at_the_nominal_height_and_casts(self) -> None:
         builder = BuiltBuilder(self._shape(), "probe")
         parts = builder(_record("FENCE", None))
-        assert top_cm(parts) == 120.0 and not parts[0].casts_shadow
+        assert top_cm(parts) == 120.0 and parts[0].casts_shadow
         assert builder(_record("GARDEN_BED", None)) == ()  # no nominal height: ground
 
     def test_a_shape_that_misses_the_height_is_fitted_and_tells(self) -> None:

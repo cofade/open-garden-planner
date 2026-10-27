@@ -5,7 +5,8 @@ resolved height". Held here over a matrix of sizes and heights for all 24 kinds 
 ``OBJECT_KINDS`` (``verify_builder`` with a 10 cm plan margin, the top to 1 %),
 plus what the gate does not see: each object stands the way its 2D sprite is
 drawn (the sprite's top edge is the item's local +y), an object the plan gives no
-height is decoration that casts no shadow, glass and water cast none, every
+height is built at its illustrative height and casts its shadow in 3D (owner, L4
+manual pass), glass and water cast none, every
 colour is a 2D table's, and a footprint kilometres wide still makes a bounded mesh.
 """
 
@@ -144,13 +145,14 @@ def test_every_object_kind_has_a_height_to_be_built_at() -> None:
 
 
 @pytest.mark.parametrize("kind", sorted(ESTIMATED_OBJECT_HEIGHTS_CM))
-def test_an_object_the_plan_gives_no_height_is_decoration(kind: str) -> None:
-    """Built at its illustrative height, and NO part casts a shadow — the 2D sun study
-    casts none for it either. Given a height, the same object casts."""
+def test_an_object_the_plan_gives_no_height_is_built_and_casts(kind: str) -> None:
+    """Built at its illustrative height, and it casts in 3D as it does with a height
+    (owner, L4 manual pass: shown 2.5 m tall, a parasol shades the ground). The 2D sun
+    study still has no caster for it (``test_l4_built_world``)."""
     sizes = ROUND.get(kind) or BOXED[kind]
-    decoration = REGISTRY.build(record_of(kind, sizes[0], None))
-    assert decoration and not any(part.casts_shadow for part in decoration)
-    top = max(float(part.mesh.positions[:, 2].max()) for part in decoration)
+    estimated = REGISTRY.build(record_of(kind, sizes[0], None))
+    assert estimated and any(part.casts_shadow for part in estimated)
+    top = max(float(part.mesh.positions[:, 2].max()) for part in estimated)
     assert top == pytest.approx(ESTIMATED_OBJECT_HEIGHTS_CM[kind], rel=1e-4)
     real = REGISTRY.build(record_of(kind, sizes[0], 120.0))
     assert any(part.casts_shadow for part in real)

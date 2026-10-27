@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-26T13:21:07.189615+00:00"
+    "modified": "2026-10-27T08:20:48.037004+00:00"
   },
   "canvas": {
     "width": 2600.0,
@@ -281,7 +281,7 @@
       ],
       "object_type": "PATH",
       "name": "Dirt path",
-      "stroke_color": "#ff966e3c",
+      "stroke_color": "#ff7d5c3e",
       "stroke_width": 70.0,
       "path_fence_style": "DIRT_PATH",
       "stack_order": 20480
@@ -312,7 +312,7 @@
       "metadata": {
         "ridge_item_id": "1c9b8e7c-9df4-4f53-89ff-5383b8e2af9b"
       },
-      "fill_color": "#ffd2b48c",
+      "fill_color": "#ffb25a3e",
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 2.5,
       "fill_pattern": "ROOF_TILES",
@@ -353,7 +353,7 @@
         "object_height_cm": 520.0,
         "roof_style": "hip"
       },
-      "fill_color": "#ffd2b48c",
+      "fill_color": "#ffb25a3e",
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 2.5,
       "fill_pattern": "ROOF_TILES",

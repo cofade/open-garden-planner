@@ -1,10 +1,13 @@
 """Buildings: HOUSE, GARAGE_SHED, TOOL_SHED (Phase 17 L1.6; roofs and facades L4.1).
 
-Three parts each: ``walls`` (kind ``vc``, ``tinted`` — a building's walls take
-the item's own fill colour, as the shipped 3D view always extruded it),
-``roof`` (kind ``roof`` — its own material in the engine, ``ogp-lush-cinematic``
-§4), the tiles in the colour of the 2D roof, and ``facade`` (L4.1: windows and a
-door, ``facade``).
+Three parts each: ``walls`` (kind ``vc``), ``roof`` (kind ``roof`` — its own
+material in the engine, ``ogp-lush-cinematic`` §4), the tiles in the colour of
+the 2D roof, and ``facade`` (L4.1: windows and a door, ``facade``). A shed's
+walls are ``tinted``: they take the item's own fill colour, as the shipped 3D
+view always extruded it. A HOUSE's walls are rendered sandstone
+(``HOUSE_WALL``): its 2D fill is drawn as roof tiles — the roof seen from above —
+and defaults to the roof's terracotta (owner, L4 manual pass), which on the walls
+made the house one terracotta block.
 
 **The roof** (L4.1, ``core/roof_style``): the item's ``params["roof_style"]``
 picks it — ``gable`` (two planes through a ridge line), ``hip`` (every eave
@@ -40,6 +43,8 @@ import dataclasses
 import math
 from typing import Final
 
+import numpy as np
+
 from ...roof_style import (
     FLAT,
     GABLE,
@@ -51,7 +56,7 @@ from ...roof_style import (
     SHED,
 )
 from ..build import BuilderRegistry
-from ..mesh import MeshPart
+from ..mesh import Mesh, MeshPart
 from ..record import (
     PARAM_DOOR_WALL,
     PARAM_RIDGE,
@@ -93,6 +98,11 @@ OVERHANG_GAIN_SHARE: Final = 0.025
 #: Where no overhang builds no roof — maybe an exact coincidence: the ridge on an edge of
 #: the outline (an L drawn on a grid) — the search tries this much overhang instead.
 OVERHANG_NUDGE_CM: Final = 0.5
+
+#: A house's walls (module docstring): the sprites' sandstone, close to the tan the
+#: walls took from the former default fill (210, 180, 140), so a house drawn before
+#: L4 keeps the walls it had.
+HOUSE_WALL: Final = palette.SANDSTONE
 
 HOUSE_ROOF: Final = RoofStyle(
     tile=palette.ROOF_TILE, cap=palette.ROOF_TILE_CAP, timber=palette.TIMBER,
@@ -274,20 +284,27 @@ def _block(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     return plain_block(record, height_cm, name="walls")
 
 
-def _building(record: Record, height_cm: float, base: RoofStyle) -> tuple[MeshPart, ...]:
+def _building(record: Record, height_cm: float, base: RoofStyle,
+              wall: palette.PaletteColor | None = None) -> tuple[MeshPart, ...]:
+    """``wall``: the walls' own colour, or None for walls in the item's fill colour."""
     if not has_one_plain_ring(record):  # checked here too: never a roof on footprints[0]
         return _block(record, height_cm)
     built = _roof(record, height_cm, base)
     if built is None or built.wall_top is None:
         return _block(record, height_cm)
     front = facade(record.kind, footprint_of(record), built.wall_top, door_wall_of(record))
-    return (MeshPart(built.walls, "vc", tinted=True, name="walls"),
-            MeshPart(built.roof, "roof", name="roof"),
-            MeshPart(front, "vc", name="facade"))
+    if wall is None:
+        walls = MeshPart(built.walls, "vc", tinted=True, name="walls")
+    else:
+        mesh = built.walls
+        walls = MeshPart(Mesh.from_arrays(mesh.positions, mesh.normals,
+                                          mesh.colors * np.asarray(wall.linear, dtype=np.float32),
+                                          mesh.uvs, mesh.indices), "vc", name="walls")
+    return (walls, MeshPart(built.roof, "roof", name="roof"), MeshPart(front, "vc", name="facade"))
 
 
 def _house(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
-    return _building(record, height_cm, HOUSE_ROOF)
+    return _building(record, height_cm, HOUSE_ROOF, HOUSE_WALL)
 
 
 def _shed(record: Record, height_cm: float) -> tuple[MeshPart, ...]:

@@ -89,6 +89,7 @@ No input handling and no orbit camera here: L1.3.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from collections.abc import Callable, Mapping
@@ -136,6 +137,7 @@ from open_garden_planner.core.scene3d import (
     scene_to_engine_points,
     scene_to_engine_vectors,
 )
+from open_garden_planner.core.scene3d.look import fog_depth_cm
 from open_garden_planner.core.scene3d.meadow import meadow_frame
 from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
 
@@ -1131,6 +1133,9 @@ class Quick3DHost:
         self._open("set_camera")
         shot = PerspectiveShot(eye_scene, target_scene, fov_deg)  # validates
         _set(self._root, "topDown", False)
+        fog_near, fog_far = fog_depth_cm(math.dist(shot.eye, shot.target))
+        _set(self._root, "fogNear", fog_near)
+        _set(self._root, "fogFar", fog_far)
         _set(self._root, "camPos", _engine_vector(shot.eye))
         _set(self._root, "camTarget", _engine_vector(shot.target))
         _set(self._root, "camFov", float(shot.fov_deg))

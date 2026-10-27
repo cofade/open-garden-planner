@@ -750,7 +750,10 @@ The built world complete (L4, #388, ADR-065).
   top is its height on the plan; nothing of it reaches more than 10 cm past its
   footprint. An object the plan gives no height (parasol, fire pit, planter pot,
   cold frame, rain barrel, water tap, swing, hammock, pergola) is shown at a usual
-  height for its kind and casts no shadow, in 3D as in the 2D sun study.
+  height for its kind and casts its shadow in 3D; the 2D sun study still casts none
+  for it, because the plan holds no height (owner, L4 manual pass; as for a plant's
+  estimated height, #557). A house is drawn in 2D in the terracotta of its 3D roof
+  tiles; its 3D walls are sandstone, whatever the house's 2D colour.
 - **FR-3D-BUILT-02** (L4.1): A house, garage or tool shed has **Roof style**
   (Automatic, Gable, Hip, Single slope, Flat), **Roof pitch** (Auto, 5–60°) and
   **Roof overhang** (Auto, 0–150 cm) in the Properties panel. Each change is one
@@ -766,11 +769,16 @@ The built world complete (L4, #388, ADR-065).
   The 2D plan and its sun study are unchanged by these settings.
 - **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
   wall that faces the nearest path (a garage: the nearest driveway, then path).
-  Moving the building along its path does not move its door to another wall. A
-  building too low for a door has no door or window.
+  On the door's wall the windows are spaced on each side of the door, so a long
+  wall with its door in the middle has a window either side, and an upper row runs
+  over them and over the door. Moving the building along its path does not move its
+  door to another wall. A building too low for a door has no door or window.
 - **FR-3D-BUILT-04** (L4.2): A path shows its style on the 3D ground: stepping
-  stones where the plan draws them, boardwalk planks, paving kerbs, gravel edging
-  and pebbles. A terrace or driveway shows kerbs, or deck boards for a wood pattern;
+  stones where the plan draws them, boardwalk planks, paving kerbs, a gravel path's
+  edging. A gravel path is the gravel texture and a dirt path the soil texture, in
+  the path's colour and opaque, in 2D and on the 3D ground alike (owner, L4 manual
+  pass: they were translucent strokes the lawn showed through); a new dirt path
+  starts in the 2D sprites' light soil colour. A terrace or driveway shows kerbs, or deck boards for a wood pattern;
   a pond shows water inside a stone coping. All of this lies on the plan's painted
   ground, casts no shadow and cannot be clicked: a click on it is a click on the
   ground, as on the flat surface before L4. A surface given a height is a raised solid with that top.
@@ -788,6 +796,11 @@ The built world complete (L4, #388, ADR-065).
 - **FR-3D-BUILT-07** (L4.5): From the Medium preset up, the 3D ground is shaded by
   the relief of its own textures (paving joints, gravel, bark), with no new picture
   of the ground and nothing mirrored.
+- **FR-3D-BUILT-08** (L4, owner manual pass): The haze over the 3D view begins
+  beyond the plan the camera frames, at any zoom: it starts at 1.5 times the
+  camera's distance to the point it looks at and is full at 6 times it, never
+  nearer than 26 m and 160 m, and full by 760 m, before the view's far limit, so
+  the meadow's end never shows against the sky.
 
 Acceptance (L4): `tests/integration/test_l4_built_world.py` (§8.10 — the roof
 rows through the real panel, undo and a save/load; the door against the path and

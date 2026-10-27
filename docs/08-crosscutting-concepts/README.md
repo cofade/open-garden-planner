@@ -4419,7 +4419,7 @@ untangle `core/__init__.py`.
 | `footprints` | the OUTER ring(s) of the ground the item covers, item-local cm: simple polygons, counter-clockwise. How many there are says nothing about how the item was drawn (a self-crossing polygon can resolve into one ring) — `params["outline_resolved"]` does | geometry |
 | `holes` | `holes[i]` = the clockwise rings cut out of `footprints[i]`; `()` when there are none. A stroke that closes has them, and so can a polygon drawn crossing itself | geometry |
 | `path`, `path_width_cm` | a polyline's centre line and stroke width (fences and walls are built from these) | geometry |
-| `height_cm` | `effective_height_cm(..., at_date)`; `None` = decoration, casts no shadow | geometry |
+| `height_cm` | `effective_height_cm(..., at_date)`; `None` = no 2D caster (a 3D build at a nominal or estimated height still casts, L4) | geometry |
 | `params` | sorted immutable mapping — see below | geometry |
 | `transform` | `Transform(east_cm, north_cm, rotation_deg, base_cm)` | transform |
 | `material` | `Material(key, fill_rgba, stroke_rgba, pattern)` — the item's own sRGB data | material |
@@ -5423,7 +5423,10 @@ the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, 
 screen-space reflections — and no preset costs less than the one below it in any of them
 (pinned). Low and medium both use 4x MSAA: FXAA let picket fences alias into a moiré, and 2x
 MSAA still did (PF-L3D-05). Fog is on at every preset (low without it drew a one-row cliff where
-the meadow meets the sky); sharpening is 0 everywhere; screen-space GI is never on. A preset
+the meadow meets the sky). Its distances follow the camera, not the preset (L4 owner pass, ADR-065):
+`look.fog_depth_cm(distance)` begins it at 1.5× and fills it at 6× the camera's distance to its
+target, floors 26 m / 160 m, full by 760 m before the 800 m far plane, set with every
+`Quick3DHost.set_camera`. Sharpening is 0 everywhere; screen-space GI is never on. A preset
 change is one `set_look` call: no camera, no geometry, no sky.
 
 **Automatic quality.** With the setting `auto` (the default), `AutoPreset` chooses among low,
@@ -5971,9 +5974,11 @@ and width too (`apply_style_preset`), so it arrives as `replace_geometry` + `upd
    `record.height_cm` to the float32. Give primitives a bottom and a top (`boxes(…, z0, z1)`),
    never a size to add. Wrap the shape function in `common.BuiltBuilder`: it applies the safety
    net (`fit_parts`), and `fit_scale(record)` must be 1.0 — a fit that does something is a bug.
-2. **No height, no shadow.** `BuiltBuilder` builds an item without a height at its kind's nominal
-   height — what the 2D resolver answers for the kind alone, `effective_height_cm(kind, None)`;
-   the builders hold no table of kinds — with `casts_shadow=False`; no nominal height → no parts.
+2. **No height: the nominal one.** `BuiltBuilder` builds an item without a height at its kind's
+   nominal height — what the 2D resolver answers for the kind alone, `effective_height_cm(kind, None)`;
+   the builders hold no table of kinds — or at the snapshot's illustrative estimate
+   (`core/object_height_estimate.py`, L4); no height of either kind → no parts. Since L4's owner
+   manual pass what is built casts in 3D (ADR-065); the 2D sun study still has no caster for it.
    This path is nearly dead in production and is kept as the contract for hand-made records:
    every registered kind but `GARDEN_BED` has a default height, so the snapshot always gives its
    record one. And `GARDEN_BED` is registered for a state the GUI can barely produce — a garden
@@ -7108,8 +7113,8 @@ forgets them with the plan (`clear_lawn_cache`).
 `MeshPart.ground_detail` (and must not cast a shadow: `MeshPart.__post_init__`). It is
 drawn, but it never makes its item a solid (`SceneSync.solid_ids`), the pick oracle
 and QML (`pickable && !groundDetail`) never pick it, and the info card still says the
-item lies on the ground. Paths get stones / planks / kerbs / edging and pebbles per
-style, terraces and driveways kerbs or deck boards (`surface_pattern` DECKING / WOOD),
+item lies on the ground. Paths get stones / planks / kerbs / a gravel edging per
+style (gravel and dirt are their textures, painted by the bake — L4 manual pass), terraces and driveways kerbs or deck boards (`surface_pattern` DECKING / WOOD),
 ponds water and coping, lawns blades. A surface with a height is a solid as before.
 Stepping stones follow the 2D painter's walk (`surfaces.walk_path` =
 `PathStylePaint._walk_path`); a stone that would hang past the path's end is slid half

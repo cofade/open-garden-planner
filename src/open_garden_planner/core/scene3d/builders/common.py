@@ -161,8 +161,10 @@ class BuiltBuilder:
     def height_for(self, record: Record) -> float | None:
         """The height the item is built at: the plan's, else the kind's nominal one,
         else the ILLUSTRATIVE one the snapshot put on the record for a kind the 2D
-        resolver gives no height (L4: ``core/object_height_estimate``) — the last two
-        built as decoration (``__call__``: no shadow)."""
+        resolver gives no height (L4: ``core/object_height_estimate``). Whichever it
+        is, what is built casts its shadow in 3D (owner, L4 manual pass: a parasol
+        shown 2.5 m tall shades the ground under it); the 2D sun study still sees no
+        caster where the plan holds no height, as for an estimated plant (#557)."""
         if record.height_cm is not None:
             return record.height_cm
         nominal = nominal_height_cm(record.kind)
@@ -196,10 +198,7 @@ class BuiltBuilder:
         height = self.height_for(record)
         if height is None:
             return ()
-        parts = fit_parts(self.raw(record), height)
-        if record.height_cm is None:  # decoration: casts no shadow in 2D either
-            parts = tuple(dataclasses.replace(part, casts_shadow=False) for part in parts)
-        return parts
+        return fit_parts(self.raw(record), height)
 
 
 def footprint_of(record: Record) -> tuple[tuple[float, float], ...]:

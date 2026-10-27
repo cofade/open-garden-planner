@@ -82,12 +82,14 @@ def objects_unbuilt() -> Any:
 
 
 
-def _gravel(points: list[QPointF]) -> PolylineItem:
-    """A gravel path 8 cm wide: the width the hostile plans' numbers were measured
-    with (the gravel preset before L4 gave paths real widths, #388)."""
-    path = PolylineItem(points, object_type=ObjectType.PATH, path_fence_style=PathFenceStyle.GRAVEL_PATH)
+def _dense(points: list[QPointF]) -> PolylineItem:
+    """A PATH in the chain-link style, 5 cm wide — a plan file may hold one: its mesh
+    every 0.8 widths is an element every 4 cm, the spacing of the gravel path's dots
+    the hostile plans' numbers were measured with (L4 made gravel a texture, with no
+    elements: #388). A path, because the bake paints the ground: a FENCE is built."""
+    path = PolylineItem(points, object_type=ObjectType.PATH, path_fence_style=PathFenceStyle.CHAIN_LINK)
     pen = path.pen()
-    pen.setWidthF(8.0)
+    pen.setWidthF(5.0)
     adopt_pen(path, pen)
     return path
 
@@ -1334,18 +1336,19 @@ class TestHostilePlans:
         assert len(bake.baker.last_repainted) == 20 and bake.baker.records_painted == 5
         assert mean <= 0.05, mean
         generated = bake.baker.elements_generated
-        # control: the canvas's own walk over the same line, at the style's densest
-        # spacing, is hundreds of thousands of elements — the tiles' share is a sliver
+        # control: the canvas's own walk over the same line every 4 cm is hundreds of
+        # thousands of elements — the tiles' share is a sliver
         whole = sum(1 for _element in PathStylePaint(item.points, item.pen())._walk_path(4.0))
         assert whole == 475_001
         assert generated <= 5 * 2 * 400 and bake.baker.capped == frozenset(), generated
         # … and the exact walk only where a tile can afford the WHOLE leg (the posts of
-        # a chain-link fence, 2.4 m apart: 7,917 steps); 475,001 dots never are — that
-        # leg is entered by arithmetic
+        # a chain-link fence, 2.4 m apart: 7,917 steps); a boardwalk's planks, every
+        # 10.5 cm (180,953 steps), never are — that leg is entered by arithmetic
         assert bake.baker.steps_walked <= 5 * 16_384
-        if path_style is PathFenceStyle.GRAVEL_PATH:
+        if path_style is PathFenceStyle.WOODEN_BOARDWALK:
             assert bake.baker.steps_walked == 0
-        if path_style is not PathFenceStyle.DIRT_PATH:  # the one style without elements
+        # gravel and dirt are textures (L4): the two styles without elements
+        if path_style not in (PathFenceStyle.GRAVEL_PATH, PathFenceStyle.DIRT_PATH):
             assert generated > 0
 
     @pytest.mark.parametrize("stroke", [StrokeStyle.DASHED, StrokeStyle.DOTTED, StrokeStyle.DASH_DOT],
@@ -1525,14 +1528,13 @@ class TestHostilePlans:
         assert bake.sink.state().ground == bake.sync.expected_state().ground
 
     def test_a_tile_generates_no_more_than_its_share_of_elements(self, qtbot: Any) -> None:
-        """A gravel path folded 1,500 times into one corner of the plan: 7.5 km of
-        dots inside a single tile. The tile stops at ``TILE_ELEMENTS``."""
+        """A chain-link path folded 1,500 times into one corner of the plan: 7.5 km of
+        mesh inside a single tile. The tile stops at ``TILE_ELEMENTS``."""
         from open_garden_planner.ui.view3d.ground_bake import TILE_ELEMENTS
 
         scene = _hostile_scene()
         points = [QPointF(20.0 + 480.0 * (k % 2), 20.0 + 470.0 * k / 1500.0) for k in range(1501)]
-        item = PolylineItem(points, object_type=ObjectType.PATH,
-                            path_fence_style=PathFenceStyle.GRAVEL_PATH)
+        item = _dense(points)
         scene.addItem(item)
         bake = Bake(scene, registry=production_registry())
         bake.step()
@@ -1543,16 +1545,16 @@ class TestHostilePlans:
         assert bake.baker.capped_tiles >= 1 and (0, 0) in bake.baker.capped
 
     def test_paths_that_clip_a_row_of_tiles_by_a_hair_share_the_tiles_steps(self, qtbot: Any) -> None:
-        """256 gravel paths, each ONE leg of 640 m across the plan's first row of
+        """256 chain-link paths, each ONE leg of 640 m across the plan's first row of
         tiles. The steps of the exact walk are the work — a leg is walked from its
-        start, 16,001 steps, to hand out the 170 dots of one tile. They are charged
+        start, 16,001 steps, to hand out the mesh points of one tile. They are charged
         to the TILE: at most ``TILE_WALK_STEPS`` for all its paths together.
         (Measured before that: 20,481,280 steps for this plan, 4,096,256 a tile.)"""
         from open_garden_planner.ui.view3d.ground_bake import TILE_ELEMENTS, TILE_WALK_STEPS
 
         scene = _hostile_scene()
         for k in range(256):
-            scene.addItem(_gravel([QPointF(-30_000.0, 100.0 + k), QPointF(34_000.0, 101.0 + k)]))
+            scene.addItem(_dense([QPointF(-30_000.0, 100.0 + k), QPointF(34_000.0, 101.0 + k)]))
         bake = Bake(scene, registry=production_registry())
         bake.step()
         assert bake.skipped == [] and bake.baker.records_painted == 5 * 256
@@ -1564,13 +1566,13 @@ class TestHostilePlans:
 
     def test_a_spent_budget_gives_the_next_path_nothing(
             self, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Zero is a budget. Two gravel paths in one tile, the tile's elements set to
-        exactly what the lower one needs: the upper one gets none — not "no bound"."""
+        """Zero is a budget. Two chain-link paths in one tile, the tile's elements set
+        to exactly what the lower one needs: the upper one gets none — not "no bound"."""
         from open_garden_planner.ui.view3d import ground_bake
 
         def scene_with(count: int) -> tuple[CanvasScene, list[Any]]:
             scene = _hostile_scene()
-            paths = [_gravel([QPointF(60.0, 100.0 + 150.0 * k), QPointF(400.0, 110.0 + 150.0 * k)])
+            paths = [_dense([QPointF(60.0, 100.0 + 150.0 * k), QPointF(400.0, 110.0 + 150.0 * k)])
                      for k in range(count)]
             for path in paths:
                 scene.addItem(path)
@@ -1587,7 +1589,7 @@ class TestHostilePlans:
         second = Bake(both)
         second.step()
         assert second.baker.records_painted == 2
-        assert second.baker.elements_generated == needed  # the first path's, to the last dot
+        assert second.baker.elements_generated == needed  # the first path's, to the last one
         assert second.baker.capped == frozenset({(0, 0)})
 
     def test_what_a_painter_does_before_its_first_element_is_bounded_by_the_tiles_cost(

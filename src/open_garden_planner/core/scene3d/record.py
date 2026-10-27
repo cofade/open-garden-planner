@@ -502,7 +502,9 @@ class Record:
       ``()`` / ``None`` for every other shape.
     - ``height_cm``: the resolved ``effective_height_cm(..., at_date)`` — a
       positive finite number — or None when the resolver gives none: then the
-      item is decoration and casts no shadow, exactly as in 2D (``casts_shadow``).
+      2D sun study casts no shadow for it (``casts_shadow``). A builder may still
+      build it at the kind's nominal or illustrative height, and that solid casts
+      in 3D (L4 manual pass).
     - ``params``: the rest (``PARAM_*`` keys).
     - ``outline`` (L1.5): a POLYGON's vertices as they were DRAWN — in the drawn
       order, not turned, not resolved — when ``footprints`` is not that polygon:
@@ -610,7 +612,8 @@ class Record:
 
     @property
     def casts_shadow(self) -> bool:
-        """True when the plan gives the item a height — the 2D shadow rule."""
+        """True when the plan gives the item a height — the 2D sun study's caster
+        rule (a 3D solid casts whenever it is built, L4)."""
         return self.height_cm is not None
 
     @property

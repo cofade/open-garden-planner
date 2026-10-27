@@ -432,12 +432,21 @@ def test_the_environments_constants_are_the_spikes() -> None:
     environment = SPIKE["qml"]["environment"]
     code = _scene()
     for name in ("aoStrength", "aoDistance", "aoSoftness", "glowStrength", "glowIntensity",
-                 "glowBloom", "glowHDRMinimumValue", "depthNear", "depthFar", "depthCurve",
+                 "glowBloom", "glowHDRMinimumValue", "depthCurve",
                  "density", "skyboxBlurAmount", "csmBlendRatio", "shadowMapFar", "clipNear",
                  "clipFar"):
         ours = re.findall(rf"\b{name}:\s*([\d.]+)", code)
         assert ours and environment[name], name
         assert sorted({float(v) for v in ours}) == environment[name], name
+    # the fog's distances follow the camera since L4's owner pass (look.fog_depth_cm):
+    # the spike's depthNear / depthFar are their floors and the scene's defaults
+    from open_garden_planner.core.scene3d import look
+
+    assert "depthNear: root.fogNear" in code and "depthFar: root.fogFar" in code
+    for name, floor, default in (("depthNear", look.FOG_NEAR_CM, "fogNear"),
+                                 ("depthFar", look.FOG_FAR_CM, "fogFar")):
+        declared = re.findall(rf"\bproperty real {default}:\s*([\d.]+)", code)
+        assert environment[name] == [floor] == [float(value) for value in declared], name
 
 
 def test_the_scene_obeys_the_measured_engine_rules() -> None:

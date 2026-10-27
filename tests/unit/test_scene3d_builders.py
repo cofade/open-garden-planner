@@ -8,8 +8,9 @@ resolved height). This file adds what a planning tool needs on top:
 G1  over the whole matrix (``scene3d_builder_cases.CASES``: every kind x sizes x
     turned local geometry x with / without a height): the top is the height to
     the float32, the base is the ground, the fit scale is 1, the triangle budget
-    holds, flat faces store their winding normal, an item without a height casts
-    no shadow, and the solid stays on its footprint.
+    holds, flat faces store their winding normal, every solid casts — with or
+    without a height of the plan's (owner, L4 manual pass) — and the solid stays
+    on its footprint.
 G2  the roof's ridge line IS the record's ridge, run on to the roof's edge; the
     slope that faces the sun is the lit one.
 G5  every vertex colour is a ``palette`` entry — or pure white on a tinted part.
@@ -292,10 +293,10 @@ class TestGateG1:
         assert triangle_count(parts) <= budget_of(record)
         assert all(part.mesh.vertex_count for part in parts)  # no empty part reaches the sink
 
-    def test_no_height_no_shadow(self, case: Case) -> None:
-        parts = built(case.record)
-        casts = {part.casts_shadow for part in parts}
-        assert casts <= ({True} if case.record.height_cm is not None else {False})
+    def test_every_solid_casts(self, case: Case) -> None:
+        """Built at the plan's height or the kind's nominal one, a solid casts in 3D
+        (owner, L4 manual pass; the 2D sun study keeps its own caster rule)."""
+        assert {part.casts_shadow for part in built(case.record)} <= {True}
 
     def test_every_face_looks_the_way_its_normal_does(self, case: Case) -> None:
         for part in built(case.record):
@@ -534,15 +535,17 @@ class TestRidgeIsTheRecordsRidge:
                                        params={"ridge": ((-450.0, 0.0), (450.0, 0.0))}))
         assert [part.name for part in too_low] == ["walls"]  # no room for a slab: a block
 
-    def test_buildings_have_tinted_walls_and_a_roof_of_their_own_material(self) -> None:
-        for record in (
-            polygon_record("HOUSE", rectangle(900.0, 540.0), 450.0,
-                           params={"ridge": ((-450.0, 0.0), (450.0, 0.0))}),
-            polygon_record("GARAGE_SHED", rectangle(400.0, 300.0), 250.0),
-            polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0),
+    def test_buildings_have_their_walls_and_a_roof_of_their_own_material(self) -> None:
+        """A shed's walls take the item's fill colour; a house's are sandstone: its 2D
+        fill is its roof's colour (owner, L4 manual pass)."""
+        for record, tinted in (
+            (polygon_record("HOUSE", rectangle(900.0, 540.0), 450.0,
+                            params={"ridge": ((-450.0, 0.0), (450.0, 0.0))}), False),
+            (polygon_record("GARAGE_SHED", rectangle(400.0, 300.0), 250.0), True),
+            (polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0), True),
         ):
             walls_part, roof_part, facade_part = built(record)
-            assert (walls_part.name, walls_part.material_kind, walls_part.tinted) == ("walls", "vc", True)
+            assert (walls_part.name, walls_part.material_kind, walls_part.tinted) == ("walls", "vc", tinted)
             assert (roof_part.name, roof_part.material_kind, roof_part.tinted) == ("roof", "roof", False)
             assert (facade_part.name, facade_part.material_kind, facade_part.tinted) == (
                 "facade", "vc", False)
@@ -1331,7 +1334,7 @@ def test_which_colours_each_kind_uses() -> None:
     house = polygon_record("HOUSE", rectangle(900.0, 540.0), 450.0,
                            params={"ridge": ((-450.0, 0.0), (450.0, 0.0))})
     facade = {"STEEL_LIGHT", "GLASS_OCC", "STONE_LIGHT", "STONE", "BRASS"}  # L4.1: windows, a door
-    assert used(house) == {"TINT", "ROOF_TILE", "ROOF_TILE_CAP", "TIMBER"} | facade
+    assert used(house) == {"SANDSTONE", "ROOF_TILE", "ROOF_TILE_CAP", "TIMBER"} | facade
     assert used(polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0)) == {
         "TINT", "SHINGLE", "SHINGLE_CAP", "TIMBER"} | facade
     assert used(polygon_record("RAISED_BED", rectangle(300.0, 120.0), 40.0)) == {
@@ -1421,13 +1424,14 @@ class TestGroundThatIsNotOnePlainRing:
     @pytest.mark.parametrize("make", NOT_ONE_RING.values(), ids=NOT_ONE_RING.keys())
     @pytest.mark.parametrize(("kind", "nominal"), [("HOUSE", 450.0), ("RAISED_BED", 40.0),
                                                    ("HEDGE_POLYGON", 150.0), ("CONTAINER", 30.0)])
-    def test_without_a_height_it_is_decoration_like_any_other(self, kind: str, nominal: float,
-                                                               make) -> None:
-        """"No height, no shadow" holds for the plain block too: the kind's nominal
-        height, every part ``casts_shadow=False`` — and nothing for a kind without one."""
+    def test_without_a_height_it_is_built_like_any_other(self, kind: str, nominal: float,
+                                                          make) -> None:
+        """The plain block of a record without a height: the kind's nominal height,
+        casting like every built object (owner, L4 manual pass) — and nothing for a
+        kind without one."""
         record = make(kind, None)
         parts = built(record)
-        assert [part.name for part in parts] == ["prism"] and not parts[0].casts_shadow
+        assert [part.name for part in parts] == ["prism"] and parts[0].casts_shadow
         assert float(positions(parts)[:, 2].max()) == nominal
         assert plan_area([parts[0].mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         assert built(make("GARDEN_BED", None)) == ()

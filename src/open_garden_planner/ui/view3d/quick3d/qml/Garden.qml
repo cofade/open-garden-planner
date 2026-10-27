@@ -98,6 +98,11 @@ Item {
     property real camFov: 40
     property int camVersion: 0
     property real topDownScale: 0.5         // logical pixels per centimetre
+    // where the depth fog begins and is full, cm: from the camera's distance to its
+    // target (set_camera, core/scene3d/look.fog_depth_cm; L4 owner pass). The
+    // defaults are its floors, the L0 spike's measured constants
+    property real fogNear: 2600
+    property real fogFar: 16000
 
     onCamVersionChanged: {
         cam.position = camPos
@@ -747,8 +752,8 @@ Item {
                 enabled: !root.topDown && root.fog
                 color: root.fogColor
                 depthEnabled: true
-                depthNear: 2600
-                depthFar: 16000
+                depthNear: root.fogNear
+                depthFar: root.fogFar
                 depthCurve: 1.4
                 density: 1.0
             }

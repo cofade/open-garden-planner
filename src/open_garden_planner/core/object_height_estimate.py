@@ -16,11 +16,13 @@ This module is that one table — the object twin of ``core/plant_height_estimat
 - The estimate lives only on the transient 3D record
   (``params["estimated_height_cm"]``, the key the plant estimate uses), and the
   3D info card labels it "(estimated)".
-- Unlike an estimated PLANT (#557, an owner decision for plants), an estimated
-  OBJECT is decoration in 3D and casts NO shadow: the built world's rule "no
-  height, no shadow" (ADR-059 addendum L1.6, decision 3) — the 3D view must not
-  shade the ground where the 2D sun study says the sun shines. A user who sets an
-  explicit height gets a solid that casts, as for every other object.
+- Like an estimated PLANT (#557), an estimated OBJECT casts its shadow in 3D
+  (owner decision in L4's manual pass, 2026-10-27: "in 3D they are also displayed
+  with some height" — a parasol shown 2.5 m tall shades the ground under it). It
+  replaces the built world's rule "no height, no shadow" (ADR-059 addendum L1.6,
+  decision 3) for 3D only: the 2D sun study and the hours-of-sun map still see no
+  caster, because the plan holds no height. A user who sets an explicit height
+  gets a solid that casts in both.
 
 Standard library only: imported by the snapshot (GUI side) and read by the
 Qt-free builders.

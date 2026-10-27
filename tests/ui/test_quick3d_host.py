@@ -37,6 +37,7 @@ from __future__ import annotations
 import ast
 import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -608,6 +609,19 @@ class TestSunGroundCamera:
         assert host.scene_property("topDown") is True and host.scene_property("topDownScale") == 0.25
         host.set_camera((0.0, -500.0, 300.0), (0.0, 0.0, 0.0))
         assert host.scene_property("camVersion") == version + 1 and host.scene_property("camFov") == 40.0
+
+    def test_the_fog_follows_the_cameras_distance(self, host) -> None:
+        """Owner, L4 manual pass: the plan a camera frames lies in front of the fog
+        (``look.fog_depth_cm``); the scene's Fog binds the two properties."""
+        from open_garden_planner.core.scene3d.look import fog_depth_cm
+
+        host.set_camera((0.0, -500.0, 300.0), (0.0, 0.0, 0.0))  # 5.8 m: L1's fog
+        assert (host.scene_property("fogNear"), host.scene_property("fogFar")) == (2_600.0, 16_000.0)
+        eye, target = (1_200.0, -6_000.0, 5_000.0), (1_200.0, 800.0, 0.0)
+        host.set_camera(eye, target)
+        near, far = host.scene_property("fogNear"), host.scene_property("fogFar")
+        assert (near, far) == pytest.approx(fog_depth_cm(math.dist(eye, target)))
+        assert near > math.dist(eye, target)
 
     def test_a_shot_that_cannot_be_rendered_is_refused(self, host) -> None:
         with pytest.raises(ValueError, match="same point"):

@@ -78,7 +78,9 @@ PATH_FENCE_STYLES: dict[PathFenceStyle, PathFenceStyleInfo] = {
     PathFenceStyle.DIRT_PATH: PathFenceStyleInfo(
         display_name=QT_TR_NOOP("Dirt"),
         category="path",
-        stroke_color=QColor(150, 110, 60),
+        # the sprites' light soil (MATERIALS["soil"]["light"]): over the soil texture
+        # (L4, #388) the former 150, 110, 60 read orange, not earth
+        stroke_color=QColor(125, 92, 62),
         stroke_width=70.0,
     ),
     PathFenceStyle.WOODEN_FENCE: PathFenceStyleInfo(
@@ -247,7 +249,10 @@ class ObjectStyle:
 # Default styles for each object type
 OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
     ObjectType.HOUSE: ObjectStyle(
-        fill_color=QColor(210, 180, 140, 255),  # Tan
+        # the 3D roof's clay tiles (scene3d palette ROOF_TILE; owner, L4 #388): a
+        # house's 2D fill is its roof seen from above. Its 3D walls are rendered
+        # sandstone and do not follow this colour (builders/buildings.py)
+        fill_color=QColor(178, 90, 62, 255),  # Terracotta
         stroke_color=QColor(139, 90, 43),  # Brown
         stroke_width=2.5,
         display_name=QT_TR_NOOP("House"),

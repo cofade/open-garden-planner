@@ -14,8 +14,9 @@ real building:
   sectional garage door, a shed a narrow plank door.
 - **Windows** sit on every wall long enough for them, evenly spaced, never on
   the door, and only where the wall reaches above them — a gable end's sloping
-  top, a mono-pitch roof's low side, a garden shed's low eaves all decide. A
-  house with walls tall enough gets an upper row.
+  top, a mono-pitch roof's low side, a garden shed's low eaves all decide. On
+  the door's wall they are spaced on each side of it (``window_columns``). A
+  house with walls tall enough gets an upper row, over the door too.
 
 Everything stays on the walls: a frame, a pane, a sill or a step stands at most
 ``MAX_PROUD_CM`` proud of the wall (the truth gate: nothing beyond the footprint
@@ -255,20 +256,45 @@ def facade(kind: str, footprint: ArrayLike, wall_top: Callable[[F64], F64],
         wall = walls[index]
         if wall.length < spec.min_wall or placed >= limit:
             continue
-        usable = wall.length - 2.0 * spec.margin
-        count = min(MAX_WINDOWS_PER_WALL, max(1, math.floor(usable / spec.spacing)))
-        rows = [spec.sill] + ([spec.sill + spec.upper_row] if spec.upper_row else [])
-        for k in range(count):
+        ground, upper = window_columns(wall.length, spec, blocked.get(index))
+        for centre in ground:
             if placed >= limit:
                 break
-            centre = spec.margin + (k + 0.5) * usable / count
-            s0, s1 = centre - spec.window_w / 2.0, centre + spec.window_w / 2.0
-            for row, sill in enumerate(rows):
-                gap = blocked.get(index)
-                if row == 0 and gap is not None and s1 > gap[0] and s0 < gap[1]:
-                    continue
-                if not _fits(wall, wall_top, s0, s1, sill + spec.window_h):
-                    continue
+            if _fits(wall, wall_top, centre - spec.window_w / 2.0, centre + spec.window_w / 2.0,
+                     spec.sill + spec.window_h):
+                _window(boxes, wall, centre, spec.sill, spec)
+                placed += 1
+        # an upper window needs more wall than the one under it: where none of a wall's
+        # ground row fits, its upper row does not either, so ``limit`` bounds both rows
+        # (the door's column adds one)
+        sill = spec.sill + spec.upper_row
+        for centre in upper if spec.upper_row else ():
+            if _fits(wall, wall_top, centre - spec.window_w / 2.0, centre + spec.window_w / 2.0,
+                     sill + spec.window_h):
                 _window(boxes, wall, centre, sill, spec)
-                placed += 1 if row == 0 else 0
     return boxes.mesh()
+
+
+def window_columns(length: float, spec: FacadeSpec, door: tuple[float, float] | None
+                   ) -> tuple[list[float], list[float]]:
+    """Where along a wall ``length`` long its windows sit: ``(ground, upper)`` row
+    centres. A wall without a door: evenly spaced, one per ``spec.spacing`` of the
+    wall inside its margins, the same places in both rows. The door's wall (``door``:
+    the stretch it keeps clear): the ground row evenly spaced on EACH side of it —
+    a long wall with its door in the middle gets windows either side (owner, L4
+    manual pass; one window per wall went in the middle and was dropped for the
+    door) — and the upper row over those and over the door."""
+    if door is None:
+        usable = length - 2.0 * spec.margin
+        count = min(MAX_WINDOWS_PER_WALL, max(1, math.floor(usable / spec.spacing)))
+        centres = [spec.margin + (k + 0.5) * usable / count for k in range(count)]
+        return centres, centres
+    ground: list[float] = []
+    for start, end in ((spec.margin, door[0]), (door[1], length - spec.margin)):
+        side = end - start
+        if side < spec.window_w:
+            continue
+        count = max(1, math.floor(side / spec.spacing))
+        ground += [start + (k + 0.5) * side / count for k in range(count)]
+    ground = ground[:MAX_WINDOWS_PER_WALL]
+    return ground, sorted([*ground, (door[0] + door[1]) / 2.0])

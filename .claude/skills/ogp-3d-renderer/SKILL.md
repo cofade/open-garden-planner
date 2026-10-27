@@ -186,6 +186,10 @@ lives now; the values production was drift-guarded against are frozen in
 - **Shadow bias at grazing light:** 1024-texel maps (low, medium) at `shadowBias` 5 left a
   sun-grazed roof acned and stair-stepped (33–40 % of the slope); 15 measured clean with the IoU
   gate unchanged. VeryHigh quality alone: 33 %; one cascade split: 8 %; 32-bit map: 15 %.
+- **Fog distance (L4 owner pass):** fixed at 26 m → 160 m, the fog drowned a plan framed from
+  80 m (a third of the way in) and washed it out three times further. `look.fog_depth_cm`
+  ties `Fog.depthNear` / `depthFar` to the camera's distance to its target (1.5× / 6×, floors
+  26 m / 160 m, far ≤ 760 m < `clipFar` 800 m, near ≤ 0.75 far); `set_camera` sets them.
 - **Fog vs sky:** the skybox is drawn × `probeExposure`, `Fog` is not — fog = sky horizon ×
   probe exposure × 0.8 (linear) meets the sky within ±1.3 luma. The sky's
   `groundHorizonColor` shows in a sliver under a far-clipped ground plane: give it the sky
