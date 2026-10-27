@@ -8161,8 +8161,9 @@ had only moved the failing views.
     over the bound, but the corner overruns without it too.
   - **The gate:** each case states its tiles, passes and median bound as literals.
     - Two tiles: a median of one pass and at most 10 ms, as on master, also under coverage.
-    - Four tiles: a median of one pass and at most 20 ms. Every CI reading so far has a
-      median of one pass, so the 20 ms is the only provisional slack.
+    - Four tiles: a median of at most 20 ms and two passes. The last tile can fall into a
+      second pass: CI's coverage run 40426416434 took 2 passes in the median (14.57 ms),
+      after a commit that had briefly asserted one. A third pass would need 20 ms first.
     - That bound is **provisional** until the owner decides #615: should a four-tile pass
       hold 10 ms on CI?
     - The test is renamed `test_a_small_move_repaints_few_tiles_within_its_bound`, because
