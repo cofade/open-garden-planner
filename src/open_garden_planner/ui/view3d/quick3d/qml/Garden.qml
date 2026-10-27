@@ -739,8 +739,11 @@ Item {
                                       : SceneEnvironment.TonemapModeFilmic
             exposure: root.topDown ? 1.0 : root.exposure
             ditheringEnabled: !root.topDown
-            aoEnabled: !root.topDown && root.ambientOcclusion
-            aoStrength: 55 * root.aoFade
+            aoEnabled: !root.topDown && root.ambientOcclusion && root.aoFade > 0
+            // 0 wherever AO is off: Qt's setAoStrength turns AO on whenever the strength
+            // is not 0, whatever aoEnabled says (3D review of L4's second owner pass: Low
+            // drew SSAO once the fade had changed it)
+            aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)
             aoDistance: 14
             aoSoftness: 45
             aoSampleRate: root.aoSampleRate
@@ -787,8 +790,9 @@ Item {
             id: cam
             fieldOfView: root.camFov
             clipNear: 5
-            // past the meadow's 2 km edge from 600 m out (camera.MAX_DISTANCE_CM): at the
-            // L0 spike's 800 m the cut showed against the sky from about 400 m (3D review)
+            // past the midpoints of the meadow's edges, 2 km out, from 600 m out
+            // (camera.MAX_DISTANCE_CM): at the L0 spike's 800 m the cut showed against the
+            // sky from about 400 m (3D review)
             clipFar: 300000
         }
         OrthographicCamera {

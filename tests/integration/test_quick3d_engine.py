@@ -220,7 +220,7 @@ class TestOnTheRealRenderer:
                 assert got["position"] == pytest.approx(want["position"], abs=1e-2), (step["name"], key)
                 assert got["yaw"] == pytest.approx(want["yaw"], abs=1e-3), (step["name"], key)
         first = steps[0]
-        assert first["records"] == 98 and len(first["engine_parts"]) == 87
+        assert first["records"] == 98 and len(first["engine_parts"]) == 89
 
     def test_the_frame_shows_the_plan(self, run: tuple[dict[str, Any], Path]) -> None:
         result, out = run

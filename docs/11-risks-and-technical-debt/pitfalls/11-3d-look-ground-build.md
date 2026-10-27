@@ -180,3 +180,26 @@ The selection ring's route works: a `ReloadableGeometry` parented to a Model tha
 `Garden.qml` declares, set once as its geometry, then reloaded for the Model's life. The
 render gate asserts that the meadow is drawn round the plan. It is the same rule as `ogp-3d-renderer` §2's
 geometry-lifetime row.
+
+### PF-L3D-15
+
+- **Rule:** Keep `aoStrength` 0 wherever ambient occlusion is off: Qt's `setAoStrength` switches AO on whenever the strength is not 0, whatever `aoEnabled` says.
+- **Pinned by:** `tests/ui/test_quick3d_host.py::test_ambient_occlusion_runs_only_where_the_look_asks_for_it`; `tests/unit/test_quick3d_qml.py`
+- **Source:** #388, ADR-065 3D re-review of the owner's second pass
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+L4 faded the AO strength with the camera's distance (`aoStrength: 55 * root.aoFade`) and
+left `aoEnabled: !root.topDown && root.ambientOcclusion` as the switch. The Low preset, and
+so compatibility mode, then drew SSAO as soon as the camera stood 45-90 m from its target.
+Read back from the scene's `ExtendedSceneEnvironment` at Low: `aoEnabled` True with a
+strength of 42.8 at 55 m. The look depended on where the camera had been. On bench_large
+at noon, Low read 153.89 luma without AO and 150.43 with this bug at 67 m.
+
+The board could not see it: its cameras stand within 25 m, where the fade stays 1, and a
+strength that never changes is never written again after the scene loads.
+
+Fix: the strength is 0 unless AO is on (`55 * (!root.topDown && root.ambientOcclusion ?
+root.aoFade : 0)`), and `aoEnabled` also requires a fade above 0, so the pass does not run
+at strength 0. The host test reads `aoEnabled` and `aoStrength` off the environment at every
+preset and four distances, and in the top-down view.

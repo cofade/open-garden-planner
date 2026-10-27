@@ -440,11 +440,12 @@ def test_the_environments_constants_are_the_spikes() -> None:
     # what the fog hid until it followed the camera (3D review of L4's second owner pass):
     # the shadow map reaches as far as the fog begins (the spike's far its floor, and the
     # top-down truth view keeps it), the AO fades out from 45 m to 90 m, and the
-    # perspective camera's far plane lies past the meadow's edge (the spike's 800 m cut
+    # perspective camera's far plane lies past the midpoints of the meadow's edges (the spike's 800 m cut
     # it in view); the top-down camera keeps the spike's far plane
     (shadow_far,) = environment["shadowMapFar"]
     assert f"shadowMapFar: root.topDown ? {shadow_far:g} : Math.max({shadow_far:g}, root.fogNear)" in code
-    assert "aoStrength: 55 * root.aoFade" in code
+    assert "aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)" in code
+    assert "aoEnabled: !root.topDown && root.ambientOcclusion && root.aoFade > 0" in code
     assert "(9000 - camPos.minus(camTarget).length()) / 4500" in code
     from open_garden_planner.core.scene3d.camera import MAX_DISTANCE_CM
     from open_garden_planner.core.scene3d.meadow import MEADOW_HALF_CM

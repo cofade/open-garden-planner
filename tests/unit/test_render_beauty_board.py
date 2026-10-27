@@ -20,6 +20,7 @@ import pytest
 from scripts import render_beauty_board as board
 
 from open_garden_planner.core.scene3d import pose_ring
+from open_garden_planner.core.scene3d.look import fog_depth_cm
 from open_garden_planner.core.shadow_geometry import compute_scene_shadows
 
 #: What the L0 spike measured, frozen when L1.10 deleted it (its provenance field says how).
@@ -83,6 +84,10 @@ def test_the_shadow_camera_sees_the_caster_and_the_whole_shadow(
     ground = board.IOU_GROUND
     assert min(x for x, _y, _z in points) > 0.0 and max(x for x, _y, _z in points) < ground.width_cm
     assert min(y for _x, y, _z in points) > 0.0 and max(y for _x, y, _z in points) < ground.depth_cm
+    # … and near enough that its shadow map is the spike's: a perspective camera's map
+    # reaches as far as the fog begins once that is further (Garden.qml, ADR-065)
+    (shadow_far,) = SPIKE["qml"]["environment"]["shadowMapFar"]
+    assert fog_depth_cm(math.dist(camera.eye, camera.target))[0] <= shadow_far
 
 
 def test_a_mistyped_argument_is_an_error_not_another_experiment(capsys) -> None:

@@ -8266,6 +8266,11 @@ paths, the house colours, the camera and the fog, and decided the two open point
      shades its footprint completely, as a picket fence casts a solid strip. A plant
      under a pergola reads as shaded in 2D. A footprint-fill factor in the 2D model
      is still the way to honest frame shadows.
+   - A plant inside a cold frame or a planter pot now lies in its holder's 2D shadow.
+     The per-plant sun estimate spares only a soil parent the plant stands on, and a
+     plant cannot be linked to either kind. Measured at 50°N on 21 June: 0 minutes,
+     975 without the holder. A greenhouse did this before. In 3D the cold frame's glass
+     casts no shadow. Follow-up #621 spares a holder that stands around the plant.
    - Saved plans store no default, so an existing parasol resolves to 250 cm and
      casts in 2D after the update. Nothing in the file changes.
 2. **Detail-normal strength 3.0** (`look.DETAIL_NORMALS`; `Garden.qml`'s default
@@ -8279,16 +8284,21 @@ paths, the house colours, the camera and the fog, and decided the two open point
 engine limits, which showed once it followed the camera:
 - **Shadows ended at 90 m** (`shadowMapFar` 9000): a plan framed from 134 m lay clear and
   shadowless at golden hour. The shadow map now reaches as far as the fog begins
-  (`Math.max(9000, fogNear)`); the top-down truth view keeps 9000, so the IoU gate's basis
-  is unchanged. Measured: the board is bit-identical (its shots are 25 m or closer).
+  (`Math.max(9000, fogNear)`); the top-down truth view keeps 9000. The shadow IoU gate's
+  camera is a perspective camera 7.6–14.5 m from its target, where the fog begins at
+  26 m, so its map still reaches 9000. `test_render_beauty_board.py` pins that distance;
+  past 60 m the gate would measure another map. The board's shots are 25 m or closer, so
+  their shadow map is unchanged; the far plane below still moves their cascades (re-review
+  below).
 - **Ambient occlusion drew a hard line about 101.5 m out** (6.6 luma at twice the default
   framing). Its strength fades out between 45 m and 90 m from the camera's target
   (`aoFade`).
 - **The far plane cut the meadow in view.** At 800 m the cut showed from about 400 m
   (41.6 luma a row at 403 m, 76.8 at 600 m): the fogged meadow ended against the sky's
-  darker lower half. The perspective camera's far plane is 3 km, past the meadow's
-  2 km edge from the camera's farthest 600 m, so the meadow ends in full fog. Measured
-  0.86 luma a row at 600 m.
+  darker lower half. The perspective camera's far plane is 3 km: from the camera's
+  farthest 600 m it lies past the midpoints of the meadow's edges, 2 km out, so the
+  meadow ends in full fog. Its corners, 2.83 km out, can lie past the far plane; the
+  fog is full by 760 m. Measured 0.86 luma a row at 600 m.
 - Not taken here: the gravel edging's chord at outer bends and square rail ends (#605),
   the horizon probe that cannot see the fog's change (#618), and the gravel texture's
   highlights in shade (#619).
@@ -8305,6 +8315,26 @@ The senior review found what the raster gates could not:
   built and the door, so a facade has at most twice its places plus one.
 - Not taken here: with a layer's opacity under 100 %, the gravel rim and the dirt margin
   show through the texture drawn over them (#617).
+
+**Re-reviews of the second pass's changes.** The 3D re-review confirmed the three engine
+fixes at the default camera: on bench_large at golden hour 69–71 % of the plan lies in
+shadow at twice the framing distance (0 % before), the AO line is gone, and the far-plane
+step fell from 71 to 3.2 luma at 403 m. It found two regressions of this pass, both fixed:
+- **The AO fade switched SSAO on at Low.** Qt's `setAoStrength` turns AO on whenever the
+  strength is not 0, whatever `aoEnabled` says, so Low and compatibility mode drew SSAO
+  once the camera stood 45–90 m out (PF-L3D-15). The strength is now 0 wherever AO is off.
+- **A house's plain block had a sandstone top**, where the 2D plan draws roof tiles (24°
+  of hue apart). The block's top is the roof seen from above, so it is `ROOF_TILE`; the
+  walls under a real roof have no top.
+- **Correction:** this pass's commit said the board was bit-identical. It is not. The
+  3 km far plane moves the cascaded shadow fit: 1–6 % of every board frame changes by more
+  than 8 luma, and the shadow IoU by at most 0.0023. Every gate still passes.
+- The senior re-review found the consequence above for plants in a cold frame or planter
+  pot (#621), and stale far-plane and no-height text, which is fixed.
+- Not taken here: shadows still end inside the plan for a camera aimed at a plan corner
+  or 600 m out, and the meadow's edge draws a 10–18 luma line at a pitch of 15° or less
+  from 400–600 m (#624). Detail 3.0's pits and sky-blue crescents under a low sun are
+  measured on #619.
 
 
 ## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)

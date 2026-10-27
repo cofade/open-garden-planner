@@ -93,7 +93,7 @@ src/open_garden_planner/
 │   │   ├── builders/             #   the production builders (Phase 17 L1.6 built world, L1.7 plants) — production_registry(); see §5.10
 │   │   │   ├── primitives.py     #     flat_mesh, boxes, bevelled_boxes, prism, sweep, plank, lathe, tubes, plan helpers
 │   │   │   ├── palette.py        #     the baked colours, mirrored from the 2D generators and object MATERIALS (drift-guarded); TINT
-│   │   │   ├── common.py         #     BuiltBuilder: the top is the height (fit safety net); no height → estimate, no shadow
+│   │   │   ├── common.py         #     BuiltBuilder: the top is the height (fit safety net); no height → the kind's nominal one; a recolour step on every route
 │   │   │   ├── kit.py            #     L4: bevelled pieces every object builder shares (legs, slats, staves, frames)
 │   │   │   ├── furniture.py      #     L4: tables, chairs, bench, lounger, parasol, grill, fire pit, planter pot, picnic table
 │   │   │   ├── play.py           #     L4: sandbox, trampoline, hot tub, swing, hammock

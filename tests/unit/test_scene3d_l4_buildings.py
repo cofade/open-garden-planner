@@ -601,7 +601,9 @@ def test_a_house_s_walls_are_sandstone_on_every_route(route: str) -> None:
     """Senior review of the owner pass: the roofless block (``_block``) and the plain
     block of a house that is not one plain outline gave the walls the house's fill — now
     terracotta, the "one terracotta block" the owner rejected. One rule of the kind,
-    whatever the route: no part of a house takes its fill."""
+    whatever the route: no part of a house takes its fill. A block's top is the roof
+    seen from above, roof tiles as the 2D plan draws it (3D review of the owner's second
+    pass: a sandstone top was 24° of hue from the plan's)."""
     from open_garden_planner.core.scene3d.builders import palette
 
     records = {
@@ -615,5 +617,11 @@ def test_a_house_s_walls_are_sandstone_on_every_route(route: str) -> None:
     assert parts and not any(part.tinted for part in parts), route
     walls = parts[0]
     assert walls.name in ("walls", "prism")
+    top = walls.mesh.normals[:, 2] > 0.99
     sandstone = np.asarray(palette.SANDSTONE.linear, dtype=np.float32)
-    assert np.allclose(walls.mesh.colors.max(axis=0), sandstone, atol=1e-6), route
+    assert np.allclose(walls.mesh.colors[~top].max(axis=0), sandstone, atol=1e-6), route
+    if route == "roofed":
+        assert not top.any(), "under a roof the walls have no top"
+    else:
+        tile = np.asarray(palette.ROOF_TILE.linear, dtype=np.float32)
+        assert top.any() and np.allclose(walls.mesh.colors[top].max(axis=0), tile, atol=1e-6), route

@@ -627,12 +627,14 @@ class TestRidgeIsTheLiveRidge:
 
 def _assert_the_house_block(part: Any, block: Any) -> None:
     """``part`` is the default prism ``block`` of a house: its shape, in the house's
-    sandstone (``buildings._house_walls``: a house's walls take no fill on any route)."""
+    sandstone with a top of roof tiles (``buildings._house_walls``: a house takes no fill
+    on any route)."""
     assert np.array_equal(part.mesh.positions, block.positions)
     assert np.array_equal(part.mesh.indices, block.indices)
     assert not part.tinted
     wall = np.asarray(buildings.HOUSE_WALL.linear, dtype=np.float32)
-    assert np.allclose(part.mesh.colors, block.colors * wall)
+    tile = np.asarray(buildings.HOUSE_ROOF.tile.linear, dtype=np.float32)
+    assert np.allclose(part.mesh.colors, block.colors * np.where(block.normals[:, 2:3] > 0.99, tile, wall))
 
 class TestAResolvedOutlineGetsNoRoof:
     """Round 1's open point, closed by the contract's flag (merge of 9944012): a HOUSE

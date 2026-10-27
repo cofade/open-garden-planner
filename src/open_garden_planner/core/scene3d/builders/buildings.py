@@ -310,13 +310,19 @@ def _house_walls(parts: tuple[MeshPart, ...]) -> tuple[MeshPart, ...]:
     """A HOUSE's walls are ``HOUSE_WALL`` on EVERY route — under its roof, the block of
     a house whose roof cannot be built (``_block``) and ``BuiltBuilder``'s plain block of
     a house that is not one plain outline — never the item's fill (module docstring).
+    A block's top is the roof seen from above, so it is roof tiles, as the 2D plan draws
+    it (3D review of the owner's second pass); walls under a roof have no top.
     The rule of the kind, applied once to whatever was built: the tinted parts."""
     wall = np.asarray(HOUSE_WALL.linear, dtype=np.float32)
-    return tuple(
-        dataclasses.replace(part, tinted=False, mesh=Mesh.from_arrays(
-            part.mesh.positions, part.mesh.normals, part.mesh.colors * wall, part.mesh.uvs,
-            part.mesh.indices)) if part.tinted else part
-        for part in parts)
+    tile = np.asarray(HOUSE_ROOF.tile.linear, dtype=np.float32)
+
+    def recoloured(mesh: Mesh) -> Mesh:
+        colour = np.where(mesh.normals[:, 2:3] > 0.99, tile, wall)
+        return Mesh.from_arrays(mesh.positions, mesh.normals, mesh.colors * colour, mesh.uvs,
+                                mesh.indices)
+
+    return tuple(dataclasses.replace(part, tinted=False, mesh=recoloured(part.mesh))
+                 if part.tinted else part for part in parts)
 
 
 build_house: Final = BuiltBuilder(_house, "house", recolour=_house_walls)

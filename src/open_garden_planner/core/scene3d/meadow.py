@@ -1,7 +1,7 @@
 """The endless meadow around the plan (Phase 17 L4, #388). Qt-free.
 
-The meadow is a square ``2 × MEADOW_HALF_CM`` wide (4 km; its edge lies in full fog and
-inside the workspace's 3 km far plane) centred on the plan, IN the plan's plane, with the plan's rectangle cut out —
+The meadow is a square ``2 × MEADOW_HALF_CM`` wide (4 km; its edge lies in full fog, the
+midpoints of its edges inside the workspace's 3 km far plane) centred on the plan, IN the plan's plane, with the plan's rectangle cut out —
 less ``MEADOW_OVERLAP_CM`` on each side — and cut into cells of at most
 ``MEADOW_CELL_CM``. Nothing of it lies under the plan.
 

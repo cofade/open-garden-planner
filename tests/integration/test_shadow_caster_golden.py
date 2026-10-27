@@ -20,7 +20,9 @@ survive a squash merge — the tag will):
 - ``plans`` — both bench plans on 21 June: the caster walk itself, the union of
   every caster's shadow as the code computed it then, and the union of the
   casters that stand on the ground (everything but the plants in raised beds —
-  22 and 240 of them);
+  22 and 240 of them). The walk hides the nine kinds L4's second owner pass gave
+  a default height (``GIVEN_A_HEIGHT_IN_L4``), which had none in v1.29.10; a test
+  of its own pins what they add;
 - ``overlay`` — the painter path of the real ``SunShadowController`` overlay on a
   hand-built scene without raised plants, at a high and a low sun;
 - ``heatmap`` — ``compute_heatmap`` minutes for the campaign's wall toy case.

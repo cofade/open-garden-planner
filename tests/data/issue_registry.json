@@ -1274,9 +1274,19 @@
     "state": "OPEN",
     "title": "Windows power throttling raises local perf-tier timings ~1.8x partway through a run"
   },
-  "619": {
+  "621": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "Gravel texture reads as wet bubbles in shade at walk height (owner taste)"
+    "title": "Per-plant sun: a plant inside a cold frame, planter pot or greenhouse reads 0 h (follow-up to #388)"
+  },
+  "623": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "--selftest from source crashed once (0xC000041D, empty output) inside the GPU render tier"
+  },
+  "624": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L4 3D: shadow reach from the plan's corners, the meadow edge at a low pitch, rendered pins (follow-up to #388)"
   }
 }

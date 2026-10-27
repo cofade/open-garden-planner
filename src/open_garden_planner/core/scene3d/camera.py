@@ -40,7 +40,7 @@ FOV_DEG: Final = 40.0
 #: down, where the engine's look-at has no "up" left.
 MIN_PITCH_DEG: Final = 5.0
 MAX_PITCH_DEG: Final = 89.0
-#: Half a metre to 600 m. The engine's far plane is 800 m (``Garden.qml``).
+#: Half a metre to 600 m. The perspective camera's far plane is 3 km (``Garden.qml``).
 MIN_DISTANCE_CM: Final = 50.0
 MAX_DISTANCE_CM: Final = 60_000.0
 #: How far beyond the plan's edge the look-at point may be panned.

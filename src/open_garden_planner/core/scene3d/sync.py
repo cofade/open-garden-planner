@@ -45,8 +45,8 @@ ground in step: every ``apply`` hands the baker the snapshot, the SAME diff the
 builders are run from and the ids the scene holds a solid for, and the tiles it
 returns travel as the ground of the same transaction — one edit, one snapshot,
 one diff, builders and bake. A record is painted on the ground when the snapshot
-gave it a paint description (it has no height and is not a plant) AND no builder
-made a solid for it.
+gave it a paint description (every record but a plant's, whatever its height) AND
+no builder made a solid for it.
 
 - PENDING GROUND WORK. A baker may stop before every tile is painted (its time
   budget): the ground sent then holds the tiles it had for the rest — a stale

@@ -192,7 +192,17 @@ lives now; the values production was drift-guarded against are frozen in
   26 m / 160 m, far ≤ 760 m, near ≤ 0.75 far); `set_camera` sets them. What the fog hid
   then showed (3D review): `shadowMapFar` follows `fogNear` (top-down keeps 9000), AO fades
   out from 45 m to 90 m (its pass draws a line about 101 m out), and `clipFar` is 3 km —
-  at 800 m the cut meadow showed against the sky's darker lower half, fog or not.
+  at 800 m the cut meadow showed against the sky's darker lower half, fog or not. Still
+  open (#624): `shadowMapFar` follows the target's distance, not the plan's reach, so a
+  camera aimed at a plan corner, or 600 m out, loses the far shadows.
+- **`setAoStrength` switches AO on (L4, PF-L3D-15):** whenever the strength is not 0, Qt
+  sets `aoEnabled` true, whatever its binding says. A strength that changes after load (a
+  fade) must be 0 wherever AO is meant to be off, or Low draws SSAO. Read the live state
+  off the `ExtendedSceneEnvironment` (`test_quick3d_host.py::_scene_environment`).
+- **`clipFar` moves the cascaded shadow fit** even when `shadowMapFar` is below it (L4,
+  3D re-review): 800 m → 3 km changed 1–6 % of every board frame by more than 8 luma (at
+  most 114) through the cascades, and the shadow IoU by at most 0.0023. A far-plane change
+  is not "bit-identical" without a board that says so.
 - **Fog vs sky:** the skybox is drawn × `probeExposure`, `Fog` is not — fog = sky horizon ×
   probe exposure × 0.8 (linear) meets the sky within ±1.3 luma. The sky's
   `groundHorizonColor` shows in a sliver under a far-clipped ground plane: give it the sky

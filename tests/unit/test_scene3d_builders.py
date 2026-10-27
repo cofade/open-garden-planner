@@ -125,12 +125,20 @@ LEAF_OVERSHOOT_CM = 6.0
 
 def assert_the_block(part: MeshPart, block: Mesh, kind: str) -> None:
     """``part`` is the plain block ``block``: its shape, in the item's fill (``tinted``) —
-    a HOUSE's in its sandstone, whatever the route (``buildings._house_walls``)."""
+    a HOUSE's in its sandstone with a top of roof tiles, whatever the route
+    (``buildings._house_walls``)."""
     assert np.array_equal(part.mesh.positions, block.positions)
     assert np.array_equal(part.mesh.indices, block.indices)
     house = kind == "HOUSE"
     assert part.tinted is not house
-    assert np.allclose(part.mesh.colors, block.colors * (HOUSE_WALL_LINEAR if house else 1.0))
+    assert np.allclose(part.mesh.colors, block.colors * (house_colours(block) if house else 1.0))
+
+
+def house_colours(block: Mesh) -> np.ndarray:
+    """What a HOUSE's plain block is coloured with, vertex by vertex: roof tiles on top,
+    sandstone below."""
+    tile = np.asarray(buildings.HOUSE_ROOF.tile.linear, dtype=np.float32)
+    return np.where(block.normals[:, 2:3] > 0.99, tile, HOUSE_WALL_LINEAR)
 
 
 @functools.cache

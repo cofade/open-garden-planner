@@ -301,6 +301,14 @@ def test_a_night_fog_reaches_the_scene_as_the_linear_value_the_look_derived(qtbo
         made.close()
 
 
+def _scene_environment(host: Any) -> QObject:
+    """``Garden.qml``'s ``ExtendedSceneEnvironment``. Its AO state is read there: Qt sets
+    ``aoEnabled`` itself, so no root property mirrors it."""
+    (environment,) = [child for child in host._root.findChildren(QObject)  # noqa: SLF001
+                      if "SceneEnvironment" in child.metaObject().className()]
+    return environment
+
+
 def _light_travel(host: Any) -> tuple[float, float, float]:
     """Where the scene's key light shines: its rotation applied to a light's own -Z."""
     rotation: QQuaternion = host.scene_property("sunRotation")
@@ -622,6 +630,24 @@ class TestSunGroundCamera:
         near, far = host.scene_property("fogNear"), host.scene_property("fogFar")
         assert (near, far) == pytest.approx(fog_depth_cm(math.dist(eye, target)))
         assert near > math.dist(eye, target)
+
+    @pytest.mark.parametrize("preset", PRESETS)
+    def test_ambient_occlusion_runs_only_where_the_look_asks_for_it(self, host, preset: str) -> None:
+        """3D review of L4's second owner pass: Qt's ``setAoStrength`` turns the AO pass
+        on whenever the strength is not 0, whatever ``aoEnabled`` says. The strength's
+        fade with the camera's distance (45 m to 90 m) switched SSAO on at Low, and so in
+        compatibility mode, once the camera stood in between."""
+        look = look_for(SunState(40.0, 200.0), preset)
+        host.set_look(look)
+        environment = _scene_environment(host)
+        for distance in (500.0, 5_500.0, 6_700.0, 9_500.0, 500.0):
+            host.set_camera((0.0, -0.8 * distance, 0.6 * distance), (0.0, 0.0, 0.0))
+            share = min(1.0, max(0.0, (9_000.0 - distance) / 4_500.0))
+            wanted = look.preset.ambient_occlusion and share > 0.0
+            assert environment.property("aoEnabled") is wanted, distance
+            assert environment.property("aoStrength") == pytest.approx(55.0 * share if wanted else 0.0), distance
+        host.set_top_down((0.0, 0.0), 0.25)
+        assert environment.property("aoEnabled") is False and environment.property("aoStrength") == 0.0
 
     def test_a_shot_that_cannot_be_rendered_is_refused(self, host) -> None:
         with pytest.raises(ValueError, match="same point"):

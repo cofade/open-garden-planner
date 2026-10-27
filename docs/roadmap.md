@@ -2768,7 +2768,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   pergola got real default heights: they show them in the panel and cast in 2D and 3D. The
   ground's detail-normal strength is 3.0.
 
-  Follow-ups: #600, #603–#605, #607, #609, #611, #615–#619.
+  Follow-ups: #600, #603–#605, #607, #609, #611, #615–#621, #623, #624.
 
 ### L3 acceptance highlights — Plant Forge (#387, ADR-064) — **shipped v1.32.0, PR #593**
 

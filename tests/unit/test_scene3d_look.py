@@ -813,10 +813,11 @@ class TestFogDepth:
             assert near >= distance + math.hypot(width, depth) / 2.0, (distance, near)
 
     def test_the_meadow_ends_in_full_fog_inside_the_far_plane(self) -> None:
-        """The meadow's edge must lie in full fog, and inside the camera's far plane from
-        every distance the camera can take: a far plane that cuts the meadow shows the
-        cut against the sky's darker lower half, fog or not (3D review of L4's second
-        owner pass: 41.6 luma a row at 403 m with the 800 m far plane)."""
+        """The meadow's edge must lie in full fog, and the midpoints of its edges inside
+        the camera's far plane from every distance the camera can take: a far plane that
+        cuts the meadow shows the cut against the sky's darker lower half, fog or not (3D
+        review of L4's second owner pass: 41.6 luma a row at 403 m with the 800 m far
+        plane). The corners, 2.83 km out, can lie past it, in full fog."""
         scene = (Path(L.__file__).resolve().parents[2] / "ui" / "view3d" / "quick3d" / "qml"
                  / "Garden.qml").read_text(encoding="utf-8")
         camera = scene[scene.index("PerspectiveCamera {"):]
