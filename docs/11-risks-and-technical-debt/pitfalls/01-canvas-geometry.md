@@ -281,7 +281,10 @@ plant (`_parent_captures_a_plant`), which kept 600 childless bed adds at 0.24 s 
 2.12 s.
 
 Two traps to keep: `Command.changes_containment` is NOT the same gate as
-`changes_ground_band` — the commands that change containment (move/resize/rotate/vertex)
+`changes_ground_band` - the commands that change containment (move/resize/rotate/vertex)
 are exactly the ones that set the ground-band flag False; and the per-command check must
-stay ONE-WAY ("is a plant below a containing parent"), because a two-way check would
-re-derive on every command in a healthy plan.
+compare the plant's z against the parent the DERIVATION names (`_derived_plant_parent`) -
+not "any parent that contains it", which never settles once an outer bed is arranged above
+an inner one, and not a second copy of the rule, which drifted into rebuilding each
+parent's shape per (plant, parent) pair (1 661 ms on the adversarial 200-plant plan, 133 ms
+with the pass's shape cache, 8 ms at 6 vertices).
