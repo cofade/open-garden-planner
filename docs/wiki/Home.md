@@ -77,6 +77,14 @@ generated version artifact (About now reports 1.32.1), species-sized gallery dro
 and a single 120 px Properties control column. See the
 [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#non-3d-follow-up-hardening-batch-2--shipped-2026-10-26-as-v1321-pr-596).
 
+## Offline examples and reusable templates
+
+The F5 implementation adds three offline learning layouts and portable template
+copies; owner executable acceptance is pending. See the
+[delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#f5-examples-and-templates-implementation-316-379-owner-acceptance-pending).
+Templates remove named site/history fields and paths; review free-form names and
+text before sharing. Example dates are illustrative calendar dates.
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

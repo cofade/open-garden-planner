@@ -305,3 +305,10 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
   (not a haze), 4× MSAA at Low, and the flat sky and even fill light in compatibility mode;
   accepted the new view's cost over the old window (no lighter default preset); and shipped the
   default with #532 open (ADR-060 addendum D5).
+
+- **2026-10-27** — rejected sparse, isolated example layouts: crops must fit inside
+  actual soil; food-forest companions need realistic groups and cultivated beds;
+  mature perennials need credible planting history. Balcony examples need planted
+  troughs and believable furniture/enclosure. All examples need localized tutorial
+  annotations, a northern location for solar study and useful soil demonstrations.
+  These are content requirements, independent of L4's built-world mesh work.

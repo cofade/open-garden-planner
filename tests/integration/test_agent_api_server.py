@@ -333,6 +333,7 @@ def test_resources_end_to_end(canvas: Any, qtbot: Any) -> None:
             "garden://diagnostics",
             "garden://species",
             "garden://plant-lists",
+            "garden://examples",
         }
 
         assert result["plan"]["bed_count"] == 1

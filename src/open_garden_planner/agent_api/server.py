@@ -2322,6 +2322,14 @@ def build_server(
         """
         return await anyio.to_thread.run_sync(lambda: list(get_species_db().values()))
 
+    @mcp.resource("garden://examples", mime_type="application/json")
+    async def examples_resource() -> list[dict[str, Any]]:
+        """Bundled offline examples; opening remains a GUI action."""
+        from open_garden_planner.app.settings import active_language
+        from open_garden_planner.services.example_library import examples_resource as catalog
+
+        return catalog(active_language())
+
     @mcp.resource("garden://plant-lists", mime_type="application/json")
     async def plant_lists_resource() -> list[dict[str, Any]]:
         """User-defined plant lists and favorites catalog (US-G4)."""

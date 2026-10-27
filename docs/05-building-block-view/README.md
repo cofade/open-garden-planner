@@ -763,3 +763,26 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 | `core/canvas_bounds.py` | Qt-free geometric boundary enforcement. The single shared math implementation for clamping item bounding boxes within `(0, 0, width, height)` canvas bounds; consumed by both `CanvasView` drag/nudge and Agent API write operations to prevent off-plan item placement. | list of `(left, top, right, bottom)` + canvas dimensions → `(dx, dy)` shift |
 | `core/tools/preview_z.py` | Standardized z-ordering for ephemeral interactive tool preview items (`PREVIEW_Z_FILL` = 999, `LINE` = 1000, `LABEL` = 1001, `HANDLE` = 1002). Keeps gesture previews visibly above document items while staying strictly below the minimap capture threshold (`MAX_PREVIEW_Z` < 10,000). | constant z-level definitions |
 | `ui/canvas/arrange.py` | The single GUI and API command-dispatch seam for stacking mutations (`build_arrange_command`). Gathers selected items across layers, filters non-rankable items (e.g. journal pins), queries `core.stacking` per layer, and emits a single undoable `ArrangeItemsCommand`. | scene + items + `ArrangeMode` → `(ArrangeItemsCommand, ArrangeOutcome)` |
+
+
+## Offline examples and templates (US-F5, ADR-066)
+
+
+
+| Block | Responsibility |
+
+| --- | --- |
+
+| `core/templates.py` | Qt-free keep/strip policy; recursively detach portable content. |
+
+| `services/example_library.py` | Bundled sidecars, localized catalog, local template paths, read-only resource payload. |
+
+| `ui/widgets/template_gallery.py` | Shared thumbnail selection widget for Welcome and File. |
+
+| `ProjectManager.save_template` / `load(as_template=True)` | Normal atomic persistence and load preparation, with untitled-copy semantics. |
+
+| `scripts/generate_examples.py` | Isolated authoring, stable IDs and production-rendered PNGs. |
+
+
+
+`resources/examples/PROVENANCE.md` owns content attribution and regeneration.

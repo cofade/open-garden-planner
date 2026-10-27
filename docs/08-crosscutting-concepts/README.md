@@ -7237,3 +7237,31 @@ configured. The hint replaces the generic map-unavailable label while coordinate
 are absent. Saving a location lets an already enabled live map recover through its
 existing scheduler. Date navigation remains available without a location.
 
+
+
+## 8.33 Offline examples and template authoring (US-F5, ADR-066)
+
+Welcome's Examples & templates tab and File > New from example share
+`TemplateGallery`; File > New from template accepts any `.ogp`. Both call the one
+normal document-load path with template-copy semantics. Save opens Save As for the
+untitled copy. File > Save as template explains the exact data categories removed
+and writes by default under `<app-data>/templates/`; that folder is also listed in
+the gallery. Export does not rename or clean the live project.
+
+To author a bundled example, edit `scripts/generate_examples.py`, run it in the
+locked environment, inspect all three rendered previews and add its provenance.
+Use the ordinary constructors and CreateItemsCommand so bed links and child lists
+agree. Parents and children must share a layer for the z-order clamp. IDs are
+normalized before the saved plan is reloaded and rendered. Every registered locale
+needs sidecar name/description text. These content strings follow the existing
+localized-data convention; widget text goes through Qt translation as usual.
+
+Keep the field-classification test aligned with ProjectData. New project fields
+must be explicitly kept or stripped; unknown serialized top-level keys are dropped.
+The filter is not a free-text anonymizer. Succession dates are retained calendar
+dates, so authors state their example year rather than claiming climate adaptation.
+See `resources/examples/PROVENANCE.md` and `tests/integration/test_templates_gallery.py`.
+
+The gallery tab hides Welcome's large banner. A bounded, scrollable details area
+keeps a complete card visible at 600 x 500 with 9/12 pt fonts in every locale;
+`tests/ui/test_template_gallery.py` pins the actual item/viewport rectangles.

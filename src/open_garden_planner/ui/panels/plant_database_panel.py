@@ -48,6 +48,7 @@ from open_garden_planner.models.plant_data import (
 from open_garden_planner.services import get_plant_library
 from open_garden_planner.services.bundled_species_db import merge_calendar_data
 from open_garden_planner.ui.canvas.items.garden_item import note_plan_changed
+from open_garden_planner.ui.edible_parts import display_edible_parts, parse_edible_parts
 from open_garden_planner.ui.plant_species_assignment import (
     apply_species_to_item,
     confirm_apply_database_values,
@@ -1022,13 +1023,9 @@ class PlantDatabasePanel(QWidget):
         self._current_plant_data.edible = self.edible_checkbox.isChecked()
 
         # Edible parts (comma-separated list)
-        edible_parts_str = self.edible_parts_edit.text().strip()
-        if edible_parts_str:
-            self._current_plant_data.edible_parts = [
-                p.strip() for p in edible_parts_str.split(",") if p.strip()
-            ]
-        else:
-            self._current_plant_data.edible_parts = []
+        self._current_plant_data.edible_parts = parse_edible_parts(
+            self.edible_parts_edit.text(), self._current_plant_data.edible_parts
+        )
 
         # Soil requirements (US-12.10d)
         ph_min_val = self.ph_min_spin.value()
@@ -1966,7 +1963,7 @@ class PlantDatabasePanel(QWidget):
 
         # Edible parts
         if plant_data.edible_parts:
-            parts_text = ", ".join(plant_data.edible_parts)
+            parts_text = display_edible_parts(plant_data.edible_parts)
             self.edible_parts_edit.setText(parts_text)
         else:
             self.edible_parts_edit.setText("")

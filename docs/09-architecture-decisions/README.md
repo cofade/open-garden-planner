@@ -7638,3 +7638,86 @@ reporting and injected 20 ms negative control. The statistical guarantee has
 changed explicitly; no absolute deadline or presented-FPS guarantee is claimed.
 This correction changes tests and documentation, not the released runtime.
 
+
+
+## ADR-066: Offline examples and portable .ogp templates (US-F5, #316, #379)
+
+**Status:** Accepted for implementation; owner executable acceptance pending.
+**Date:** 2026-10-26. The number skips the historical ADR-065 compatibility alias.
+
+**Context.** A saved plan includes site and history data. Reusing it as a starting
+point must never attach Save or autosave to the bundled file. A new file format,
+second loader or community server would add unnecessary compatibility seams.
+
+**Decision.** A template is the existing version-1.4 JSON format filtered through
+`core/templates.py::template_plan`. Keep canvas dimensions, geometry (including
+species, plant dates, guild snapshots and smart symbols), layers, constraints,
+guides, succession plans and the layer-assignment flag. Explicitly classify every
+`ProjectData` field as keep/strip; a test fails on future unclassified fields.
+Drop unknown top-level keys, site/history/preferences, top-level metadata,
+background-image and journal-pin records (also inside groups), georeferencing,
+photos and path-bearing fields. Recursively remove absolute Windows/POSIX paths,
+UNC and drive-relative paths and file URIs. Names and free-form annotations are
+retained: the export explanation asks users to review them before sharing.
+
+`ProjectManager.load(as_template=True)` validates the original file version,
+filters the document and uses the normal prepare/apply/metadata restoration path.
+It finishes untitled and dirty, without adding the source to Recent Files.
+`GardenPlannerApp._load_project_file` remains the only UI replacement path,
+including history/autosave/compare cleanup. Export uses the normal snapshot and
+atomic `write_plan`, flushes pending editors, never changes the current file or
+cleans the document, and refuses to overwrite the live project or bundled files.
+
+Three CC-BY-SA-4.0 learning layouts ship with localized sidecars and rendered PNGs.
+The catalog lists local `<app-data>/templates/*.ogp` by filename without parsing
+untrusted files. Opening a corrupt local template follows normal load recovery.
+The read-only `garden://examples` resource lists bundled content only. GUI actions
+open copies. No agent-open tool, network gallery or community server is added.
+The later community-sharing phase can reuse this template subset.
+
+**Verified spec correction.** `SuccessionEntry` stores absolute ISO calendar dates,
+not frost-relative offsets. Preserve them without rebasing; the raised-bed example
+and descriptions explicitly label its 2027 dates as illustrative. No climate or
+companion benefit is inferred from an absence of antagonistic rules.
+
+**Alternatives rejected.** A new extension/schema; a temporary-file loader; direct
+scene construction per gallery entry; silently rewriting crop dates; sanitizing
+arbitrary prose as if this were a complete anonymizer. No new dependency or file
+version bump. A pre-F reader can ignore additive F keys and retain geometry.
+
+**Evidence.** `tests/unit/test_templates.py`,
+`tests/integration/test_templates_gallery.py`, `tests/ui/test_welcome_dialog.py`.
+`generate_examples.py` uses production constructors, creation commands, serializer
+and renderer with isolated stores. `dogfood_agent_api.py --emit-sample` copies the
+maintained raised-bed example and preview instead of constructing another schema.
+
+**Review hardening.** Record-type filtering applies only to structural objects and
+children lists; custom dictionaries may contain arbitrary type values. The gallery
+reclaims the banner space and scrolls details so the minimum-size viewport holds
+a complete card. Sample emission short-circuits before exe/settings/server work.
+
+**Owner-feedback addendum, 2026-10-27.** A teaching example needs an actual sun
+study and soil workflow. `example_copy_plan` therefore retains only location and
+soil tests for known bundled paths, including locale variants authorized by their
+canonical sidecar. Coordinates describe public northern-hemisphere cities, not a
+private garden. Soil and frost dates are explicitly fictional teaching inputs.
+External templates and every template export still use the strict portable subset.
+No history exemption is added. The load path, untitled identity and Save As remain
+unchanged. Observed-failing load tests pin the demo-state exception and the
+same-filename external refusal in `test_example_demo_state.py`.
+
+All three layouts ship in English, German and Spanish, with identical object IDs
+and geometry. Gallery thumbnails are rendered separately from each saved locale
+plan, so tutorial text inside previews follows the language too. Display names,
+annotations, notes, guild labels and credits follow
+the selected language; canonical species and artwork identifiers stay stable.
+Known edible-part terms translate at the editor/search display boundary and an
+unchanged translated field preserves the exact raw list. This prevents an
+unrelated property edit from rewriting species metadata in the UI language.
+
+The 21 September 2026 teaching date is explicit in notes, never silently installed
+in SimClock. Mature perennials have historical planting dates and nursery-size
+anchors. Spacing is measured against actual plant circles and the shipped 2D bed
+sprite's soil rectangle, which is narrower than its 3D soil. Guild membership
+describes nearby plants, while missing roles remain honest diagnostics. Production
+scene rendering and real-font annotation bounds supplement structural assertions.

@@ -64,6 +64,12 @@ for f in (RESOURCES / "data").rglob("*"):
         rel = f.relative_to(SRC)
         datas.append((str(f), str(rel.parent)))
 
+# Offline example plans, localized sidecars, thumbnails and provenance (US-F5).
+for f in (RESOURCES / "examples").rglob("*"):
+    if f.is_file():
+        rel = f.relative_to(SRC)
+        datas.append((str(f), str(rel.parent)))
+
 # Web resources (Google Maps picker HTML loaded by QWebEngineView)
 for f in (RESOURCES / "web").rglob("*"):
     if f.is_file():
