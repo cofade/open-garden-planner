@@ -1196,6 +1196,89 @@ functions from the resolver over explicit/container/species/current/grown/defaul
 cases and checks the grown source; all existing precedence, shadow and 3D height tests
 are unchanged. No `.ogp`, UI or behaviour change.
 
+### ADR-037 addendum — one caster's ring set is one REGION (#444, 2026-10-27)
+
+**Status**: Accepted. **Changes shipped 2D behaviour** — the sun & shade overlay
+(FR-SUN-03) and the hours-of-sun heatmap (FR-SUN-05) — for exactly two classes of item:
+a fence, wall or hedge stroke whose centre line closes on itself, and an outline that
+crosses itself. It closes the alternative this ADR's base-stacking addendum deliberately
+left open ("*Fixing the closed-polyline footprint in the same change* … a separate defect
+with its own issue").
+
+**Context.** A closed polyline comes back from `PyclipperOffset` as an outer ring **and a
+hole** (`polyline_footprint([(0,0),(1000,0),(1000,800),(0,800),(0,0)], 10)` → +818,062
+and −782,100 cm²). `_caster_paths_int` normalised each ring counter-clockwise and swept it
+as a **solid**, so the hole cast the shadow of a slab the size of the enclosed garden.
+Measured on master (`81d2b62f`, and in v1.30.0 as shipped): a 10 m × 8 m loop, 10 cm
+stroke, 1.2 m high, 60° sun, azimuth 180° — **888,037 cm² of shade where the stroke's
+prisms give 174,526 cm²** (the issue's four-rectangle reference gives 174,564; the 38 cm²
+is the offset ring's chamfered corners, which the four rectangles do not have — the ray
+oracle settles it in the sweep's favour). A self-crossing outline had the same shape of
+defect: `[(0,0),(400,300),(400,0),(0,300)]` at 300 cm and 60° drew **80,000 cm²** where
+its two lobes' prisms give **129,282 cm²**.
+
+**Decision.** One caster is one REGION, and the region is repaired once per WALK, where
+the item is still known — `core.shadow_geometry.shadow_region(footprints)`.
+
+1. **Detection is structural, not a type test.** A ring set needs the repair when (a) some
+   ring's enclosed area is negative while there is more than one ring — a hole — or (b)
+   any ring's printed area differs from what its own outline encloses
+   (`SimplifyPolygons`, one grid step of slack) — a self-crossing outline. A LONE ring is
+   never a hole whatever its winding: a solid drawn clockwise is a solid, and the sweep
+   already normalises winding. Everything else is returned **point for point**, which is
+   what keeps `tests/fixtures/shadows/shadow_golden.json` valid — every footprint it pins
+   is a simple ring (measured: no hole-bearing and no self-crossing caster in
+   `bench_small.ogp`'s 87 or `bench_large.ogp`'s 379).
+2. **A hole is cut open by a zero-width slit.** `_bridge_holes_int` runs a vertical ray
+   from the hole's topmost vertex to the nearest boundary above it (at x offsets
+   0, ±1, ±2 … grid steps, so a ray never lands on a vertex), and the ring visits it down
+   and up again. The slit encloses no ground, so the ring's region is exactly
+   `outer − holes`; the sweep of a region is the sweep of its rings, so nothing else
+   changes. Holes are bridged highest-first, so a lower hole's slit meets the boundary
+   above it and the result stays simple.
+3. **A self-crossing outline is split into its lobes** by `SimplifyPolygons` (even-odd),
+   and each lobe is swept as the solid it is.
+4. **The role of a ring is its winding sign**, which is what every pyclipper offset hands
+   out; a negative ring inside no outer ring is kept as a piece of its own rather than
+   dropped (it is a caller's lone reversed ring, not a hole).
+
+The repair lives in `collect_identified_casters` — the one walk the overlay
+(`collect_shadow_casters`), the heatmap (`compute_grouped_shadows`) and the per-plant
+estimates all read. `item_footprints` is unchanged: it answers *which ground does the
+item cover* (the 3D records and the golden-pinned extraction), not *what does this shadow
+sweep*. The sweep functions still take simple rings; a hole passed to them on its own
+would still be cast as a solid, which is why the repair is not inside them.
+
+**Cost, and the gate that keeps it.** The repair needs `pyclipper` work, so the walk asks
+for it only where the extractor can have produced something to repair: more than one ring,
+or `footprints.footprints_can_self_cross(item)` — True exactly for a `PolygonItem`, whose
+vertices are the user's own order (a polyline's crossing centre line is resolved by the
+offset into separate rings, and circles, ellipses and rectangles are generated from a
+centre/radius/rect). Measured on bench_large (379 casters: 320 circles, 56 rectangles, 2
+polygons, 1 polyline; best of 30, Windows, against an `origin/master` worktree in the same
+session): **10.5 ms a walk with the repair on every ring, 6.7 ms with the gate, 6.8 ms on
+master.** The base-stacking addendum measured this walk at 5.0–5.3 ms, so the gate restores
+the released cost. The premise is measured, not asserted:
+`tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself`
+builds all five shapes and checks both the predicate and that each non-polygon ring is one
+positively wound ring.
+
+**Validation.** `tests/integration/test_shadow_region.py` — both before/after numbers
+above; a **ray oracle** that knows no polygons (a ground point is shaded iff some point
+between it and the sun's footprint of it is in the region) agreeing with the polygon
+answer on every cell of a 20 cm grid over the loop, and rejecting the old answer on
+>1,500 cells; the simple-ring pass-through (including a clockwise ring); idempotence; the
+walk handing out one ring and one `ShadowCaster` for a closed `FENCE` item; the real
+`SunShadowController` overlay leaving the garden inside a loop in the sun while still
+drawing the fence's own shadow; and a self-crossing `PolygonItem` in a plan keeping both
+lobes. The full golden gate is unchanged — regenerating it was not needed and was not
+done. The mutation check keeps its shadow mutants killed (`scripts/mutation_check_built_world.py`).
+
+**Left out.** The pore/gable modelling of a porous fence or a gabled roof (#440) is a
+product decision and stays open. The 3D meshes of fences and walls are not the prisms
+this ADR casts (ADR-059). The mesh of a closed loop in 3D still builds its own shape,
+not this region. Nothing serialized; no `FILE_VERSION` change; no new user-visible string.
+
 ## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
 
 **Status**: **Superseded** by ADR-048 (2026-10-05); the code this decision chose was deleted in Phase 17 L1.10 (2026-10-19, ADR-060 addendum "the default and the removal", ADR-048's closing addendum). Was: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
@@ -3732,6 +3815,35 @@ follow-up, not this decision. `measurement_method` keeps its identifier
 in bare PyQt the closure v1.30.1 hung there runs 0 times when the wrappers are collected
 before Qt's deferred delete, 5 of 5); its theme listener asks at the moment of use and takes
 itself off the registry.
+
+**Addendum — the estimate spares the soil solid a plant stands in, linked or not (#481,
+2026-10-27).** The paragraph above ("reads 0 hours — the bed-membership follow-up") is
+reversed for the ESTIMATE, because the follow-up (#443) is not a prerequisite for reading
+the right sun. **Measured on master**: a full-sun tomato inside a 40 cm raised bed whose
+outline contains it, Berlin, 21 June — **0.0 h** and a `too_little` mismatch when the link
+was never made (a bed drawn around the plant, a mirror copy without its bed, a move by the
+arrow keys or a typed coordinate), **16.5 h** linked. The link is bookkeeping and follows
+only some edit paths; the geometry is the fact.
+
+`IdentifiedCaster` gained `holds_plants` (the walk's `is_solid_soil_parent`: a bed, raised
+bed, container or wall planter with a resolved, positive, finite height — the predicate
+`object_height` already documents as "the per-plant sun estimate must not count that solid
+as shade"). `_aggregate_day` spares such a caster for every receiver whose own point lies
+inside its outline, on top of the existing `stands_on` link spare. It is a PER-RECEIVER
+spare, not a hole in the bed's shadow: a plant 15 cm north or south of the same bed still
+loses sun to it (pinned). The test is static for a run, so it costs one pass of
+`points_in_polygons` per soil caster per run, not per sample. A `WALL`, a `TRELLIS` or an
+in-ground bed with no height is NOT spared (pinned) — a solid that contains the point but
+cannot hold soil is still between the plant and the sun. **Why not fix the link instead**:
+making the link, or the base, follow the geometry is #443, whose nesting decisions (a
+trellis in a bed, a pot on a bed) are open; this addendum changes only what the estimate
+leaves out, and leaves where a plant STANDS (FR-SUN-11, `item_base_cm`) exactly as shipped.
+The residue is stated: an unlinked plant inside a raised bed still casts its OWN shadow
+from the ground (its base is 0), so its estimate is right and its own shadow is the known
+link gap. Pins: `tests/integration/test_sun_exposure_raised_soil.py` (the
+no-link estimate, the per-receiver spare with a neighbouring plant, the wall negative
+control, the walk-vs-predicate drift guard). No `.ogp` change, no `FILE_VERSION` bump, no
+user-visible string.
 
 ## ADR-057: Bounded 2D canvas paint for crafted plans (#472)
 

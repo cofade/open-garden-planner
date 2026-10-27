@@ -1200,6 +1200,15 @@ Established by `tests/integration/test_shadow_caster_golden.py`,
   `t` in the height interval?) that knows nothing of polygons, sweeps or the integer grid — next
   to the algebraic identity (the raised shadow is the ground shadow translated). The identity
   alone would pass a wrong formula that is self-consistent.
+- **The same oracle catches a region taken as a list of solids.** A caster's rings are one REGION
+  (#444): a closed fence's stroke is an outer ring and a hole, and a self-crossing outline is two
+  lobes. The repair that makes them simple rings (a zero-width bridge, `SimplifyPolygons`) is
+  judged by the same ray oracle on a grid of cells — the polygon answer and "is some point between
+  it and the sun inside the region" must agree cell for cell, and the swept-rings answer must not.
+  That is what makes "the slit costs no ground" a measurement, and it explains a 38 cm² difference
+  between the issue's four-rectangle reference and the offset ring's chamfered corners, which an
+  area comparison alone would have read as a bug in the fix
+  (`tests/integration/test_shadow_region.py`).
 - **A builder matrix turns the local geometry, not only the item.** A builder never sees an
   item's rotation (it is the transform's), so "parametrise over rotation" has to mean the
   footprint and the path *inside the local frame*. Doing that found a shed whose ridge lay askew

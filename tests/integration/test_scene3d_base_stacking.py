@@ -1773,6 +1773,9 @@ class TestOneCasterWalk:
         assert calls["IdentifiedCaster"] == {"ui/canvas/sun_shadow_controller.py"}  # one maker
         assert calls["compute_grouped_shadows"] == {"core/shade_aggregation.py"}
         assert calls["GroupedCaster"] == {"core/shade_aggregation.py"}  # base included
+        assert calls["shadow_region"] == {
+            "ui/canvas/sun_shadow_controller.py",   # the ONE region repair (#444)
+        }
         assert calls["item_base_cm"] == {
             "ui/canvas/sun_shadow_controller.py",   # 2D: the caster walk
             "ui/view3d/snapshot.py",                # 3D: the record walk

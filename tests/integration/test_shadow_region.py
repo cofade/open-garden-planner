@@ -232,3 +232,35 @@ def test_a_self_crossing_polygon_in_a_plan_keeps_its_lobes(qtbot: Any) -> None:
     assert len(caster.footprints) == 2
     assert swept([list(footprint) for footprint in caster.footprints],
                  height=caster.height_cm) == pytest.approx(BOW_TIE_SHADOW_CM2, abs=50.0)
+
+
+def test_only_a_polygon_s_own_outline_can_cross_itself(qtbot: Any) -> None:
+    """The premise of the walk's cheap gate, measured on every shape the extractor knows.
+
+    ``_shadow_footprints`` skips the repair for a single ring from a circle, ellipse,
+    rectangle or offset polyline, so each of those must hand out ONE positively wound
+    ring — and ``footprints_can_self_cross`` must be True exactly for the one shape
+    whose vertices are the user's own order. A new footprint shape that could cross
+    has to answer True here, or it would be swept unrepaired.
+    """
+    from open_garden_planner.ui.canvas.footprints import footprints_can_self_cross
+    from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+    from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+    shapes = {
+        CircleItem(100.0, 100.0, 30.0, object_type=ObjectType.PERENNIAL): False,
+        EllipseItem(500.0, 100.0, 80.0, 40.0, object_type=ObjectType.LAWN): False,
+        RectangleItem(700.0, 100.0, 100.0, 60.0, object_type=ObjectType.RAISED_BED): False,
+        PolylineItem([QPointF(100.0, 500.0), QPointF(300.0, 500.0)],
+                     object_type=ObjectType.FENCE): False,
+        PolygonItem([QPointF(x, y) for x, y in BOW_TIE],
+                    object_type=ObjectType.HOUSE): True,
+    }
+    for item, can_cross in shapes.items():
+        assert footprints_can_self_cross(item) is can_cross, type(item).__name__
+        rings = item_footprints(item)
+        if can_cross:
+            continue
+        assert len(rings) == 1 and signed_area(rings) > 0.0, type(item).__name__

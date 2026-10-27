@@ -3397,3 +3397,20 @@ inside the sprite soil. The 114-plant forest uses historical perennial dates,
 nursery anchors, cultivated understory and nearby guild membership. The balcony
 has 14 herbs, chairs, rails, a wall and a parasol. Reference dates are explicit
 teaching choices; opening does not move the shared simulation clock.
+
+### The 2D sun study's geometry and estimates (#444, #481, #620) — parallel non-3D batch 3
+
+Built beside Phase 17 L4 without touching the 3D/sun/sim-clock product code or
+serialization: one caster's ring set is now one REGION (#444), the per-plant estimate
+spares the soil solid a plant stands in whether or not the link was made (#481), and the
+mutation that names the heatmap worker now points at the line the worker really calls
+(#620). **Measured** (#444): a 10 m × 8 m closed fence stroke drew **88.8 m²** of shade
+where its stroke's prisms give **17.5 m²**; a self-crossing outline drew 80,000 cm² where
+its two lobes give 129,282. `core.shadow_geometry.shadow_region` repairs the hole with a
+zero-width slit and splits a self-crossing ring into lobes, once per item on the one
+caster walk; every simple ring is returned point for point, so the shadow golden fixture
+is **not** regenerated (measured: no hole-bearing caster in either bench plan). **Measured**
+(#481): a full-sun tomato inside a 40 cm raised bed whose link was never made read **0.0 h**
+and warned; it now reads **16.5 h**, and a plant one step outside the bed still loses sun
+to it (a per-receiver spare, not a hole in the bed's shadow). ADR-037 addendum "one
+caster's ring set is one REGION", ADR-056 addendum, FR-SUN-05/09/11, PF-DOM-28, §8.10.

@@ -29,3 +29,4 @@
 | PF-DOM-24 | A plant's ground sun estimate excludes only its own caster, and `document_replaced` cancels and clears heatmap work so generation guards reject any late worker result. | standing | [09](../09-domain-solver.md#pf-dom-24) | 11.4.6 |
 | PF-DOM-25 | Project plant presence and rendered growth from the one plan date, preserving stored lifetime metadata and undo semantics. | standing | [09](../09-domain-solver.md#pf-dom-25) |  |
 | PF-DOM-27 | A species assignment writes the item's own species string, because that string - not the record's data - is what the sprite resolver reads. | standing | [09](../09-domain-solver.md#pf-dom-27) |  |
+| PF-DOM-28 | One caster's footprints are ONE region: a ring whose enclosed area is negative is a hole and must be bridged before the sweep, and a ring that crosses itself must be split into its lobes. Sweep simple rings only. | standing | [09](../09-domain-solver.md#pf-dom-28) |  |

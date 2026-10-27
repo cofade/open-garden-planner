@@ -318,3 +318,36 @@ differ: a gallery "Pumpkin" carries the data of "Winter Squash" (the bundled
 lookup matches by alias) while its own string is "pumpkin". That is exactly why
 the resolver reads the string and never the record's name, and why both views
 ask the ONE rule.
+
+### PF-DOM-28
+
+- **Rule:** One caster's footprints are ONE region: a ring whose enclosed area is negative is a hole and must be bridged before the sweep, and a ring that crosses itself must be split into its lobes. Sweep simple rings only.
+- **Pinned by:** `tests/integration/test_shadow_region.py::test_the_shadow_of_the_loop_is_its_stroke`; `tests/integration/test_shadow_region.py::test_a_self_crossing_outline_is_shaded_as_its_lobes`; `tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself`
+- **Source:** #444
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`polyline_footprint` of a centre line that closes on itself returns an OUTER ring
+and a HOLE ring - that is what the offset answers, and both shipped consumers
+(the overlay and the heatmap) took every ring as a solid. The hole was cast as a
+slab the size of the enclosed garden: a 10 m x 8 m loop with a 10 cm stroke,
+1.2 m high, at a 60° sun drew **888,037 cm² of shade where the stroke's prisms
+give 174,526 cm²**. A self-crossing outline lost a lobe instead: a bow-tie at
+300 cm drew 80,000 cm² where its two lobes give 129,282 cm². Both look like a
+"nearly right" shape at a glance, which is why they shipped.
+
+The repair is `core.shadow_geometry.shadow_region`, asked once per item by the
+one caster walk: a hole is cut open by a ZERO-WIDTH slit from its topmost vertex
+to the nearest boundary above (the region is unchanged, so the sweep is), and a
+self-crossing ring is split by `SimplifyPolygons` into lobes. Detection is
+structural - a negative area in a multi-ring set, or a ring whose printed area
+differs from what its outline encloses - never a type test, and a LONE ring is
+never treated as a hole whatever its winding (a clockwise solid is a solid).
+Simple rings come back point for point, which is what keeps the shadow golden
+fixture valid; measured, neither bench plan has a hole-bearing caster.
+
+The trap to remember: "it is a polygon list, so union them" is wrong for a
+region with a hole, and even the sign of the winding cannot be flattened away at
+the sweep - `_caster_paths_int` normalised every ring to CCW. A zero-width
+bridge keeps a ring exact where a thin cut (0.001 cm) would have shown as a
+hairline in the overlay and moved the area.
