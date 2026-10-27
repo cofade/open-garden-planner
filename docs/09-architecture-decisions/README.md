@@ -8363,7 +8363,9 @@ step fell from 71 to 3.2 luma at 403 m. It found two regressions of this pass, b
   measured on #619.
 
 
-### Addendum ? L4 hardening (#611, #607, #604, #617, #624, #618, #609, #600, #603, #626, #536)
+### Addendum — L4 hardening (#611, #607, #604, #617, #624, #618, #609, #600, #603, #626, #536)
+
+**Status:** Accepted; owner acceptance confirmed on 27 October 2026, shipped in [v1.34.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.1) via [PR #630](https://github.com/cofade/open-garden-planner/pull/630).
 
 **Decision (27 October 2026).** Hold context only for parameters applicable to both
 records, derived from door targets and the lawn predicate. Type changes apply

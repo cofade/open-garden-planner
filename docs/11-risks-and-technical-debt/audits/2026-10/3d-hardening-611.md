@@ -2,7 +2,7 @@
 
 Scope: #611, #607, #604, #617, #624, #618, #609, #600, #603,
 #626 and #536, delivered together. This report records the measurements; ADR-065
-and the pitfall entries hold the contracts. Owner executable acceptance is pending.
+and the pitfall entries hold the contracts. Owner executable acceptance confirmed on 27 October 2026; shipped in v1.34.1 via PR #630.
 
 ## Path alpha (#617)
 
@@ -112,4 +112,4 @@ line. Every L4 object kind is included in the 43-row shadow agreement table.
 The full correctness/performance batteries, production render probes, independent
 visual and senior reviews, frozen executable checks and hosted CI results are
 recorded in the pull request after execution. No release or wiki publication is
-claimed before owner acceptance and protected merge.
+All hosted CI checks, local frozen executable checks, and owner manual testing passed; shipped in v1.34.1 via PR #630.
