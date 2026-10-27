@@ -1330,27 +1330,35 @@ solid, and the only workaround was to change the object's TYPE to one with a def
 **Decision.** The question splits in two. `has_height_semantics` stays the TYPE-level
 answer (a default, a container's fill, a plant's species/measurement, or an explicit
 value). The new `shows_height_field(object_type, metadata, has_footprint=...)` answers
-what the panel asks: true for every item that HAS a footprint — asked of the same
-`footprints.item_outline(item)` the casters and the 3D records use — and for every type
-with height semantics. "Auto" (0) remains no height, so an object that was not given one
-behaves exactly as before: a lawn, path, terrace, driveway or pond keeps lying on the
-ground (and under the sun overlays, FR-STACK-09), and a generic shape casts nothing and
-stands as nothing in 3D. Typing a value stores the explicit override, one undo step, and
-that is all: the ladder, `is_solid_soil_parent` (a mounded bed becomes a soil parent), the
-shadow casters and the 3D builders already agreed.
+what the panel asks: true for every item that HAS a footprint — asked of
+`footprints.item_has_footprint(item)`, the yes/no form of `item_outline(item)`, which the
+casters and the 3D records use — and for every type with height semantics. The yes/no form
+exists because the panel asks it for every selected item on every rebuild and materialising
+a 16 000-vertex polygon's outline to answer it cost 8.9 ms; a drift guard pins it equal to
+`item_outline(...) is not None` over every placeable kind, including the one clause that is
+not a class check (an ellipse with no area has no outline). "Auto" (0) remains no height,
+so an object that was not given one behaves exactly as before: a lawn, path, terrace,
+driveway or pond keeps lying on the ground (and under the sun overlays, FR-STACK-09), and a
+generic shape casts nothing and stands as nothing in 3D. Typing a value stores the explicit
+override, one undo step, and that is all: the ladder, `is_solid_soil_parent` (a mounded bed
+becomes a soil parent), the shadow casters and the 3D builders already agreed.
 
 **Not offered.** An item without a footprint — a text annotation, a callout, a group, an
-arc or a bezier — has no closed outline to extrude, so the field stays absent (pinned).
+arc, a bezier or a journal pin — has no closed outline to extrude, so the field stays
+absent (pinned for all six through the real panel).
 
 **Pins.** `tests/integration/test_height_property.py`: a generic rectangle shows the row,
 reads "Auto", stores 150 on one undo step and clears back to none; a terrace's
-`lies_on_ground` flips when it is given 30 cm; a `TextItem` has no row; and the whole set
-(generic polygon/rectangle/circle/ellipse, in-ground bed, terrace, pond, lawn, path,
-driveway) offers the field with the "No height — no shadow on the 2D plan" tooltip.
-PF-UI-29 records the class ("a control that is the only way to set a value must not be
-gated on the value existing"), and FR-SUN-02 now states the rule.
+`lies_on_ground` flips when it is given 30 cm; the six outline-less kinds have no row; and
+the whole set (generic polygon/rectangle/circle/ellipse, in-ground bed, terrace, pond,
+lawn, path, driveway) offers the field with the "No height — no shadow on the 2D plan"
+tooltip; a generic polygon given a height becomes a caster with a non-empty shadow and
+stops being one when cleared.
+`tests/unit/test_footprint_predicate.py` pins `item_has_footprint` against `item_outline`
+for every placeable kind. PF-UI-29 records the class ("a control that is the only way to
+set a value must not be gated on the value existing"), and FR-SUN-02 states the rule.
 
-## ADR-038: 3D Engine Choice - GO/NO-GO Spike (Phase 14, US-E5)
+## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
 
 **Status**: **Superseded** by ADR-048 (2026-10-05); the code this decision chose was deleted in Phase 17 L1.10 (2026-10-19, ADR-060 addendum "the default and the removal", ADR-048's closing addendum). Was: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
 
@@ -1748,30 +1756,58 @@ Re-derivation, all through the one `_stack_entries`:
 - **every other command**: a new `Command.changes_containment` flag (default **True**,
   `False` on the create/delete commands, which `addItem` and a deletion make neutral) gates
   `CanvasScene._restack_plant_containment`, a `stack_changed` slot that re-derives a layer
-  where a plant sits below a parent whose outline contains it. That covers a bed RESIZED or
-  MOVED around a plant, a vertex edit that swallows one, and a plant dragged into a bed —
-  none of which is an add. It is NOT gated by `changes_ground_band` (#592), because the
-  commands that change containment (move/resize/rotate/vertex) are exactly the ones that
-  set that flag False.
+  whose drawing disagrees with the derivation. That covers a bed RESIZED or MOVED around a
+  plant, a vertex edit that swallows one, and a plant dragged into a bed — none of which is
+  an add. It is NOT gated by `changes_ground_band` (#592), because the commands that change
+  containment (move/resize/rotate/vertex) are exactly the ones that set that flag False.
 
-**Cost, measured (dev box, 2026-10-27).** `_restack_plant_containment` on bench_large (505
-items, 240 plants, ~20 parents): **2.9 ms**; bench_small (136 items): 0.6 ms; a 600-item
-plan with 600 beds: **1.8 ms per move against 0.3 ms with the slot disconnected** (the
-control). It is one O(items) classification pass plus, per plant, `z(plant) < z(parent)`
-over that layer's parents from the top down to the plant's own z with a scene-rect
-prefilter — a plan whose plants already draw above their beds does **no shape work at all**
-(pinned by counting `shape_contains` calls), and only a layer that fails the test is
-re-derived, once. The pinned budgets are untouched: the paint gate, the ground-bake G3 gate
-(it times the bake, not the command), the caster walk and the snapshot.
+**One answer, checked rather than re-derived.** Which parent a plant takes is
+`CanvasScene._derived_plant_parent` — the link, else the smallest containing parent — and
+BOTH the derivation (`_stack_entries`) and the per-command check call it. The check is
+therefore not a second rule: it compares the plant's z against the parent that function
+names, so the two cannot drift (review round 2 found three near-copies of this question
+with three different points and caching, and the check rebuilt each parent's
+`QPainterPath` per (plant, parent) pair). Two structural details follow from the
+derivation and are load-bearing: only a parent of the plant's own BAND counts (an
+in-ground bed lies under the plant by the ground band, §8.25.2, not by the clamp — asking
+about it re-derived on every command and never changed anything), and the check runs on
+the SMALLEST containing parent rather than "any parent above the plant" (the latter marks
+a layer stale forever when an outer bed is arranged above an inner one, because the
+derivation can only move the plant above the inner one).
 
-**Known limits, stated.** One-way: the check asks "is a plant BELOW a parent that contains
-it", so a plant that LEAVES a bed keeps the higher z it was given while inside — harmless
-(a plant above a bed it is not in hides nothing) and it is what keeps the scan a one-way
-test. Containment is asked of the plant's CENTRE, so a plant straddling a bed's edge with
-its centre outside is not clamped (it is beside the bed, not in it). Only plants: a pot
-standing on a raised bed is not clamped to it by geometry (the app parents only plants,
-ADR-037 decision 5), and a `GARDEN_BED` that becomes a ground surface again by losing its
-height simply drops out of the parent set.
+**Cost, measured (dev box, 2026-10-27).** `_restack_plant_containment` on the 990-item
+reference plan (200 plants, no links): **0.9 ms**; 300 plants in 30 raised beds: 1.1 ms
+linked and 2.8 ms unlinked. It is one O(items) classification pass, then per plant: a
+single z comparison against the layer's highest parent (a garden whose plants stand above
+its beds ends there), the link lookup (no geometry), or — unlinked and under some parent —
+a rect prefilter plus the cached shape test. Shapes are cached for the pass, as
+`ItemLookup.shape_of` caches them for a walk: an adversarial plan (200 plants under 50
+concave beds whose bounding boxes all cover them) cost **8 ms at 6 vertices, 30 ms at 200
+and 133 ms at 1 200**, against 43 / 330 / 1 661 ms for the draft that rebuilt each shape
+per (plant, parent) pair. Only a layer that fails the test is re-derived, once. The pinned
+budgets are untouched: the paint gate, the ground-bake G3 gate (it times the bake, not the
+command), the caster walk and the snapshot.
+
+**Known limits, stated.** (a) One-way: the check asks whether the plant is BELOW the
+parent the derivation names, so a plant that LEAVES a bed keeps the higher z it was given
+while inside — harmless (a plant above a bed it is not in hides nothing) and it is what
+keeps the scan a one-way test. (b) Containment is asked of the plant's CENTRE, so a plant
+straddling a bed's edge with its centre outside is not clamped (it is beside the bed, not
+in it). (c) The clamp follows the SMALLEST containing parent, so a larger parent that also
+contains the plant and is arranged above that one still covers it — an explicit arrange
+wins, and the derive-only clamp cannot fix it because `normalize_order` only ever moves a
+plant above its one parent. (d) Stacking is geometric; where a plant STANDS is not. A bed
+drawn around an unlinked plant is now a stacking parent, but `footprints.item_base_cm`
+(ADR-037 decision 5) lifts a solid by its parent's soil only when the LINK names a visible
+solid AND the centre is inside it. So an unlinked plant in a bed that has a height is drawn
+above the bed and still stands on the floor — its shadow base and its 3D base do not move
+until it is linked. That split is deliberate for now: drawing a bed must not silently
+raise every plant it happens to cover in 3D and in the sun study (the bed may be an
+annotation by the owner's hand, not soil), and reconciling the link itself is #443, where
+the decision belongs. It is stated in FR-STACK-10's known limits and FR-SUN-02.
+(e) Only plants: a pot standing on a raised bed is not clamped to it by geometry (the app
+parents only plants, ADR-037 decision 5), and a `GARDEN_BED` that becomes a ground surface
+again by losing its height simply drops out of the parent set.
 
 **Pins.** `tests/integration/test_plant_above_parent_stacking.py` — every parent type (a
 parametrised matrix over `RAISED_BED`/`CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTER`/
@@ -1779,8 +1815,11 @@ parametrised matrix over `RAISED_BED`/`CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTE
 finds through a real `CanvasView`; an L-shaped bed clamps a plant in its arm but not in its
 notch; a distant bed does not clamp; the linked case is unchanged; a plant moved into a bed
 by `MoveItemsCommand` comes above it (and undo leaves it outside, with the note above); a
-bed grown around a plant is raised by the command slot; and a healthy layer asks
-`shape_contains` zero times. The drift guards in
+bed grown around a plant is raised by a real `ResizeItemCommand` — through the command's
+own slot, not a hand-made call; a healthy layer asks `shape_contains` zero times; the
+`changes_containment` table is re-derived from `core.commands` (every command class but the
+three neutral ones must keep the default, and the neutral set is named), and a create is
+pinned to skip the scan while a move runs it. The drift guards in
 `tests/integration/test_scene3d_base_stacking.py` name the new users of `standing_point`
 and `contains_path`. `tests/unit/test_plant_bed_relationship.py`'s rank-symmetry test now
 puts its plant OUTSIDE the bed, because a contained plant is clamped by geometry and the

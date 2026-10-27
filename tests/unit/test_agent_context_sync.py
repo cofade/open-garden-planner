@@ -6,6 +6,12 @@ from scripts.check_agent_context import _normalise_shared_text, check_repo
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+#: Bytes the root instructions must leave unused out of the Codex project-doc budget.
+#: The files are edited by every change (each one adds a pickup bullet); riding the
+#: limit is how #444's batch ended up with 5 bytes of headroom on Windows, unverifiable
+#: locally. A real margin also survives the CRLF/LF difference in size.
+MIN_CONTEXT_HEADROOM_BYTES = 1024
+
 
 def _minimal_context_repo(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
@@ -50,16 +56,15 @@ def test_checked_in_context_is_in_parity() -> None:
     assert check_repo(REPO_ROOT) == []
 
 
-def test_the_doc_budget_counts_the_document_not_the_checkout_line_endings(
-    tmp_path: Path,
-) -> None:
-    """CRLF must not spend the budget: the same commit passes on CI and on Windows.
+def test_the_doc_budget_counts_the_bytes_on_disk(tmp_path: Path) -> None:
+    """CRLF spends the budget, deliberately: the limit is on the file a reader loads.
 
-    Codex's ``project_doc_max_bytes`` is about the document. ``stat().st_size`` made
-    the gate read one byte a line more on a CRLF working copy (the Windows default
-    here), so a doc that fitted on the LF blob CI checks out failed on the dev box —
-    with 34 bytes of headroom, adding one pickup bullet could not be verified locally
-    at all (#444's batch).
+    A byte-limited reader truncates the checkouts whose tail is past the limit, and a
+    CRLF working copy (the Windows default here) is one byte per line larger than the
+    LF blob CI checks out. Measuring the normalised text hid that: #444's batch landed
+    with 5 bytes of headroom on Windows while the gate said OK. So the gate reads what
+    ``stat`` reports, and the document keeps real headroom instead
+    (``test_the_checked_in_documents_keep_headroom``).
     """
     root = _minimal_context_repo(tmp_path)
     text = "shared instructions\n" * 4                      # 80 bytes as LF
@@ -71,12 +76,33 @@ def test_the_doc_budget_counts_the_document_not_the_checkout_line_endings(
     (root / ".codex" / "config.toml").write_text(
         "project_doc_max_bytes = 80\n", encoding="utf-8"
     )
+    assert any("project-doc budget" in error for error in check_repo(root))
 
+    (root / ".codex" / "config.toml").write_text(
+        "project_doc_max_bytes = 84\n", encoding="utf-8"
+    )
     assert not any("project-doc budget" in error for error in check_repo(root))
 
-    (root / "CLAUDE.md").write_bytes((text + "x").encode("utf-8"))
-    (root / "AGENTS.md").write_bytes((text + "x").encode("utf-8"))
-    assert any("project-doc budget" in error for error in check_repo(root))
+
+def test_the_checked_in_documents_keep_headroom() -> None:
+    """The root instructions must not ride the limit (#444's batch hit 5 bytes).
+
+    Both files are edited by every change ("add a pickup bullet"), and a gate that only
+    reports "over budget" once is discovered at the worst moment — on the dev box, with
+    a document whose tail a reader may already be truncating. So a real margin is
+    required, not zero.
+    """
+    from scripts.check_agent_context import _configured_doc_max_bytes
+
+    max_bytes = _configured_doc_max_bytes(REPO_ROOT, [])
+    assert max_bytes is not None
+    for name in ("AGENTS.md", "CLAUDE.md"):
+        size = (REPO_ROOT / name).stat().st_size
+        assert size <= max_bytes - MIN_CONTEXT_HEADROOM_BYTES, (
+            f"{name} is {size} bytes against a {max_bytes}-byte budget: keep at least "
+            f"{MIN_CONTEXT_HEADROOM_BYTES} bytes of headroom (see the module docstring "
+            "of this test for why)"
+        )
 
 
 def test_detects_missing_skill_entrypoint_and_doc_budget(tmp_path: Path) -> None:

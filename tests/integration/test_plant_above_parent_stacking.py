@@ -148,7 +148,17 @@ def test_a_plant_moved_into_a_bed_is_raised_by_the_command(qtbot: Any) -> None:
 
 
 def test_a_bed_grown_around_a_plant_raises_it(qtbot: Any) -> None:
-    """A resize is the same class: the per-command restack asks the shape again."""
+    """A resize is the same class: the command's own slot asks the shape again (#629).
+
+    Through the real ``ResizeItemCommand`` — not ``setRect`` plus a hand-made call —
+    so the flag's wiring (command → ``stack_changed`` → the scan) is exercised.
+    """
+    from open_garden_planner.core.commands import ResizeItemCommand
+    from open_garden_planner.ui.canvas.geometry_apply import (
+        apply_rect_like_geometry,
+        build_rect_resize,
+    )
+
     scene = CanvasScene(1600.0, 1000.0)
     view = CanvasView(scene)
     qtbot.addWidget(view)
@@ -156,15 +166,82 @@ def test_a_bed_grown_around_a_plant_raises_it(qtbot: Any) -> None:
     plant = CircleItem(300.0, 500.0, 30.0, object_type=ObjectType.PERENNIAL,
                        layer_id=scene.active_layer.id)
     commands.execute(CreateItemCommand(scene, plant, "plant"))
-    bed = RectangleItem(1000.0, 400.0, 100.0, 100.0, object_type=ObjectType.RAISED_BED,
+    bed = RectangleItem(100.0, 300.0, 100.0, 100.0, object_type=ObjectType.RAISED_BED,
                         layer_id=scene.active_layer.id)
     commands.execute(CreateItemCommand(scene, bed, "bed"))
     qtbot.wait(1)
     assert plant.zValue() < bed.zValue(), "the older plant is below the newer bed"
 
-    bed.setRect(0.0, 0.0, 900.0, 900.0)   # now it contains the plant
-    scene._restack_plant_containment()
+    old, new = build_rect_resize(bed, 400.0, 400.0)   # now it contains the plant
+    assert bed.rect().width() == 100.0
+    commands.execute(ResizeItemCommand(bed, old, new, apply_rect_like_geometry))
+    qtbot.wait(1)
+    assert bed.rect().width() == 400.0
     assert plant.zValue() > bed.zValue(), "a bed grown around a plant must lift it"
+
+    commands.undo()
+    qtbot.wait(1)
+    assert bed.rect().width() == 100.0
+
+
+def test_only_add_and_delete_commands_are_containment_neutral() -> None:
+    """The ``changes_containment`` table, re-derived from ``core.commands`` (#629).
+
+    A wrong ``False`` is invisible to every other test here: the plant stays behind the
+    bed and the driving test still passes because it asks the scan by hand. So the
+    neutral set is named, every other command class must keep the safe default, and
+    the classes that move, resize, rotate or re-type an item are named explicitly.
+    """
+    import inspect
+
+    from open_garden_planner.core import commands as commands_module
+
+    defined = {
+        cls for _name, cls in inspect.getmembers(commands_module, inspect.isclass)
+        if issubclass(cls, commands_module.Command)
+        and cls is not commands_module.Command
+        and cls.__module__ == commands_module.__name__
+    }
+    neutral = {cls for cls in defined if not cls.changes_containment}
+    assert neutral == set(commands_module.CONTAINMENT_NEUTRAL_COMMANDS)
+    assert neutral == {
+        commands_module.CreateItemCommand,
+        commands_module.CreateItemsCommand,
+        commands_module.DeleteItemsCommand,
+    }, "a new neutral command must be a deliberate decision"
+    for cls in (
+        commands_module.MoveItemsCommand,
+        commands_module.ResizeItemCommand,
+        commands_module.RotateItemCommand,
+        commands_module.MoveVertexCommand,
+        commands_module.ChangePropertyCommand,
+        commands_module.SetParentBedCommand,
+        commands_module.GroupCommand,
+        commands_module.UngroupCommand,
+        commands_module.MoveToLayerCommand,
+    ):
+        assert cls.changes_containment is True, cls.__name__
+
+
+def test_an_add_skips_the_scan_and_a_move_asks_it(qtbot, monkeypatch: Any) -> None:
+    """The flag reaches the scene: an add is derived by ``addItem``, a move is not."""
+    scene = CanvasScene(1600.0, 1000.0)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    calls: list[int] = []
+    original = scene._restack_plant_containment
+
+    def counted() -> None:
+        calls.append(1)
+        original()
+
+    monkeypatch.setattr(scene, "_restack_plant_containment", counted)
+    plant = CircleItem(500.0, 500.0, 30.0, object_type=ObjectType.PERENNIAL,
+                       layer_id=scene.active_layer.id)
+    view.command_manager.execute(CreateItemCommand(scene, plant, "plant"))
+    assert calls == [], "an add cannot hide a plant: it must not scan"
+    view.command_manager.execute(MoveItemsCommand([plant], QPointF(20.0, 0.0)))
+    assert calls == [1], "a move can carry a plant into/out of a bed: it must scan"
 
 
 def test_a_healthy_layer_asks_no_shape_question(qtbot: Any) -> None:

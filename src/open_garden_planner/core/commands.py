@@ -3178,5 +3178,6 @@ for _ground_band_neutral in _GROUND_BAND_NEUTRAL_COMMANDS:
 
 #: Commands that cannot change which plant-parent contains a plant (#629): an add is
 #: derived synchronously by `addItem` and a delete cannot hide anything.
-for _containment_neutral in (CreateItemCommand, CreateItemsCommand, DeleteItemsCommand):
+CONTAINMENT_NEUTRAL_COMMANDS = (CreateItemCommand, CreateItemsCommand, DeleteItemsCommand)
+for _containment_neutral in CONTAINMENT_NEUTRAL_COMMANDS:
     _containment_neutral.changes_containment = False

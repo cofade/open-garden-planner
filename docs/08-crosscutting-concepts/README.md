@@ -4113,12 +4113,17 @@ lawn hid them.
 **purely for z derivation** — it reorders a layer's list, it never writes a
 rank:
 
-- A plant (`_parent_bed_id`) always renders immediately above its parent bed,
-  **only when that bed is itself present in the same layer's list** — a bed
-  in a different layer is ignored, and the plant sorts as an ordinary
-  top-level entry by its own rank. Since the ground band (8.25.2) the list is
-  one BAND of the layer: a plant on an in-ground bed is above it by the band and
-  sorts by its own rank among the layer's other items.
+- A plant always renders immediately above the parent it stands in: its **link**
+  (`_parent_bed_id`) when that parent is in the same layer's list, else — with no
+  link — the **smallest** plant-parent of the layer whose outline contains the
+  plant's stable centre (`footprints.standing_point`, the point the lift and the
+  sun estimate ask; #629, FR-STACK-10). One answer
+  (`CanvasScene._derived_plant_parent`) serves both the derivation and the
+  per-command check below, so a bed drawn around a standing plant captures it
+  without a link (#443). A parent in a different layer is ignored, and the plant
+  sorts as an ordinary top-level entry by its own rank. Since the ground band
+  (8.25.2) the list is one BAND of the layer: a plant on an in-ground bed is above
+  it by the band, and only a parent of the plant's own band can be its parent.
 - A `ROOF_RIDGE` always renders immediately above its owner polygon, under
   the identical same-layer-only condition.
 
@@ -4143,7 +4148,8 @@ scene order rather than by the original session's order.
 `Z_POSITION_SCALE` grid inside its layer band — exactly the value the
 derivation would assign it — so it is never re-derived; one derivation per
 layer serves a whole add loop. Any item that can re-order existing items — a
-pre-ranked re-add, a child, a bed with children, a linked plant, a roof ridge,
+pre-ranked re-add, a child, a bed with children, a plant (linked, or a parent that
+captures it), a roof ridge,
 or a ground surface (which sorts into its own band, §8.25.2) — runs
 `_refresh_layer_z` synchronously instead. Every derivation reseeds the per-layer
 provisional cache; a full `_update_items_z_order` sweep clears both it and the
@@ -4208,6 +4214,25 @@ carry a badge; the loop refreshes those plus any item already showing one (so an
 unlock clears it) and skips everything else. Measured on the dev box, 600 single
 adds: 0.31 s → 0.11 s; the pin counts zero classification calls and zero badge
 refreshes for a neutral command, and still pins the badge and the band change.
+
+**A command can also change which parent CONTAINS a plant** (#629): it can resize,
+move or vertex-edit a bed around a standing plant, or carry a plant into one.
+`CanvasScene._restack_plant_containment` runs on the same `stack_changed` signal and
+re-derives only a layer whose drawing disagrees with the derivation — it compares each
+plant's z against the parent `_derived_plant_parent` names, so the check cannot drift
+from what it checks (a plant already above its parent costs one z comparison; a linked
+plant costs nothing more, because the link answers before any geometry). Only a parent
+of the plant's own band counts: an in-ground bed lies under the plant by the band, not
+by the clamp, so asking about it would re-derive on every command and never change
+anything. `Command.changes_containment` follows #592's shape: the base is `True`, and
+the three neutral commands (`CreateItemCommand`, `CreateItemsCommand`,
+`DeleteItemsCommand`) say `False` because `addItem` derives an arriving parent
+synchronously and a deletion cannot newly hide a plant. Cost, measured on the dev box:
+0.9 ms on the 990-item reference plan, 1.1 ms for 300 linked plants in 30 beds, 2.8 ms
+for the same garden unlinked, and 30 ms for the adversarial case — 200 plants under 50
+concave 200-vertex beds whose bounding boxes all cover the plants. The parents' shapes
+are cached for the pass, as `ItemLookup.shape_of` caches them for a walk: without that
+cache the adversarial case cost 330 ms, and 1.7 s at 1 200 vertices.
 
 Beyond `addItem`'s automatic refresh, an **explicit** refresh is needed
 wherever an item becomes top-level or gets re-linked to a parent without

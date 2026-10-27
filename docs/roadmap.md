@@ -3496,9 +3496,15 @@ stacking parent is its link, or the smallest plant-parent whose outline contains
 centre; it is re-derived on add (only when the parent CAPTURES a plant: 600 childless bed
 adds stay at 0.24 s), on arrange, and after every command that can change containment
 (`Command.changes_containment`, not `changes_ground_band` — the geometry commands set that
-one False). Measured: 2.9 ms per command on bench_large (505 items) against 0.3 ms with the
-slot disconnected, and no shape work at all in a healthy layer. ADR-043 addendum,
-FR-STACK-10, PF-CAN-28.
+one False). The check is the derivation's own answer compared with the drawing
+(`_derived_plant_parent`), not a second rule. Measured: 0.9 ms per command on the 990-item
+reference plan (200 plants, none linked), 1.1 ms for 300 plants in 30 beds linked and 2.8 ms
+unlinked; a linked plant costs no geometry at all, and a layer whose highest parent is below
+every plant costs one comparison each. The parents' shapes are cached for the pass — without
+that cache the adversarial 200-plants-under-50-concave-beds plan cost 43 / 330 / 1 661 ms at
+6 / 200 / 1 200 vertices, against 8 / 30 / 133 ms with it. ADR-043 addendum, FR-STACK-10,
+PF-CAN-28.
+
 ### Every item with a footprint can be given a height (#628)
 
 The Properties panel's Height field was gated on has_height_semantics, whose last clause
@@ -3507,8 +3513,11 @@ that would create one could never appear. A generic polygon (the owner's star), 
 in-ground bed, a terrace, a pond, a lawn, a path and a driveway could not become solids
 without changing the object's TYPE (to Garage, with its look and 3D builder). The question
 now splits: the type-level predicate stays, and the panel asks
-shows_height_field(..., has_footprint=item_outline(item) is not None) — every footprint
+shows_height_field(..., has_footprint=item_has_footprint(item)) — every footprint
 item gets the row, "Auto" (0) stays no height, so a ground surface keeps lying on the
 ground until someone types one (then lies_on_ground yields and it is a platform).
-Text, callouts, groups, arcs and beziers have no footprint and stay without the field.
-ADR-037 addendum, FR-SUN-02, PF-UI-29.
+Text, callouts, groups, arcs, beziers and journal pins have no footprint and stay without
+the field (the whole set is pinned through the real panel, and `item_has_footprint` is
+pinned equal to `item_outline(...) is not None` over every placeable kind, because it
+answers the same question without building a 16 000-vertex outline). ADR-037 addendum,
+FR-SUN-02, PF-UI-29.

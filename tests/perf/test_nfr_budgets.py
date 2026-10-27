@@ -27,6 +27,8 @@ from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -55,6 +57,13 @@ LINE_SCENARIO_POINTS = 8
 # software rasterisation has a higher CPU ceiling.
 _IS_CI = os.environ.get("CI") == "true" or os.environ.get("GITHUB_ACTIONS") == "true"
 FRAME_BUDGET_MS = 50.0 if _IS_CI else 16.7
+
+# The per-command containment scan (#629) runs after EVERY executed/undone/redone command,
+# so it must cost a fraction of a frame. Measured on the dev box: 0.9 ms on the reference
+# plan (200 plants, none linked) and 2.8 ms for 300 unlinked plants in 30 beds. The bound is
+# loose on purpose - it is there to catch the 330 ms shape-rebuild regression, not to time
+# the machine (#448: viewport/machine timing drifts).
+RESTACK_BUDGET_MS = 50.0 if _IS_CI else 12.0
 
 
 @pytest.fixture
@@ -264,6 +273,73 @@ class TestNfrPerf01LinePaintBudgets:
             f"the scenario lines add {delta:.2f} ms to the frame ({with_lines:.2f} ms "
             f"-> {without_lines:.2f} ms); line paint cost has exploded"
         )
+def _restack_scene(plants: int, beds: int, *, link: bool) -> CanvasScene:
+    """A dense garden for the containment scan: ``plants`` in ``beds`` raised beds.
+
+    Unlinked is the expensive case (a linked plant is answered by its link before any
+    geometry) and it is what a paste or a bed drawn around standing plants produces.
+    """
+    scene = CanvasScene(4000.0, 4000.0)
+    layer = scene.active_layer.id
+    per_bed = max(1, plants // beds)
+    for bed_index in range(beds):
+        x = 100.0 + 120.0 * (bed_index % 6)
+        y = 100.0 + 120.0 * (bed_index // 6)
+        bed = PolygonItem(
+            [QPointF(x, y), QPointF(x + 100.0, y), QPointF(x + 100.0, y + 100.0),
+             QPointF(x, y + 100.0)],
+            object_type=ObjectType.RAISED_BED, layer_id=layer,
+        )
+        scene.addItem(bed)
+        for plant_index in range(per_bed):
+            plant = CircleItem(
+                15.0 + x + 18.0 * (plant_index % 5),
+                15.0 + y + 18.0 * (plant_index // 5),
+                4.0, object_type=ObjectType.PERENNIAL, layer_id=layer,
+            )
+            if link:
+                plant.parent_bed_id = bed.item_id
+            scene.addItem(plant)
+    return scene
 
 
+def _best_restack_ms(scene: CanvasScene, rounds: int = 7) -> float:
+    best = float("inf")
+    for _ in range(rounds):
+        start = time.perf_counter()
+        scene._restack_plant_containment()
+        best = min(best, (time.perf_counter() - start) * 1000.0)
+    return best
 
+
+@pytest.mark.perf
+class TestNfrPerf01ContainmentScanBudget:
+    """The per-command plant-containment scan stays inside a slice of a frame (#629)."""
+
+    @pytest.mark.perf
+    def test_the_reference_plan_scan_stays_within_budget(self, benchmark_view) -> None:
+        scene = benchmark_view.scene()
+        best = _best_restack_ms(scene)
+        assert best <= RESTACK_BUDGET_MS, (
+            f"the containment scan costs {best:.2f} ms on the reference plan "
+            f"(budget {RESTACK_BUDGET_MS} ms)"
+        )
+
+    @pytest.mark.perf
+    @pytest.mark.parametrize("link", [True, False], ids=["linked", "unlinked"])
+    def test_a_dense_garden_scan_stays_within_budget(self, qtbot, link: bool) -> None:
+        """300 plants in 30 beds: the case that catches a per-pair shape rebuild.
+
+        Measured 1.1 ms linked and 2.8 ms unlinked with the pass's shape cache; the
+        draft that rebuilt each parent's shape per (plant, parent) pair cost 330 ms on
+        the adversarial variant, so a 12 ms bound is a signal, not a machine timer.
+        """
+        scene = _restack_scene(300, 30, link=link)
+        try:
+            best = _best_restack_ms(scene)
+        finally:
+            scene.clear()
+        assert best <= RESTACK_BUDGET_MS, (
+            f"the containment scan costs {best:.2f} ms for 300 {'linked' if link else 'unlinked'} "
+            f"plants in 30 beds (budget {RESTACK_BUDGET_MS} ms)"
+        )

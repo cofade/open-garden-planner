@@ -366,6 +366,23 @@ def _bounding_center(points: tuple[Point, ...]) -> Point:
     return ((min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0)
 
 
+def item_has_footprint(item: Any) -> bool:
+    """Does this item have an outline at all — ``item_outline(item) is not None``?
+
+    Asked WITHOUT building the vertices: the Properties panel asks it of every
+    selected item on every rebuild, and materialising a 16 000-vertex polygon's
+    outline just to answer yes/no cost 8.9 ms (#628). Exact, not approximate: the
+    ellipse's area check is the one clause of ``item_outline`` that can say None
+    for a footprint shape.
+    """
+    if isinstance(item, EllipseItem):
+        rect = item.rect()
+        return rect.width() > 0 and rect.height() > 0
+    return isinstance(
+        item, (CircleItem, RectangleItem, PolygonItem, PolylineItem)
+    )
+
+
 def item_outline(item: Any, at_date: date | None = None) -> ItemOutline | None:
     """The item's outline in its own coordinates, or None when it has no footprint.
 

@@ -61,6 +61,31 @@ def _field_by_label(panel: PropertiesPanel, label_text: str):
     return None
 
 
+def _outline_less_item(kind: str):
+    """One item of every kind whose ``item_outline`` is None (#628's "not offered")."""
+    from open_garden_planner.ui.canvas.items.arc_item import ArcItem
+    from open_garden_planner.ui.canvas.items.bezier_item import BezierItem
+    from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+    from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+    if kind == "text":
+        return TextItem(10.0, 10.0, "note")
+    if kind == "group":
+        return GroupItem()
+    if kind == "callout":
+        return CalloutItem(QPointF(100.0, 100.0), QPointF(30.0, 30.0), "note")
+    if kind == "arc":
+        return ArcItem(QPointF(300.0, 220.0), 80.0, 20.0, 120.0)
+    if kind == "bezier":
+        return BezierItem(
+            [QPointF(600.0, 120.0), QPointF(700.0, 260.0)],
+            [QPointF(570.0, 160.0), QPointF(650.0, 210.0)],
+            [QPointF(630.0, 90.0), QPointF(730.0, 280.0)],
+        )
+    raise AssertionError(kind)
+
+
 class TestRoundTrip:
     def test_file_version_not_bumped(self) -> None:
         """object_height_cm is additive metadata — no FILE_VERSION bump."""
@@ -233,6 +258,23 @@ class TestPanelUndo:
         panel = PropertiesPanel(command_manager=CommandManager())
         text = TextItem(10.0, 10.0, "note")
         panel.set_selected_items([text])
+        assert _field_by_label(panel, "Object height") is None
+
+    @pytest.mark.parametrize("kind", ["text", "group", "callout", "arc", "bezier"])
+    def test_every_outline_less_kind_has_no_height_row(
+            self, qtbot, kind: str) -> None:
+        """The whole "not offered" set, through the real panel (#628).
+
+        The gate is ``footprints.item_outline(item) is not None``; these five have no
+        outline (pinned by ``item_outline`` itself, not by a type list), so none can be
+        given a height and none may show the row.
+        """
+        from open_garden_planner.ui.canvas.footprints import item_outline
+
+        item = _outline_less_item(kind)
+        assert item_outline(item) is None, f"{kind} grew a footprint: pin it instead"
+        panel = PropertiesPanel(command_manager=CommandManager())
+        panel.set_selected_items([item])
         assert _field_by_label(panel, "Object height") is None
 
     @pytest.mark.parametrize("type_name", [

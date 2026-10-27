@@ -809,6 +809,11 @@
     "state": "CLOSED",
     "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
   },
+  "443": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Bed membership is not reconciled on many edit paths (a bed that changes, most ways of moving or copying a plant)"
+  },
   "444": {
     "is_pr": false,
     "state": "OPEN",
