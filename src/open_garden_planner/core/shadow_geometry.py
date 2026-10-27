@@ -475,8 +475,8 @@ def _union_int(
 #: user-drawn crossing outline stays far below it. The hole half of the repair has
 #: no such bound: a stroke's rings are grouped by winding and bridged, which is
 #: linear in the ring and cheap next to that stroke's own sweep (measured, a
-#: crafted 8 192-point closed fence: 9.8 ms here against 75.1 ms in the offset
-#: that built the rings).
+#: crafted 8 192-point closed fence: 13.2 ms here against 64.5 ms in the offset
+#: that built the rings, and 18.5 against 248.3 at 16 384 points).
 MAX_REGION_VERTICES = 256
 
 
