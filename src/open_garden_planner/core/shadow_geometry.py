@@ -586,13 +586,13 @@ def _hole_is_inside(hole: list[tuple[int, int]], outer: list[tuple[int, int]]) -
     a sibling lobe. Then, and only then, a MAJORITY of the ring's vertices must be
     strictly inside (``== 1``), counted with an early exit.
     """
-    first = pyclipper.PointInPolygon(hole[0], outer)
+    first = int(pyclipper.PointInPolygon(hole[0], outer))
     if first != -1:
         return first == 1
     needed = len(hole) // 2 + 1
     inside = 0
     for index, point in enumerate(hole):
-        if pyclipper.PointInPolygon(point, outer) == 1:
+        if int(pyclipper.PointInPolygon(point, outer)) == 1:
             inside += 1
             if inside >= needed:
                 return True

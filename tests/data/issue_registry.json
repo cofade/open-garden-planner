@@ -809,6 +809,11 @@
     "state": "CLOSED",
     "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
   },
+  "444": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The 2D shadow of a closed-loop fence or wall covers the whole enclosed area"
+  },
   "445": {
     "is_pr": false,
     "state": "CLOSED",
@@ -893,6 +898,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "The installed app aborts at exit (0xC0000409, \"QThread: Destroyed while thread is still running\") when it is closed while its update check is in flight"
+  },
+  "481": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A plant inside a raised bed without a link to the bed reads 0 hours of sun and gets a \"too little sun\" warning"
   },
   "482": {
     "is_pr": false,
@@ -1294,6 +1304,11 @@
     "state": "OPEN",
     "title": "Gravel texture reads as wet bubbles in shade at walk height (owner taste)"
   },
+  "620": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Mutation check: \"the heatmap's worker drops the base\" survives (pre-existing on master)"
+  },
   "621": {
     "is_pr": false,
     "state": "OPEN",
@@ -1308,5 +1323,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "L4 3D: shadow reach from the plan's corners, the meadow edge at a low pitch, rendered pins (follow-up to #388)"
+  },
+  "627": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#444, #481, #620): the 2D sun study's geometry and estimates"
   }
 }
