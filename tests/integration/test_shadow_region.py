@@ -368,6 +368,54 @@ def test_a_self_crossing_polygon_in_a_plan_keeps_its_lobes(qtbot: Any) -> None:
                  height=caster.height_cm) == pytest.approx(BOW_TIE_SHADOW_CM2, abs=50.0)
 
 
+def test_a_pinched_outline_keeps_its_ground_whichever_way_it_winds(qtbot: Any) -> None:
+    """A self-TOUCHING ring is not a crossing one, and its winding must not matter.
+
+    Two 200 x 200 lobes sharing the vertex (300, 300) decompose into two rings that
+    add up to the ring's own area. The first cut reversed those pieces for a negative
+    ring ("a pinched hole stays a hole"), and the grouping then read the SHARED vertex
+    as inside its sibling — one lobe was lost (2,200 cm² against 5,000). The pieces are
+    now grouped by a majority of strictly interior vertices, so a lone reversed solid
+    comes back as two solid lobes and a pinched hole stays a hole.
+    """
+    pinched = [(100.0, 100.0), (300.0, 300.0), (100.0, 500.0),
+               (500.0, 500.0), (300.0, 300.0), (500.0, 100.0)]
+    assert signed_area([pinched]) != 0.0
+    xs = np.arange(0.0, 601.0, 5.0)
+    ys = np.arange(0.0, 601.0, 5.0)
+    for ring in (pinched, list(reversed(pinched))):
+        region = shadow_region([ring])
+        assert len(region) == 2, "a pinched outline is its two lobes"
+        assert sum(abs(signed_area([piece])) for piece in region) == pytest.approx(
+            80_000.0, abs=1.0)
+        truth = _true_sweep(region, xs, ys)
+        xx, yy = np.meshgrid(xs, ys)
+        points = np.stack([xx.ravel(), yy.ravel()], axis=1)
+        now = points_in_polygons(
+            compute_scene_shadows([ShadowCaster(r, HEIGHT_CM) for r in region],
+                                  ELEVATION_DEG, AZIMUTH_DEG),
+            points).reshape(truth.shape)
+        assert truth.sum() > 500
+        # the oracle steps t in 120 slices, so the cusp where the two lobes' sweeps
+        # meet cost a handful of cells (measured 27 of 5,282); one lost lobe would
+        # disagree on more than half of them
+        assert int((now & ~truth).sum() + (~now & truth).sum()) <= truth.sum() // 100
+
+    # . and through the production mirror tool, which is what flips the winding
+    from open_garden_planner.core.mirror_geometry import build_mirrored_item
+
+    scene = CanvasScene(1000.0, 1000.0)
+    drawn = PolygonItem([QPointF(x, y) for x, y in pinched], object_type=ObjectType.HOUSE)
+    drawn.metadata[METADATA_KEY] = 120.0
+    scene.addItem(drawn)
+    mirrored = build_mirrored_item(drawn, QPointF(700.0, 0.0), QPointF(700.0, 1000.0))
+    scene.addItem(mirrored)
+    for item in (drawn, mirrored):
+        (caster,) = [c for c in collect_identified_casters(scene)
+                     if c.item_id == str(item.item_id)]
+        assert len(caster.footprints) == 2, caster.item_id
+
+
 def test_only_a_polygon_s_own_outline_can_cross_itself(qtbot: Any) -> None:
     """The premise of the walk's cheap gate, measured on every shape the extractor knows.
 

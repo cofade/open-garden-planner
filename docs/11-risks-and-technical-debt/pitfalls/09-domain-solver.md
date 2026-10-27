@@ -322,7 +322,7 @@ ask the ONE rule.
 ### PF-DOM-28
 
 - **Rule:** One caster's footprints are ONE region: a ring whose enclosed area is negative is a hole and must be bridged before the sweep, and a ring that crosses itself must be split into its lobes. Sweep simple rings only.
-- **Pinned by:** `tests/integration/test_shadow_region.py::test_the_shadow_of_the_loop_is_its_stroke`; `tests/integration/test_shadow_region.py::test_a_self_crossing_outline_is_shaded_as_its_lobes`; `tests/integration/test_shadow_region.py::test_a_pentagram_is_split_even_though_its_lobes_are_smaller_than_its_print`; `tests/integration/test_shadow_region.py::test_a_hole_belongs_to_the_innermost_outer_that_contains_it`; `tests/integration/test_shadow_region.py::test_an_outline_above_the_vertex_bound_pays_no_simplify_call`
+- **Pinned by:** `tests/integration/test_shadow_region.py::test_the_shadow_of_the_loop_is_its_stroke`; `tests/integration/test_shadow_region.py::test_a_self_crossing_outline_is_shaded_as_its_lobes`; `tests/integration/test_shadow_region.py::test_a_pentagram_is_split_even_though_its_lobes_are_smaller_than_its_print`; `tests/integration/test_shadow_region.py::test_a_hole_belongs_to_the_innermost_outer_that_contains_it`; `tests/integration/test_shadow_region.py::test_a_clockwise_or_mirrored_crossing_outline_is_split_too`; `tests/integration/test_shadow_region.py::test_a_pinched_outline_keeps_its_ground_whichever_way_it_winds`; `tests/integration/test_shadow_region.py::test_an_outline_above_the_vertex_bound_pays_no_simplify_call`
 - **Source:** #444
 - **Status:** standing
 - **Legacy:** none (new entry)

@@ -536,7 +536,13 @@ def _group_holes_int(
     for hole in holes:
         innermost: tuple[list[tuple[int, int]], list[list[tuple[int, int]]]] | None = None
         for group in groups:
-            if pyclipper.PointInPolygon(hole[0], group[0]) == 0:
+            # A MAJORITY of the ring's vertices must be strictly inside, not just the
+            # one probed: two pieces of one pinched outline share a vertex exactly, and
+            # a single-vertex test reads that shared point as "inside" (on the
+            # boundary), which would make a hole of a sibling lobe.
+            inside = sum(1 for point in hole
+                         if pyclipper.PointInPolygon(point, group[0]) == 1)
+            if inside * 2 <= len(hole):
                 continue
             if innermost is None or abs(pyclipper.Area(group[0])) < abs(
                     pyclipper.Area(innermost[0])):
@@ -587,7 +593,10 @@ def _bridge_holes_int(
                 bridge = best
                 break
         if bridge is None:  # pragma: no cover - a hole is inside the outer by definition
-            raise ValueError("a hole in a caster's outline has no boundary above it")
+            # A malformed ring set (a "hole" with no boundary above it) keeps the
+            # outer ring as it came - today's over-shading - rather than taking the
+            # window down in a paint-adjacent recompute.
+            return list(outer)
         index, cross = bridge
         v = (vx, vy)
         around_hole = hole[v_index + 1:] + hole[:v_index]
