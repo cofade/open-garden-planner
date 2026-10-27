@@ -63,7 +63,7 @@ and companion, succession, task, and soil tools.
 It runs on loopback. Reads and exports do not require a token. Writes require editing to be enabled and a valid token.
 Geometry writes refuse constrained objects. Task-status writes remain unavailable because they are not undoable.
 
-## Package F: F1–F4 complete; F5 planned
+## Package F: complete
 
 F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://github.com/cofade/open-garden-planner/pull/433).
 
@@ -73,7 +73,7 @@ F1/F2 passed owner frozen-app acceptance and shipped via [PR #433](https://githu
 | F2 | Plant guilds, template editing, saved membership and diagnostics. | ✅ v1.30.0 | [#313](https://github.com/cofade/open-garden-planner/issues/313) |
 | F3 | Sun requirements compared with computed hours of sun. | ✅ v1.30.1 (with #428, PR #436) | [#314](https://github.com/cofade/open-garden-planner/issues/314) |
 | F4 | Plan lifetimes and combined sun controls. | Shipped v1.30.17, PR #533 | [#315](https://github.com/cofade/open-garden-planner/issues/315) |
-| F5 | Example plans and templates. Last in the package. | Planned | [#316](https://github.com/cofade/open-garden-planner/issues/316) |
+| F5 | Offline learning layouts and portable templates; owner accepted. | Shipped v1.33.0, PR #610 | [#316](https://github.com/cofade/open-garden-planner/issues/316) |
 
 ## Package G: complete
 

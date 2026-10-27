@@ -16,7 +16,7 @@ The **9 October 2026** documentation audit used **v1.29.6** as its release basel
 Phases 1–15 and Phase 13 Packages A–D are complete.
 Package G's attribution, plant profiles, and provider companion data (G1–G3) shipped in v1.28.1.
 Package G is complete: G4, plant favourites and collections, merged in [PR #421](https://github.com/cofade/open-garden-planner/pull/421).
-Package F1/F2 shipped in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433): species traits, food-forest layers, plant guilds, template editing and diagnostics. F3 sun diagnostics and the #428 heatmap lifecycle fix shipped in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436) after owner acceptance; F4 plan lifetimes, combined date/sun controls and live-map updates shipped in [v1.30.17](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.17) via [PR #533](https://github.com/cofade/open-garden-planner/pull/533) after owner acceptance. F5 (#316) remains planned.
+Package F1/F2 shipped in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433): species traits, food-forest layers, plant guilds, template editing and diagnostics. F3 sun diagnostics and the #428 heatmap lifecycle fix shipped in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436) after owner acceptance; F4 plan lifetimes, combined date/sun controls and live-map updates shipped in [v1.30.17](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.17) via [PR #533](https://github.com/cofade/open-garden-planner/pull/533) after owner acceptance. F5 (#316) completed Package F in [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0) via [PR #610](https://github.com/cofade/open-garden-planner/pull/610) after owner executable acceptance.
 
 Constraint-tool characterization (#406) shipped in [v1.30.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.2) via [PR #477](https://github.com/cofade/open-garden-planner/pull/477) after owner acceptance. Audit package A1 (#453: numeric input safety, verified release downloads, bounded image ingestion and owner-only Linux settings) shipped in [v1.30.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.3) via [PR #487](https://github.com/cofade/open-garden-planner/pull/487) after owner acceptance.
 Audit package A5 (#457: constraint presentation, solver assertions, fixed-state
@@ -79,9 +79,9 @@ and a single 120 px Properties control column. See the
 
 ## Offline examples and reusable templates
 
-The F5 implementation adds three offline learning layouts and portable template
-copies; owner executable acceptance is pending. See the
-[delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#f5-examples-and-templates-implementation-316-379-owner-acceptance-pending).
+F5 shipped three localized offline learning layouts and portable template copies
+in [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0) after owner executable acceptance. See the
+[delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#f5-examples-and-templates-v1330-pr-610).
 Templates remove named site/history fields and paths; review free-form names and
 text before sharing. Example dates are illustrative calendar dates.
 
