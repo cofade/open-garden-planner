@@ -18,7 +18,9 @@ planting dates, links and canonical artwork species strings. Object names, speci
 common-name snapshots, layer names, guild text, succession display names, soil notes
 and tutorial annotations are translated. Domain codes such as `edible_parts` remain
 canonical. Root `.meta.json` files provide localized names/descriptions/attributions;
-the shared root PNGs show the English plan. No location or soil state is copied into
+root PNGs show the English plan, while matching `de/` and `es/` PNGs are rendered
+from each saved localized plan, including its translated tutorial notes. No location
+or soil state is copied into
 ordinary user-exported templates; the separately validated bundled-example copy path
 retains these explicit demonstration records.
 

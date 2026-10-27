@@ -7707,7 +7707,9 @@ unchanged. Observed-failing load tests pin the demo-state exception and the
 same-filename external refusal in `test_example_demo_state.py`.
 
 All three layouts ship in English, German and Spanish, with identical object IDs
-and geometry. Display names, annotations, notes, guild labels and credits follow
+and geometry. Gallery thumbnails are rendered separately from each saved locale
+plan, so tutorial text inside previews follows the language too. Display names,
+annotations, notes, guild labels and credits follow
 the selected language; canonical species and artwork identifiers stay stable.
 Known edible-part terms translate at the editor/search display boundary and an
 unchanged translated field preserves the exact raw list. This prevents an

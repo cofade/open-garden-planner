@@ -4315,3 +4315,7 @@ An unchanged displayed value preserves exact raw data. Measure plant circles aga
 the shipped sprite soil and render annotations with real fonts in every locale.
 **Lesson.** Verify the workflow a teaching plan promises, including date, layout
 and localization, rather than treating successful loading as adequate evidence.
+
+A follow-up found that translated plans still shared English tutorial text in their
+PNG previews. Render each locale separately and select its matching thumbnail;
+the catalog regression failed for both translated locales before this fix.

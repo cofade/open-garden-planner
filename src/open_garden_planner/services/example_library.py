@@ -39,7 +39,7 @@ def bundled_examples(language: str = "en") -> list[ExampleEntry]:
             localized = BUNDLED_EXAMPLES / language / canonical.name
             if localized.is_file():
                 path = localized
-        thumbnail = canonical.with_suffix(".png")
+        thumbnail = path.with_suffix(".png")
         if not thumbnail.is_file():
             raise FileNotFoundError(thumbnail)
         entries.append(ExampleEntry(

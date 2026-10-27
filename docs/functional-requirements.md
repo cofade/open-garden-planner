@@ -776,7 +776,8 @@ complete the evidence.
   for a destination; bundled bytes and modification times stay unchanged.
   Known bundled examples retain their public demonstration location and fictional
   soil tests; external templates use the portable subset. English, German and
-  Spanish examples include localized object names, notes and tutorial annotations.
+  Spanish examples include localized object names, notes, tutorial annotations and
+  matching language-specific gallery thumbnails.
 - **FR-EXAMPLE-03**: Save as template explains and removes site, history, task,
   inventory, preference and image data plus absolute paths. Geometry, species,
   layers, guilds, constraints, smart symbols and succession dates stay portable.

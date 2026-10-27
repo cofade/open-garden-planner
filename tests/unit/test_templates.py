@@ -104,6 +104,14 @@ def test_bundled_parent_links_and_forest_layers_follow_render_order(qtbot):
             assert any(obj.get("metadata", {}).get("guild") for obj in objects.values())
 
 
+@pytest.mark.parametrize("language", ["de", "es"])
+def test_localized_catalog_uses_localized_thumbnail_with_tutorial_text(language):
+    for entry in bundled_examples(language):
+        assert entry.thumbnail == entry.path.with_suffix(".png")
+        assert entry.thumbnail.is_file()
+        assert entry.thumbnail.read_bytes() != (BUNDLED_EXAMPLES / entry.thumbnail.name).read_bytes()
+
+
 def test_local_template_listing_never_parses_untrusted_plan_content(qtbot, tmp_path, monkeypatch):
     from open_garden_planner.services.example_library import gallery_entries
 

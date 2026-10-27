@@ -347,6 +347,20 @@ METADATA = {
 }
 
 
+def _thumbnail(scene, path):
+    image = QImage(640, 360, QImage.Format.Format_RGB32)
+    image.fill(QColor("#f2f0e8"))
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    scale = min(640 / scene.width_cm, 360 / scene.height_cm)
+    target = QRectF((640 - scene.width_cm * scale) / 2,
+                    (360 - scene.height_cm * scale) / 2,
+                    scene.width_cm * scale, scene.height_cm * scale)
+    render_scene_region(scene, painter, target, scene.canvas_rect)
+    painter.end()
+    assert image.save(str(path))
+
+
 def main():
     script_isolation.isolate()
     app = QApplication.instance() or QApplication([])
@@ -375,17 +389,11 @@ def main():
         }
         (BUNDLED_EXAMPLES / (slug + ".meta.json")).write_text(
             json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        image = QImage(640, 360, QImage.Format.Format_RGB32)
-        image.fill(QColor("#f2f0e8"))
-        painter = QPainter(image)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        scale = min(640 / scene.width_cm, 360 / scene.height_cm)
-        target = QRectF((640 - scene.width_cm * scale) / 2,
-                        (360 - scene.height_cm * scale) / 2,
-                        scene.width_cm * scale, scene.height_cm * scale)
-        render_scene_region(scene, painter, target, scene.canvas_rect)
-        painter.end()
-        assert image.save(str(BUNDLED_EXAMPLES / (slug + ".png")))
+        _thumbnail(scene, BUNDLED_EXAMPLES / (slug + ".png"))
+        for language in ("de", "es"):
+            localized_path = BUNDLED_EXAMPLES / language / (slug + ".ogp")
+            manager.load(scene, localized_path, as_template=True)
+            _thumbnail(scene, localized_path.with_suffix(".png"))
         scene.clear()
     app.processEvents()
 
