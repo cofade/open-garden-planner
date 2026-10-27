@@ -1242,7 +1242,13 @@ the item is still known — `core.shadow_geometry.shadow_region(footprints)`.
    above it and the result stays simple; a hole is attached to the INNERMOST outer ring
    that contains it, so an island inside a hole keeps its own hole.
 3. **A self-crossing outline is split into its lobes** by `SimplifyPolygons` (even-odd),
-   and each lobe is swept as the solid it is. "Crosses itself" is decided by the
+   and each lobe is swept as the solid it is — whichever way the outline winds. A
+   mirrored or clockwise star draws the same ground as a counter-clockwise one, and the
+   app's own mirror tool flips the winding, so the split must not ask the ring's sign
+   whether it is a hole (measured: a clockwise pentagram swept as one ring also drew
+   334,617 cm² where its lobes give 321,565). The sign decides the role only for a ring
+   whose decomposition adds up to its own area — a self-touching ring, whose ground is
+   the same either way. "Crosses itself" is decided by the
    decomposition returning more than one ring — not by an area difference, because a
    pentagram decomposes into an outer **plus a hole** whose total area is SMALLER than
    the ring's printed area (printed 235,114 cm², five lobes 124,108). Measured: one

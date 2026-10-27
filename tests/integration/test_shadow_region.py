@@ -203,6 +203,43 @@ def _pentagram(cx: float, cy: float, radius: float) -> list[tuple[float, float]]
              cy + radius * math.sin(math.radians(-90 + 144 * k))) for k in range(5)]
 
 
+def test_a_clockwise_or_mirrored_crossing_outline_is_split_too(qtbot: Any) -> None:
+    """A crossing outline is its lobes whatever way it is wound (#444 review).
+
+    The first per-ring split asked the RING's winding whether it was a hole, so a
+    clockwise or mirrored star was left unsplit and drew 334,617 cm² instead of
+    321,565. The app's own mirror tool flips the winding, which makes this reachable
+    without a hand-edited file; the star is mirrored here through
+    ``core.mirror_geometry.build_mirrored_item`` — the production path.
+    """
+    from open_garden_planner.core.mirror_geometry import build_mirrored_item
+
+    star = _pentagram(500.0, 500.0, 400.0)
+    clockwise = list(reversed(star))
+    assert signed_area([clockwise]) < 0.0 < signed_area([star])
+    for ring in (clockwise, star):
+        region = shadow_region([ring])
+        assert len(region) >= 2, "a crossing outline is split, whichever way it winds"
+        # the same ground as the counter-clockwise star: the five lobes of the star
+        assert sum(abs(signed_area([piece])) for piece in region) == pytest.approx(
+            124_108.3, abs=5.0)
+        assert swept(region, height=300.0) == pytest.approx(321_564.7, abs=50.0)
+
+    scene = CanvasScene(1000.0, 1000.0)
+    drawn = PolygonItem([QPointF(x, y) for x, y in star], object_type=ObjectType.HOUSE)
+    drawn.metadata[METADATA_KEY] = 300.0
+    scene.addItem(drawn)
+    mirrored = build_mirrored_item(drawn, QPointF(500.0, 0.0), QPointF(500.0, 1000.0))
+    scene.addItem(mirrored)
+    assert item_footprints(mirrored)[0] != item_footprints(drawn)[0]
+    for item in (drawn, mirrored):
+        (caster,) = [c for c in collect_identified_casters(scene)
+                     if c.item_id == str(item.item_id)]
+        assert len(caster.footprints) == 5, caster.item_id
+        assert swept([list(footprint) for footprint in caster.footprints],
+                     height=caster.height_cm) == pytest.approx(321_564.7, abs=100.0)
+
+
 def test_a_pentagram_is_split_even_though_its_lobes_are_smaller_than_its_print() -> None:
     """A self-crossing ring whose decomposition is an OUTER PLUS A HOLE (#444 review).
 

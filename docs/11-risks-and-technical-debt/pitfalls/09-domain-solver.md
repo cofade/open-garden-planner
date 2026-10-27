@@ -344,9 +344,11 @@ structural - a negative area in a multi-ring set, or a ring whose even-odd
 decomposition is not exactly ONE ring - never a type test and never an area
 difference (a pentagram decomposes into an outer plus a hole: 235,114 cm2 printed
 against 124,108 in five lobes), and a LONE ring is never treated as a hole
-whatever its winding (a clockwise solid is a solid). Above 256 vertices a ring
-skips the self-crossing test, so a crafted outline cannot stall the walk; the
-hole repair is still done.
+whatever its winding (a clockwise solid is a solid). A self-crossing outline is
+split whichever way it winds - the mirror tool flips the winding, and a clockwise
+star is the same ground as a counter-clockwise one. Above 256 vertices a ring skips
+the self-crossing test, so a crafted outline cannot stall the walk; the hole repair
+is still done.
 Simple rings come back point for point, which is what keeps the shadow golden
 fixture valid; measured, neither bench plan has a hole-bearing caster.
 

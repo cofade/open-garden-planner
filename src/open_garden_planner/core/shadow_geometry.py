@@ -237,13 +237,25 @@ def shadow_region(footprints: Iterable[Sequence[Point]]) -> list[Polygon]:
         return rings
     pieces: list[list[tuple[int, int]]] = []
     for ring in int_rings:
-        # Only a ring that is not a hole can be a crossing outline, and only a
-        # ring within the bound is tested: per ring, never over the whole set.
-        if len(ring) <= MAX_REGION_VERTICES and pyclipper.Area(ring) >= 0:
-            lobes = pyclipper.SimplifyPolygons([ring], pyclipper.PFT_EVENODD)
-            pieces.extend(lobes if len(lobes) > 1 else [ring])
-        else:
+        # Per ring, never over the whole set: one SimplifyPolygons call over a crafted
+        # fence's rings cost 2.4 s a walk. A ring above the bound is taken as it comes.
+        if len(ring) > MAX_REGION_VERTICES:
             pieces.append(ring)
+            continue
+        lobes = pyclipper.SimplifyPolygons([ring], pyclipper.PFT_EVENODD)
+        if len(lobes) == 1:
+            pieces.append(ring)  # simple: unchanged, point for point, either winding
+        elif abs(abs(sum(pyclipper.Area(lobe) for lobe in lobes))
+                 - abs(pyclipper.Area(ring))) <= _RING_AREA_SLACK:
+            # Self-TOUCHING, not crossing: the lobes add up to the ring's own ground,
+            # so the ring's role survives — a pinched hole stays a hole.
+            pieces.extend([list(reversed(lobe)) for lobe in lobes]
+                          if pyclipper.Area(ring) < 0 else lobes)
+        else:
+            # Self-CROSSING: the lobes are the solid the outline draws, and they are
+            # solid whichever way it was wound (a mirrored or clockwise star draws the
+            # same ground as a counter-clockwise one).
+            pieces.extend(lobes)
     regions: list[Polygon] = []
     for outer, holes in _group_holes_int(pieces):
         regions.append(_from_int(_bridge_holes_int(outer, holes) if holes else outer))
@@ -460,9 +472,11 @@ def _union_int(
 #: walk (the overlay recompute and every sun snapshot). The bound is ADR-057's
 #: painting bound, for the same class of crafted plan. Nothing regresses above it:
 #: such a ring is swept exactly as it was before this repair existed, and a
-#: user-drawn crossing outline stays far below it. The HOLE half of the repair has
-#: no bound — a fence stroke is a handful of vertices and its rings are still
-#: repaired at any size.
+#: user-drawn crossing outline stays far below it. The hole half of the repair has
+#: no such bound: a stroke's rings are grouped by winding and bridged, which is
+#: linear in the ring and cheap next to that stroke's own sweep (measured, a
+#: crafted 8 192-point closed fence: 9.8 ms here against 75.1 ms in the offset
+#: that built the rings).
 MAX_REGION_VERTICES = 256
 
 
