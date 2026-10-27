@@ -20,3 +20,4 @@
 | PF-PER-16 | A finite float is not a safe Qt geometry input: bound it at the creation boundary, treat an explicit null as a refusal rather than an omission, and test hostile input through the real transport. | standing | [03](../03-persistence-undo-layers.md#pf-per-16) |  |
 | PF-PER-17 | A date editor shows stored dates as they are, and an override whose end precedes its start is ignored on read and refused on write, never rewritten in the file. | standing | [03](../03-persistence-undo-layers.md#pf-per-17) |  |
 | PF-PER-18 | Numeric, download and settings checks sit at the shared ingestion and persistence boundaries, and geometry is validated on Qt's derived bounds and spans, not only on each finite operand. | standing | [03](../03-persistence-undo-layers.md#pf-per-18) |  |
+| PF-PER-19 | Authored examples use creation commands and draw plants above raised parents. | standing | [03](../03-persistence-undo-layers.md#pf-per-19) | |

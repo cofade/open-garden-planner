@@ -2624,7 +2624,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 
 ---
 
-## Package F — Permaculture & Polyculture (✅ 4 of 5 shipped; F5 planned)
+## Package F — Permaculture & Polyculture (✅ 4 of 5 shipped; F5 awaiting owner acceptance)
 
 > Filed from the permapeople.org research session (2026-08-17). Membership and
 > order live in the `> Package map & order` blockquote at the head of each issue,
@@ -2637,7 +2637,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 > | ✅ v1.30.0 | **F2** ([#313](https://github.com/cofade/open-garden-planner/issues/313)) | **Plant guilds** — guild templates, canvas membership, missing-role diagnostic. *Depends on F1*: guilds have nothing to reason on without layer/function tags. |
 > | ✅ v1.30.1 | **F3** ([#314](https://github.com/cofade/open-garden-planner/issues/314)) | **Sun-requirement × computed hours-of-sun diagnostic** + canvas badge. Shipped with #428 via PR #436 after owner acceptance (ADR-056): explicit cached exposure, self-shadow exclusion, unavailable states and mature-canopy groups. *Independent*; its layer-stack section follows F1. Builds on the shipped Phase 14 sun/shade engine. |
 > | ✅ v1.30.17, PR #533 | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
-> | 📋 | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | **Bundled example-plan gallery** + template export/import. **Last** — ideally after F2 and F4. Blocked on nothing technical, but #379 (retiring the hand-made dogfood fixture) waits on it. |
+> | In review | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | Offline example gallery and portable templates; includes #379 fixture retirement. Implemented; owner acceptance pending (ADR-066). |
 
 ## Package G — Plant Data Quality & Attribution (✅ 4 of 4 shipped — Complete)
 
@@ -3412,3 +3412,26 @@ See ADR-058, §8.10.4, deployment §7.4 and the
 No application or render-tier scope change; #540/#600/#603 remain separate.
 Owner authorized protected merge on 26 October 2026 without GUI testing because
 the change is limited to CI/tests/documentation. No release or version sync is needed.
+
+### F5 examples and templates implementation (#316, #379; owner acceptance pending)
+
+Three offline CC-BY-SA-4.0 examples cover an established seven-layer food forest
+with a local apple guild, a densely planted 4 x 2 m raised bed with 2027 succession,
+and a furnished, enclosed balcony with grouped herb containers. Welcome and File share a thumbnail gallery;
+local templates appear from app data. Template copies are untitled/dirty, export
+filters named site/history fields and absolute paths, and `garden://examples`
+is read-only. The dogfood sample now copies the maintained raised-bed content.
+
+The issue's frost-relative claim was stale: succession stores calendar dates.
+No rebasing is added; example descriptions identify illustrative dates. ADR-066,
+FR-EXAMPLE-01 through 06, and `test_templates_gallery.py` record the contracts.
+The work stays a draft until owner executable acceptance; nothing is marked shipped.
+
+Owner-feedback revision (27 October): all layouts have English/German/Spanish
+plan content, editable tutorial notes and public city coordinates for solar study.
+Known bundled copies retain fictional soil samples; exported and external
+templates still strip site/history data. The main bed holds 164 vegetables wholly
+inside the sprite soil. The 114-plant forest uses historical perennial dates,
+nursery anchors, cultivated understory and nearby guild membership. The balcony
+has 14 herbs, chairs, rails, a wall and a parasol. Reference dates are explicit
+teaching choices; opening does not move the shared simulation clock.

@@ -801,3 +801,32 @@ changes still rebuild geometry through the shared controller. Harvest uses the
 instance snapshot's week offsets and the shared day-level calendar calculation,
 including frost anchors in other years. Southern latitude shifts illustrative
 seasonal months, never already-local recorded frost dates.
+
+
+## Opening an example or template (US-F5, ADR-066)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Gallery as Welcome / File gallery or picker
+    participant App as GardenPlannerApp
+    participant PM as ProjectManager
+    User->>Gallery: Open selected
+    Gallery->>App: _open_template_file(path)
+    App->>User: Existing unsaved-changes guard if needed
+    App->>PM: load(scene, path, as_template=True)
+    PM->>PM: Read / validate version / filter / prepare / apply
+    PM-->>App: current_file=None, dirty=True
+    App->>App: Clear old history/autosave; fit view; refresh panels
+    User->>App: Save
+    App->>User: Save As dialog
+```
+
+A failed preparation preserves the previous scene, history and autosave. Exporting
+a template flushes pending editors, snapshots without journal mutation, filters and
+atomically writes a separate file. It leaves the current file and dirty state intact.
+The public catalog resource reads only bundled sidecars and never opens a document.
+The catalog selects a shipped language-specific plan when available. Before normal
+preparation, `example_copy_plan` retains public location and fictional soil records
+only for known bundled paths; an external copy receives the ordinary portable
+filter. Neither opening a demonstration nor exporting a template changes SimClock.

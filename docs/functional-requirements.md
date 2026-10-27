@@ -842,3 +842,30 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   beside Hours of Sun that opens the existing Set Garden Location dialog. It remains
   visible until coordinates are set, including after cancellation and document
   replacement. Configuring coordinates automatically resumes an enabled sun map.
+
+
+## FR-EXAMPLE: Offline examples and reusable plan templates (US-F5, #316)
+
+- **FR-EXAMPLE-01**: Welcome and File offer at least three offline examples with
+  localized names/descriptions, PNG previews and visible license attribution.
+  User templates in the app-data templates directory appear alongside them.
+- **FR-EXAMPLE-02**: Opening an example or any `.ogp` through New from template
+  creates an untitled, dirty copy through the normal document loader. Saving asks
+  for a destination; bundled bytes and modification times stay unchanged.
+  Known bundled examples retain their public demonstration location and fictional
+  soil tests; external templates use the portable subset. English, German and
+  Spanish examples include localized object names, notes, tutorial annotations and
+  matching language-specific gallery thumbnails.
+- **FR-EXAMPLE-03**: Save as template explains and removes site, history, task,
+  inventory, preference and image data plus absolute paths. Geometry, species,
+  layers, guilds, constraints, smart symbols and succession dates stay portable.
+  Every current ProjectData field has an explicit keep/strip classification.
+- **FR-EXAMPLE-04**: Template export leaves the live project identity, history and
+  dirty state intact; it refuses to overwrite the live project or bundled examples.
+- **FR-EXAMPLE-05**: `garden://examples` lists bundled names, tags, descriptions,
+  paths and licenses read-only. Opening remains a GUI action. No online gallery.
+- **FR-EXAMPLE-06**: Learning layouts use plausible planting densities and ages,
+  group guild plants in cultivated soil, keep raised-bed plants inside the drawn
+  soil, and explain a dated sun/soil/guild workflow with editable plan annotations.
+
+ADR-066 and `tests/integration/test_templates_gallery.py` own the behavior.

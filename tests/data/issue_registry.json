@@ -584,6 +584,11 @@
     "state": "CLOSED",
     "title": "Crop rotation panel ignores an existing succession plan"
   },
+  "379": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Retire the hand-made dogfood fixture once bundled examples exist (#316)"
+  },
   "380": {
     "is_pr": false,
     "state": "CLOSED",

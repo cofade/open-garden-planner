@@ -239,3 +239,12 @@ Facts verified 2026-07-05 against v1.23.0. Re-verify volatile facts before publi
 - Unsigned/SmartScreen risk: `grep -rn -i 'smartscreen\|signing\|attestation' docs/11-risks-and-technical-debt/README.md`
 - Release/checksum ownership: `grep -n -i 'SHA256\|release' docs/07-deployment-view/README.md | head`
 - README drift check: `grep -n 'Phases\|Status' README.md` (fix staleness when touched)
+
+
+## Offline example content (US-F5, #316)
+
+`resources/examples/PROVENANCE.md` records the CC-BY-SA-4.0 plans and rendered
+thumbnails. They are illustrative learning layouts, not climate-specific designs.
+Succession dates are retained calendar dates. Templates remove named site/history
+fields and paths, but users must review free-form names and text before sharing.
+See ADR-066 and FR-EXAMPLE-01 through 05; owner executable acceptance is pending.

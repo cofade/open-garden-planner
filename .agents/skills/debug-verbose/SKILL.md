@@ -4348,3 +4348,71 @@ gets a new primitive: canvas, PNG, SVG, PDF. A pen with a non-solid brush is suc
 primitive. In this repo a texture is always a fill.
 Pins: `tests/integration/test_path_style_export.py` (SVG for every `PathFenceStyle`, PNG and
 PDF for the textured ones; it fails on the old painter for exactly gravel and dirt).
+
+## Case study: an authored template linked plants but hid them under containers (#316)
+
+**Symptom.** The first balcony PNG showed soil and no herbs while the file loaded.
+**Wrong theory.** A successful serializer/load round trip was sufficient to validate
+curated content. No production stacking change was justified by that observation.
+**Evidence.** `[F5-Z] CONTAINER layer None z 0.00002384` versus plants on the active
+layer UUID at smaller z values. A test then failed because a bed had no child list.
+**Root cause.** The authoring script built rectangles without a layer and inserted
+plants directly, bypassing the creation command's bidirectional parent relation.
+**Fix.** Give rectangles the active layer and create plants through CreateItemsCommand.
+Render the saved plan with stable IDs through the production scene renderer. Keep the
+same-layer/child-list regression in test_templates.py. Use the already documented
+minimal:enable_fonts platform for Windows thumbnail fonts; no engine change.
+**Lesson.** Inspect content rendered through the real path. A parent UUID is not the
+whole parent contract, and deriving z-order only clamps inside a shared layer.
+
+
+## Case study: a generic type key is not a canvas object boundary (#316 review)
+
+**Symptom.** Template export removed a plant's custom_fields when its type value
+was background_image or journal_pin, and a list/dict-valued type raised TypeError.
+**Wrong theory.** Every nested dictionary with the item discriminator was an item.
+**Evidence.** Four observed-failing custom-field cases reproduced both silent
+removal and the unhashable-type traceback in test_custom_type_fields_are_data_not_canvas_records.
+**Root cause.** Structural record filtering was mixed into the generic recursive
+path scrubber. Arbitrary custom data shares dictionary keys with scene records.
+**Fix.** Filter image/pin types only in structural objects and children sequences;
+preserve the generic recursive path scrubber for all other data. The four cases pass.
+**Lesson.** Choose record semantics from the enclosing schema boundary, not a key
+name that untrusted or custom metadata can also use.
+
+## Case study: the Welcome gallery had content but no visible card (#316 review)
+
+**Symptom.** At the supported 600 x 500 dialog size, the first gallery viewport
+was 59 px tall and shrank to 35 px on selection for a 122 px card; 12 pt font
+produced a 27 px viewport for a 148 px card.
+**Wrong theory.** Layout stretch and successful selection tests implied usability.
+**Evidence.** The independent reviewer measured actual item rectangles with real
+fonts. The new minimum-size visibility test pins all three locales at 9/12 pt.
+**Fix.** Hide the large banner on the gallery tab and put description/attribution
+in a bounded, scrollable read-only details area. Whole selected cards remain visible.
+**Lesson.** Test the viewport and its content rectangles, not only that widgets exist.
+
+
+## Case study: a portable template filter erased a learning example's sun and soil (#316 owner feedback)
+
+**Symptom.** Every example opened without a location, making the sun workflow
+unavailable; catalog descriptions translated while saved plan names/notes did not.
+The edible-parts editor still displayed the raw English term fruit in German.
+**Wrong theory.** A translated gallery and valid portable JSON implied a localized,
+usable tutorial. A blanket site scrub was appropriate for every source.
+**Evidence.** The three known-path integration cases failed on missing location
+and soil state before the fix; the real German plant-panel regression displayed
+fruit rather than the translated term. Structural plant counts had also missed
+full circles crossing the actual raised-bed sprite's wooden rim.
+**Root cause.** Private reusable templates and shipped public demonstrations shared
+one filter; plan content and canonical species fields need distinct display paths.
+**Fix.** Preserve only public location/fictional soil data at known bundled paths,
+ship locale plan variants, and localize edible parts only at display/edit boundaries.
+An unchanged displayed value preserves exact raw data. Measure plant circles against
+the shipped sprite soil and render annotations with real fonts in every locale.
+**Lesson.** Verify the workflow a teaching plan promises, including date, layout
+and localization, rather than treating successful loading as adequate evidence.
+
+A follow-up found that translated plans still shared English tutorial text in their
+PNG previews. Render each locale separately and select its matching thumbnail;
+the catalog regression failed for both translated locales before this fix.

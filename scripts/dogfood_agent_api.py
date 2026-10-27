@@ -13,6 +13,7 @@ transport and the domain logic, and it cannot cover three things:
 
 This script launches the built exe, connects with the same ``mcp``
 streamable-HTTP client a real harness uses, and drives the tools end to end.
+The ``--emit-sample`` content-copy shortcut needs no exe, settings or server.
 
     venv/Scripts/python.exe scripts/dogfood_agent_api.py            # drive the tools
     venv/Scripts/python.exe scripts/dogfood_agent_api.py --repair   # restore defaults
@@ -207,138 +208,20 @@ def _unwrap(call) -> object:
 
 
 async def emit_sample(port: int, token: str, out_dir: Path) -> dict:
-    """Leave behind two artefacts the owner can look at, no MCP calls needed.
+    """Copy the maintained F5 example; no schema or crop fixture lives here (#379)."""
+    del port, token  # retained CLI-helper signature; no live server is needed
+    import shutil
 
-    The owner is a GUI user, not an MCP client: asking them to hand-write tool
-    calls is asking them to do the agent's job. So this writes a real .ogp that
-    already contains a bed AND a succession plan, plus a PNG render of the bed
-    area, and prints the paths.
+    from open_garden_planner.services.example_library import BUNDLED_EXAMPLES
 
-    Returns a dict of what it produced so the caller can report it.
-    """
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamable_http_client as http_client
-
-    out: dict = {"errors": []}
-    url = f"http://127.0.0.1:{port}/mcp?token={token}"
-    async with http_client(url) as (r, w, _), ClientSession(r, w) as session:
-        await session.initialize()
-
-        c = await session.call_tool(
-            "create_object",
-            {"object_type": "RAISED_BED", "x": 0, "y": 0, "width": 200,
-             "height": 100, "name": "Sample Bed"},
-        )
-        bed_id = (_unwrap(c) or {}).get("item_id")
-        if not bed_id:
-            out["errors"].append("create_object failed: %s"
-                                 % (c.content[0].text if c.content else ""))
-            return out
-        out["bed_id"] = bed_id
-
-        # A plan that is current "now" as well as historically, so the badge has
-        # something to show whichever date the app opens with.
-        import datetime as _dt
-
-        today = _dt.date.today()
-        # Find a gap we can fill: ask the tool, then take the first window.
-        g = await session.call_tool("find_succession_gaps", {"bed_id": bed_id})
-        gaps = _unwrap(g) or []
-        if not gaps:
-            out["errors"].append("no gaps to fill")
-            return out
-        # Plan NEXT YEAR. The badge deliberately hides finished slots, so a plan
-        # for the current season shows at most the slot running today - which
-        # demonstrated nothing. Every slot in a future season shows.
-        next_year = today.year + 1
-        g = await session.call_tool(
-            "find_succession_gaps", {"bed_id": bed_id, "year": next_year}
-        )
-        windows = _unwrap(g) or []
-        if len(windows) < 3:
-            out["errors"].append(f"need 3 windows for {next_year}, got {len(windows)}")
-            return out
-        out["windows"] = [
-            (w["segment"], w["start_date"], w["end_date"]) for w in windows[:3]
-        ]
-
-        # The chain the project's own domain notes use as the example:
-        # radish -> beans -> lettuce. Three different botanical families, so the
-        # crop-rotation exclusion has something to reason about.
-        entries = [
-            {"species_key": "raphanus sativus", "common_name": "Radish",
-             "start_date": windows[0]["start_date"], "end_date": windows[0]["end_date"]},
-            {"species_key": "phaseolus vulgaris", "common_name": "Bean (Bush)",
-             "start_date": windows[1]["start_date"], "end_date": windows[1]["end_date"]},
-            {"species_key": "lactuca sativa", "common_name": "Lettuce",
-             "start_date": windows[2]["start_date"], "end_date": windows[2]["end_date"]},
-        ]
-        c = await session.call_tool(
-            "set_succession_plan",
-            {"bed_id": bed_id, "entries": entries, "year": next_year},
-        )
-        out["write_error"] = c.isError
-        out["write_text"] = (c.content[0].text if c.content else "")[:200]
-
-        # Save the document where the owner can open it.
-        target = out_dir / "us-d3.2-succession-sample.ogp"
-        c = await session.call_tool("save_plan", {"file_path": str(target)})
-        out["save_error"] = c.isError
-        out["save_text"] = (c.content[0].text if c.content else "")[:200]
-        out["ogp"] = str(target) if target.exists() else None
-
-        # `crop_rotation` is a SEPARATE ProjectData field from
-        # `succession_plans`, and there is no agent tool for it: only the crop
-        # rotation panel's "Add Planting Record..." button writes it. So the
-        # history is patched into the saved file here. Without it the owner opens
-        # the sample and finds the rotation panel empty, which reads as a bug.
-        if out.get("ogp"):
-            import json as _json
-
-            saved = Path(out["ogp"])
-            doc = _json.loads(saved.read_text(encoding="utf-8"))
-            doc["crop_rotation"] = {
-                "records": [
-                    {
-                        "year": today.year - 1,
-                        "season": "summer",
-                        "species_name": "Cucumis sativus",
-                        "common_name": "Cucumber",
-                        "family": "Cucurbitaceae",
-                        "nutrient_demand": "heavy",
-                        "area_id": bed_id,
-                    }
-                ]
-            }
-            saved.write_text(_json.dumps(doc, indent=2), encoding="utf-8")
-            out["rotation_record"] = (
-                f"Cucumber (Cucurbitaceae), {today.year - 1}"
-            )
-
-        # Render the bed area so the badge can be checked without a human.
-        # The parameter is `image_width_px`, and the PNG arrives as an
-        # ImageContent block in `content`, NOT as bytes in structuredContent.
-        c = await session.call_tool(
-            "render_canvas_image",
-            {"x": -150.0, "y": -120.0, "width": 500.0, "height": 340.0,
-             "image_width_px": 1000},
-        )
-        png_bytes = None
-        for block in (c.content or []):
-            data = getattr(block, "data", None)
-            if data:
-                import base64
-
-                png_bytes = base64.b64decode(data)
-                break
-        if png_bytes:
-            png_path = out_dir / "us-d3.2-succession-sample.png"
-            png_path.write_bytes(png_bytes)
-            out["png"] = str(png_path)
-        else:
-            kinds = [type(b).__name__ for b in (c.content or [])]
-            out["errors"].append(f"render produced no image block; content={kinds}")
-    return out
+    out_dir.mkdir(parents=True, exist_ok=True)
+    source = BUNDLED_EXAMPLES / "raised-bed.ogp"
+    target = out_dir / "us-d3.2-succession-sample.ogp"
+    png = target.with_suffix(".png")
+    shutil.copyfile(source, target)
+    shutil.copyfile(source.with_suffix(".png"), png)
+    return {"errors": [], "ogp": str(target), "png": str(png),
+            "source": str(source), "note": "Illustrative 2027 succession; adapt dates to your site."}
 
 
 async def drive(port: int, token: str) -> dict:
@@ -763,6 +646,16 @@ def main() -> int:
               f"(token left as-is)")
         return 0
 
+    if args.emit_sample:
+        import tempfile
+
+        folder = Path(os.environ.get("TEMP", tempfile.gettempdir())) / "ogp-dogfood"
+        out = asyncio.run(emit_sample(0, "", folder))
+        print(f"plan file : {out['ogp']}")
+        print(f"render    : {out['png']}")
+        print("EMIT: OK")
+        return 0
+
     exe = Path(args.exe)
     if not exe.exists():
         print("FAIL: exe not built. Run:")
@@ -782,10 +675,7 @@ def main() -> int:
         token = apply_settings(port)
         proc = subprocess.Popen([str(exe), str(plan)])
         wait_for_port(port, proc)
-        if args.emit_sample:
-            out = asyncio.run(emit_sample(port, token, tmp))
-        else:
-            out = asyncio.run(drive(port, token))
+        out = asyncio.run(drive(port, token))
     except Exception as exc:
         out["errors"].append(f"harness error: {exc!r}")
         traceback.print_exc()
@@ -798,30 +688,6 @@ def main() -> int:
                 proc.kill()
         for line in restore_settings(before):
             print("settings: " + line)
-
-    if args.emit_sample:
-        if out.get("errors"):
-            for e in out["errors"]:
-                print("  ERROR " + e)
-        if out.get("ogp"):
-            print(f"plan file : {out['ogp']}")
-        if out.get("png"):
-            print(f"render    : {out['png']}")
-        for seg, s, e in out.get("windows") or []:
-            print(f"filled    : {seg} {s} -> {e}")
-        if out.get("rotation_record"):
-            print(f"history   : {out['rotation_record']}")
-        print(f"bed id    : {out.get('bed_id')}")
-        ok_emit = (
-            bool(out.get("ogp"))
-            and bool(out.get("png"))
-            and not out["errors"]
-            and not out.get("write_error")
-            and not out.get("save_error")
-        )
-        print()
-        print("EMIT: " + ("OK" if ok_emit else "FAIL"))
-        return 0 if ok_emit else 1
 
     # Run the checks even when the harness errored: a partial result is more
     # informative than "FAIL" with no detail.
