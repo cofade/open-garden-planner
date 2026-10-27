@@ -65,6 +65,42 @@ from tests.integration.test_scene3d_snapshot import (
     work_done,  # noqa: F401 - the contract story's counters of what an idle tick must not do
 )
 
+
+def objects_unbuilt() -> Any:
+    """The production builders with L4's objects building NOTHING (#388). Since L4
+    every furniture object is built in 3D — and since L4's second owner pass every one
+    has a height, so the default prism would build it too — the bake's SPRITE path,
+    what a furniture item shows on the ground when no solid is built for it (its
+    builder failed), is exercised with object builders that build no part."""
+    from open_garden_planner.core.scene3d.build import BuilderRegistry
+    from open_garden_planner.core.scene3d.builders import (
+        OBJECT_KINDS,
+        plants,
+        register,
+        register_surfaces,
+    )
+
+    registry = BuilderRegistry()
+    register(registry)
+    register_surfaces(registry)
+    plants.register(registry)
+    registry.register_many(sorted(OBJECT_KINDS), lambda _record: ())
+    return registry
+
+
+
+def _dense(points: list[QPointF]) -> PolylineItem:
+    """A PATH in the chain-link style, 5 cm wide — a plan file may hold one: its mesh
+    every 0.8 widths is an element every 4 cm, the spacing of the gravel path's dots
+    the hostile plans' numbers were measured with (L4 made gravel a texture, with no
+    elements: #388). A path, because the bake paints the ground: a FENCE is built."""
+    path = PolylineItem(points, object_type=ObjectType.PATH, path_fence_style=PathFenceStyle.CHAIN_LINK)
+    pen = path.pen()
+    pen.setWidthF(5.0)
+    adopt_pen(path, pen)
+    return path
+
+
 REPO = Path(__file__).resolve().parents[2]
 PLANS = REPO / "tests" / "fixtures" / "plans"
 #: The gate's bound: mean absolute difference per channel, 0..255.
@@ -395,8 +431,10 @@ class TestParityOfPaths:
 class TestParityOfSprites:
     @pytest.mark.parametrize("angle", [0.0, 33.0])
     @pytest.mark.parametrize("kind", ["FIRE_PIT", "RAIN_BARREL", "PERGOLA"])
-    def test_a_furniture_item_without_a_height_is_its_sprite_on_the_ground(
+    def test_a_furniture_item_without_a_solid_is_its_sprite_on_the_ground(
             self, qtbot: Any, kind: str, angle: float) -> None:
+        """An object whose builder built nothing (``objects_unbuilt``) shows its 2D
+        sprite on the ground, as the canvas draws it."""
         scene = new_scene()
         x, y = ACROSS_A_CORNER
         object_type = ObjectType[kind]
@@ -407,13 +445,31 @@ class TestParityOfSprites:
         scene.addItem(item)
         if angle:
             item._apply_rotation(angle)
-        mean, worst, bake = compare(scene, production_registry())
+        mean, worst, bake = compare(scene, objects_unbuilt())
         assert bake.baker.painted_ids() == (str(item.item_id),)
         assert bake.image()[..., :3].std() > 5.0  # a picture, not a flat fill
         # a sprite is a pixmap drawn through a flip: at a tile's edge its smooth
         # scaling rounds a value differently now and then — a circle's sprite turns
         # with its item like a rectangle's (``Paint.rotation_deg``)
         assert mean <= (0.01 if angle else 0.002) and worst <= (16 if angle else 2), (mean, worst)
+
+    @pytest.mark.parametrize("kind", ["FIRE_PIT", "RAIN_BARREL", "PERGOLA"])
+    def test_with_l4_the_object_is_its_model_not_its_sprite(self, qtbot: Any, kind: str) -> None:
+        """L4 (#388) builds every furniture object: the object is a solid in 3D, at its
+        default height (these three had none before L4's second owner pass), and the
+        ground under it is no longer painted with its sprite."""
+        scene = new_scene()
+        x, y = ACROSS_A_CORNER
+        object_type = ObjectType[kind]
+        if kind == "PERGOLA":
+            item: Any = RectangleItem(x + 0.4, y + 0.7, 300.0, 200.0, object_type=object_type)
+        else:
+            item = CircleItem(x + 110.3, y + 90.6, 75.0, object_type=object_type)
+        scene.addItem(item)
+        bake = Bake(scene, registry=production_registry())
+        bake.step()
+        assert str(item.item_id) in bake.sync.solid_ids
+        assert bake.baker.painted_ids() == ()
 
 
 # ── what is on the ground and what is not ─────────────────────────────────────
@@ -620,7 +676,8 @@ class TestTheLiveSceneIsLeftAlone:
         selection, changed = QSignalSpy(scene.selectionChanged), QSignalSpy(scene.changed)
         bake = Bake(scene, registry=production_registry())
         bake.step()
-        assert len(bake.baker.last_repainted) == 20 and len(bake.baker.painted_ids()) == 11
+        # 9: since L4 (#388) the fire pit and the rain barrel are models, not sprites
+        assert len(bake.baker.last_repainted) == 20 and len(bake.baker.painted_ids()) == 9
         bake.baker.clear()
         bake.step()  # a second full bake
         bake.sync.reset()
@@ -656,8 +713,13 @@ def _loaded(plan: str) -> CanvasScene:
     return scene
 
 
-def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
-    """The largest painted item of the plan that is no longer than 3 m."""
+def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake, across: str | None) -> Any:
+    """The largest painted item of the plan that is no longer than 3 m. A plan without
+    one (since L4, #388, a plan's small flat items were its furniture sprites, and
+    furniture is built now) gets a 2.5 x 1.5 m terrace near its middle, baked before the
+    gate measures anything: ``across="border"`` lays it across one tile border, half a
+    tile up a row — two tiles, as the furniture sprite bench_large moved before L4 —
+    and ``"corner"`` on the corner where four tiles meet, the most a move may repaint."""
     painted = set(bake.baker.painted_ids())
     best: tuple[float, Any] | None = None
     for item in scene.items():
@@ -667,7 +729,22 @@ def _flat_item_up_to_three_metres(scene: CanvasScene, bake: Bake) -> Any:
         size = max(rect.width(), rect.height())
         if size <= 300.0 and (best is None or size > best[0]):
             best = (size, item)
-    assert best is not None
+    assert (best is None) == (across is not None), "the case names the item the plan has"
+    if best is None:
+        middle_x, middle_y = bake.grid.width_cm / 2.0, bake.grid.depth_cm / 2.0   # the plan's
+        tile_cm = bake.grid.tile_px / bake.grid.px_per_cm   # middle, not the scene rect's
+        border = round(middle_x / tile_cm) * tile_cm
+        if across == "corner":
+            row = round(middle_y / tile_cm) * tile_cm
+        else:
+            row = (math.floor(middle_y / tile_cm) + 0.5) * tile_cm
+        added = RectangleItem(border - 125.0, row - 75.0, 250.0, 150.0,
+                              object_type=ObjectType.TERRACE_PATIO)
+        scene.addItem(added)
+        bake.step()
+        bake.finish()
+        assert str(added.item_id) in set(bake.baker.painted_ids())
+        return added
     return best[1]
 
 
@@ -679,22 +756,42 @@ class TestOneSmallEdit:
     # follows a measurement that travels in an attribute (#528) - so it demands
     # this marker here.
     @pytest.mark.perf
-    @pytest.mark.parametrize(("plan", "tiles", "painted"), [("bench_small.ogp", 20, 11),
-                                                           ("bench_large.ogp", 60, 45)])
-    def test_a_move_repaints_at_most_four_tiles_in_ten_milliseconds(
-            self, qtbot: Any, plan: str, tiles: int, painted: int) -> None:
+    # painted: since L4 (#388) the objects without a height are built, no longer painted
+    # (bench_small 11 -> 9, bench_large 45 -> 25)
+    # bench_large has no flat item of its own since L4: its stand-in is measured across
+    # a border (two tiles) and on a corner (four, the most a 3 m item can touch).
+    # edit_tiles: how many tiles a move repaints - exactly that many for a stand-in, at
+    # most that many for bench_small's own item. edit_ms, edit_passes: the median bound
+    # of a move's bake and of its passes.
+    @pytest.mark.parametrize(("plan", "tiles", "painted", "across", "edit_tiles", "edit_ms",
+                              "edit_passes"),
+                             [("bench_small.ogp", 20, 9, None, 2, 10.0, 1),
+                              ("bench_large.ogp", 60, 25, "border", 2, 10.0, 1),
+                              # PROVISIONAL (#615): a four-tile edit can run over the
+                              # budget by its last tile, and the last tile can fall into a
+                              # second pass: CI's coverage run 40426416434 took 2 passes
+                              # in the median (14.57 ms). A third pass would need 20 ms of
+                              # bake, which edit_ms rejects.
+                              ("bench_large.ogp", 60, 25, "corner", 4, 20.0, 2)])
+    def test_a_small_move_repaints_few_tiles_within_its_bound(
+            self, qtbot: Any, capsys: pytest.CaptureFixture[str], plan: str, tiles: int,
+            painted: int, across: str | None, edit_tiles: int, edit_ms: float,
+            edit_passes: int) -> None:
         """G3 — with the time budget ON, as in the product. Move one flat item of at
-        most 3 m, 31 times: every move re-paints at most four tiles, looks at ONE
-        record, and leaves every other tile the very object it was; the bake of
-        an edit takes at most 10 ms in the median — and is ONE pass (an edit that
-        fits the gate is not spread over frames)."""
+        most 3 m, 31 times: every move re-paints at most four tiles (the count its case
+        names), looks at ONE record, and leaves every other tile the very object it
+        was. A two-tile edit's bake is ONE pass in the median (an edit that fits the gate
+        is not spread over frames) and takes at most 10 ms in the median. A four-tile
+        edit can run over the budget by its last tile, or finish in a second pass (on CI
+        up to 12.15 ms uninstrumented, 14.57 ms in 2 passes under coverage). Its bound is
+        provisional until #615."""
         scene = _loaded(plan)
         baker = TimedBaker()
         bake = Bake(scene, registry=production_registry(), baker=baker)
         bake.step()
         open_passes = 1 + bake.finish()  # opening the plan may take several
         assert len(bake.tiles) == tiles and len(baker.painted_ids()) == painted
-        item = _flat_item_up_to_three_metres(scene, bake)
+        item = _flat_item_up_to_three_metres(scene, bake, across)
         full_ms = sum(baker.milliseconds)
         most_tiles = most_records = 0
         per_edit: list[float] = []
@@ -706,10 +803,14 @@ class TestOneSmallEdit:
             delta = QPointF(37.5, -22.25) if index % 2 == 0 else QPointF(-37.5, 22.25)
             MoveItemsCommand([item], delta).execute()
             result = bake.step()
-            assert result == SceneDiff(transform=(str(item.item_id),))
-            assert baker.last_examined == 1
+            # L4 (#388): a flat item drawn over a lawn is one of its cut-outs, so the lawn's
+            # BLADES may be rebuilt too; the bake ignores that (build-only params) and still
+            # looks at the moved record alone
+            lawns = tuple(i for i in result.geometry if bake.sync.records[i].kind == "LAWN")
+            assert result == SceneDiff(transform=(str(item.item_id),), geometry=lawns)
+            assert baker.last_examined == 1 + len(lawns)  # each lawn compared, none repainted
             repainted = set(baker.last_repainted)
-            while bake.sync.ground_pending:  # a pass the budget cut short (a loaded machine)
+            while bake.sync.ground_pending:  # a pass the budget cut short
                 bake.sync.continue_ground()
                 assert baker.last_examined == 0
                 repainted |= set(baker.last_repainted)
@@ -717,18 +818,21 @@ class TestOneSmallEdit:
             per_edit.append(sum(baker.milliseconds))
             most_tiles = max(most_tiles, len(repainted))
             most_records = max(most_records, baker.records_painted - painted_before)
-            assert 1 <= len(repainted) <= 4
+            assert 1 <= len(repainted) <= edit_tiles
+            if across is not None:   # every move repaints the stand-in's tiles, no fewer
+                assert len(repainted) == edit_tiles
             for tile in bake.tiles:
                 if tile.key not in repainted:
                     assert tile is before[tile.key]  # untouched: the same object, the same bits
             uploaded, dropped = changed_tiles(tuple(before.values()), bake.tiles)
             assert dropped == () and {tile.key for tile in uploaded} <= repainted
         median = statistics.median(per_edit)
-        print(f"\nG3 {plan}: opened in {open_passes} passes, {full_ms:.1f} ms of bake; per move: "
-              f"median {median:.2f} ms, max {max(per_edit):.2f} ms, at most {most_tiles} tiles and "
-              f"{most_records} record paints; passes per move: median "
-              f"{statistics.median(passes)}, max {max(passes)}")
-        assert median <= 10.0 and statistics.median(passes) == 1
+        with capsys.disabled():   # in every serial (-n 0) run's log: the readings #615 needs
+            print(f"\nG3 {plan} {across or ''}: opened in {open_passes} passes, {full_ms:.1f} ms of "
+                  f"bake; per move: median {median:.2f} ms, max {max(per_edit):.2f} ms, at most "
+                  f"{most_tiles} tiles and {most_records} record paints; passes per move: median "
+                  f"{statistics.median(passes)}, max {max(passes)}")
+        assert median <= edit_ms and statistics.median(passes) <= edit_passes
         assert bake.sink.state().ground == bake.sync.expected_state().ground
 
 
@@ -755,8 +859,9 @@ class TestNorthUpOnARealPlan:
         bake.step()
         assert bake.skipped == [] and bake.baker.failures == {}
         kinds = sorted(bake.records[item_id].kind for item_id in bake.baker.painted_ids())
-        assert kinds == ["DRIVEWAY", "FIRE_PIT", "GARDEN_BED", "GARDEN_BED", "GARDEN_BED", "LAWN",
-                         "PATH", "PATH", "POND_POOL", "RAIN_BARREL", "TERRACE_PATIO"]
+        # the fire pit and the rain barrel are models since L4 (#388): no sprite on the ground
+        assert kinds == ["DRIVEWAY", "GARDEN_BED", "GARDEN_BED", "GARDEN_BED", "LAWN",
+                         "PATH", "PATH", "POND_POOL", "TERRACE_PATIO"]
         baked = bake.image()
         _hide_all_but(scene, bake.baker.painted_ids())
         reference = canvas_render(scene, bake.grid)
@@ -777,7 +882,9 @@ class TestNorthUpOnARealPlan:
         assert tuple(baked[row, column, :3]) != canvas_rgb()
 
     def test_the_two_bench_plans_and_the_edge_plan_bake_without_a_failure(self, qtbot: Any) -> None:
-        for plan, painted in (("bench_small.ogp", 11), ("bench_large.ogp", 45),
+        # L4 (#388) builds every furniture object: bench_small's fire pit and rain barrel and
+        # bench_large's twenty objects are models now, not sprites on the ground
+        for plan, painted in (("bench_small.ogp", 9), ("bench_large.ogp", 25),
                               ("scene3d_edge_cases.ogp", 1)):
             scene = _loaded(plan)
             bake = Bake(scene, registry=production_registry(), bare_rgb=canvas_rgb())
@@ -1238,18 +1345,19 @@ class TestHostilePlans:
         assert len(bake.baker.last_repainted) == 20 and bake.baker.records_painted == 5
         assert mean <= 0.05, mean
         generated = bake.baker.elements_generated
-        # control: the canvas's own walk over the same line, at the style's densest
-        # spacing, is hundreds of thousands of elements — the tiles' share is a sliver
+        # control: the canvas's own walk over the same line every 4 cm is hundreds of
+        # thousands of elements — the tiles' share is a sliver
         whole = sum(1 for _element in PathStylePaint(item.points, item.pen())._walk_path(4.0))
         assert whole == 475_001
         assert generated <= 5 * 2 * 400 and bake.baker.capped == frozenset(), generated
         # … and the exact walk only where a tile can afford the WHOLE leg (the posts of
-        # a chain-link fence, 2.4 m apart: 7,917 steps); 475,001 dots never are — that
-        # leg is entered by arithmetic
+        # a chain-link fence, 2.4 m apart: 7,917 steps); a boardwalk's planks, every
+        # 10.5 cm (180,953 steps), never are — that leg is entered by arithmetic
         assert bake.baker.steps_walked <= 5 * 16_384
-        if path_style is PathFenceStyle.GRAVEL_PATH:
+        if path_style is PathFenceStyle.WOODEN_BOARDWALK:
             assert bake.baker.steps_walked == 0
-        if path_style is not PathFenceStyle.DIRT_PATH:  # the one style without elements
+        # gravel and dirt are textures (L4): the two styles without elements
+        if path_style not in (PathFenceStyle.GRAVEL_PATH, PathFenceStyle.DIRT_PATH):
             assert generated > 0
 
     @pytest.mark.parametrize("stroke", [StrokeStyle.DASHED, StrokeStyle.DOTTED, StrokeStyle.DASH_DOT],
@@ -1411,8 +1519,13 @@ class TestHostilePlans:
         # paint, because the pond is not among what that tile holds
         painted, checks = bake.baker.records_painted, bake.baker.admission_checks
         MoveItemsCommand([pond], QPointF(35.0, -20.0)).execute()
-        assert bake.step() == SceneDiff(transform=(str(pond.item_id),))
-        assert bake.baker.last_examined == 1 and bake.baker.last_repainted == ()
+        # L4 (#388): the pond cuts every lawn's 3D blades (``lawn_cutouts``, a param of
+        # theirs only the builders read) — 2,000 geometry changes, and the bake, which
+        # looks at each of them, finds none it paints (``Record.same_ground_geometry``)
+        moved = bake.step()
+        assert moved.transform == (str(pond.item_id),)
+        assert set(moved.geometry) == {str(lawn.item_id) for lawn in lawns}
+        assert bake.baker.last_examined == 1 + len(lawns) and bake.baker.last_repainted == ()
         assert bake.baker.records_painted == painted
         assert bake.baker.admission_checks - checks == TILE_RECORDS + 2
         # the topmost lawn is recoloured: ONE record looked at, every tile painted with its 256
@@ -1424,14 +1537,13 @@ class TestHostilePlans:
         assert bake.sink.state().ground == bake.sync.expected_state().ground
 
     def test_a_tile_generates_no_more_than_its_share_of_elements(self, qtbot: Any) -> None:
-        """A gravel path folded 1,500 times into one corner of the plan: 7.5 km of
-        dots inside a single tile. The tile stops at ``TILE_ELEMENTS``."""
+        """A chain-link path folded 1,500 times into one corner of the plan: 7.5 km of
+        mesh inside a single tile. The tile stops at ``TILE_ELEMENTS``."""
         from open_garden_planner.ui.view3d.ground_bake import TILE_ELEMENTS
 
         scene = _hostile_scene()
         points = [QPointF(20.0 + 480.0 * (k % 2), 20.0 + 470.0 * k / 1500.0) for k in range(1501)]
-        item = PolylineItem(points, object_type=ObjectType.PATH,
-                            path_fence_style=PathFenceStyle.GRAVEL_PATH)
+        item = _dense(points)
         scene.addItem(item)
         bake = Bake(scene, registry=production_registry())
         bake.step()
@@ -1442,18 +1554,16 @@ class TestHostilePlans:
         assert bake.baker.capped_tiles >= 1 and (0, 0) in bake.baker.capped
 
     def test_paths_that_clip_a_row_of_tiles_by_a_hair_share_the_tiles_steps(self, qtbot: Any) -> None:
-        """256 gravel paths, each ONE leg of 640 m across the plan's first row of
+        """256 chain-link paths, each ONE leg of 640 m across the plan's first row of
         tiles. The steps of the exact walk are the work — a leg is walked from its
-        start, 16,001 steps, to hand out the 170 dots of one tile. They are charged
+        start, 16,001 steps, to hand out the mesh points of one tile. They are charged
         to the TILE: at most ``TILE_WALK_STEPS`` for all its paths together.
         (Measured before that: 20,481,280 steps for this plan, 4,096,256 a tile.)"""
         from open_garden_planner.ui.view3d.ground_bake import TILE_ELEMENTS, TILE_WALK_STEPS
 
         scene = _hostile_scene()
         for k in range(256):
-            scene.addItem(PolylineItem(
-                [QPointF(-30_000.0, 100.0 + k), QPointF(34_000.0, 101.0 + k)],
-                object_type=ObjectType.PATH, path_fence_style=PathFenceStyle.GRAVEL_PATH))
+            scene.addItem(_dense([QPointF(-30_000.0, 100.0 + k), QPointF(34_000.0, 101.0 + k)]))
         bake = Bake(scene, registry=production_registry())
         bake.step()
         assert bake.skipped == [] and bake.baker.records_painted == 5 * 256
@@ -1465,15 +1575,14 @@ class TestHostilePlans:
 
     def test_a_spent_budget_gives_the_next_path_nothing(
             self, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Zero is a budget. Two gravel paths in one tile, the tile's elements set to
-        exactly what the lower one needs: the upper one gets none — not "no bound"."""
+        """Zero is a budget. Two chain-link paths in one tile, the tile's elements set
+        to exactly what the lower one needs: the upper one gets none — not "no bound"."""
         from open_garden_planner.ui.view3d import ground_bake
 
         def scene_with(count: int) -> tuple[CanvasScene, list[Any]]:
             scene = _hostile_scene()
-            paths = [PolylineItem([QPointF(60.0, 100.0 + 150.0 * k), QPointF(400.0, 110.0 + 150.0 * k)],
-                                  object_type=ObjectType.PATH,
-                                  path_fence_style=PathFenceStyle.GRAVEL_PATH) for k in range(count)]
+            paths = [_dense([QPointF(60.0, 100.0 + 150.0 * k), QPointF(400.0, 110.0 + 150.0 * k)])
+                     for k in range(count)]
             for path in paths:
                 scene.addItem(path)
             return scene, paths
@@ -1489,7 +1598,7 @@ class TestHostilePlans:
         second = Bake(both)
         second.step()
         assert second.baker.records_painted == 2
-        assert second.baker.elements_generated == needed  # the first path's, to the last dot
+        assert second.baker.elements_generated == needed  # the first path's, to the last one
         assert second.baker.capped == frozenset({(0, 0)})
 
     def test_what_a_painter_does_before_its_first_element_is_bounded_by_the_tiles_cost(
@@ -1782,7 +1891,7 @@ class TestHostilePlans:
         monkeypatch.setattr(ground_bake, "render_furniture_pixmap", recording)
         scene = _hostile_scene()
         scene.addItem(RectangleItem(100.0, 100.0, 300.0, 200.0, object_type=ObjectType.PERGOLA))
-        bake = Bake(scene, registry=production_registry())
+        bake = Bake(scene, registry=objects_unbuilt())
         bake.step()
         assert set(asked) == {(300.0, 200.0)}  # control: the canvas's own size
         asked.clear()

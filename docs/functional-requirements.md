@@ -489,7 +489,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 **US-E2 — object height property** (additive `metadata["object_height_cm"]`; no `FILE_VERSION` change — old app versions preserve the key untouched):
 
-- **FR-SUN-02**: Every height-bearing object resolves an **effective above-ground height** with the precedence: explicit user-set height → container fill height (`container_height_cm`, never aliased — it keeps meaning soil fill) → assigned species' `max_height_cm` → a per-type default (fence 120 cm, wall 200, hedge 150, house 450, garage/tool shed 250, greenhouse 220, trellis 180, raised bed 40, tables 75, chairs/benches 85, lounger 80, BBQ 90, compost bin 100) → none (object casts no shadow). The properties panel shows an **"Object height:"** field for height-bearing types (defaults-table types, containers, plants — including species-less placeholders): it displays the resolved effective height with a tooltip naming its source ("Custom height" / "From container fill height" / "From assigned species" / "Default for this object type"); typing a value stores an explicit override, setting **0 ("Auto")** clears it back to automatic. Each edit is **one undoable step** and marks the plan dirty.
+- **FR-SUN-02**: Every height-bearing object resolves an **effective above-ground height** with the precedence: explicit user-set height → container fill height (`container_height_cm`, never aliased — it keeps meaning soil fill) → assigned species' `max_height_cm` → a per-type default (fence 120 cm, wall 200, hedge 150, house 450, garage/tool shed 250, greenhouse 220, trellis 180, raised bed 40, tables 75, chairs/benches 85, lounger 80, BBQ 90, compost bin 100; every object kind has one since L4's owner passes — the full table is `DEFAULT_HEIGHTS_CM`, see FR-3D-BUILT-01) → none (object casts no shadow: the ground surfaces, generic shapes, annotations and a plant without species data). The properties panel shows an **"Object height:"** field for height-bearing types (defaults-table types, containers, plants — including species-less placeholders): it displays the resolved effective height with a tooltip naming its source ("Custom height" / "From container fill height" / "From assigned species" / "Default for this object type"); typing a value stores an explicit override, setting **0 ("Auto")** clears it back to automatic. Each edit is **one undoable step** and marks the plan dirty.
 
 **US-E3 — 2D analytic shadow overlay + sun date/time control** (runtime-only; nothing serialized; no `FILE_VERSION` change):
 
@@ -540,7 +540,7 @@ Acceptance: `tests/unit/test_plant_sprite_conformance.py` (coverage, QtSvg-subse
 ### 3a — Furniture & infrastructure sprites (issue #308)
 - **FR-OBJ-ART-01**: Every furniture and infrastructure object renders in one cohesive top-down "Lush Object" style at full parity with the plant sprites — per-part rim-dark → crown-light shading, occlusion where parts stack, material micro-detail (wood grain, brushed metal, fabric weave, water ripples, soil/sand grain), gloss on glossy materials — on the same files and render path the canvas already uses (no behavior change in `furniture_renderer`).
 - **FR-OBJ-ART-02**: Sprites bake **no directional shadow**; the item-level painted shadow (View › Shadows) is the single shadow source, so objects stay visually correct under user rotation and the shadow toggle behaves identically for furniture and plants.
-- **FR-OBJ-ART-03**: The roster grows by nine placeable object types — sandbox, trampoline, hot tub, swing, picnic table, hammock (Furniture gallery) and wheelbarrow, pergola, bird bath (Infrastructure gallery) — each with a tool, gallery thumbnail, translated display name and "Change Type" membership for its shape; the solid ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath) carry a default height so they cast shadows and extrude in 3D, while the open structures (swing, pergola, hammock) cast none by default because the shadow model extrudes a solid footprint — their Height field is still offered so a user can opt one in. Plans containing them stay loadable by older app versions (unknown types degrade to generic shapes; no file-format bump).
+- **FR-OBJ-ART-03**: The roster grows by nine placeable object types — sandbox, trampoline, hot tub, swing, picnic table, hammock (Furniture gallery) and wheelbarrow, pergola, bird bath (Infrastructure gallery) — each with a tool, gallery thumbnail, translated display name and "Change Type" membership for its shape; the solid ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath) carry a default height so they cast shadows and extrude in 3D, while the open structures (swing, pergola, hammock) cast none by default because the shadow model extrudes a solid footprint — their Height field is still offered so a user can opt one in (superseded by FR-3D-BUILT-01: since L4's owner passes they have default heights too). Plans containing them stay loadable by older app versions (unknown types degrade to generic shapes; no file-format bump).
 - **FR-OBJ-ART-04**: Gallery thumbnails preserve the object's real aspect ratio (a bench is a long thin board, not a square block); the BBQ/grill — a round-tool object — ships square art and is offered when changing a circle's type.
 - **FR-OBJ-ART-05**: The whole set is procedurally regenerable from `scripts/generate_object_sprites.py`; committed SVGs byte-match regeneration (deterministic, seeded), obey the QtSvg-subset allowlist and element/byte budgets, and carry provenance (`resources/objects/PROVENANCE.md`) — no external or image-model assets.
 
@@ -607,7 +607,7 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 
 ### FR-SUN-09: Cached sun-requirement diagnostics (US-F3, #314)
 
-- Explicit Hours of Sun computes the ground heatmap and per-plant ground-level estimates at sampled footprint centres, excluding the receiving plant's own caster and — for a plant that stands in a soil parent with a height (a raised bed, a container, a mounded bed: linked to it and its centre inside it, FR-SUN-11's membership) — that parent: the bed is under the plant, not between it and the sun. (In v1.30.1 only the plant's own caster was excluded, and every plant in a raised bed read 0 hours and warned.) Every other caster shades the plant as if it stood on the ground, and each casts from where it stands (FR-SUN-11) in the map and in the estimates alike. A plant inside a bed's outline WITHOUT a link to it stands on the ground inside the bed's solid and reads 0 hours. No computation before opting in to Hours of Sun; no leaf-height or translucent-canopy model.
+- Explicit Hours of Sun computes the ground heatmap and per-plant ground-level estimates at sampled footprint centres, excluding the receiving plant's own caster and — for a plant that stands in a soil parent with a height (a raised bed, a container, a mounded bed: linked to it and its centre inside it, FR-SUN-11's membership) — that parent: the bed is under the plant, not between it and the sun. (In v1.30.1 only the plant's own caster was excluded, and every plant in a raised bed read 0 hours and warned.) Every other caster shades the plant as if it stood on the ground, and each casts from where it stands (FR-SUN-11) in the map and in the estimates alike. A plant inside a bed's outline WITHOUT a link to it stands on the ground inside the bed's solid and reads 0 hours. So does a plant inside a cold frame, planter pot or greenhouse: none of them is a soil parent, and since L4 every one has a default height (ADR-065; follow-up #621). No computation before opting in to Hours of Sun; no leaf-height or translucent-canopy model.
 - The single calendar in the permanent Plan & Sun strip owns the reference day. Today preserves the selected time. While Hours of Sun is enabled, date and exposure-input changes automatically refresh the map after debounce; the last completed map retains its actual date label while updating. Time-only changes preserve exposure. All results and the chosen date remain runtime-only (ADR-062).
 - Nominal full-sun/partial-sun/partial-shade/full-shade bands are >=6/4-6/2-4/<2 hours. Warn only beyond one hour of tolerance: <5; <3 or >7; <1 or >5; >3, respectively. Exact tolerance boundaries do not warn. UNKNOWN never warns. Compare unrounded values, display one decimal, severity warning.
 - Canvas badges, the shared Diagnostics panel and cached unauthenticated `get_diagnostics` agree. `sun_mismatch` details carry `hours`, `required`, ISO `reference_date`, `direction`, `measurement_method=ground_cell_centre_excluding_self`, and `receiver_id`. Enclosing objects are addressable navigation targets for grouped receivers.
@@ -683,7 +683,7 @@ Acceptance (L1.4): `tests/unit/test_scene3d_look.py` (the rig against the L0 spi
 
 - **FR-3D-GROUND-01** (L1.5): Every flat surface of the plan — lawn, terrace, driveway, path, in-ground bed, flat furniture, any item without a 3D solid except a plant — is shown on the 3D ground as the plan paints it: the same fill texture and tint anchored the same way, the same outline pen, the same path or fence style, the same furniture sprite, in the plan's stacking order, north up. Measured against the plan's own full-detail render of the same items: the mean difference per channel is at most 6 of 255 for each of the 24 fill patterns, tinted and untinted, turned and not (measured: 0 not turned, ≤ 0.0002 turned). A plant is never painted on the ground.
 - **FR-3D-GROUND-02** (L1.5): An item that has a 3D solid is not painted; under it the ground shows whatever flat surface was drawn there, else meadow. Plan ground no item covers is meadow in the colour of the ground around the plan.
-- **FR-3D-GROUND-03** (L1.5): Editing the plan never disturbs the 2D view: baking the ground changes no selection, hides no item and does not touch the scene. One small edit — an item of up to 3 m moved by up to 2 m — re-paints at most four ground tiles and takes at most 10 ms in the median (measured for moves of 44 cm on the two bench plans: at most 2 tiles, 3.4 ms); a longer move re-paints the tiles of the old and of the new place, up to eight. After any sequence of edits the ground equals one baked from scratch, bit for bit.
+- **FR-3D-GROUND-03** (L1.5): Editing the plan never disturbs the 2D view: baking the ground changes no selection, hides no item and does not touch the scene. One small edit — an item of up to 3 m moved by up to 2 m — re-paints at most four ground tiles. On the two bench plans, an edit of up to two tiles takes at most 10 ms in the median, in one pass; an edit of more than two tiles is held to a provisional median of 20 ms until the owner decides #615. Readings are in ADR-065; the gate is `tests/integration/test_scene3d_ground_bake.py::TestOneSmallEdit`. A longer move re-paints the tiles of the old and of the new place, up to eight. After any sequence of edits the ground equals one baked from scratch, bit for bit.
 - **FR-3D-GROUND-04** (L1.5): A flat item whose outline is too large to be built as a solid (a path of thousands of points, a traced lawn) is still on the ground exactly as drawn. An outline above 16,384 vertices is on neither. No item of a plan file — however long, large or numerous — makes the ground hold or count more than a stated bound per ground tile. Where a bound cuts something off, what is lost is stated and the tile is reported (`GroundBaker.capped`) rather than silently incomplete: a 5 m tile shows at most 256 surfaces, and one that holds more loses its SMALLEST — those whose painted box overlaps the least of the tile, the lower of two equals first — never a large one: a lawn under any number of pavers stays on the ground wherever its edge runs, and what is missing are the smallest pavers (measured against the plan's own render for a lawn 10 cm inside the plan's edge under 2,000 pavers: no lawn pixel bare; the pavers of 145 of 400 places missing). What the ranking does not know is a shape: a thin diagonal line counts as large, and a small surface on top of 256 larger ones is among those left out. Beyond 16,384 style elements or 32,768 dashes in a tile the rest is left out or drawn solid.
 - **FR-3D-GROUND-05** (L1.5): The ground shows no seam between its tiles (measured luma spread across every tile border ≤ 0.7 of 255), a re-baked tile shows its new picture whichever tiles were re-baked before or after it, and the ground's memory does not grow with re-bakes: per tile one texture is held, plus the one it replaced until the next frame is shown. Measured for twenty full re-bakes of a 16 MB ground in the two cells the development machine offers: a software-rasteriser window that presents its frames (WARP, 40 frames presented in the twenty cycles: −0.02 to +0.03 MB a cycle, where keeping every replaced texture reads +32 MB) and a hardware-adapter window that presented NO frame (RTX 4070, 0 frames presented: −0.10 to +0.01 MB a cycle) — in which nothing is rendered, so that cell shows only that re-baking does not grow the process side. A hardware window that presents its frames is not automated; it is an item of the story's manual checklist (watch the process's commit size while dragging a lawn with the display on). *Known limit:* repeatedly taking a still frame from a live 3D view (`grab()`) whose window presents nothing grows a Direct3D 11 process by what each frame uploaded, until the view is closed; a screenshot is therefore taken through the offscreen path.
 - **FR-3D-GROUND-06** (L1.5): Baking the ground never holds the application for a whole plan: one pass paints for at most 10 ms plus the one ground tile it is in — and one tile more when an edit arrives while older tiles are still waiting, so that a drag cannot starve them — and the tiles it has not reached keep their older picture (bare ground when a plan is first opened) until a later pass paints them, nearest to the last edit first. A ground tile that cannot be painted at all (no memory for its image) keeps its older picture, takes no other tile with it and is tried again with the next edit. Once no work is pending the ground is exactly the ground of one complete bake. A plan built to be slow can still make ONE tile cost seconds (measured: 0.9 s for a tile crossed by two styled paths of 16,384 points; 19 s for a tile under one comb-shaped polygon of 16,384 vertices — which the plan view itself needs 186 s to paint).
@@ -737,6 +737,84 @@ Acceptance: `tests/integration/test_plant_forge.py`,
 `tests/unit/test_object_sprite_conformance.py` and the 40 golden tree references.
 The production Beauty Board, actual engine seasonal checks and owner acceptance
 complete the evidence.
+
+The built world complete (L4, #388, ADR-065).
+
+- **FR-3D-BUILT-01** (L4.4): Every furniture, play, utility and structure object
+  (24 kinds: rectangular and round table, picnic table, chair, bench, lounger,
+  parasol, barbecue grill, fire pit, planter pot, sandbox, trampoline, hot tub,
+  swing, hammock, compost bin, cold frame, rain barrel, water tap, wheelbarrow,
+  bird bath, pergola, trellis, greenhouse) is shown in 3D as a model of the thing,
+  in the colours of its
+  2D sprite and turned as its sprite is, no longer as a picture on the ground. Its
+  top is its height on the plan; nothing of it reaches more than 10 cm past its
+  footprint. Every object has a default height, shown and editable in its
+  **Object height** field, and casts its shadow in 2D and 3D: also the parasol
+  (250 cm), fire pit (30), planter pot (50), cold frame (45), rain barrel (100),
+  water tap (80), swing (220), hammock (110) and pergola (250), which had none
+  before L4's owner passes. In 2D an open frame (swing, hammock, pergola) shades its
+  whole footprint, as a fence casts a solid strip. A house is drawn in 2D in the terracotta of its 3D roof
+  tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
+  recoloured in 2D before L4 no longer shows that colour on its walls).
+- **FR-3D-BUILT-02** (L4.1): A house, garage or tool shed has **Roof style**
+  (Automatic, Gable, Hip, Single slope, Flat), **Roof pitch** (Auto, 5–60°) and
+  **Roof overhang** (Auto, 0–150 cm) in the Properties panel. Each change is one
+  undo step and is saved with the plan; Automatic / Auto removes the value. The
+  roof's highest point stays the building's height, so a steeper pitch lowers the
+  eaves. Automatic is a gable along the house's ridge line, or a flat roof on a
+  house without one. A hip on an outline that is not convex is built as a gable.
+  An overhang never takes a roof edge lower than half the lowest eave the walls
+  may have (2.2 m, or three quarters of a lower building's height under its roof
+  slab) above the ground: at a steep pitch on a small building the overhang is
+  shortened, and the chosen style and pitch are kept. A building too low even for
+  that (a gabled house 18–22 cm tall) keeps its roof without an overhang.
+  The 2D plan and its sun study are unchanged by these settings.
+- **FR-3D-BUILT-03** (L4.1): A building has windows on its walls and a door on the
+  wall that faces the nearest path (a garage: the nearest driveway, then path).
+  On the door's wall the windows are spaced on each side of the door, so a long
+  wall with its door in the middle has a window either side, and an upper row runs
+  over them and over the door. Moving the building along its path does not move its
+  door to another wall. A building too low for a door has no door or window.
+- **FR-3D-BUILT-04** (L4.2): A path shows its style on the 3D ground: stepping
+  stones where the plan draws them, boardwalk planks, paving kerbs, a gravel path's
+  edging. A gravel path is the gravel texture and a dirt path the soil texture, in
+  the path's colour and opaque, in 2D and on the 3D ground alike (owner, L4 manual
+  pass: they were translucent strokes the lawn showed through); a new dirt path
+  starts in the 2D sprites' light soil colour. A terrace or driveway shows kerbs, or deck boards for a wood pattern;
+  a pond shows water inside a stone coping. All of this lies on the plan's painted
+  ground, casts no shadow and cannot be clicked: a click on it is a click on the
+  ground, as on the flat surface before L4. A surface given a height is a raised solid with that top.
+- **FR-3D-BUILT-05** (L4.2): A path's width is its width on the ground in cm. New
+  paths start 70–100 cm wide by style (80 cm without one), and the Properties panel
+  sets a path's width up to 500 cm, a fence's or wall's up to 100 cm. Saved plans
+  keep their widths.
+- **FR-3D-BUILT-06** (L4.5): At the High and Ultra presets, a lawn grows grass
+  blades that sway with the wind. No blades grow under a path, terrace or bed drawn
+  on the lawn, under a pond's coping, past a gravel or dirt path's round ends, or
+  inside a house, shed, garage or greenhouse standing on it; they do grow under a
+  pergola, parasol, swing or hammock, and inside a loop of path. A plan grows at
+  most 60,000 blades in all; a large lawn is sparser rather than slower. While an
+  item is dragged over a lawn, its blades are cut anew at most every 0.4 s.
+- **FR-3D-BUILT-07** (L4.5): From the Medium preset up, the 3D ground is shaded by
+  the relief of its own textures (paving joints, gravel, bark), with no new picture
+  of the ground and nothing mirrored.
+- **FR-3D-BUILT-08** (L4, owner manual pass): The haze over the 3D view begins
+  beyond the plan the camera frames: it starts at 1.5 times the camera's distance
+  to the point it looks at and is full at 6 times it, never nearer than 26 m and
+  160 m, and full by 760 m, before the view's far limit, so the meadow's end never
+  shows against the sky. That holds up to 380 m from the point looked at; farther
+  out (the camera reaches 600 m) the haze begins at 570 m, so a camera pulled out
+  to its limit sees the plan through thin haze.
+
+Acceptance (L4): `tests/integration/test_l4_built_world.py` (§8.10 — the roof
+rows through the real panel, undo and a save/load; the door against the path and
+a move as a transform; the lawn's cut-outs under a terrace and a greenhouse; a
+path's width in cm and its stones; an object without a height), the unit suites
+`tests/unit/test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py` and
+`test_scene3d_l4_surfaces.py` (every builder through `verify_builder` on hostile
+input), `tests/integration/test_bench_plans.py` (`bench_built.ogp`), the render
+tier `tests/integration/test_scene3d_ground_render.py` and the frozen
+`--selftest` (`ground.frag` compiled from the bundle).
 
 
 ## FR-34: Plan timeline and plant lifetimes (US-F4, #315)

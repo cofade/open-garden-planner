@@ -64,6 +64,10 @@ NOT_ISOLATED: dict[str, str] = {
     "measure_task_window_sweep.py":
         "imports the species database and the task generator; no application, no plan saved or "
         "loaded; a unit test imports it into the pytest process",
+    "measure_roof_overhang.py":
+        "imports core.roof_style and core.scene3d's builders — the core package's import loads "
+        "PyQt6 and app.settings, but builds no application and no settings store, and the "
+        "script calls no get_settings(); no plan saved or loaded",
     "probe_widget_leaks.py":
         "master's #515 widget-leak probe: before it builds an application it imports "
         "tests.conftest, whose module-level code IS the suite's isolation (settings names, "
@@ -254,7 +258,9 @@ def _left_in(home: Path) -> list[str]:
      ("make_bench_plans.py", ["--check"], True, "bench plans: OK"),  # both save plans: Recent Files
      ("measure_region_work.py", ["--help"], False, "usage:"),
      # L1.4: the production Beauty Board LOADS a plan (Recent Files) before it lists its shots
-     ("render_beauty_board.py", ["--list"], True, "golden_hour")],
+     ("render_beauty_board.py", ["--list"], True, "golden_hour"),
+     # #388: loads bench_large (Recent Files) and bakes its ground
+     ("measure_ground_edit.py", ["--moves", "1", "--across", "border"], True, '"tiles": [2]')],
 )
 def test_a_script_run_as_a_script_reaches_none_of_the_users_stores(
     tmp_path: Path, script: str, arguments: list[str], builds_a_store: bool, says: str

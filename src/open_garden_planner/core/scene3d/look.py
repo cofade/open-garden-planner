@@ -51,7 +51,7 @@ __all__ = [
     "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
     "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_REBUILD_DEG", "TWILIGHT_DEG", "AutoPolicy",
     "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec", "day_rig",
-    "fill_linear", "fog_color", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
+    "fill_linear", "fog_color", "fog_depth_cm", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
     "mix_rig", "moon_travel_scene", "normalise_quality", "scale_linear", "sky_is_stale",
     "sky_phase", "sky_separation_deg", "twilight_fraction", "twilight_rig",
 ]
@@ -177,6 +177,34 @@ def fog_linear(sky_horizon: str, probe_exposure: float,
 def fog_color(sky_horizon: str, probe_exposure: float, sky_energy: float = 1.0) -> str:
     """``fog_linear`` as ``#rrggbb`` — to read, to log, to compare; never to render."""
     return linear_to_srgb_hex(fog_linear(sky_horizon, probe_exposure, sky_energy))
+
+
+#: The depth fog's distances (cm). L1 fixed them at 26 m and 160 m, which put a plan
+#: framed from 80 m a third of the way into the fog — "I only see fog until I zoom
+#: in" (owner, L4 manual pass). They follow the camera's distance to the point it
+#: looks at: the fog begins ``FOG_NEAR_SHARE`` times that distance away, beyond the
+#: plan the camera frames, and is full at ``FOG_FAR_SHARE`` times it — never nearer
+#: than L1's (the close views keep their reviewed look) and full by
+#: ``FOG_FAR_MAX_CM``, well inside the meadow's 2 km edge, which the camera's 3 km
+#: far plane keeps in view (``Garden.qml``). Near that cap the fog begins at most ``FOG_NEAR_MAX_SHARE`` of
+#: the way to it: a 100 x 60 m plan seen from three times its framing distance (403 m)
+#: still lies in front of it.
+FOG_NEAR_CM: Final = 2_600.0
+FOG_FAR_CM: Final = 16_000.0
+FOG_NEAR_SHARE: Final = 1.5
+FOG_FAR_SHARE: Final = 6.0
+FOG_FAR_MAX_CM: Final = 76_000.0
+FOG_NEAR_MAX_SHARE: Final = 0.75
+
+
+def fog_depth_cm(distance_cm: float) -> tuple[float, float]:
+    """``(near, far)`` of the depth fog for a camera ``distance_cm`` from the point it
+    looks at (the constants above); near is at most ``FOG_NEAR_MAX_SHARE`` of far."""
+    if not math.isfinite(distance_cm) or distance_cm < 0.0:
+        raise ValueError(f"a camera distance is a finite non-negative number, got {distance_cm!r}")
+    far = min(FOG_FAR_MAX_CM, max(FOG_FAR_CM, FOG_FAR_SHARE * distance_cm))
+    near = min(max(FOG_NEAR_CM, FOG_NEAR_SHARE * distance_cm), FOG_NEAR_MAX_SHARE * far)
+    return near, far
 
 
 def fill_linear(sky_top: str, sky_horizon: str, probe_exposure: float,
@@ -309,6 +337,12 @@ class PresetSpec:
     sharpening: float = 0.0
     #: SSGI renders a black frame on Mesa llvmpipe: opt-in only, no preset turns it on.
     global_illumination: bool = False
+    #: L4.5 (#388): a lawn's grass blades are drawn (they are built at every preset —
+    #: a preset step changes no geometry — and shown from High up: they cost fill rate).
+    lawn_blades: bool = False
+    #: L4.5: how strongly the ground's shading follows its texture's luminance (detail
+    #: normals derived from the baked ground itself, no new asset), 0 = flat.
+    detail_normals: float = 0.0
 
     def __post_init__(self) -> None:
         if self.shadow_map_quality not in ("high", "very_high", "ultra"):
@@ -333,15 +367,21 @@ class PresetSpec:
 #: against FXAA's 67-152 under a shared CPU. No ambient occlusion, no glow — fog stays.
 #: Medium: the 2048 map too (it had 1024, smaller than low's): on bench_large it cost
 #: +4 % of a WARP frame (183 -> 191 ms) and nothing measurable on the GPU (30-40 ms).
+#: The ground's detail-normal strength from Medium up (L4.5). North-up with it is the
+#: render tier's G2 gate (``test_scene3d_ground_render.py``, High preset); the board's
+#: ``--edge`` and ``--orient`` probes render bare ground and do not run it. 3.0: the
+#: owner's choice from walk-height views of gravel, earth and paving at 1.0 and 3.0
+#: (L4's second manual pass, ADR-065); ``ground.frag`` clamps the slope either way.
+DETAIL_NORMALS: Final = 3.0
 PRESET_SPECS: Final[Mapping[str, PresetSpec]] = MappingProxyType({
     "low": PresetSpec("low", "very_high", 1, "pcf4", 15.0, "msaa", "high", False, 2, False,
                       False, False),
     "medium": PresetSpec("medium", "very_high", 1, "pcf8", 15.0, "msaa", "high", True, 2, True,
-                         False, False),
+                         False, False, detail_normals=DETAIL_NORMALS),
     "high": PresetSpec("high", "very_high", 2, "pcf16", 10.0, "msaa", "high", True, 3, True,
-                       False, False),
+                       False, False, lawn_blades=True, detail_normals=DETAIL_NORMALS),
     "ultra": PresetSpec("ultra", "ultra", 3, "pcf32", 10.0, "msaa", "very_high", True, 4, True,
-                        True, True),
+                        True, True, lawn_blades=True, detail_normals=DETAIL_NORMALS),
 })
 
 

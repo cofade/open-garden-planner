@@ -135,3 +135,20 @@ a plausible, tested, wrong implementation:
 a line, and treat an issue's context section as a hypothesis.** The costs here were cheap only
 because the check was done first; the third one in particular would have shipped a tool that
 excluded almost nothing while reporting a rotation check it had not performed.
+
+### PF-PRC-11
+
+- **Rule:** A tracked text file must never hold CR CR LF line endings. A script that writes a file can double a CR without anyone noticing, so check for `\r\r\n` before committing a file a script wrote.
+- **Pinned by:** `tests/unit/test_line_endings.py`
+- **Source:** #614, #388 (PR #613's merge of master)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Commit fee03ea3 on master stored five files with `\r\r\n` on every line: CLAUDE.md, AGENTS.md, the building block view and both `ogp-docs-and-writing` skills. Every earlier commit of these files was LF, and no record says which tool wrote them.
+- A Markdown renderer may read the doubled CR as a blank line, so tables and lists can split.
+- Every branch that touched these files met a conflict from line 1. Merging master into the L4 branch conflicted on all of CLAUDE.md, AGENTS.md and docs/05.
+- `check_agent_context.py` did not see it, because both pickup files were corrupted the same way.
+
+The merge in PR #613 made all five files LF again. With every CR stripped, they equal master plus the branch's additions. To review such a change, use `git diff -w`: a plain diff shows the files as complete rewrites.
+
+One way it happens was seen while this entry was written. A Python script was passed through the agent's Bash tool in a heredoc. A `\\r` in the script's source reached Python as `\r`, so the script wrote real carriage returns into this file and its index. The guard test named both files. This is the same kind of whole-file damage as PF-PRC-04: a script writes it and nobody sees it. Write such scripts to a file with the editor tool, keep the newline the file was read with, and run `tests/unit/test_line_endings.py` before committing.

@@ -69,8 +69,8 @@ pytestmark = render_tier
 DRIVER = Path(driver.__file__).resolve()
 Run = tuple[dict[str, Any], Path]
 #: Scenarios with a SHOWN window (Qt's messages are read from the driver's stderr) …
-SHOWN = ("ground_plan", "ground_retexture", "ground_seams", "ground_seams_gap", "ground_keepalive",
-         "ground_keepalive_leak", "ground_keepalive_grab")
+SHOWN = ("ground_plan", "ground_visible", "ground_retexture", "ground_seams", "ground_seams_gap",
+         "ground_keepalive", "ground_keepalive_leak", "ground_keepalive_grab")
 #: … and the one through ``render_records`` (a hidden view records its own messages).
 SCENARIOS = ("ground_offscreen", *SHOWN)
 
@@ -153,7 +153,9 @@ def test_a_real_plan_shows_its_baked_ground_in_the_engine(run: Run) -> None:
     assert opened["tiles_in_scene"] == opened["tiles_visible"] == opened["tiles_textured"] == tiles
     assert opened["uploads"] == tiles and opened["textures_held"] == tiles
     assert opened["ground_tiled"] is True and opened["state_equals_expected"] is True
-    assert opened["painted"] == 11 and opened["records"] == 98  # the default tier's numbers
+    # the default tier's numbers; since L4 (#388) the fire pit and the rain barrel, which
+    # have no height, are built objects, no longer sprites painted on the ground (11 → 9)
+    assert opened["painted"] == 9 and opened["records"] == 98
     assert opened["capped"] == 0 and opened["bake_failures"] == 0 and opened["ground_failure"] is None
     assert opened["parts"] > 50  # the solids of the plan stand on it
     print(f"\nopen: bake {opened['bake_ms']} ms, apply {opened['apply_ms']} ms, "
@@ -281,7 +283,7 @@ def test_the_offscreen_path_shows_the_baked_ground(run: Run) -> None:
     solid, and says so with the frame; without a baker the plan ground is bare."""
     offscreen = run[0]["scenarios"]["ground_offscreen"]
     whole, only, bare = offscreen["whole"], offscreen["only"], offscreen["bare"]
-    assert (offscreen["records"], offscreen["painted"]) == (98, 11)
+    assert (offscreen["records"], offscreen["painted"]) == (98, 9)  # L4: 11 → 9, as above
     assert whole["ground_tiles"] == only["ground_tiles"] == 20 and bare["ground_tiles"] == 0
     for frame in (whole, only, bare):
         assert frame["ground_failure"] is None and frame["build_failures"] == {}
@@ -356,6 +358,59 @@ def _north_up_scores(run: Run, scenario: dict[str, Any], view: dict[str, Any]) -
         bake, grid.px_per_cm, shot, box, frame.shape, dpr, flip_north=north, flip_east=east)))
         for name, north, east in (("identity", False, False), ("north-south", True, False),
                                   ("east-west", False, True), ("both", True, True))}
+
+
+def _plan_mask(view: dict[str, Any], ground: tuple[float, float], shape: tuple[int, ...],
+               dpr: float, inset_cm: float = 40.0) -> np.ndarray:
+    """The frame pixels whose ray meets the plane of the ground inside the plan (less
+    ``inset_cm``): the camera model of ``core.scene3d.pick_oracle``, per pixel."""
+    from open_garden_planner.core.scene3d.pick_oracle import camera_axes
+
+    height, width = shape[:2]
+    forward, right, up = (np.asarray(axis) for axis in camera_axes(view["eye"], view["target"]))
+    half = np.tan(np.radians(view["fov"]) / 2.0)
+    logical_w, logical_h = width / dpr, height / dpr
+    xs = (np.arange(width) + 0.5) / dpr
+    ys = (np.arange(height) + 0.5) / dpr
+    across = (2.0 * xs / logical_w - 1.0) * half * (logical_w / logical_h)
+    upward = (1.0 - 2.0 * ys / logical_h) * half
+    directions = (forward[None, None, :] + across[None, :, None] * right[None, None, :]
+                  + upward[:, None, None] * up[None, None, :])
+    eye = np.asarray(view["eye"])
+    down = directions[..., 2] < -1e-9
+    reach = np.where(down, -eye[2] / np.where(down, directions[..., 2], -1.0), -1.0)
+    east = eye[0] + reach * directions[..., 0]
+    north = eye[1] + reach * directions[..., 1]
+    return (down & (east > inset_cm) & (east < ground[0] - inset_cm)
+            & (north > inset_cm) & (north < ground[1] - inset_cm))
+
+
+def test_the_meadow_never_shows_through_the_plan(run: Run) -> None:
+    """3D review of #388, P0, twice: the endless meadow, one quad 1 cm and then 5 cm under
+    the plan, won the depth test from 14 of 36 orbit cameras on bench_built, and then
+    from 13 of 120 views of the workspace's own framing on the three bench plans — the
+    pond, the terraces, the paths and the driveway were gone. Drawn in a key colour, the
+    meadow must show on no pixel of the plan (objects standing on it may hide the
+    ground; the key never) — and it must be DRAWN: a meadow that is missing passes the
+    first half (it did, once, while this fix was made)."""
+    seen = run[0]["scenarios"]["ground_visible"]
+    framed = len(driver.VISIBLE_PLANS) * len(driver.VISIBLE_YAWS) * len(driver.VISIBLE_FACTORS)
+    assert len(seen["views"]) == 36 + framed == 156
+    assert all(textured == total > 0 for textured, total in seen["textured"].values()), seen["textured"]
+    worst: list[tuple[int, str]] = []
+    for view in seen["views"]:
+        frame, dpr = _frame(run, view)
+        ground = tuple(view["ground"])
+        mask = _plan_mask(view, ground, frame.shape, dpr)
+        assert mask.sum() > 5_000, view["file"]  # the plan is in the frame
+        red, green, blue = (frame[..., channel].astype(np.int32) for channel in range(3))
+        keyed = (red - green > 60) & (blue - green > 60)
+        outside = ~_plan_mask(view, ground, frame.shape, dpr, inset_cm=-40.0)
+        assert (keyed & outside).sum() > 5_000, view["file"]  # the meadow is drawn round it
+        worst.append((int((keyed & mask).sum()), view["file"]))
+    worst.sort(reverse=True)
+    print(f"\nmeadow through the plan, worst views: {worst[:3]}")
+    assert worst[0][0] <= 20, worst[:5]
 
 
 def test_the_engine_shows_the_bake_north_up(run: Run) -> None:

@@ -383,6 +383,12 @@ def delta_e76(first: Any, second: Any) -> float:
 # ── the plan rectangle meets the meadow ──────────────────────────────────────
 
 
+#: The LINE along the plan's edge (``plan_edge_step``): the pixels within this many of
+#: the edge's own pixel, against the median of a window this many either side (px).
+EDGE_LINE_PX = 3
+EDGE_LINE_WINDOW_PX = 12
+
+
 def plan_edge_step(rgb: Any, camera: Pinhole, *, axis: str, at: float, along: Sequence[float],
                    reach: tuple[float, float] = (20.0, 220.0), step_cm: float = 10.0
                    ) -> dict[str, Any]:
@@ -396,7 +402,14 @@ def plan_edge_step(rgb: Any, camera: Pinhole, *, axis: str, at: float, along: Se
     A smooth gradient across the view (the sky's sheen changes with the angle: here
     about 1.4 luma per metre) is not a step and does not count — two band means 2 m
     apart had read it as one (+4 luma for identical materials). ``step`` is the median
-    over the stations."""
+    over the stations.
+
+    ``line`` is what the fits cannot see: a thin bright or dark line ON the edge (3D
+    review of #388: ambient occlusion drew one, ±14 luma, along every plan edge while
+    the meadow lay 5 cm under the plan, and the step read 0.45). At every station the
+    pixels are read across the edge, ``EDGE_LINE_WINDOW_PX`` either side of the edge's
+    own pixel; ``line`` is the largest difference from their median within
+    ``EDGE_LINE_PX`` of it, the largest over the stations."""
     frame = np.asarray(rgb, dtype=np.float64)[..., :3]
     rows, cols = frame.shape[:2]
     view = camera.scaled((cols, rows))
@@ -406,12 +419,17 @@ def plan_edge_step(rgb: Any, camera: Pinhole, *, axis: str, at: float, along: Se
     steps: list[float] = []
     plan_at: list[float] = []
     meadow_at: list[float] = []
+    lines: list[float] = []
     for station in along:
         across = at + distances
         if axis == "east":
             points = np.column_stack([across, np.full_like(across, station), np.zeros_like(across)])
         else:
             points = np.column_stack([np.full_like(across, station), across, np.zeros_like(across)])
+        edge = np.array([[at, station, 0.0]] if axis == "east" else [[station, at, 0.0]])
+        line = _edge_line(values, view, np.concatenate([edge, points[len(offsets):len(offsets) + 1]]))
+        if line is not None:
+            lines.append(line)
         px, py, front = view.project(points)
         col, row = np.floor(px).astype(np.int64), np.floor(py).astype(np.int64)
         seen = front & (col >= 0) & (col < cols) & (row >= 0) & (row < rows)
@@ -426,10 +444,34 @@ def plan_edge_step(rgb: Any, camera: Pinhole, *, axis: str, at: float, along: Se
         meadow_at.append(float(np.polyval(meadow_line, 0.0)))
         steps.append(plan_at[-1] - meadow_at[-1])
     if not steps:
-        return {"step": None, "stations": 0, "plan_luma": None, "meadow_luma": None}
+        return {"step": None, "stations": 0, "plan_luma": None, "meadow_luma": None,
+                "line": None}
     return {"step": round(float(np.median(steps)), 2), "stations": len(steps),
             "plan_luma": round(float(np.median(plan_at)), 2),
-            "meadow_luma": round(float(np.median(meadow_at)), 2)}
+            "meadow_luma": round(float(np.median(meadow_at)), 2),
+            "line": round(max(lines), 2) if lines else None}
+
+
+def _edge_line(values: Array, view: Pinhole, pair: Array) -> float | None:
+    """``plan_edge_step``'s ``line`` at one station: ``pair`` is the point of the edge
+    and a ground point across it, on the plan's side."""
+    px, py, front = view.project(pair)
+    if not front.all():
+        return None
+    middle = np.array([px[0], py[0]])
+    direction = np.array([px[1] - px[0], py[1] - py[0]])
+    length = float(np.hypot(*direction))
+    if length < 1e-9:
+        return None
+    offsets = np.arange(-EDGE_LINE_WINDOW_PX, EDGE_LINE_WINDOW_PX + 1)
+    cols = np.floor(middle[0] + offsets * direction[0] / length).astype(np.int64)
+    rows = np.floor(middle[1] + offsets * direction[1] / length).astype(np.int64)
+    height, width = values.shape[:2]
+    if cols.min() < 0 or rows.min() < 0 or cols.max() >= width or rows.max() >= height:
+        return None
+    samples = values[rows, cols]
+    near = np.abs(offsets) <= EDGE_LINE_PX
+    return float(np.abs(samples[near] - np.median(samples)).max())
 
 
 # ── aliasing of thin repeated geometry (picket fences) ───────────────────────

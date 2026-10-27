@@ -2713,7 +2713,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ---
 
-## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L3 complete
+## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L3 complete, L4 in review
 
 **Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 
@@ -2725,10 +2725,50 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L1 | **New engine, new light** — sim clock, scene contract v2, engine package, Plan/3D/Split workspace without camera resets, sky + presets, ground bake, built world v0, plant v0, selection sync + walk collision, default flip, Qt 3D removal. **L1.0 ✅ sim clock shipped v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)); L1.1–L1.10 ✅ shipped v1.30.14 ([PR #484](https://github.com/cofade/open-garden-planner/pull/484))** — see below | [#385](https://github.com/cofade/open-garden-planner/issues/385) |
 | ✅ | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **✅ shipped v1.31.0 ([PR #584](https://github.com/cofade/open-garden-planner/pull/584)) after owner acceptance (ADR-063, FR-3D-ANALYZE-01 … 08)** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
-| 📋 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
+| 🔄 | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **Implemented on `feature/388-l4-built-world`, draft [PR #613](https://github.com/cofade/open-garden-planner/pull/613) awaiting owner manual test (ADR-065, FR-3D-BUILT-01 … 07)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
+
+### L4 acceptance highlights — Built world complete (#388, ADR-065) — **draft [PR #613](https://github.com/cofade/open-garden-planner/pull/613), owner test pending**
+
+- **L4.1 roofs and facades:** Roof style (Automatic / Gable / Hip / Single slope /
+  Flat), pitch (5–60°) and overhang (0–150 cm) are optional, additive item metadata
+  edited in the Properties panel, one undo step each, with no FILE_VERSION bump. The
+  roof's top stays the building's height. Windows go on walls that can hold them; the
+  door faces the nearest path (a garage the driveway), stored as a wall index so a
+  move stays transform-only. Roof-aware 2D casters stay with #440.
+- **L4.2 surfaces:** Stepping stones (the 2D walk, slid onto the path at its ends),
+  boardwalk planks, paving kerbs, gravel edging, terrace and driveway
+  kerbs or deck boards, pond water and coping are `ground_detail` relief: drawn on
+  the painted ground, no shadow, never picked. Paths are real widths: presets
+  70–100 cm, default 80 cm, the panel up to 500 cm (owner comment on #388).
+- **L4.3 / L4.4 objects:** All 24 furniture, play, utility and structure kinds have
+  bevelled builders in the 2D object palette, bounded at 4,000 triangles. Every
+  object kind has a default height and casts in 2D and 3D. Greenhouse glass keeps
+  the existing glass material: scene-wide OIT broke L2's drapes (measured).
+  Smart-symbol builders are deferred (#599): a smart symbol is a group of items L4 builds.
+- **L4.5 water, lawn, detail:** Lawn blades (220 / m², ≤ 36,000 per lawn, ≤ 60,000
+  per plan, water-filled by area) are cut out under flat items above the lawn and
+  enclosed buildings on it, built at every preset and drawn from High up. From Medium
+  up, `ground.frag` derives detail normals from the baked ground's own luminance; no
+  asset. #586: the Beauty Board's shots include the ground bake.
+- **Reviews:** `ogp-3d-reviewer` approved in round 3. The endless meadow is a frame in the
+  plan's plane, because one 4 km quad under the plan lost the depth test to it (PF-L3D-13/14).
+  Path relief stays within the path. Deck boards lie on the ground. No blades grow through a
+  pond's coping or past a gravel or dirt path's round ends, and a path loop keeps its lawn.
+  `senior-reviewer` round 1 found three P1s, now fixed:
+  - a drag over a lawn re-cuts its blades at most every 0.4 s;
+  - decks and other relief are bounded by construction;
+  - a roof's lowest edge stays at least half its eave floor above the ground, the style kept.
+- **Owner manual passes (2026-10-27, ADR-065 addenda):** gravel and dirt paths are their
+  textures, opaque, in 2D and 3D; a new house is terracotta in 2D, with sandstone 3D walls;
+  windows sit either side of a centred door; the fog follows the camera's distance. The
+  parasol, fire pit, planter pot, cold frame, rain barrel, water tap, swing, hammock and
+  pergola got real default heights: they show them in the panel and cast in 2D and 3D. The
+  ground's detail-normal strength is 3.0.
+
+  Follow-ups: #600, #603–#605, #607, #609, #611, #615–#621, #623, #624.
 
 ### L3 acceptance highlights — Plant Forge (#387, ADR-064) — **shipped v1.32.0, PR #593**
 

@@ -195,6 +195,21 @@ class TestRecord:
         assert not base.same_geometry(changed)
         assert base.same_transform(changed) and base.same_material(changed)
 
+    def test_same_geometry_compares_every_geometry_field_by_hand(self) -> None:
+        """``same_geometry`` is a list written by hand (the scene3d mutation script
+        deletes its comparisons one by one), and the test above passes through the
+        signature even when a field is missing from it — senior review of #388,
+        round 3. Every ``GEOMETRY_FIELDS`` name is compared there."""
+        tree = ast.parse(Path(sys.modules[Record.__module__].__file__).read_text(encoding="utf-8"))
+        method = next(node for node in ast.walk(tree)
+                      if isinstance(node, ast.FunctionDef) and node.name == "same_geometry")
+        compared = {(side.value.id, side.attr) for node in ast.walk(method) if isinstance(node, ast.Compare)
+                    for side in (node.left, *node.comparators)
+                    if isinstance(side, ast.Attribute) and isinstance(side.value, ast.Name)}
+        missing = [name for name in GEOMETRY_FIELDS
+                   if ("self", name) not in compared or ("other", name) not in compared]
+        assert not missing
+
     def test_transform_moves_only_the_transform_signature(self) -> None:
         base = record()
         for t in (Transform(101.0, 200.0, 30.0), Transform(100.0, 200.0, 31.0),
@@ -304,7 +319,7 @@ class TestRecord:
         refusal names the way out, and the way out is one line."""
         from open_garden_planner.core.scene3d import record as record_module
 
-        assert frozenset() == DIMENSIONLESS_PARAMS  # nothing is exempt today
+        assert frozenset({"roof_pitch_deg"}) == DIMENSIONLESS_PARAMS  # L4.1: a roof's pitch, degrees
         with pytest.raises(RecordRangeError, match="taken for a length in cm unless its key is "
                                                    "listed in record.DIMENSIONLESS_PARAMS"):
             Params({"days_since_epoch": 2e7})
@@ -363,9 +378,9 @@ class TestRecord:
         assert plain.same_transform(holed) and plain.same_material(holed)
         assert diff(scene(plain), scene(holed)) == SceneDiff(geometry=("a",))
 
-    def test_a_record_without_a_height_is_decoration(self) -> None:
-        assert record().casts_shadow is True
-        assert record(height_cm=None).casts_shadow is False
+    def test_a_record_without_a_height_has_no_2d_caster(self) -> None:
+        assert record().has_2d_caster is True
+        assert record(height_cm=None).has_2d_caster is False
         assert record().base_cm == 0.0
         assert record(transform=Transform(0.0, 0.0, 0.0, 38.0)).base_cm == 38.0
 

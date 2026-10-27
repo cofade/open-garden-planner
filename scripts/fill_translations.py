@@ -21,6 +21,7 @@ from scripts.permaculture_translations import TRANSLATIONS as _F1_F2_TRANSLATION
 from scripts.translation_gate_translations import TRANSLATIONS as _GATE_TRANSLATIONS
 from scripts.translations_f4 import DE as _F4_TRANSLATIONS
 from scripts.translations_l2 import DE as _L2_TRANSLATIONS
+from scripts.translations_l4 import DE as _L4_TRANSLATIONS
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -1748,7 +1749,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "From assigned species (max height)":
             "Aus zugewiesener Pflanzenart (max. Höhe)",
         "Default for this object type": "Standard für diesen Objekttyp",
-        "No height — casts no shadow": "Keine Höhe — wirft keinen Schatten",
+        "No height — no shadow on the 2D plan": "Keine Höhe — kein Schatten im 2D-Plan",
         "Recommended spacing radius (half of plant spread)":
             "Empfohlener Abstandsradius (halbe Pflanzenbreite)",
         "Spacing radius:": "Abstandsradius:",
@@ -3476,6 +3477,10 @@ for _ctx, _strings in _F4_TRANSLATIONS.items():
 
 # ── Phase 17 L2: Analyze in 3D (#386) ──
 for _ctx, _strings in _L2_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Phase 17 L4: the built world (#388) ──
+for _ctx, _strings in _L4_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

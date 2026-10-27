@@ -106,7 +106,7 @@ def test_the_script_itself_imports_nothing_of_the_app_and_isolates_its_children(
         elif isinstance(node, ast.ImportFrom):
             assert node.level == 0
             imported.add((node.module or "").split(".")[0])
-    assert imported == {"__future__", "argparse", "os", "subprocess", "sys", "tempfile",
+    assert imported == {"__future__", "argparse", "os", "subprocess", "sys", "tempfile", "time",
                         "dataclasses", "pathlib"}
     assert imported <= set(sys.stdlib_module_names) | {"__future__"}
     # every child is ``python -m pytest …`` with the throw-away APPDATA — nothing else is started
@@ -125,3 +125,32 @@ def test_it_refuses_a_dirty_tree(monkeypatch: pytest.MonkeyPatch,
     monkeypatch.setattr(module, "run", lambda *_a: pytest.fail("a mutant ran on a dirty tree"))
     assert module.main([]) == 2
     assert "refusing to run" in capsys.readouterr().out
+
+
+def test_a_restore_that_fails_for_a_moment_is_tried_again(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """On Windows the restore's write failed for a moment (``OSError: [Errno 22]``)
+    and twice left a mutant in the tree (#388). It is tried again, and an error that
+    stays is raised, never swallowed."""
+    mutation = script()
+    monkeypatch.setattr(mutation, "RESTORE_PAUSE_S", 0.0)
+    target = tmp_path / "file.py"
+    target.write_bytes(b"mutated")
+    real_write = Path.write_bytes
+    failures = [OSError(22, "Invalid argument")] * 2
+
+    def flaky(self: Path, data: bytes) -> int:
+        if failures:
+            raise failures.pop()
+        return real_write(self, data)
+
+    monkeypatch.setattr(Path, "write_bytes", flaky)
+    mutation.restore(target, b"original")
+    assert target.read_bytes() == b"original" and failures == []
+
+    def broken(self: Path, data: bytes) -> int:
+        raise OSError(22, "Invalid argument")
+
+    monkeypatch.setattr(Path, "write_bytes", broken)
+    with pytest.raises(OSError):
+        mutation.restore(target, b"original")

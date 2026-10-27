@@ -239,12 +239,13 @@ _ELEMENT_REACH: Final = (2.5, 8.0)
 #: (0.7 µs a vertex); five plain 20 cm lines of 16,384 points folded into the tile
 #: 509 ms (a stroke that crosses a tile costs about 6 µs a segment); two gravel
 #: paths of 16,384 points — the styled vertex bound, with the elements and the walk
-#: at theirs — 2.65 s. And ONE polygon whose outline is a COMB, every tooth
+#: at theirs — 2.65 s (gravel's dots: measured before L4's owner pass made gravel a
+#: texture; a 5 cm chain-link path walks as densely). And ONE polygon whose outline is a COMB, every tooth
 #: crossing every scanline of the tile: 1.2 ms a vertex — 1.2 s at 1,024 vertices,
 #: 19 s at 16,384, of which the vertex bound admits sixteen (the 2D canvas needs
 #: 10.5 s and 186 s for one paint of those two items). A plan BUILT to be slow,
 #: two such gravel paths zigzagging over a 16-tile plan, is 11.8 s of painting
-#: (0.73 s a tile) and again whenever that item is edited. The two bench plans:
+#: (0.73 s a tile, the same dots) and again whenever that item is edited. The two bench plans:
 #: 13 ms and 69 ms. No count here bounds Qt's time for a scanline that crosses
 #: 16,000 edges; ``BAKE_BUDGET_S`` holds a CALL to one such tile, no more.
 TILE_RECORDS: Final = 256
@@ -269,9 +270,10 @@ _ELLIPSE_MAX_CHORDS: Final = 2048
 #: What ONE ``bake`` call spends painting tiles before it hands the rest back as
 #: PENDING, in seconds (``GroundBaker(budget_s=…)``; None: no budget). The edit
 #: gate of the 3D workspace is 50 ms from an edit to its frame, the bake's own
-#: gate 10 ms for one small edit on the bench plans — an edit that fits the gate
-#: is one pass (measured: the bench plans open in 2 and 8 passes, the longest
-#: 13.4 ms). A pass paints at least one tile and looks at the clock after each: it
+#: gate 10 ms for one small edit of two tiles on the bench plans — an edit that
+#: fits the gate is one pass (measured at L1.5: the bench plans opened in 2 and 8
+#: passes, the longest 13.4 ms; a four-tile edit can run over, #615). A pass
+#: paints at least one tile and looks at the clock after each: it
 #: costs at most the budget plus ONE tile — plus one more when it brings an edit
 #: while older tiles are pending (``GroundBaker``: the backlog cannot starve) —
 #: and what one tile can cost is above: milliseconds on a plan somebody drew, 0.2
@@ -1230,7 +1232,7 @@ class GroundBaker:
             wanted = (record is not None and record.material.paint is not None
                       and item_id not in solid)
             if wanted and held is not None and record is not None and (
-                    held.record is record or (held.record.same_geometry(record)
+                    held.record is record or (held.record.same_ground_geometry(record)
                                               and held.record.same_transform(record)
                                               and held.record.same_material(record))):
                 continue  # painted, and nothing of it changed

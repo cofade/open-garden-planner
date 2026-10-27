@@ -88,7 +88,9 @@ def test_the_whole_selftest_command_passes(tmp_path: Path) -> None:
         [sys.executable, "-m", "open_garden_planner", "--selftest"],
         env=render_env(tmp_path, OGP_SELFTEST_LOG=str(log), **{STORES: str(stores)}),
         capture_output=True, text=True, timeout=600, cwd=REPO)
-    assert proc.returncode == 0, proc.stdout + proc.stderr[-2000:]
+    # a crash can leave stdout and stderr empty (#623: 0xC000041D); the log says how far it got
+    ran = log.read_text(encoding="utf-8")[-4000:] if log.is_file() else "(no self-test log)"
+    assert proc.returncode == 0, proc.stdout + proc.stderr[-2000:] + "\n--- self-test log ---\n" + ran
     # THE WHOLE COMMAND builds no settings store (it imports the settings module for
     # the application's two names, and nothing else of it): the frozen exe runs it under
     # the production names, against the user's real settings — which it must not touch.

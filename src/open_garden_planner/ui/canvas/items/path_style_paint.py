@@ -8,6 +8,12 @@ wall), moved here unchanged so that ONE implementation serves two callers:
 - the 3D ground bake (``ui/view3d/ground_bake.py``, Phase 17 L1.5), which paints
   a path from a scene record and must not touch the live scene.
 
+Gravel and dirt paths are their fill textures (``FillPattern.GRAVEL`` / ``SOIL``,
+1 px = 1 cm, in the line's colour like a textured area) since Phase 17 L4 (#388,
+the owner's manual pass): at a path's real width a stroke of 39 % and 55 % alpha
+let the lawn through — a green gravel path — and the dots drawn for a 6 cm line
+did not read as gravel.
+
 A painter reads three things and nothing else: the polyline's points in the
 ITEM's own coordinates (two styles derive a colour from them), its pen (width
 and colour) and its path. Selection is the item's own business and is drawn by
@@ -51,9 +57,20 @@ from contextvars import ContextVar
 from typing import Final
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPainterPathStroker, QPen
 
+from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import PathFenceStyle
+
+#: A gravel path's edging: at most this wide (cm), at most this share of the path's
+#: width, in the line's colour times this — the 3D edging's (``core/scene3d/builders/
+#: surfaces.py`` holds the same three: that package is Qt-free; a test holds both).
+GRAVEL_EDGE_CM: Final = 2.5
+GRAVEL_EDGE_SHARE: Final = 0.04
+GRAVEL_EDGE_SHADE: Final = 0.55
+#: A dirt path's faint margin: this far beyond each side (cm), at this alpha.
+DIRT_MARGIN_CM: Final = 3.0
+DIRT_MARGIN_ALPHA: Final = 90
 
 #: The spacings a style draws elements at, in cm (module docstring). The smallest a
 #: preset pen gives is 0.35 cm x its width; 0.05 cm is a pen of 1.4 mm.
@@ -257,49 +274,39 @@ class PathStylePaint:
 
     # ── Path style renderers ──
 
+    def _textured_stroke(self, painter: QPainter, pattern: FillPattern, width: float) -> None:
+        """The line ``width`` wide, round capped and joined (``context.ROUND_PATH_STYLES``),
+        FILLED with ``pattern`` in the line's colour. The texture lies in the item's own
+        frame, as a textured area's does: two tiles of the ground bake sample it where
+        the canvas does. The outline is filled, never stroked with a texture pen: the SVG
+        export writes a pen as its colour, and a texture brush's colour is black (a
+        black bar in every exported SVG, PF-CAN-27)."""
+        stroker = QPainterPathStroker()
+        stroker.setWidth(width)
+        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(create_pattern_brush(pattern, self.pen().color()))
+        painter.drawPath(stroker.createStroke(self.path()))
+
     def _paint_gravel_path(self, painter: QPainter) -> None:
-        """Gravel path: wide stippled stroke with border lines."""
+        """Gravel path: the gravel texture, with a dark edging along both sides — the
+        width and place of the 3D edging (``builders/surfaces.py``)."""
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         width = self.pen().widthF()
         color = self.pen().color()
-
-        # Wide base fill
-        base_pen = QPen(QColor(color.red(), color.green(), color.blue(), 100))
-        base_pen.setWidthF(width)
-        base_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        base_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(base_pen)
+        edge = min(GRAVEL_EDGE_CM, GRAVEL_EDGE_SHARE * width)
+        # the edging is the stroke's own rim, round with its caps and joins: two
+        # offset lines crossed at every inner bend (a spike across the gravel)
+        edge_pen = QPen(QColor(round(color.red() * GRAVEL_EDGE_SHADE),
+                               round(color.green() * GRAVEL_EDGE_SHADE),
+                               round(color.blue() * GRAVEL_EDGE_SHADE), color.alpha()), width)
+        edge_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        edge_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(edge_pen)
         painter.drawPath(self.path())
-
-        # Border lines
-        border_pen = QPen(QColor(color.red() - 30, color.green() - 30, color.blue() - 30))
-        border_pen.setWidthF(1.0)
-        for offset_sign in (-1, 1):
-            offset_path = self._offset_path(width / 2.0 * offset_sign)
-            if offset_path:
-                painter.setPen(border_pen)
-                painter.drawPath(offset_path)
-
-        # Stipple dots along the path
-        dot_pen = QPen(Qt.PenStyle.NoPen)
-        painter.setPen(dot_pen)
-        dot_colors = [
-            QColor(color.red() + 20, color.green() + 15, color.blue() + 10),
-            QColor(color.red() - 10, color.green() - 15, color.blue() - 10),
-            QColor(color.red(), color.green() - 5, color.blue() + 5),
-        ]
-        spacing = 4.0
-        for i, (pt, _dir_x, _dir_y, nx, ny) in self._walk_indexed(spacing):
-            dot_color = dot_colors[i % len(dot_colors)]
-            painter.setBrush(QBrush(dot_color))
-            # Vary position slightly across width
-            offset = ((i * 7) % 5 - 2) * width / 6.0
-            cx = pt.x() + nx * offset
-            cy = pt.y() + ny * offset
-            r = 1.0 + (i % 3) * 0.5
-            painter.drawEllipse(QPointF(cx, cy), r, r)
-
+        self._textured_stroke(painter, FillPattern.GRAVEL, width - 2.0 * edge)
         painter.restore()
 
     def _paint_stepping_stones(self, painter: QPainter) -> None:
@@ -422,36 +429,19 @@ class PathStylePaint:
         painter.restore()
 
     def _paint_dirt_path(self, painter: QPainter) -> None:
-        """Dirt path: soft-edged wide stroke with organic feel."""
+        """Dirt path: the soil texture over a thin, faint margin of the same colour —
+        trodden earth that frays into what lies beside it."""
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         width = self.pen().widthF()
         color = self.pen().color()
-
-        # Soft wide base
-        base_pen = QPen(QColor(color.red(), color.green(), color.blue(), 140))
-        base_pen.setWidthF(width)
-        base_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        base_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(base_pen)
+        margin_pen = QPen(QColor(color.red(), color.green(), color.blue(), DIRT_MARGIN_ALPHA),
+                          width + 2.0 * DIRT_MARGIN_CM)
+        margin_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        margin_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(margin_pen)
         painter.drawPath(self.path())
-
-        # Softer outer edge
-        edge_pen = QPen(QColor(color.red(), color.green(), color.blue(), 50))
-        edge_pen.setWidthF(width + 3.0)
-        edge_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        edge_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(edge_pen)
-        painter.drawPath(self.path())
-
-        # Core center line
-        core_pen = QPen(color.darker(110))
-        core_pen.setWidthF(width * 0.4)
-        core_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        core_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(core_pen)
-        painter.drawPath(self.path())
-
+        self._textured_stroke(painter, FillPattern.SOIL, width)
         painter.restore()
 
     # ── Fence style renderers ──

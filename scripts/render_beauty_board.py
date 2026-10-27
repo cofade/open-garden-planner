@@ -355,14 +355,19 @@ class Board:
 
     def frame(self, name: str, records: dict[str, Record], *, shot: Any, sun: SunState | None,
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
-              sky: bool = True, size: tuple[int, int] | None = None) -> tuple[np.ndarray, Any, dict[str, Any]]:
-        """Render one frame in a host of its own, save it, account for its Qt messages."""
+              sky: bool = True, size: tuple[int, int] | None = None,
+              baked: bool = False) -> tuple[np.ndarray, Any, dict[str, Any]]:
+        """Render one frame in a host of its own, save it, account for its Qt messages.
+        ``baked``: the plan's flat surfaces are painted onto its ground (L1.5 —
+        every board shot; the probes' oracles want it bare, #586)."""
+        from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
         try:
             build_date = self._snapshot_day.get(id(records))
             frame = render_records(
                 records, shot=shot, sun=sun, ground=ground, size=size or self.size,
+                ground_baker=GroundBaker(budget_s=None) if baked else None,
                 registry=registry, look=look, qml_dir=self.args.qml_dir, log=self.log,
                 graphics_info=True, sky_light=sky and not self.software,
                 prefer_software=self.software, plant_date=build_date,
@@ -393,10 +398,9 @@ class Board:
         self.qt_warnings += [str(line) for line in report.get("warnings", [])]
 
     def plan_ground(self) -> GroundSpec:
-        # THE GROUND BAKE (L1.5) JOINS HERE. Until its baker is on this branch the board
-        # shows the plan rectangle bare (one meadow albedo); with it, this is the one
-        # line that hands the pipeline the baked surfaces — the lawn, the terrace, the
-        # paths and the beds painted from the records.
+        """The plan rectangle. A shot paints the plan's flat surfaces onto it —
+        ``frame(..., baked=True)``, the ground bake of L1.5 (#586); a probe whose oracle
+        compares against the records' own footprints leaves it bare."""
         return GroundSpec(self.width, self.depth)
 
     # ── the shots ────────────────────────────────────────────────────────────
@@ -416,7 +420,8 @@ class Board:
                 look = look_for(sun, preset)
                 rgb, _frame, info = self.frame(
                     f"{shot.name}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
-                    registry=registry, shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg))
+                    registry=registry, shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
+                    baked=True)
                 row = {"shot": shot.name, "preset": preset, "sun_elev": round(sun.elevation_deg, 2),
                        "sun_az": round(sun.azimuth_deg, 2),
                        "sun_date": plan_day(shot.when_utc).isoformat(),
@@ -546,11 +551,13 @@ class Board:
                        ) -> tuple[np.ndarray, Any, dict[str, Any]]:
         """``frame`` with the analysis options of ``render_records`` (overlays, roofs,
         fades, the selection ring)."""
+        from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
         try:
             frame = render_records(
                 records, shot=shot, sun=sun, ground=self.plan_ground(), size=self.size,
+                ground_baker=GroundBaker(budget_s=None),
                 registry=registry, look=look, qml_dir=self.args.qml_dir, log=self.log,
                 graphics_info=True, sky_light=not self.software, prefer_software=self.software,
                 overlays=options.get("overlays"), roofs_hidden=bool(options.get("roofs_hidden")),
@@ -589,7 +596,8 @@ class Board:
                 look = look_for(sun, preset)
                 rgb, _frame, info = self.frame(
                     f"mood_{mood}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
-                    registry=registry, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                    registry=registry, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg),
+                    baked=True)
                 rows[mood] = {"sun_elev": round(sun.elevation_deg, 2), "night": look.night,
                               "file": info["file"], **probes.frame_stats(rgb)}
             noon, night = rows["noon"], rows["night"]
@@ -637,7 +645,7 @@ class Board:
     def orientation(self, at: date) -> None:
         """North is up and nothing is mirrored: a top-down frame of the plan against the
         records' own footprints, projected with OUR arithmetic."""
-        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.core.scene3d.builders import SURFACE_KINDS, production_registry
         from open_garden_planner.ui.view3d.quick3d.shots import TopDownShot, top_down_pixel
 
         records = self.records_for(at)
@@ -646,8 +654,12 @@ class Board:
                            px_per_cm=min(width / self.width, height / self.depth) * 0.9)
         high = SunState(80.0, 180.0)
         look = look_for(high, "high")
+        # the plan's flat records without their L4 relief (stones, blades, water stand on
+        # the ground the probe compares; 3D review of #388)
+        flat = production_registry()
+        flat.register_many(SURFACE_KINDS, lambda _record: (), replace=True)
         plan, _frame, info = self.frame("orient_plan_topdown", records, shot=shot, sun=high, look=look,
-                                        ground=self.plan_ground(), registry=production_registry(),
+                                        ground=self.plan_ground(), registry=flat,
                                         sky=False)
         bare, _frame, _info = self.frame("orient_bare_topdown", {}, shot=shot, sun=high, look=look,
                                          ground=self.plan_ground(), sky=False)
@@ -733,7 +745,7 @@ class Board:
                     rgb, _frame, info = self.frame(
                         f"horizon_{mood}_{label}_{preset}", {}, sun=sun, look=look_for(sun, preset),
                         ground=self.plan_ground(),
-                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
+                        shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), baked=True)
                     row[label] = {**probes.horizon_step(rgb, camera), "file": info["file"]}
                     for key in worst:
                         worst[key] = max(worst[key], row[label][key])
@@ -807,6 +819,7 @@ class Board:
         """How the plan's fences alias, per preset: the fences alone at the noon camera
         against the same frame without them (``probes.thin_geometry_moire``)."""
         from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.ui.view3d.quick3d.host import EngineError
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         camera = {shot.name: shot for shot in shots}["noon"]
@@ -826,12 +839,20 @@ class Board:
                                                  shot=shot)
             without, _frame, _info = self.frame(f"fence_empty_{preset}", {}, sun=sun, look=look,
                                                 ground=self.plan_ground(), shot=shot)
-            large, _frame, _info = self.frame(f"fence_2x_{preset}", fences, sun=sun, look=look,
-                                              ground=self.plan_ground(), registry=registry, shot=shot,
-                                              size=(2 * self.size[0], 2 * self.size[1]))
-            reference = probes.downsample(large, 2) if large.shape[0] == 2 * with_them.shape[0] else None
+            # the reference at twice the size: a window the screen cannot hold is clamped
+            # by the windowing system and its frame refused (a 2560 x 1440 display and
+            # the default 1280 x 720 board) — then the row has no reference, the board goes on
+            reference_skipped: str | None = None
+            try:
+                large, _frame, _info = self.frame(f"fence_2x_{preset}", fences, sun=sun, look=look,
+                                                  ground=self.plan_ground(), registry=registry,
+                                                  shot=shot, size=(2 * self.size[0], 2 * self.size[1]))
+            except EngineError as error:
+                large, reference_skipped = None, f"no 2x reference: {error}"[:300]
+            reference = (probes.downsample(large, 2)
+                         if large is not None and large.shape[0] == 2 * with_them.shape[0] else None)
             out[preset] = {**probes.thin_geometry_moire(with_them, without, reference),
-                           "file": info["file"]}
+                           "file": info["file"], "reference_skipped": reference_skipped}
             self.log("fence_moire", preset=preset, **{k: v for k, v in out[preset].items()
                                                       if k != "file"})
             self.write()
@@ -847,7 +868,8 @@ class Board:
         The gate's number is the largest step of any view (``max_abs_step``): a sheen
         that differs makes the plan darker looking one way and brighter looking the
         other (the old material: -4.1 and +4.3 along the south edge at golden hour),
-        and a mean of the two would hide it."""
+        and a mean of the two would hide it. ``max_line`` is the largest LINE on an edge
+        (``probes.plan_edge_step``): a thin line the fits cannot see."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         by_name = {shot.name: shot for shot in shots}
@@ -869,6 +891,7 @@ class Board:
         out: dict[str, Any] = {}
         self.metrics["plan_edge"] = out
         worst = 0.0
+        worst_line = 0.0
         for preset in presets:
             out[preset] = {}
             for mood in ("golden_hour", "noon"):
@@ -885,11 +908,13 @@ class Board:
                                   "file": info["file"]}
                 for row in rows.values():
                     worst = max(worst, abs(row["step"]) if row["step"] is not None else math.inf)
+                    worst_line = max(worst_line, row["line"] if row["line"] is not None else math.inf)
                 out[preset][mood] = rows
                 self.log("plan_edge", preset=preset, mood=mood,
                          **{name: row["step"] for name, row in rows.items()})
             self.write()
         out["max_abs_step"] = round(worst, 2)
+        out["max_line"] = round(worst_line, 2)
         self.write()
 
     def restore_check(self, shot: BoardShot, preset: str) -> None:
@@ -905,7 +930,7 @@ class Board:
         again, _frame, _info = self.frame(
             "probes_restored", self.records_for(plan_day(shot.when_utc)), sun=sun,
             look=look_for(sun, preset), ground=self.plan_ground(), registry=production_registry(),
-            shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg))
+            shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg), baked=True)  # as the shot
         before = image_rgba(first)[..., :3].astype(np.float64)
         same = before.shape == again.shape
         self.metrics["probe_restore_frame_diff"] = (

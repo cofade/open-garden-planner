@@ -118,9 +118,9 @@ _POLYGON_TYPE_NAMES = frozenset(
     }
 )
 
-#: Polyline-based (GUI: PolylineTool registrations). Note polylines have NO
-#: width/thickness parameter anywhere in the app — visual thickness comes from
-#: the PathFenceStyle presets (or the pen width), not a dimension.
+#: Polyline-based (GUI: PolylineTool registrations). A create takes no width: a
+#: line gets its type's default stroke, and a PATH's stroke is its width on the ground
+#: (80 cm by default since Phase 17 L4, ADR-065 decision 10), set in the Properties panel.
 _POLYLINE_TYPE_NAMES = frozenset({"FENCE", "WALL", "PATH"})
 
 #: Text callout with a leader line (GUI: CalloutTool).
@@ -622,9 +622,10 @@ def build_create_dict(
         if width is not None or height is not None or radius is not None:
             raise ValueError(
                 f"{object_type} has no width/height/radius — polylines are "
-                "built from 'points' only. A fence or path has no thickness "
-                "parameter in the app; its visual style comes from the "
-                "path/fence style presets."
+                "built from 'points' only. A create takes no thickness: a line "
+                "gets its type's default stroke, and a path's stroke is its "
+                "width on the ground (80 cm by default), changed in the "
+                "Properties panel."
             )
         if points is None:
             raise ValueError(
@@ -900,8 +901,9 @@ def list_creatable_types() -> list[dict[str, Any]]:
                 ["name"],
                 notes=(
                     "Open linear feature: >= 2 [x, y] pairs, scene cm. No "
-                    "width/height/radius — a fence/path has no thickness "
-                    "parameter in the app."
+                    "width/height/radius parameter here: a line gets its type's "
+                    "default stroke, and a path's stroke is its width on the "
+                    "ground (80 cm by default), changed in the Properties panel."
                 ),
             )
         )

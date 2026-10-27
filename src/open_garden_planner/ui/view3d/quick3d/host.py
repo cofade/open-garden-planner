@@ -89,6 +89,7 @@ No input handling and no orbit camera here: L1.3.
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from collections.abc import Callable, Mapping
@@ -131,14 +132,17 @@ from open_garden_planner.core.scene3d import (
     EngineBuffers,
     EnginePose,
     Rgba,
+    engine_buffers,
     engine_to_scene_points,
     scene_to_engine_points,
     scene_to_engine_vectors,
 )
+from open_garden_planner.core.scene3d.look import fog_depth_cm
+from open_garden_planner.core.scene3d.meadow import meadow_frame
 from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
 
 from .adapter import GroundPlacement, PartSpec
-from .geometry import BufferGeometry, ReloadableGeometry
+from .geometry import BufferGeometry, MeadowGeometry, ReloadableGeometry
 from .ground_tiles import GroundTileError, GroundTiles
 from .lifecycle import (
     REPROBE_S,
@@ -503,6 +507,7 @@ class Quick3DHost:
         self._log("qml_loaded", ms=round(self.qml_load_ms, 1), source=source.name)
         try:
             self.set_look(look)
+            self._show_meadow(None)
         except Exception:
             self.close()  # a scene file without the look's properties: no half-built host
             raise
@@ -571,6 +576,8 @@ class Quick3DHost:
         self._parts.add(part)
         try:
             _set(model, "partName", spec.name)
+            if spec.ground_detail:
+                _set(model, "groundDetail", True)
             self._call("applyPlantSeason", model)
             self.pose_part(part, pose)
             self.tint_part(part, tint_rgba)
@@ -673,11 +680,15 @@ class Quick3DHost:
                 self.ground.clear()
                 _set(self._root, "groundVisible", False)
                 _set(self._root, "groundCenter", QVector3D(0.0, 0.0, 0.0))
+                self._show_meadow(None)
                 return
             _set(self._root, "groundCenter", QVector3D(*ground.center))
             _set(self._root, "groundWidth", float(ground.width_cm))
             _set(self._root, "groundDepth", float(ground.depth_cm))
             _set(self._root, "groundVisible", True)
+            east, north = ground.center[0], -ground.center[2]   # engine (x, up, -N)
+            half_w, half_d = ground.width_cm / 2.0, ground.depth_cm / 2.0
+            self._show_meadow((east - half_w, north - half_d, east + half_w, north + half_d))
             self.ground.show(ground.tiles)  # the baked tiles (L1.5); none: bare ground
         except GroundTileError as error:  # an engine failure like any other
             raise EngineError(f"set_ground(): {error}") from error
@@ -698,6 +709,38 @@ class Quick3DHost:
         }
         self._call("setPlantSeasons", values)
         self.request_frame()
+
+    # ── the endless meadow (#388) ────────────────────────────────────────────
+
+    #: The ONE geometry of the meadow, a child of the scene's meadow Model, and the plan
+    #: rectangle it was built around. Class defaults, so that no host starts with one.
+    _meadow: MeadowGeometry | None = None
+    _meadow_plan: tuple[float, float, float, float] | None | bool = False
+    #: How often the meadow's data was loaded into the engine (the gates read it).
+    meadow_loads = 0
+
+    def _show_meadow(self, plan: tuple[float, float, float, float] | None) -> None:
+        """Lay the meadow around ``plan`` (east0, north0, east1, north1 in scene cm; None:
+        no plan, no hole) — ``core/scene3d/meadow.py``. Loaded into the one geometry of
+        the scene's one meadow Model, like the selection ring, and only when the plan's
+        rectangle changed: an edit creates, destroys and loads nothing."""
+        if plan == self._meadow_plan:
+            return
+        buffers = engine_buffers(meadow_frame(plan))
+        geometry = self._meadow
+        if geometry is None or sip.isdeleted(geometry):
+            model = self._call("meadowModel")
+            try:
+                geometry = MeadowGeometry(model)
+            except TypeError as error:
+                raise EngineError(f"the scene's meadow is no 3D object ({error})") from error
+            geometry.load(buffers)
+            self._call("setMeadowGeometry", geometry)
+            self._meadow = geometry
+        else:
+            geometry.load(buffers)
+        self._meadow_plan = plan
+        self.meadow_loads += 1
 
     # ── the selection ring (L1.8, ADR-060) ───────────────────────────────────
 
@@ -1090,6 +1133,9 @@ class Quick3DHost:
         self._open("set_camera")
         shot = PerspectiveShot(eye_scene, target_scene, fov_deg)  # validates
         _set(self._root, "topDown", False)
+        fog_near, fog_far = fog_depth_cm(math.dist(shot.eye, shot.target))
+        _set(self._root, "fogNear", fog_near)
+        _set(self._root, "fogFar", fog_far)
         _set(self._root, "camPos", _engine_vector(shot.eye))
         _set(self._root, "camTarget", _engine_vector(shot.target))
         _set(self._root, "camFov", float(shot.fov_deg))

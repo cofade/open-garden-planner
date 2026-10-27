@@ -277,7 +277,7 @@ def test_a_typed_height_turns_the_placeholder_into_a_tree_and_back(garden: Garde
     assert {part.name for part in held.parts} == {PART_WOOD, PART_FOLIAGE}
     assert plant_archetype(records[item_id]) == "canopy"       # a TREE's default sprite
     assert max(float(part.mesh.positions[:, 2].max()) for part in held.parts) == pytest.approx(650.0)
-    assert all(part.casts_shadow for part in held.parts) and records[item_id].casts_shadow
+    assert all(part.casts_shadow for part in held.parts) and records[item_id].has_2d_caster
 
     del unknown.metadata[METADATA_KEY]
     changes, calls, records = garden.tick(JUNE_2026)

@@ -115,6 +115,8 @@ def scene_properties(look: LookSpec) -> dict[str, object]:
         "glowHighQuality": bool(preset.glow_high_quality),
         "reflections": bool(preset.reflections),
         "fog": bool(preset.fog),
+        "lawnBlades": bool(preset.lawn_blades),
+        "detailNormals": float(preset.detail_normals),
         # wind
         "windStrength": float(look.wind_strength),
     }

@@ -289,8 +289,26 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "overlay.vert", "overlay.frag",     # the analysis overlays: L2
                                 "screen.frag", "screen.vert",       # X-ray and Cutaway: L2.4
                                 "foliage_door.frag", "water_door.frag",
-                                "foliage_door.vert", "grass_door.vert"}
+                                "foliage_door.vert", "grass_door.vert",
+                                "ground.frag"}                      # detail normals: L4.5
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {"Garden.qml"}
+
+
+def test_the_ground_detail_shader_flips_v_itself() -> None:
+    """PF-L3D-11: a ``TextureInput`` ignores its ``Texture``'s ``flipV`` (measured, L4.5,
+    #388) — ``ground.frag`` samples the north-up tile at ``1 - v`` itself, and every
+    sample it takes goes through that flipped coordinate."""
+    code = "\n".join(line.split("//")[0] for line in
+                     (QML_DIR / "ground.frag").read_text(encoding="utf-8").splitlines())
+    assert re.search(r"\buv\s*=\s*vec2\(\s*UV0\.x\s*,\s*1\.0\s*-\s*UV0\.y\s*\)", code)
+    samples = re.findall(r"texture\(\s*uBaseMap\s*,\s*([^;]*?)\)\s*\.rgb", code)
+    assert len(samples) == 5 and all(sample.startswith("uv") for sample in samples), samples
+
+
+def test_the_scene_uses_no_order_independent_transparency() -> None:
+    """PF-L3D-12: weighted-blended OIT re-blends L2's multiply drapes (measured: pixels
+    under a shadow drape up to 243 levels lighter). Glass stays the sorted material."""
+    assert "oitMethod" not in strip_comments(_scene())
 
 
 def test_every_custom_shader_multiplies_with_the_tint() -> None:
@@ -414,12 +432,36 @@ def test_the_environments_constants_are_the_spikes() -> None:
     environment = SPIKE["qml"]["environment"]
     code = _scene()
     for name in ("aoStrength", "aoDistance", "aoSoftness", "glowStrength", "glowIntensity",
-                 "glowBloom", "glowHDRMinimumValue", "depthNear", "depthFar", "depthCurve",
-                 "density", "skyboxBlurAmount", "csmBlendRatio", "shadowMapFar", "clipNear",
-                 "clipFar"):
+                 "glowBloom", "glowHDRMinimumValue", "depthCurve",
+                 "density", "skyboxBlurAmount", "csmBlendRatio", "clipNear"):
         ours = re.findall(rf"\b{name}:\s*([\d.]+)", code)
         assert ours and environment[name], name
         assert sorted({float(v) for v in ours}) == environment[name], name
+    # what the fog hid until it followed the camera (3D review of L4's second owner pass):
+    # the shadow map reaches as far as the fog begins (the spike's far its floor, and the
+    # top-down truth view keeps it), the AO fades out from 45 m to 90 m, and the
+    # perspective camera's far plane lies past the midpoints of the meadow's edges (the spike's 800 m cut
+    # it in view); the top-down camera keeps the spike's far plane
+    (shadow_far,) = environment["shadowMapFar"]
+    assert f"shadowMapFar: root.topDown ? {shadow_far:g} : Math.max({shadow_far:g}, root.fogNear)" in code
+    assert "aoStrength: 55 * (!root.topDown && root.ambientOcclusion ? root.aoFade : 0)" in code
+    assert "aoEnabled: !root.topDown && root.ambientOcclusion && root.aoFade > 0" in code
+    assert "(9000 - camPos.minus(camTarget).length()) / 4500" in code
+    from open_garden_planner.core.scene3d.camera import MAX_DISTANCE_CM
+    from open_garden_planner.core.scene3d.meadow import MEADOW_HALF_CM
+
+    clip_far = sorted(float(v) for v in re.findall(r"\bclipFar:\s*([\d.]+)", code))
+    assert clip_far[0] == min(environment["clipFar"])  # the top-down camera
+    assert clip_far[1] >= MEADOW_HALF_CM + MAX_DISTANCE_CM > max(environment["clipFar"])
+    # the fog's distances follow the camera since L4's owner pass (look.fog_depth_cm):
+    # the spike's depthNear / depthFar are their floors and the scene's defaults
+    from open_garden_planner.core.scene3d import look
+
+    assert "depthNear: root.fogNear" in code and "depthFar: root.fogFar" in code
+    for name, floor, default in (("depthNear", look.FOG_NEAR_CM, "fogNear"),
+                                 ("depthFar", look.FOG_FAR_CM, "fogFar")):
+        declared = re.findall(rf"\bproperty real {default}:\s*([\d.]+)", code)
+        assert environment[name] == [floor] == [float(value) for value in declared], name
 
 
 def test_the_scene_obeys_the_measured_engine_rules() -> None:

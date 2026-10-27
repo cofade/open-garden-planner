@@ -219,6 +219,16 @@ def _textures_alive() -> int:
     return textures_alive()
 
 
+def _without_relief(registry: BuilderRegistry) -> BuilderRegistry:
+    """``registry`` with the L4 surfaces' relief taken off, in place (#388): stones,
+    planks, kerbs, water and blades are ground-detail parts STANDING on the painted
+    ground, and the gates of the ground alone judge the bake's tiles under them."""
+    from open_garden_planner.core.scene3d.builders import SURFACE_KINDS
+
+    registry.register_many(SURFACE_KINDS, lambda _record: (), replace=True)
+    return registry
+
+
 class _Rig:
     """The product's wiring on a shown host: SceneSync → GroundBaker + Quick3DSink."""
 
@@ -369,10 +379,11 @@ def scenario_ground_plan(ctx: base.Context) -> dict[str, Any]:
         out["after_edits_digest_equals_first"] = rig.digest() == first_digest
         out["back"] = ctx.save("ground_plan_back", host.grab("ground_plan_back"))
 
-        # G2: the ground alone — the painted records, no solid above them — seen from
-        # straight above, next to the bake itself
+        # G2: the ground alone — the painted records, no solid above them and none of
+        # their relief (L4, #388) — seen from straight above, next to the bake itself
         painted = set(rig.baker.painted_ids())  # type: ignore[union-attr]
         uploads = _tile_uploads()
+        _without_relief(rig.sync.registry)
         rig.sync.apply({key: record for key, record in records.items() if key in painted})
         out["ground_only"] = {
             "frame": ctx.save("ground_only_top", host.grab("ground_only_top")),
@@ -457,12 +468,13 @@ def scenario_ground_offscreen(ctx: base.Context) -> dict[str, Any]:
                        ground_baker=baker, **common)
     painted = {key: record for key, record in records.items() if key in set(baker.painted_ids())}
     alone = GroundBaker()
-    only = _offscreen(ctx, "ground_offscreen_top", painted, shot=top, ground_baker=alone, **common)
+    flat = {**common, "registry": _without_relief(production_registry())}  # L4: no relief
+    only = _offscreen(ctx, "ground_offscreen_top", painted, shot=top, ground_baker=alone, **flat)
     return {"ground": [ground.width_cm, ground.depth_cm],
             "top": {"center": list(top.center), "px_per_cm": top.px_per_cm},
             "records": len(records), "painted": len(painted), "whole": whole, "only": only,
             "bake": ctx.save("ground_offscreen_bake", alone.image()),
-            "bare": _offscreen(ctx, "ground_offscreen_bare", painted, shot=top, **common)}
+            "bare": _offscreen(ctx, "ground_offscreen_bare", painted, shot=top, **flat)}
 
 
 def _seam_frames(ctx: base.Context, host: Any, name: str) -> dict[str, Any]:
@@ -649,9 +661,96 @@ def scenario_ground_keepalive_grab(ctx: base.Context) -> dict[str, Any]:
     return _keepalive(ctx, "keepalive_grab", grab=True)
 
 
+#: The orbit sweep of ``scenario_ground_visible``: bearings round the plan, eye heights
+#: and the distance as shares of the plan's diagonal (the board's cameras lie in it).
+VISIBLE_BEARINGS = tuple(float(bearing) for bearing in range(0, 360, 30))
+VISIBLE_HEIGHTS = (0.12, 0.22, 0.40)
+VISIBLE_DISTANCE = 0.95
+VISIBLE_KEY = "#ff00ff"  # the meadow, keyed: a colour no plan surface has
+VISIBLE_PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_built.ogp"
+#: … and the workspace's own camera on the three bench plans (3D review of #388, round
+#: 2: the meadow came through the plan from the default framing a few wheel notches out,
+#: a view the orbit sweep never took): ``camera.frame_pose`` of the plan, turned by each
+#: yaw, and its distance times each factor — 0, 2 and 4 notches of the wheel
+#: (``orbit_input.WHEEL_ZOOM_PER_NOTCH`` 0.85) and the two factors that failed in review.
+VISIBLE_PLANS = (("bench_small", 2400.0, 1600.0), ("bench_built", 2600.0, 1800.0),
+                 ("bench_large", 5000.0, 3000.0))
+VISIBLE_YAWS = tuple(float(yaw) for yaw in range(0, 360, 45))
+VISIBLE_FACTORS = (1.0, 0.85 ** -2, 0.85 ** -4, 1.5, 1.63)
+
+
+def scenario_ground_visible(ctx: base.Context) -> dict[str, Any]:
+    """The endless meadow never shows through the plan (3D review of #388: one quad 1 cm,
+    then 5 cm, under the plan overwrote it from 14 of 36 orbit cameras, then from 13 of
+    120 default-framing views — the pond, the terraces and the paths were gone). The
+    meadow is drawn in a key colour; the test projects the plan into each frame and
+    counts that colour there. The orbit sweep on bench_built, then the workspace's own
+    camera on the three bench plans."""
+    import dataclasses
+    import math
+
+    from open_garden_planner.core import ProjectManager
+    from open_garden_planner.core.scene3d import camera
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+    host = ctx.shown_host(PLAN_VIEW)
+    try:
+        rig = _Rig(host, production_registry())
+        views: list[dict[str, Any]] = []
+        textured: dict[str, list[int]] = {}
+
+        def show(name: str, width: float, depth: float) -> tuple[GroundSpec, list[Any]]:
+            scene = CanvasScene(width_cm=width, height_cm=depth)
+            ProjectManager().load(scene, REPO / "tests" / "fixtures" / "plans" / f"{name}.ogp")
+            ground = GroundSpec(float(scene.width_cm), float(scene.height_cm))
+            records = snapshot_records(scene, date(2026, 6, 21))
+            rig.sync.apply(records, sun=HIGH_SUN, ground=ground)
+            host.set_look(dataclasses.replace(host.look, meadow_albedo=VISIBLE_KEY))
+            facts = rig.facts()
+            textured[name] = [facts["tiles_textured"], facts["tiles_in_scene"]]
+            return ground, list(records.values())
+
+        def grab(name: str, plan: str, ground: GroundSpec, shot: PerspectiveShot) -> None:
+            host.set_shot(shot)
+            views.append({"plan": plan, "ground": [ground.width_cm, ground.depth_cm],
+                          "eye": list(shot.eye), "target": list(shot.target), "fov": shot.fov_deg,
+                          **ctx.save(name, host.grab(name))})
+
+        ground, _records = show("bench_built", 2600.0, 1800.0)
+        cx, cy = ground.width_cm / 2.0, ground.depth_cm / 2.0
+        diag = math.hypot(ground.width_cm, ground.depth_cm)
+        for height in VISIBLE_HEIGHTS:
+            for bearing in VISIBLE_BEARINGS:
+                turn = math.radians(bearing)
+                eye = (cx + VISIBLE_DISTANCE * diag * math.sin(turn),
+                       cy - VISIBLE_DISTANCE * diag * math.cos(turn), height * diag)
+                grab(f"visible_{int(bearing):03d}_{int(height * 100):02d}", "bench_built", ground,
+                     PerspectiveShot(eye=eye, target=(cx, cy, 60.0), fov_deg=44.0))
+        for plan, width, depth in VISIBLE_PLANS:
+            ground, records = show(plan, width, depth)
+            top = max((r.transform.base_cm + r.height_cm for r in records if r.height_cm is not None),
+                      default=0.0)
+            framed = camera.frame_pose(camera.Bounds.of_plan(ground.width_cm, ground.depth_cm, top),
+                                       PLAN_VIEW[0] / PLAN_VIEW[1])
+            for yaw in VISIBLE_YAWS:
+                for factor in VISIBLE_FACTORS:
+                    pose = camera.CameraPose(framed.target, framed.distance_cm * factor,
+                                             framed.yaw_deg + yaw, framed.pitch_deg)
+                    grab(f"framed_{plan}_{int(yaw):03d}_x{factor:.2f}", plan, ground,
+                         PerspectiveShot(eye=pose.eye, target=pose.target_scene, fov_deg=camera.FOV_DEG))
+        return {"view": list(PLAN_VIEW), "views": views, "textured": textured,
+                "meadow_loads": host.meadow_loads}
+    finally:
+        host.close()
+        base._pump()
+
+
 base.SCENARIOS.update({
     "ground_offscreen": scenario_ground_offscreen,
     "ground_plan": scenario_ground_plan,
+    "ground_visible": scenario_ground_visible,
     "ground_retexture": scenario_ground_retexture,
     "ground_seams": scenario_ground_seams,
     "ground_seams_gap": scenario_ground_seams_gap,

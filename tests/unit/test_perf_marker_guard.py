@@ -749,7 +749,7 @@ def test_the_original_ground_bake_module_accepts_its_timed_helper_inline() -> No
     verdict = dict(collect_duration_asserts(tree, module_key=_module_key(path), support=support))
     assert "TestAnEditSession::test_a_scripted_session_ends_on_the_tiles_of_a_from_scratch_bake" \
         not in verdict
-    assert verdict["TestOneSmallEdit::test_a_move_repaints_at_most_four_tiles_in_ten_milliseconds"]
+    assert verdict["TestOneSmallEdit::test_a_small_move_repaints_few_tiles_within_its_bound"]
 
 
 @pytest.mark.parametrize("timed_first", [False, True])

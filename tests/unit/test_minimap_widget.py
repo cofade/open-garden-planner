@@ -443,16 +443,24 @@ class TestMinimapIdleQuiescence:
         assert minimap._thumbnail is not None
 
 
+def _dense_path(start: QPointF, end: QPointF) -> PolylineItem:
+    """A path in the chain-link style, 5 cm wide: its mesh every 0.8 widths places an
+    element every 4 cm (and a post every 40 cm) — the spacing of the gravel path's
+    dots these tests were written for, until L4 made gravel a texture (#388)."""
+    path = PolylineItem([start, end], object_type=ObjectType.PATH,
+                        path_fence_style=PathFenceStyle.CHAIN_LINK)
+    pen = path.pen()
+    pen.setWidthF(5.0)
+    path.setPen(pen)
+    return path
+
+
 def test_minimap_render_keeps_a_styled_path_s_full_detail(
     minimap: MinimapWidget, canvas_pair: tuple[CanvasView, CanvasScene], monkeypatch
 ) -> None:
     """A scene.render must not inherit the live view's #450 viewport clip."""
     view, scene = canvas_pair
-    path = PolylineItem(
-        [QPointF(0, 0), QPointF(2000, 0)],
-        object_type=ObjectType.PATH,
-        path_fence_style=PathFenceStyle.GRAVEL_PATH,
-    )
+    path = _dense_path(QPointF(0, 0), QPointF(2000, 0))
     scene.addItem(path)
     view._zoom_factor = 1.0
     view._apply_transform()
@@ -469,8 +477,8 @@ def test_minimap_render_keeps_a_styled_path_s_full_detail(
     monkeypatch.setattr(PathStylePaint, "_walk_indexed", counting)
     minimap._do_update()
 
-    # The live viewport shows only 800 of the path's 2000 cm (about 200 of its
-    # 4 cm-spaced elements). The minimap must still paint the whole path.
+    # The live viewport shows only 800 of the path's 2000 cm (about 220 of its
+    # elements). The minimap must still paint the whole path: 501 + 51.
     assert len(yielded) > 400
 
 
@@ -479,11 +487,7 @@ def test_a_19_km_path_is_capped_in_the_minimap(
 ) -> None:
     """A thumbnail must not walk a 475 001-element line every 100 ms."""
     view, scene = canvas_pair
-    path = PolylineItem(
-        [QPointF(0, 0), QPointF(1_900_000, 0)],
-        object_type=ObjectType.PATH,
-        path_fence_style=PathFenceStyle.GRAVEL_PATH,
-    )
+    path = _dense_path(QPointF(0, 0), QPointF(1_900_000, 0))
     scene.addItem(path)
     view._zoom_factor = 1.0
     view._apply_transform()
@@ -508,13 +512,7 @@ def test_each_capped_path_gets_its_own_budget(
 ) -> None:
     view, scene = canvas_pair
     for y in (0, 1000):
-        scene.addItem(
-            PolylineItem(
-                [QPointF(0, y), QPointF(1_900_000, y)],
-                object_type=ObjectType.PATH,
-                path_fence_style=PathFenceStyle.GRAVEL_PATH,
-            )
-        )
+        scene.addItem(_dense_path(QPointF(0, y), QPointF(1_900_000, y)))
     view._zoom_factor = 1.0
     view._apply_transform()
     view.centerOn(QPointF(100, 0))

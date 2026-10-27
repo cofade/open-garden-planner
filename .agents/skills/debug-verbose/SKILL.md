@@ -4252,6 +4252,103 @@ retain every state/date assertion and a 160 ms tracer tripwire. Controls reject
 instrumented call measures the tracer too. Reuse the existing tracing policy,
 and pin the unchanged real threshold rather than silently loosening it on CI.
 
+## Case study: the ground drew mirrored north–south under the detail-normal material (#388, L4.5)
+
+**Symptom.** With the ground tiles switched from the flat `PrincipledMaterial` to the new
+`CustomMaterial` (`ground.frag`, detail normals from the tile's own luminance), a top-down
+frame of the plan showed every painted surface mirrored north–south inside each tile:
+paths and beds lay where the bake had them on the opposite side.
+**Wrong theories.** None was needed: the change touched only the material, so the control
+was the same `Texture` drawn through the flat material, which matched the bake.
+**Evidence.** The same tile, the same `Texture` with `flipV: true`, two materials: the
+`PrincipledMaterial` frame agreed with the bake; the `CustomMaterial` frame sampling
+`texture(uBaseMap, UV0)` agreed with the bake flipped north–south.
+**Root cause/fix.** `flipV` is applied by `PrincipledMaterial`'s own texture lookup, not
+to a `TextureInput` a custom shader samples. `ground.frag` now samples at
+`vec2(UV0.x, 1.0 - UV0.y)`, and its "north" neighbour is `-texel.y`.
+**Lesson.** A `Texture`'s properties are instructions to the built-in materials. When a
+custom material takes over a textured surface, re-run the orientation gate on the new
+material. Here the north-up render gate runs at the High preset, so it judges the custom
+material. Pins: `tests/integration/test_scene3d_ground_render.py::test_the_engine_shows_the_bake_north_up`,
+`tests/unit/test_quick3d_qml.py::test_the_ground_detail_shader_flips_v_itself`. PF-L3D-11.
+
+## Case study: the meadow showed through the plan from normal cameras (#388, 3D review rounds 1–2)
+
+**Symptom.** On the baked Beauty Board and in the live view, the pond, the terraces and the
+paths vanished from some cameras: the endless meadow's green drew over the plan's ground.
+**Wrong theories.** "Depth-buffer resolution": the meadow lay 1 cm under the plan, so it was
+lowered to 5 cm. A 36-view orbit gate went to 0, but the next review found 13 of 120 views
+of the workspace's own framing, a few wheel notches out, still failing (up to 52 % of the
+plan). The 5 cm step also drew a ±14 luma ambient-occlusion line along the plan's edge, and
+the fitted edge probe read 0.45: blind to it.
+**Evidence.** The reviewer's control: the same −5 cm meadow cut into 100 m cells lost no
+view. A 24-bit buffer resolves about 0.3 cm at 50 m, so precision was never the limit; the
+one 4 km quad of two triangles was, its depth interpolated across 2 km.
+**Root cause/fix.** Nothing lies under the plan any more. The meadow is a frame in the
+plan's plane with the plan cut out, in 100 m cells (`core/scene3d/meadow.py`), loaded by the
+host into one `ReloadableGeometry`. A QML `ProceduralMesh` was tried first and drew stale
+data, then nothing (PF-L3D-14). The gate measures the workspace's own camera on three plans
+and asserts that the meadow is drawn at all: one attempt passed by drawing no meadow.
+**Lesson.** A gate made of the cameras that showed the bug proves the fix only for those
+cameras. Gate the views users actually get (`frame_pose` and wheel notches). And when a
+"resolution" fix only moves the failures, look for the geometry that is out of scale.
+Pins: `tests/integration/test_scene3d_ground_render.py::test_the_meadow_never_shows_through_the_plan`,
+`tests/unit/test_scene3d_meadow.py`, `tests/ui/test_quick3d_meadow_host.py`. PF-L3D-13/14.
+
+## Case study: a four-tile ground edit "failed under load" — power throttling (#388, #615, #616)
+
+**Symptom.** G3's new four-tile case (a terrace where four bench_large tiles meet) read 13–15 ms
+in two passes on the dev box against its 10 ms bound. On CI, one run passed it uninstrumented
+while the same run's coverage job read 13.29 ms; the next run's uninstrumented Test job read
+12.15 ms.
+**Wrong theories.** (1) "Machine load": another user's llama-server was busy, so a 13.5 ms
+reading was dismissed as noise, and the stand-in was moved off the corner. (2) "Coverage's
+tracer": the clock check was skipped under a tracer for that one case, and the next CI run
+failed uninstrumented. The tracer is a real cost (about 1.4×) and pushed that one coverage
+reading over, but the corner also overruns without it. (3) "Master also needs two passes":
+one master run at 15.0 ms in two passes was read as a property of the code.
+**Evidence.** CI's own logs said "passes per move: median 1": one pass that can overrun the
+budget by its last tile, as `BAKE_BUDGET_S`'s contract allows. Locally, the per-move cost
+jumped from about 8 ms to about 15 ms partway through a run, and passes went from 1 to 2.
+With the process opted out of Windows power throttling (`SetProcessInformation`,
+`ProcessPowerThrottling`), the corner read 8.4 ms in one pass, while a game kept the
+machine busy. `scripts/measure_ground_edit.py` (which opts out itself) then compared the
+trees: master's four-tile edit costs the same within about 0.3 ms (ADR-065).
+**Root cause/fix.** The product behaves as designed. The four-tile pass can overrun 10 ms on
+CI hardware; its cost is master's (#615, owner decision). The dev
+box's readings, about 1.8× too high, were EcoQoS throttling of the test process (#616). G3
+states each case's bound as literals and prints its readings on every serial run.
+**Lesson.** Before calling a local timing "load" or "the tracer", read the measuring tool's
+own counters (passes per move) and compare a run with throttling switched off. A reading
+that jumps once and stays high is the OS changing the process's speed, not the code. Never
+write a dismissal ("loaded machine", "on master too") into an ADR without the run that
+proves it, and commit that run as a script.
+Pins: `tests/integration/test_scene3d_ground_bake.py::TestOneSmallEdit::test_a_small_move_repaints_few_tiles_within_its_bound`;
+`scripts/measure_ground_edit.py`; §8.10.4 "A local perf reading on Windows may be a throttled
+one".
+
+## Case study: gravel and dirt paths exported to SVG as black bars (#388, owner pass, PF-CAN-27)
+
+**Symptom.** After the owner pass made gravel and dirt paths their fill textures, every
+gravel and dirt path in an SVG export was an opaque black bar as wide as the path. On the
+canvas, in PNG, in PDF and on the 3D ground the paths were right.
+**Wrong theories.** None were tried: the senior review found it with a probe, not a user.
+The near miss is the gate set. Every check of the new painters was a raster: the bake's
+parity with the canvas, white-versus-black backgrounds, renders. `path_style_paint` also
+feeds the SVG export, and nothing exported a styled path to SVG.
+**Evidence.** The SVG held `<g stroke="#000000" stroke-opacity="1" stroke-width="90">` around
+the path, and no `<pattern>` at all. The same export with the old painters was correct.
+**Root cause/fix.** The texture was drawn as a `QPen` whose brush was the texture.
+`QSvgGenerator` writes a pen as its colour, and a texture brush's colour is black. The fix
+fills the stroker's outline instead: `QPainterPathStroker` (width, round cap, round join),
+`drawPath(createStroke(path))` with `NoPen` and the texture brush. The SVG then carries a
+pattern fill, as a textured area's does.
+**Lesson.** A painter that serves several outputs needs an export matrix test the day it
+gets a new primitive: canvas, PNG, SVG, PDF. A pen with a non-solid brush is such a
+primitive. In this repo a texture is always a fill.
+Pins: `tests/integration/test_path_style_export.py` (SVG for every `PathFenceStyle`, PNG and
+PDF for the textured ones; it fails on the old painter for exactly gravel and dirt).
+
 ## Case study: an authored template linked plants but hid them under containers (#316)
 
 **Symptom.** The first balcony PNG showed soil and no herbs while the file loaded.

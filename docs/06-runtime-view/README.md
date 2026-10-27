@@ -454,6 +454,7 @@ sequenceDiagram
     Note over K: posts ONE pass event (normal priority)
     S-->>K: changed (queued by Qt) → mark_dirty(): rides with it
     K->>K: pass event → snapshot_records(scene, plan_date)
+    Note over K: the snapshot ends with with_context(records):<br/>door wall, lawn cut-outs and blade share (L4)
     K->>Y: apply(records, sun, ground)
     Y->>E: begin · the minimal calls · commit
     K-->>K: applied(TickReport: diff, times, retired)
@@ -462,6 +463,16 @@ sequenceDiagram
 
 A time-of-day change takes a shorter path: `instant_changed` → one `set_sun`, no snapshot. With
 the 3D pane hidden, `mark_dirty()` sets a flag and nothing else happens.
+
+Since L4 (#388, ADR-065) the snapshot's last step writes the params one record needs from
+the others (`core/scene3d/context.py`). A move of a house along its path keeps its door
+wall, so it stays one `update_transform`; a terrace moved across a lawn rebuilds the lawn's
+blades (its cut-outs changed) but re-bakes only the terrace's tiles, because the bake ignores
+these build-only params. During a drag the controller holds such a change back
+(`Scene3DController._hold_context`, `CONTEXT_REBUILD_MIN_MS` = 400 ms): the first step's
+cut-outs are applied at once, later steps move the terrace but keep the lawn's old
+cut-outs, and one trailing pass applies the last. A record that becomes or stops being a
+lawn is never held, and a held pass keeps the plan's blade budget (§8.29.12).
 
 **The first switch to 3D or Split** — nothing of 3D exists before it:
 

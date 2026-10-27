@@ -170,7 +170,9 @@ def _add_line_scenario(scene: CanvasScene) -> None:
         item = PolylineItem(
             points,
             object_type=ObjectType.PATH,
-            path_fence_style=PathFenceStyle.GRAVEL_PATH,
+            # a style that walks its elements along the line: gravel did until L4's
+            # owner pass made it a texture (two fills, no walk)
+            path_fence_style=PathFenceStyle.STEPPING_STONES,
         )
         item.setCacheMode(QGraphicsItem.CacheMode.NoCache)
         scene.addItem(item)

@@ -196,8 +196,8 @@ def default_builder(record: Record) -> tuple[MeshPart, ...]:
     With a height: ONE part — a prism of the local footprint, holes cut out,
     whose top is exactly ``height_cm``, neutral and ``tinted`` (the sink colours
     it from the item's material, so a recolour is a material update). Without a
-    height: no parts — the item is decoration, casts no shadow in 2D and has no
-    solid in 3D. Raises ``ValueError`` for a ring that is not a simple polygon
+    height: no parts — the item casts no shadow in 2D and has no solid in 3D.
+    Raises ``ValueError`` for a ring that is not a simple polygon
     (``prism_mesh``); ``SceneSync`` then shows the item without a solid and
     reports it.
     """

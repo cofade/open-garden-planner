@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-24T10:33:59.805840+00:00"
+    "modified": "2026-10-27T08:20:47.884229+00:00"
   },
   "canvas": {
     "width": 2400.0,
@@ -323,7 +323,7 @@
       "metadata": {
         "ridge_item_id": "dc4ab0f2-88a1-461e-8cf4-4825f09723e6"
       },
-      "fill_color": "#ffd2b48c",
+      "fill_color": "#ffb25a3e",
       "stroke_color": "#ff8b5a2b",
       "stroke_width": 2.5,
       "fill_pattern": "ROOF_TILES",

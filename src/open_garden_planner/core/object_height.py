@@ -64,8 +64,9 @@ METADATA_KEY = "object_height_cm"
 
 # Default above-ground heights (cm) per ObjectType name. Chosen as sensible
 # central-European garden values; the owner confirms them at manual test
-# (see #257). Types absent from this table (and not containers/plants)
-# have no height semantics and cast no shadow.
+# (see #257). Every object kind that stands up has one; types absent from this
+# table (and not containers/plants) are the ground surfaces, generic shapes and
+# annotations: they have no height semantics and cast no shadow.
 DEFAULT_HEIGHTS_CM: dict[str, float] = {
     "FENCE": 120.0,
     "WALL": 200.0,
@@ -84,18 +85,31 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     "LOUNGER": 80.0,
     "BBQ_GRILL": 90.0,
     "COMPOST_BIN": 100.0,
-    # Package 3a roster (#308) — solid objects only. SWING / PERGOLA / HAMMOCK
-    # deliberately have NO default: the shadow/3D model extrudes the FULL item
-    # footprint as a solid prism (`ui/canvas/footprints.item_footprints`), and
-    # a pergola or swing frame is mostly air (sprite ink 0.20-0.53) — a solid
-    # 3x3 m block at 2.3 m would misstate a sun study. They still expose the
-    # Height field (`_HEIGHT_FIELD_TYPES`) so a user can opt in explicitly.
+    # Package 3a roster (#308).
     "SANDBOX": 30.0,
     "TRAMPOLINE": 90.0,
     "HOT_TUB": 90.0,
     "PICNIC_TABLE": 75.0,
     "WHEELBARROW": 60.0,
     "BIRD_BATH": 90.0,
+    # The kinds that had no height until L4's second owner pass (ADR-065): "Doesn't
+    # make sense ... that a parasol doesn't have a height, while a trampoline has
+    # it." The values the 3D view had shown them at: a market parasol's canopy top,
+    # a fire bowl's rim, a large planter's rim, a cold frame's high back, a 200 l
+    # barrel, a standpipe tap, an A-frame swing's top beam, a hammock stand's hooks,
+    # a pergola's rafters. The 2D model extrudes the whole footprint as a solid
+    # prism (`ui/canvas/footprints.item_footprints`), so an open frame — a swing,
+    # a hammock, a pergola — shades its whole footprint in 2D, as a picket fence
+    # casts a solid strip: accepted by the owner, ADR-042's #308 note superseded.
+    "PARASOL": 250.0,
+    "FIRE_PIT": 30.0,
+    "PLANTER_POT": 50.0,
+    "COLD_FRAME": 45.0,
+    "RAIN_BARREL": 100.0,
+    "WATER_TAP": 80.0,
+    "SWING": 220.0,
+    "HAMMOCK": 110.0,
+    "PERGOLA": 250.0,
 }
 
 # Mirrors CONTAINER_TYPES in core/object_types.py (pinned by unit test).
@@ -114,11 +128,9 @@ _SOIL_PARENT_TYPE_NAMES = frozenset(
 )
 
 #: The garden's surfaces: with no height of their own they ARE the ground the 2D sun
-#: study's shadows and hours of sun lie on (``lies_on_ground``). Not here: an object
-#: that stands up but has no height in the plan (a cold frame, a rain barrel, a
-#: parasol: it would sink under every solid, with no Height field to lift it back —
-#: senior review of the owner's manual pass), a generic shape (often a zone or a
-#: highlight placed by layer: an owner question), and annotations.
+#: study's shadows and hours of sun lie on (``lies_on_ground``). Not here: a generic
+#: shape (often a zone or a highlight placed by layer: an owner question) and
+#: annotations. Every object that stands up has a default height and stands above.
 GROUND_SURFACE_TYPE_NAMES = frozenset(
     {"LAWN", "PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "GARDEN_BED"}
 )
@@ -356,13 +368,6 @@ def height_source_at(object_type: Any, metadata: dict[str, Any] | None,
     return resolve_height(object_type, metadata, at_date)[1]
 
 
-# Open structures (Package 3a, #308): no DEFAULT height — the shadow model
-# extrudes a solid footprint and these are mostly air — but the Height field
-# is offered so a user can opt a specific swing/pergola/hammock into the sun
-# study by hand. Without a default or an explicit value they cast nothing.
-_HEIGHT_FIELD_TYPES: frozenset[str] = frozenset({"SWING", "PERGOLA", "HAMMOCK"})
-
-
 def lies_on_ground(object_type: Any, metadata: dict[str, Any] | None) -> bool:
     """Is this object a surface of the ground — a lawn, a path, a terrace, a driveway,
     a pond or an in-ground bed (``GROUND_SURFACE_TYPE_NAMES``) with no height of its own?
@@ -379,16 +384,14 @@ def lies_on_ground(object_type: Any, metadata: dict[str, Any] | None) -> bool:
 def has_height_semantics(object_type: Any, metadata: dict[str, Any] | None) -> bool:
     """Should this object expose a Height field / participate in shadows?
 
-    True for every type with a default, containers, plant types (even
-    species-less placeholders, so the user can set a height by hand), the
-    open structures in `_HEIGHT_FIELD_TYPES` (field offered, no default), and
-    any object that already carries an explicit height.
+    True for every type with a default (every object kind that stands up),
+    containers, plant types (even species-less placeholders, so the user can set
+    a height by hand), and any object that already carries an explicit height.
     """
     name = _type_name(object_type)
     return (
         name in DEFAULT_HEIGHTS_CM
         or name in _CONTAINER_TYPE_NAMES
         or name in _PLANT_TYPE_NAMES
-        or name in _HEIGHT_FIELD_TYPES
         or explicit_height_cm(metadata) is not None
     )

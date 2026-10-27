@@ -91,7 +91,7 @@ class ReloadableGeometry(QQuick3DGeometry):
         super().__init__(parent)
         self.vertex_count = 0
         _declare_layout(self)
-        ReloadableGeometry.created += 1
+        type(self).created += 1   # a subclass keeps counts of its own (MeadowGeometry)
 
     def load(self, buffers: EngineBuffers, margin_cm: float = 0.0) -> None:
         """Replace what this geometry draws. ``margin_cm`` widens its bounds on every
@@ -104,4 +104,13 @@ class ReloadableGeometry(QQuick3DGeometry):
         self.setBounds(QVector3D(*low), QVector3D(*high))
         self.vertex_count = buffers.vertex_count
         self.update()  # type: ignore[attr-defined]  # as above
-        ReloadableGeometry.loads += 1
+        type(self).loads += 1
+
+
+class MeadowGeometry(ReloadableGeometry):
+    """The endless meadow's ONE geometry (#388, ``Quick3DHost._show_meadow``): a
+    ``ReloadableGeometry`` with counts of its own, so that the ring's and the overlays'
+    instruments ("a selection change creates nothing") keep counting only them."""
+
+    loads: ClassVar[int] = 0
+    created: ClassVar[int] = 0

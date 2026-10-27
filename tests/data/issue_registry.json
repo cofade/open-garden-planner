@@ -794,6 +794,11 @@
     "state": "CLOSED",
     "title": "Data loss: a recoloured rectangle-based object is saved with its type's default colour after load → save → load"
   },
+  "440": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Limitation: the 2D sun/shade model treats porous fences as solid walls and a gable roof as a flat-topped box"
+  },
   "441": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1169,6 +1174,11 @@
     "state": "MERGED",
     "title": "fix(#450,#551,#550,#569,#538,#446): non-3D hardening batch"
   },
+  "586": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board renders without the ground bake"
+  },
   "587": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1204,19 +1214,84 @@
     "state": "MERGED",
     "title": "chore: sync version to v1.32.0 after PR #593"
   },
+  "599": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Phase 17: smart-symbol builders for 3D (deferred from L4 #388)"
+  },
+  "600": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: the selection oracle builds v0 plants while the workspace shows L3 forged plants"
+  },
   "601": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "CI bottleneck: Coverage job takes ~16-17 min on 18.7k tests; deeper investigation and optimization without sacrificing coverage"
+  },
+  "603": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: the G7 workspace soaks compare frames before L3's forge has finished"
+  },
+  "605": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D paths: at an outer bend the fill and the border lines disagree (mitre vs chord, V spike)"
   },
   "606": {
     "is_pr": true,
     "state": "MERGED",
     "title": "chore(#601): shorten Coverage critical path while retaining branch data"
   },
+  "607": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L4 follow-ups from the senior review: lawn mask cost, blades per preset, roof clamp copies, degenerate sizes"
+  },
+  "609": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Two 3D render tests fail when the display is scaled (DPR 2.0, 1280x720 logical): a hard-coded 1.25 and a 1500x900 window"
+  },
   "610": {
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(US-F5): offline examples and portable templates (#316, #379)"
+  },
+  "611": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D context hold: hold only the params both the old and new record take (follow-up to #388)"
+  },
+  "613": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(#388): Phase 17 L4 - the built world complete (roofs, facades, paths, surfaces, water, lawn, objects)"
+  },
+  "615": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "G3: a four-tile ground edit's bake pass can overrun 10 ms on CI"
+  },
+  "616": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Windows power throttling raises local perf-tier timings ~1.8x partway through a run"
+  },
+  "621": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Per-plant sun: a plant inside a cold frame, planter pot or greenhouse reads 0 h (follow-up to #388)"
+  },
+  "623": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "--selftest from source crashed once (0xC000041D, empty output) inside the GPU render tier"
+  },
+  "624": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L4 3D: shadow reach from the plan's corners, the meadow edge at a low pitch, rendered pins (follow-up to #388)"
   }
 }

@@ -749,7 +749,7 @@ class TestRecordContent:
     def test_height_is_the_2d_resolver_s(self, stage: Stage) -> None:
         expected = effective_height_cm(stage.item.object_type, stage.item.metadata, at_date=stage.at)
         assert stage.record.height_cm == expected
-        assert stage.record.casts_shadow is (expected is not None)
+        assert stage.record.has_2d_caster is (expected is not None)
         assert stage.record.base_cm == 0.0  # no parent bed: on the ground (L1.6, test_scene3d_base_stacking)
 
     def test_shape_specific_fields(self, stage: Stage) -> None:

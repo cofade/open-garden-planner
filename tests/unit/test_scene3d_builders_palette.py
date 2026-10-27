@@ -87,7 +87,10 @@ def _texture_literal(function: ast.FunctionDef, what: str) -> tuple[int, int, in
 
 @pytest.mark.parametrize("entry", palette.ALL, ids=lambda e: e.name)
 def test_every_mirrored_colour_equals_its_2d_source(entry: palette.PaletteColor) -> None:
-    if entry.source == palette.SOURCE_OBJECT_SPRITES:
+    if entry.source == palette.SOURCE_OBJECT_SPRITES and entry.table == "EMBER":
+        source = _object_sprites().EMBER[int(entry.key)]  # the fire pit's coals (L4)
+        assert "#{:02x}{:02x}{:02x}".format(*entry.srgb) == source
+    elif entry.source == palette.SOURCE_OBJECT_SPRITES:
         source = _object_sprites().MATERIALS[entry.table][entry.key]
         assert "#{:02x}{:02x}{:02x}".format(*entry.srgb) == source
     else:
@@ -111,7 +114,7 @@ def test_the_guard_reads_what_it_says_it_reads() -> None:
 
 def test_the_palette_is_complete_and_unique() -> None:
     names = [entry.name for entry in palette.ALL]
-    assert len(names) == len(set(names)) == 13
+    assert len(names) == len(set(names)) == 13 + len(palette.OBJECT_COLORS) == 72
     declared = {value.name for value in vars(palette).values()
                 if isinstance(value, palette.PaletteColor)}
     declared |= {entry.name for entry in palette.HEDGE_LEAVES}

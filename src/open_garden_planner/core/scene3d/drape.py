@@ -52,8 +52,8 @@ from .polygon import RegionTooLargeError, group_rings, triangulate_region
 
 _log = logging.getLogger(__name__)
 
-#: How far above the ground plane the drape lies (cm). The ground tiles lie at 0 and
-#: the endless meadow at -1: at the workspace's near plane (5 cm) a 24-bit depth
+#: How far above the ground plane the drape lies (cm). The ground tiles and the endless
+#: meadow's frame lie at 0: at the workspace's near plane (5 cm) a 24-bit depth
 #: buffer resolves about 0.3 cm at 50 m and 1.2 cm at 100 m, so 1.5 cm keeps the drape
 #: off the ground's depth from every distance the orbit camera frames a garden at.
 DRAPE_LIFT_CM: Final = 1.5

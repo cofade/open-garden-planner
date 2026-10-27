@@ -443,7 +443,7 @@ TRANSLATIONS = {
         "Multi-selection editing\nnot yet implemented": "Edición de selección múltiple\naún no implementada",
         "Name:": "Nombre:",
         "Needs frost protection": "Necesita protección contra heladas",
-        "No height — casts no shadow": "Sin altura — no proyecta sombra",
+        "No height — no shadow on the 2D plan": "Sin altura — sin sombra en el plano 2D",
         "No objects selected": "Ningún objeto seleccionado",
         "No plants in this bed": "No hay plantas en este bancal",
         "Object height:": "Altura del objeto:",

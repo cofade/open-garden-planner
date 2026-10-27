@@ -955,6 +955,16 @@ call resolution does not follow dynamic receivers, instance aliases, inherited
 methods or imported helper functions; support-module attribute carriers are a
 separate supported path.
 
+**A local perf reading on Windows may be a throttled one (#616).** On the Windows 11 dev box,
+power throttling (EcoQoS) can raise a `-m perf -n 0` run's timings about 1.8× partway through
+the run, and the run does not recover. G3's two-tile bench_large edit read 7.8 ms throttled
+and 4.3 ms with the test process opted out. The four-tile edit read 14.8 ms in two passes
+throttled and 8.4 ms in one pass opted out. A sudden per-move jump from about 8 to about
+15 ms, with passes going from 1 to 2, is the signal. During PR #613 it was misread as
+machine load, and a throttled master run as "master also needs two passes". Until #616
+adds the opt-out to the test process, a local timing is not evidence against a budget; CI
+is the gate. `scripts/measure_ground_edit.py` opts its own process out.
+
 **Small targeted runs are slower than they were.** Worker start-up dominates when there
 is nothing to distribute: one 11-test file measured 2.85 s serially against 5.48 s under
 `-n auto`. Pass **`-n 0`** for a single file or a handful of tests. The asymmetry is
@@ -1842,11 +1852,18 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   `idle`, ONE ERROR line, a note in the list — and the next edit, and a new document, try
   again. The workspace's own handling of a ground pass is pinned with a test clock that jumps
   10 s after the edit's pass: no ground pass hands the look a sun, and the release is due.
-- **The wall-clock gates run on the quiet runner.** G3 — an edit's bake in at most 10 ms in
-  the median — carries `@pytest.mark.perf` (ADR-058, §8.10.4): beside eight workers it read
-  11.58 ms. So does its render-tier twin, whose median is taken in the driver process
+- **The wall-clock gates run on the quiet runner.** G3 — a two-tile edit's bake in at most
+  10 ms in the median, a four-tile edit's in a provisional 20 ms (#615) — carries
+  `@pytest.mark.perf` (ADR-058, §8.10.4): beside eight workers it read 11.58 ms. So does its
+  render-tier twin, whose median is taken in the driver process
   (`test_scene3d_ground_render.py::test_one_small_edit_re_bakes_within_the_time_budget`; the
-  rest of that test stays in the render tier — review 3, P2-1). G3's stopwatch is an ATTRIBUTE of
+  rest of that test stays in the render tier — review 3, P2-1). Unlike the pure-Python budgets
+  of §8.10.5, G3 asserts its real bound under coverage's tracer too. The bake is mostly Qt
+  painting; the tracer slows its Python share, about 1.4× in all on bench_large, not 9×.
+  Measured interleaved in PR #613 on the dev box with the test process opted out of power
+  throttling: border 3.8–3.9 → 5.2–5.5 ms, corner 6.8–7.2 → 9.9–10.0 ms. Do not add a
+  tracer factor back: the one tried in PR #613 weakened master's gate. G3 prints its
+  readings in every serial (`-n 0`) run's log. G3's stopwatch is an ATTRIBUTE of
   `tests/integration/ground_bake_support.py::TimedBaker`. Issue #528 makes the perf-marker
   guard (`tests/unit/test_perf_marker_guard.py`) follow that carrier and require the marker.
   The class originally moved to the support module to avoid the guard's bare-name collision;
@@ -2146,7 +2163,7 @@ hundredth of the truth for a ring whose every pair of edges lies close.
 **A third pattern, from the ground bake (Phase 17 L1.5, §8.29.5): a number in the file is a
 multiplier.** The two patterns above are about counts — vertices, rings. The bake's holes were
 all about MAGNITUDES, which a count does not bound: two points 19 km apart are two vertices and
-475,001 gravel dots; a dashed pen makes as many dashes as its line is long; a furniture sprite is
+475,001 gravel dots (gravel's painter until L4's owner pass; a 5 cm chain-link path walks as many); a dashed pen makes as many dashes as its line is long; a furniture sprite is
 rendered at its item's size — its area in pixels; a pen width near zero is a spacing near zero.
 So: (a) ask of every step what it is PROPORTIONAL to — a length, an area, a ratio of two numbers
 of the file — and bound that, by clipping the work to what can be seen before it is generated
@@ -3904,9 +3921,10 @@ branch), `core/tools/base_tool.py` (`ToolType`, same name), `ui/canvas/canvas_vi
 (`_FURNITURE_FILES` for furniture-dir types; infrastructure-dir types need
 `_INFRASTRUCTURE_FILES` **and** `_SVG_DIR_OVERRIDES` **and** `_OBJECT_SVG_FILES` —
 the gate checks all three; plus `FURNITURE_DEFAULT_DIMENSIONS`), `core/object_height.py`
-(`DEFAULT_HEIGHTS_CM` — gives shadows/3D/height field; open structures like
-swing/pergola/hammock instead go into `_HEIGHT_FIELD_TYPES`: field offered, no
-default, no shadow until the user sets one), `ui/widgets/gallery_data.py`
+(`DEFAULT_HEIGHTS_CM` — gives shadows/3D/height field; every object that stands
+up needs a row, open frames included, and
+`test_every_standing_object_kind_has_a_default_height` fails without one: ADR-065,
+owner's second pass), `ui/widgets/gallery_data.py`
 (gallery tuple), and `scripts/fill_translations.py` in the `CanvasView`,
 `GalleryData` and `ObjectType` contexts. Roster tests are map-driven; the
 additive-enum forward-compat contract (unknown names → generic shape, no
@@ -4402,7 +4420,7 @@ untangle `core/__init__.py`.
 | `footprints` | the OUTER ring(s) of the ground the item covers, item-local cm: simple polygons, counter-clockwise. How many there are says nothing about how the item was drawn (a self-crossing polygon can resolve into one ring) — `params["outline_resolved"]` does | geometry |
 | `holes` | `holes[i]` = the clockwise rings cut out of `footprints[i]`; `()` when there are none. A stroke that closes has them, and so can a polygon drawn crossing itself | geometry |
 | `path`, `path_width_cm` | a polyline's centre line and stroke width (fences and walls are built from these) | geometry |
-| `height_cm` | `effective_height_cm(..., at_date)`; `None` = decoration, casts no shadow | geometry |
+| `height_cm` | `effective_height_cm(..., at_date)`; `None` = no 2D caster (a 3D build at a nominal or estimated height still casts, L4) | geometry |
 | `params` | sorted immutable mapping — see below | geometry |
 | `transform` | `Transform(east_cm, north_cm, rotation_deg, base_cm)` | transform |
 | `material` | `Material(key, fill_rgba, stroke_rgba, pattern)` — the item's own sRGB data | material |
@@ -4805,8 +4823,8 @@ function of the record's *geometry part*.
 2. Return `Mesh.from_arrays(positions, normals, colors, uvs, indices)` wrapped in
    `MeshPart(mesh, material_kind, casts_shadow, tinted, name)`. Colours are **linear** RGBA
    (`color.srgb_to_linear`). Where a part takes the item's own colour, leave it neutral and set
-   `tinted=True` — then a recolour never calls the builder. An item without a resolved height is
-   decoration: `casts_shadow=False`.
+   `tinted=True` — then a recolour never calls the builder. Glass, water and ground detail set
+   `casts_shadow=False`; every other built part casts, whatever height it was built at (ADR-065).
 3. Cover the ground the record covers: iterate `record.regions` (or pass
    `record.footprints, height, record.holes` to `prism_mesh`). A hole is not built over.
 4. Register it: `registry.register("HOUSE", build_house)` on the `BuilderRegistry` instance the
@@ -4906,7 +4924,12 @@ again, and the whole scene cleared and re-sent, come back pixel-identical and pi
 
 **A move or a recolour uploads nothing.** `update_transform` sets the Models' `position` and
 `eulerRotation.y`; `update_material` sets their tint. The upload counter (`BufferGeometry.uploads`,
-read by the render tier around each edit) does not move.
+read by the render tier around each edit) does not move. One exception since L4, and it
+is throttled: a lawn's cut-outs are the other items' outlines in its frame, so a move
+over a lawn (or of the lawn) changes the lawn's geometry. The controller applies a change
+of the context params alone at most once per `CONTEXT_REBUILD_MIN_MS` (400 ms), the
+first at once and the last in a trailing pass; the item's own move is never late
+(senior review of #388: 30 lawn rebuilds in 30 drag steps before).
 
 **Frames, once.** A mesh is mapped to the engine frame in `engine_buffers`; a record's transform
 becomes a Model pose in `engine_pose` — position `(east, base, −north)`, `eulerRotation.y =
@@ -5401,7 +5424,10 @@ the shadow map, cascades, filtering and bias, anti-aliasing, ambient occlusion, 
 screen-space reflections — and no preset costs less than the one below it in any of them
 (pinned). Low and medium both use 4x MSAA: FXAA let picket fences alias into a moiré, and 2x
 MSAA still did (PF-L3D-05). Fog is on at every preset (low without it drew a one-row cliff where
-the meadow meets the sky); sharpening is 0 everywhere; screen-space GI is never on. A preset
+the meadow meets the sky). Its distances follow the camera, not the preset (L4 owner pass, ADR-065):
+`look.fog_depth_cm(distance)` begins it at 1.5× and fills it at 6× the camera's distance to its
+target, floors 26 m / 160 m, full by 760 m, inside the meadow's 2 km edge and the 3 km far plane, set with every
+`Quick3DHost.set_camera`. Sharpening is 0 everywhere; screen-space GI is never on. A preset
 change is one `set_look` call: no camera, no geometry, no sky.
 
 **Automatic quality.** With the setting `auto` (the default), `AutoPreset` chooses among low,
@@ -5509,7 +5535,8 @@ and badges — they are the 2D view's overlays, not the garden's surface.
 
 Both `PathStylePaint` callers bound their walk with the same `clip` + `WalkBudget`
 contract: the ground bake per tile, the canvas item per visible viewport (#450).
-A 19 km gravel path used to generate its 475 001 elements on every canvas repaint;
+A 19 km gravel path used to generate its 475 001 elements on every canvas repaint (gravel's
+dots until L4's owner pass; a 5 cm chain-link path is the densest walk now);
 the live paint now generates only what the viewport exposes, while an export
 (cache cleared) still gets every element.
 
@@ -5565,9 +5592,11 @@ snapshot, one diff, builders and bake in one transaction. The baker looks at the
 names, marks the tiles under their old and new paint bounds (after a re-order: every tile that
 holds records), finds each dirty tile's records in one walk down the stack and re-paints a tile
 only if its list changed or holds a changed record. Every other tile is handed out as the SAME
-object — which is how the sink knows not to upload it. Measured (idle dev box): bench_small
-(98 records, 11 painted, 20 tiles) full bake 13 ms, one move of a 3 m item 3.4 ms median, at most
-2 tiles; bench_large (424 records, 45 painted, 60 tiles) 69 ms and 3.3 ms. A move dirties the
+object — which is how the sink knows not to upload it. Measured at L1.5 (idle dev box):
+bench_small (98 records, 11 painted, 20 tiles) full bake 13 ms, one move of a 3 m item 3.4 ms
+median, at most 2 tiles; bench_large (424 records, 45 painted, 60 tiles) 69 ms and 3.3 ms. These
+are L1.5 figures. Since L4 builds furniture as solids, 9 and 25 records are painted, and
+bench_large's moved item is a stand-in terrace (ADR-065). A move dirties the
 tiles under the item's old AND new paint bounds. Each place is at most four tiles for an item of
 up to 3 m; together they are at most four when the move is up to 2 m (old and new place then span
 less than one tile's width in each direction — what the gate's 31 moves of 44 cm measure), and
@@ -5589,11 +5618,17 @@ three bakers at once, §8.10.10).
 
 Why 10 ms: the workspace's gate is 50 ms from an edit to its frame, and the bake's own gate —
 10 ms for one small edit on the bench plans — still holds with the budget ON: an edit that fits
-the gate is ONE pass (measured: 31 moves on each bench plan, one pass each). Measured with the
-real clock: bench_small opens in 2 passes (longest 11.6 ms), bench_large in 8 (longest 13.4 ms).
+the gate is ONE pass (measured: 31 moves on each bench plan, one pass each). That holds for
+an edit of two tiles. An edit where four tiles meet can run over the budget by its last tile:
+on CI it read ≤ 10 ms in one uninstrumented run and 12.15 ms in the next (run 40407192860),
+and 13.29 ms under coverage (run 40405246734). No gate placed an item on a tile corner before
+L4 (#388); the readings and the comparison with master are in ADR-065. G3 holds such an edit
+to a provisional median of 20 ms until the owner decides #615. Measured with the real clock
+at L1.5: bench_small opens in 2 passes (longest 11.6 ms), bench_large in 8 (longest 13.4 ms).
 What the budget does NOT bound is one tile: a pass costs the budget plus the tile it is in — and
 one tile more when it brings an edit while older tiles are still pending (below). The
-plan built to be slow — two gravel paths of 16,384 points zigzagging over 16 tiles, 12.6 s in one
+plan built to be slow — two gravel paths of 16,384 points zigzagging over 16 tiles (gravel's dots,
+measured before L4's owner pass made gravel a texture), 12.6 s in one
 call before — is now 16 passes of 0.73 s in the median (longest 0.92 s), and moving a 1 m square
 beside those paths is two passes of 0.45 s; a COMB polygon is worse still (the cost table below).
 
@@ -5711,7 +5746,8 @@ the square. For 50,000 opaque ones: 21 comparisons and 21 record paints.
 **The bounds are on COUNTS; what a count costs is the rasteriser's — and that varies by three
 orders of magnitude.** One tile at a bound, measured: 256 turned textured rectangles 196 ms;
 262,144 polygon vertices of a wavy ring 172 ms (0.7 µs a vertex); five plain lines of 16,384
-points folded into the tile 509 ms; two gravel paths of 16,384 points 2.65 s. And ONE record
+points folded into the tile 509 ms; two gravel paths of 16,384 points 2.65 s (gravel's dots, before
+L4's owner pass made it a texture). And ONE record
 whose outline is a COMB — every tooth crossing every scanline of the tile — costs Qt 1.2 ms a
 vertex: 1.2 s at 1,024 vertices, 4.8 s at 4,096, 19 s at 16,384, in one tile, and the vertex
 bound admits sixteen of the last (not run to the end: about five minutes, extrapolated). The 2D
@@ -5904,7 +5940,7 @@ takes a raised bed and two real plants through both).
 
 | Kind | Module | Parts (`name`: material kind) | Colour |
 |---|---|---|---|
-| `HOUSE` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls tinted (the item's fill), roof = clay tile; no usable ridge → one tinted `walls` block |
+| `HOUSE` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls sandstone on every route (`buildings._house_walls`, the `BuiltBuilder` `recolour` step; L4's owner pass), roof = clay tile; no usable ridge → one sandstone `walls` block |
 | `GARAGE_SHED`, `TOOL_SHED` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls tinted, roof = shingle |
 | `FENCE` | `lines` → `fences` / `walls` | `fence`: vc — or `hedge`: foliage (hedge style), `wall`: vc (stone style) | tinted (the item's stroke) |
 | `WALL` | `lines` → `walls` / `fences` | `wall`: vc — or the fence of its style | tinted |
@@ -5942,10 +5978,10 @@ and width too (`apply_style_preset`), so it arrives as `replace_geometry` + `upd
    `record.height_cm` to the float32. Give primitives a bottom and a top (`boxes(…, z0, z1)`),
    never a size to add. Wrap the shape function in `common.BuiltBuilder`: it applies the safety
    net (`fit_parts`), and `fit_scale(record)` must be 1.0 — a fit that does something is a bug.
-2. **No height, no shadow.** `BuiltBuilder` builds an item without a height at its kind's nominal
-   height — what the 2D resolver answers for the kind alone, `effective_height_cm(kind, None)`;
-   the builders hold no table of kinds — with `casts_shadow=False`; no nominal height → no parts.
-   This path is nearly dead in production and is kept as the contract for hand-made records:
+2. **No height: the nominal one.** `BuiltBuilder` builds an item without a height at its kind's
+   nominal height — what the 2D resolver answers for the kind alone, `effective_height_cm(kind, None)`;
+   the builders hold no table of kinds — and with no nominal height it builds no parts. What is
+   built casts in 3D (ADR-065, owner's manual pass). This path is nearly dead in production and is kept as the contract for hand-made records:
    every registered kind but `GARDEN_BED` has a default height, so the snapshot always gives its
    record one. And `GARDEN_BED` is registered for a state the GUI can barely produce — a garden
    bed that carries a height (only through its metadata: the panel offers no Height field for a
@@ -6942,7 +6978,7 @@ SimClock ──instant_changed / date_changed───────────�
   (`#if QSSG_ENABLE_DEPTH_PASS`), which does not run the discard (PF-L3D-08). No part
   blends or hides for X-ray or Cutaway; the look materials stay master's while nothing
   fades.
-- *The drape is lifted 1.5 cm* (the meadow lies at −1, the tiles at 0): clear of the
+- *The drape is lifted 1.5 cm* (the tiles and the meadow's frame lie at 0): clear of the
   ground's depth from every distance the orbit camera frames a garden at, and below
   everything that stands on the ground.
 - *The sweep's map* is the shown map's own samples taken by their local time of day
@@ -7033,6 +7069,170 @@ A negative control adds 20 ms inside the production uniform hop and must fail
 the same budget. Geometry-job and Model/buffer-churn checks are independent.
 The mixed-species phenology unit budget remains an additional gate.
 
+
+### 8.29.12 The built world complete — objects, roofs, facades, surfaces, ground detail (L4, #388, ADR-065)
+
+**Objects.** The 24 `OBJECT_KINDS` (furniture, play, utility, structures) are built
+from the bevelled pieces of `builders/kit.py` in `builders/palette.py`'s colours, which
+mirror the 2D object `MATERIALS` (drift guard in `test_scene3d_builders_palette.py`).
+Every object goes through `BuiltBuilder` (top = resolved height by construction) and
+stays under `OBJECT_TRIANGLE_BUDGET` (4,000) by construction: repeated members (slats,
+staves, bays, lattice cells) are capped, and a hostile 9 km object stays bounded. Every
+object kind has a default height in `core/object_height.DEFAULT_HEIGHTS_CM` (since the
+owner's second pass, ADR-065, the parasol, fire pit, planter pot, cold frame, rain
+barrel, water tap, swing, hammock and pergola too), so every object casts in 2D and 3D
+and shows its height in the properties panel. How to add an object: a builder function
+in the family module, an entry in its `KINDS`, a `DEFAULT_HEIGHTS_CM` row, a row in
+`test_scene3d_l4_objects.py`'s parametrised cases (height, footprint margin,
+orientation against the sprite's top edge = local +y).
+
+**Roofs and facades.** `core/roof_style.py` owns the three optional metadata keys
+(`roof_style`, `roof_pitch_deg`, `roof_overhang_cm`) and their clamping readers; the
+snapshot copies them into the record's params for HOUSE, GARAGE_SHED and TOOL_SHED.
+`builders/roofs.py` builds gable, hip (lower envelope of the eave planes, convex
+footprints only), shed and flat roofs, each returning the walls' top as a function
+so the walls meet the roof. `builders/facade.py` puts windows on every wall that can
+hold one and the door on the wall `params["door_wall"]` names, batched into one mesh.
+The 2D plan, its ridge line and its sun study read none of this.
+
+**Context params.** `core/scene3d/context.py::with_context` runs once at the end of
+`snapshot_records`: it writes a building's door wall (the wall facing the nearest
+PATH; a garage's nearest DRIVEWAY first), a lawn's cut-outs (flat items painted above
+it and enclosed buildings on it, in the lawn's frame, at most 96, largest first) and
+a lawn's blade share (220 / m², ≤ 36,000 per lawn, ≤ 60,000 per plan, water-filled by
+area; the roots' jittered grid lies over the lawn's bounding box and is bounded by
+construction, `surfaces.MAX_SWARD_GRID` points and `MAX_SWARD_WORK` point-in-ring tests,
+so a thin lawn in a huge box gets a sparser sward). All are geometry for `SceneSync`,
+and all are `record.BUILD_ONLY_PARAMS`: the
+ground bake compares records with `Record.same_ground_geometry`, which ignores them,
+so a cut-out that moves rebuilds the lawn's blades without re-baking its tiles. The
+lawn's blades are remembered whole (`surfaces.SWARD_CACHE_BYTES`, 64 MB, least recently
+used first), so that rebuild only re-masks them: a move of a flat item over the lawn
+costs 4.6 / 12.8 / 8.0 ms on bench_small / bench_large / bench_built (median of 15,
+2026-10-26; 11.7 / 28.2 / 18.1 ms when every blade was regrown). The sync controller
+forgets them with the plan (`clear_lawn_cache`).
+
+**Ground detail.** A part that is relief on painted ground sets
+`MeshPart.ground_detail` (and must not cast a shadow: `MeshPart.__post_init__`). It is
+drawn, but it never makes its item a solid (`SceneSync.solid_ids`), the pick oracle
+and QML (`pickable && !groundDetail`) never pick it, and the info card still says the
+item lies on the ground. Paths get stones / planks / kerbs / a gravel edging per
+style (gravel and dirt are their textures, painted by the bake — L4 manual pass), terraces and driveways kerbs or deck boards (`surface_pattern` DECKING / WOOD),
+ponds water and coping, lawns blades. A surface with a height is a solid as before.
+Stepping stones follow the 2D painter's walk (`surfaces.walk_path` =
+`PathStylePaint._walk_path`); a stone that would hang past the path's end is slid half
+a stone along it, one that cannot be slid onto the footprint is left out.
+
+**Presets.** Lawn blades are built at every preset and drawn from High up (QML
+`lawnBlades`, re-applied to `lawn_blades` parts on change): a preset step changes no
+geometry. From Medium up the ground tiles use `ground.frag` (`detailNormals`), which
+tilts the normal by the tile texture's own luminance gradient (clamped ±0.35). It
+flips `v` itself: a `CustomMaterial`'s `TextureInput` ignores `Texture.flipV`
+(measured: the tiles drew mirrored north–south). Scene-wide OIT is not used: it broke
+L2's multiply drapes (ADR-065 decision 9).
+
+**Paths.** A line's stroke is its width on the ground in cm: presets 70–100 cm, PATH
+default 80 cm, the properties panel up to `MAX_LINE_WIDTH_CM` (500 cm, suffix "cm");
+shapes keep `MAX_STROKE_WIDTH` (20 px). Bench plans older than L4 keep their widths
+(`make_bench_plans.LEGACY_PATH_WIDTH_CM`); `bench_built.ogp` holds every L4 kind,
+path style and roof style for the board.
+
+**Truth details from the 3D review.** The endless meadow is a frame IN the plan's plane
+(`core/scene3d/meadow.py`): a 4 km square around the plan in cells of at most 100 m, the
+plan cut out less a 1 mm strip under its edge. Nothing lies under the plan. One quad of two
+triangles 1 cm, then 5 cm, under the plan lost the depth test to it: its depth, interpolated
+across 2 km, was more than 5 cm off at 55–90 m. The 5 cm step also drew an ambient-occlusion
+line along every plan edge. The host loads the frame into one geometry when the plan
+rectangle changes, like the selection ring. A keyed meadow is gated in 156 views: an orbit
+sweep, and the workspace's own camera on the three bench plans. Path relief treats every
+path as open, because its outline is: a
+rail runs on its own offset line, chorded outside a bend where the outline squares off,
+and a boardwalk's end planks stand half a plank in. A deck's boards are 2.5 cm high
+(`DECK_TOP_CM`) and lie on the ground, so furniture standing at z 0 does not sink into
+them. `kit.beam` and `kit.rod` lift an end that stands on the ground by what its tilted
+end cap dips.
+A lawn's cut-outs are one keyhole ring per region, so a loop of path keeps the lawn inside
+it. A pond's cut-out is grown by its coping (`POND_CLEARANCE_CM`). An open gravel or dirt
+path's cut-out is the rounded stroke the canvas paints (`ROUND_PATH_STYLES`). An object
+without a height cuts the lawn only when it covers its footprint at the ground
+(`GROUND_COVERING_KINDS`, whatever its height: a cold frame's soil and a fire pit's ash
+lie under a blade's 7 cm); a pergola or a parasol stands in the grass.
+"Painted above the lawn" is the 2D paint order, read from the record order. That order is
+right only after the scene restacks its ground band (`CanvasScene._restack_ground_changes`,
+PF-CAN-22). The restack runs on every `stack_changed` and scans the items. It skips the
+scan when the command manager's `last_command` says it cannot change a band
+(`changes_ground_band = False`, #592). That scan is what keeps the cut-outs right.
+Two writes defeat it, and both leave 2D and 3D agreeing on a stale order:
+- a height written outside a command: it emits no `stack_changed`, so it stays stale until
+  the next command that is not marked `changes_ground_band = False`;
+- a command wrongly marked `changes_ground_band = False`.
+Either way, a terrace on a lowered lawn stays under the lawn and is not cut out.
+Tests that change the height of a ground surface use the Properties panel's own command
+(`_set_height` in `tests/integration/test_view3d_sync_controller.py`).
+
+**Bounds from the senior review.** A deck's boards are found before a mesh is built,
+with numpy row crossings; beyond `MAX_DECK_BOARDS` (2,000) boards, or `MAX_DECK_ROWS`
+(1,000) rows scanned over all its regions, a deck gets a kerb, or its plain solid when
+raised (a 402-vertex comb had built 446,364 triangles in 14 s; a sawtooth of 601 regions
+narrower than 1 cm, which are now skipped, scanned rows for 2.8 s). A
+kerb, skirt or coping is swept along at most `MAX_RELIEF_VERTICES` (4,096) outline
+vertices; beyond, the surface keeps its painted ground. An overhang never takes a pitched
+roof's lowest edge below `EDGE_FLOOR_SHARE` (half) of the eave floor: the overhang is
+shortened and the chosen style and pitch kept (a 60 × 100 cm shed at 60° and 150 cm
+reached 91.5 cm into the ground). How the overhang is found:
+- Two estimates of how much more overhang holds. One is the chord to a roof that sank.
+  The other is a line from the last roof that held: through the two last that held, or
+  at first at that roof's own `slope`.
+- That slope is the edge's fall per cm of overhang only for a hip, and for a gable square
+  to its ridge. A gable with an oblique ridge falls faster at its far corner; the HOUSE
+  tool's ridge follows the bounding box, so a house drawn turned has one. A shed's edge
+  falls twice as fast until its slope clamp and slower after it. So neither estimate is
+  sure to be short.
+- A guess is the nearer estimate, 1 % short. After a guess sinks, the next goes at most
+  halfway. Only a roof that holds is kept.
+- The search stops when even the larger estimate (within the bracket) is under a
+  centimetre or 2.5 % of the overhang found, or after `OVERHANG_TRIES` (5) guesses.
+- On a straight edge the chord finds the root in one guess: three roofs in all.
+- A builder returns no roof on an exact coincidence: a U outline's offset edge on the
+  ridge line at 100 cm, or the ridge on the inner edge of an L drawn on a grid at no
+  overhang. A guess is 1 % short of its estimate, so it never lands on the long end, and
+  the short end is tried at half a centimetre too.
+- A gable holds its eaves to 0.75 × (top − ridge cap − slab), lower than the eave floor.
+  So a gabled building 18–22 cm tall is too low for the floor even without an overhang,
+  and keeps that roof (its edge 0.8–3.7 cm above the ground).
+- A style that builds no roof at either end is left to the caller: a hip falls back to
+  the gable, otherwise the building is its plain block.
+
+`scripts/measure_roof_overhang.py` measures the search over 20,592 cases (the grid in
+its docstring, houses turned with the tool's ridge among them). It reports:
+- 0 floor violations, and 0 roofs lost, where "lost" means no roof although some overhang
+  in range holds;
+- 624 gables at 20 cm that keep the walls' own roof;
+- for the 1,581 cases it shortens: median 99.0 % of the longest overhang that holds,
+  worst 96.5 %. The 3 under 97 % are the single-slope roof of a 100 × 50 cm shed at 4 m,
+  60° and 100 cm, whose slope clamp kinks the edge's fall;
+- 1.40 roofs built per case, 7 at most;
+- 3 roofs for a 64-corner hip at 700 cm, 60° and 150 cm.
+
+Context params change at most once per `CONTEXT_REBUILD_MIN_MS` during a drag (§8.29,
+"A move or a recolour uploads nothing"). A held pass keeps the plan's 60,000 blades:
+- The old shares are kept while the lawns' total fits, so a resized lawn leaves the
+  others alone. Otherwise no held share is above its new one.
+- A record that becomes or stops being a lawn (its blade share appears or goes) is not
+  held: a lawn turned into a terrace, given a height, or lowered from one. Any other
+  context param is held at its old state, an absent one included: a lawn's cut-outs
+  come and go as an item crosses the lawn's box.
+- A lawn with a height grows no blades and takes no share.
+
+A document change and a pause end the hold, and a recovery from scratch applies the plan
+unheld.
+
+**Tests.** `test_scene3d_l4_objects.py`, `test_scene3d_l4_buildings.py`,
+`test_scene3d_l4_surfaces.py` (unit, every builder through `verify_builder` on
+hostile input), `tests/integration/test_l4_built_world.py` (panel → undo → snapshot →
+context → production registry), the ground-bake and render tiers (the "ground alone"
+gates take the relief off: `ground_bake_render_driver._without_relief`) and the
+frozen self-test, whose High-preset frame compiles `ground.frag` from the bundle.
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 

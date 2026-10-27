@@ -194,8 +194,10 @@ def test_the_table_of_style_painters_is_built_once_and_names_every_style() -> No
 @pytest.mark.parametrize("style", [PathFenceStyle.NONE, PathFenceStyle.PAVED_PATH],
                          ids=lambda s: s.name)
 def test_a_selected_line_shows_its_selection(style: PathFenceStyle, qtbot: Any) -> None:
-    """Plain or styled, the selection is drawn after the style — outside the line."""
-    item = _line(AN_L, style)
+    """Plain or styled, the selection is drawn after the style — outside the line.
+    10 cm wide: a path preset's real width (L4, #388) puts the selection's rectangle
+    outside this 420 px frame."""
+    item = _line(AN_L, style, 10.0)
     alone = np.any(_rendered(item) != 255, axis=2)
     scene = QGraphicsScene()
     scene.setSceneRect(QRectF(0.0, 0.0, SIZE, SIZE))
@@ -210,3 +212,64 @@ def test_a_selected_line_shows_its_selection(style: PathFenceStyle, qtbot: Any) 
         painter.end()
     selected = np.any(_array(image) != 255, axis=2)
     assert int((selected & ~alone).sum()) > 100
+
+
+def _over(item: PolylineItem, background: QColor) -> np.ndarray:
+    """``item`` painted by its own ``paint`` over ``background``."""
+    scene = QGraphicsScene()
+    scene.setSceneRect(QRectF(0.0, 0.0, SIZE, SIZE))
+    scene.addItem(item)
+    image = QImage(SIZE, SIZE, QImage.Format.Format_RGBA8888_Premultiplied)
+    image.fill(background)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    try:
+        scene.render(painter, QRectF(0.0, 0.0, SIZE, SIZE), QRectF(0.0, 0.0, SIZE, SIZE))
+    finally:
+        painter.end()
+    scene.removeItem(item)
+    return _array(image)
+
+
+@pytest.mark.parametrize("style", [PathFenceStyle.GRAVEL_PATH, PathFenceStyle.DIRT_PATH],
+                         ids=lambda s: s.name)
+def test_gravel_and_dirt_are_their_textures_and_hide_what_lies_under(style: PathFenceStyle,
+                                                                       qtbot: Any) -> None:
+    """Owner, L4 manual pass (#388): a gravel path in 3D was green — its stroke was the
+    colour at 100 / 255 over the lawn, a dirt path's at 140 / 255 — and a few dots drawn
+    for a 6 cm line did not read as gravel. Now each is its fill texture in the line's
+    colour, opaque: over white and over black the path's inside is the same picture,
+    with the texture's grain, and on average the line's colour."""
+    from open_garden_planner.core.object_types import get_path_fence_style_info
+
+    info = get_path_fence_style_info(style)
+    item = _line(AN_L, style)
+    assert item.pen().widthF() == info.stroke_width >= 70.0
+    inside = _within(AN_L, info.stroke_width / 2.0 - 4.0)  # clear of the rim and the caps' edge
+    white = _over(_line(AN_L, style), QColor(255, 255, 255))[inside]
+    black = _over(_line(AN_L, style), QColor(0, 0, 0))[inside]
+    assert np.array_equal(white, black), "the ground shows through the path"
+    luma = white @ np.array([0.299, 0.587, 0.114])
+    assert float(luma.std()) > 8.0, "a flat colour, not gravel or earth"
+    mean = white.mean(axis=0)
+    colour = info.stroke_color
+    assert np.allclose(mean, (colour.red(), colour.green(), colour.blue()), atol=12.0), mean
+
+
+def test_the_gravel_edging_is_the_3d_edging() -> None:
+    """The rim the 2D painter draws round a gravel path is the 3D edging's width and
+    shade: two copies of three numbers (the 3D package is Qt-free), held together."""
+    from open_garden_planner.core.scene3d.builders import surfaces
+
+    assert (style_paint.GRAVEL_EDGE_CM, style_paint.GRAVEL_EDGE_SHARE, style_paint.GRAVEL_EDGE_SHADE) \
+        == (surfaces.GRAVEL_EDGE_CM, surfaces.GRAVEL_EDGE_SHARE, surfaces.GRAVEL_EDGE_SHADE)
+
+
+def test_a_dirt_path_is_the_sprites_light_soil() -> None:
+    """Owner, L4 manual pass: over the soil texture the former preset 150, 110, 60 read
+    orange. The preset is the 2D sprites' own light soil (``MATERIALS["soil"]["light"]``)."""
+    from open_garden_planner.core.object_types import get_path_fence_style_info
+    from open_garden_planner.core.scene3d.builders import palette
+
+    colour = get_path_fence_style_info(PathFenceStyle.DIRT_PATH).stroke_color
+    assert (colour.red(), colour.green(), colour.blue()) == palette.SOIL_LIGHT.srgb
