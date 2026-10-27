@@ -48,6 +48,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -286,6 +287,27 @@ def verdict_of(returncode: int, a_test_failed: bool) -> str:
     return "KILLED" if returncode == 1 and a_test_failed else "BROKEN"
 
 
+#: How often, and how far apart in seconds, a failed restore is tried again.
+RESTORE_ATTEMPTS = 40
+RESTORE_PAUSE_S = 0.25
+
+
+def restore(path: Path, original: bytes) -> None:
+    """Write ``original`` back to ``path``. On Windows that write can fail for a moment
+    with ``OSError: [Errno 22] Invalid argument`` while another process holds the file
+    the mutant was just written to (an editor's file watcher, a scanner): twice it left
+    a mutant in the tree (#388, the owner pass). Try again for up to ten seconds, then
+    raise — ``git checkout -- src scripts`` is the way back."""
+    for attempt in range(RESTORE_ATTEMPTS):
+        try:
+            path.write_bytes(original)
+            return
+        except OSError:
+            if attempt == RESTORE_ATTEMPTS - 1:
+                raise
+            time.sleep(RESTORE_PAUSE_S)
+
+
 def run(mutant: Mutant, appdata: str) -> tuple[str, str]:
     """``(verdict, detail)`` — KILLED, SURVIVED, BROKEN or STALE."""
     path = REPO / mutant.path
@@ -303,7 +325,7 @@ def run(mutant: Mutant, appdata: str) -> tuple[str, str]:
             timeout=1800, check=False, env={**os.environ, "APPDATA": appdata},
         )
     finally:
-        path.write_bytes(original)
+        restore(path, original)
     lines = proc.stdout.strip().splitlines()
     tail = lines[-1] if lines else proc.stderr.strip()[-200:]
     failed = next((line for line in lines if line.startswith("FAILED tests")), "")
