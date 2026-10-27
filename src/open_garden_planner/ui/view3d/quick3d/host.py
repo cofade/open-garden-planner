@@ -128,6 +128,11 @@ from PyQt6.QtQuick import (
     QSGRendererInterface,
 )
 
+from open_garden_planner.core.fill_patterns import (
+    FillPattern,
+    pattern_from_name,
+    tinted_pattern_pixels,
+)
 from open_garden_planner.core.scene3d import (
     EngineBuffers,
     EnginePose,
@@ -164,6 +169,7 @@ from .look import (
     sky_properties,
 )
 from .materials import PART_COMPONENTS, tint_uniform
+from .patterns import PatternTexture
 from .shots import PerspectiveShot, Shot, TopDownShot
 
 if TYPE_CHECKING:
@@ -422,6 +428,10 @@ class Quick3DHost:
         self._overlays: dict[str, ReloadableGeometry] = {}
         self._faded: frozenset[str] = frozenset()
         self._fade_opacity = 1.0
+        #: The fill pictures on show (``set_part_fill``), by (pattern, tint): the
+        #: ``Texture`` QML made and the data object Python owns. A picture lives while
+        #: at least one Model shows it (the sink refcounts) and never past clear().
+        self._fill_pictures: dict[tuple[str, Rgba], tuple[QObject, PatternTexture]] = {}
         #: The look on screen, and the sun the pipeline sent last (engine frame; None:
         #: no sun, or it is down). Together they decide the key light (``_apply_light``).
         self._shown_look: LookSpec = NEUTRAL_DAY   # the scene file's own defaults
@@ -615,6 +625,7 @@ class Quick3DHost:
         """
         if self.state is HostState.CLOSED:
             self._forget_parts()
+            self._forget_fill_textures()
             self.ground.forget()
             return
         total = len(self._parts)
@@ -624,6 +635,7 @@ class Quick3DHost:
                 self._destroy(part)
             except Exception as error:  # noqa: BLE001 - finish the teardown, then report
                 failures.append(error)
+        self._forget_fill_textures()  # no Model shows a fill picture any more
         steps: tuple[Callable[[], None], ...] = (
             lambda: self.set_sun(None), lambda: self.set_ground(None),
             lambda: self.set_selection_ring(None))  # the ring is no item's: hidden, not destroyed
@@ -649,6 +661,66 @@ class Quick3DHost:
         model = self._model(handle)
         _set(model, "tint", QColor(tint_rgba[0], tint_rgba[1], tint_rgba[2]))
         _set(model, "tintLinear", QVector3D(*tint_uniform(tint_rgba)))
+
+    def set_part_fill(self, handle: object, pattern: str | None, tint_rgba: Rgba) -> None:
+        """Show the item's own fill on one Model (#628 follow-up).
+
+        ``pattern``'s texture tinted with ``tint_rgba``, or that colour alone for
+        SOLID/None (or a texture that cannot be built — the honest flat fill). The
+        picture is cached per (pattern, colour) and shared by every Model that shows
+        it; the sink releases it with the last user.
+        """
+        self._open("set_part_fill")
+        model = self._model(handle)
+        fill = pattern_from_name(pattern)
+        texture = self._fill_texture(fill, tint_rgba) if fill is not None else None
+        if texture is None:
+            _set(model, "patternMap", None)
+            _set(model, "tint", QColor(tint_rgba[0], tint_rgba[1], tint_rgba[2]))
+            _set(model, "tintLinear", QVector3D(*tint_uniform(tint_rgba)))
+            return
+        _set(model, "patternMap", texture)
+        _set(model, "tint", QColor(255, 255, 255))       # the picture carries the colour
+        _set(model, "tintLinear", QVector3D(1.0, 1.0, 1.0))
+
+    def release_fill(self, pattern: str | None, tint_rgba: Rgba) -> None:
+        """No Model shows that fill any more: let its picture (and data) go."""
+        if self.state is HostState.CLOSED:
+            return
+        held = self._fill_pictures.pop((pattern or "", tint_rgba), None)
+        if held is None:
+            return
+        texture, _data = held
+        if not sip.isdeleted(texture):
+            texture.deleteLater()  # its data object is its child: the pair goes together
+
+    def _fill_texture(self, fill: FillPattern, tint_rgba: Rgba) -> QObject | None:
+        """The shared ``Texture`` of (pattern, colour), made once — None when the
+        pattern's picture cannot be built (a missing texture file)."""
+        key = (fill.name, tint_rgba)
+        held = self._fill_pictures.get(key)
+        if held is not None:
+            return held[0]
+        pixels = tinted_pattern_pixels(fill, QColor(tint_rgba[0], tint_rgba[1], tint_rgba[2]))
+        if pixels is None:
+            return None
+        width, height, data = pixels
+        texture_data = PatternTexture(width, height, data)
+        texture = QMetaObject.invokeMethod(
+            self._root, "createPatternTexture", _DIRECT,
+            Q_RETURN_ARG("QVariant"), Q_ARG("QVariant", texture_data))
+        if not isinstance(texture, QObject):
+            raise EngineError(f"the scene created no Texture for the {fill.name} fill")
+        texture_data.setParent(texture)  # the pair lives and dies together
+        self._fill_pictures[key] = (texture, texture_data)
+        return texture
+
+    def _forget_fill_textures(self) -> None:
+        """Let every fill picture go (clear(): the Models that showed them are gone)."""
+        pictures, self._fill_pictures = self._fill_pictures, {}
+        for texture, _data in pictures.values():
+            if not sip.isdeleted(texture):
+                texture.deleteLater()
 
     def set_sun(self, travel: tuple[float, float, float] | None) -> None:
         """Where the sunlight travels (engine frame) — or None: no sun, or it is down."""
@@ -995,6 +1067,7 @@ class Quick3DHost:
             return
         if sip.isdeleted(self._view):
             self._forget_parts()  # the Models died with the scene
+            self._forget_fill_textures()
             self.ground.forget()
             self._container = None
             self._closed = True
@@ -1005,6 +1078,7 @@ class Quick3DHost:
             except Exception as error:  # noqa: BLE001 - the Model dies with the view
                 _LOG.warning("close(): a Model could not be destroyed (%s); it goes with the view",
                              error)
+        self._forget_fill_textures()  # the Textures are QML's: they go with the scene
         self.ground.forget()  # its Models die with the view; the textures are Python's
         self._view.hide()
         self._view.removeEventFilter(self._watch)

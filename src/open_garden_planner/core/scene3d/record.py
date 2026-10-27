@@ -83,6 +83,27 @@ SHAPES: Final[tuple[str, ...]] = (
     SHAPE_CIRCLE, SHAPE_ELLIPSE, SHAPE_RECTANGLE, SHAPE_POLYGON, SHAPE_POLYLINE,
 )
 
+#: One fill texture tile in centimetres: the asset forge ships every pattern at
+#: 256 x 256 px and the canvas lays it at 1 px = 1 cm, so a pattern repeats every
+#: 256 cm. A mesh that shows the item's fill texture sets
+#: ``uv = position / PATTERN_TILE_CM`` (item coordinates: the canvas anchors a
+#: pattern at the item's own origin). ``core.fill_patterns.PATTERN_TILE_CM`` is the
+#: canvas's copy — a test holds the two equal and every shipped texture 256 x 256,
+#: so a resized texture cannot silently stretch the 3D pattern.
+PATTERN_TILE_CM: Final = 256.0
+
+
+def pattern_texture_name(name: str | None) -> str | None:
+    """The fill pattern NAME that has a texture — ``None`` for SOLID or no pattern.
+
+    A record's ``Material.pattern`` is the ``FillPattern`` member name (the snapshot
+    writes ``.name``), so ``"SOLID"`` and an absent pattern are both "no picture":
+    the item shows its fill colour alone, as the canvas does.
+    """
+    if not name or name == "SOLID":
+        return None
+    return name
+
 #: ``Record.params`` keys the snapshot writes (documented in §8.29.1).
 PARAM_SEED: Final = "seed"  # str — the item id: the one seed source of a builder
 PARAM_RADIUS_CM: Final = "radius_cm"  # float — circles: the footprint radius

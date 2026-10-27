@@ -477,6 +477,22 @@ def test_the_scene_obeys_the_measured_engine_rules() -> None:
     assert "function destroyPart" in code and "part.geometry = null" in code
 
 
+def test_a_fill_part_shows_the_plans_own_picture() -> None:
+    """#628 follow-up: a raised object keeps its fill texture.
+
+    The Model carries ``patternMap`` — a shared ``Texture`` the sink sets and clears —
+    and its PrincipledMaterial samples it as ``baseColorMap``. The scene makes every
+    picture with its data at birth and never re-points a ``Texture`` at another
+    ``QQuick3DTextureData`` (that goes white: ``ogp-3d-renderer`` §5).
+    """
+    code = _scene()
+    blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]}
+    assert "property var patternMap: null" in blocks["vcPart"]
+    assert "baseColorMap: patternMap ? patternMap : null" in blocks["vcPart"]
+    assert "flipV: false" in blocks["patternTexture"]
+    assert re.search(r"function createPatternTexture\(data\)\s*\{\s*return patternTexture"
+                     r"\.createObject\(view\.scene, \{\"textureData\": data\}\)", code)
+
 
 @pytest.mark.parametrize("look", ["foliage.vert", "grass.vert"])
 def test_a_door_vertex_shader_is_its_look_shader_with_the_collapse_added(look: str) -> None:

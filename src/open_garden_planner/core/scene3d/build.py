@@ -34,7 +34,7 @@ from numpy.typing import NDArray
 
 from .mesh import Mesh, MeshError, MeshPart
 from .polygon import Region, ccw, cut_region, cw, is_flat_ring
-from .record import Material, Record, Ring, Transform
+from .record import PATTERN_TILE_CM, Material, Record, Ring, Transform
 
 Builder: TypeAlias = Callable[[Record], tuple[MeshPart, ...]]
 
@@ -73,11 +73,17 @@ def item_seed(item_id: str, salt: str = "") -> int:
     return int(digest.hexdigest()[:12], 16)
 
 
-def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[float]) -> None:
+def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[float],
+           uvs: list[float]) -> None:
     """Two triangles per edge with the flat normal on the RIGHT of the direction
-    of travel: outward for a counter-clockwise outer ring, into the hole — away
-    from the solid — for a clockwise hole ring."""
+    of travel: outward for a counter-clockwise outer ring, into the hole - away
+    from the solid - for a clockwise hole ring. The UVs wrap the fill texture
+    round the ring (one cm of travel per cm of texture) and up it: ``u`` counts
+    the distance along the ring, ``v`` the height, both / ``PATTERN_TILE_CM``.
+    A prism that shows its item's fill texture therefore reads as one material on
+    every face; the top's own UVs are its plan coordinates."""
     n = len(ring)
+    travelled = 0.0
     for i in range(n):
         x1, y1 = ring[i]
         x2, y2 = ring[(i + 1) % n]
@@ -85,12 +91,16 @@ def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[f
         if edge <= 1e-9:
             continue
         nx, ny = (y2 - y1) / edge, -(x2 - x1) / edge
-        for px, py, pz in (
-            (x1, y1, 0.0), (x2, y2, 0.0), (x2, y2, height_cm),
-            (x1, y1, 0.0), (x2, y2, height_cm), (x1, y1, height_cm),
+        u1, u2 = travelled / PATTERN_TILE_CM, (travelled + edge) / PATTERN_TILE_CM
+        v0, v1 = 0.0, height_cm / PATTERN_TILE_CM
+        for px, py, pz, u, v in (
+            (x1, y1, 0.0, u1, v0), (x2, y2, 0.0, u2, v0), (x2, y2, height_cm, u2, v1),
+            (x1, y1, 0.0, u1, v0), (x2, y2, height_cm, u2, v1), (x1, y1, height_cm, u1, v1),
         ):
             positions.extend((px, py, pz))
             normals.extend((nx, ny, 0.0))
+            uvs.extend((u, v))
+        travelled += edge
 
 
 #: A mesh is float32: a coordinate of size m is stored to about m · 2⁻²⁴, so the
@@ -159,6 +169,7 @@ def prism_mesh(
         return Mesh.empty()
     positions: list[float] = []
     normals: list[float] = []
+    uvs: list[float] = []
     for index, raw in enumerate(footprints):
         ring = _as_ring(raw)
         if is_flat_ring(ring):
@@ -166,9 +177,9 @@ def prism_mesh(
         outer = ccw(ring)
         inner = tuple(cw(_as_ring(hole)) for hole in (holes[index] if len(holes) else ()))
         vertices, triangles = cut_region(outer, inner)  # raises ValueError: no wrong cap, ever
-        _walls(outer, height_cm, positions, normals)
+        _walls(outer, height_cm, positions, normals, uvs)
         for hole in inner:
-            _walls(hole, height_cm, positions, normals)
+            _walls(hole, height_cm, positions, normals, uvs)
         for triangle in triangles:
             (ax, ay), (bx, by), (cx, cy) = (vertices[vertex] for vertex in triangle)
             reach = max(abs(ax), abs(ay), abs(bx), abs(by), abs(cx), abs(cy))
@@ -178,6 +189,7 @@ def prism_mesh(
             for x, y in ((ax, ay), (bx, by), (cx, cy)):
                 positions.extend((x, y, height_cm))
                 normals.extend((0.0, 0.0, 1.0))
+                uvs.extend((x / PATTERN_TILE_CM, y / PATTERN_TILE_CM))  # the canvas's phase
     if not positions:
         return Mesh.empty()
     count = len(positions) // 3
@@ -185,7 +197,7 @@ def prism_mesh(
         positions,
         normals,
         np.ones((count, 4), np.float32),
-        np.zeros((count, 2), np.float32),
+        uvs,
         np.arange(count, dtype=np.uint32),
     )
 
@@ -193,20 +205,22 @@ def prism_mesh(
 def default_builder(record: Record) -> tuple[MeshPart, ...]:
     """The honest v0 for a kind without a builder of its own.
 
-    With a height: ONE part — a prism of the local footprint, holes cut out,
-    whose top is exactly ``height_cm``, neutral and ``tinted`` (the sink colours
-    it from the item's material, so a recolour is a material update). Without a
-    height: no parts — the item casts no shadow in 2D and has no solid in 3D.
-    Raises ``ValueError`` for a ring that is not a simple polygon
-    (``prism_mesh``); ``SceneSync`` then shows the item without a solid and
-    reports it.
+    With a height: ONE part - a prism of the local footprint, holes cut out,
+    whose top is exactly ``height_cm``. It shows the item's own FILL
+    (``fill_texture``: the fill pattern textured by the fill colour, or that
+    colour alone for SOLID), so a lawn, path, generic shape or bed the user gave
+    a height keeps the look it had while the ground bake painted it (#628
+    follow-up). Without a height: no parts - the item casts no shadow in 2D and
+    has no solid in 3D. Raises ``ValueError`` for a ring that is not a simple
+    polygon (``prism_mesh``); ``SceneSync`` then shows the item without a solid
+    and reports it.
     """
     if record.height_cm is None:
         return ()
     mesh = prism_mesh(record.footprints, record.height_cm, record.holes)
     if not mesh.vertex_count:
         return ()
-    return (MeshPart(mesh, "vc", casts_shadow=True, tinted=True, name="prism"),)
+    return (MeshPart(mesh, "vc", casts_shadow=True, fill_texture=True, name="prism"),)
 
 
 class BuilderRegistry:

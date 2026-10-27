@@ -26,9 +26,10 @@ lives now; the values production was drift-guarded against are frozen in
   `QtQml` or `QtQuickWidgets`. The production package inherited the rule as
   `ui/view3d/quick3d/`.
 - **One engine package (L1.2).** In the product, only `ui/view3d/quick3d/` imports those
-  bindings — and inside it only `geometry.py`, `host.py` and (L1.5, the ground's tile
-  textures) `ground_tiles.py` do; `selftest.py` names them as
-  strings to import them one by one. Pinned over the WHOLE tree, imports by name included
+  bindings — and inside it only `geometry.py`, `host.py`, (L1.5, the ground's tile
+  textures) `ground_tiles.py` and (#628, the items' own fill pictures) `patterns.py` do;
+  `selftest.py` names them as strings to import them one by one. Pinned over the
+  WHOLE tree, imports by name included
   (`__import__("PyQt6.QtQuick3D")` is an import), by `tests/unit/test_quick3d_boundary.py`,
   which also pins that app start loads neither the bindings nor the package and that the
   package never uses a `QQuickWidget`.
@@ -321,6 +322,23 @@ lives now; the values production was drift-guarded against are frozen in
   `textureDataNodeDirty` by hand, nor setting the `Texture`'s property to null and back in the
   same turn (each variant rendered and read back: twelve cycles, the first picture every time).
   A fresh object per change shows. (`markAllDirty()` is not exposed by PyQt6 6.11.)
+- **A solid's own fill is a picture per (pattern, colour) (#628 follow-up).** A lawn, path,
+  terrace, driveway, generic shape or garden bed that the user gives a HEIGHT stops being
+  painted by the ground bake (it is a solid), so its faces show the fill the canvas gave it:
+  `MeshPart.fill_texture` -> `vcPart.baseColorMap: patternMap`, the picture being
+  `core.fill_patterns.tinted_pattern_pixels` — the 2D brush's own tinted texture, RGBA8 and
+  opaque, its mean the fill colour. Measured, Direct3D 11, 1000 x 400 top-down, two 300 cm
+  squares at 40 cm: luma std 26.0 with `GRASS` against 0.0 with `SOLID`, at the same mean
+  (121.3 / 120.8). One `Texture` per (pattern, colour), made with its data at birth and never
+  re-pointed (the white rule below), shared by every Model that shows it; the sink refcounts
+  the pictures and calls `EngineScene.release_fill` with the last user, so a recolour leaves no
+  texture behind (`PatternTexture.uploads` 1 -> 2, `textures_alive()` 0 after the removal).
+  A `var`-typed map must bind as `patternMap ? patternMap : null`: `baseColorMap: patternMap`
+  with no picture logs "Unable to assign [undefined] to QQuick3DTexture*" and fails the render
+  gate (PF-L3D-16). UVs are plan coordinates / 256 on a cap and distance-along-the-ring /
+  height on the walls; the wall wrap has one seam on an edge, visible only if the pattern has a
+  strong feature there.
+
 - **ONE texture per `Texture` element, for life — a re-pointed `Texture` goes WHITE.** When a
   `QQuick3DTextureData` that a `Texture` once held is destroyed, Qt resets that element's
   `textureData` to null, whatever it holds by then (a QML binding `textureData: someProperty`

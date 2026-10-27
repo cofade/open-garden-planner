@@ -1,12 +1,12 @@
-"""A real plan through the Qt Quick 3D engine, end to end (Phase 17 L1.2, #385 — §8.10).
+"""A real plan through the Qt Quick 3D engine, end to end (Phase 17 L1.2, #385 â€” Â§8.10).
 
-``bench_small.ogp`` in a real scene → ``snapshot_records`` → ``SceneSync`` →
-``Quick3DSink`` → the engine, then a scripted edit session through the app's own
+``bench_small.ogp`` in a real scene â†’ ``snapshot_records`` â†’ ``SceneSync`` â†’
+``Quick3DSink`` â†’ the engine, then a scripted edit session through the app's own
 commands (move, recolour, delete, undo). Two tiers, the same session:
 
 - **Default tier** (``TestAgainstARecordingEngine``): the sink drives a
-  list-backed ``EngineScene``. It proves everything up to the engine boundary —
-  which Models the engine is asked for, with which pose, tint and bytes — on
+  list-backed ``EngineScene``. It proves everything up to the engine boundary â€”
+  which Models the engine is asked for, with which pose, tint and bytes â€” on
   every machine, GPU or not.
 - **Render tier** (``TestOnTheRealRenderer``, ``OGP_RENDER3D=1``): the same
   session on a real ``Quick3DHost``. After every step the Models are read back
@@ -144,7 +144,7 @@ class TestAgainstARecordingEngine:
         engine.calls.clear()
         commands.execute(_recolour(target, QColor(250, 30, 200)))
         tick()
-        assert engine.calls == [("tint", str(target.item_id)), ("frame",)]
+        assert [call[0] for call in engine.calls] == ["fill", "release_fill", "frame"]
         assert quick.geometry_uploads == uploads  # neither a move nor a recolour uploaded
 
         commands.execute(DeleteItemsCommand(scene, [victim]))
@@ -157,10 +157,10 @@ class TestAgainstARecordingEngine:
         commands.undo()
         tick()
 
-        quick.clear()  # a document change: the engine holds nothing …
+        quick.clear()  # a document change: the engine holds nothing â€¦
         assert engine.parts == [] and engine.sun is None and engine.ground is None
         fresh_pipelines()
-        tick()         # … and the same plan comes back complete
+        tick()         # â€¦ and the same plan comes back complete
         assert len(engine.parts) == ENGINE_PARTS
 
 
@@ -178,13 +178,13 @@ def _is_software(adapter: str | None) -> bool:
     if not adapter:
         raise AssertionError(
             "the run did not name its graphics adapter (qt.rhi.general): a hardware budget "
-            "can neither be asserted nor waived — fix the adapter readout, do not skip")
+            "can neither be asserted nor waived â€” fix the adapter readout, do not skip")
     return any(name in adapter.lower() for name in SOFTWARE_ADAPTERS)
 
 
 def test_an_unknown_adapter_is_not_a_software_adapter() -> None:
     """Review P2-8: ``adapter is None`` used to count as software, so a run that lost the
-    adapter line skipped both hardware budgets — green, with nothing measured."""
+    adapter line skipped both hardware budgets â€” green, with nothing measured."""
     assert _is_software("Microsoft Basic Render Driver") is True
     assert _is_software("llvmpipe (LLVM 15.0.7, 256 bits)") is True
     assert _is_software("NVIDIA GeForce RTX 4070") is False
@@ -203,7 +203,7 @@ class TestOnTheRealRenderer:
     def test_the_engine_holds_exactly_what_the_recording_sink_would(
             self, run: tuple[dict[str, Any], Path]) -> None:
         """After EVERY step: the Models read back from the QML scene are the parts the
-        ``RecordingSink`` was told about — same ids, part counts, kinds, poses, tints."""
+        ``RecordingSink`` was told about â€” same ids, part counts, kinds, poses, tints."""
         steps = run[0]["scenarios"]["integration"]["steps"]
         assert [step["name"] for step in steps] == [
             "0_open", "0_open_top", "1_move", "2_recolour", "3_delete", "4_undo_delete", "5_undo_all"]
@@ -253,7 +253,7 @@ class TestOnTheRealRenderer:
         assert steps["1_move"]["uploads"] == steps["0_open_top"]["uploads"]
         before, after = parts_of("0_open", moved)[0], parts_of("1_move", moved)[0]
         delta = np.array(after["position"]) - np.array(before["position"])
-        assert delta == pytest.approx([137.25, 0.0, 42.5], abs=1e-2)  # engine z = −north
+        assert delta == pytest.approx([137.25, 0.0, 42.5], abs=1e-2)  # engine z = âˆ’north
         # recolour: one material, no upload, the tint is the new colour
         assert steps["2_recolour"]["diff"]["material"] == 1
         assert steps["2_recolour"]["uploads"] == steps["1_move"]["uploads"]
@@ -274,10 +274,10 @@ class TestOnTheRealRenderer:
 
     def test_an_edit_is_on_screen_within_the_frame_budget(
             self, run: tuple[dict[str, Any], Path]) -> None:
-        """ADR-048 entries 5/6 (moved here by ADR-059): edit → snapshot → diff → engine →
+        """ADR-048 entries 5/6 (moved here by ADR-059): edit â†’ snapshot â†’ diff â†’ engine â†’
         FINISHED READBACK. Measured on the dev box (RTX 4070, 98 records, 640 x 400):
         median 7.1 ms, p95 17.9 ms; WARP: median 23.2 ms. The bound is asserted on a
-        hardware adapter only — a software rasteriser says nothing about a GPU."""
+        hardware adapter only â€” a software rasteriser says nothing about a GPU."""
         result, _ = run
         timing = result["scenarios"]["integration"]["edit_to_readback_ms"]
         assert timing["n"] == 30
@@ -288,7 +288,7 @@ class TestOnTheRealRenderer:
     def test_the_host_beside_the_2d_canvas_keeps_the_window_off_rhi_composition(
             self, run: tuple[dict[str, Any], Path]) -> None:
         """G12 / ADR-048 criterion 3. Direct evidence: with the 3D container in the
-        window the top-level surface stays a RASTER surface — and the control, a
+        window the top-level surface stays a RASTER surface â€” and the control, a
         ``QQuickWidget`` in the same place, turns it into an RHI surface (measured
         on Windows: ``Direct3DSurface``)."""
         result, out = run
@@ -302,8 +302,8 @@ class TestOnTheRealRenderer:
     def test_the_2d_pan_step_costs_the_same_with_the_3d_container_visible(
             self, run: tuple[dict[str, Any], Path]) -> None:
         """G12 in milliseconds: median 2D pan step (incl. flush) with the container
-        visible ≤ x1.3 of without. Measured on the dev box: 2.56 ms vs 2.63 ms (x0.97),
-        WARP x0.92; the QQuickWidget control: x94–x99 there (monitor asleep — its
+        visible â‰¤ x1.3 of without. Measured on the dev box: 2.56 ms vs 2.63 ms (x0.97),
+        WARP x0.92; the QQuickWidget control: x94â€“x99 there (monitor asleep â€” its
         presents wait for a display that is not refreshing)."""
         result, _ = run
         embed = result["scenarios"]["embed"]
@@ -313,10 +313,12 @@ class TestOnTheRealRenderer:
         assert embed["control_ratio"] > embed["ratio"], embed
 
     def test_the_plan_opens_in_a_reportable_time(self, run: tuple[dict[str, Any], Path]) -> None:
-        """Not a budget (ADR-048 criterion 5 is judged on the owner's hardware in L1.3) — a
-        tripwire that the numbers the report quotes exist and are sane: request → first
+        """Not a budget (ADR-048 criterion 5 is judged on the owner's hardware in L1.3) â€” a
+        tripwire that the numbers the report quotes exist and are sane: request â†’ first
         finished readback of the 98-record plan, and the engine package's import."""
         result, _ = run
         integration = result["scenarios"]["integration"]
         assert 0.0 < integration["open_ms"] < 120_000.0, integration["open_ms"]
         assert 0.0 < result["engine_import_ms"] < 30_000.0
+
+

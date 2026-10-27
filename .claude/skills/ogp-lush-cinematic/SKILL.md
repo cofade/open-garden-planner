@@ -335,3 +335,10 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
   troughs and believable furniture/enclosure. All examples need localized tutorial
   annotations, a northern location for solar study and useful soil demonstrations.
   These are content requirements, independent of L4's built-world mesh work.
+- **2026-10-27** - #627 manual pass of the #628 height field: "it works, but all the objects
+  loose their texture when giving them height" - a lawn raised to 40 cm drew as a flat green
+  slab, a soil bed as plain brown, while both are textured on the ground. A solid now carries
+  the item's own canvas fill on its faces (`MeshPart.fill_texture` -> `vcPart.baseColorMap`;
+  measured top-down luma std 26.0 with GRASS against 0.0 with SOLID). The look is the 2D
+  picture extruded, not a new material; the frame of a raised bed and a container's soil keep
+  the builders' own look, and an X-ray ghost of a raised surface is its flat colour.

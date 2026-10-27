@@ -50,7 +50,7 @@ from ..mesh import Mesh, MeshPart
 from ..record import PARAM_CONTAINER_MATERIAL, PARAM_RADIUS_CM, SHAPE_CIRCLE, Record
 from . import palette
 from .common import BuiltBuilder, corner_count, footprint_of
-from .primitives import F64, ccw_ring, lathe, offset_ring, polygon_cap, signed_area, sweep
+from .primitives import F64, ccw_ring, lathe, offset_ring, plan_cap, polygon_cap, signed_area, sweep
 
 #: Plank rows are about this tall (a 15 cm board).
 PLANK_ROW_CM: Final = 15.0
@@ -123,13 +123,22 @@ def thickness_cm(ring: F64, nominal_cm: float) -> float:
     return float(min(nominal_cm, MAX_THICKNESS_SHARE * float(span.min())))
 
 
-def soil_mesh(ring: F64, thickness: float, soil_cm: float) -> Mesh:
-    """The soil: the footprint drawn in by the frame, at the soil surface ``soil_cm``."""
+def soil_mesh(ring: F64, thickness: float, soil_cm: float, *,
+              fill_texture: bool = False) -> Mesh:
+    """The soil: the footprint drawn in by the frame, at the soil surface ``soil_cm``.
+
+    ``fill_texture``: the cap shows the item's own fill (a GARDEN_BED's soil
+    substrate, #628) — its UVs are the plan coordinates and its vertex colours
+    are white, so the sink's picture supplies the colour; otherwise the cap is
+    the builder's soil colour (a raised bed's or container's soil).
+    """
     if soil_cm < MIN_SOIL_CM:
         return Mesh.empty()
     inner = offset_ring(ring, -thickness)
     if signed_area(inner) <= 0.0:
         return Mesh.empty()
+    if fill_texture:
+        return plan_cap(inner, soil_cm)
     return polygon_cap(inner, soil_cm, palette.SOIL.linear)
 
 
@@ -162,7 +171,8 @@ def _wall_thickness(material: str) -> float:
     return WALL_THICKNESS_CM.get(material, WALL_THICKNESS_CM[DEFAULT_MATERIAL])
 
 
-def _box(record: Record, height_cm: float, material: str) -> tuple[MeshPart, ...]:
+def _box(record: Record, height_cm: float, material: str, *,
+         soil_fill_texture: bool = False) -> tuple[MeshPart, ...]:
     ring = ccw_ring(footprint_of(record))
     if len(ring) < 3:
         return ()
@@ -172,8 +182,12 @@ def _box(record: Record, height_cm: float, material: str) -> tuple[MeshPart, ...
     soil = soil_surface_cm(record.kind, height_cm)  # a container: its height; an edged bed: 2 cm under
     walls = _frame(ring, height_cm, thickness, soil, rows=plank_rows(height_cm) if planked else 1,
                    foot_inset_cm=foot, face=palette.TINT, groove=palette.TINT)
+    soil_part = soil_mesh(ring, thickness, soil, fill_texture=soil_fill_texture)
+    if soil_fill_texture:  # a garden bed's soil IS its 2D substrate: colour and pattern
+        return (MeshPart(walls, "vc", tinted=True, name="walls"),
+                MeshPart(soil_part, "vc", fill_texture=True, name="soil"))
     return (MeshPart(walls, "vc", tinted=True, name="walls"),
-            MeshPart(soil_mesh(ring, thickness, soil), "vc", name="soil"))
+            MeshPart(soil_part, "vc", name="soil"))
 
 
 def _container(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
@@ -182,8 +196,13 @@ def _container(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
 
 def _garden_bed(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     """A GARDEN_BED the user gave a height: an edged bed, same soil rule. (Without
-    a height ``BuiltBuilder`` never calls this: the kind has no nominal height.)"""
-    return _box(record, height_cm, WOOD)
+    a height ``BuiltBuilder`` never calls this: the kind has no nominal height.)
+
+    Its soil cap is the item's own fill — the "Boden-Substrat" the Properties
+    panel names — not the builder's soil colour: the bed's whole 2D fill is that
+    substrate, and it kept its texture in the ground bake until the height took
+    the item off the ground (#628 follow-up)."""
+    return _box(record, height_cm, WOOD, soil_fill_texture=True)
 
 
 def round_profile(radius_cm: float, height_cm: float, material: str, soil_cm: float

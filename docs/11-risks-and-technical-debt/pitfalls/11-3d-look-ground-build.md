@@ -203,3 +203,37 @@ Fix: the strength is 0 unless AO is on (`55 * (!root.topDown && root.ambientOccl
 root.aoFade : 0)`), and `aoEnabled` also requires a fade above 0, so the pass does not run
 at strength 0. The host test reads `aoEnabled` and `aoStrength` off the environment at every
 preset and four distances, and in the top-down view.
+
+### PF-L3D-16
+
+- **Rule:** A solid that should keep its 2D fill shows it through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — and every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`; `tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill`; `tests/unit/test_fill_patterns.py::TestThe3DFillPicture`; `tests/unit/test_scene3d_mesh.py`
+- **Source:** #628 follow-up (owner manual pass of #627), ADR-037 addendum
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The ground bake paints a lawn, path, terrace, generic shape or bed while it lies flat, and
+`lies_on_ground` stops the moment a height is typed. The item becomes a plain prism coloured
+by one tint — so the owner's raised lawn turned into a flat green slab and the soil bed into a
+plain brown one ("all the objects loose their texture when giving them height"). Nothing was
+broken: no 3D solid had ever shown a fill pattern, because a height on these kinds could not be
+set before #628.
+
+The picture is the canvas's, not an approximation: `core.fill_patterns.tinted_pattern_pixels`
+returns the same `_tint_texture` result the 2D brush uses (RGBA8, opaque, mean = the fill
+colour). A luminance map multiplied by a tint would have been simpler, but a byte texture has no
+value above white, so every highlight above the texture's mean would be clipped — for soil, the
+light specks that make it read as soil. UVs are plan coordinates / `PATTERN_TILE_CM` (256: the
+forge ships 256 px at 1 px = 1 cm) for a cap, and distance-along-the-ring / height for the walls.
+
+Measured on the dev box, Direct3D 11, 1000 × 400 top-down frame of two 300 cm squares at 40 cm:
+the GRASS-patterned one reads luma std **26.0**, the SOLID one **0.0**, at the same mean
+(121.3 / 120.8) — the texture is there and the average brightness is the fill colour.
+
+Traps, all measured: `baseColorMap: patternMap` (a `var`) logs the `undefined` warning above;
+a `Texture` re-pointed at a second data object renders white (§5 of `ogp-3d-renderer`), so a
+shared picture is created with its data at birth and the sink refcounts it — the host drops it
+with the last Model, which kept a recolour of a raised lawn from leaving one texture per colour
+behind (`PatternTexture.uploads` 1 → 2, `textures_alive()` back to 0 after a remove). The fade
+(X-ray) screen door does not sample the map: a ghosted raised surface loses its texture, which
+is visible only while it is a ghost.

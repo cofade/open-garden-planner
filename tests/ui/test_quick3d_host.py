@@ -106,7 +106,7 @@ BLUE = (20, 40, 230, 255)
 #: Set by the positive control only: the QML directory the hosts of this file load.
 QML_OVERRIDE = "OGP_TEST_QUICK3D_QML_DIR"
 #: The three releases: legal on a closed host, where they do nothing.
-RELEASES = ("destroy_part", "clear", "close")
+RELEASES = ("destroy_part", "release_fill", "clear", "close")
 
 # No product code in here — that is the point (module docstring). It does to bare Qt
 # what the tests below do to the host: load a View3D scene from a file, create a Model

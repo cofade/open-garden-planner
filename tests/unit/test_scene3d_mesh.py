@@ -397,11 +397,13 @@ class TestDefaultBuilder:
         assert mesh.triangle_count == prism_mesh((L_SHAPE,), 40.0).triangle_count == 16
         assert cap_area(mesh) == pytest.approx(7500.0)
 
-    def test_part_is_neutral_and_tinted_by_the_sink(self) -> None:
-        """A pure colour change must not rebuild geometry: the mesh carries no
-        colour of the item, and the part asks the sink to tint it."""
+    def test_part_is_neutral_and_shows_the_items_fill(self) -> None:
+        """A pure colour or pattern change must not rebuild geometry: the mesh carries
+        no colour of the item, and the part asks the sink for the item's own fill
+        picture (#628 follow-up) - which for SOLID is a flat tint of the same colour."""
         (part,) = default_builder(record())
-        assert part.tinted is True and part.material_kind == "vc" and part.casts_shadow is True
+        assert part.fill_texture is True and part.tinted is False
+        assert part.material_kind == "vc" and part.casts_shadow is True
         assert np.all(part.mesh.colors == 1.0)
         recoloured = record(material=Material("RAISED_BED", fill_rgba=(1, 2, 3, 255)))
         assert default_builder(recoloured) == (part,)
@@ -410,6 +412,31 @@ class TestDefaultBuilder:
         """A lawn, a path, a rain barrel: the resolver gives no height, so there is
         no solid — the ground bake (L1.5) paints flat surfaces."""
         assert default_builder(record(height_cm=None)) == ()
+
+    def test_the_prism_shows_the_items_fill_with_plan_uvs(self) -> None:
+        """#628 follow-up: the raised shape keeps its texture. The part asks for the
+        item's fill picture and carries plan UVs (``position / 256``) on its top; its
+        walls wrap the same texture round the ring."""
+        from open_garden_planner.core.scene3d import PATTERN_TILE_CM
+
+        (part,) = default_builder(record(height_cm=100.0))
+        assert part.fill_texture is True and part.tinted is False
+        mesh = part.mesh
+        top = mesh.normals[:, 2] > 0.999
+        assert top.any() and not top.all()
+        assert np.allclose(mesh.uvs[top], mesh.positions[top][:, :2] / PATTERN_TILE_CM)
+        assert not np.allclose(mesh.uvs[~top], 0.0), "the walls must sample the texture too"
+
+    def test_a_fill_part_is_vc_only_and_untinted(self) -> None:
+        """The rules ``MeshPart.__post_init__`` holds (a fill picture is a base colour
+        map: only the ``vc`` material takes one, and it already carries the colour)."""
+        with pytest.raises(ValueError, match="vc"):
+            MeshPart(prism_mesh([SQUARE], 10.0), "roof", fill_texture=True)
+        with pytest.raises(ValueError, match="not tinted"):
+            MeshPart(prism_mesh([SQUARE], 10.0), "vc", tinted=True, fill_texture=True)
+        with pytest.raises(ValueError, match="ground detail"):
+            MeshPart(prism_mesh([SQUARE], 10.0), "vc", casts_shadow=False,
+                     ground_detail=True, fill_texture=True)
 
     def test_several_rings_become_one_part(self) -> None:
         other = tuple((x + 300.0, y) for x, y in SQUARE)

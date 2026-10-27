@@ -1099,6 +1099,12 @@ class TestPolylinesAreBuiltFromTheCentreLine:
 
 
 def soil_level(parts: tuple[MeshPart, ...]) -> float:
+    for part in parts:  # a GARDEN_BED's soil shows the item's fill (#628): its colours are
+        if part.fill_texture and part.name == "soil":  # the picture's, not a palette entry
+            levels = np.unique(part.mesh.positions[:, 2])
+            assert len(levels) == 1
+            assert (part.mesh.normals[:, 2] > 0.999).all()
+            return float(levels[0])
     soil = np.asarray(palette.SOIL.linear, dtype=np.float32)
     for part in parts:
         mesh = part.mesh
@@ -1132,6 +1138,20 @@ class TestSoilRule:
         is_bed = record.kind in ("RAISED_BED", "GARDEN_BED")
         assert soil_level(parts) == float(np.float32(height - SOIL_DROP_CM if is_bed else height))
         assert float(positions(parts)[:, 2].max()) == float(np.float32(height))  # the rim
+
+    def test_a_garden_beds_soil_is_the_items_own_fill(self) -> None:
+        """#628 follow-up: the Properties panel names a garden bed's fill "Boden-
+        Substrat" and the bed's whole 2D picture is that substrate. Its 3D soil cap
+        shows that picture (``fill_texture``); a CONTAINER keeps the builder's own
+        soil colour — its fill is its body, not its soil."""
+        walls, soil = built(polygon_record("GARDEN_BED", rectangle(120.0, 80.0), 30.0))
+        assert soil.name == "soil" and soil.fill_texture and not soil.tinted
+        assert walls.name == "walls" and walls.tinted and not walls.fill_texture
+        assert np.all(soil.mesh.colors == 1.0)
+        container_walls, container_soil = built(
+            polygon_record("CONTAINER", rectangle(80.0, 40.0), 30.0))
+        assert container_walls.tinted and not container_walls.fill_texture
+        assert not container_soil.fill_texture and not container_soil.tinted
 
     def test_a_container_has_no_lip_and_no_crack_at_its_soil(self) -> None:
         """Soil flush with the top (review round 1, P2-7): the frame's top runs straight
@@ -1324,14 +1344,16 @@ PALETTE_SRGB = np.asarray([entry.srgb for entry in palette.ALL], dtype=np.float6
 @pytest.mark.parametrize("case", CASES, ids=str)
 def test_every_vertex_colour_is_a_2d_table_entry(case: Case) -> None:
     """Gate G5. A tinted part is pure white — the sink multiplies it with the item's
-    own colour. Every other vertex colour maps back (linear → sRGB, ± 1/255) to an
-    entry of ``builders/palette.py``, whose entries are pinned to their 2D sources
-    by ``test_scene3d_builders_palette.py``. No stray literal."""
+    own colour. A fill-part's colour is the item's own fill picture (``fill_texture``),
+    which comes from the canvas's textures, not from ``builders/palette.py``. Every
+    other vertex colour maps back (linear → sRGB, ± 1/255) to an entry of
+    ``builders/palette.py``, whose entries are pinned to their 2D sources by
+    ``test_scene3d_builders_palette.py``. No stray literal."""
     for part in built(case.record):
         colors = part.mesh.colors
         assert np.all(colors[:, 3] == 1.0)
-        if part.tinted:
-            assert np.all(colors == 1.0), f"{part.name}: a tinted part carries no colour of its own"
+        if part.tinted or part.fill_texture:
+            assert np.all(colors == 1.0), f"{part.name}: a tinted/fill part carries no colour"
             continue
         unique = np.unique(colors[:, :3], axis=0)
         srgb = _srgb8(unique)

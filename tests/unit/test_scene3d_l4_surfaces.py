@@ -243,6 +243,17 @@ def test_a_hostile_deck_is_bounded_by_construction(teeth: int, height: float | N
         assert names == ({"platform"} if height is not None else {"kerb"})
 
 
+@pytest.mark.parametrize("pattern", [None, "FLAGSTONE", "STONE"])
+def test_a_raised_terrace_platform_shows_its_own_fill(pattern: str | None) -> None:
+    """#628 follow-up: a terrace given a height keeps the fill the ground bake painted
+    ("platform", ``fill_texture``) instead of turning into a flat slab; a raised DECK
+    keeps its boards, which are geometry of their own."""
+    params = {"surface_pattern": pattern} if pattern is not None else {}
+    record = polygon_record("TERRACE_PATIO", rectangle(200.0, 120.0), 30.0, params=params)
+    (part,) = REGISTRY.build(record)
+    assert part.name == "platform" and part.fill_texture and not part.tinted
+
+
 @pytest.mark.parametrize("width", [0.8, 20.0])
 def test_a_deck_of_many_regions_scans_a_bounded_number_of_rows(
         width: float, monkeypatch: pytest.MonkeyPatch) -> None:

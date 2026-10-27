@@ -5986,10 +5986,28 @@ takes a raised bed and two real plants through both).
 | `FENCE` | `lines` → `fences` / `walls` | `fence`: vc — or `hedge`: foliage (hedge style), `wall`: vc (stone style) | tinted (the item's stroke) |
 | `WALL` | `lines` → `walls` / `fences` | `wall`: vc — or the fence of its style | tinted |
 | `RAISED_BED` | `beds` | `bed`: vc | baked: oak planks, soil |
-| `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND`, a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil baked |
+| `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND` | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil baked (the palette's soil) |
+| a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil = the item's own fill (`fill_texture`: its "Boden-Substrat") |
 | `HEDGE_SECTION`, `HEDGE_POLYGON` | `hedges` | `hedge`: foliage (the dark core and the leaf shell in one mesh) | baked: the hedge texture's greens |
 | `TREE`, `SHRUB`, `PERENNIAL` | `plants` (L1.7, §8.29.7 — registered by `plants.register`, not by this section's `register`) | `wood`: vc · `foliage`: foliage — or `placeholder`: vc for a plant without a height (no shadow) | baked: the recipe's palette, the 2D bark colour |
-| everything else | `build.default_builder` | one tinted prism, or nothing without a height | tinted |
+| everything else | `build.default_builder` | one `fill_texture` prism, or nothing without a height | the item's own fill |
+
+**A solid shows the fill the ground baked (#628 follow-up, ADR-037 addendum).** A lawn, path,
+terrace, driveway or generic shape is painted into the ground while it lies flat (§8.29.5); the
+moment it is given a height it becomes a solid and that painting stops, so its 3D faces carry the
+item's own fill: `MeshPart.fill_texture=True` names such a part, and the sink hands its Model
+the canvas's picture (`core.fill_patterns.tinted_pattern_pixels` — the same tinted texture the 2D
+brush uses, RGBA8, opaque, its mean the fill colour) through `vcPart`'s `baseColorMap`
+(`patternMap`). One picture per (pattern, fill colour), shared and refcounted by the sink
+(`release_fill` with the last Model), so a recolour is a material update and a removed object
+leaves nothing behind. A SOLID fill has no picture and shows its colour through the same call.
+UVs are the item's plan coordinates / 256 on a cap (the forge's 256 px at 1 px = 1 cm, pinned
+against every texture) and distance along the ring / height on the walls. Measured, Direct3D 11,
+1000 × 400 top-down, two 300 cm squares at 40 cm: GRASS reads luma std 26.0, SOLID 0.0, at the
+same mean (121.3 / 120.8). The X-ray screen door does not sample the map (a ghosted solid loses
+its texture); PF-L3D-16 holds the two engine traps — a `var` map must bind as
+`patternMap ? patternMap : null`, and a `Texture` gets its data at birth because a re-pointed one
+goes white (`ogp-3d-renderer` §5).
 
 **What a line becomes is decided in one place**, `builders/lines.py`, from its kind and its style
 (`params["path_style"]`, a `PathFenceStyle` name, absent for the plain line); `fences.py` and

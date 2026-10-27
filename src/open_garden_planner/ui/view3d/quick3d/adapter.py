@@ -71,6 +71,7 @@ from open_garden_planner.core.scene3d import (
     Transform,
     engine_buffers,
     engine_pose,
+    pattern_texture_name,
     scene_to_engine_points,
     scene_to_engine_vectors,
 )
@@ -145,6 +146,16 @@ class EngineScene(Protocol):
     def tint_part(self, handle: object, tint_rgba: Rgba) -> None:
         """Set the Model's tint (sRGB, 8 bit)."""
 
+    def set_part_fill(self, handle: object, pattern: str | None, tint_rgba: Rgba) -> None:
+        """Show the item's own fill on this Model (``MeshPart.fill_texture``):
+        ``pattern``'s texture tinted with ``tint_rgba``, or that colour alone for
+        ``None``/SOLID. The picture is cached per (pattern, colour); a recolour or
+        a pattern change is this call, never a rebuild."""
+
+    def release_fill(self, pattern: str | None, tint_rgba: Rgba) -> None:
+        """No Model shows that fill any more: let its picture go (a no-op when the
+        engine is gone or the picture was never made)."""
+
     def set_sun(self, travel: tuple[float, float, float] | None) -> None:
         """The unit vector the sunlight travels along, engine frame — or None: no sun."""
 
@@ -171,6 +182,19 @@ class _Held:
     handles: list[object | None]  # one per part; None = that part has nothing to draw
 
 
+#: A fill picture the engine holds for a fill_texture part: its pattern (None for
+#: SOLID) and the item's tint. The SAME key names the picture on both sides of
+#: ``EngineScene.set_part_fill`` / ``release_fill``.
+FillKey = tuple[str | None, Rgba]
+
+
+def _fill_key(part: MeshPart, material: Material) -> FillKey | None:
+    """The picture *part* shows for an item with *material*, or None (not a fill part)."""
+    if not part.fill_texture:
+        return None
+    return (pattern_texture_name(material.pattern), material.tint_rgba)
+
+
 class Quick3DSink:
     """An ``EngineSink`` that drives an ``EngineScene`` (module docstring)."""
 
@@ -190,6 +214,10 @@ class Quick3DSink:
         #: Ring meshes handed to the engine so far (L1.8) — counted apart from the
         #: Models' buffers: the ring follows a selected item that moves.
         self.ring_uploads = 0
+        #: One entry per fill picture the engine holds (``_fill_key`` -> Models that
+        #: show it): a picture is released with its last user, so recolouring a raised
+        #: lawn does not leave a texture per colour behind.
+        self._fills: dict[FillKey, int] = {}
 
     # ── what the sink holds (the same questions ``RecordingSink`` answers) ────
 
@@ -215,6 +243,13 @@ class Quick3DSink:
     def item(self, item_id: str) -> SinkItem:
         held = self._items[item_id]
         return SinkItem(held.parts, held.transform, held.material)
+
+    def fill_pictures(self) -> tuple[FillKey, ...]:
+        """The fill pictures the engine holds right now — one per (pattern, tint) that
+        at least one Model shows (#628 follow-up). A recolour replaces one; a remove
+        of the last user drops one. The instrument behind "no picture per colour left
+        behind"."""
+        return tuple(self._fills)
 
     def state(self) -> SinkState:
         """Comparable with ``RecordingSink.state()``: equal means the two were told the
@@ -262,6 +297,7 @@ class Quick3DSink:
             self._ground = None
             self._selection = EMPTY_SELECTION
             self._open = False
+            self._fills.clear()  # the engine's clear() let every picture go
 
     def attach(self, scene: EngineScene) -> None:
         """Point an EMPTY sink at another, EMPTY engine scene — a fresh host after the
@@ -303,7 +339,10 @@ class Quick3DSink:
 
     def remove(self, item_id: str) -> None:
         held = self._require_known("remove", item_id)
-        self._destroy(held)
+        keys = self._fill_keys(held)
+        self._destroy(held)  # the Models first: no live Model may point at a released picture
+        for key in keys:
+            self._release(key)
         del self._items[item_id]
 
     def update_transform(self, item_id: str, transform: Transform) -> None:
@@ -316,15 +355,32 @@ class Quick3DSink:
 
     def update_material(self, item_id: str, material: Material) -> None:
         held = self._require_known("update_material", item_id)
+        previous = held.material
         held.material = material
+        released: list[FillKey] = []
         for part, handle in zip(held.parts, held.handles, strict=True):
-            if handle is not None and part.tinted:
+            if handle is None:
+                continue
+            if part.tinted:
                 self._scene.tint_part(handle, part_tint(part, material))
+            if part.fill_texture:
+                old_key, new_key = _fill_key(part, previous), _fill_key(part, material)
+                if old_key != new_key:
+                    assert new_key is not None  # a fill part always has one
+                    self._scene.set_part_fill(handle, *new_key)
+                    self._acquire(new_key)
+                    if old_key is not None:
+                        released.append(old_key)
+        for key in released:  # after EVERY Model shows its new picture, not between two of them
+            self._release(key)
 
     def replace_geometry(self, item_id: str, parts: Sequence[MeshPart]) -> None:
         held = self._require_known("replace_geometry", item_id)
         checked = _checked(parts)
-        self._destroy(held)
+        keys = self._fill_keys(held)
+        self._destroy(held)  # the old Models first: no live Model may point at a freed picture
+        for key in keys:
+            self._release(key)
         held.parts = checked
         self._create(item_id, held)
 
@@ -370,8 +426,36 @@ class Quick3DSink:
                 continue
             spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow, part.name,
                             part.ground_detail)
-            held.handles.append(self._scene.create_part(spec, pose, part_tint(part, held.material)))
+            handle = self._scene.create_part(spec, pose, part_tint(part, held.material))
+            held.handles.append(handle)  # before the fill: clear() must be able to destroy it
             self.geometry_uploads += 1
+            key = _fill_key(part, held.material)
+            if key is not None:
+                self._scene.set_part_fill(handle, *key)
+                self._acquire(key)
+
+    def _fill_keys(self, held: _Held) -> list[FillKey]:
+        """The fill pictures *held*'s Models show, in part order (released after the
+        Models that show them are gone — a picture freed under a live Model is white)."""
+        keys: list[FillKey] = []
+        for part, handle in zip(held.parts, held.handles, strict=True):
+            if handle is None:
+                continue
+            key = _fill_key(part, held.material)
+            if key is not None:
+                keys.append(key)
+        return keys
+
+    def _acquire(self, key: FillKey) -> None:
+        self._fills[key] = self._fills.get(key, 0) + 1
+
+    def _release(self, key: FillKey) -> None:
+        count = self._fills.get(key, 0) - 1
+        if count > 0:
+            self._fills[key] = count
+            return
+        self._fills.pop(key, None)
+        self._scene.release_fill(*key)
 
     def _destroy(self, held: _Held) -> None:
         handles, held.handles = held.handles, []

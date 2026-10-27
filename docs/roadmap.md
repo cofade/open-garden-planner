@@ -3524,3 +3524,14 @@ the field (the whole set is pinned through the real panel, and `item_has_footpri
 pinned equal to `item_outline(...) is not None` over every placeable kind, because it
 answers the same question without building a 16 000-vertex outline). ADR-037 addendum,
 FR-SUN-02, PF-UI-29.
+
+The owner's manual pass confirmed the field and found the follow-up: every surface that got a
+height lost its texture (a 40 cm lawn became a flat green slab, a 10 cm soil bed a brown one).
+New `MeshPart.fill_texture`: such a part shows the item's own fill — the 2D pattern tinted by
+the fill colour, or that colour alone for SOLID — supplied by
+`core.fill_patterns.tinted_pattern_pixels` and cached per (pattern, colour), refcounted by the
+sink so a recolour or a removal leaves no picture behind. UVs are plan coordinates / 256 on a
+cap and distance-along-the-ring / height on the walls. A garden bed's soil cap is its
+"Boden-Substrat"; a container's soil stays the palette's. Measured on Direct3D 11, 1000 × 400
+top-down, two 300 cm squares at 40 cm: luma std 26.0 for GRASS against 0.0 for SOLID at the same
+mean (121.3 / 120.8). ADR-037 addendum, FR-3D-BUILT-09, PF-L3D-16.

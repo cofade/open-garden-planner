@@ -69,6 +69,7 @@ def _register_calls() -> None:
         "create_part": lambda host, _part: host.create_part(spec, pose, (255, 255, 255, 255)),
         "pose_part": lambda host, part: host.pose_part(part, pose),
         "tint_part": lambda host, part: host.tint_part(part, (1, 2, 3, 255)),
+        "set_part_fill": lambda host, part: host.set_part_fill(part, "GRASS", (90, 160, 60, 255)),
         "part_count": lambda host, _part: host.part_count(),
         "set_sun": lambda host, _part: host.set_sun((0.0, -1.0, 0.0)),
         "set_ground": lambda host, _part: host.set_ground(GroundPlacement((0.0, 0.0, 0.0), 10.0, 10.0)),
@@ -105,6 +106,7 @@ def _register_calls() -> None:
         "has_focus": lambda host, _part: host.has_focus(),
         # the three releases: legal on a closed host, and they do nothing there
         "destroy_part": lambda host, part: host.destroy_part(part),
+        "release_fill": lambda host, _part: host.release_fill("GRASS", (90, 160, 60, 255)),
         "clear": lambda host, _part: host.clear(),
         "close": lambda host, _part: host.close(),
     })

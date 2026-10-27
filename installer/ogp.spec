@@ -194,6 +194,7 @@ a = Analysis(
         "open_garden_planner.ui.view3d.quick3d.look",
         "open_garden_planner.ui.view3d.quick3d.materials",
         "open_garden_planner.ui.view3d.quick3d.offscreen",
+        "open_garden_planner.ui.view3d.quick3d.patterns",
         "open_garden_planner.ui.view3d.quick3d.qt_messages",
         "open_garden_planner.ui.view3d.quick3d.runlog",
         "open_garden_planner.ui.view3d.quick3d.selftest",

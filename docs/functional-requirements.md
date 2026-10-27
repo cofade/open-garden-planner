@@ -489,7 +489,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 **US-E2 — object height property** (additive `metadata["object_height_cm"]`; no `FILE_VERSION` change — old app versions preserve the key untouched):
 
-- **FR-SUN-02**: Every height-bearing object resolves an **effective above-ground height** with the precedence: explicit user-set height → container fill height (`container_height_cm`, never aliased — it keeps meaning soil fill) → assigned species' `max_height_cm` → a per-type default (fence 120 cm, wall 200, hedge 150, house 450, garage/tool shed 250, greenhouse 220, trellis 180, raised bed 40, tables 75, chairs/benches 85, lounger 80, BBQ 90, compost bin 100; every object kind has one since L4's owner passes — the full table is `DEFAULT_HEIGHTS_CM`, see FR-3D-BUILT-01) → none (object casts no shadow until it is given a height: the ground surfaces, generic shapes, annotations and a plant without species data). The properties panel shows an **"Object height:"** field for EVERY item with a footprint (the defaults-table types, containers, plants, generic shapes, and the ground-surface types - lawn, path, terrace, driveway, pond, in-ground bed - because the field is the only way to set one and may not be gated on one already existing, #628, and including species-less placeholders): it displays the resolved effective height with a tooltip naming its source ("Custom height" / "From container fill height" / "From assigned species" / "Default for this object type"); typing a value stores an explicit override, setting **0 ("Auto")** clears it back to automatic. Each edit is **one undoable step** and marks the plan dirty.
+- **FR-SUN-02**: Every height-bearing object resolves an **effective above-ground height** with the precedence: explicit user-set height → container fill height (`container_height_cm`, never aliased — it keeps meaning soil fill) → assigned species' `max_height_cm` → a per-type default (fence 120 cm, wall 200, hedge 150, house 450, garage/tool shed 250, greenhouse 220, trellis 180, raised bed 40, tables 75, chairs/benches 85, lounger 80, BBQ 90, compost bin 100; every object kind has one since L4's owner passes — the full table is `DEFAULT_HEIGHTS_CM`, see FR-3D-BUILT-01) → none (object casts no shadow until it is given a height: the ground surfaces, generic shapes, annotations and a plant without species data). The properties panel shows an **"Object height:"** field for EVERY item with a footprint (the defaults-table types, containers, plants, generic shapes, and the ground-surface types - lawn, path, terrace, driveway, pond, in-ground bed - because the field is the only way to set one and may not be gated on one already existing, #628, and including species-less placeholders): it displays the resolved effective height with a tooltip naming its source ("Custom height" / "From container fill height" / "From assigned species" / "Default for this object type"); typing a value stores an explicit override, setting **0 ("Auto")** clears it back to automatic. Each edit is **one undoable step** and marks the plan dirty. A height also makes the item a 3D solid, which shows the item's own fill on its faces — its fill pattern tinted with its fill colour, or that colour alone for SOLID (FR-3D-BUILT-09).
 
 **US-E3 — 2D analytic shadow overlay + sun date/time control** (runtime-only; nothing serialized; no `FILE_VERSION` change):
 
@@ -807,6 +807,16 @@ The built world complete (L4, #388, ADR-065).
   shows against the sky. That holds up to 380 m from the point looked at; farther
   out (the camera reaches 600 m) the haze begins at 570 m, so a camera pulled out
   to its limit sees the plan through thin haze.
+- **FR-3D-BUILT-09** (#628 follow-up, owner manual pass of #627): An item that has a
+  height is a solid, and the solid shows the item's own **fill** on its faces: its
+  fill pattern tinted with its fill colour, or that colour alone for a SOLID fill —
+  exactly the picture the ground bake painted while the item lay flat. This covers
+  the kinds a height was newly reachable for (a lawn, path, terrace, driveway,
+  generic shape, and a garden bed whose soil cap is its "Boden-Substrat", not a
+  builder's palette soil colour); a raised DECK keeps its boards instead, and a pond
+  its water. The picture is cached per (pattern, colour) and shared, so a recolour
+  is a material update and a removed object leaves no picture behind. Not shown
+  while X-ray fades an object: a faded solid is a screen door of its colour.
 
 Acceptance (L4): `tests/integration/test_l4_built_world.py` (§8.10 — the roof
 rows through the real panel, undo and a save/load; the door against the path and

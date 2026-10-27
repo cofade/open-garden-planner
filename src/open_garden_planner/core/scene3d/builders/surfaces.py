@@ -470,9 +470,14 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
     if record.height_cm is not None:  # a raised terrace: a solid, its top the height
         top = record.height_cm
         boarded = _deck(record, top, solid=True) if deck else None
-        meshes = boarded if boarded is not None else [prism_mesh(record.footprints, top, record.holes)]
-        mesh = Mesh.merge(meshes)
-        return (MeshPart(mesh, "vc", tinted=True, name="deck" if boarded is not None else "platform"),) \
+        if boarded is not None:
+            mesh = Mesh.merge(boarded)
+            return (MeshPart(mesh, "vc", tinted=True, name="deck"),) \
+                if mesh.vertex_count else ()
+        # not a deck: the platform shows the item's own fill - a raised driveway or
+        # terrace keeps the texture the ground bake painted while it lay flat (#628)
+        mesh = prism_mesh(record.footprints, top, record.holes)
+        return (MeshPart(mesh, "vc", fill_texture=True, name="platform"),) \
             if mesh.vertex_count else ()
     boarded = _deck(record, DECK_TOP_CM, solid=False) if deck else None
     if boarded is not None:

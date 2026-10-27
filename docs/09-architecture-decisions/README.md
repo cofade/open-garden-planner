@@ -1358,6 +1358,50 @@ stops being one when cleared.
 for every placeable kind. PF-UI-29 records the class ("a control that is the only way to
 set a value must not be gated on the value existing"), and FR-SUN-02 states the rule.
 
+**Follow-up — the solid keeps the fill the ground baked (owner manual pass of #627).** The
+field worked, but every surface the owner raised lost its texture: a 40 cm lawn became a flat
+green slab and a 10 cm soil bed a plain brown one, because a solid was ONE tinted prism and no
+3D solid had ever shown a fill pattern (a height on these kinds could not be set before this
+requirement). The fix is a part flag and one picture rule: `MeshPart.fill_texture` says "this
+part shows the item's own fill", and the sink supplies
+`core.fill_patterns.tinted_pattern_pixels` — the very picture the 2D brush paints (the same
+`_tint_texture`, RGBA8, opaque, its mean the fill colour) — as `vcPart`'s `baseColorMap`
+(the Model's `patternMap`). It is per (pattern, colour), shared and refcounted by the sink
+(`release_fill` with the last Model), so a recolour is a material update and leaves no texture
+behind. UVs are the item's plan coordinates / `PATTERN_TILE_CM` (256: the forge ships 256 px at
+1 px = 1 cm) on a cap, and distance along the ring / height on the walls; the fixed ruler is
+pinned against every shipped texture's size. A SOLID fill has no picture and shows its colour
+through the same `set_part_fill` call, so the two cases cannot diverge. A GARDEN_BED's soil cap
+is the item's fill too — the Properties panel calls it "Boden-Substrat" — while a raised bed's
+and a container's soil stay the builder's palette soil, and a raised deck keeps its boards.
+
+**Why a picture and not a luminance map multiplied by a tint.** The obvious smaller design — a
+greyscale detail map per pattern with the fill colour as the tint — was rejected: an 8-bit
+texture has no value above white, so every texel brighter than the pattern's mean would clip.
+For soil those bright specks are what make it read as soil (the owner's L4 pass made the same
+point about the 2D fills). The picture costs 256 KB per (pattern, colour) actually in use, and
+the sink's refcount is what keeps that bounded.
+
+**Measured** (dev box, Direct3D 11, 1000 × 400 top-down frame, two 300 cm squares at 40 cm): the
+GRASS square's top reads luma std **26.0**, the SOLID one **0.0**, at the same mean (121.3 /
+120.8) — the texture is there and the average brightness is the fill colour. The garden bed's
+soil cap renders with the frame round it and its substrate on top. Engine traps, measured:
+`baseColorMap: patternMap` logs "Unable to assign [undefined] to QQuick3DTexture*" until the
+binding is `patternMap ? patternMap : null`; and a `Texture` is made with its data at birth —
+re-pointing one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer` §5).
+
+**Pins.** `tests/unit/test_fill_patterns.py::TestThe3DFillPicture` (the picture is the canvas's:
+256 × 256 RGBA, opaque, mean = the fill; names resolve; every texture is 256 px);
+`tests/unit/test_scene3d_mesh.py` (the prism asks for the fill and carries plan UVs on its top
+and wrapped UVs on its walls; a fill part must be `vc`, untinted and not ground detail);
+`tests/unit/test_scene3d_builders.py::TestSoilRule` (a garden bed's soil is the item's fill, a
+container's is not); `tests/unit/test_scene3d_l4_surfaces.py` (a raised platform is a fill part,
+a raised deck is not); `tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill` (the picture
+reaches the engine, a recolour swaps it without an upload, one picture per key, released with
+its last user); `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`
+(the binding and the one-Texture-per-data rule). PF-L3D-16 records the traps, FR-3D-BUILT-09 and
+FR-SUN-02 state the rule, and `ogp-lush-cinematic`'s owner taste log holds the pass itself.
+
 ## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
 
 **Status**: **Superseded** by ADR-048 (2026-10-05); the code this decision chose was deleted in Phase 17 L1.10 (2026-10-19, ADR-060 addendum "the default and the removal", ADR-048's closing addendum). Was: Proposed — GO recommendation, owner sign-off pending on the US-E5 PR (evaluated 2026-07-19/20) | **Context**: Epic #255, issue #260, `docs/11` §11.1 open question ("Qt6 3D capabilities vs dedicated engine? Prototype with Qt3D, evaluate PyVista"). Timebox: 5 working days, hard stop.
