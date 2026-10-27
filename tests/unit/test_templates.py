@@ -11,6 +11,7 @@ from open_garden_planner.core.project import ProjectData
 from open_garden_planner.core.templates import (
     KEEP_PROJECT_FIELDS,
     STRIP_PROJECT_FIELDS,
+    example_copy_plan,
     template_plan,
 )
 from open_garden_planner.services.example_library import BUNDLED_EXAMPLES, bundled_examples
@@ -78,17 +79,25 @@ def test_catalog_content_is_localized_and_has_provenance(qtbot):
         for language in SUPPORTED_LANGUAGES:
             assert meta["name_" + language] and meta["description_" + language]
         plan = json.loads(entry.path.read_text(encoding="utf-8"))
-        assert template_plan(plan) == plan
+        clean = template_plan(plan)
+        assert not {"location", "soil_tests", "metadata"} & clean.keys()
+        assert clean["objects"] == plan["objects"]
+        assert example_copy_plan(plan, entry.path) == {k: v for k, v in plan.items() if k != "metadata"}
 
 
-def test_bundled_parent_links_share_a_layer_and_the_forest_covers_seven_layers(qtbot):
+def test_bundled_parent_links_and_forest_layers_follow_render_order(qtbot):
     for entry in bundled_examples():
         plan = json.loads(entry.path.read_text(encoding="utf-8"))
         objects = {obj["item_id"]: obj for obj in plan["objects"]}
+        layers = {layer["id"]: layer["z_order"] for layer in plan["layers"]}
         for obj in objects.values():
             if obj.get("parent_bed_id"):
                 bed = objects[obj["parent_bed_id"]]
-                assert obj["layer_id"] == bed["layer_id"]
+                # Same-layer parent clamps or a higher explicit layer keep
+                # plants above boxes/supports. In-ground beds are in the
+                # separate ground band, below every semantic plant layer.
+                if bed.get("metadata", {}).get("object_height_cm", 0) > 0:
+                    assert layers[obj["layer_id"]] >= layers[bed["layer_id"]]
                 assert obj["item_id"] in bed["child_item_ids"]
         if entry.path.stem == "food-forest":
             assert len({layer["permaculture_layer"] for layer in plan["layers"]}) == 7

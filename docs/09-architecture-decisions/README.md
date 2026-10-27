@@ -7695,3 +7695,27 @@ maintained raised-bed example and preview instead of constructing another schema
 children lists; custom dictionaries may contain arbitrary type values. The gallery
 reclaims the banner space and scrolls details so the minimum-size viewport holds
 a complete card. Sample emission short-circuits before exe/settings/server work.
+
+**Owner-feedback addendum, 2026-10-27.** A teaching example needs an actual sun
+study and soil workflow. `example_copy_plan` therefore retains only location and
+soil tests for known bundled paths, including locale variants authorized by their
+canonical sidecar. Coordinates describe public northern-hemisphere cities, not a
+private garden. Soil and frost dates are explicitly fictional teaching inputs.
+External templates and every template export still use the strict portable subset.
+No history exemption is added. The load path, untitled identity and Save As remain
+unchanged. Observed-failing load tests pin the demo-state exception and the
+same-filename external refusal in `test_example_demo_state.py`.
+
+All three layouts ship in English, German and Spanish, with identical object IDs
+and geometry. Display names, annotations, notes, guild labels and credits follow
+the selected language; canonical species and artwork identifiers stay stable.
+Known edible-part terms translate at the editor/search display boundary and an
+unchanged translated field preserves the exact raw list. This prevents an
+unrelated property edit from rewriting species metadata in the UI language.
+
+The 21 September 2026 teaching date is explicit in notes, never silently installed
+in SimClock. Mature perennials have historical planting dates and nursery-size
+anchors. Spacing is measured against actual plant circles and the shipped 2D bed
+sprite's soil rectangle, which is narrower than its 3D soil. Guild membership
+describes nearby plants, while missing roles remain honest diagnostics. Production
+scene rendering and real-font annotation bounds supplement structural assertions.

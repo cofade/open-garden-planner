@@ -6,7 +6,8 @@ Unknown top-level keys fail closed. ADR-066 records the portable subset.
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath, PureWindowsPath
+import json
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 KEEP_PROJECT_FIELDS = frozenset({
@@ -24,6 +25,7 @@ _SITE_KEYS = frozenset({
     "geo_metadata", "photos", "photo_paths", "image_path", "file_path", "source_path",
 })
 _REMOVED = object()
+BUNDLED_EXAMPLES = Path(__file__).resolve().parent.parent / "resources" / "examples"
 
 
 def _absolute_path(value: str) -> bool:
@@ -71,6 +73,33 @@ def template_plan(plan: dict[str, Any]) -> dict[str, Any]:
     for key, value in plan.items():
         if key in KEEP_PLAN_KEYS:
             cleaned = _objects(value) if key == "objects" else _portable(value)
+            if cleaned is not _REMOVED:
+                result[key] = cleaned
+    return result
+
+
+def example_copy_plan(plan: dict[str, Any], source: Path) -> dict[str, Any]:
+    """Keep public demonstration state only for known shipped example paths.
+
+    Export always uses template_plan. An external copy, even with the same name,
+    has the ordinary private-template policy. Locale directories are authorized
+    by the trusted canonical sidecar's translated name/description keys.
+    """
+    result = template_plan(plan)
+    resolved = source.resolve()
+    canonical = BUNDLED_EXAMPLES / resolved.name
+    if not canonical.is_file() or canonical.suffix != ".ogp":
+        return result
+    if resolved.parent != BUNDLED_EXAMPLES:
+        if resolved.parent.parent != BUNDLED_EXAMPLES:
+            return result
+        meta = json.loads(canonical.with_suffix(".meta.json").read_text(encoding="utf-8"))
+        locale = resolved.parent.name
+        if f"name_{locale}" not in meta or f"description_{locale}" not in meta:
+            return result
+    for key in ("location", "soil_tests"):
+        if key in plan:
+            cleaned = _portable(plan[key])
             if cleaned is not _REMOVED:
                 result[key] = cleaned
     return result

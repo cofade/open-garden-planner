@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="de" sourcelanguage="en">
+<TS version="2.1" language="de_DE" sourcelanguage="en">
     <context>
         <name>AddPlantingRecordDialog</name>
         <message>
@@ -1852,7 +1852,7 @@
             <translation>Frostschutz</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1601" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1598" />
             <source>functions</source>
             <translation>Pflanzenfunktionen</translation>
         </message>
@@ -1896,7 +1896,7 @@
             <translation>Pfad-/Zaunstil</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1592" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1589" />
             <source>permaculture_layer</source>
             <translation>Waldgartenschicht</translation>
         </message>
@@ -3503,6 +3503,54 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <location filename="../../core/tools/constraint_tool.py" line="2458" />
             <source>This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.</source>
             <translation>Diese Randbedingung widerspricht bestehenden Randbedingungen und kann nicht angewendet werden. Die bestehenden Randbedingungen bleiben unverändert.</translation>
+        </message>
+    </context>
+    <context>
+        <name>EdibleParts</name>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="8" />
+            <source>Bulbs</source>
+            <translation>Zwiebeln</translation>
+        </message>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="9" />
+            <source>Flowers</source>
+            <translation>Blüten</translation>
+        </message>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="10" />
+            <source>Fruit</source>
+            <translation>Früchte</translation>
+        </message>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="11" />
+            <source>Leaves</source>
+            <translation>Blätter</translation>
+        </message>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="12" />
+            <source>Pods</source>
+            <translation>Hülsen</translation>
+        </message>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="13" />
+            <source>Roots</source>
+            <translation>Wurzeln</translation>
+        </message>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="14" />
+            <source>Seeds</source>
+            <translation>Samen</translation>
+        </message>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="15" />
+            <source>Stems</source>
+            <translation>Stängel</translation>
+        </message>
+        <message>
+            <location filename="../../ui/edible_parts.py" line="16" />
+            <source>Tubers</source>
+            <translation>Knollen</translation>
         </message>
     </context>
     <context>
@@ -9674,53 +9722,53 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
     <context>
         <name>PlantDatabasePanel</name>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2071" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2068" />
             <source> (ID: {id})</source>
             <translation> (ID: {id})</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1283" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1280" />
             <source>(future)</source>
             <translation>(zukünftig)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1291" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1288" />
             <source>({days} days)</source>
             <translation>({days} Tage)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1294" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1291" />
             <source>({months} mo)</source>
             <translation>({months} Mon.)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1299" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1296" />
             <source>({years}y {remaining_months}mo)</source>
             <translation>({years}J. {remaining_months}Mon.)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1301" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1298" />
             <source>({years}y)</source>
             <translation>({years}J.)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="848" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="849" />
             <source>+ Add Field</source>
             <translation>+ Feld hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="849" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="850" />
             <source>Add a custom metadata field</source>
             <translation>Ein benutzerdefiniertes Metadatenfeld hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2226" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="379" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2223" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="380" />
             <source>Add to Favorites</source>
             <translation>Zu Favoriten hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="553" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="554" />
             <source>Annual</source>
             <translation>Einjährig</translation>
         </message>
@@ -9735,7 +9783,7 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <translation>Datenbankwerte anwenden</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="554" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="555" />
             <source>Biennial</source>
             <translation>Zweijährig</translation>
         </message>
@@ -9745,47 +9793,47 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <translation>Mitgeliefert</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1565" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1562" />
             <source>Centre</source>
             <translation>Zentrum</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1253" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1250" />
             <source>Choose dates between {min} and {max}. Removal must be after planting.</source>
             <translation>Wählen Sie Daten zwischen {min} und {max}. Das Entfernungsdatum muss nach dem Pflanzdatum liegen.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="823" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="824" />
             <source>Clear</source>
             <translation>Zurücksetzen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1407" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1404" />
             <source>Cold stratification</source>
             <translation>Kältestratifikation</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="525" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="526" />
             <source>Common Name:</source>
             <translation>Allgemeiner Name:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="425" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="426" />
             <source>Create Custom</source>
             <translation>Eigene erstellen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="426" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="427" />
             <source>Create a custom plant species entry</source>
             <translation>Einen eigenen Pflanzeneintrag erstellen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="671" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="672" />
             <source>Current Height:</source>
             <translation>Aktuelle Höhe:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="682" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="683" />
             <source>Current Spread:</source>
             <translation>Aktuelle Breite:</translation>
         </message>
@@ -9795,22 +9843,22 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <translation>Eigene Pflanze</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2306" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2303" />
             <source>Custom Species</source>
             <translation>Eigene Art</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="853" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="854" />
             <source>Custom:</source>
             <translation>Benutzerdefiniert:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="565" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="566" />
             <source>Cycle:</source>
             <translation>Lebenszyklus:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2067" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2064" />
             <source>Data Source: {source}</source>
             <translation>Datenquelle: {source}</translation>
         </message>
@@ -9838,128 +9886,128 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <translation>Daten: {source} · frei für private/kommerzielle Nutzung</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="575" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="576" />
             <source>Dioecious Female (♀ only)</source>
             <translation>Zweihäusig Weiblich (nur ♀)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="574" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="575" />
             <source>Dioecious Male (♂ only)</source>
             <translation>Zweihäusig Männlich (nur ♂)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="696" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="697" />
             <source>Edible Parts:</source>
             <translation>Essbare Teile:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="689" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="690" />
             <source>Edible:</source>
             <translation>Essbar:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="522" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="523" />
             <source>Enter common name...</source>
             <translation>Allgemeinen Namen eingeben...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="536" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="537" />
             <source>Enter plant family...</source>
             <translation>Pflanzenfamilie eingeben...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="529" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="530" />
             <source>Enter scientific name...</source>
             <translation>Wissenschaftlichen Namen eingeben...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="543" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="544" />
             <source>Enter variety or cultivar...</source>
             <translation>Sorte oder Kultivar eingeben...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="539" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="540" />
             <source>Family:</source>
             <translation>Familie:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1435" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1432" />
             <source>Field name</source>
             <translation>Feldname</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="881" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="882" />
             <source>Fixer</source>
             <translation>Sammler</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="786" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="787" />
             <source>Fixer (legume)</source>
             <translation>Sammler (Hülsenfrüchtler)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="584" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="585" />
             <source>Flower Type:</source>
             <translation>Blütentyp:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="501" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="502" />
             <source>Food-forest layer:</source>
             <translation>Waldgartenschicht:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="611" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="612" />
             <source>Full Shade</source>
             <translation>Vollschatten</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="608" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="609" />
             <source>Full Sun</source>
             <translation>Volle Sonne</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1401" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1398" />
             <source>Germination: %1 days</source>
             <translation>Keimung: %1 Tage</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="516" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="517" />
             <source>Guild:</source>
             <translation>Gilde:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="732" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="733" />
             <source>Hardiness:</source>
             <translation>Winterhärte:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="783" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="784" />
             <source>Heavy feeder</source>
             <translation>Starkzehrer</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="572" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="573" />
             <source>Hermaphrodite (perfect flowers)</source>
             <translation>Zwittrig (vollständige Blüten)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="626" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="878" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="627" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="879" />
             <source>High</source>
             <translation>Hoch</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1252" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1249" />
             <source>Invalid plant dates</source>
             <translation>Ungültige Pflanzendaten</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1565" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1562" />
             <source>Invalid role</source>
             <translation>Ungültige Rolle</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="775" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="776" />
             <source>K demand:</source>
             <translation>K-Bedarf:</translation>
         </message>
@@ -9969,92 +10017,92 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <translation>Benutzerdefinierte Werte behalten</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="785" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="786" />
             <source>Light feeder</source>
             <translation>Schwachzehrer</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="431" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="432" />
             <source>Load Custom</source>
             <translation>Eigene laden</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="432" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="433" />
             <source>Load a plant from your custom library</source>
             <translation>Eine Pflanze aus Ihrer eigenen Bibliothek laden</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="624" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="880" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="625" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="881" />
             <source>Low</source>
             <translation>Niedrig</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="649" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="650" />
             <source>Max Height:</source>
             <translation>Max. Höhe:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="660" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="661" />
             <source>Max Spread:</source>
             <translation>Max. Breite:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="719" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="753" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="720" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="754" />
             <source>Max:</source>
             <translation>Max.:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="625" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="879" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="626" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="880" />
             <source>Medium</source>
             <translation>Mittel</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="784" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="785" />
             <source>Medium feeder</source>
             <translation>Mittelzehrer</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="705" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="740" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="706" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="741" />
             <source>Min:</source>
             <translation>Min.:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="573" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="574" />
             <source>Monoecious (separate ♂/♀ flowers)</source>
             <translation>Einhäusig (getrennte ♂/♀ Blüten)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2307" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2304" />
             <source>My Custom Plant</source>
             <translation>Meine eigene Pflanze</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="771" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="772" />
             <source>N demand:</source>
             <translation>N-Bedarf:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2269" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2266" />
             <source>No Custom Plants</source>
             <translation>Keine eigenen Pflanzen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2257" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="2299" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2254" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2296" />
             <source>No Plant Selected</source>
             <translation>Keine Pflanze ausgewählt</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1576" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1573" />
             <source>No guild</source>
             <translation>Keine Gilde</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1824" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1821" />
             <source>No species data.
 
 Click 'Search' to find species online,
@@ -10065,73 +10113,73 @@ Klicken Sie auf 'Suchen', um Arten online zu finden,
 oder 'Eigene erstellen', um Ihre eigene zu definieren.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="818" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="819" />
             <source>Not removed</source>
             <translation>Nicht entfernt</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="833" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="834" />
             <source>Notes about this plant...</source>
             <translation>Notizen zu dieser Pflanze...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="837" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="838" />
             <source>Notes:</source>
             <translation>Notizen:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1404" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1401" />
             <source>Opt. temp: %1°C</source>
             <translation>Opt. Temp.: %1°C</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="791" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="792" />
             <source>Overall demand:</source>
             <translation>Gesamt-Bedarf:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="773" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="774" />
             <source>P demand:</source>
             <translation>P-Bedarf:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="610" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="611" />
             <source>Partial Shade</source>
             <translation>Halbschatten</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="609" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="610" />
             <source>Partial Sun</source>
             <translation>Teilsonne</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="590" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="591" />
             <source>Partially self-fertile</source>
             <translation>Teilweise selbstfruchtbar</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="555" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="556" />
             <source>Perennial</source>
             <translation>Mehrjährig</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="813" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="814" />
             <source>Planted:</source>
             <translation>Gepflanzt:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2258" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="2300" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2255" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2297" />
             <source>Please select a plant object (tree, shrub, or perennial) first.</source>
             <translation>Bitte wählen Sie zuerst ein Pflanzenobjekt (Baum, Strauch oder Staude) aus.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="601" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="602" />
             <source>Pollination:</source>
             <translation>Bestäubung:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="511" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="512" />
             <source>Recorded functions:</source>
             <translation>Erfasste Funktionen:</translation>
         </message>
@@ -10140,63 +10188,63 @@ oder 'Eigene erstellen', um Ihre eigene zu definieren.</translation>
             <translation type="vanished">Das Entfernungsdatum muss nach dem Pflanzdatum liegen.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2226" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2223" />
             <source>Remove from Favorites</source>
             <translation>Aus Favoriten entfernen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1451" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1448" />
             <source>Remove this field</source>
             <translation>Dieses Feld entfernen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="827" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="828" />
             <source>Removed on:</source>
             <translation>Entfernt am:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="532" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="533" />
             <source>Scientific Name:</source>
             <translation>Wissenschaftlicher Name:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="420" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="421" />
             <source>Search</source>
             <translation>Suchen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="421" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="422" />
             <source>Search for plant species in online databases</source>
             <translation>Pflanzenarten in Online-Datenbanken suchen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="871" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="872" />
             <source>Seed Packet:</source>
             <translation>Saatgutpaket:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2282" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2279" />
             <source>Select Custom Plant</source>
             <translation>Eigene Pflanze auswählen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1774" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="453" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1771" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="454" />
             <source>Select a plant to view details</source>
             <translation>Wählen Sie eine Pflanze, um Details anzuzeigen</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="589" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="590" />
             <source>Self-fertile (no partner needed)</source>
             <translation>Selbstfruchtbar (kein Partner nötig)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="591" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="592" />
             <source>Self-sterile (needs partner)</source>
             <translation>Selbststeril (braucht Partner)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="619" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="620" />
             <source>Sun:</source>
             <translation>Sonne:</translation>
         </message>
@@ -10206,7 +10254,7 @@ oder 'Eigene erstellen', um Ihre eigene zu definieren.</translation>
             <translation>Diese Pflanze hat benutzerdefinierte Werte, die von der Datenbank abweichen. Datenbankwerte anwenden?</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="592" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="593" />
             <source>Triploid (sterile pollen)</source>
             <translation>Triploid (steriler Pollen)</translation>
         </message>
@@ -10216,22 +10264,22 @@ oder 'Eigene erstellen', um Ihre eigene zu definieren.</translation>
             <translation>Unbekannte Quelle</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1443" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1440" />
             <source>Value</source>
             <translation>Wert</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="546" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="547" />
             <source>Variety:</source>
             <translation>Sorte:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="634" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="635" />
             <source>Water:</source>
             <translation>Wasser:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="2270" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="2267" />
             <source>Your custom plant library is empty.
 
 Use 'Create Custom' to add plants, or use the Plants menu to manage your custom plant library.</source>
@@ -10240,41 +10288,41 @@ Use 'Create Custom' to add plants, or use the Plants menu to manage your custom 
 Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-Menü, um Ihre eigene Pflanzenbibliothek zu verwalten.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="693" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="694" />
             <source>e.g., fruit, leaves, roots...</source>
             <translation>z.B. Früchte, Blätter, Wurzeln...</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="766" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="767" />
             <source>pH range:</source>
             <translation>pH-Bereich:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1574" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1571" />
             <source>{name} — {role}</source>
             <translation>{name} — {role}</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="559" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="577" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="594" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="613" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="628" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="646" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="657" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="668" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="679" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="712" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="726" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="745" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="758" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="782" />
-            <location filename="../../ui/panels/plant_database_panel.py" line="877" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="560" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="578" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="595" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="614" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="629" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="647" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="658" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="669" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="680" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="713" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="727" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="746" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="759" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="783" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="878" />
             <source>—</source>
             <translation>—</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/plant_database_panel.py" line="1353" />
+            <location filename="../../ui/panels/plant_database_panel.py" line="1350" />
             <source>— No packet linked —</source>
             <translation>— Kein Paket verknüpft —</translation>
         </message>
@@ -10502,38 +10550,38 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
     <context>
         <name>PlantSearchDialog</name>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="238" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="240" />
             <source>({sources} unavailable — check Preferences.)</source>
             <translation>({sources} nicht erreichbar — Einstellungen prüfen.)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="150" />
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="341" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="152" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="343" />
             <source>Add to Favorites</source>
             <translation>Zu Favoriten hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="390" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="392" />
             <source>Annual</source>
             <translation>Einjährig</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="435" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="437" />
             <source>Attributes</source>
             <translation>Eigenschaften</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="391" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="393" />
             <source>Biennial</source>
             <translation>Zweijährig</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="380" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="382" />
             <source>Botanical Classification</source>
             <translation>Botanische Klassifikation</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="659" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="661" />
             <source>Could not load full details for {name} from {source}. The plant will be added with basic information only (sun, water, pH, and foliage data may be missing).</source>
             <translation>Es konnten keine vollständigen Details für {name} von {source} geladen werden. Die Pflanze wird nur mit grundlegenden Informationen hinzugefügt (Sonne, Wasser, pH-Wert und Laubdaten könnten fehlen).</translation>
         </message>
@@ -10542,27 +10590,27 @@ Verwenden Sie 'Eigene erstellen', um Pflanzen hinzuzufügen, oder das Pflanzen-M
             <translation type="vanished">Eigene</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="408" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="410" />
             <source>Cycle:</source>
             <translation>Lebenszyklus:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="437" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="439" />
             <source>Edible:</source>
             <translation>Essbar:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="120" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="122" />
             <source>Enter a plant name to search</source>
             <translation>Geben Sie einen Pflanzennamen zum Suchen ein</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="99" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="101" />
             <source>Enter plant common or scientific name...</source>
             <translation>Geben Sie den allgemeinen oder wissenschaftlichen Pflanzennamen ein...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="243" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="245" />
             <source>Failed to search plant database:
 {error}
 
@@ -10573,107 +10621,107 @@ Please check your internet connection and API credentials.</source>
 Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="382" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="384" />
             <source>Family:</source>
             <translation>Familie:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="442" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="444" />
             <source>Flowering:</source>
             <translation>Blüte:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="277" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="279" />
             <source>Found {count} results</source>
             <translation>{count} Ergebnisse gefunden</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="399" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="401" />
             <source>Full Shade</source>
             <translation>Vollschatten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="396" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="398" />
             <source>Full Sun</source>
             <translation>Volle Sonne</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="384" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="386" />
             <source>Genus:</source>
             <translation>Gattung:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="407" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="409" />
             <source>Growing Requirements</source>
             <translation>Wachstumsanforderungen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="415" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="417" />
             <source>Hardiness Zone:</source>
             <translation>Winterhärtezone:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="413" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="415" />
             <source>Hardiness Zones:</source>
             <translation>Winterhärtezonen:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="405" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="407" />
             <source>High</source>
             <translation>Hoch</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="658" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="660" />
             <source>Limited Plant Data</source>
             <translation>Eingeschränkte Pflanzendaten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="493" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="495" />
             <source>Loading species details…</source>
             <translation>Artinformationen werden geladen…</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="403" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="405" />
             <source>Low</source>
             <translation>Niedrig</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="427" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="429" />
             <source>Max Height:</source>
             <translation>Max. Höhe:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="430" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="432" />
             <source>Max Spread:</source>
             <translation>Max. Breite:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="404" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="406" />
             <source>Medium</source>
             <translation>Mittel</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="482" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="484" />
             <source>No Selection</source>
             <translation>Keine Auswahl</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="279" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="281" />
             <source>No matches with these filters.</source>
             <translation>Keine Treffer mit diesen Filtern.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="281" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="283" />
             <source>No matches.</source>
             <translation>Keine Treffer.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="209" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="211" />
             <source>No plant databases are configured. Add API credentials in Preferences to search online.</source>
             <translation>Keine Pflanzendatenbanken konfiguriert. Für die Online-Suche API-Zugangsdaten in den Einstellungen ergänzen.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="235" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="237" />
             <source>No plants matched '{query}'. Try another spelling or the scientific name.</source>
             <translation>Keine Pflanzen passen zu '{query}'. Versuchen Sie eine andere Schreibweise oder den wissenschaftlichen Namen.</translation>
         </message>
@@ -10682,104 +10730,104 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
             <translation type="vanished">Keine Ergebnisse gefunden</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="398" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="400" />
             <source>Partial Shade</source>
             <translation>Halbschatten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="397" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="399" />
             <source>Partial Sun</source>
             <translation>Teilsonne</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="392" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="394" />
             <source>Perennial</source>
             <translation>Mehrjährig</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="140" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="142" />
             <source>Plant Details:</source>
             <translation>Pflanzendetails:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="483" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="485" />
             <source>Please select a plant from the search results.</source>
             <translation>Bitte wählen Sie eine Pflanze aus den Suchergebnissen.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="341" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="343" />
             <source>Remove from Favorites</source>
             <translation>Aus Favoriten entfernen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="129" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="131" />
             <source>Results:</source>
             <translation>Ergebnisse:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="103" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="105" />
             <source>Search</source>
             <translation>Suchen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="243" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="245" />
             <source>Search Failed</source>
             <translation>Suche fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="79" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="81" />
             <source>Search Plant Species</source>
             <translation>Pflanzenarten suchen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="241" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="243" />
             <source>Search failed: {error}</source>
             <translation>Suche fehlgeschlagen: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="110" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="112" />
             <source>Search online</source>
             <translation>Online suchen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="97" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="99" />
             <source>Search:</source>
             <translation>Suche:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="212" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="214" />
             <source>Searching for '{query}'...</source>
             <translation>Suche nach '{query}'...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="160" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="162" />
             <source>Select a plant to view details</source>
             <translation>Wählen Sie eine Pflanze, um Details anzuzeigen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="424" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="426" />
             <source>Size</source>
             <translation>Größe</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="418" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="420" />
             <source>Soil:</source>
             <translation>Boden:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="450" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="452" />
             <source>Source: {source}</source>
             <translation>Quelle: {source}</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="409" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="411" />
             <source>Sun:</source>
             <translation>Sonne:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="389" />
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="395" />
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="402" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="391" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="397" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="404" />
             <source>Unknown</source>
             <translation>Unbekannt</translation>
         </message>
@@ -10788,18 +10836,18 @@ Bitte überprüfen Sie Ihre Internetverbindung und API-Zugangsdaten.</translatio
             <translation type="vanished">Unbekannte Quelle</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="410" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="412" />
             <source>Water:</source>
             <translation>Wasser:</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="437" />
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="442" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="439" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="444" />
             <source>Yes</source>
             <translation>Ja</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/plant_search_dialog.py" line="295" />
+            <location filename="../../ui/dialogs/plant_search_dialog.py" line="297" />
             <source>{name} ({scientific}) — {source}</source>
             <translation>{name} ({scientific}) — {source}</translation>
         </message>

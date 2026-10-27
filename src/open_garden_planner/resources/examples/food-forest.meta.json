@@ -2,14 +2,17 @@
   "name_en": "Food forest - 200 m²",
   "name_de": "Waldgarten - 200 m²",
   "name_es": "Bosque comestible - 200 m²",
-  "description_en": "Seven layers, an apple guild and planting/removal dates from 2026 to 2036. Illustrative layout; adapt species and spacing to your site.",
-  "description_de": "Sieben Schichten, eine Apfelbaumgilde und Pflanz-/Entnahmedaten von 2026 bis 2036. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
-  "description_es": "Siete estratos, un gremio de manzano y fechas de plantación/retirada de 2026 a 2036. Diseño ilustrativo; adapte especies y distancias al lugar.",
+  "description_en": "Established trees, a grouped apple guild, accessible mulched beds and a sunny edible edge. Set Plan & Sun to 21 September 2026; Bonn reference coordinates and fictional frost dates. Illustrative layout; adapt species and spacing to your site.",
+  "description_de": "Alte Bäume, eine Apfelgilde in Pflanzgruppen, gemulchte Beete mit Erntewegen und ein sonniger essbarer Saum. Plan & Sonne auf den 21. September 2026 stellen; Referenzkoordinaten Bonn und fiktive Frostdaten. Beispielentwurf; Arten und Abstände an den Standort anpassen.",
+  "description_es": "Árboles establecidos, un gremio de manzano en grupos y bancales acolchados con acceso. Ajuste Plan y sol al 21 de septiembre de 2026; coordenadas de referencia de Bonn y heladas ficticias. Diseño ilustrativo; adapte especies y distancias al lugar.",
   "tags": [
     "food-forest",
     "guild",
     "timeline"
   ],
   "license": "CC-BY-SA-4.0",
-  "attribution": "Open Garden Planner contributors; species data from the bundled CC-BY-SA-4.0 database; see PROVENANCE.md."
+  "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
+  "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
+  "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
+  "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md."
 }

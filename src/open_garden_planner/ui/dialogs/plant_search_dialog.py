@@ -3,6 +3,7 @@
 import logging
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import MISSING, fields, replace
+from html import escape
 from typing import Any
 
 from PyQt6.QtCore import Qt, QTimer
@@ -28,6 +29,7 @@ from open_garden_planner.services.plant_api import (
     PlantAPIManager,
     PlantDetailUnavailableError,
 )
+from open_garden_planner.ui.edible_parts import display_edible_parts
 from open_garden_planner.ui.plant_species_assignment import plant_source_label
 from open_garden_planner.ui.theme import set_text_role, theme_color
 
@@ -436,7 +438,7 @@ class PlantSearchDialog(QDialog):
             if plant.edible:
                 html += f"<li><b>{self.tr('Edible:')}</b> {self.tr('Yes')}"
                 if plant.edible_parts:
-                    html += f" ({', '.join(plant.edible_parts)})"
+                    html += f" ({escape(display_edible_parts(plant.edible_parts))})"
                 html += "</li>"
             if plant.flowering:
                 html += f"<li><b>{self.tr('Flowering:')}</b> {self.tr('Yes')}"

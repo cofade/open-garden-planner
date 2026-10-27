@@ -774,6 +774,9 @@ complete the evidence.
 - **FR-EXAMPLE-02**: Opening an example or any `.ogp` through New from template
   creates an untitled, dirty copy through the normal document loader. Saving asks
   for a destination; bundled bytes and modification times stay unchanged.
+  Known bundled examples retain their public demonstration location and fictional
+  soil tests; external templates use the portable subset. English, German and
+  Spanish examples include localized object names, notes and tutorial annotations.
 - **FR-EXAMPLE-03**: Save as template explains and removes site, history, task,
   inventory, preference and image data plus absolute paths. Geometry, species,
   layers, guilds, constraints, smart symbols and succession dates stay portable.
@@ -782,5 +785,8 @@ complete the evidence.
   dirty state intact; it refuses to overwrite the live project or bundled examples.
 - **FR-EXAMPLE-05**: `garden://examples` lists bundled names, tags, descriptions,
   paths and licenses read-only. Opening remains a GUI action. No online gallery.
+- **FR-EXAMPLE-06**: Learning layouts use plausible planting densities and ages,
+  group guild plants in cultivated soil, keep raised-bed plants inside the drawn
+  soil, and explain a dated sun/soil/guild workflow with editable plan annotations.
 
 ADR-066 and `tests/integration/test_templates_gallery.py` own the behavior.

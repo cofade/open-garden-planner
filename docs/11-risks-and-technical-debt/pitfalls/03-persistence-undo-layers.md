@@ -181,8 +181,8 @@ Held in [§8: 8.7 Error Handling](../../08-crosscutting-concepts/README.md#87-er
 
 ### PF-PER-19
 
-- **Rule:** Authored examples use creation commands and keep bed/child layers aligned.
-- **Pinned by:** `tests/unit/test_templates.py::test_bundled_parent_links_share_a_layer_and_the_forest_covers_seven_layers`
+- **Rule:** Authored examples use creation commands and draw plants above raised parents.
+- **Pinned by:** `tests/unit/test_templates.py::test_bundled_parent_links_and_forest_layers_follow_render_order`
 - **Source:** #316, ADR-066
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -194,3 +194,5 @@ raise those plants. Assign the active layer to authored rectangles and use
 CreateItemsCommand for plants, which also maintains the parent's child list.
 Real rendering caught what successful JSON loading did not. Box glyphs in the
 first preview separately required the existing `minimal:enable_fonts` recipe.
+Ground-level forest beds may span semantic layers. Raised parents need plants on
+the same or a higher layer; reciprocal parent/child IDs alone do not ensure this.

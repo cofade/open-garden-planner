@@ -42,7 +42,11 @@ def test_welcome_opens_untitled_copy_and_save_as_leaves_bundle_unchanged(window,
     assert manager.current_file is None and manager.is_dirty
     assert window.canvas_view.command_manager._undo_stack == []
     assert get_settings().recent_files == recent
-    assert manager.location is None
+    original = json.loads(source)
+    assert manager.location == original["location"]
+    assert window._sun_toolbar._location_available
+    assert window._sun_toolbar._location_button.isHidden()
+    assert manager.snapshot_dict(window.canvas_scene).get("soil_tests", {}) == original.get("soil_tests", {})
     assert manager.snapshot_dict(window.canvas_scene)["objects"]
     original_count = len(manager.snapshot_dict(window.canvas_scene)["objects"])
     plant = next(item for item in window.canvas_scene.items()

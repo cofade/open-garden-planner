@@ -815,3 +815,7 @@ A failed preparation preserves the previous scene, history and autosave. Exporti
 a template flushes pending editors, snapshots without journal mutation, filters and
 atomically writes a separate file. It leaves the current file and dirty state intact.
 The public catalog resource reads only bundled sidecars and never opens a document.
+The catalog selects a shipped language-specific plan when available. Before normal
+preparation, `example_copy_plan` retains public location and fictional soil records
+only for known bundled paths; an external copy receives the ordinary portable
+filter. Neither opening a demonstration nor exporting a template changes SimClock.

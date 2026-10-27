@@ -243,7 +243,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 
 ## Where to Pick Up After Restart
 
-- **F5 examples/templates (#316) + dogfood fixture retirement (#379) are implemented for owner review, not shipped.** Three curated offline examples, one portable-template filter and one existing document-load path; read-only `garden://examples`. ADR-066 and FR-EXAMPLE own the contracts. Succession stores calendar dates, which are retained. `test_templates_gallery.py` covers copy/edit/history/save, privacy, refusal and real transport. Keep the PR draft until owner executable acceptance.
+- **F5 examples/templates (#316) + dogfood fixture retirement (#379) are implemented for owner review, not shipped.** Three curated offline examples, one portable-template filter and one existing document-load path; read-only `garden://examples`. ADR-066 and FR-EXAMPLE own the contracts. Succession stores calendar dates, which are retained. `test_templates_gallery.py` covers copy/edit/history/save, privacy, refusal and real transport. Keep the PR draft until owner executable acceptance. Owner-feedback revision adds localized tutorial layouts, credible planting density/ages and public sun/soil demonstration state; external/exported templates retain the strict privacy filter.
 
 - **#601 CI latency work is owner-approved as a chore (PR #606, 2026-10-26); no release.** Coverage keeps
   full branch data and unchanged floors, using two stable test-ID partitions plus

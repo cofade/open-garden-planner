@@ -3375,14 +3375,23 @@ the change is limited to CI/tests/documentation. No release or version sync is n
 
 ### F5 examples and templates implementation (#316, #379; owner acceptance pending)
 
-Three offline CC-BY-SA-4.0 examples cover a seven-layer food forest with an apple
-guild and a ten-year lifetime, a 4 x 2 m raised-bed polyculture with 2027 succession,
-and linked balcony herb containers. Welcome and File share a thumbnail gallery;
+Three offline CC-BY-SA-4.0 examples cover an established seven-layer food forest
+with a local apple guild, a densely planted 4 x 2 m raised bed with 2027 succession,
+and a furnished, enclosed balcony with grouped herb containers. Welcome and File share a thumbnail gallery;
 local templates appear from app data. Template copies are untitled/dirty, export
 filters named site/history fields and absolute paths, and `garden://examples`
 is read-only. The dogfood sample now copies the maintained raised-bed content.
 
 The issue's frost-relative claim was stale: succession stores calendar dates.
 No rebasing is added; example descriptions identify illustrative dates. ADR-066,
-FR-EXAMPLE-01 through 05, and `test_templates_gallery.py` record the contracts.
+FR-EXAMPLE-01 through 06, and `test_templates_gallery.py` record the contracts.
 The work stays a draft until owner executable acceptance; nothing is marked shipped.
+
+Owner-feedback revision (27 October): all layouts have English/German/Spanish
+plan content, editable tutorial notes and public city coordinates for solar study.
+Known bundled copies retain fictional soil samples; exported and external
+templates still strip site/history data. The main bed holds 164 vegetables wholly
+inside the sprite soil. The 114-plant forest uses historical perennial dates,
+nursery anchors, cultivated understory and nearby guild membership. The balcony
+has 14 herbs, chairs, rails, a wall and a parasol. Reference dates are explicit
+teaching choices; opening does not move the shared simulation clock.

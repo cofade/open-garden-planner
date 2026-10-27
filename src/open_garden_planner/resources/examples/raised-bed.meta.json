@@ -2,14 +2,17 @@
   "name_en": "Raised-bed polyculture - 4 x 2 m",
   "name_de": "Hochbeet-Mischkultur - 4 x 2 m",
   "name_es": "Policultivo en bancal elevado - 4 x 2 m",
-  "description_en": "Carrots, lettuce and radishes with a 2027 succession plan. Dates are illustrative calendar dates, not a local frost forecast.",
-  "description_de": "Möhren, Salat und Radieschen mit einem Nachfolgeplan für 2027. Die Beispieldaten sind Kalenderdaten, keine lokale Frostprognose.",
-  "description_es": "Zanahorias, lechugas y rábanos con un plan de sucesión para 2027. Las fechas son ejemplos de calendario, no una previsión local de heladas.",
+  "description_en": "164 crops in a 4 x 2 m bed: 16 lettuces, 60 carrots and 88 radishes. Autumn planting, a 2027 succession and fictional soil sample. Set Plan & Sun to 21 September 2026; Berlin reference. Dates are illustrative calendar dates, not a local frost forecast.",
+  "description_de": "164 Pflanzen im 4 x 2 m Beet: 16 Salate, 60 Möhren und 88 Radieschen. Herbstpflanzung, Nachfolgeplan 2027 und fiktive Bodenprobe. Plan & Sonne: 21. September 2026; Referenz Berlin. Die Beispieldaten sind Kalenderdaten, keine lokale Frostprognose.",
+  "description_es": "164 plantas en un bancal de 4 x 2 m: 16 lechugas, 60 zanahorias y 88 rábanos. Sucesión de 2027 y muestra ficticia de suelo. Plan y sol: 21 de septiembre de 2026; referencia Berlín. Las fechas son ejemplos de calendario, no una previsión local de heladas.",
   "tags": [
     "raised-bed",
     "polyculture",
     "succession"
   ],
   "license": "CC-BY-SA-4.0",
-  "attribution": "Open Garden Planner contributors; species data from the bundled CC-BY-SA-4.0 database; see PROVENANCE.md."
+  "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
+  "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
+  "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
+  "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md."
 }

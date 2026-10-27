@@ -1099,9 +1099,9 @@ class ProjectManager(QObject):
                 )
 
             if as_template:
-                from open_garden_planner.core.templates import template_plan
+                from open_garden_planner.core.templates import example_copy_plan
 
-                raw_data = template_plan(raw_data)
+                raw_data = example_copy_plan(raw_data, file_path)
             data = ProjectData.from_dict(raw_data)
             prep = self._prepare_scene_data(data)
 
