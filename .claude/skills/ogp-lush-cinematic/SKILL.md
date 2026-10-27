@@ -335,3 +335,21 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
   troughs and believable furniture/enclosure. All examples need localized tutorial
   annotations, a northern location for solar study and useful soil demonstrations.
   These are content requirements, independent of L4's built-world mesh work.
+
+
+### L4 hardening follow-up (#604, #618, #624)
+
+Judge lawn blades against a blade-free frame of the **same High look** before
+comparing presets: Low/High also differ in AO, lighting and shadow filtering.
+The lawn-only upward normal fold leaves plant grass unchanged. Measured sunlit
+walk ROI: mean175.236 with blades /175.387 without, added dark share0.692
+percentage points (original blades added about7.38). Do not compensate for a
+preset's own lighting difference by brightening lawn albedo.
+
+The meadow spans20km in100m cells with a16km far plane; perspective shadows
+follow reach to allfour plan corners plus10m, capped by fog reach with a90m
+floor. The board's distant horizon rows span67/202/403/600m at default/15degree
+pitch; outer18% bands are separate, adjacent-rowstep<=3luma, two-row/full/border
+steps retained as diagnostics. The two viewport-border rows lack the full
+postprocessing neighborhood and are excluded explicitly from the valid-row gate.
+Use `--far-plan` for bench_large shadow-on/off pairs at2x/4x framing.

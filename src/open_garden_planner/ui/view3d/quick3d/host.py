@@ -741,6 +741,21 @@ class Quick3DHost:
             geometry.load(buffers)
         self._meadow_plan = plan
         self.meadow_loads += 1
+        self._update_shadow_reach()
+
+    _camera_scene: PerspectiveShot | None = None
+
+    def _update_shadow_reach(self) -> None:
+        shot, plan = self._camera_scene, self._meadow_plan
+        if shot is None:
+            return
+        near, far = fog_depth_cm(math.dist(shot.eye, shot.target))
+        reach = 9000.0
+        if isinstance(plan, tuple):
+            x0, y0, x1, y1 = plan
+            reach = max(math.dist(shot.eye, (x, y, 0.0))
+                        for x in (x0, x1) for y in (y0, y1)) + 1000.0
+        _set(self._root, "shadowFar", max(9000.0, near, min(reach, far)))
 
     # ── the selection ring (L1.8, ADR-060) ───────────────────────────────────
 
@@ -1132,6 +1147,7 @@ class Quick3DHost:
         """Perspective: the eye and the point it looks at, scene frame (E, N, up)."""
         self._open("set_camera")
         shot = PerspectiveShot(eye_scene, target_scene, fov_deg)  # validates
+        self._camera_scene = shot
         _set(self._root, "topDown", False)
         fog_near, fog_far = fog_depth_cm(math.dist(shot.eye, shot.target))
         _set(self._root, "fogNear", fog_near)
@@ -1140,6 +1156,7 @@ class Quick3DHost:
         _set(self._root, "camTarget", _engine_vector(shot.target))
         _set(self._root, "camFov", float(shot.fov_deg))
         _set(self._root, "camVersion", int(_get(self._root, "camVersion")) + 1)
+        self._update_shadow_reach()
 
     def set_top_down(self, center_scene: tuple[float, float], px_per_cm: float) -> None:
         """Orthographic, straight down, north up: the truth view (``shots.TopDownShot``)."""

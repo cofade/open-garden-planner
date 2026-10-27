@@ -59,6 +59,10 @@ from tests.integration.quick3d_render_driver import (  # noqa: E402
     _isolate_settings,
     _pump,
 )
+from tests.integration.workspace_render_state import (  # noqa: E402
+    save_held_oracle,
+    workspace_settled,
+)
 
 PLANS = REPO / "tests" / "fixtures" / "plans"
 JUNE = date(2026, 6, 21)
@@ -222,7 +226,7 @@ def look_records() -> dict[str, Record]:
 # ── the real workspace on the real engine (gates G2 and G7, one row each) ────
 
 WORKSPACE_WINDOW = (1400, 820)
-WORKSPACE_CLICKS = 60
+WORKSPACE_CLICKS = 80
 WORKSPACE_SEED = 385_208
 WALK_HOLD_MS = 700
 
@@ -522,14 +526,18 @@ def scenario_workspace(ctx: Context) -> dict[str, Any]:
         scene.clearSelection()
         workspace.set_mode(WorkspaceMode.SPLIT)
         if not _spin_until(lambda: workspace.host is not None and workspace.controller is not None, 30.0):
-            raise RuntimeError(f"the workspace did not start its engine: {workspace.state}")
+            raise RuntimeError(f"the workspace did not start its engine: {workspace.view3d_state}")
         host, controller = workspace.host, workspace.controller
         assert host is not None and controller is not None
+        # A paused nonzero shader clock still displaces leaves. The CPU ray oracle
+        # judges admitted mesh positions, so these still-picture tests require rest.
+        workspace._look.set_reduced_motion(True)
+        host.rest_wind()
         if not host.wait_ready(OPEN_TIMEOUT_S):
             raise RuntimeError(f"the workspace's host is not live: {host.state.value}")
         _spin_until(lambda: controller.apply_count >= 1 and not controller.dirty, 30.0)
         _spin_until(lambda: not workspace.camera.moving, 10.0)
-        _pump(250)
+        assert _spin_until(lambda: workspace_settled(workspace), 60.0), "forge/LOD did not settle"
         quick_view = host._view  # noqa: SLF001 - the native window a user clicks in
         records = dict(controller.sync.records)
         pose = workspace.camera.pose
@@ -547,6 +555,8 @@ def scenario_workspace(ctx: Context) -> dict[str, Any]:
                     not item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
                     for item in on_canvas)},
         })
+        out["held_triangles"] = save_held_oracle(workspace, ctx.out / "workspace_oracle.npz")
+        out["oracle_file"] = "workspace_oracle.npz"
 
         def click(x: int, y: int, modifiers: Any = plain) -> list[str]:
             QTest.mouseClick(quick_view, left, modifiers, QPoint(x, y))
@@ -701,6 +711,7 @@ def scenario_workspace(ctx: Context) -> dict[str, Any]:
         scene.clearSelection()
         _spin_until(lambda: controller.sync.selection.ids == (), 5.0)
         _pump(80)
+        assert _spin_until(lambda: workspace_settled(workspace), 60.0)
         orbit = workspace.camera.pose
 
         def books() -> dict[str, Any]:
@@ -742,6 +753,7 @@ def scenario_workspace(ctx: Context) -> dict[str, Any]:
         walk_out["looked"] = {"yaw": walker.state.yaw_deg, "shown": list(walker.state.shown),
                               "selected": selected(), "camera": _camera_facts(host)}
         QTest.keyClick(quick_view, Qt.Key.Key_Escape)
+        assert _spin_until(lambda: workspace_settled(workspace), 60.0)
         _pump(100)
         walk_out["left"] = {
             "walking": workspace.walking, "action_checked": workspace.walk_action.isChecked(),
@@ -832,8 +844,8 @@ def scenario_app_walk(_ctx: Context) -> dict[str, Any]:
     GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
 
     window = GardenPlannerApp()
-    window.resize(1500, 900)
-    window.show()
+    # Use the desktop's work area; a fixed 1500x900 exceeds a scaled 1280x720 screen.
+    window.showMaximized()
     _pump(300)
     out: dict[str, Any] = {}
     try:

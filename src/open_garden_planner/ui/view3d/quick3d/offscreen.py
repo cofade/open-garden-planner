@@ -268,6 +268,10 @@ def render_records(
             mark = time.perf_counter()
             sink = Quick3DSink(host)
             sync = SceneSync(sink, registry, ground_baker=ground_baker)
+            if not look.preset.lawn_blades:
+                from open_garden_planner.core.scene3d.context import without_lawn_blades
+
+                records = without_lawn_blades(records)
             sync.select(selected)  # the ring rides the same transaction (L1.8)
             sync.apply(records, sun=sun, ground=ground)  # one transaction
             while sync.ground_pending:  # a baker with a time budget: a still picture

@@ -62,6 +62,52 @@ from tests.unit.scene3d_builder_cases import (
 )
 
 REGISTRY = production_registry()
+
+
+@pytest.mark.parametrize("size_cm", [0.1, 0.5, 1.0, 2.0, 3.0])
+@pytest.mark.parametrize("height_cm", [0.1, 0.5, 1.0, 30.0])
+def test_tiny_raised_ponds_are_valid_prisms(size_cm, height_cm) -> None:
+    record = polygon_record("POND_POOL", rectangle(size_cm, size_cm), height_cm)
+    parts = verify_builder(REGISTRY.builder_for("POND_POOL"), record, plan_margin_cm=10.0)
+    assert parts
+    assert max(float(part.mesh.positions[:, 2].max()) for part in parts) == pytest.approx(height_cm)
+
+
+def test_batched_lawn_mask_matches_even_odd_at_edges_holes_and_self_crossings() -> None:
+    rng = np.random.default_rng(607)
+    points = np.concatenate([rng.uniform(-200, 200, (2000, 2)),
+                             np.array([[0, 0], [100, 0], [0, 100], [100, 100]])])
+    rings = [rectangle(200, 200), L_SHAPE,
+             ((0, 0), (100, 100), (0, 100), (100, 0)),
+             ((-100, -100), (100, -100), (100, 100), (-100, 100), (-100, -100),
+              (-50, -50), (-50, 50), (50, 50), (50, -50), (-50, -50), (-100, -100))]
+    for ring in rings:
+        expected = []
+        for x, y in points:
+            inside = False
+            for (x1, y1), (x2, y2) in zip(ring, (*ring[1:], ring[0]), strict=True):
+                if (y1 > y) != (y2 > y) and x < x1 + (y-y1)*(x2-x1)/(y2-y1):
+                    inside = not inside
+            expected.append(inside)
+        assert np.array_equal(surfaces._inside(points, np.array(ring)), expected)
+
+
+def test_zero_lawn_share_never_synthesizes_a_sward(monkeypatch) -> None:
+    def forbidden(*args):
+        pytest.fail("Low/Medium must not synthesize lawn blades")
+
+    monkeypatch.setattr(surfaces, "_sward", forbidden)
+    record = polygon_record("LAWN", rectangle(2000.0, 2000.0), None, params={"lawn_blades": 0})
+    assert REGISTRY.build(record) == ()
+
+
+def test_long_lawn_ring_uses_the_same_even_odd_mask_as_a_dense_circle() -> None:
+    theta = np.linspace(0.0, 2.0 * np.pi, 2048, endpoint=False)
+    ring = np.stack([100.0 * np.cos(theta), 100.0 * np.sin(theta)], axis=1)
+    points = np.random.default_rng(607).uniform(-110, 110, (2048, 2))
+    radius = np.linalg.norm(points, axis=1)
+    away_from_edge = np.abs(radius - 100.0) > 0.01
+    assert np.array_equal(surfaces._inside(points[away_from_edge], ring), radius[away_from_edge] < 100.0)
 PATH_STYLES = ["STEPPING_STONES", "WOODEN_BOARDWALK", "PAVED_PATH", "GRAVEL_PATH", "DIRT_PATH", None]
 
 

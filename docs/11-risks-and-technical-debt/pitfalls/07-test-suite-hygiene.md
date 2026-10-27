@@ -459,3 +459,23 @@ The guard keys on the module's production names, the Qt platform and exact agent
 - **Source:** #601; ADR-058
 - **Status:** pointer → [§8.10.4](../../08-crosscutting-concepts/README.md#8104-the-inner-loop-and-which-run-is-the-gate-509)
 - **Legacy:** none (new entry)
+
+### PF-TST-31
+
+- **Rule:** A render measurement waits for ground, camera LOD and forge admission, judges the sink-held meshes at zero wind phase, and distinguishes document reloads from unchanged same-document passes.
+- **Pinned by:** `tests/unit/test_render_measurement_state.py`; `tests/integration/test_view3d_selection_render.py`; `tests/integration/test_view3d_workspace_render.py`
+- **Source:** #600; #603; #609; #536; ADR-065
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Registry-built v0 silhouettes are not the workspace's forged plants. A paused nonzero wind clock is not rest. A reload clears forge admission even when SceneSync retains its records; count both upload stages separately. Pin both Qt scale factors for a specific fractional DPR, fit full windows to their work area, and retry first-expose idle refusals only within a driver's single deadline.
+
+### PF-TST-32
+
+- **Rule:** Sample ground memory after two presented frames retire replaced uploads, preserve the leak bound and control, and never use a grab as a presentation.
+- **Pinned by:** `tests/unit/test_render_measurement_state.py`; `tests/integration/test_scene3d_ground_render.py`
+- **Source:** #626; ADR-065
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The failed Windows artifact alternates between approximately 661 MB and 693 MB: a fixed 20 ms pump samples different in-flight generations. After an explicit presentation boundary the local GPU/WARP curves read 0.000/0.030 MB per cycle, while retained textures still read 32.190/32.195. The 2.0 MB bound, 20 cycles and median statistic are unchanged. A silent display has a bounded wait and reports no presentation.

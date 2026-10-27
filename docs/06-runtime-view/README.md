@@ -830,3 +830,30 @@ The catalog selects a shipped language-specific plan when available. Before norm
 preparation, `example_copy_plan` retains public location and fictional soil records
 only for known bundled paths; an external copy receives the ordinary portable
 filter. Neither opening a demonstration nor exporting a template changes SimClock.
+
+
+### L4 follow-up: lawn quality and complete render rest
+
+A LookController preset change updates Scene3DController's lawn admission flag.
+Its next snapshot adds or removes blade geometry through the existing SceneSync
+diff; Low and Medium do not synthesize hidden blades. Drag context holds retain
+only parameters supported by both old and new record kinds.
+
+```mermaid
+sequenceDiagram
+    participant Look as LookController
+    participant Controller as Scene3DController
+    participant Sync as SceneSync
+    participant Forge as ForgeWorker
+    participant Probe as Render measurement
+    Look->>Controller: preset_changed / lawn admission
+    Controller->>Sync: snapshot + applicable context
+    Sync->>Forge: invalidate changed geometry / submit current LOD
+    Forge->>Sync: admit matching completed meshes
+    Probe->>Controller: records + ground idle?
+    Probe->>Forge: pending_count 0, timer idle, camera stationary?
+    Probe->>Sync: read admitted parts for independent CPU oracle
+```
+
+The product remains asynchronous. Only measurement code waits for complete rest;
+see section 8.10.14 and ADR-065's hardening addendum.

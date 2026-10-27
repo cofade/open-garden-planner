@@ -63,6 +63,8 @@ MAX_REPEATS: Final = 240
 #: Segments of a turned part: the 2D circle footprint's 24 (a rim of radius r IS
 #: the plan's 24-gon, ``primitives.lathe``).
 ROUND_SEGMENTS: Final = 24
+#: Below 3 cm a rim, joint or inset has no room: retain the data as a plain prism.
+MIN_DETAIL_DIMENSION_CM: Final = 3.0
 
 Color = tuple[float, float, float, float]
 
@@ -103,17 +105,20 @@ def object_box(record: Record) -> ObjectBox | None:
     """The object's box (module docstring), or None for a footprint that is not one:
     no ground, no usable radius, or a polygon that does not fill its bounding box.
     ``record`` is one plain ring (``BuiltBuilder`` sees to that first)."""
+    if record.height_cm is not None and record.height_cm < MIN_DETAIL_DIMENSION_CM:
+        return None  # sub-3 cm parts have no room for the nominal rims and joints
     ring = np.asarray(footprint_of(record), dtype=np.float64).reshape(-1, 2)
     if len(ring) < 3:
         return None
     if record.shape == SHAPE_CIRCLE:
         radius = record.params.get(PARAM_RADIUS_CM)
-        if isinstance(radius, bool) or not isinstance(radius, int | float) or not radius > 0.0:
+        if isinstance(radius, bool) or not isinstance(radius, int | float) \
+                or not radius >= MIN_DETAIL_DIMENSION_CM / 2.0:
             return None
         return ObjectBox(0.0, 0.0, float(radius), float(radius), round=True)
     low, high = ring.min(axis=0), ring.max(axis=0)
     size = high - low
-    if not (size > 0.0).all():
+    if not (size >= MIN_DETAIL_DIMENSION_CM).all():
         return None
     if abs(signed_area(ring)) < BOX_AREA_SHARE * float(size[0] * size[1]):
         return None

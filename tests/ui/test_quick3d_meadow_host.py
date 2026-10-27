@@ -87,3 +87,18 @@ def test_clear_keeps_the_meadow_and_closes_its_hole(host) -> None:
     host.clear()
     model = meadow_model(host)
     assert model.property("visible") is True and host._meadow.vertex_count == LINES * LINES  # noqa: SLF001
+
+
+def test_shadow_reach_covers_every_plan_corner_and_updates_when_the_plan_changes(host) -> None:
+    import math
+
+    from open_garden_planner.core.scene3d.look import fog_depth_cm
+
+    eye = (-6000.0, -6000.0, 3000.0)
+    host.set_camera(eye, (0.0, 0.0, 0.0))
+    host.set_ground(plan(5000.0, 3000.0))
+    near, far = fog_depth_cm(math.dist(eye, (0.0, 0.0, 0.0)))
+    reach = max(math.dist(eye, (x, y, 0.0)) for x in (0.0, 5000.0) for y in (0.0, 3000.0)) + 1000.0
+    assert host._root.property("shadowFar") == pytest.approx(max(9000.0, near, min(reach, far)))  # noqa: SLF001
+    host.set_ground(plan(1000.0, 500.0))
+    assert host._root.property("shadowFar") < reach  # noqa: SLF001

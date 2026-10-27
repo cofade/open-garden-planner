@@ -1239,6 +1239,11 @@
     "state": "OPEN",
     "title": "Render tier: the G7 workspace soaks compare frames before L3's forge has finished"
   },
+  "604": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: lawn blades read as dark stubble at High (back faces lit from below)"
+  },
   "605": {
     "is_pr": false,
     "state": "OPEN",
@@ -1289,6 +1294,16 @@
     "state": "OPEN",
     "title": "Windows power throttling raises local perf-tier timings ~1.8x partway through a run"
   },
+  "617": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Gravel rim and dirt margin show through a translucent path (layer opacity under 100 %)"
+  },
+  "618": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board horizon probe cannot see the fog's distance (camera 10 m from its target)"
+  },
   "619": {
     "is_pr": false,
     "state": "OPEN",
@@ -1308,5 +1323,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "L4 3D: shadow reach from the plan's corners, the meadow edge at a low pitch, rendered pins (follow-up to #388)"
+  },
+  "626": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Flaky G6 memory-growth gate on windows-latest CI (WARP): 2.06 MB/cycle vs 2.0 bound"
   }
 }

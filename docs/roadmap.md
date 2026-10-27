@@ -2730,6 +2730,19 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
+### L4 follow-up hardening ? implementation, owner acceptance pending
+
+One PR covers #611, #607, #604, #617, #624, #618, #609, #600, #603, #626
+and #536. Context parameters follow both record types; Low/Medium skip lawn
+blade synthesis; exact lawn masking avoids the Python edge loop; roof clamps
+have one home and tiny objects use verified prisms. Lawn lighting, corner-aware
+shadow reach, the far meadow and distant camera probes receive rendered pins.
+Translucent path rims exclude their texture's middle. Selection and reload
+measurements wait for admitted forged LODs; screen scaling and first-expose
+waits are explicit; the memory soak measures after presented uploads retire.
+No memory/performance bound is relaxed. Measurements and residual manual checks
+are recorded in [the hardening evidence](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/3d-hardening-611.md).
+
 ### L4 acceptance highlights — Built world complete (#388, ADR-065) — **shipped v1.34.0, PR #613**
 
 - **L4.1 roofs and facades:** Roof style (Automatic / Gable / Hip / Single slope /
@@ -2750,7 +2763,8 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   Smart-symbol builders are deferred (#599): a smart symbol is a group of items L4 builds.
 - **L4.5 water, lawn, detail:** Lawn blades (220 / m², ≤ 36,000 per lawn, ≤ 60,000
   per plan, water-filled by area) are cut out under flat items above the lawn and
-  enclosed buildings on it, built at every preset and drawn from High up. From Medium
+  enclosed buildings on it. L4 originally built blades at every preset; the follow-up
+  package admits their geometry only from High up. From Medium
   up, `ground.frag` derives detail normals from the baked ground's own luminance; no
   asset. #586: the Beauty Board's shots include the ground bake.
 - **Reviews:** `ogp-3d-reviewer` approved in round 3. The endless meadow is a frame in the

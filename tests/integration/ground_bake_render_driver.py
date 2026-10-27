@@ -163,6 +163,22 @@ def tail_growth(curve: list[float], cycles: int = TAIL_CYCLES) -> float:
     return float(statistics.median(steps))
 
 
+def present_releases(host: Any, timeout_s: float = 0.5) -> int:
+    """Measure after two PRESENTED frames retire previous uploads (#626).
+
+    A fixed 20 ms pump samples different in-flight generations on WARP. Never
+    grab here: a readback cannot retire a presented frame's resources. A window
+    whose display is asleep remains bounded by one total timeout and reports 0.
+    """
+    before = host.frames_presented
+    deadline = time.perf_counter() + timeout_s
+    for target in (before + 1, before + 2):
+        host._view.update()
+        while host.frames_presented < target and time.perf_counter() < deadline:
+            base._pump(5)
+    return host.frames_presented - before
+
+
 # ── the engine side ──────────────────────────────────────────────────────────
 
 _WIN_QUERY: Any = None
@@ -604,13 +620,14 @@ def _keepalive(ctx: base.Context, name: str, *, leak: bool = False, grab: bool =
         alive: list[int] = []
         uploads: list[int] = []
         tiles: list[int] = []
+        presentations: list[int] = []
         alive_before, presented_before = _textures_alive(), host.frames_presented
         for cycle in range(KEEPALIVE_CYCLES):
             before = _tile_uploads()
             rig.sync.apply(keepalive_records(cycle), sun=HIGH_SUN, ground=KEEPALIVE_PLAN)
             if grab:
                 host.grab(f"{name}_{cycle}")  # a frame that is rendered and not presented
-            base._pump(20)  # a presenting window shows the tiles; what was destroyed is deleted
+            presentations.append(present_releases(host))
             curve.append(round(process_mb(), 2))
             held.append(host.ground.textures_held() + len(kept))
             alive.append(_textures_alive() - alive_before)
@@ -625,6 +642,7 @@ def _keepalive(ctx: base.Context, name: str, *, leak: bool = False, grab: bool =
                "held_per_cycle": held, "alive_per_cycle": alive, "uploads_per_cycle": uploads,
                "tiles_per_cycle": tiles, "leak": leak, "grab": grab,
                "frames_presented": presented,
+               "frames_per_cycle": presentations,
                "graphics_api": host.graphics_api(),
                "last_frame": ctx.save(f"{name}_last", image),
                "bytes_per_generation": sum(len(tile.pixels) for tile in rig.baker.tiles()),  # type: ignore[union-attr]

@@ -368,6 +368,7 @@ def _soak(scratch: Path, variant: str, **options: Any) -> dict[str, Any]:
             "after_the_last_frame_mb", "geometry_uploads", "kept_mb", "parts", "parts_after",
             "cache_releases", "in_the_loop", "frames_presented_per_reload", "presented_again",
             "same_image_at_the_end", "identical_image_at_the_end", "image_difference",
+            "v0_parts", "forged_parts", "unchanged_pass_uploads",
             "gpu_curve_mb",
             "gpu_slope_second_half_mb_per_reload")
     numbers = {key: step.get(key) for key in keys}
@@ -414,7 +415,7 @@ def test_twenty_rebuilds_of_the_engine_scene_stay_under_the_leak_bound(
     soak = soak_rebuild_on
     _the_product(soak)
     _took_no_frame(soak)
-    assert soak["geometry_uploads"] == RELOADS * soak["parts"], "every reload rebuilt everything"
+    assert soak["geometry_uploads"] == RELOADS * (soak["v0_parts"] + soak["forged_parts"]), "every reload rebuilt everything"
     assert min(soak["frames_presented_per_reload"]) >= 1, "every rebuild was drawn and presented"
     assert soak["slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
         soak, "curve_mb")
@@ -466,17 +467,19 @@ def test_the_same_rebuilds_stay_under_the_bound_in_a_view_that_presents_nothing(
     _took_no_frame(soak)
     spell = soak["in_the_loop"]
     assert spell["frames_presented"] == 0 and spell["paint_events_eaten"] > 0, "the device"
-    assert soak["geometry_uploads"] == RELOADS * soak["parts"], "the pipeline was not held back"
+    assert soak["geometry_uploads"] == RELOADS * (soak["v0_parts"] + soak["forged_parts"]), "the pipeline was not held back"
     assert spell["parts_at_the_end"] == soak["parts"]
     assert soak["slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
         soak, "curve_mb")
     assert soak["presented_again"] is True
 
 
-def test_reloads_that_rebuild_nothing_stay_flat(scratch: Path) -> None:
+def test_identical_reloads_re_admit_only_forged_plants_and_stay_flat(scratch: Path) -> None:
     soak = _soak(scratch, "rebuild_off")
     _took_no_frame(soak)
-    assert soak["geometry_uploads"] == 0, "the same plan again: no Model is rebuilt"
+    assert soak["unchanged_pass_uploads"] == 0, "an unchanged pass within one document uploads nothing"
+    assert soak["geometry_uploads"] == RELOADS * soak["forged_parts"], (
+        "identical SceneSync records are retained; only document-scoped forged meshes are re-admitted")
     assert soak["slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
         soak, "curve_mb")
 
@@ -504,7 +507,7 @@ def test_what_the_soak_reads_without_the_release_is_reported(scratch: Path) -> N
     is why it is a number in the report and not a bound. If it ever reads like the
     run WITH the release, Qt has stopped keeping what it kept, and the release can go."""
     soak = _soak(scratch, "rebuild_on", release="off")
-    assert soak["cache_releases"] == 0 and soak["geometry_uploads"] == RELOADS * soak["parts"]
+    assert soak["cache_releases"] == 0 and soak["geometry_uploads"] == RELOADS * (soak["v0_parts"] + soak["forged_parts"])
     assert soak["in_the_loop"]["frames_read_back"] == 0
 
 
@@ -516,7 +519,7 @@ def test_a_release_inside_the_pass_holds_on_a_real_device_too(scratch: Path) -> 
     _the_product(soak)
     _took_no_frame(soak)
     assert soak["cache_releases"] >= RELOADS, "every rebuild released with its pass"
-    assert soak["geometry_uploads"] == RELOADS * soak["parts"]
+    assert soak["geometry_uploads"] == RELOADS * (soak["v0_parts"] + soak["forged_parts"])
     assert soak["slope_second_half_mb_per_reload"] < leak_bound_mb(soak), _beyond(
         soak, "curve_mb")
 

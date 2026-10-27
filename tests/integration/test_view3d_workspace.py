@@ -161,6 +161,25 @@ def _calls(engines: Engines, qtbot: Any, ms: int = 80) -> list[tuple[str, str | 
 # ── gate G1 ──────────────────────────────────────────────────────────────────
 
 
+def test_workspace_quality_changes_rebuild_only_the_lawns_that_gain_or_lose_blades(app3d, qtbot) -> None:
+    """#607: exercise the actual LookController signal and first-start preset mapping."""
+    window, engines = app3d
+    lawn = RectangleItem(100.0, 100.0, 1000.0, 1000.0, object_type=ObjectType.LAWN,
+                         layer_id=window.canvas_scene.active_layer.id)
+    window.canvas_view.command_manager.execute(CreateItemCommand(window.canvas_scene, lawn, "lawn"))
+    window._view3d_action.trigger()
+    workspace = window._workspace
+    controller = first_pass(workspace, qtbot)
+    assert workspace.look is not None
+    item_id = str(lawn.item_id)
+    for quality, expected in (("low", False), ("medium", False), ("high", True), ("ultra", True),
+                              ("medium", False)):
+        workspace.look.set_quality(quality)
+        wait_for_pipeline(workspace, qtbot)
+        assert bool(engines.sink.state().items[item_id].parts) is expected, quality
+    assert not controller.sync.failures
+
+
 def test_the_workspace_is_always_there_and_no_switch_is_read(qtbot, monkeypatch) -> None:
     """L1.9: ONE code path. The canvas area IS the workspace whatever the environment
     says — the old internal switch is read nowhere (its value changes nothing) — and

@@ -559,6 +559,8 @@ def soak(run: Run, tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
         out, "ground_keepalive,ground_keepalive_leak,ground_keepalive_grab", **SOFTWARE)
     assert proc.returncode == 0 and result.get("status") == "ok", failure_report(proc, out)
     assert "Basic Render" in str(result["qt_messages"]["adapter"]), result["qt_messages"]["adapter"]
+    for scenario in result["scenarios"].values():
+        assert min(scenario["frames_per_cycle"]) >= 2, "WARP samples require retired uploads"
     return dict(result["scenarios"])
 
 
