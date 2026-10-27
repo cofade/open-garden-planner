@@ -1456,7 +1456,9 @@ class CanvasScene(QGraphicsScene):
         The test is the derivation's own answer compared with the drawing: for each
         plant, ``_derived_plant_parent`` (the link, else the smallest parent whose
         outline contains its stable centre) must not be ABOVE it. One O(items) pass,
-        no geometry at all for a layer whose plants are linked, and only a layer that
+        no geometry for a layer whose plants are linked to a parent **of their own
+        band** (the band-local index cannot resolve a link into the ground band, and
+        then the centre is asked as for any unlinked plant), and only a layer that
         disagrees is re-derived (once). The parents' shapes are cached for the pass (a
         scan asks every parent about every plant — without the cache it rebuilt each
         one per pair, measured 1 661 ms at 1 200 vertices); at 200 plants under 50

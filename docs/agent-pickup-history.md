@@ -4,12 +4,19 @@ These are the "Where to Pick Up After Restart" bullets that used to sit in the r
 instructions, moved here on 2026-10-27 because Codex loads `AGENTS.md` under a byte
 budget (`.codex/config.toml`: `project_doc_max_bytes = 65536`) and every change adds a
 pickup bullet. The root files keep the recent entries and every live pointer; this file is
-a **record**, not a reading list â€” it is not loaded at startup. The shipped stories are
+a **record**, not a reading list — it is not loaded at startup. The shipped stories are
 also in `docs/roadmap.md`, the ADRs and the risk log, which are the docs of record.
 
 New pickups go into `AGENTS.md`/`CLAUDE.md`. When that list grows past its headroom
 again, move the oldest entries here rather than raising the budget or compressing facts
 whose numbers live in the ADRs.
+
+**Outside the issue-registry corpus, deliberately.** `scripts/check_skill_citations.py`
+scans the skills and the two root files, and `tests/data/issue_registry.json` is a census
+of *those*. Moving entries here removed their numbers from the registry; that is intended,
+not a loss — this file is history, so its issue numbers are not re-validated on every
+refresh. If this file is ever added to `CORPUS_GLOBS`, refresh the registry in the same
+change.
 
 - **CI/release hardening (#399/#401/#402/#404) shipped 2026-10-09 as v1.29.6 ([PR #422](https://github.com/cofade/open-garden-planner/pull/422)).** Committed uv/PEP 751 locks preserve v1.29.5 dependency selections; strict type budgets are per file/platform on Python 3.11; coverage line floors are per package with branch reporting. `master` now requires eight successful checks, an up-to-date PR and administrator enforcement, with zero approving reviews. `finalize-us` completes release and a reviewed automatic version-sync chore PR in one invocation; never bypass a failed check.
 - **Serialization & data integrity hardening shipped 2026-10-06 as v1.29.4 (PR #412): #394 + #400 + #397 + #403.** (Epic #392). Free-text annotations (`TextItem`) natively serialized in `.ogp` (AUD-001/017) with round-trip matrix tests across all placeable items; clipboard serializer unified by delegating `CanvasView` copy/paste to `ProjectManager` (AUD-002); background image placeholders & recursive UUID deduplication (AUD-043); two-phase atomic plan loading & autosave safety (AUD-040). See §11.3, §11.4.

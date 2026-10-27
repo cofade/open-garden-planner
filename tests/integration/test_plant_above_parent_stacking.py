@@ -245,7 +245,14 @@ def test_an_add_skips_the_scan_and_a_move_asks_it(qtbot, monkeypatch: Any) -> No
 
 
 def test_a_healthy_layer_asks_no_shape_question(qtbot: Any) -> None:
-    """The restack's cost: when plants already draw above their beds, no shape test."""
+    """The restack's cost: when plants already draw above their beds, no geometry at all.
+
+    Both halves are counted, because both must be free in the healthy case: the shape
+    test (a cache miss rebuilds a parent's path) and ``standing_point`` (which builds a
+    non-circle plant's outline — 8.3 ms for a 16 000-vertex polygon typed as a tree). The
+    centre is asked LAZILY, only for a plant that gets past the per-layer z test, so
+    collecting it up front would make this fail while every other test stayed green.
+    """
     from open_garden_planner.ui.canvas import footprints
 
     scene = CanvasScene(1600.0, 1000.0)
@@ -260,19 +267,29 @@ def test_a_healthy_layer_asks_no_shape_question(qtbot: Any) -> None:
     qtbot.wait(1)
     assert plant.zValue() > bed.zValue()
 
-    calls = {"shape_contains": 0}
-    original = footprints.shape_contains
+    calls = {"shape_contains": 0, "standing_point": 0}
+    original_shape = footprints.shape_contains
+    original_point = footprints.standing_point
 
-    def counted(*args: Any, **kwargs: Any) -> bool:
+    def counted_shape(*args: Any, **kwargs: Any) -> bool:
         calls["shape_contains"] += 1
-        return original(*args, **kwargs)
+        return original_shape(*args, **kwargs)
 
-    footprints.shape_contains = counted
+    def counted_point(*args: Any, **kwargs: Any) -> Any:
+        calls["standing_point"] += 1
+        return original_point(*args, **kwargs)
+
+    footprints.shape_contains = counted_shape
+    footprints.standing_point = counted_point
     try:
         scene._restack_plant_containment()
     finally:
-        footprints.shape_contains = original
+        footprints.shape_contains = original_shape
+        footprints.standing_point = original_point
     assert calls["shape_contains"] == 0, "a healthy layer must do no shape work"
+    assert calls["standing_point"] == 0, (
+        "a healthy layer must not ask where a plant stands: the centre is asked lazily"
+    )
 
 
 def test_the_scan_builds_each_parent_shape_once(qtbot, monkeypatch: Any) -> None:

@@ -256,8 +256,6 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   duplicate AST/sweep work and fifty full-GC traversals are removed without losing
   their assertions. ADR-058 and `audits/2026-10/ci-latency-601.md` own the evidence.
 
-
-- **Older pickups (v1.29.6 and earlier, plus the v1.27/v1.28 batches) live in [`docs/agent-pickup-history.md`](docs/agent-pickup-history.md)**, moved out to keep these root instructions inside Codex's `project_doc_max_bytes`; the shipped stories are also in `docs/roadmap.md` and the ADRs.
 - **Phase 17 L3 "Plant Forge" (#387) shipped on 2026-10-25 as v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner executable acceptance (ADR-064, §8.29.11).** 123 recipes (108 species + 15 categories), 13 archetypes, LOD caps and a 256-entry/64 MiB cache; background admission/recovery, camera-driven LOD, seasonal parts, exact harvest dates and winter bounds. The production render gates exercise the forge. Details in the roadmap and ADR-064.
 
 - **Non-3D follow-up hardening, batch 2 shipped 2026-10-26 as v1.32.1 ([PR #596](https://github.com/cofade/open-garden-planner/pull/596)) after owner acceptance (#562/#573, #574, #581, #587, #590, #592, #594):** real offscreen fonts, command-scoped refresh, cached dense-overlay sample, one height resolver, PEP 639 metadata. Owner manual pass found and fixed: the settings guard, the version artifact (About 1.2.0; PF-CI-15), one 120 px control column + clipped-value tooltips, and species-sized gallery drops (#596; FR-PLANT-15).
@@ -308,6 +306,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - Read the relevant roadmap section before starting work, then check `git status` and `git log --oneline -20`.
 - The full shipped-story history belongs in `docs/roadmap.md`, ADRs, functional requirements, and the risk log; do not duplicate it here.
 - Phase 14 remains complete; load `ogp-3d-sunshade-campaign` before touching 3D, sun/shade, growth, or solar code.
+
+- **Older pickups (v1.29.6 and earlier, plus the v1.27/v1.28 batches) live in [`docs/agent-pickup-history.md`](docs/agent-pickup-history.md)**, moved out to keep these root instructions inside Codex's `project_doc_max_bytes`; the shipped stories are also in `docs/roadmap.md` and the ADRs.
 
 **Maintaining this file:** Update the progress summary when status changes and keep the Quick Reference current. `CLAUDE.md` and `AGENTS.md` are a synchronized pair: if either changes, update both and run `venv/Scripts/python.exe scripts/check_agent_context.py`.
 

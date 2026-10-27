@@ -259,7 +259,7 @@ The owner pass made gravel and dirt paths their fill textures, drawn as a textur
 ### PF-CAN-28
 
 - **Rule:** A parenting clamp must follow the GEOMETRY, not only the link: a plant renders above the plant-parent whose outline contains its stable centre, linked or not. When a visual guarantee can be satisfied by a category accident (a ground surface sitting under everything), check the guarantee on the categories where the accident does not apply.
-- **Pinned by:** `tests/integration/test_plant_above_parent_stacking.py::test_a_parent_drawn_around_a_standing_plant_keeps_it_on_top`; `tests/integration/test_plant_above_parent_stacking.py::test_a_plant_moved_into_a_bed_is_raised_by_the_command`; `tests/integration/test_plant_above_parent_stacking.py::test_a_healthy_layer_asks_no_shape_question`
+- **Pinned by:** `tests/integration/test_plant_above_parent_stacking.py::test_a_parent_drawn_around_a_standing_plant_keeps_it_on_top`; `tests/integration/test_plant_above_parent_stacking.py::test_a_plant_moved_into_a_bed_is_raised_by_the_command`; `tests/integration/test_plant_above_parent_stacking.py::test_a_healthy_layer_asks_no_shape_question`; `tests/integration/test_plant_above_parent_stacking.py::test_the_scan_builds_each_parent_shape_once`; `tests/perf/test_nfr_budgets.py::TestNfrPerf01ContainmentScanBudget`
 - **Source:** #629 (owner manual pass of #627)
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -287,4 +287,7 @@ compare the plant's z against the parent the DERIVATION names (`_derived_plant_p
 not "any parent that contains it", which never settles once an outer bed is arranged above
 an inner one, and not a second copy of the rule, which drifted into rebuilding each
 parent's shape per (plant, parent) pair (1 661 ms on the adversarial 200-plant plan, 133 ms
-with the pass's shape cache, 8 ms at 6 vertices).
+with the pass's shape cache, 8 ms at 6 vertices). That rebuild is why the pin is
+**counted**, not timed: five concave beds over twenty plants in the notch must build five
+paths, and a per-pair rebuild fails at 100 - a wall-clock budget on small beds cannot see
+the difference, and a budget that cannot fail is not a pin.

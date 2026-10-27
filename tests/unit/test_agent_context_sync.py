@@ -10,7 +10,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: The files are edited by every change (each one adds a pickup bullet), so this is a
 #: real budget decision, not a zero: the pre-v1.30 pickup history was moved to
 #: ``docs/agent-pickup-history.md`` on 2026-10-27 to buy the margin, and this floor is
-#: what the next few dozen changes may spend before the oldest entries move again.
+#: what the next half-dozen pickup entries (about 1.1 KB each) may spend before the
+#: oldest entries move again.
 MIN_CONTEXT_HEADROOM_BYTES = 8192
 
 

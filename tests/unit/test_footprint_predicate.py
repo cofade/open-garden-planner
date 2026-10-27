@@ -96,10 +96,16 @@ def test_the_predicate_agrees_with_the_outline(kind: str, qtbot) -> None:
 def test_every_item_class_in_the_package_is_covered(qtbot) -> None:
     """A new item class must be classified here, or this fails — the drift half.
 
-    Hand-listing the kinds guards today's set; this guards the set itself. The one
-    deliberate omission is ``ResizeHandle``: an interaction handle of a selected item,
-    never a plan item (no ``object_type``, never serialized), so it is not placeable and
-    ``_item`` cannot build it without a host item.
+    Hand-listing the kinds guards today's set; this guards the set the package **exports**,
+    which is what the app builds plan items from — a new placeable item is re-exported in
+    ``items/__init__.py`` or nothing can create it.
+
+    Helper subclasses that live unexported in the modules beside them (resize/rotation/
+    vertex handles, ``LockBadgeItem``/``SuccessionBadgeItem``, ``AnnotationLabel``,
+    ``AngleDisplay``/``DimensionDisplay``, ``CurveControlHandle``, ``_CalloutTextChild``)
+    are out of scope by construction: they are never plan items, they have no
+    ``object_type`` and most cannot be built without a host item. ``ResizeHandle`` is
+    exported but is one of them, hence the one explicit exclusion.
     """
     import inspect
 

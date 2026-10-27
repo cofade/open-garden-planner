@@ -4221,8 +4221,10 @@ move or vertex-edit a bed around a standing plant, or carry a plant into one.
 re-derives only a layer whose drawing disagrees with the derivation — it compares each
 plant's z against the parent `_derived_plant_parent` names, so the check cannot drift
 from what it checks (a plant above the layer's HIGHEST parent costs one z comparison and
-nothing else — the per-plant test is against that top, not against its own parent; a linked
-plant costs nothing more, because the link answers before any geometry). Only a parent
+nothing else — the per-plant test is against that top, not against its own parent; a plant
+linked to a parent of its own band costs nothing more, because the band-local index
+resolves the link before any geometry — a link into the ground band falls through to the
+centre, as for an unlinked plant). Only a parent
 of the plant's own band counts: an in-ground bed lies under the plant by the band, not
 by the clamp, so asking about it would re-derive on every command and never change
 anything. `Command.changes_containment` follows #592's shape: the base is `True`, and
@@ -4255,7 +4257,7 @@ refreshes.
 
 `ui/canvas/arrange.py::build_arrange_command(scene, items, mode) -> tuple[ArrangeItemsCommand | None, ArrangeOutcome]`
 is the **only** place that groups a selection by layer, reads each layer's
-current order via `scene._stack_entries`/`_normalized_layer_order`, asks the
+current order via `scene._band_entries`/`_normalized_layer_order`, asks the
 Qt-free `core.stacking.arrange` what changes, and builds the undoable
 `ArrangeItemsCommand`. Every surface that can arrange an object calls this one
 function — the same discipline `ui/canvas/geometry_apply.py` established for

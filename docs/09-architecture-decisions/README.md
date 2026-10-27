@@ -1779,8 +1779,9 @@ derivation can only move the plant above the inner one).
 reference plan (200 plants, no links): **0.9 ms**; 300 plants in 30 raised beds: 1.1 ms
 linked and 2.8 ms unlinked. It is one O(items) classification pass, then per plant: a
 single z comparison against the layer's highest parent (a garden whose plants stand above
-its beds ends there), the link lookup (no geometry), or — unlinked and under some parent —
-a rect prefilter plus the cached shape test. Shapes are cached for the pass, as
+its beds ends there), the link lookup when the linked parent is in the plant's own band (no
+geometry), or - unlinked, or linked into the ground band - a rect prefilter plus the cached
+shape test. Shapes are cached for the pass, as
 `ItemLookup.shape_of` caches them for a walk: an adversarial plan (200 plants under 50
 concave beds whose bounding boxes all cover them) cost **8 ms at 6 vertices, 30 ms at 200
 and 133 ms at 1 200**, against 43 / 330 / 1 661 ms for the draft that rebuilt each shape
@@ -1797,8 +1798,8 @@ in it). (c) The clamp follows the SMALLEST containing parent, so a larger parent
 contains the plant — arranged above that one, or simply added after it — still covers it:
 the derive-only clamp cannot fix that, because `normalize_order` only ever moves a plant
 above its one parent, so a second containing parent above it stays where it is. (d)
-Stacking is geometric; where a plant STANDS is not. A bed
-drawn around an unlinked plant is now a stacking parent, but `footprints.item_base_cm`
+Stacking is geometric; where a plant STANDS is not. A bed drawn around an unlinked plant
+is now a stacking parent, but `footprints.item_base_cm`
 (ADR-037 decision 5) lifts a solid by its parent's soil only when the LINK names a visible
 solid AND the centre is inside it. So an unlinked plant in a bed that has a height is drawn
 above the bed and still stands on the floor — its shadow base and its 3D base do not move
@@ -1816,11 +1817,16 @@ parametrised matrix over `RAISED_BED`/`CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTE
 finds through a real `CanvasView`; an L-shaped bed clamps a plant in its arm but not in its
 notch; a distant bed does not clamp; the linked case is unchanged; a plant moved into a bed
 by `MoveItemsCommand` comes above it (and undo leaves it outside, with the note above); a
-bed grown around a plant is raised by a real `ResizeItemCommand` — through the command's
-own slot, not a hand-made call; a healthy layer asks `shape_contains` zero times; the
+bed grown around a plant is raised by a real `ResizeItemCommand` - through the command's
+own slot, not a hand-made call; a healthy layer asks `shape_contains` **and**
+`standing_point` zero times (the centre is asked lazily); one pass builds each parent's
+path **once** (counted: five concave beds over twenty plants in the notch, five builds —
+the per-(plant, parent) rebuild this addendum measures fails at 100); the
 `changes_containment` table is re-derived from `core.commands` (every command class but the
 three neutral ones must keep the default, and the neutral set is named), and a create is
-pinned to skip the scan while a move runs it. The drift guards in
+pinned to skip the scan while a move runs it. The cost itself is a budget in
+`tests/perf/test_nfr_budgets.py::TestNfrPerf01ContainmentScanBudget` (linked and
+unlinked). The drift guards in
 `tests/integration/test_scene3d_base_stacking.py` name the new users of `standing_point`
 and `contains_path`. `tests/unit/test_plant_bed_relationship.py`'s rank-symmetry test now
 puts its plant OUTSIDE the bed, because a contained plant is clamped by geometry and the
