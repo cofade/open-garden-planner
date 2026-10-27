@@ -2730,7 +2730,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
-### L4 follow-up hardening ? implementation, owner acceptance pending
+### L4 follow-up hardening — **shipped 2026-10-27 as v1.34.1, PR #630**
 
 One PR covers #611, #607, #604, #617, #624, #618, #609, #600, #603, #626
 and #536. Context parameters follow both record types; Low/Medium skip lawn
