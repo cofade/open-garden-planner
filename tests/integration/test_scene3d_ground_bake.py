@@ -67,17 +67,24 @@ from tests.integration.test_scene3d_snapshot import (
 
 
 def objects_unbuilt() -> Any:
-    """The production builders WITHOUT L4's objects (#388). Since L4 every furniture
-    object is built in 3D, so the bake's SPRITE path — what a furniture item shows
-    on the ground when no solid is built for it (its builder failed) — is exercised
-    with a registry that builds none of them."""
+    """The production builders with L4's objects building NOTHING (#388). Since L4
+    every furniture object is built in 3D — and since L4's second owner pass every one
+    has a height, so the default prism would build it too — the bake's SPRITE path,
+    what a furniture item shows on the ground when no solid is built for it (its
+    builder failed), is exercised with object builders that build no part."""
     from open_garden_planner.core.scene3d.build import BuilderRegistry
-    from open_garden_planner.core.scene3d.builders import plants, register, register_surfaces
+    from open_garden_planner.core.scene3d.builders import (
+        OBJECT_KINDS,
+        plants,
+        register,
+        register_surfaces,
+    )
 
     registry = BuilderRegistry()
     register(registry)
     register_surfaces(registry)
     plants.register(registry)
+    registry.register_many(sorted(OBJECT_KINDS), lambda _record: ())
     return registry
 
 
@@ -424,8 +431,10 @@ class TestParityOfPaths:
 class TestParityOfSprites:
     @pytest.mark.parametrize("angle", [0.0, 33.0])
     @pytest.mark.parametrize("kind", ["FIRE_PIT", "RAIN_BARREL", "PERGOLA"])
-    def test_a_furniture_item_without_a_height_is_its_sprite_on_the_ground(
+    def test_a_furniture_item_without_a_solid_is_its_sprite_on_the_ground(
             self, qtbot: Any, kind: str, angle: float) -> None:
+        """An object whose builder built nothing (``objects_unbuilt``) shows its 2D
+        sprite on the ground, as the canvas draws it."""
         scene = new_scene()
         x, y = ACROSS_A_CORNER
         object_type = ObjectType[kind]
@@ -446,9 +455,9 @@ class TestParityOfSprites:
 
     @pytest.mark.parametrize("kind", ["FIRE_PIT", "RAIN_BARREL", "PERGOLA"])
     def test_with_l4_the_object_is_its_model_not_its_sprite(self, qtbot: Any, kind: str) -> None:
-        """L4 (#388) builds every furniture object, a height or not: the object is a
-        solid in 3D — decoration at its illustrative height — and the ground under it
-        is no longer painted with its sprite."""
+        """L4 (#388) builds every furniture object: the object is a solid in 3D, at its
+        default height (these three had none before L4's second owner pass), and the
+        ground under it is no longer painted with its sprite."""
         scene = new_scene()
         x, y = ACROSS_A_CORNER
         object_type = ObjectType[kind]

@@ -489,7 +489,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 
 **US-E2 — object height property** (additive `metadata["object_height_cm"]`; no `FILE_VERSION` change — old app versions preserve the key untouched):
 
-- **FR-SUN-02**: Every height-bearing object resolves an **effective above-ground height** with the precedence: explicit user-set height → container fill height (`container_height_cm`, never aliased — it keeps meaning soil fill) → assigned species' `max_height_cm` → a per-type default (fence 120 cm, wall 200, hedge 150, house 450, garage/tool shed 250, greenhouse 220, trellis 180, raised bed 40, tables 75, chairs/benches 85, lounger 80, BBQ 90, compost bin 100) → none (object casts no shadow). The properties panel shows an **"Object height:"** field for height-bearing types (defaults-table types, containers, plants — including species-less placeholders): it displays the resolved effective height with a tooltip naming its source ("Custom height" / "From container fill height" / "From assigned species" / "Default for this object type"); typing a value stores an explicit override, setting **0 ("Auto")** clears it back to automatic. Each edit is **one undoable step** and marks the plan dirty.
+- **FR-SUN-02**: Every height-bearing object resolves an **effective above-ground height** with the precedence: explicit user-set height → container fill height (`container_height_cm`, never aliased — it keeps meaning soil fill) → assigned species' `max_height_cm` → a per-type default (fence 120 cm, wall 200, hedge 150, house 450, garage/tool shed 250, greenhouse 220, trellis 180, raised bed 40, tables 75, chairs/benches 85, lounger 80, BBQ 90, compost bin 100; every object kind has one since L4's owner passes — the full table is `DEFAULT_HEIGHTS_CM`, see FR-3D-BUILT-01) → none (object casts no shadow: the ground surfaces, generic shapes, annotations and a plant without species data). The properties panel shows an **"Object height:"** field for height-bearing types (defaults-table types, containers, plants — including species-less placeholders): it displays the resolved effective height with a tooltip naming its source ("Custom height" / "From container fill height" / "From assigned species" / "Default for this object type"); typing a value stores an explicit override, setting **0 ("Auto")** clears it back to automatic. Each edit is **one undoable step** and marks the plan dirty.
 
 **US-E3 — 2D analytic shadow overlay + sun date/time control** (runtime-only; nothing serialized; no `FILE_VERSION` change):
 
@@ -540,7 +540,7 @@ Acceptance: `tests/unit/test_plant_sprite_conformance.py` (coverage, QtSvg-subse
 ### 3a — Furniture & infrastructure sprites (issue #308)
 - **FR-OBJ-ART-01**: Every furniture and infrastructure object renders in one cohesive top-down "Lush Object" style at full parity with the plant sprites — per-part rim-dark → crown-light shading, occlusion where parts stack, material micro-detail (wood grain, brushed metal, fabric weave, water ripples, soil/sand grain), gloss on glossy materials — on the same files and render path the canvas already uses (no behavior change in `furniture_renderer`).
 - **FR-OBJ-ART-02**: Sprites bake **no directional shadow**; the item-level painted shadow (View › Shadows) is the single shadow source, so objects stay visually correct under user rotation and the shadow toggle behaves identically for furniture and plants.
-- **FR-OBJ-ART-03**: The roster grows by nine placeable object types — sandbox, trampoline, hot tub, swing, picnic table, hammock (Furniture gallery) and wheelbarrow, pergola, bird bath (Infrastructure gallery) — each with a tool, gallery thumbnail, translated display name and "Change Type" membership for its shape; the solid ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath) carry a default height so they cast shadows and extrude in 3D, while the open structures (swing, pergola, hammock) cast none by default because the shadow model extrudes a solid footprint — their Height field is still offered so a user can opt one in. Plans containing them stay loadable by older app versions (unknown types degrade to generic shapes; no file-format bump).
+- **FR-OBJ-ART-03**: The roster grows by nine placeable object types — sandbox, trampoline, hot tub, swing, picnic table, hammock (Furniture gallery) and wheelbarrow, pergola, bird bath (Infrastructure gallery) — each with a tool, gallery thumbnail, translated display name and "Change Type" membership for its shape; the solid ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath) carry a default height so they cast shadows and extrude in 3D, while the open structures (swing, pergola, hammock) cast none by default because the shadow model extrudes a solid footprint — their Height field is still offered so a user can opt one in (superseded by FR-3D-BUILT-01: since L4's owner passes they have default heights too). Plans containing them stay loadable by older app versions (unknown types degrade to generic shapes; no file-format bump).
 - **FR-OBJ-ART-04**: Gallery thumbnails preserve the object's real aspect ratio (a bench is a long thin board, not a square block); the BBQ/grill — a round-tool object — ships square art and is offered when changing a circle's type.
 - **FR-OBJ-ART-05**: The whole set is procedurally regenerable from `scripts/generate_object_sprites.py`; committed SVGs byte-match regeneration (deterministic, seeded), obey the QtSvg-subset allowlist and element/byte budgets, and carry provenance (`resources/objects/PROVENANCE.md`) — no external or image-model assets.
 
@@ -748,12 +748,14 @@ The built world complete (L4, #388, ADR-065).
   in the colours of its
   2D sprite and turned as its sprite is, no longer as a picture on the ground. Its
   top is its height on the plan; nothing of it reaches more than 10 cm past its
-  footprint. An object the plan gives no height (parasol, fire pit, planter pot,
-  cold frame, rain barrel, water tap, swing, hammock, pergola) is shown at a usual
-  height for its kind and casts its shadow in 3D; the 2D sun study still casts none
-  for it, because the plan holds no height (owner, L4 manual pass; as for a plant's
-  estimated height, #557). A house is drawn in 2D in the terracotta of its 3D roof
-  tiles; its 3D walls are sandstone, whatever the house's 2D colour.
+  footprint. Every object has a default height, shown and editable in its
+  **Object height** field, and casts its shadow in 2D and 3D: also the parasol
+  (250 cm), fire pit (30), planter pot (50), cold frame (45), rain barrel (100),
+  water tap (80), swing (220), hammock (110) and pergola (250), which had none
+  before L4's owner passes. In 2D an open frame (swing, hammock, pergola) shades its
+  whole footprint, as a fence casts a solid strip. A house is drawn in 2D in the terracotta of its 3D roof
+  tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
+  recoloured in 2D before L4 no longer shows that colour on its walls).
 - **FR-3D-BUILT-02** (L4.1): A house, garage or tool shed has **Roof style**
   (Automatic, Gable, Hip, Single slope, Flat), **Roof pitch** (Auto, 5–60°) and
   **Roof overhang** (Auto, 0–150 cm) in the Properties panel. Each change is one
@@ -797,10 +799,12 @@ The built world complete (L4, #388, ADR-065).
   the relief of its own textures (paving joints, gravel, bark), with no new picture
   of the ground and nothing mirrored.
 - **FR-3D-BUILT-08** (L4, owner manual pass): The haze over the 3D view begins
-  beyond the plan the camera frames, at any zoom: it starts at 1.5 times the
-  camera's distance to the point it looks at and is full at 6 times it, never
-  nearer than 26 m and 160 m, and full by 760 m, before the view's far limit, so
-  the meadow's end never shows against the sky.
+  beyond the plan the camera frames: it starts at 1.5 times the camera's distance
+  to the point it looks at and is full at 6 times it, never nearer than 26 m and
+  160 m, and full by 760 m, before the view's far limit, so the meadow's end never
+  shows against the sky. That holds up to 380 m from the point looked at; farther
+  out (the camera reaches 600 m) the haze begins at 570 m, so a camera pulled out
+  to its limit sees the plan through thin haze.
 
 Acceptance (L4): `tests/integration/test_l4_built_world.py` (§8.10 — the roof
 rows through the real panel, undo and a save/load; the door against the path and

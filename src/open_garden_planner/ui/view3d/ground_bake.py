@@ -239,12 +239,13 @@ _ELEMENT_REACH: Final = (2.5, 8.0)
 #: (0.7 µs a vertex); five plain 20 cm lines of 16,384 points folded into the tile
 #: 509 ms (a stroke that crosses a tile costs about 6 µs a segment); two gravel
 #: paths of 16,384 points — the styled vertex bound, with the elements and the walk
-#: at theirs — 2.65 s. And ONE polygon whose outline is a COMB, every tooth
+#: at theirs — 2.65 s (gravel's dots: measured before L4's owner pass made gravel a
+#: texture; a 5 cm chain-link path walks as densely). And ONE polygon whose outline is a COMB, every tooth
 #: crossing every scanline of the tile: 1.2 ms a vertex — 1.2 s at 1,024 vertices,
 #: 19 s at 16,384, of which the vertex bound admits sixteen (the 2D canvas needs
 #: 10.5 s and 186 s for one paint of those two items). A plan BUILT to be slow,
 #: two such gravel paths zigzagging over a 16-tile plan, is 11.8 s of painting
-#: (0.73 s a tile) and again whenever that item is edited. The two bench plans:
+#: (0.73 s a tile, the same dots) and again whenever that item is edited. The two bench plans:
 #: 13 ms and 69 ms. No count here bounds Qt's time for a scanline that crosses
 #: 16,000 edges; ``BAKE_BUDGET_S`` holds a CALL to one such tile, no more.
 TILE_RECORDS: Final = 256

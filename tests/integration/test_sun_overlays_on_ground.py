@@ -173,10 +173,10 @@ class TestTheGroundBand:
         _add(view, zone)
         parasol = RectangleItem(420, 300, 40, 40, object_type=ObjectType.PARASOL,
                                 layer_id=scene.active_layer.id)
-        _add(view, parasol)   # no height in the plan, yet it stands up
+        _add(view, parasol)   # stands up: its default height, never the ground band
         cold_frame = RectangleItem(320, 320, 40, 40, object_type=ObjectType.COLD_FRAME,
                                    layer_id=scene.active_layer.id)
-        _add(view, cold_frame)   # stands on the bed without a height: never under it
+        _add(view, cold_frame)   # stands on the bed: never under it
         note = TextItem(50, 50, "note", layer_id=scene.active_layer.id)
         _add(view, note)
         pin = JournalPinItem(80, 80, "note-1", layer_id=scene.active_layer.id)

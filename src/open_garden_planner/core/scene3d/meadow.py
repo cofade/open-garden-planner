@@ -1,7 +1,7 @@
 """The endless meadow around the plan (Phase 17 L4, #388). Qt-free.
 
-The meadow is a square ``2 × MEADOW_HALF_CM`` wide (4 km, past the workspace's 800 m far
-plane) centred on the plan, IN the plan's plane, with the plan's rectangle cut out —
+The meadow is a square ``2 × MEADOW_HALF_CM`` wide (4 km; its edge lies in full fog and
+inside the workspace's 3 km far plane) centred on the plan, IN the plan's plane, with the plan's rectangle cut out —
 less ``MEADOW_OVERLAP_CM`` on each side — and cut into cells of at most
 ``MEADOW_CELL_CM``. Nothing of it lies under the plan.
 
@@ -32,7 +32,7 @@ import numpy as np
 
 from .mesh import Mesh
 
-#: Half the meadow's side, cm: 2 km, so its edge is past the workspace's 800 m far plane.
+#: Half the meadow's side, cm: 2 km, so its edge lies in full fog (look.FOG_FAR_MAX_CM).
 MEADOW_HALF_CM: Final = 200_000.0
 #: The largest cell, cm. A 4 km quad of two triangles drew over the plan from the
 #: default framing; cells of 100 m drew over it from no view (3D review of #388).

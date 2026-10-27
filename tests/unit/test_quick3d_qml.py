@@ -433,11 +433,25 @@ def test_the_environments_constants_are_the_spikes() -> None:
     code = _scene()
     for name in ("aoStrength", "aoDistance", "aoSoftness", "glowStrength", "glowIntensity",
                  "glowBloom", "glowHDRMinimumValue", "depthCurve",
-                 "density", "skyboxBlurAmount", "csmBlendRatio", "shadowMapFar", "clipNear",
-                 "clipFar"):
+                 "density", "skyboxBlurAmount", "csmBlendRatio", "clipNear"):
         ours = re.findall(rf"\b{name}:\s*([\d.]+)", code)
         assert ours and environment[name], name
         assert sorted({float(v) for v in ours}) == environment[name], name
+    # what the fog hid until it followed the camera (3D review of L4's second owner pass):
+    # the shadow map reaches as far as the fog begins (the spike's far its floor, and the
+    # top-down truth view keeps it), the AO fades out from 45 m to 90 m, and the
+    # perspective camera's far plane lies past the meadow's edge (the spike's 800 m cut
+    # it in view); the top-down camera keeps the spike's far plane
+    (shadow_far,) = environment["shadowMapFar"]
+    assert f"shadowMapFar: root.topDown ? {shadow_far:g} : Math.max({shadow_far:g}, root.fogNear)" in code
+    assert "aoStrength: 55 * root.aoFade" in code
+    assert "(9000 - camPos.minus(camTarget).length()) / 4500" in code
+    from open_garden_planner.core.scene3d.camera import MAX_DISTANCE_CM
+    from open_garden_planner.core.scene3d.meadow import MEADOW_HALF_CM
+
+    clip_far = sorted(float(v) for v in re.findall(r"\bclipFar:\s*([\d.]+)", code))
+    assert clip_far[0] == min(environment["clipFar"])  # the top-down camera
+    assert clip_far[1] >= MEADOW_HALF_CM + MAX_DISTANCE_CM > max(environment["clipFar"])
     # the fog's distances follow the camera since L4's owner pass (look.fog_depth_cm):
     # the spike's depthNear / depthFar are their floors and the scene's defaults
     from open_garden_planner.core.scene3d import look

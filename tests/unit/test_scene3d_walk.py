@@ -171,8 +171,7 @@ def test_which_records_are_solid(kind: str, height: float | None, base: float,
 
 def test_a_built_item_without_a_height_is_solid_at_the_height_it_is_shown_at() -> None:
     """The built world draws an item the plan gives no height at its kind's nominal
-    height (as decoration). What is SHOWN blocks: a fence without a typed height is
-    a fence."""
+    height. What is SHOWN blocks: a fence without a typed height is a fence."""
     from open_garden_planner.core.scene3d.builders.common import nominal_height_cm
 
     nominal = nominal_height_cm("FENCE")

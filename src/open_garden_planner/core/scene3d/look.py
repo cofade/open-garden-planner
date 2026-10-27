@@ -185,8 +185,8 @@ def fog_color(sky_horizon: str, probe_exposure: float, sky_energy: float = 1.0) 
 #: looks at: the fog begins ``FOG_NEAR_SHARE`` times that distance away, beyond the
 #: plan the camera frames, and is full at ``FOG_FAR_SHARE`` times it — never nearer
 #: than L1's (the close views keep their reviewed look) and full by
-#: ``FOG_FAR_MAX_CM``, before the 800 m far plane where the meadow's clipped edge
-#: would meet the sky. Near that cap the fog begins at most ``FOG_NEAR_MAX_SHARE`` of
+#: ``FOG_FAR_MAX_CM``, well inside the meadow's 2 km edge, which the camera's 3 km
+#: far plane keeps in view (``Garden.qml``). Near that cap the fog begins at most ``FOG_NEAR_MAX_SHARE`` of
 #: the way to it: a 100 x 60 m plan seen from three times its framing distance (403 m)
 #: still lies in front of it.
 FOG_NEAR_CM: Final = 2_600.0
@@ -369,8 +369,10 @@ class PresetSpec:
 #: +4 % of a WARP frame (183 -> 191 ms) and nothing measurable on the GPU (30-40 ms).
 #: The ground's detail-normal strength from Medium up (L4.5). North-up with it is the
 #: render tier's G2 gate (``test_scene3d_ground_render.py``, High preset); the board's
-#: ``--edge`` and ``--orient`` probes render bare ground and do not run it.
-DETAIL_NORMALS: Final = 1.0
+#: ``--edge`` and ``--orient`` probes render bare ground and do not run it. 3.0: the
+#: owner's choice from walk-height views of gravel, earth and paving at 1.0 and 3.0
+#: (L4's second manual pass, ADR-065); ``ground.frag`` clamps the slope either way.
+DETAIL_NORMALS: Final = 3.0
 PRESET_SPECS: Final[Mapping[str, PresetSpec]] = MappingProxyType({
     "low": PresetSpec("low", "very_high", 1, "pcf4", 15.0, "msaa", "high", False, 2, False,
                       False, False),

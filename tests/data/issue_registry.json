@@ -366,7 +366,7 @@
   },
   "316": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "US-F5: Bundled example-plan gallery + template export/import (Package F, last — after US-F1 #312 / US-F2 #313, ideally US-F4 #315 and US-G1 #311)"
   },
   "317": {
@@ -1254,11 +1254,6 @@
     "state": "OPEN",
     "title": "3D context hold: hold only the params both the old and new record take (follow-up to #388)"
   },
-  "612": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "3D roofs: show when the overhang was shortened to keep the eaves above ground (follow-up to #388)"
-  },
   "613": {
     "is_pr": true,
     "state": "OPEN",
@@ -1273,5 +1268,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Windows power throttling raises local perf-tier timings ~1.8x partway through a run"
+  },
+  "619": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Gravel texture reads as wet bubbles in shade at walk height (owner taste)"
   }
 }

@@ -624,6 +624,16 @@ class TestRidgeIsTheLiveRidge:
 # ── an outline the contract had to resolve: a block, whatever its ring count ──
 
 
+
+def _assert_the_house_block(part: Any, block: Any) -> None:
+    """``part`` is the default prism ``block`` of a house: its shape, in the house's
+    sandstone (``buildings._house_walls``: a house's walls take no fill on any route)."""
+    assert np.array_equal(part.mesh.positions, block.positions)
+    assert np.array_equal(part.mesh.indices, block.indices)
+    assert not part.tinted
+    wall = np.asarray(buildings.HOUSE_WALL.linear, dtype=np.float32)
+    assert np.allclose(part.mesh.colors, block.colors * wall)
+
 class TestAResolvedOutlineGetsNoRoof:
     """Round 1's open point, closed by the contract's flag (merge of 9944012): a HOUSE
     drawn crossing itself can resolve to ONE plain ring, and then nothing but
@@ -657,7 +667,7 @@ class TestAResolvedOutlineGetsNoRoof:
         parts = verify_builder(builder, record, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)
         assert [part.name for part in parts] == ["prism"]             # no walls + roof
-        assert parts[0].mesh == default_builder(record)[0].mesh       # the regions, as a block
+        _assert_the_house_block(parts[0], default_builder(record)[0].mesh)  # the regions, as a block
         assert float(parts[0].mesh.positions[:, 2].max()) == float(np.float32(record.height_cm))
 
         # It is the FLAG that decides — not the missing ridge. Hand the builder a ridge it
@@ -742,7 +752,7 @@ class TestTheEdgeCasePlan:
         parts = verify_builder(registry.builder_for("HOUSE"), crossed, height_tolerance_cm=0.5,
                                plan_margin_cm=0.0, hole_cover_limit=0.0)
         assert [part.name for part in parts] == ["prism"]
-        assert parts[0].mesh == default_builder(crossed)[0].mesh
+        _assert_the_house_block(parts[0], default_builder(crossed)[0].mesh)
         assert float(parts[0].mesh.positions[:, 2].max()) == 450.0 == crossed.height_cm
         beyond_cm2, _cover = plan_overreach(parts, crossed.regions, 0.0)
         assert beyond_cm2 == 0.0

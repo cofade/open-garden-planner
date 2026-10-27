@@ -247,8 +247,8 @@ class MeshPart:
     """One mesh of an item plus how the sink shows it.
 
     ``material_kind``: one of ``MATERIAL_KINDS``. ``casts_shadow``: False for
-    glass, water and for decoration without a resolved height (it casts none in
-    2D either). ``tinted``: the sink multiplies the vertex colours with the
+    glass, water and ground detail; whatever else is built casts (L4's owner
+    pass). ``tinted``: the sink multiplies the vertex colours with the
     item's ``Material.tint_linear()`` — the builder leaves them neutral (white,
     or a shading weight), so a recolour reaches the engine as
     ``update_material`` and never rebuilds this mesh. ``name`` labels the part

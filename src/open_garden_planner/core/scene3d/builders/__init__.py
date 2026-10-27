@@ -38,7 +38,7 @@ without one (an in-ground bed, a generic shape, a ridge line).
 
 Shared: ``primitives`` (boxes, sweep, plank, lathe, tubes), ``kit`` (an object's
 box, bevelled and turned parts), ``palette`` (the mirrored 2D colours),
-``common`` (the top is the height; no height, no shadow), ``roofs``.
+``common`` (the top is the height; no height, the nominal one), ``roofs``.
 
 The wiring (L1.3) calls ``production_registry()`` once and hands the result to
 ``SceneSync``.

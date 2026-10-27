@@ -58,13 +58,12 @@ from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.container_model import container_material
 from open_garden_planner.core.object_height import effective_height_cm
-from open_garden_planner.core.object_height_estimate import (
-    ESTIMATED_HEIGHT_PARAM,
-    estimated_object_height_cm,
-)
 from open_garden_planner.core.object_types import PathFenceStyle, is_container_type
 from open_garden_planner.core.plant_art import PLANT_KINDS
-from open_garden_planner.core.plant_height_estimate import estimated_height_cm
+from open_garden_planner.core.plant_height_estimate import (
+    ESTIMATED_HEIGHT_PARAM,
+    estimated_height_cm,
+)
 from open_garden_planner.core.roof_style import (
     BUILDING_KINDS,
     roof_overhang_cm,
@@ -1092,13 +1091,6 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
                 params[ESTIMATED_HEIGHT_PARAM] = float(_est)
         except Exception:
             pass
-    elif height is None:
-        # an object the 2D resolver gives no height (a parasol, a fire pit): L4 builds
-        # it at an ILLUSTRATIVE height, as decoration that casts no shadow — the plan
-        # keeps no height and the 2D sun study is unchanged (core/object_height_estimate)
-        object_estimate = estimated_object_height_cm(kind)
-        if object_estimate is not None:
-            params[ESTIMATED_HEIGHT_PARAM] = object_estimate
     paint: Paint | None = None
     as_drawn: Ring = ()  # a polygon AS DRAWN, where the regions are not it (Record.outline)
     if kind not in _NEVER_ON_THE_GROUND:
@@ -1190,7 +1182,8 @@ def snapshot_records(
       satisfies ``core.scene3d.is_buildable_region``: the default builder's own
       triangulation has cut it.
     - ``height_cm``: ``effective_height_cm(..., at_date)`` — the 2D shadow's
-      resolver; None means decoration that casts no shadow.
+      resolver; None for a surface, a generic shape or a plant without data (its
+      3D estimate rides in ``params``, #557): no caster in 2D.
     - ``transform.base_cm`` (L1.6): where the item STANDS — the soil of the bed
       or container it is linked to AND stands inside (``footprints.item_base_cm``,
       the rule the 2D shadow casters use: 2 cm under a bed's rim, at a

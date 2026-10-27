@@ -9,8 +9,8 @@ fences raise (issue #440); the 3D view shows what is built.
 
 - **PERGOLA** (the sprite ``build_pergola``): four posts, two beams along the
   sprite's width on them, nine rafters along its depth on top — the rafters' top
-  is the height. No 2D height of its own: built at its illustrative one, as
-  decoration (``core/object_height_estimate``).
+  is the height. Its default height (250 cm, since L4's second owner pass) casts
+  its whole footprint in 2D, these open rafters in 3D.
 - **TRELLIS** (no sprite: a ``LATTICE`` fill in the item's colour, so ``tinted``):
   a post at each end of the footprint's LONG side, a top and a bottom rail and a
   diagonal lattice between them, in the vertical plane through the footprint's

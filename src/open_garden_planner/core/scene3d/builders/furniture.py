@@ -11,8 +11,8 @@ sprite's TOP edge, the item's local +y (``kit.ObjectBox``).
 The truth rules (``common``): the top of every object is its height EXACTLY — a
 backrest's top rail, a parasol's finial, a kettle's lid, a fire pit's stones;
 nothing reaches beyond the footprint (``verify_builder`` holds every builder to
-10 cm, issue #388's truth gate); an object the plan gives no height is built at
-its illustrative one and casts no shadow (``core/object_height_estimate``).
+10 cm, issue #388's truth gate); every kind has a default height
+(``core/object_height.DEFAULT_HEIGHTS_CM``) and casts its shadow.
 Seats, rails and the like keep their real-world heights and give way to a low
 ``height`` (a seat is never above two thirds of the object).
 

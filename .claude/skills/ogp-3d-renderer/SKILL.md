@@ -189,7 +189,10 @@ lives now; the values production was drift-guarded against are frozen in
 - **Fog distance (L4 owner pass):** fixed at 26 m → 160 m, the fog drowned a plan framed from
   80 m (a third of the way in) and washed it out three times further. `look.fog_depth_cm`
   ties `Fog.depthNear` / `depthFar` to the camera's distance to its target (1.5× / 6×, floors
-  26 m / 160 m, far ≤ 760 m < `clipFar` 800 m, near ≤ 0.75 far); `set_camera` sets them.
+  26 m / 160 m, far ≤ 760 m, near ≤ 0.75 far); `set_camera` sets them. What the fog hid
+  then showed (3D review): `shadowMapFar` follows `fogNear` (top-down keeps 9000), AO fades
+  out from 45 m to 90 m (its pass draws a line about 101 m out), and `clipFar` is 3 km —
+  at 800 m the cut meadow showed against the sky's darker lower half, fog or not.
 - **Fog vs sky:** the skybox is drawn × `probeExposure`, `Fog` is not — fog = sky horizon ×
   probe exposure × 0.8 (linear) meets the sky within ±1.3 luma. The sky's
   `groundHorizonColor` shows in a sliver under a far-clipped ground plane: give it the sky
@@ -1226,7 +1229,7 @@ RTX 4070 (Direct3D 11), 2026-10-26:
   ? [tileDetail] : [tileFlat]` on the ground tile; `tileDetail` is `ground.frag` with the tile's
   own `Texture` as a `TextureInput` (one Texture per tile for life, PF-L3D-04, unchanged).
 - **The scene file's look defaults ARE `NEUTRAL_DAY`** (High): `lawnBlades: true`,
-  `detailNormals: 1.0`, inside the look block (`test_quick3d_qml.py` holds them to the mapping).
+  `detailNormals: 3.0`, inside the look block (`test_quick3d_qml.py` holds them to the mapping).
 
 **Not measured (L4):** the blades' fill-rate cost at Ultra on a weak GPU (they are bounded at
 60,000 per plan, 180,000 triangles); the detail normals at grazing angles under the looks'

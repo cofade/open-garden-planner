@@ -2,7 +2,7 @@
 
 - ``builders.surfaces``: relief on the painted ground — every part a
   ``ground_detail`` part (no shadow, never picked, the item still painted) —
-  stones, planks, kerbs, edging and pebbles per path style, kerbs and decks on a
+  stones, planks, kerbs and edging per path style, kerbs and decks on a
   terrace or a driveway, a pond's water and coping, a lawn's blades; and what a
   surface the user gave a HEIGHT is (a raised deck, a raised pool, the prism).
 - ``core/scene3d/context``: the params one record needs from the others (a
@@ -552,8 +552,9 @@ def test_a_closed_gravel_loop_keeps_its_outline() -> None:
                                        ("SWING", False), ("WATER_TAP", False), ("PLANTER_POT", True),
                                        ("FIRE_PIT", True), ("COLD_FRAME", True)])
 def test_an_object_cuts_the_lawn_only_where_it_covers_the_ground(kind, cuts) -> None:
-    """Senior review of #388: an object without a height is BUILT (at its illustrative
-    height) and so no longer painted, but its outline still cut the lawn — a pergola
+    """Senior review of #388: an object that had no height was BUILT (at an illustrative
+    height, its default since the owner's second pass) and so no longer painted, but
+    its outline still cut the lawn — a pergola
     left 12 m² of bald lawn, a parasol 6 m². Only an object that covers its footprint
     at the ground cuts it, with a height or without one."""
     for height in (None, 30.0):   # round 2: a cold frame's soil is a few cm up, with a height too

@@ -4,10 +4,10 @@ Issue #388's truth gate for every builder: "decoration ≤ footprint + 10 cm; to
 resolved height". Held here over a matrix of sizes and heights for all 24 kinds of
 ``OBJECT_KINDS`` (``verify_builder`` with a 10 cm plan margin, the top to 1 %),
 plus what the gate does not see: each object stands the way its 2D sprite is
-drawn (the sprite's top edge is the item's local +y), an object the plan gives no
-height is built at its illustrative height and casts its shadow in 3D (owner, L4
-manual pass), glass and water cast none, every
-colour is a 2D table's, and a footprint kilometres wide still makes a bounded mesh.
+drawn (the sprite's top edge is the item's local +y), every kind has a default height
+it is built at and casts with (owner, L4's second manual pass), glass and water cast
+none, every colour is a 2D table's, and a footprint kilometres wide still makes a
+bounded mesh.
 """
 
 from __future__ import annotations
@@ -18,12 +18,7 @@ import math
 import numpy as np
 import pytest
 
-from open_garden_planner.core.object_height import DEFAULT_HEIGHTS_CM, effective_height_cm
-from open_garden_planner.core.object_height_estimate import (
-    ESTIMATED_HEIGHT_PARAM,
-    ESTIMATED_OBJECT_HEIGHTS_CM,
-    estimated_object_height_cm,
-)
+from open_garden_planner.core.object_height import DEFAULT_HEIGHTS_CM
 from open_garden_planner.core.scene3d import BuilderContractError, Record, verify_builder
 from open_garden_planner.core.scene3d.builders import (
     OBJECT_KINDS,
@@ -64,15 +59,13 @@ HEIGHTS: list[float | None] = [None, 30.0, 75.0, 250.0]
 
 
 def record_of(kind: str, size: object, height: float | None, *, angle: float = 0.0) -> Record:
-    """A record as the snapshot makes it — with the illustrative height of a kind the
-    2D resolver gives none (the snapshot writes it whenever the plan gives none)."""
-    estimate = estimated_object_height_cm(kind)
-    params = {ESTIMATED_HEIGHT_PARAM: estimate} if estimate is not None and height is None else {}
+    """A record of ``kind``; ``height`` None is a hand-made record without one, which
+    the builder builds at the kind's default (the snapshot always writes the height)."""
     if kind in ROUND:
-        return circle_record(kind, float(size), height, params=params)  # type: ignore[arg-type]
+        return circle_record(kind, float(size), height)  # type: ignore[arg-type]
     w, d = size  # type: ignore[misc]
     return polygon_record(kind, turned(rectangle(w, d), angle) if angle else rectangle(w, d), height,
-                          shape="rectangle", params=params)
+                          shape="rectangle")
 
 
 def matrix() -> list[tuple[str, object, float | None]]:
@@ -94,7 +87,7 @@ def test_the_matrix_is_every_object_kind() -> None:
                          ids=lambda v: str(v) if not isinstance(v, tuple) else "x".join(map(str, v)))
 def test_the_truth_gate_of_issue_388(kind: str, size: object, height: float | None) -> None:
     """Deterministic, geometry-only, valid meshes, the top at the resolved (or
-    illustrative) height to 1 %, nothing more than 10 cm beyond the footprint, built
+    default) height to 1 %, nothing more than 10 cm beyond the footprint, built
     TO the height (no fit), within the object budget, and something built."""
     record = record_of(kind, size, height)
     builder = REGISTRY.builder_for(kind)
@@ -129,40 +122,25 @@ def test_the_gate_catches_a_builder_that_reaches_too_far() -> None:
         verify_builder(grown, record, plan_margin_cm=10.0)
 
 
-# ── heights: the plan's, else the resolver's, else the illustrative one ─────────
+# ── heights: the plan's, else the kind's default ─────────────────────────────
 
 
-def test_every_object_kind_has_a_height_to_be_built_at() -> None:
-    """A kind the 2D resolver gives no height has an illustrative one, and the two
-    tables never both answer (``core/object_height_estimate``)."""
-    assert not set(ESTIMATED_OBJECT_HEIGHTS_CM) & set(DEFAULT_HEIGHTS_CM)
-    for kind in sorted(OBJECT_KINDS):
-        has_default = effective_height_cm(kind, None) is not None
-        assert has_default != (estimated_object_height_cm(kind) is not None), kind
-    from open_garden_planner.core.object_types import ObjectType
-
-    assert set(ESTIMATED_OBJECT_HEIGHTS_CM) <= {member.name for member in ObjectType}
+def test_every_object_kind_has_a_default_height() -> None:
+    """Every object kind has a default height in the 2D resolver (owner, L4's second
+    manual pass: "doesn't make sense that a parasol doesn't have a height, while a
+    trampoline has it"); there is no second, 3D-only table."""
+    assert set(DEFAULT_HEIGHTS_CM) >= OBJECT_KINDS
 
 
-@pytest.mark.parametrize("kind", sorted(ESTIMATED_OBJECT_HEIGHTS_CM))
-def test_an_object_the_plan_gives_no_height_is_built_and_casts(kind: str) -> None:
-    """Built at its illustrative height, and it casts in 3D as it does with a height
-    (owner, L4 manual pass: shown 2.5 m tall, a parasol shades the ground). The 2D sun
-    study still has no caster for it (``test_l4_built_world``)."""
+@pytest.mark.parametrize("kind", sorted(OBJECT_KINDS))
+def test_a_record_without_a_height_is_built_at_the_default_and_casts(kind: str) -> None:
+    """A hand-made record without a height is built at the kind's default and casts,
+    as one that carries the default does."""
     sizes = ROUND.get(kind) or BOXED[kind]
-    estimated = REGISTRY.build(record_of(kind, sizes[0], None))
-    assert estimated and any(part.casts_shadow for part in estimated)
-    top = max(float(part.mesh.positions[:, 2].max()) for part in estimated)
-    assert top == pytest.approx(ESTIMATED_OBJECT_HEIGHTS_CM[kind], rel=1e-4)
-    real = REGISTRY.build(record_of(kind, sizes[0], 120.0))
-    assert any(part.casts_shadow for part in real)
-
-
-def test_without_an_estimate_a_height_less_object_is_not_built() -> None:
-    """A hand-made record of a height-less kind WITHOUT the snapshot's estimate has no
-    height to be built at: no parts (``BuiltBuilder``'s rule, unchanged)."""
-    record = circle_record("PARASOL", 150.0, None)
-    assert REGISTRY.build(record) == ()
+    parts = REGISTRY.build(record_of(kind, sizes[0], None))
+    assert parts and any(part.casts_shadow for part in parts)
+    top = max(float(part.mesh.positions[:, 2].max()) for part in parts)
+    assert top == pytest.approx(DEFAULT_HEIGHTS_CM[kind], rel=1e-4)
 
 
 # ── glass and water ──────────────────────────────────────────────────────────

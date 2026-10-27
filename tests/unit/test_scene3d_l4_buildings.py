@@ -17,9 +17,18 @@ import numpy as np
 import pytest
 
 from open_garden_planner.core import roof_style as rs
-from open_garden_planner.core.scene3d import DIMENSIONLESS_PARAMS, Params, verify_builder
+from open_garden_planner.core.scene3d import (
+    DIMENSIONLESS_PARAMS,
+    Material,
+    Params,
+    Record,
+    Transform,
+    verify_builder,
+)
 from open_garden_planner.core.scene3d.builders import buildings, production_registry
 from open_garden_planner.core.scene3d.builders.facade import (
+    MAX_WINDOWS_PER_WALL,
+    MAX_WINDOWS_TOTAL,
     SPECS,
     door_wall_index,
     facade,
@@ -499,6 +508,43 @@ def test_a_side_too_short_for_a_window_stays_blank() -> None:
     assert window_columns(380.0, spec, door) == ([], [190.0])  # 40 cm each side: none
 
 
+@pytest.mark.parametrize("length", [3_000.0, 20_000.0, 2.8e6])
+def test_a_long_door_wall_spreads_its_windows_on_both_sides(length: float) -> None:
+    """Senior review of the owner pass: the per-wall cap cut the ground row from the
+    left — a 200 m door wall got 24 windows left of the door and none right of it."""
+    spec = SPECS["HOUSE"]
+    middle = length / 2.0
+    ground, upper = window_columns(length, spec, (middle - 90.0, middle + 90.0))
+    left = [centre for centre in ground if centre < middle]
+    right = [centre for centre in ground if centre > middle]
+    assert len(left) == len(right) <= MAX_WINDOWS_PER_WALL // 2
+    assert len(upper) == len(ground) + 1  # and one over the door
+
+
+@pytest.mark.parametrize(("corners", "side"), [(4, 6_400.0), (5, 6_100.0), (8, 6_000.0), (16, 6_000.0)])
+def test_a_facade_has_at_most_twice_its_window_places_and_one_over_the_door(
+        monkeypatch: pytest.MonkeyPatch, corners: int, side: float) -> None:
+    """Senior review of the owner pass: the upper row ran over a whole wall even where
+    the ground row had stopped at the facade's limit — 205 to 210 windows against the
+    192 the constants promise."""
+    from open_garden_planner.core.scene3d.builders import facade as facade_module
+
+    counts = {"ground": 0, "upper": 0}
+    window = facade_module._window
+
+    def counting(boxes, wall, centre, sill, spec):  # type: ignore[no-untyped-def]
+        counts["upper" if sill > spec.sill else "ground"] += 1
+        return window(boxes, wall, centre, sill, spec)
+
+    monkeypatch.setattr(facade_module, "_window", counting)
+    radius = side / (2.0 * math.sin(math.pi / corners))
+    ring = [(radius * math.cos(2.0 * math.pi * k / corners), radius * math.sin(2.0 * math.pi * k / corners))
+            for k in range(corners)]
+    facade("HOUSE", ring, lambda points: np.full(len(points), 1e5), 0)
+    assert counts["ground"] <= MAX_WINDOWS_TOTAL
+    assert counts["upper"] <= counts["ground"] + 1
+
+
 def test_a_garage_gets_a_garage_door() -> None:
     assert SPECS["GARAGE_SHED"].garage and not SPECS["HOUSE"].garage
     mesh = facade("GARAGE_SHED", rectangle(400.0, 600.0), lambda p: np.full(len(p), 230.0), 0)
@@ -535,3 +581,39 @@ def test_a_house_is_drawn_in_its_3d_roofs_terracotta() -> None:
     walls = next(part for part in REGISTRY.build(house({"ridge": RIDGE})) if part.name == "walls")
     assert not walls.tinted
     assert np.allclose(walls.mesh.colors, np.asarray(palette.SANDSTONE.linear, dtype=np.float32), atol=1e-6)
+
+
+def _not_one_plain_ring(holed: bool) -> Record:
+    """A house the snapshot hands over as two regions (a polygon drawn crossing itself)
+    or as one region with a hole: ``BuiltBuilder``'s plain block builds it."""
+    lobes = (((-301.0, -200.0), (-1.0, 0.0), (-301.0, 200.0)), ((301.0, 200.0), (1.0, 0.0), (301.0, -200.0)))
+    if holed:
+        return Record("holed", "HOUSE", "polygon", (rectangle(400.0, 300.0),), Transform(),
+                      Material("HOUSE", (178, 90, 62, 255)), height_cm=450.0,
+                      params=Params({"seed": "holed"}), holes=((tuple(reversed(rectangle(200.0, 100.0))),),))
+    return Record("lobes", "HOUSE", "polygon", lobes, Transform(), Material("HOUSE", (178, 90, 62, 255)),
+                  height_cm=450.0, params=Params({"seed": "lobes"}))
+
+
+@pytest.mark.parametrize("route", ["roofed", "a ridge on one point", "a ridge that misses",
+                                   "two regions", "a hole"])
+def test_a_house_s_walls_are_sandstone_on_every_route(route: str) -> None:
+    """Senior review of the owner pass: the roofless block (``_block``) and the plain
+    block of a house that is not one plain outline gave the walls the house's fill — now
+    terracotta, the "one terracotta block" the owner rejected. One rule of the kind,
+    whatever the route: no part of a house takes its fill."""
+    from open_garden_planner.core.scene3d.builders import palette
+
+    records = {
+        "roofed": house({"ridge": RIDGE}),
+        "a ridge on one point": house({"ridge": ((10.0, 0.0), (10.0, 0.0))}),
+        "a ridge that misses": house({"ridge": ((2000.0, 0.0), (2000.0, 500.0))}),
+        "two regions": _not_one_plain_ring(holed=False),
+        "a hole": _not_one_plain_ring(holed=True),
+    }
+    parts = REGISTRY.build(records[route])
+    assert parts and not any(part.tinted for part in parts), route
+    walls = parts[0]
+    assert walls.name in ("walls", "prism")
+    sandstone = np.asarray(palette.SANDSTONE.linear, dtype=np.float32)
+    assert np.allclose(walls.mesh.colors.max(axis=0), sandstone, atol=1e-6), route

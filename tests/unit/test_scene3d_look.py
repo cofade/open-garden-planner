@@ -812,19 +812,23 @@ class TestFogDepth:
             near, _far = L.fog_depth_cm(distance)
             assert near >= distance + math.hypot(width, depth) / 2.0, (distance, near)
 
-    def test_the_fog_is_full_before_the_far_plane(self) -> None:
-        """The meadow's edge is cut by the camera's far plane: there the fog must be
-        full, or the cut shows against the sky."""
+    def test_the_meadow_ends_in_full_fog_inside_the_far_plane(self) -> None:
+        """The meadow's edge must lie in full fog, and inside the camera's far plane from
+        every distance the camera can take: a far plane that cuts the meadow shows the
+        cut against the sky's darker lower half, fog or not (3D review of L4's second
+        owner pass: 41.6 luma a row at 403 m with the 800 m far plane)."""
         scene = (Path(L.__file__).resolve().parents[2] / "ui" / "view3d" / "quick3d" / "qml"
                  / "Garden.qml").read_text(encoding="utf-8")
         camera = scene[scene.index("PerspectiveCamera {"):]
         clip_far = float(camera[camera.index("clipFar:") + len("clipFar:"):].split()[0])
         assert "depthNear: root.fogNear" in scene and "depthFar: root.fogFar" in scene
         from open_garden_planner.core.scene3d.camera import MAX_DISTANCE_CM
+        from open_garden_planner.core.scene3d.meadow import MEADOW_HALF_CM
 
+        assert clip_far >= MEADOW_HALF_CM + MAX_DISTANCE_CM
         for distance in (0.0, 10_000.0, 30_000.0, MAX_DISTANCE_CM):
             near, far = L.fog_depth_cm(distance)
-            assert near <= L.FOG_NEAR_MAX_SHARE * far and far <= L.FOG_FAR_MAX_CM < clip_far
+            assert near <= L.FOG_NEAR_MAX_SHARE * far and far <= L.FOG_FAR_MAX_CM < MEADOW_HALF_CM
 
     def test_it_only_moves_out(self) -> None:
         distances = np.geomspace(1.0, 60_000.0, 400)

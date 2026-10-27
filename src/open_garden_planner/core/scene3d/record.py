@@ -502,9 +502,9 @@ class Record:
       ``()`` / ``None`` for every other shape.
     - ``height_cm``: the resolved ``effective_height_cm(..., at_date)`` — a
       positive finite number — or None when the resolver gives none: then the
-      2D sun study casts no shadow for it (``casts_shadow``). A builder may still
-      build it at the kind's nominal or illustrative height, and that solid casts
-      in 3D (L4 manual pass).
+      2D sun study casts no shadow for it (``has_2d_caster``). A builder may still
+      build it at the kind's nominal height, or a plant at its illustrative one
+      (#557), and that solid casts in 3D (L4 manual pass).
     - ``params``: the rest (``PARAM_*`` keys).
     - ``outline`` (L1.5): a POLYGON's vertices as they were DRAWN — in the drawn
       order, not turned, not resolved — when ``footprints`` is not that polygon:
@@ -611,9 +611,9 @@ class Record:
         return self.transform.base_cm
 
     @property
-    def casts_shadow(self) -> bool:
-        """True when the plan gives the item a height — the 2D sun study's caster
-        rule (a 3D solid casts whenever it is built, L4)."""
+    def has_2d_caster(self) -> bool:
+        """True when the plan gives the item a height: the 2D sun study casts it. Not
+        a 3D rule — a 3D solid casts whenever it is built (L4's owner pass)."""
         return self.height_cm is not None
 
     @property

@@ -76,7 +76,7 @@ Item {
     // up; they are built at every preset, so a preset step changes no geometry
     property bool lawnBlades: true
     // L4.5: the ground's detail normals (0 = flat), see the groundTile component
-    property real detailNormals: 1.0
+    property real detailNormals: 3.0
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
     property bool sunUp: false              // false until the first sun, and whenever there is no key light
@@ -103,6 +103,10 @@ Item {
     // defaults are its floors, the L0 spike's measured constants
     property real fogNear: 2600
     property real fogFar: 16000
+    // what the fog hid until it followed the camera (3D review of L4's second owner
+    // pass): the ambient-occlusion pass draws a hard line about 101 m out, so its
+    // strength fades out between 45 m and 90 m from the camera's target
+    readonly property real aoFade: Math.max(0, Math.min(1, (9000 - camPos.minus(camTarget).length()) / 4500))
 
     onCamVersionChanged: {
         cam.position = camPos
@@ -736,7 +740,7 @@ Item {
             exposure: root.topDown ? 1.0 : root.exposure
             ditheringEnabled: !root.topDown
             aoEnabled: !root.topDown && root.ambientOcclusion
-            aoStrength: 55
+            aoStrength: 55 * root.aoFade
             aoDistance: 14
             aoSoftness: 45
             aoSampleRate: root.aoSampleRate
@@ -783,7 +787,9 @@ Item {
             id: cam
             fieldOfView: root.camFov
             clipNear: 5
-            clipFar: 80000
+            // past the meadow's 2 km edge from 600 m out (camera.MAX_DISTANCE_CM): at the
+            // L0 spike's 800 m the cut showed against the sky from about 400 m (3D review)
+            clipFar: 300000
         }
         OrthographicCamera {
             id: topCam
@@ -819,7 +825,10 @@ Item {
                              : root.softShadows === "pcf32" ? Light.PCF32 : Light.PCF16
             pcfFactor: root.pcfFactor
             shadowBias: root.shadowBias
-            shadowMapFar: 9000
+            // as far as the fog begins (the spike's 9000 its floor): with the fog following
+            // the camera, a framed plan beyond 90 m lay clear and shadowless (3D review).
+            // The top-down truth view keeps the measured 9000.
+            shadowMapFar: root.topDown ? 9000 : Math.max(9000, root.fogNear)
             lockShadowmapTexels: true
         }
         // The flat fill - ONLY where no sky texture lights the view (the truth view, a

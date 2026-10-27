@@ -6,10 +6,10 @@ The truth rules of the built world live here, once:
   top is that height by construction. ``fit_parts`` is the safety net behind it
   (a z-scale about the ground, as the spike's ``fit_height``); a builder whose
   ``fit_scale`` is not 1 is a bug the tests catch, not a look the fit hides.
-- **No height, no shadow.** An item the plan gives no height is built at its
-  kind's nominal height as decoration and none of its parts casts a shadow —
-  exactly as in 2D, where it casts none. A kind without a nominal height gets
-  no solid at all.
+- **No height: the nominal one.** An item the plan gives no height is built at
+  its kind's nominal height (``nominal_height_cm``), and what is built casts in
+  3D (L4's owner pass, ADR-065). A kind without a nominal height gets no solid
+  at all.
 - **One plain outline, or the plain block.** A shape function for a polygon,
   rectangle, ellipse or circle builds on ONE simple outline, as drawn. A record
   whose ground is anything else gets ``plain_block``: a prism of ALL its regions
@@ -25,26 +25,28 @@ The truth rules of the built world live here, once:
   a usable ridge), so no fallback can drop a region or fill a hole.
 
 ``BuiltBuilder`` wraps a *shape function* ``(record, height_cm) -> parts`` into
-the ``Builder`` the registry wants and applies the three rules.
+the ``Builder`` the registry wants and applies the three rules — and, for a kind
+whose colours are a rule of the kind (a HOUSE's walls), its ``recolour`` step on
+the parts of every route.
 """
 
 from __future__ import annotations
 
 import dataclasses
-import math
 from collections.abc import Callable, Sequence
 from typing import Final, TypeAlias
 
 import numpy as np
 
 from ...object_height import effective_height_cm
-from ...object_height_estimate import ESTIMATED_HEIGHT_PARAM
 from ..build import prism_mesh
 from ..mesh import Mesh, MeshPart
 from ..record import PARAM_OUTLINE_RESOLVED, SHAPE_POLYLINE, Record
 from .primitives import F64, MIN_SEGMENT_CM, clean_path
 
 ShapeFunction: TypeAlias = Callable[[Record, float], tuple[MeshPart, ...]]
+#: A step on the parts of EVERY route of a ``BuiltBuilder`` (``recolour``).
+Recolour: TypeAlias = Callable[[tuple[MeshPart, ...]], tuple[MeshPart, ...]]
 
 #: A fit scale this close to 1 is float32 rounding of an exact construction,
 #: and the mesh is left untouched.
@@ -57,17 +59,6 @@ def nominal_height_cm(kind: str) -> float | None:
     the per-type default, a container's default fill height — or None when it
     has none. Asked, not mirrored: there is no table of kinds here."""
     return effective_height_cm(kind, None)
-
-
-def estimated_height_of(record: Record) -> float | None:
-    """The ILLUSTRATIVE height the snapshot put on ``record`` (``params
-    ["estimated_height_cm"]``, L4 / #557), or None when there is no usable one. A
-    geometry param: reading it is reading the record's geometry part."""
-    value = record.params.get(ESTIMATED_HEIGHT_PARAM)
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return None
-    height = float(value)
-    return height if math.isfinite(height) and height > 0.0 else None
 
 
 def centre_line(record: Record) -> tuple[F64, bool]:
@@ -148,29 +139,27 @@ class BuiltBuilder:
     ``shape(record, height_cm)`` returns the parts for a height; it reads only
     the record's geometry part. ``raw(record)`` gives its output before the fit
     (the tests measure ``fit_scale`` on it); calling the instance gives the parts
-    the engine gets.
+    the engine gets. ``recolour``, if given, takes the parts of every route — the
+    shape function's and the plain block — so a colour that is a rule of the KIND
+    holds whichever route built the item (a HOUSE's sandstone walls).
     """
 
-    def __init__(self, shape: ShapeFunction, name: str) -> None:
+    def __init__(self, shape: ShapeFunction, name: str, *, recolour: Recolour | None = None) -> None:
         self._shape = shape
         self.name = name
+        self._recolour = recolour
 
     def __repr__(self) -> str:
         return f"<built-world builder {self.name}>"
 
     def height_for(self, record: Record) -> float | None:
-        """The height the item is built at: the plan's, else the kind's nominal one,
-        else the ILLUSTRATIVE one the snapshot put on the record for a kind the 2D
-        resolver gives no height (L4: ``core/object_height_estimate``). Whichever it
-        is, what is built casts its shadow in 3D (owner, L4 manual pass: a parasol
-        shown 2.5 m tall shades the ground under it); the 2D sun study still sees no
-        caster where the plan holds no height, as for an estimated plant (#557)."""
+        """The height the item is built at: the plan's, else the kind's nominal one
+        (a hand-made record: the snapshot always writes the height the 2D resolver
+        gives, and every object kind has a default since L4's second owner pass).
+        What is built casts its shadow in 3D (owner, L4 manual pass)."""
         if record.height_cm is not None:
             return record.height_cm
-        nominal = nominal_height_cm(record.kind)
-        if nominal is not None:
-            return nominal
-        return estimated_height_of(record)
+        return nominal_height_cm(record.kind)
 
     def uses_the_plain_block(self, record: Record) -> bool:
         """A polygon-footprint record whose ground is not one plain outline (several
@@ -186,8 +175,10 @@ class BuiltBuilder:
         if height is None:
             return ()
         if self.uses_the_plain_block(record):
-            return plain_block(record, height)
-        return tuple(part for part in self._shape(record, height) if part.mesh.vertex_count)
+            parts = plain_block(record, height)
+        else:
+            parts = tuple(part for part in self._shape(record, height) if part.mesh.vertex_count)
+        return parts if self._recolour is None else self._recolour(parts)
 
     def fit_scale(self, record: Record) -> float:
         """How far the shape function missed the height (1.0 = built to it)."""

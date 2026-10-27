@@ -14,8 +14,8 @@ from datetime import date
 import pytest
 
 from open_garden_planner.core.object_height import (
-    _HEIGHT_FIELD_TYPES,
     DEFAULT_HEIGHTS_CM,
+    GROUND_SURFACE_TYPE_NAMES,
     METADATA_KEY,
     SOURCE_CONTAINER,
     SOURCE_CURRENT,
@@ -327,22 +327,43 @@ class TestOneResolver:
         assert height_source("TREE", metadata) == SOURCE_CURRENT
 
 
-class TestOpenStructuresHeightField:
-    """Package 3a (#308): swing/pergola/hammock have NO default height (the
-    shadow model extrudes a solid footprint) but DO expose the Height field so
-    a user can opt in explicitly; until then they cast nothing."""
+#: The kinds with no height of their own: the ground surfaces, the roof ridge (a line of
+#: its house), generic shapes, annotations, and plants (one without species data gets
+#: an illustrative 3D estimate, #557). Every other kind stands up and has a default.
+_NO_DEFAULT_KINDS = GROUND_SURFACE_TYPE_NAMES | {
+    "ROOF_RIDGE", "GENERIC_RECTANGLE", "GENERIC_POLYGON", "GENERIC_CIRCLE",
+    "GENERIC_ELLIPSE", "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN",
+    "TREE", "SHRUB", "PERENNIAL",
+}
 
-    @pytest.mark.parametrize("name", sorted(_HEIGHT_FIELD_TYPES))
-    def test_field_offered_but_no_default(self, name: str) -> None:
-        assert name not in DEFAULT_HEIGHTS_CM
-        assert has_height_semantics(name, None) is True
-        assert effective_height_cm(name, None) is None
+#: The kinds that had no height until L4's second owner pass (ADR-065), at the values
+#: the 3D view had shown them at.
+_FORMERLY_HEIGHT_LESS = {
+    "PARASOL": 250.0, "FIRE_PIT": 30.0, "PLANTER_POT": 50.0, "COLD_FRAME": 45.0,
+    "RAIN_BARREL": 100.0, "WATER_TAP": 80.0, "SWING": 220.0, "HAMMOCK": 110.0,
+    "PERGOLA": 250.0,
+}
 
-    @pytest.mark.parametrize("name", sorted(_HEIGHT_FIELD_TYPES))
-    def test_explicit_value_is_honoured(self, name: str) -> None:
-        assert effective_height_cm(name, {METADATA_KEY: 210.0}) == 210.0
 
-    def test_field_types_are_real_object_types(self) -> None:
+class TestEveryStandingObjectHasAHeight:
+    """L4's second owner pass (ADR-065): "Doesn't make sense for me e.g. that a parasol
+    doesn't have a height, while a trampoline has it." Every object that stands up has
+    a default height: the Height field shows it, and it casts in 2D and 3D."""
+
+    def test_every_standing_object_kind_has_a_default_height(self) -> None:
         from open_garden_planner.core.object_types import ObjectType
 
-        assert {m.name for m in ObjectType} >= _HEIGHT_FIELD_TYPES
+        names = {member.name for member in ObjectType}
+        assert names >= _NO_DEFAULT_KINDS
+        for name in sorted(names - _NO_DEFAULT_KINDS):
+            assert effective_height_cm(name, None) is not None, name
+            assert has_height_semantics(name, None), name
+        for name in sorted(_NO_DEFAULT_KINDS):
+            assert effective_height_cm(name, None) is None, name
+
+    @pytest.mark.parametrize(("name", "height"), sorted(_FORMERLY_HEIGHT_LESS.items()))
+    def test_the_formerly_height_less_kinds_have_their_default(
+            self, name: str, height: float) -> None:
+        assert DEFAULT_HEIGHTS_CM[name] == height
+        assert resolve_height(name, None) == (height, SOURCE_DEFAULT)
+        assert effective_height_cm(name, {METADATA_KEY: 210.0}) == 210.0

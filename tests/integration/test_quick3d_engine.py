@@ -125,8 +125,9 @@ class TestAgainstARecordingEngine:
 
         fresh_pipelines()
         tick()
-        # 98 records (a roof ridge has none: it is a param of its house), 11 of them flat
-        assert len(quick.item_ids()) == 98 and len(engine.parts) == 87
+        # 98 records (a roof ridge has none: it is a param of its house), 9 of them flat
+        # (the fire pit and the rain barrel have a default height since L4's second owner pass)
+        assert len(quick.item_ids()) == 98 and len(engine.parts) == 89
         uploads = quick.geometry_uploads
         target, victim = largest_solids(scene, {p.spec.item_id for p in engine.parts})
 
@@ -145,10 +146,10 @@ class TestAgainstARecordingEngine:
 
         commands.execute(DeleteItemsCommand(scene, [victim]))
         tick()
-        assert len(engine.parts) == 86
+        assert len(engine.parts) == 88
         commands.undo()
         tick()
-        assert len(engine.parts) == 87 and quick.geometry_uploads == uploads + 1
+        assert len(engine.parts) == 89 and quick.geometry_uploads == uploads + 1
         commands.undo()
         commands.undo()
         tick()
@@ -157,7 +158,7 @@ class TestAgainstARecordingEngine:
         assert engine.parts == [] and engine.sun is None and engine.ground is None
         fresh_pipelines()
         tick()         # … and the same plan comes back complete
-        assert len(engine.parts) == 87
+        assert len(engine.parts) == 89
 
 
 @pytest.fixture(scope="module")

@@ -57,7 +57,7 @@ from contextvars import ContextVar
 from typing import Final
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPainterPathStroker, QPen
 
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.object_types import PathFenceStyle
@@ -275,16 +275,19 @@ class PathStylePaint:
     # ── Path style renderers ──
 
     def _textured_stroke(self, painter: QPainter, pattern: FillPattern, width: float) -> None:
-        """The line stroked ``width`` wide with ``pattern`` in the line's colour, round
-        capped and joined (``context.ROUND_PATH_STYLES``). The texture lies in the
-        item's own frame, as a textured area's does: two tiles of the ground bake
-        sample it where the canvas does."""
-        pen = QPen(create_pattern_brush(pattern, self.pen().color()), width)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawPath(self.path())
+        """The line ``width`` wide, round capped and joined (``context.ROUND_PATH_STYLES``),
+        FILLED with ``pattern`` in the line's colour. The texture lies in the item's own
+        frame, as a textured area's does: two tiles of the ground bake sample it where
+        the canvas does. The outline is filled, never stroked with a texture pen: the SVG
+        export writes a pen as its colour, and a texture brush's colour is black (a
+        black bar in every exported SVG, PF-CAN-27)."""
+        stroker = QPainterPathStroker()
+        stroker.setWidth(width)
+        stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
+        stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(create_pattern_brush(pattern, self.pen().color()))
+        painter.drawPath(stroker.createStroke(self.path()))
 
     def _paint_gravel_path(self, painter: QPainter) -> None:
         """Gravel path: the gravel texture, with a dark edging along both sides — the

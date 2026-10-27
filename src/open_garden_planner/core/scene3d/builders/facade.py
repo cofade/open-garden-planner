@@ -42,9 +42,10 @@ from .primitives import F64, ccw_ring, flat_mesh, quad_triangles
 
 #: The most a facade element stands out of its wall (cm): a step, a sill.
 MAX_PROUD_CM: Final = 9.0
-#: The most window PLACES one wall gets (a wall kilometres long: wider apart), and in
-#: all. A place is a ground-floor window and, on a building with an upper row, the one
-#: above it: at most twice as many windows (the count runs on the ground row).
+#: The most window PLACES one wall gets (a wall kilometres long: wider apart; half on
+#: each side of a door), and in all. A place is a ground-floor window and, on a building
+#: with an upper row, the one above it: at most twice as many windows, and one more
+#: over the door (the count runs on the ground row).
 MAX_WINDOWS_PER_WALL: Final = 24
 MAX_WINDOWS_TOTAL: Final = 96
 #: A window or a door keeps this far under the wall's top (cm).
@@ -257,6 +258,7 @@ def facade(kind: str, footprint: ArrayLike, wall_top: Callable[[F64], F64],
         if wall.length < spec.min_wall or placed >= limit:
             continue
         ground, upper = window_columns(wall.length, spec, blocked.get(index))
+        built_here: list[float] = []
         for centre in ground:
             if placed >= limit:
                 break
@@ -264,11 +266,13 @@ def facade(kind: str, footprint: ArrayLike, wall_top: Callable[[F64], F64],
                      spec.sill + spec.window_h):
                 _window(boxes, wall, centre, spec.sill, spec)
                 placed += 1
-        # an upper window needs more wall than the one under it: where none of a wall's
-        # ground row fits, its upper row does not either, so ``limit`` bounds both rows
-        # (the door's column adds one)
+                built_here.append(centre)
+        # the upper row: over the ground windows built here and over the door (the one
+        # column of ``upper`` that is not the ground row's), so ``limit`` bounds both rows
+        # and the door adds one
         sill = spec.sill + spec.upper_row
-        for centre in upper if spec.upper_row else ():
+        over_door = [centre for centre in upper if centre not in ground]
+        for centre in sorted([*built_here, *over_door]) if spec.upper_row else ():
             if _fits(wall, wall_top, centre - spec.window_w / 2.0, centre + spec.window_w / 2.0,
                      sill + spec.window_h):
                 _window(boxes, wall, centre, sill, spec)
@@ -294,7 +298,7 @@ def window_columns(length: float, spec: FacadeSpec, door: tuple[float, float] | 
         side = end - start
         if side < spec.window_w:
             continue
-        count = max(1, math.floor(side / spec.spacing))
+        # half the wall's places on each side: a long wall is spread out on both
+        count = min(MAX_WINDOWS_PER_WALL // 2, max(1, math.floor(side / spec.spacing)))
         ground += [start + (k + 0.5) * side / count for k in range(count)]
-    ground = ground[:MAX_WINDOWS_PER_WALL]
     return ground, sorted([*ground, (door[0] + door[1]) / 2.0])

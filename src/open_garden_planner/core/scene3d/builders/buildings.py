@@ -100,8 +100,9 @@ OVERHANG_GAIN_SHARE: Final = 0.025
 OVERHANG_NUDGE_CM: Final = 0.5
 
 #: A house's walls (module docstring): the sprites' sandstone, close to the tan the
-#: walls took from the former default fill (210, 180, 140), so a house drawn before
-#: L4 keeps the walls it had.
+#: walls took from the former default fill (210, 180, 140), so an untouched house
+#: drawn before L4 keeps the walls it had. A house given another fill (white, brick)
+#: loses that colour on its 3D walls: the fill is its roof seen from above.
 HOUSE_WALL: Final = palette.SANDSTONE
 
 HOUSE_ROOF: Final = RoofStyle(
@@ -284,34 +285,41 @@ def _block(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     return plain_block(record, height_cm, name="walls")
 
 
-def _building(record: Record, height_cm: float, base: RoofStyle,
-              wall: palette.PaletteColor | None = None) -> tuple[MeshPart, ...]:
-    """``wall``: the walls' own colour, or None for walls in the item's fill colour."""
+def _building(record: Record, height_cm: float, base: RoofStyle) -> tuple[MeshPart, ...]:
+    """Walls in the item's fill colour (``tinted``), the roof and the facade — or the
+    block, where no roof can be built."""
     if not has_one_plain_ring(record):  # checked here too: never a roof on footprints[0]
         return _block(record, height_cm)
     built = _roof(record, height_cm, base)
     if built is None or built.wall_top is None:
         return _block(record, height_cm)
     front = facade(record.kind, footprint_of(record), built.wall_top, door_wall_of(record))
-    if wall is None:
-        walls = MeshPart(built.walls, "vc", tinted=True, name="walls")
-    else:
-        mesh = built.walls
-        walls = MeshPart(Mesh.from_arrays(mesh.positions, mesh.normals,
-                                          mesh.colors * np.asarray(wall.linear, dtype=np.float32),
-                                          mesh.uvs, mesh.indices), "vc", name="walls")
-    return (walls, MeshPart(built.roof, "roof", name="roof"), MeshPart(front, "vc", name="facade"))
+    return (MeshPart(built.walls, "vc", tinted=True, name="walls"),
+            MeshPart(built.roof, "roof", name="roof"), MeshPart(front, "vc", name="facade"))
 
 
 def _house(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
-    return _building(record, height_cm, HOUSE_ROOF, HOUSE_WALL)
+    return _building(record, height_cm, HOUSE_ROOF)
 
 
 def _shed(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     return _building(record, height_cm, SHED_ROOF)
 
 
-build_house: Final = BuiltBuilder(_house, "house")
+def _house_walls(parts: tuple[MeshPart, ...]) -> tuple[MeshPart, ...]:
+    """A HOUSE's walls are ``HOUSE_WALL`` on EVERY route — under its roof, the block of
+    a house whose roof cannot be built (``_block``) and ``BuiltBuilder``'s plain block of
+    a house that is not one plain outline — never the item's fill (module docstring).
+    The rule of the kind, applied once to whatever was built: the tinted parts."""
+    wall = np.asarray(HOUSE_WALL.linear, dtype=np.float32)
+    return tuple(
+        dataclasses.replace(part, tinted=False, mesh=Mesh.from_arrays(
+            part.mesh.positions, part.mesh.normals, part.mesh.colors * wall, part.mesh.uvs,
+            part.mesh.indices)) if part.tinted else part
+        for part in parts)
+
+
+build_house: Final = BuiltBuilder(_house, "house", recolour=_house_walls)
 build_shed: Final = BuiltBuilder(_shed, "shed")
 
 

@@ -10,10 +10,12 @@ loads both generators and fails when a mirrored value and its source disagree,
 and maps every vertex colour every builder emits back to an entry of this module
 (gate G5). A colour that is in no 2D table does not belong here: report it.
 
-Not here, on purpose: anything the ITEM colours. A fence, a wall, a house's
+Not here, on purpose: anything the ITEM colours. A fence, a wall, a shed's
 walls and a container are seen in the item's own stroke or fill colour in 2D, so
 their parts are ``tinted`` — pure white vertices the sink multiplies with the
-record's material (``TINT``) — and a recolour never rebuilds a mesh.
+record's material (``TINT``) — and a recolour never rebuilds a mesh. A HOUSE's
+walls are not: its fill is drawn as its roof, so its walls are ``SANDSTONE``
+(``buildings.HOUSE_WALL``, L4's owner pass).
 """
 
 from __future__ import annotations

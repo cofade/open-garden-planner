@@ -235,8 +235,9 @@ MUTANTS: tuple[Mutant, ...] = (
            (BUILDER_TESTS,), "TestGroundThatIsNotOnePlainRing"),
     Mutant("a shape function runs on ground that is not one plain ring",
            BUILDERS + "common.py",
-           "        if self.uses_the_plain_block(record):\n            return plain_block(record, height)\n",
-           "",
+           "        if self.uses_the_plain_block(record):\n            parts = plain_block(record, height)\n"
+           "        else:\n            parts = ",
+           "        parts = ",
            (BUILDER_TESTS,), "TestGroundThatIsNotOnePlainRing"),
     Mutant("footprint_of hands out the first ring whatever the ground",
            BUILDERS + "common.py",

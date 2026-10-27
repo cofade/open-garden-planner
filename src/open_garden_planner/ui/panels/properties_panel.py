@@ -1634,7 +1634,7 @@ class PropertiesPanel(QWidget):
             oh.SOURCE_CURRENT: self.tr("From measured current height"),
             oh.SOURCE_SPECIES: self.tr("From assigned species (max height)"),
             oh.SOURCE_DEFAULT: self.tr("Default for this object type"),
-            # 3D builds it at an estimated height that casts there (L4 owner pass, ADR-065)
+            # a plant without species data: 3D builds it at an estimated height (#557)
             oh.SOURCE_NONE: self.tr("No height — no shadow on the 2D plan"),
         }
 

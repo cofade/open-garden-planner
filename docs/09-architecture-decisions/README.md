@@ -1412,7 +1412,7 @@ marker. PF-TST-29 and §8.8 record the rule. No stored key, `.ogp` field or prod
 
 **Decision — the generator IS the asset, again.** All furniture/infrastructure SVGs are emitted by `scripts/generate_object_sprites.py` — seeded per object, byte-deterministic (`--check` + `tests/unit/test_object_sprite_conformance.py::TestDeterminism`), so hand edits are unlandable and the generator doubles as the provenance record (`resources/objects/PROVENANCE.md`). The style is the man-made sibling of ADR-040's Lush Sprite — **"Lush Object"**, contract in `resources/objects/README.md`: rim-dark → crown-light shading per part, occlusion halos where parts stack, a `MATERIALS` anchor table (woods, metals, enamels/plastics, fabrics, minerals, glass/water/soil/sand) rendered by material primitives (`plank`/`wood_surface`, `disc`/`ring`, `fabric` with weave hatch + puff shading, `metal_bar`, `glass_pane`, `water_fill`, `granular_fill`, `glow`/`flame`), and one builder per object. Two invariants carried over from ADR-040 and one that is new: **(a) QtSvg subset only** (allowlist walk in the gate; rings are two-subpath paths, circle-clipped planks are computed analytically — no clipPath); **(b) rotation safety** — furniture rotation is USER-controlled, so light comes from straight above and **no directional shadow is baked** (`test_no_baked_directional_shadow` pins the legacy `#00000020` shadow's absence; the item-level painted shadow is the single shadow source, still user-toggleable); **(c) the viewBox IS the nominal footprint** in cm (`test_default_dimensions_match_viewboxes` pins it to `FURNITURE_DEFAULT_DIMENSIONS`, a gate-read metadata table with no production sizing consumer) — the canvas stretches art to the user's rect, so square viewBoxes for circle-tool objects and rounded footprints keep mild non-uniform stretch harmless. Owner-decided richness: **full parity** with the plant sprites (per-part gradients, gloss, micro-detail), not a calmer "lite" tier; budgets ≤ 460 elements / 44 KB (1.2× the densest, `hot_tub` at 380 elements / 35,910 bytes).
 
-**Roster growth (owner decision #7).** Nine new object types — `SANDBOX`, `TRAMPOLINE`, `HOT_TUB`, `SWING`, `PICNIC_TABLE`, `HAMMOCK` (furniture) and `WHEELBARROW`, `PERGOLA`, `BIRD_BATH` (infrastructure) — appended to `ObjectType`/`ToolType`, with `OBJECT_STYLES` (fill colour = 3D extrusion colour), `get_valid_types_for_shape` membership, canvas tool registration, renderer maps + default dims, `DEFAULT_HEIGHTS_CM` rows for the **solid** ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath — they cast shadows and extrude), gallery entries, and German strings in all three translation contexts. **Swing, pergola and hammock get no default height** (senior-review finding): the shadow/3D model extrudes the whole item footprint as a solid prism, and those objects are mostly air (sprite ink coverage 0.20 / 0.53 / 0.43) — a solid 3×3 m block at 2.3 m would misstate a sun study; a footprint-fill factor in the shadow model is the follow-up that would let them cast honest shade; until then they are in `_HEIGHT_FIELD_TYPES`, so the properties panel still offers the Height field and a user can opt one in explicitly (round-2 review: without that set the field never appeared and the "explicit" escape hatch was fiction). The `shape` recipe key is gate-checked (not read by the generator): the conformance gate cross-checks it against `get_valid_types_for_shape` and requires square art for circle-tool objects. **No FILE_VERSION bump**: `project.py` already degrades an unknown `object_type` name to `None` → generic shape (name/geometry/metadata survive) — the additive-enum contract is now pinned by `tests/unit/test_project_unknown_object_type.py` so a future loader change cannot silently break it. The agent API's `create_object` scope is deliberately **not** widened (plants + soil containers only) — no schema churn in an asset package; new types are already queryable by name. Existing types without a height default (parasol, fire pit, planter, rain barrel, water tap, cold frame) keep casting no shadow — adding heights would change existing sun studies and is a separate decision.
+**Roster growth (owner decision #7).** Nine new object types — `SANDBOX`, `TRAMPOLINE`, `HOT_TUB`, `SWING`, `PICNIC_TABLE`, `HAMMOCK` (furniture) and `WHEELBARROW`, `PERGOLA`, `BIRD_BATH` (infrastructure) — appended to `ObjectType`/`ToolType`, with `OBJECT_STYLES` (fill colour = 3D extrusion colour), `get_valid_types_for_shape` membership, canvas tool registration, renderer maps + default dims, `DEFAULT_HEIGHTS_CM` rows for the **solid** ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath — they cast shadows and extrude), gallery entries, and German strings in all three translation contexts. **Swing, pergola and hammock get no default height** (senior-review finding): the shadow/3D model extrudes the whole item footprint as a solid prism, and those objects are mostly air (sprite ink coverage 0.20 / 0.53 / 0.43) — a solid 3×3 m block at 2.3 m would misstate a sun study; a footprint-fill factor in the shadow model is the follow-up that would let them cast honest shade; until then they are in `_HEIGHT_FIELD_TYPES`, so the properties panel still offers the Height field and a user can opt one in explicitly (round-2 review: without that set the field never appeared and the "explicit" escape hatch was fiction). The `shape` recipe key is gate-checked (not read by the generator): the conformance gate cross-checks it against `get_valid_types_for_shape` and requires square art for circle-tool objects. **No FILE_VERSION bump**: `project.py` already degrades an unknown `object_type` name to `None` → generic shape (name/geometry/metadata survive) — the additive-enum contract is now pinned by `tests/unit/test_project_unknown_object_type.py` so a future loader change cannot silently break it. The agent API's `create_object` scope is deliberately **not** widened (plants + soil containers only) — no schema churn in an asset package; new types are already queryable by name. Existing types without a height default (parasol, fire pit, planter, rain barrel, water tap, cold frame) keep casting no shadow — adding heights would change existing sun studies and is a separate decision. **Superseded (2026-10-27, ADR-065 "Owner's second manual pass"):** the owner made that decision. All nine height-less kinds (swing, pergola, hammock and the six above) now have rows in `DEFAULT_HEIGHTS_CM`, and `_HEIGHT_FIELD_TYPES` is gone. The solid-prism overstatement for the open frames is accepted, as for a picket fence's strip; the footprint-fill factor is still the way to honest frame shadows.
 
 **Three latent inconsistencies fixed en passant.** Every SVG-rendered object was drawn upside-down on the canvas — the view/export `scale(1, -1)` flips a pixmap blitted in item-local coordinates, and the plant sprites hid it by radial symmetry; the owner's manual test caught it on the fire pit's flames, and the furniture paint branches now un-flip about the rect centre (§11.4, pinned by `TestUprightOnCanvas`). `BBQ_GRILL` is drawn by the *circle* tool but its art/default dims were 80×60 — the sprite was stretched to a square on every canvas; the art is now square (80×80) and the type is offered in the circle branch of the "Change Type" menu (it was only in the rectangle branch). Gallery thumbnails stretched non-square art into squares (bench → brown block); `gallery_data.render_svg_thumbnail` now letterboxes by the SVG's viewBox aspect (pixel-pinned by `TestGalleryThumbnails`). The `HEDGE_SECTION` mapping in `furniture_renderer.py` looked dead (load-time migration to `HEDGE_POLYGON`) but is still reachable through the rectangle "Change Type" menu — left untouched.
 
@@ -7680,6 +7680,8 @@ owner added that a path capped at 20 px is not a path.
    `params["estimated_height_cm"]`, as #557 does for plants), and the 2D sun study
    sees no caster. It first cast no shadow in 3D either; the owner reversed that
    (addendum "Owner's manual pass"): it casts in 3D, as a #557 plant estimate does.
+   **Superseded** by the owner's second pass: the nine kinds have real default
+   heights in the 2D resolver, and the estimate module is gone.
 3. **Roof style is additive item metadata.** `roof_style` (gable, hip, shed, flat),
    `roof_pitch_deg` (5–60°) and `roof_overhang_cm` (0–150) on HOUSE, GARAGE_SHED and
    TOOL_SHED (`core/roof_style.py`). There is no FILE_VERSION bump: an older app
@@ -7723,7 +7725,8 @@ owner added that a path capped at 20 px is not a path.
    regrowing them in 11.7–28.2 ms.
 8. **Detail normals come from the baked ground, in a shader.** From Medium up, the
    ground tiles use `ground.frag`, which tilts the normal by the luminance gradient
-   of the tile's own texture (strength 1.0, slope clamped to ±0.35). No normal-map
+   of the tile's own texture (strength 3.0 since the owner's second pass, first 1.0;
+   slope clamped to ±0.35). No normal-map
    asset is generated or shipped, and PBR texture sets remain ADR-042's subject.
    Measured: a `CustomMaterial`'s `TextureInput` does not apply the `Texture`'s
    `flipV`, so the tiles drew mirrored north–south until the shader flipped `v`
@@ -8183,9 +8186,11 @@ everything passed except two path styles. They answered the eight questions:
    `casts_shadow` on a build at a nominal or estimated height (and ADR-059's L1.6
    decision 3, "no height, no shadow", holds for the 2D sun study only). The 2D sun
    study and the hours-of-sun map are unchanged: the plan holds no height, as for a
-   #557 plant estimate.
+   #557 plant estimate. (The second pass gave these objects real heights, which
+   cast in 2D as well.)
 2. **Detail-normal strength:** not decided. The owner asked how to see it; the PR
-   shows the same walk-height views at 1.0 and 3.0. The value stays 1.0.
+   shows the same walk-height views at 1.0 and 3.0. The value stays 1.0. (The
+   second pass chose 3.0.)
 3. **Roof colour: "2D should also be terracotta."** The HOUSE's default fill is now
    the 3D roof tiles' `palette.ROOF_TILE` (178, 90, 62), so a new house is the same
    terracotta in 2D and 3D. The 3D roof keeps its own material, as the owner chose
@@ -8207,7 +8212,8 @@ everything passed except two path styles. They answered the eight questions:
    - `look.fog_depth_cm(distance)` begins the fog at 1.5 times the camera's distance
      to its target and makes it full at 6 times that.
    - The floors are the old 26 m and 160 m, so close views keep their reviewed look.
-   - The fog is full by 760 m, so the meadow's cut at the 800 m far plane stays hidden.
+   - The fog is full by 760 m. (The 800 m far plane's cut still showed from about 400 m;
+     the second pass moved the far plane to 3 km.)
    - Near that cap the fog begins at most three quarters of the way to it.
    - `Quick3DHost.set_camera` sets `fogNear` and `fogFar`.
    - Five plan sizes and aspects lie in front of the fog from their framing distance
@@ -8238,3 +8244,64 @@ The ground bake paints what the canvas paints, so 3D showed the same.
 - **Pin:** `test_gravel_and_dirt_are_their_textures_and_hide_what_lies_under` renders
   each path over white and over black. Its inside must be the same picture with the
   texture's grain, and the old painters fail it.
+
+**Owner's second manual pass (2026-10-27).** The owner confirmed the gravel and dirt
+paths, the house colours, the camera and the fog, and decided the two open points:
+1. **Every standing object has a real height.** "Why don't we simply allow setting a
+   height for these objects as well? Doesn't make sense for me e.g. that a parasol
+   doesn't have a height, while a trampoline has it."
+   - The nine kinds of decision 2 have rows in `DEFAULT_HEIGHTS_CM`, at the values the
+     3D estimate used: parasol 250 cm, fire pit 30, planter pot 50, cold frame 45,
+     rain barrel 100, water tap 80, swing 220, hammock 110, pergola 250.
+   - Each shows the "Object height" field with its default. It casts in the 2D sun
+     study, in the hours-of-sun map and in 3D.
+   - `core/object_height_estimate.py`, the snapshot's object estimate and
+     `BuiltBuilder`'s estimate branch are deleted. The plants' estimate (#557) is
+     unchanged.
+   - `test_every_standing_object_kind_has_a_default_height` holds every object kind
+     to a height without data, except the ground surfaces, the roof ridge, generic
+     shapes, annotations and plants. A new object kind cannot slip back.
+   - This supersedes ADR-042's roster note for swing, pergola and hammock. The 2D
+     shadow model extrudes the whole footprint as a solid prism, so in 2D a pergola
+     shades its footprint completely, as a picket fence casts a solid strip. A plant
+     under a pergola reads as shaded in 2D. A footprint-fill factor in the 2D model
+     is still the way to honest frame shadows.
+   - Saved plans store no default, so an existing parasol resolves to 250 cm and
+     casts in 2D after the update. Nothing in the file changes.
+2. **Detail-normal strength 3.0** (`look.DETAIL_NORMALS`; `Garden.qml`'s default
+   follows, held equal by `test_quick3d_qml.py`). In the walk-height comparison the
+   gravel, the clods of earth and the paving joints stand out without noise. The
+   slope clamp (±0.35) is unchanged. The 3D review recommended 1.0: at a 15° sun,
+   43.6 % of the gravel's and 31.4 % of the lawn's texels reach the clamp at 3.0, and
+   the lawn reads 6.7 luma darker. The owner chose from the views, so 3.0 stands.
+
+**3D review and senior review of the first pass's changes.** The fog had hidden three
+engine limits, which showed once it followed the camera:
+- **Shadows ended at 90 m** (`shadowMapFar` 9000): a plan framed from 134 m lay clear and
+  shadowless at golden hour. The shadow map now reaches as far as the fog begins
+  (`Math.max(9000, fogNear)`); the top-down truth view keeps 9000, so the IoU gate's basis
+  is unchanged. Measured: the board is bit-identical (its shots are 25 m or closer).
+- **Ambient occlusion drew a hard line about 101.5 m out** (6.6 luma at twice the default
+  framing). Its strength fades out between 45 m and 90 m from the camera's target
+  (`aoFade`).
+- **The far plane cut the meadow in view.** At 800 m the cut showed from about 400 m
+  (41.6 luma a row at 403 m, 76.8 at 600 m): the fogged meadow ended against the sky's
+  darker lower half. The perspective camera's far plane is 3 km, past the meadow's
+  2 km edge from the camera's farthest 600 m, so the meadow ends in full fog. Measured
+  0.86 luma a row at 600 m.
+- Not taken here: the gravel edging's chord at outer bends and square rail ends (#605),
+  the horizon probe that cannot see the fog's change (#618), and the gravel texture's
+  highlights in shade (#619).
+
+The senior review found what the raster gates could not:
+- **Gravel and dirt exported to SVG as black bars.** A texture-brush pen is written as its
+  colour, and a texture brush's colour is black. The painters now fill the stroker's
+  outline with the texture (PF-CAN-27); `test_path_style_export.py` exports every style.
+- **Two routes still tinted a house's walls:** the roofless block and the plain block of a
+  house that is not one plain outline. `BuiltBuilder` takes a `recolour` step that sees the
+  parts of every route, and the HOUSE builder's makes every tinted part sandstone.
+- **The facade's window bounds:** a long door wall now spreads its windows on both sides
+  (half the wall's places each), and the upper row runs only over the ground windows
+  built and the door, so a facade has at most twice its places plus one.
+- Not taken here: with a layer's opacity under 100 %, the gravel rim and the dirt margin
+  show through the texture drawn over them (#617).

@@ -38,6 +38,7 @@ from open_garden_planner.core.scene3d import (
     BuilderContractError,
     BuilderRegistry,
     Material,
+    Mesh,
     MeshPart,
     Params,
     Record,
@@ -113,11 +114,23 @@ from tests.unit.scene3d_builder_cases import (
 )
 
 REGISTRY = production_registry()
+#: A HOUSE's walls on every route (``buildings._house_walls``), as vertex colours.
+HOUSE_WALL_LINEAR = np.asarray(buildings.HOUSE_WALL.linear, dtype=np.float32)
 HEIGHT_TOLERANCE_CM = 0.5  # gate G1; every builder is in fact exact to the float32
 #: How far a hedge leaf's tip may pass the footprint's outline. Measured over the matrix:
 #: 4.9 cm where the core is drawn in by 4 cm; 8.8 cm on a hedge too narrow to draw in
 #: (10 cm wide), where leaves root on the outline itself — bounded by the leaf length.
 LEAF_OVERSHOOT_CM = 6.0
+
+
+def assert_the_block(part: MeshPart, block: Mesh, kind: str) -> None:
+    """``part`` is the plain block ``block``: its shape, in the item's fill (``tinted``) —
+    a HOUSE's in its sandstone, whatever the route (``buildings._house_walls``)."""
+    assert np.array_equal(part.mesh.positions, block.positions)
+    assert np.array_equal(part.mesh.indices, block.indices)
+    house = kind == "HOUSE"
+    assert part.tinted is not house
+    assert np.allclose(part.mesh.colors, block.colors * (HOUSE_WALL_LINEAR if house else 1.0))
 
 
 @functools.cache
@@ -525,8 +538,8 @@ class TestRidgeIsTheRecordsRidge:
         for params in ({"ridge": ((10.0, 0.0), (10.0, 0.0))},
                        {"ridge": ((2000.0, 0.0), (2000.0, 500.0))}):  # a line that misses the house
             parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
-            assert len(parts) == 1 and parts[0].name == "walls" and parts[0].tinted
-            assert parts[0].mesh == block[0].mesh
+            assert len(parts) == 1 and parts[0].name == "walls"
+            assert_the_block(parts[0], block[0].mesh, "HOUSE")  # in its sandstone, never its fill
         for params in ({}, {"ridge": "nonsense"}, {"ridge": ((0.0, 0.0),)},
                        {"ridge": ((0.0, True), (1.0, 2.0))}):
             parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
@@ -1411,10 +1424,10 @@ class TestGroundThatIsNotOnePlainRing:
         parts = verify_builder(builder, record, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)  # nothing outside, nothing over a hole
         assert [part.name for part in parts] == ["prism"]
-        assert parts[0].mesh == default_builder(record)[0].mesh  # the default prism's mesh
+        assert_the_block(parts[0], default_builder(record)[0].mesh, kind)  # the default prism
         assert plan_area([parts[0].mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         assert float(positions(parts)[:, 2].max()) == 150.0 and builder.fit_scale(record) == 1.0
-        assert parts[0].tinted and parts[0].casts_shadow
+        assert parts[0].casts_shadow
         if record.holes:
             assert not covers([parts[0].mesh], 37.0, 11.0)   # the hole stays open
         else:
@@ -1518,7 +1531,7 @@ class TestGroundThatIsNotOnePlainRing:
         parts = verify_builder(builder, flagged, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)
         assert [part.name for part in parts] == ["prism"]
-        assert parts[0].mesh == default_builder(flagged)[0].mesh
+        assert_the_block(parts[0], default_builder(flagged)[0].mesh, kind)
         assert float(positions(parts)[:, 2].max()) == 150.0 and builder.fit_scale(flagged) == 1.0
         # … where the very same ring WITHOUT the flag is built as its kind
         as_its_kind = built(plain)
@@ -1555,9 +1568,9 @@ class TestGroundThatIsNotOnePlainRing:
     def test_every_plain_block_of_a_house_is_the_whole_footprint(self, name: str, record: Record) -> None:
         (walls_part,) = verify_builder(builder_of(record), record, height_tolerance_cm=0.5,
                                        plan_margin_cm=0.0)
-        assert (walls_part.name, walls_part.material_kind, walls_part.tinted) == ("walls", "vc", True)
+        assert (walls_part.name, walls_part.material_kind) == ("walls", "vc")
         assert plan_area([walls_part.mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6), name
-        assert walls_part.mesh == default_builder(record)[0].mesh  # concave L and all
+        assert_the_block(walls_part, default_builder(record)[0].mesh, "HOUSE")  # concave L and all
 
     def test_one_plain_ring_is_what_every_matrix_record_is(self) -> None:
         for case in CASES:

@@ -17,8 +17,9 @@ a table and a parasol. Asserted:
    ground tiles stay the painted lawn (its blades are ground detail);
 4. a path's width is its width on the ground: the panel sets it in cm up to 5 m, a
    style preset gives a real path width, and the 3D stones follow;
-5. an object without a height (the parasol) is BUILT at its illustrative height and
-   casts its shadow in 3D (owner, L4 manual pass), but none in the 2D sun study.
+5. an object that had no height before L4's owner passes (the parasol) has its
+   default: the panel shows it, the 2D sun study casts it and 3D builds and casts it
+   at it, and a typed height moves both (one undo step).
 
 Nothing is rendered: the sink is the recording double.
 """
@@ -36,7 +37,7 @@ from open_garden_planner.core import ProjectManager
 from open_garden_planner.core import roof_style as rs
 from open_garden_planner.core.commands import CreateItemCommand, MoveItemsCommand
 from open_garden_planner.core.item_look import MAX_LINE_WIDTH_CM
-from open_garden_planner.core.object_height_estimate import ESTIMATED_OBJECT_HEIGHTS_CM
+from open_garden_planner.core.object_height import DEFAULT_HEIGHTS_CM, METADATA_KEY
 from open_garden_planner.core.object_types import PATH_FENCE_STYLES, ObjectType, PathFenceStyle
 from open_garden_planner.core.project import FILE_VERSION
 from open_garden_planner.core.scene3d import RecordingSink, SceneSync, pose_points
@@ -99,7 +100,7 @@ class Garden:
                                         layer_id=layer)
         self.commands.execute(CreateItemCommand(self.scene, self.greenhouse, "greenhouse"))
 
-        # a table and a parasol (no height of its own: an illustrative one in 3D)
+        # a table and a parasol (its default height since L4's second owner pass)
         self.table = RectangleItem(2300.0, 200.0, 160.0, 90.0, object_type=ObjectType.TABLE_RECTANGULAR,
                                    layer_id=layer)
         self.commands.execute(CreateItemCommand(self.scene, self.table, "table"))
@@ -328,20 +329,42 @@ def test_a_shape_s_outline_keeps_its_pixel_range(garden: Garden) -> None:
     assert width.maximum() == 20.0 and width.suffix() == " px"
 
 
-# ── 5. an object without a height ────────────────────────────────────────────
+# ── 5. an object that had no height ──────────────────────────────────────────
 
 
-def test_a_parasol_is_built_at_its_illustrative_height_and_casts_in_3d_only(garden: Garden) -> None:
+def _parasol_top(pipeline: Pipeline, garden: Garden) -> float:
+    parts = pipeline.sink.item(Garden.id(garden.parasol)).parts
+    assert parts and any(part.casts_shadow for part in parts)
+    return max(float(pipeline.posed(garden.parasol, part.name)[:, 2].max()) for part in parts)
+
+
+def _caster_height(garden: Garden) -> float:
+    (caster,) = [caster for caster in collect_identified_casters(garden.scene)
+                 if caster.item_id == Garden.id(garden.parasol)]
+    return caster.height_cm
+
+
+def test_a_parasol_has_its_default_height_in_the_panel_in_2d_and_in_3d(garden: Garden) -> None:
+    """Owner, L4's second manual pass: "doesn't make sense that a parasol doesn't have a
+    height, while a trampoline has it"."""
+    default = DEFAULT_HEIGHTS_CM["PARASOL"]
+    panel = PropertiesPanel(command_manager=garden.commands)
+    panel.set_selected_items([garden.parasol])
+    spin = _field(panel, "Object height")
+    assert spin.value() == default and METADATA_KEY not in garden.parasol.metadata
     pipeline = Pipeline(garden.scene)
     pipeline.tick()
-    parasol_id = Garden.id(garden.parasol)
-    record = pipeline.sync.records[parasol_id]
-    assert record.height_cm is None  # the plan holds no height for it
-    parts = pipeline.sink.item(parasol_id).parts
-    assert parts and any(part.casts_shadow for part in parts)
-    top = max(float(pipeline.posed(garden.parasol, part.name)[:, 2].max()) for part in parts)
-    assert top == pytest.approx(ESTIMATED_OBJECT_HEIGHTS_CM["PARASOL"], rel=0.01)
-    # the 2D sun study: no caster for it — and the table (a real height) is one
-    owners = {caster.item_id for caster in collect_identified_casters(garden.scene)}
-    assert parasol_id not in owners and Garden.id(garden.table) in owners
-    assert any(part.casts_shadow for part in pipeline.sink.item(Garden.id(garden.table)).parts)
+    assert pipeline.sync.records[Garden.id(garden.parasol)].height_cm == default
+    assert _parasol_top(pipeline, garden) == pytest.approx(default, rel=0.01)
+    assert _caster_height(garden) == default  # the 2D sun study casts it at the same height
+    changes: list[bool] = []
+    garden.commands.stack_changed.connect(lambda: changes.append(True))
+    spin.setValue(300.0)
+    assert changes == [True]
+    pipeline.tick()
+    assert _parasol_top(pipeline, garden) == pytest.approx(300.0, rel=0.01)
+    assert _caster_height(garden) == 300.0
+    garden.commands.undo()
+    pipeline.tick()
+    assert _parasol_top(pipeline, garden) == pytest.approx(default, rel=0.01)
+    assert _caster_height(garden) == default

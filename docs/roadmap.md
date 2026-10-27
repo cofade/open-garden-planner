@@ -2739,13 +2739,13 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   door faces the nearest path (a garage the driveway), stored as a wall index so a
   move stays transform-only. Roof-aware 2D casters stay with #440.
 - **L4.2 surfaces:** Stepping stones (the 2D walk, slid onto the path at its ends),
-  boardwalk planks, paving kerbs, gravel edging and pebbles, terrace and driveway
+  boardwalk planks, paving kerbs, gravel edging, terrace and driveway
   kerbs or deck boards, pond water and coping are `ground_detail` relief: drawn on
   the painted ground, no shadow, never picked. Paths are real widths: presets
   70–100 cm, default 80 cm, the panel up to 500 cm (owner comment on #388).
 - **L4.3 / L4.4 objects:** All 24 furniture, play, utility and structure kinds have
-  bevelled builders in the 2D object palette, bounded at 4,000 triangles. Objects
-  without a height are illustrative, shadowless decoration. Greenhouse glass keeps
+  bevelled builders in the 2D object palette, bounded at 4,000 triangles. Every
+  object kind has a default height and casts in 2D and 3D. Greenhouse glass keeps
   the existing glass material: scene-wide OIT broke L2's drapes (measured).
   Smart-symbol builders are deferred (#599): a smart symbol is a group of items L4 builds.
 - **L4.5 water, lawn, detail:** Lawn blades (220 / m², ≤ 36,000 per lawn, ≤ 60,000
@@ -2761,8 +2761,14 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
   - a drag over a lawn re-cuts its blades at most every 0.4 s;
   - decks and other relief are bounded by construction;
   - a roof's lowest edge stays at least half its eave floor above the ground, the style kept.
+- **Owner manual passes (2026-10-27, ADR-065 addenda):** gravel and dirt paths are their
+  textures, opaque, in 2D and 3D; a new house is terracotta in 2D, with sandstone 3D walls;
+  windows sit either side of a centred door; the fog follows the camera's distance. The
+  parasol, fire pit, planter pot, cold frame, rain barrel, water tap, swing, hammock and
+  pergola got real default heights: they show them in the panel and cast in 2D and 3D. The
+  ground's detail-normal strength is 3.0.
 
-  Follow-ups: #600, #603–#605, #607, #609, #611, #612, #615, #616.
+  Follow-ups: #600, #603–#605, #607, #609, #611, #615–#619.
 
 ### L3 acceptance highlights — Plant Forge (#387, ADR-064) — **shipped v1.32.0, PR #593**
 

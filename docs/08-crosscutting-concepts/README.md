@@ -2163,7 +2163,7 @@ hundredth of the truth for a ring whose every pair of edges lies close.
 **A third pattern, from the ground bake (Phase 17 L1.5, §8.29.5): a number in the file is a
 multiplier.** The two patterns above are about counts — vertices, rings. The bake's holes were
 all about MAGNITUDES, which a count does not bound: two points 19 km apart are two vertices and
-475,001 gravel dots; a dashed pen makes as many dashes as its line is long; a furniture sprite is
+475,001 gravel dots (gravel's painter until L4's owner pass; a 5 cm chain-link path walks as many); a dashed pen makes as many dashes as its line is long; a furniture sprite is
 rendered at its item's size — its area in pixels; a pen width near zero is a spacing near zero.
 So: (a) ask of every step what it is PROPORTIONAL to — a length, an area, a ratio of two numbers
 of the file — and bound that, by clipping the work to what can be seen before it is generated
@@ -3921,9 +3921,10 @@ branch), `core/tools/base_tool.py` (`ToolType`, same name), `ui/canvas/canvas_vi
 (`_FURNITURE_FILES` for furniture-dir types; infrastructure-dir types need
 `_INFRASTRUCTURE_FILES` **and** `_SVG_DIR_OVERRIDES` **and** `_OBJECT_SVG_FILES` —
 the gate checks all three; plus `FURNITURE_DEFAULT_DIMENSIONS`), `core/object_height.py`
-(`DEFAULT_HEIGHTS_CM` — gives shadows/3D/height field; open structures like
-swing/pergola/hammock instead go into `_HEIGHT_FIELD_TYPES`: field offered, no
-default, no shadow until the user sets one), `ui/widgets/gallery_data.py`
+(`DEFAULT_HEIGHTS_CM` — gives shadows/3D/height field; every object that stands
+up needs a row, open frames included, and
+`test_every_standing_object_kind_has_a_default_height` fails without one: ADR-065,
+owner's second pass), `ui/widgets/gallery_data.py`
 (gallery tuple), and `scripts/fill_translations.py` in the `CanvasView`,
 `GalleryData` and `ObjectType` contexts. Roster tests are map-driven; the
 additive-enum forward-compat contract (unknown names → generic shape, no
@@ -4822,8 +4823,8 @@ function of the record's *geometry part*.
 2. Return `Mesh.from_arrays(positions, normals, colors, uvs, indices)` wrapped in
    `MeshPart(mesh, material_kind, casts_shadow, tinted, name)`. Colours are **linear** RGBA
    (`color.srgb_to_linear`). Where a part takes the item's own colour, leave it neutral and set
-   `tinted=True` — then a recolour never calls the builder. An item without a resolved height is
-   decoration: `casts_shadow=False`.
+   `tinted=True` — then a recolour never calls the builder. Glass, water and ground detail set
+   `casts_shadow=False`; every other built part casts, whatever height it was built at (ADR-065).
 3. Cover the ground the record covers: iterate `record.regions` (or pass
    `record.footprints, height, record.holes` to `prism_mesh`). A hole is not built over.
 4. Register it: `registry.register("HOUSE", build_house)` on the `BuilderRegistry` instance the
@@ -5425,7 +5426,7 @@ screen-space reflections — and no preset costs less than the one below it in a
 MSAA still did (PF-L3D-05). Fog is on at every preset (low without it drew a one-row cliff where
 the meadow meets the sky). Its distances follow the camera, not the preset (L4 owner pass, ADR-065):
 `look.fog_depth_cm(distance)` begins it at 1.5× and fills it at 6× the camera's distance to its
-target, floors 26 m / 160 m, full by 760 m before the 800 m far plane, set with every
+target, floors 26 m / 160 m, full by 760 m, inside the meadow's 2 km edge and the 3 km far plane, set with every
 `Quick3DHost.set_camera`. Sharpening is 0 everywhere; screen-space GI is never on. A preset
 change is one `set_look` call: no camera, no geometry, no sky.
 
@@ -5534,7 +5535,8 @@ and badges — they are the 2D view's overlays, not the garden's surface.
 
 Both `PathStylePaint` callers bound their walk with the same `clip` + `WalkBudget`
 contract: the ground bake per tile, the canvas item per visible viewport (#450).
-A 19 km gravel path used to generate its 475 001 elements on every canvas repaint;
+A 19 km gravel path used to generate its 475 001 elements on every canvas repaint (gravel's
+dots until L4's owner pass; a 5 cm chain-link path is the densest walk now);
 the live paint now generates only what the viewport exposes, while an export
 (cache cleared) still gets every element.
 
@@ -5625,7 +5627,8 @@ to a provisional median of 20 ms until the owner decides #615. Measured with the
 at L1.5: bench_small opens in 2 passes (longest 11.6 ms), bench_large in 8 (longest 13.4 ms).
 What the budget does NOT bound is one tile: a pass costs the budget plus the tile it is in — and
 one tile more when it brings an edit while older tiles are still pending (below). The
-plan built to be slow — two gravel paths of 16,384 points zigzagging over 16 tiles, 12.6 s in one
+plan built to be slow — two gravel paths of 16,384 points zigzagging over 16 tiles (gravel's dots,
+measured before L4's owner pass made gravel a texture), 12.6 s in one
 call before — is now 16 passes of 0.73 s in the median (longest 0.92 s), and moving a 1 m square
 beside those paths is two passes of 0.45 s; a COMB polygon is worse still (the cost table below).
 
@@ -5743,7 +5746,8 @@ the square. For 50,000 opaque ones: 21 comparisons and 21 record paints.
 **The bounds are on COUNTS; what a count costs is the rasteriser's — and that varies by three
 orders of magnitude.** One tile at a bound, measured: 256 turned textured rectangles 196 ms;
 262,144 polygon vertices of a wavy ring 172 ms (0.7 µs a vertex); five plain lines of 16,384
-points folded into the tile 509 ms; two gravel paths of 16,384 points 2.65 s. And ONE record
+points folded into the tile 509 ms; two gravel paths of 16,384 points 2.65 s (gravel's dots, before
+L4's owner pass made it a texture). And ONE record
 whose outline is a COMB — every tooth crossing every scanline of the tile — costs Qt 1.2 ms a
 vertex: 1.2 s at 1,024 vertices, 4.8 s at 4,096, 19 s at 16,384, in one tile, and the vertex
 bound admits sixteen of the last (not run to the end: about five minutes, extrapolated). The 2D
@@ -5936,7 +5940,7 @@ takes a raised bed and two real plants through both).
 
 | Kind | Module | Parts (`name`: material kind) | Colour |
 |---|---|---|---|
-| `HOUSE` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls tinted (the item's fill), roof = clay tile; no usable ridge → one tinted `walls` block |
+| `HOUSE` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls sandstone on every route (`buildings._house_walls`, the `BuiltBuilder` `recolour` step; L4's owner pass), roof = clay tile; no usable ridge → one sandstone `walls` block |
 | `GARAGE_SHED`, `TOOL_SHED` | `buildings`, `roofs` | `walls`: vc · `roof`: roof | walls tinted, roof = shingle |
 | `FENCE` | `lines` → `fences` / `walls` | `fence`: vc — or `hedge`: foliage (hedge style), `wall`: vc (stone style) | tinted (the item's stroke) |
 | `WALL` | `lines` → `walls` / `fences` | `wall`: vc — or the fence of its style | tinted |
@@ -5976,10 +5980,8 @@ and width too (`apply_style_preset`), so it arrives as `replace_geometry` + `upd
    net (`fit_parts`), and `fit_scale(record)` must be 1.0 — a fit that does something is a bug.
 2. **No height: the nominal one.** `BuiltBuilder` builds an item without a height at its kind's
    nominal height — what the 2D resolver answers for the kind alone, `effective_height_cm(kind, None)`;
-   the builders hold no table of kinds — or at the snapshot's illustrative estimate
-   (`core/object_height_estimate.py`, L4); no height of either kind → no parts. Since L4's owner
-   manual pass what is built casts in 3D (ADR-065); the 2D sun study still has no caster for it.
-   This path is nearly dead in production and is kept as the contract for hand-made records:
+   the builders hold no table of kinds — and with no nominal height it builds no parts. What is
+   built casts in 3D (ADR-065, owner's manual pass). This path is nearly dead in production and is kept as the contract for hand-made records:
    every registered kind but `GARDEN_BED` has a default height, so the snapshot always gives its
    record one. And `GARDEN_BED` is registered for a state the GUI can barely produce — a garden
    bed that carries a height (only through its metadata: the panel offers no Height field for a
@@ -7075,13 +7077,14 @@ from the bevelled pieces of `builders/kit.py` in `builders/palette.py`'s colours
 mirror the 2D object `MATERIALS` (drift guard in `test_scene3d_builders_palette.py`).
 Every object goes through `BuiltBuilder` (top = resolved height by construction) and
 stays under `OBJECT_TRIANGLE_BUDGET` (4,000) by construction: repeated members (slats,
-staves, bays, lattice cells) are capped, and a hostile 9 km object stays bounded. An
-object with no height of its own (parasol, fire pit, planter pot, cold frame, rain
-barrel, water tap, swing, hammock, pergola) is built at the illustrative height of
-`core/object_height_estimate.py` as **decoration**: no shadow in 3D, no caster in 2D.
-How to add an object: a builder function in the family module, an entry in its
-`KINDS`, a row in `test_scene3d_l4_objects.py`'s parametrised cases (height, footprint
-margin, orientation against the sprite's top edge = local +y).
+staves, bays, lattice cells) are capped, and a hostile 9 km object stays bounded. Every
+object kind has a default height in `core/object_height.DEFAULT_HEIGHTS_CM` (since the
+owner's second pass, ADR-065, the parasol, fire pit, planter pot, cold frame, rain
+barrel, water tap, swing, hammock and pergola too), so every object casts in 2D and 3D
+and shows its height in the properties panel. How to add an object: a builder function
+in the family module, an entry in its `KINDS`, a `DEFAULT_HEIGHTS_CM` row, a row in
+`test_scene3d_l4_objects.py`'s parametrised cases (height, footprint margin,
+orientation against the sprite's top edge = local +y).
 
 **Roofs and facades.** `core/roof_style.py` owns the three optional metadata keys
 (`roof_style`, `roof_pitch_deg`, `roof_overhang_cm`) and their clamping readers; the

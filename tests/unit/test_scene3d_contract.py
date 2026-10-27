@@ -378,9 +378,9 @@ class TestRecord:
         assert plain.same_transform(holed) and plain.same_material(holed)
         assert diff(scene(plain), scene(holed)) == SceneDiff(geometry=("a",))
 
-    def test_a_record_without_a_height_is_decoration(self) -> None:
-        assert record().casts_shadow is True
-        assert record(height_cm=None).casts_shadow is False
+    def test_a_record_without_a_height_has_no_2d_caster(self) -> None:
+        assert record().has_2d_caster is True
+        assert record(height_cm=None).has_2d_caster is False
         assert record().base_cm == 0.0
         assert record(transform=Transform(0.0, 0.0, 0.0, 38.0)).base_cm == 38.0
 
