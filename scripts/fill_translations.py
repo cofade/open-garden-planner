@@ -1749,7 +1749,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "From assigned species (max height)":
             "Aus zugewiesener Pflanzenart (max. Höhe)",
         "Default for this object type": "Standard für diesen Objekttyp",
-        "No height — casts no shadow": "Keine Höhe — wirft keinen Schatten",
+        "No height — no shadow on the 2D plan": "Keine Höhe — kein Schatten im 2D-Plan",
         "Recommended spacing radius (half of plant spread)":
             "Empfohlener Abstandsradius (halbe Pflanzenbreite)",
         "Spacing radius:": "Abstandsradius:",

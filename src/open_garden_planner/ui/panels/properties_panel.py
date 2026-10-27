@@ -1634,7 +1634,8 @@ class PropertiesPanel(QWidget):
             oh.SOURCE_CURRENT: self.tr("From measured current height"),
             oh.SOURCE_SPECIES: self.tr("From assigned species (max height)"),
             oh.SOURCE_DEFAULT: self.tr("Default for this object type"),
-            oh.SOURCE_NONE: self.tr("No height — casts no shadow"),
+            # 3D builds it at an estimated height that casts there (L4 owner pass, ADR-065)
+            oh.SOURCE_NONE: self.tr("No height — no shadow on the 2D plan"),
         }
 
         def refresh_height(s: QDoubleSpinBox = height_spin, it: QGraphicsItem = item) -> None:
