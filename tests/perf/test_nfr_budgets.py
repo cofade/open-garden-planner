@@ -273,6 +273,8 @@ class TestNfrPerf01LinePaintBudgets:
             f"the scenario lines add {delta:.2f} ms to the frame ({with_lines:.2f} ms "
             f"-> {without_lines:.2f} ms); line paint cost has exploded"
         )
+
+
 def _restack_scene(plants: int, beds: int, *, link: bool) -> CanvasScene:
     """A dense garden for the containment scan: ``plants`` in ``beds`` raised beds.
 
@@ -328,11 +330,14 @@ class TestNfrPerf01ContainmentScanBudget:
     @pytest.mark.perf
     @pytest.mark.parametrize("link", [True, False], ids=["linked", "unlinked"])
     def test_a_dense_garden_scan_stays_within_budget(self, qtbot, link: bool) -> None:
-        """300 plants in 30 beds: the case that catches a per-pair shape rebuild.
+        """300 plants in 30 beds: the realistic per-command cost of the scan.
 
-        Measured 1.1 ms linked and 2.8 ms unlinked with the pass's shape cache; the
-        draft that rebuilt each parent's shape per (plant, parent) pair cost 330 ms on
-        the adversarial variant, so a 12 ms bound is a signal, not a machine timer.
+        Measured 0.9 ms linked and 2.6 ms unlinked on the dev box. This is a **budget**,
+        not the shape-cache pin: a 4-vertex square rebuilds its path in microseconds, so
+        this fixture cannot see a per-(plant, parent) rebuild at all — that property is
+        counted deterministically in
+        ``test_plant_above_parent_stacking.py::test_the_scan_builds_each_parent_shape_once``
+        (mutation-verified: 100 builds against 5).
         """
         scene = _restack_scene(300, 30, link=link)
         try:

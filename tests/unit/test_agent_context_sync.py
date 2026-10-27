@@ -7,10 +7,11 @@ from scripts.check_agent_context import _normalise_shared_text, check_repo
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: Bytes the root instructions must leave unused out of the Codex project-doc budget.
-#: The files are edited by every change (each one adds a pickup bullet); riding the
-#: limit is how #444's batch ended up with 5 bytes of headroom on Windows, unverifiable
-#: locally. A real margin also survives the CRLF/LF difference in size.
-MIN_CONTEXT_HEADROOM_BYTES = 1024
+#: The files are edited by every change (each one adds a pickup bullet), so this is a
+#: real budget decision, not a zero: the pre-v1.30 pickup history was moved to
+#: ``docs/agent-pickup-history.md`` on 2026-10-27 to buy the margin, and this floor is
+#: what the next few dozen changes may spend before the oldest entries move again.
+MIN_CONTEXT_HEADROOM_BYTES = 8192
 
 
 def _minimal_context_repo(tmp_path: Path) -> Path:

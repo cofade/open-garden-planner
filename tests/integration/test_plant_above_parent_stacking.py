@@ -275,6 +275,49 @@ def test_a_healthy_layer_asks_no_shape_question(qtbot: Any) -> None:
     assert calls["shape_contains"] == 0, "a healthy layer must do no shape work"
 
 
+def test_the_scan_builds_each_parent_shape_once(qtbot, monkeypatch: Any) -> None:
+    """The shape cache, counted — the regression a wall-clock budget cannot see (#629).
+
+    A per-(plant, parent) rebuild is the difference between 5 path builds and 100 on
+    this plan, and it cost **1 661 ms** on an adversarial one. Counting is
+    machine-independent, so this pin catches it on any box; the realistic cost is pinned
+    separately by ``tests/perf/test_nfr_budgets.py``.
+
+    The plan: five concave beds ABOVE twenty plants they do **not** contain (the plants
+    stand in the L's notch), so every parent passes the rect prefilter, every one needs
+    its shape, and no layer turns stale (no re-derivation to count).
+    """
+    from open_garden_planner.ui.canvas import footprints
+
+    scene = CanvasScene(1600.0, 1600.0)
+    layer = scene.active_layer.id
+    for index in range(20):
+        plant = CircleItem(450.0 + 10.0 * (index % 5), 450.0 + 10.0 * (index // 5), 4.0,
+                           object_type=ObjectType.PERENNIAL, layer_id=layer)
+        scene.addItem(plant)
+    beds = []
+    for _ in range(5):
+        bed = PolygonItem(list(L_BED), object_type=ObjectType.RAISED_BED, layer_id=layer)
+        scene.addItem(bed)
+        beds.append(bed)
+    qtbot.wait(1)
+
+    builds: list[object] = []
+    original = footprints.contains_path
+
+    def counted(parent: Any):
+        builds.append(parent)
+        return original(parent)
+
+    monkeypatch.setattr(footprints, "contains_path", counted)
+    scene._restack_plant_containment()
+    assert builds, "the plan must make the scan ask for a shape at all"
+    assert len(builds) <= len(beds), (
+        f"{len(builds)} shape builds for {len(beds)} beds and 20 plants: "
+        "the pass is rebuilding a parent's path per (plant, parent) pair"
+    )
+
+
 def test_a_polygon_bed_around_a_plant_raises_it(qtbot: Any) -> None:
     """An L-shaped (polygon) bed is the same rule, not a rectangle special case."""
     scene = CanvasScene(1000.0, 1000.0)

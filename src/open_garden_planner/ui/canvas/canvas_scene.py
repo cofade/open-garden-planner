@@ -498,6 +498,10 @@ class CanvasScene(QGraphicsScene):
         it captures must come above it. Asked of the plants' stable centres and the
         parent's shape (built once), with a scene-rect prefilter - so a parent added
         where no plant stands answers after a few comparisons.
+
+        The centre is asked LAZILY, after the cheap bounding-box overlap: for a
+        non-circle it builds the item's outline (8.9 ms at 16 000 vertices), and this
+        runs on every plant-parent add.
         """
         from open_garden_planner.core.object_types import is_plant_type
         from open_garden_planner.ui.canvas.footprints import (
@@ -516,6 +520,10 @@ class CanvasScene(QGraphicsScene):
             if object_type is None or not is_plant_type(object_type):
                 continue
             if getattr(other, "layer_id", None) != layer_id:
+                continue
+            # The plant's centre is inside its own bounding box, so a box that misses
+            # the parent's rect cannot hold a captured plant.
+            if not other.sceneBoundingRect().intersects(rect):
                 continue
             point = standing_point(other)
             if point is None or not rect.contains(point):
@@ -1171,29 +1179,23 @@ class CanvasScene(QGraphicsScene):
 
     def _stack_entries(
         self,
-        layer_id: UUID | None,
-        candidates: list[QGraphicsItem] | None = None,
+        candidates: list[QGraphicsItem],
     ) -> list[stacking.StackEntry]:
-        """Build one layer's raw (not-yet-normalized) ``StackEntry`` list (issue #338).
+        """Build one BAND's raw (not-yet-normalized) ``StackEntry`` list (issue #338).
 
         This is the ONE place that derives ``StackEntry.parent_id``/``rect``
         from live Qt items — used by both :meth:`_normalized_layer_order`
         (for the z-value refresh) and
-        ``ui.canvas.arrange.build_arrange_command`` (which feeds it straight
-        to :func:`core.stacking.arrange`). There must be exactly one way to
-        build entries — and both callers build them per BAND
-        (:meth:`_band_entries`): a reader of a layer's stacking order goes through
-        :meth:`_normalized_layer_order` or :meth:`_band_entries`, never through
-        this method on a whole layer (that disagreed with the drawing, PR #584).
+        ``ui.canvas.arrange.build_arrange_command`` (through :meth:`_band_entries`).
+        There must be exactly one way to build entries.
 
-        *candidates*: the layer's top-level items, already computed via
-        :meth:`_layer_top_level_items`. Pass it in when the caller already
-        has it (as :meth:`_normalized_layer_order` does) so this doesn't
-        walk the whole scene a second time — ``scene.items()`` is O(n), and
-        every extra walk here is another O(n) hit on every single
-        ``addItem`` call (performance finding, issue #338 review). Omit it
-        to have this method compute it itself (``build_arrange_command``'s
-        case, which doesn't already have the list).
+        *candidates* is required, and is always one band's top-level items from
+        :meth:`_layer_top_level_items` via :meth:`_band_entries`: a reader of a layer's
+        stacking order goes through :meth:`_normalized_layer_order` or
+        :meth:`_band_entries`, never through this method on a whole layer (that
+        disagreed with the drawing, PR #584 — the ground band would leak into the
+        clamp's parent set). It used to be optional, for a caller that computed the
+        list itself; no such caller exists.
         """
         from open_garden_planner.core.object_types import (
             ObjectType,
@@ -1201,8 +1203,6 @@ class CanvasScene(QGraphicsScene):
             is_plant_type,
         )
 
-        if candidates is None:
-            candidates = self._layer_top_level_items(layer_id)
         items_by_id = {self._stack_identity(item): item for item in candidates}
         bounds = {id(item): item.sceneBoundingRect() for item in candidates}
         # The layer's plant-parents, with their rects, for the geometric clamp below
@@ -1329,7 +1329,7 @@ class CanvasScene(QGraphicsScene):
         bands = []
         for ground in (True, False):
             members = [item for item in candidates if on_ground(item) is ground]
-            bands.append((members, self._stack_entries(layer_id, members)))
+            bands.append((members, self._stack_entries(members)))
         return bands
 
     def _normalized_layer_order(self, layer_id: UUID | None) -> list[QGraphicsItem]:
@@ -1456,23 +1456,27 @@ class CanvasScene(QGraphicsScene):
         The test is the derivation's own answer compared with the drawing: for each
         plant, ``_derived_plant_parent`` (the link, else the smallest parent whose
         outline contains its stable centre) must not be ABOVE it. One O(items) pass,
-        no shape work for a layer whose plants are linked or already above their
-        parents, and only a layer that disagrees is re-derived (once). The parents'
-        shapes are cached for the pass (a scan asks every parent about every plant —
-        without the cache it rebuilt each one per pair, measured 1.3 s at 1 200
-        vertices); at 200 plants under 50 concave beds this is tens of milliseconds,
-        and a realistic 300-plant garden 2 ms.
+        no geometry at all for a layer whose plants are linked, and only a layer that
+        disagrees is re-derived (once). The parents' shapes are cached for the pass (a
+        scan asks every parent about every plant — without the cache it rebuilt each
+        one per pair, measured 1 661 ms at 1 200 vertices); at 200 plants under 50
+        concave beds this is tens of milliseconds, and a realistic 300-plant garden
+        2 ms.
+
+        The plant's stable centre is asked LAZILY — only for a plant that gets past the
+        per-layer z test — because ``standing_point`` builds the item's outline for a
+        non-circle (8.9 ms for a 16 000-vertex polygon, and a polygon can be typed as a
+        tree in two clicks).
         """
         from open_garden_planner.core.object_types import (
             is_plant_parent_type,
             is_plant_type,
         )
-        from open_garden_planner.ui.canvas.footprints import standing_point
 
         items_by_layer: dict[Any, dict[object, QGraphicsItem]] = {}
         parents_by_layer: dict[Any, list[tuple[QRectF, QGraphicsItem]]] = {}
         top_parent_z: dict[Any, float] = {}
-        plants: list[tuple[QGraphicsItem, QPointF]] = []
+        plants: list[QGraphicsItem] = []
         for item in self.items():
             if item.parentItem() is not None:
                 continue
@@ -1481,15 +1485,15 @@ class CanvasScene(QGraphicsScene):
             # about it would re-derive forever and never change anything.
             if on_ground(item) or not stacking.supports_stacking(item):
                 continue
+            layer_id = getattr(item, "layer_id", None)
+            # Every band item, as `_stack_entries` indexes them: the link lookup below
+            # must resolve exactly what the derivation resolves.
+            items_by_layer.setdefault(layer_id, {})[self._stack_identity(item)] = item
             object_type = getattr(item, "object_type", None)
             if object_type is None:
                 continue
-            layer_id = getattr(item, "layer_id", None)
-            items_by_layer.setdefault(layer_id, {})[self._stack_identity(item)] = item
             if is_plant_type(object_type):
-                point = standing_point(item)
-                if point is not None:
-                    plants.append((item, point))
+                plants.append(item)
             elif is_plant_parent_type(object_type):
                 parents_by_layer.setdefault(layer_id, []).append(
                     (item.sceneBoundingRect(), item)
@@ -1502,7 +1506,7 @@ class CanvasScene(QGraphicsScene):
 
         shapes: dict[int, Any] = {}
         stale: set[Any] = set()
-        for plant, point in plants:
+        for plant in plants:
             layer_id = getattr(plant, "layer_id", None)
             if layer_id in stale:
                 continue
@@ -1512,11 +1516,11 @@ class CanvasScene(QGraphicsScene):
             # A layer whose highest parent is below this plant cannot have anything to
             # fix: the derived parent would have to be above it to hide it. This is
             # what keeps a garden whose plants are planted above its beds at one
-            # comparison per plant.
+            # comparison per plant, with no geometry.
             if top_parent_z[layer_id] <= plant.zValue():
                 continue
             parent = self._derived_plant_parent(
-                plant, point, items_by_layer[layer_id], parents, shapes
+                plant, None, items_by_layer[layer_id], parents, shapes
             )
             if parent is not None and parent.zValue() > plant.zValue():
                 stale.add(layer_id)

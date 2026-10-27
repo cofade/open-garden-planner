@@ -1794,9 +1794,10 @@ while inside — harmless (a plant above a bed it is not in hides nothing) and i
 keeps the scan a one-way test. (b) Containment is asked of the plant's CENTRE, so a plant
 straddling a bed's edge with its centre outside is not clamped (it is beside the bed, not
 in it). (c) The clamp follows the SMALLEST containing parent, so a larger parent that also
-contains the plant and is arranged above that one still covers it — an explicit arrange
-wins, and the derive-only clamp cannot fix it because `normalize_order` only ever moves a
-plant above its one parent. (d) Stacking is geometric; where a plant STANDS is not. A bed
+contains the plant — arranged above that one, or simply added after it — still covers it:
+the derive-only clamp cannot fix that, because `normalize_order` only ever moves a plant
+above its one parent, so a second containing parent above it stays where it is. (d)
+Stacking is geometric; where a plant STANDS is not. A bed
 drawn around an unlinked plant is now a stacking parent, but `footprints.item_base_cm`
 (ADR-037 decision 5) lifts a solid by its parent's soil only when the LINK names a visible
 solid AND the centre is inside it. So an unlinked plant in a bed that has a height is drawn

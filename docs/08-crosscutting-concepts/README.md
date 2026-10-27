@@ -4220,7 +4220,8 @@ move or vertex-edit a bed around a standing plant, or carry a plant into one.
 `CanvasScene._restack_plant_containment` runs on the same `stack_changed` signal and
 re-derives only a layer whose drawing disagrees with the derivation — it compares each
 plant's z against the parent `_derived_plant_parent` names, so the check cannot drift
-from what it checks (a plant already above its parent costs one z comparison; a linked
+from what it checks (a plant above the layer's HIGHEST parent costs one z comparison and
+nothing else — the per-plant test is against that top, not against its own parent; a linked
 plant costs nothing more, because the link answers before any geometry). Only a parent
 of the plant's own band counts: an in-ground bed lies under the plant by the band, not
 by the clamp, so asking about it would re-derive on every command and never change
