@@ -750,31 +750,25 @@ class TestOneSmallEdit:
     # bench_large has no flat item of its own since L4: its stand-in is measured across
     # a border (two tiles) and on a corner (four, the most a 3 m item can touch).
     # edit_tiles: how many tiles a move repaints - exactly that many for a stand-in, at
-    # most that many for bench_small's own item. edit_ms, edit_passes: the median bound
-    # of a move's bake and of its passes.
-    @pytest.mark.parametrize(("plan", "tiles", "painted", "across", "edit_tiles", "edit_ms",
-                              "edit_passes"),
-                             [("bench_small.ogp", 20, 9, None, 2, 10.0, 1),
-                              ("bench_large.ogp", 60, 25, "border", 2, 10.0, 1),
+    # most that many for bench_small's own item. edit_ms: the median bound of a move's bake.
+    @pytest.mark.parametrize(("plan", "tiles", "painted", "across", "edit_tiles", "edit_ms"),
+                             [("bench_small.ogp", 20, 9, None, 2, 10.0),
+                              ("bench_large.ogp", 60, 25, "border", 2, 10.0),
                               # PROVISIONAL (#615): a four-tile edit can run over the
                               # budget by its last tile. CI read <= 10 ms in one run,
-                              # 12.15 ms in the next, 13.29 ms under coverage. It sits on
-                              # the budget's edge (at 12.15 ms for four tiles, three take
-                              # about 9 ms), so its last tile may fall into a second pass,
-                              # as on CI (max 2): 2, not 1. A
-                              # third pass would need 20 ms of bake, which edit_ms rejects.
-                              ("bench_large.ogp", 60, 25, "corner", 4, 20.0, 2)])
+                              # 12.15 ms in the next, 13.29 ms under coverage - each one
+                              # pass in the median. 20 ms is the only provisional slack.
+                              ("bench_large.ogp", 60, 25, "corner", 4, 20.0)])
     def test_a_small_move_repaints_few_tiles_within_its_bound(
             self, qtbot: Any, capsys: pytest.CaptureFixture[str], plan: str, tiles: int,
-            painted: int, across: str | None, edit_tiles: int, edit_ms: float,
-            edit_passes: int) -> None:
+            painted: int, across: str | None, edit_tiles: int, edit_ms: float) -> None:
         """G3 — with the time budget ON, as in the product. Move one flat item of at
         most 3 m, 31 times: every move re-paints at most four tiles (the count its case
         names), looks at ONE record, and leaves every other tile the very object it
-        was. A two-tile edit's bake takes at most 10 ms in the median and is ONE pass
-        (an edit that fits the gate is not spread over frames). A four-tile edit can run
-        over the budget by its last tile (on CI up to 12.15 ms uninstrumented, 13.29 ms
-        under coverage). Its bound is provisional until #615."""
+        was. A move's bake is ONE pass in the median (an edit that fits the gate is not
+        spread over frames), and a two-tile edit's takes at most 10 ms in the median. A
+        four-tile edit can run over the budget by its last tile (on CI up to 12.15 ms
+        uninstrumented, 13.29 ms under coverage). Its bound is provisional until #615."""
         scene = _loaded(plan)
         baker = TimedBaker()
         bake = Bake(scene, registry=production_registry(), baker=baker)
@@ -817,12 +811,12 @@ class TestOneSmallEdit:
             uploaded, dropped = changed_tiles(tuple(before.values()), bake.tiles)
             assert dropped == () and {tile.key for tile in uploaded} <= repainted
         median = statistics.median(per_edit)
-        with capsys.disabled():   # in every run's log, passed or not: the readings #615 needs
+        with capsys.disabled():   # in every serial (-n 0) run's log: the readings #615 needs
             print(f"\nG3 {plan} {across or ''}: opened in {open_passes} passes, {full_ms:.1f} ms of "
                   f"bake; per move: median {median:.2f} ms, max {max(per_edit):.2f} ms, at most "
                   f"{most_tiles} tiles and {most_records} record paints; passes per move: median "
                   f"{statistics.median(passes)}, max {max(passes)}")
-        assert median <= edit_ms and statistics.median(passes) <= edit_passes
+        assert median <= edit_ms and statistics.median(passes) == 1
         assert bake.sink.state().ground == bake.sync.expected_state().ground
 
 

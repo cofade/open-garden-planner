@@ -4311,14 +4311,13 @@ one master run at 15.0 ms in two passes was read as a property of the code.
 budget by its last tile, as `BAKE_BUDGET_S`'s contract allows. Locally, the per-move cost
 jumped from about 8 ms to about 15 ms partway through a run, and passes went from 1 to 2.
 With the process opted out of Windows power throttling (`SetProcessInformation`,
-`ProcessPowerThrottling`), the corner read about 7 ms in one pass, while a game kept the
+`ProcessPowerThrottling`), the corner read 8.4 ms in one pass, while a game kept the
 machine busy. `scripts/measure_ground_edit.py` (which opts out itself) then compared the
-trees: master 6.73 ms and the branch 7.02 ms on the corner (medians of five alternating
-pairs), 3.50 and 3.78 ms across a border.
+trees: master's four-tile edit costs the same within about 0.3 ms (ADR-065).
 **Root cause/fix.** The product behaves as designed. The four-tile pass can overrun 10 ms on
-CI hardware; its cost is master's, and L4 adds a few percent (#615, owner decision). The dev
+CI hardware; its cost is master's (#615, owner decision). The dev
 box's readings, about 1.8× too high, were EcoQoS throttling of the test process (#616). G3
-states each case's bound as literals and prints its readings on every run.
+states each case's bound as literals and prints its readings on every serial run.
 **Lesson.** Before calling a local timing "load" or "the tracer", read the measuring tool's
 own counters (passes per move) and compare a run with throttling switched off. A reading
 that jumps once and stays high is the OS changing the process's speed, not the code. Never

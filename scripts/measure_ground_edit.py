@@ -18,7 +18,10 @@ the two trees run by run.
 
 **Windows power throttling** (EcoQoS) can raise these readings about 1.8x partway
 through a run (#616). On Windows the script opts its own process out first; the JSON
-says whether that worked (``unthrottled``).
+says whether that worked (``unthrottled``, and ``throttling`` says why not). It runs on
+Qt's offscreen platform, as CI's perf steps do, unless ``QT_QPA_PLATFORM`` says otherwise.
+``examined_median`` and ``records_painted_median`` are the work behind the time: the
+records the bake looked at, and the record paints of a move.
 
 It keeps out of the owner's settings and data (``script_isolation``); it saves nothing.
 """
@@ -33,6 +36,9 @@ import os
 import statistics
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # script_isolation, also under runpy
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")      # as CI's perf steps run
 
 import script_isolation
 
@@ -63,16 +69,18 @@ class _PowerThrottlingState(ctypes.Structure):
     _fields_ = [("Version", ctypes.c_ulong), ("ControlMask", ctypes.c_ulong), ("StateMask", ctypes.c_ulong)]
 
 
-def opt_out_of_power_throttling() -> bool:
-    """Ask Windows not to slow this process down (EcoQoS). False elsewhere, or refused."""
+def opt_out_of_power_throttling() -> str | None:
+    """Ask Windows not to slow this process down (EcoQoS). None when it agreed, else why not."""
     if sys.platform != "win32":
-        return False
+        return "not Windows"
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.GetCurrentProcess.restype = ctypes.c_void_p
     kernel.SetProcessInformation.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_ulong]
     state = _PowerThrottlingState(1, EXECUTION_SPEED, 0)
-    return bool(kernel.SetProcessInformation(kernel.GetCurrentProcess(), PROCESS_POWER_THROTTLING,
-                                             ctypes.byref(state), ctypes.sizeof(state)))
+    if kernel.SetProcessInformation(kernel.GetCurrentProcess(), PROCESS_POWER_THROTTLING,
+                                    ctypes.byref(state), ctypes.sizeof(state)):
+        return None
+    return f"SetProcessInformation failed, error {ctypes.get_last_error()}"
 
 
 def measure(across: str, moves: int) -> dict[str, object]:
@@ -94,11 +102,15 @@ def measure(across: str, moves: int) -> dict[str, object]:
     per_move: list[float] = []
     passes: list[int] = []
     tiles: set[int] = set()
+    examined: list[int] = []   # records the bake looked at in the edit's pass
+    painted: list[int] = []    # record paints in all of the move's passes
     for index in range(moves):
         baker.milliseconds.clear()
         delta = QPointF(37.5, -22.25) if index % 2 == 0 else QPointF(-37.5, 22.25)
+        painted_before = baker.records_painted
         MoveItemsCommand([item], delta).execute()
         bake.step()
+        examined.append(baker.last_examined)
         repainted = set(baker.last_repainted)
         while bake.sync.ground_pending:
             bake.sync.continue_ground()
@@ -106,9 +118,12 @@ def measure(across: str, moves: int) -> dict[str, object]:
         per_move.append(sum(baker.milliseconds))
         passes.append(len(baker.milliseconds))
         tiles.add(len(repainted))
+        painted.append(baker.records_painted - painted_before)
     return {"across": across, "median_ms": round(statistics.median(per_move), 2),
             "max_ms": round(max(per_move), 2), "tiles": sorted(tiles),
-            "passes_median": statistics.median(passes), "passes_max": max(passes)}
+            "passes_median": statistics.median(passes), "passes_max": max(passes),
+            "examined_median": statistics.median(examined),
+            "records_painted_median": statistics.median(painted)}
 
 
 def main() -> int:
@@ -117,14 +132,17 @@ def main() -> int:
     parser.add_argument("--across", choices=("border", "corner"), action="append")
     parser.add_argument("--moves", type=int, default=61)
     args = parser.parse_args()
-    unthrottled = opt_out_of_power_throttling()
+    if args.moves < 1:
+        parser.error("--moves must be at least 1")
+    refused = opt_out_of_power_throttling()
     package = Path(open_garden_planner.__file__).resolve()
     if not package.is_relative_to(TREE / "src"):
         raise SystemExit(f"imported {package}, not the tree {TREE}")
     _app = QApplication([])
     for across in args.across or ["border", "corner"]:
         row = measure(across, args.moves)
-        print(json.dumps({"tree": str(TREE), "unthrottled": unthrottled, **row}))
+        print(json.dumps({"tree": str(TREE), "unthrottled": refused is None,
+                          **({"throttling": refused} if refused else {}), **row}))
     return 0
 
 

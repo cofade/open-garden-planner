@@ -1863,7 +1863,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   Measured interleaved in PR #613 on the dev box with the test process opted out of power
   throttling: border 3.8–3.9 → 5.2–5.5 ms, corner 6.8–7.2 → 9.9–10.0 ms. Do not add a
   tracer factor back: the one tried in PR #613 weakened master's gate. G3 prints its
-  readings in every run's log. G3's stopwatch is an ATTRIBUTE of
+  readings in every serial (`-n 0`) run's log. G3's stopwatch is an ATTRIBUTE of
   `tests/integration/ground_bake_support.py::TimedBaker`. Issue #528 makes the perf-marker
   guard (`tests/unit/test_perf_marker_guard.py`) follow that carrier and require the marker.
   The class originally moved to the support module to avoid the guard's bare-name collision;

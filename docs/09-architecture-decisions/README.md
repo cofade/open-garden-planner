@@ -8136,15 +8136,23 @@ had only moved the failing views.
     CI run 40405246734 passed it uninstrumented, at ≤ 10 ms, and read 13.29 ms under
     coverage (passes median 1, max 1). Run 40407192860 read 12.15 ms uninstrumented
     (median 1, max 2). Until this PR, G3 printed its readings only when it failed. It now
-    prints them on every run, so #615 can be decided on a distribution.
-  - **Master against the branch,** measured with `scripts/measure_ground_edit.py` (committed:
-    it opts out of power throttling and takes the other tree through `OGP_MEASURE_TREE`).
-    Five alternating pairs of 61 moves on the dev box gave these medians:
-    - across a border: 3.50 ms on master, 3.78 ms here (+8 %);
-    - on the corner: 6.73 ms on master, 7.02 ms here (+4 %).
-    The branch was slower in 4 of 5 border pairs and in 5 of 5 corner pairs. So L4 makes
-    the bake a few percent slower, but the four-tile cost is master's. CI has never run a
-    four-tile case on master.
+    prints them in every serial (`-n 0`) run's log, as CI's perf steps run, so #615 can be
+    decided on a distribution.
+  - **Master (fee03ea3) against the branch,** measured with `scripts/measure_ground_edit.py`
+    (committed: it opts out of power throttling and takes the other tree through
+    `OGP_MEASURE_TREE`). Unthrottled, 61 moves a run, on the dev box:
+    - Five alternating pairs on Qt's Windows platform gave medians of 3.50 ms on master and
+      3.78 ms here across a border, and 6.73 against 7.02 ms on the corner. The branch was
+      slower in 4 of 5 border pairs and 5 of 5 corner pairs.
+    - Two pairs on the offscreen platform (CI's) showed no difference: corner 7.81 / 7.74 ms
+      on master, 7.98 / 6.80 ms here.
+
+    So L4 adds at most about 0.3 ms per move, and the work behind it differs. Per move the
+    branch examines 2 records where master examines 1, because the terrace is a lawn's
+    cut-out. On the corner it paints 14 records where master paints 20, because L4 builds
+    furniture as solids: bench_large has 25 painted records against master's 45. Across a
+    border both paint 7. The four-tile cost is master's. CI has never run a four-tile
+    case on master.
   - Readings of 14–17 ms in two passes on the dev box came from Windows power throttling
     (EcoQoS), not from load or the code (#616). The first fix blamed machine load.
     e7916be7 then blamed the coverage job's 13.29 ms on the tracer and skipped the clock
@@ -8153,9 +8161,8 @@ had only moved the failing views.
     over the bound, but the corner overruns without it too.
   - **The gate:** each case states its tiles, passes and median bound as literals.
     - Two tiles: a median of one pass and at most 10 ms, as on master, also under coverage.
-    - Four tiles: a median of at most 20 ms and of two passes. The edit sits on the
-      budget's edge (at 12.15 ms for four tiles, three take about 9 ms), so its last tile
-      may fall into a second pass, as on CI.
+    - Four tiles: a median of one pass and at most 20 ms. Every CI reading so far has a
+      median of one pass, so the 20 ms is the only provisional slack.
     - That bound is **provisional** until the owner decides #615: should a four-tile pass
       hold 10 ms on CI?
     - The test is renamed `test_a_small_move_repaints_few_tiles_within_its_bound`, because
