@@ -2624,7 +2624,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 
 ---
 
-## Package F — Permaculture & Polyculture (✅ 4 of 5 shipped; F5 awaiting owner acceptance)
+## Package F — Permaculture & Polyculture (✅ 5 of 5 shipped — Complete)
 
 > Filed from the permapeople.org research session (2026-08-17). Membership and
 > order live in the `> Package map & order` blockquote at the head of each issue,
@@ -2637,7 +2637,7 @@ The preexisting German amendment-task naming gap is tracked in #408.
 > | ✅ v1.30.0 | **F2** ([#313](https://github.com/cofade/open-garden-planner/issues/313)) | **Plant guilds** — guild templates, canvas membership, missing-role diagnostic. *Depends on F1*: guilds have nothing to reason on without layer/function tags. |
 > | ✅ v1.30.1 | **F3** ([#314](https://github.com/cofade/open-garden-planner/issues/314)) | **Sun-requirement × computed hours-of-sun diagnostic** + canvas badge. Shipped with #428 via PR #436 after owner acceptance (ADR-056): explicit cached exposure, self-shadow exclusion, unavailable states and mature-canopy groups. *Independent*; its layer-stack section follows F1. Builds on the shipped Phase 14 sun/shade engine. |
 > | ✅ v1.30.17, PR #533 | **F4** ([#315](https://github.com/cofade/open-garden-planner/issues/315)) | **Plan timeline scrubber** — `removal_date` + plan-state-at-date visibility on the shared sim date. *Independent.* |
-> | In review | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | Offline example gallery and portable templates; includes #379 fixture retirement. Implemented; owner acceptance pending (ADR-066). |
+> | ✅ v1.33.0, PR #610 | **F5** ([#316](https://github.com/cofade/open-garden-planner/issues/316)) | Offline example gallery and portable templates; includes #379 fixture retirement. Owner accepted the revised executable; shipped in v1.33.0 via PR #610 (ADR-066). |
 
 ## Package G — Plant Data Quality & Attribution (✅ 4 of 4 shipped — Complete)
 
@@ -2938,7 +2938,7 @@ up."* while the task was open. See ADR-029 (addendum) and ADR-049.
 
 ### Package F1/F2 delivery notes (v1.30.0, PR #433)
 
-F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433) after automated gates, independent review and all 13 owner frozen-app checks passed on 11 October 2026. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3 (#314) shipped with heatmap document-lifecycle fix #428 in v1.30.1 via PR #436; F4 (#315) shipped in v1.30.17 via PR #533; F5 (#316) remains separate. ADR-054/055 and FR-32 record the contracts; mandatory workflows include `test_permaculture_layer.py`, `test_guilds.py` and `test_permaculture_manual_regressions.py`. Wiki pages are rendered from these approved repository sources under ADR-051.
+F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.0) via [PR #433](https://github.com/cofade/open-garden-planner/pull/433) after automated gates, independent review and all 13 owner frozen-app checks passed on 11 October 2026. F1 adds saved traits, complete offline filtering/background online fallback and semantic layer assignment. F2 adds immutable guild snapshots, template authoring, preflighted one-step insertion/membership, cosmetic badges and general diagnostics. The template editor and general Diagnostics panel are agreed scope additions. F3 (#314) shipped with heatmap document-lifecycle fix #428 in v1.30.1 via PR #436; F4 (#315) shipped in v1.30.17 via PR #533; F5 (#316) later completed Package F in v1.33.0 via PR #610. ADR-054/055 and FR-32 record the contracts; mandatory workflows include `test_permaculture_layer.py`, `test_guilds.py` and `test_permaculture_manual_regressions.py`. Wiki pages are rendered from these approved repository sources under ADR-051.
 
 ### Package F3 acceptance highlights (v1.30.1, PR #436)
 
@@ -2948,7 +2948,7 @@ F3 (#314) and heatmap lifecycle fix #428 shipped together in [v1.30.1](https://g
 - Document replacement cancels work and rejects running/queued late results. Deterministic GUI New/Open/recovery and real MCP replacement regressions are pinned in `tests/integration/test_sun_document_lifecycle.py`; the feature workflow is `tests/integration/test_sun_mismatch.py`.
 - Independent review reproduced and resolved concave-footprint badge containment and malformed legacy species handling, then returned clean final review. Full validation: 7,938 passed, 34 skipped; line coverage 76.9%, branch 60.3%; 200 casters/receivers 3.267 seconds. Frozen startup, subsystem self-test, real MCP reads/moves/New/Open and inspected renders passed; GitHub CI and release provenance passed.
 
-F4 (#315) shipped in [v1.30.17](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.17) via [PR #533](https://github.com/cofade/open-garden-planner/pull/533) after owner acceptance; F5 (#316) remains planned. #328 shipped earlier in PR #352 and was excluded from this package.
+F4 (#315) shipped in [v1.30.17](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.17) via [PR #533](https://github.com/cofade/open-garden-planner/pull/533) after owner acceptance; F5 (#316) later shipped in v1.33.0 via PR #610. #328 shipped earlier in PR #352 and was excluded from this package.
 
 ### Docs updated on F3 completion
 
@@ -3373,7 +3373,7 @@ No application or render-tier scope change; #540/#600/#603 remain separate.
 Owner authorized protected merge on 26 October 2026 without GUI testing because
 the change is limited to CI/tests/documentation. No release or version sync is needed.
 
-### F5 examples and templates implementation (#316, #379; owner acceptance pending)
+### F5 examples and templates (v1.33.0, PR #610)
 
 Three offline CC-BY-SA-4.0 examples cover an established seven-layer food forest
 with a local apple guild, a densely planted 4 x 2 m raised bed with 2027 succession,
@@ -3385,7 +3385,9 @@ is read-only. The dogfood sample now copies the maintained raised-bed content.
 The issue's frost-relative claim was stale: succession stores calendar dates.
 No rebasing is added; example descriptions identify illustrative dates. ADR-066,
 FR-EXAMPLE-01 through 06, and `test_templates_gallery.py` record the contracts.
-The work stays a draft until owner executable acceptance; nothing is marked shipped.
+Owner executable acceptance was confirmed on 27 October 2026. [PR #610](https://github.com/cofade/open-garden-planner/pull/610)
+shipped [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0) after independent visual/senior review, 18,504 local
+tests, 77 serial performance cases and all 15 hosted checks passed. This completes Package F.
 
 Owner-feedback revision (27 October): all layouts have English/German/Spanish
 plan content, editable tutorial notes and public city coordinates for solar study.
