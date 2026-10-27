@@ -7650,7 +7650,7 @@ This correction changes tests and documentation, not the released runtime.
 
 ## ADR-065: The built world complete — objects, roofs, facades, surfaces and ground detail (Phase 17 L4, #388)
 
-**Status:** Proposed (draft PR, owner manual test pending).
+**Status:** Accepted; shipped in [v1.34.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.0) via [PR #613](https://github.com/cofade/open-garden-planner/pull/613), after the owner's third manual pass ("all perfect") confirmed every decision below, including the "Owner's second manual pass" addendum (every object without a 2D default height gets a real, settable one; detail-normal strength 3.0) and the two re-review fixes (the AO fade switched SSAO on at Low, PF-L3D-15; a plain-block house had a sandstone top instead of roof tiles).
 **Date:** 2026-10-26
 **Naming note:** older branches used "ADR-065" as a working name for ADR-060 (see
 ADR-059's status line). This record is the L4 one.

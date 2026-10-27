@@ -85,6 +85,17 @@ in [v1.33.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.33.0)
 Templates remove named site/history fields and paths; review free-form names and
 text before sharing. Example dates are illustrative calendar dates.
 
+## Built world complete (Phase 17 L4)
+
+L4 (#388) shipped in [v1.34.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.0)
+via [PR #613](https://github.com/cofade/open-garden-planner/pull/613) after the
+owner's third manual pass. All 24 furniture, play, utility and structure object
+kinds now have procedural 3D builders and a default height, so every one casts a
+shadow in 2D and 3D; houses, garages and tool sheds get an optional roof style,
+pitch, overhang, windows and a door; paths show their surface on the 3D ground at
+their real width; lawns grow individual blades from the Medium preset up. See the
+[canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l4-acceptance-highlights--built-world-complete-388-adr-065--shipped-v1340-pr-613).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

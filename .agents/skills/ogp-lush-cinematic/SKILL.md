@@ -325,6 +325,10 @@ Severity: **P0** = truth gate failed, mirrored/black/broken frame, unreadable sc
   paving side by side. Every standing object gets a real height ("doesn't make sense that a
   parasol doesn't have a height, while a trampoline has it"): the open frames' solid 2D
   shadow is accepted.
+- **2026-10-27** — L4 third manual pass (PR #613, shipped v1.34.0): "all perfect" — every
+  decision above confirmed as built, with no further change requested. Detail strength 3.0's
+  sky-blue gravel highlights under a low sun (#619) remain an **open** taste question, not
+  settled by this pass.
 - **2026-10-27** — rejected sparse, isolated example layouts: crops must fit inside
   actual soil; food-forest companions need realistic groups and cultivated beds;
   mature perennials need credible planting history. Balcony examples need planted

@@ -616,8 +616,13 @@
   },
   "388": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L4 \"Built world complete\": roof styles, paths, glass, 24 object builders, water and lawn (Phase 17)"
+  },
+  "389": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 \"Living garden\": year and day playback, weather, particles, wind (Phase 17, needs #315)"
   },
   "392": {
     "is_pr": false,
@@ -1176,7 +1181,7 @@
   },
   "586": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Beauty Board renders without the ground bake"
   },
   "587": {
@@ -1266,8 +1271,13 @@
   },
   "613": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(#388): Phase 17 L4 - the built world complete (roofs, facades, paths, surfaces, water, lawn, objects)"
+  },
+  "614": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "fee03ea3 stored CLAUDE.md, AGENTS.md, docs/05 and the ogp-docs-and-writing skills with CR CR LF line endings"
   },
   "615": {
     "is_pr": false,
@@ -1279,6 +1289,11 @@
     "state": "OPEN",
     "title": "Windows power throttling raises local perf-tier timings ~1.8x partway through a run"
   },
+  "619": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Gravel texture reads as wet bubbles in shade at walk height (owner taste)"
+  },
   "621": {
     "is_pr": false,
     "state": "OPEN",
@@ -1287,7 +1302,7 @@
   "623": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "--selftest from source crashed once (0xC000041D, empty output) inside the GPU render tier"
+    "title": "Qt Quick 3D processes from source exit with 0xC000041D after finishing (twice in the local GPU render tier)"
   },
   "624": {
     "is_pr": false,
