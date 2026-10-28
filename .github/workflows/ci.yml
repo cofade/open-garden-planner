@@ -31,6 +31,9 @@ jobs:
       - name: Check external action pins
         run: python scripts/check_action_pins.py
 
+      - name: Check release classification
+        run: python scripts/check_release_classification.py --commit HEAD --enforce
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

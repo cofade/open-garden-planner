@@ -29,6 +29,13 @@ jobs:
         with:
           fetch-depth: 0  # Full history for git tags
 
+      - name: Verify release classification
+        shell: bash
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          python scripts/check_release_classification.py --commit "${GITHUB_SHA}"
+
       - name: Determine version
         id: version
         shell: bash
@@ -44,9 +51,16 @@ jobs:
         id: check_tag
         shell: bash
         run: |
-          if git rev-parse "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+          disposition="${{ steps.version.outputs.tag_disposition }}"
+          tag="${{ steps.version.outputs.tag }}"
+          if [ "$disposition" = "conflict" ]; then
+            echo "::error::Tag $tag already exists and points to a different commit. Conflicting tag detected (AUD-038)."
+            exit 1
+          elif [ "$disposition" = "idempotent_retry" ]; then
+            echo "Tag $tag already points to this commit. Skipping release as idempotent retry."
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
+            echo "Tag $tag does not exist. Proceeding with release."
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 

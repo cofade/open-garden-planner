@@ -86,7 +86,7 @@ class CategoryToolbar(QToolBar):
         else:
             button.setText(category.name[:2])
 
-        dropdown = CategoryDropdown(category)
+        dropdown = CategoryDropdown(category, parent=self)
         dropdown.tool_selected.connect(self.tool_selected)
         dropdown.item_selected.connect(self.item_selected)
 

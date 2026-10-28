@@ -17,6 +17,7 @@ from unittest.mock import patch
 import pytest
 from scripts.resolve_release_pr import (
     _resolve_gh_executable,
+    check_tag_disposition,
     compute_next_version,
     determine_bump_type,
     extract_pr_from_commit_subject,
@@ -575,3 +576,60 @@ def test_release_workflow_passes_required_env() -> None:
     assert "GITHUB_SHA: ${{ github.sha }}" in text
     assert "GITHUB_REPOSITORY: ${{ github.repository }}" in text
     assert 'PYTHONUTF8: "1"' in text
+
+
+# ---------------------------------------------------------------------------
+# Tag conflict and idempotent retry resolution (AUD-038)
+# ---------------------------------------------------------------------------
+
+
+def test_check_tag_disposition_new() -> None:
+    def fake_run(cmd: list[str], *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="fatal: Not a valid object name")
+
+    with patch("subprocess.run", side_effect=fake_run):
+        disp = check_tag_disposition("v1.35.0", "abcdef1234567890abcdef1234567890abcdef12")
+    assert disp == "new"
+
+
+def test_check_tag_disposition_idempotent_retry() -> None:
+    target_sha = "abcdef1234567890abcdef1234567890abcdef12"
+
+    def fake_run(cmd: list[str], *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 0, stdout=f"{target_sha}\n", stderr="")
+
+    with patch("subprocess.run", side_effect=fake_run):
+        disp = check_tag_disposition("v1.34.1", target_sha)
+    assert disp == "idempotent_retry"
+
+
+def test_check_tag_disposition_conflict() -> None:
+    def fake_run(cmd: list[str], *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if "refs/tags" in cmd[4]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="1111111111111111111111111111111111111111\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="2222222222222222222222222222222222222222\n", stderr="")
+
+    with patch("subprocess.run", side_effect=fake_run):
+        disp = check_tag_disposition("v1.34.1", "2222222222222222222222222222222222222222")
+    assert disp == "conflict"
+
+
+def test_main_fail_on_tag_conflict_exits_1(capsys: pytest.CaptureFixture[str]) -> None:
+    def fake_run(cmd: list[str], *args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if "describe" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout="v1.34.0\n", stderr="")
+        if "rev-parse" in cmd:
+            if "refs/tags" in str(cmd):
+                # Tag resolves to commit 1111...
+                return subprocess.CompletedProcess(cmd, 0, stdout="1111111111111111111111111111111111111111\n", stderr="")
+            # Current commit resolves to commit 2222...
+            return subprocess.CompletedProcess(cmd, 0, stdout="2222222222222222222222222222222222222222\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    with patch("subprocess.run", side_effect=fake_run):
+        code = main(["--commit", "2222222222222222222222222222222222222222", "--fail-on-tag-conflict"])
+
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "already exists for a different commit SHA" in err
+    assert "AUD-038 conflict" in err

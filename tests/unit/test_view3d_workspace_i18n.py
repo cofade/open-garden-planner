@@ -21,8 +21,16 @@ from open_garden_planner.core.i18n import _TRANSLATIONS_DIR
 
 SRC = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "ui" / "view3d"
 #: module → the classes whose ``self.tr`` it uses (the context is the class name)
-MODULES = {"workspace.py": ("Workspace",), "problems_dialog.py": ("View3DProblemsDialog",),
-           "info_card.py": ("View3DInfoCard",)}   # the info card: L1.8
+MODULES = {
+    "workspace.py": ("Workspace",),
+    "problems_dialog.py": ("View3DProblemsDialog",),
+    "info_card.py": ("View3DInfoCard",),
+    "workspace_analysis.py": ("Workspace",),
+    "workspace_legend.py": ("Workspace",),
+    "workspace_selection.py": ("Workspace",),
+    "workspace_walk.py": ("Workspace",),
+    "workspace_wipe.py": ("Workspace",),
+}
 
 
 def _tr_literals(module: str) -> list[tuple[str, str, str]]:
@@ -44,12 +52,18 @@ def _tr_literals(module: str) -> list[tuple[str, str, str]]:
                 found.append((cls.name, str(node.args[0].value), interpolated.get(id(node), "")))
     # QCoreApplication.translate("Context", "literal") — a module function that says
     # the dialog's words without the dialog (problems_dialog.reason_text, L1.8 fix round 1)
+    translate_interpolated = {}
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Attribute)
+                and node.value.func.attr == "translate"):
+            translate_interpolated[id(node.value)] = node.attr
     for node in ast.walk(tree):
         if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                 and node.func.attr == "translate"):
             assert len(node.args) == 2 and all(isinstance(arg, ast.Constant) for arg in node.args), (
                 f"{module}:{node.lineno}: translate() takes a literal context and a literal")
-            found.append((str(node.args[0].value), str(node.args[1].value), ""))
+            found.append((str(node.args[0].value), str(node.args[1].value), translate_interpolated.get(id(node), "")))
     return found
 
 
