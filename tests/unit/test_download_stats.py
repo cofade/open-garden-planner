@@ -213,12 +213,32 @@ def test_summary_with_only_a_baseline_says_so() -> None:
 
 def test_summary_leaves_prereleases_out_of_the_table_and_sorts_totals_by_version() -> None:
     summary = _summary(
-        (T1, [_release("v1.9.3", 1, 1), _release("v1.34.2", 1, 1), _release("v2.0.0-rc1", 1, 1, prerelease=True)]),
-        (T2, [_release("v1.9.3", 1, 1), _release("v1.34.2", 3, 1), _release("v2.0.0-rc1", 50, 50, prerelease=True)]),
+        (T1, [_release("v1.9.3", 1, 1), _release("v1.34.2", 1, 1), _release("v2.0.0", 1, 1), _release("v2.0.0-rc1", 1, 1, prerelease=True)]),
+        (T2, [_release("v1.9.3", 1, 1), _release("v1.34.2", 3, 1), _release("v2.0.0", 4, 2), _release("v2.0.0-rc1", 50, 50, prerelease=True)]),
     )
-    assert "| 2026-10-02 03:17 | 24 | 2 | 0 |  |" in summary
+    assert "| 2026-10-02 03:17 | 24 | 5 | 1 |  |" in summary
     tags = re.findall(r"^\| (v[\w.-]+) \|", summary, re.MULTILINE)
-    assert tags == ["v2.0.0-rc1", "v1.34.2", "v1.9.3"]
+    assert tags == ["v2.0.0", "v2.0.0-rc1", "v1.34.2", "v1.9.3"]
+
+
+def test_tag_key_ranks_final_releases_above_prereleases() -> None:
+    assert ds._tag_key("v2.0.0") > ds._tag_key("v2.0.0-rc1")
+    assert ds._tag_key("v2.0.0-rc2") > ds._tag_key("v2.0.0-rc1")
+    assert ds._tag_key("v2.0.0-rc10") > ds._tag_key("v2.0.0-rc2")
+    assert ds._tag_key("v1.34.2") > ds._tag_key("v1.34.1")
+    assert ds._tag_key("v1.10.0") > ds._tag_key("v1.9.0")
+    # Verify no TypeError when comparing heterogeneous prerelease formats and non-SemVer tags
+    mixed = ["v2.0.0", "v2.0.0-rc1", "v2.0.0-1", "v2.0.0-alpha", "non-conforming", "v0.9.0"]
+    ordered = sorted(mixed, key=ds._tag_key, reverse=True)
+    assert ordered[0] == "v2.0.0"
+    assert ordered[-1] == "non-conforming"
+
+
+def test_snapshot_rows_deduplicates_duplicate_asset_ids_from_shifted_pages() -> None:
+    rel1 = _release("v1.0.0", 10, 5)
+    rel_duplicate = _release("v1.0.0", 10, 5)
+    rows = ds.snapshot_rows([rel1, rel_duplicate], T1)
+    assert len(rows) == 2  # exactly installer and SHA256SUMS.txt, duplicate discarded
 
 
 def test_a_row_reports_its_own_snapshot_window_when_an_asset_was_missing_before() -> None:
@@ -495,6 +515,10 @@ def test_workflow_keeps_no_credentials_and_writes_only_from_master() -> None:
     assert "persist-credentials: false" in WORKFLOW
     assert "github.ref == 'refs/heads/master'" in WORKFLOW
     assert "group: download-stats" in WORKFLOW and "cancel-in-progress: false" in WORKFLOW
+    prepare_step = WORKFLOW.split("name: Check out the data branch")[1].split("- name:")[0]
+    assert "GIT_AUTH_TOKEN: ${{ github.token }}" in prepare_step, "prepare uses auth token"
+    publish_step = WORKFLOW.split("name: Commit and push the data branch")[1].split("- name:")[0]
+    assert "GIT_AUTH_TOKEN: ${{ github.token }}" in publish_step, "publish uses auth token"
 
 
 def test_workflow_fetches_with_the_job_token_and_does_not_claim_a_step_boundary() -> None:

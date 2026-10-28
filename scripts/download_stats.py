@@ -189,6 +189,7 @@ def _count(value: object) -> bool:
 def snapshot_rows(releases: Iterable[dict[str, Any]], taken_at: str) -> list[Row]:
     """The counters of the tracked assets of every published release, stamped ``taken_at``."""
     rows: list[Row] = []
+    seen_asset_ids: set[int] = set()
     for release in releases:
         tag = release.get("tag_name") if isinstance(release, dict) else None
         assets = release.get("assets") if isinstance(release, dict) else None
@@ -204,6 +205,10 @@ def snapshot_rows(releases: Iterable[dict[str, Any]], taken_at: str) -> list[Row
                 continue
             if not _count(asset.get("download_count")) or not _count(asset.get("id")):
                 raise StatsError(f"asset {name} of {tag} without id/download_count: {asset!r:.200}")
+            asset_id = asset["id"]
+            if asset_id in seen_asset_ids:
+                continue
+            seen_asset_ids.add(asset_id)
             rows.append(
                 Row(
                     taken_at=taken_at,
@@ -223,7 +228,10 @@ def merge(existing: Iterable[Row], new: Iterable[Row]) -> list[Row]:
     new_rows = list(new)
     replaced = {row.date_utc for row in new_rows}
     kept = [row for row in existing if row.date_utc not in replaced]
-    return sorted(kept + new_rows, key=lambda r: (r.taken_at, r.tag, r.asset))
+    deduped: dict[tuple[str, int], Row] = {}
+    for row in kept + new_rows:
+        deduped[(row.date_utc, row.asset_id)] = row
+    return sorted(deduped.values(), key=lambda r: (r.taken_at, r.tag, r.asset))
 
 
 def _parse_time(taken_at: str) -> datetime:
@@ -260,8 +268,37 @@ def daily_deltas(rows: Iterable[Row]) -> list[Delta]:
     return deltas
 
 
-def _tag_key(tag: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in re.findall(r"\d+", tag))
+_TAG_SEMVER_RE = re.compile(
+    r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:[.-]?([A-Za-z0-9_.-]+))?$"
+)
+
+
+def _tag_key(tag: str) -> tuple[int, int, int, int, tuple[tuple[int, int | str], ...]]:
+    """Sort key for version tags: final releases sort above prereleases for the same version.
+
+    Returns a statically uniform 5-tuple:
+      (major, minor, patch, is_final, prerelease_tokens)
+    where fallback tags return (-1, -1, -1, 0, ((1, tag),)) and prerelease tokens are
+    type-tagged (0, int_val) vs (1, str_val) so Python 3 never compares int and str.
+    """
+    match = _TAG_SEMVER_RE.match(tag)
+    if not match:
+        return (-1, -1, -1, 0, ((1, tag),))
+    major = int(match.group(1))
+    minor = int(match.group(2) or 0)
+    patch = int(match.group(3) or 0)
+    prerelease = match.group(4)
+    if prerelease is None:
+        return (major, minor, patch, 1, ())
+    parts: list[tuple[int, int | str]] = []
+    for token in re.findall(r"\d+|\D+", prerelease):
+        if not token.strip(".-"):
+            continue
+        if token.isdigit():
+            parts.append((0, int(token)))
+        else:
+            parts.append((1, token))
+    return (major, minor, patch, 0, tuple(parts))
 
 
 def render_summary(rows: list[Row], deltas: list[Delta]) -> str:
@@ -386,10 +423,12 @@ def read_snapshots(data_dir: Path) -> list[Row]:
 
 def _write_csv(path: Path, fields: tuple[str, ...], records: Iterable[Iterable[object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as stream:
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.writer(stream, lineterminator="\n")
         writer.writerow(fields)
         writer.writerows(records)
+    tmp_path.replace(path)
 
 
 def write_outputs(data_dir: Path, rows: list[Row], deltas: list[Delta]) -> None:
@@ -416,7 +455,10 @@ def write_outputs(data_dir: Path, rows: list[Row], deltas: list[Delta]) -> None:
                 if d.taken_at[:7] == month
             ),
         )
-    (data_dir / SUMMARY_FILE).write_text(render_summary(rows, deltas), encoding="utf-8", newline="\n")
+    summary_path = data_dir / SUMMARY_FILE
+    tmp_summary = summary_path.with_suffix(".tmp")
+    tmp_summary.write_text(render_summary(rows, deltas), encoding="utf-8", newline="\n")
+    tmp_summary.replace(summary_path)
 
 
 def run(

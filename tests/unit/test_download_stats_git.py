@@ -164,3 +164,42 @@ def test_a_shallow_clone_publishes_onto_existing_history(
     (shallow / "data" / "SUMMARY.md").write_text("two\n", encoding="utf-8")
     _stats(shallow, "publish")
     assert _git(remote, "rev-list", "--count", "download-stats") == "2"
+
+
+def test_remote_git_passes_authorization_header_when_token_is_present(tmp_path: Path) -> None:
+    """remote_git constructs the basic-auth extraheader when GIT_AUTH_TOKEN is provided."""
+    import base64
+    log_file = tmp_path / "git_args.log"
+    fake_git = tmp_path / "git"
+    fake_git.write_text(
+        f'#!/usr/bin/env bash\nprintf "%s\\n" "$@" >> "{log_file.as_posix()}"\nprintf -- "---\\n" >> "{log_file.as_posix()}"\nexit 0\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    fake_git.chmod(0o755)
+
+    token = "secret-test-token-xyz"
+    test_env = {
+        **ENV,
+        "PATH": f"{tmp_path}:{ENV.get('PATH', '')}",
+        "GIT_AUTH_TOKEN": token,
+        "STATS_REMOTE": "origin",
+        "DATA_DIR": "data",
+    }
+    res1 = subprocess.run(["bash", str(SCRIPT), "prepare"], env=test_env, check=False)
+    assert res1.returncode == 0
+    assert log_file.exists(), "fake git was not called"
+    content = log_file.read_text(encoding="utf-8")
+    expected_b64 = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+    expected_header = f"http.https://github.com/.extraheader=AUTHORIZATION: basic {expected_b64}"
+    assert expected_header in content
+
+    # Also verify that when GIT_AUTH_TOKEN is NOT set, extraheader is omitted
+    log_file.unlink()
+    test_env_no_token = {k: v for k, v in test_env.items() if k != "GIT_AUTH_TOKEN"}
+    res2 = subprocess.run(["bash", str(SCRIPT), "prepare"], env=test_env_no_token, check=False)
+    assert res2.returncode == 0
+    assert log_file.exists(), "fake git was not called"
+    content_no_token = log_file.read_text(encoding="utf-8")
+    assert expected_header not in content_no_token
+    assert "AUTHORIZATION: basic" not in content_no_token

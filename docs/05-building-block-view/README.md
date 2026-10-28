@@ -664,6 +664,10 @@ verifiers. prepare_version_sync stages mechanical source/lock updates before an 
 Versioned policy files live in quality/. These tools have subprocess integration coverage and
 remain outside application runtime dependencies. See ADR-050.
 
+Daily download statistics (#634): `scripts/download_stats.py` and `scripts/download_stats_git.sh`
+snapshot release download counters daily onto the orphan `download-stats` branch without app
+telemetry, deriving elapsed-hour window values and `SUMMARY.md`. See ADR-067 and section 7.4.
+
 ## Audit A2 build reproducibility and distribution inventory (#454)
 
 - `installer/runtime_closure.py`: the single resolver of the project's installed runtime
@@ -685,9 +689,6 @@ remain outside application runtime dependencies. See ADR-050.
   release whose toolchain it cannot state.
 - `scripts/check_action_pins.py`: read-only CI gate; every external `uses:` in the workflows
   and the shared composite action must be a commit SHA with a `# vX.Y.Z` comment.
-- `scripts/download_stats.py` + `scripts/download_stats_git.sh`: the daily release-download
-  snapshot run by `.github/workflows/download-stats.yml` onto the orphan `download-stats`
-  branch (no telemetry, ADR-067; `docs/07-deployment-view` §7.4).
 - `installer/build_installer.py` orchestrates PyInstaller → inventory (generate + check) →
   NSIS, and the installer compiles only when the notices exist. See ADR-044/050 addenda and
   `docs/07-deployment-view` §7.2/§7.4.
