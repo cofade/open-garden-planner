@@ -255,8 +255,9 @@ warnings — see §11.1/§11.2 and ADR-044.
 
 ## 7.4 CI/CD Pipeline (GitHub Actions)
 
-Three workflow files in `.github/workflows/` (`ci.yml`, `release.yml`, and the report-only
-`dependency-review.yml` described below):
+Five workflow files in `.github/workflows/`: `ci.yml`, `release.yml`, `frozen-selftest.yml`
+(frozen-exe smoke on demand and on pull requests touching the app), and the two scheduled
+report-only workflows `dependency-review.yml` and `download-stats.yml`, both described below:
 
 ### CI Workflow (`ci.yml`)
 
@@ -531,6 +532,81 @@ with `pip-audit` every run (`uv export --locked --all-extras --group build`, §7
 advisory is waived: the one former exception, the `setuptools` advisory `PYSEC-2026-3447`
 (unused macOS source-distribution publishing), ended on 2026-10-24 when setuptools 84.1.0
 fixed it (#571, #572; §11.2).
+
+### Download statistics (ADR-067)
+
+GitHub keeps one cumulative `download_count` per release asset and no history, and the app
+sends nothing (no telemetry). `.github/workflows/download-stats.yml` therefore snapshots
+those counters once a day (03:17 UTC, plus `workflow_dispatch`) and
+`scripts/download_stats.py` (standard library only) derives the values between consecutive
+snapshots. The git side is `scripts/download_stats_git.sh`; it is tested against a temporary
+bare repository (`tests/unit/test_download_stats_git.py`), as is the script
+(`tests/unit/test_download_stats.py`).
+
+**Where the data is.** On the orphan branch `download-stats`, not on `master`: `master` is
+protected and every push to it starts `release.yml`. The branch shares no history with
+`master`; `ci.yml` and `release.yml` only run for `master`, and a push made with
+`GITHUB_TOKEN` starts no workflow at all. Only the installer (`*-Setup.exe`) and
+`SHA256SUMS.txt` of published (non-draft) releases are recorded, one file per month, so no
+file nears GitHub's size limits:
+
+| File | Content |
+|------|---------|
+| `snapshots/YYYY-MM.csv` | The source of truth: one row per snapshot time and asset (keyed by GitHub's asset id) with the cumulative counter. A rerun on the same UTC date replaces that date's rows; nothing else is rewritten. |
+| `daily/YYYY-MM.csv` | Derived: the difference to the asset's previous snapshot, the **hours** it covers, and a `kind` (`baseline`, `normal`, `new`, `reset`). |
+| `SUMMARY.md` | Derived: the last 30 snapshots and the totals per release (version-sorted, with a total). |
+
+**How to read it.**
+
+- A value is the window between two snapshots, in hours, **not a calendar day**. The nominal
+  window is 24 h; a skipped run or a manual run (for example the bootstrap run after the
+  merge) gives a different length, which the summary flags. Nothing is spread over days.
+- The first snapshot is a **baseline**: GitHub does not tell us the counter's history, so no
+  value is claimed for it. Values start with the second run.
+- An asset first seen after the baseline (a new release, or a re-upload, which has a new id)
+  counts from zero over the window since the previous snapshot (`new`). A counter that fell
+  under the *same* id would be a `reset` taking the new count; GitHub is not known to do
+  this, it is a defensive case.
+- A row's window is snapshot to snapshot. An asset that was missing from an earlier snapshot
+  spans a longer window of its own; the row says how many assets do.
+- The counters are **downloads, not users**: bots, virus scanners, retries and CI runs are
+  included.
+- **There is no in-app/web split.** An in-app update fetches `SHA256SUMS.txt` and then the
+  installer (`services/verified_update.py`) *from v1.30.3 on*; older apps download the
+  installer only. Web users who follow the install instructions (README, wiki
+  `Installation`, release notes) fetch the checksum file as well. Both biases are large and
+  point in opposite directions, so the summary reports the two raw columns and labels them
+  as such. Real counts are small (single digits per release), so read trends over weeks.
+- Prereleases are left out of the **window table** (in-app updates only target `latest`); the
+  totals table lists them. The flag of an asset's latest row decides, so a promoted prerelease
+  counts again, including its earlier windows.
+
+A failed fetch fails the run and writes nothing. Refused rather than recorded: an empty
+listing, a listing that lost more than half of the previous snapshot's assets, and a snapshot
+time earlier than the latest stored one (no rewriting of history). If releases were pruned on
+purpose, run the workflow by hand with the `accept_shrink` input (`--accept-shrink`); without
+it every later run would keep failing against the unchanged last snapshot.
+
+**Trust model.** The steps of one job share a filesystem and are *not* isolated from each
+other, so there is no token boundary between the Python step and the git steps. What limits
+the damage: the job runs only on `master` (reviewed code), `actions/checkout` keeps no
+credentials (`persist-credentials: false`; the write token reaches git only as a header of
+the two git steps), `git commit` runs with hooks disabled, the token can only write this
+repository's contents, `publish` refuses to commit unless `data/` is the `download-stats`
+worktree, and the push is never forced. The release listing is fetched **with** the job
+token, because anonymous calls from shared runner IPs hit the 60-per-hour API limit.
+`actions/checkout` is pinned like every workflow (`scripts/check_action_pins.py`).
+
+**Operating notes.** The branch is created by the first run, so after the pull request is
+merged trigger it once by hand (`gh workflow run download-stats.yml`). Scheduled workflows
+run from the default branch only, and GitHub **disables scheduled workflows in a public
+repository after 60 days without repository activity**: the statistics would stop quietly
+when the project goes quiet; re-enable the workflow in the Actions tab. Size: about 160 bytes
+per tracked asset and day across both CSV kinds, so it grows with the release count — 398
+assets today (65 KB per day), and at the October rate of 43 releases a month roughly 1,400
+assets, 55–60 MB per year, after a year. Each monthly file stays in the low megabytes.
+Every run rewrites all monthly files with identical bytes where nothing changed, so git
+stores only the current month's change.
 
 ### PR Labels for Versioning
 

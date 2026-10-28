@@ -1,0 +1,78 @@
+name: Download statistics (daily)
+
+# Release download counts over time, without any telemetry in the app. GitHub keeps one
+# cumulative `download_count` per release asset and no history, so this workflow takes a
+# snapshot of those counters once a day and `scripts/download_stats.py` derives the values
+# between consecutive snapshots. See docs/07-deployment-view/README.md §7.4 and ADR-067.
+#
+# The data lives on the orphan branch `download-stats`, not on `master`: `master` is
+# protected (pull request + required checks) and every push to it starts release.yml. The
+# branch shares no history with `master`; ci.yml and release.yml only run for `master`, and
+# a push made with GITHUB_TOKEN starts no workflow at all. The workflow never touches
+# `master`, tags or releases. The git side lives in scripts/download_stats_git.sh (tested
+# against a temporary bare repository in tests/unit/test_download_stats_git.py).
+#
+# Trust model, stated plainly: the steps of one job share a filesystem and are NOT isolated
+# from each other, so there is no token boundary between them. What limits the damage is
+# that the job runs only on `master` (reviewed code), keeps no persisted credentials
+# (persist-credentials: false; the write token reaches git only as a header of the two git
+# steps), runs `git commit` with hooks disabled, and can only write this repository's
+# contents, in practice only its own branch. The release listing is fetched WITH the job
+# token: anonymous calls from shared runner IPs hit the 60/hour API limit on a bad day.
+#
+# A failed fetch fails this run (red) and writes nothing; it never records a zero. If
+# releases were pruned on purpose, a manual run with `accept_shrink` records the smaller
+# listing (the guard otherwise refuses an answer that lost more than half of the assets).
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # 03:17 UTC daily, off the hour where scheduled runs are delayed
+  workflow_dispatch:
+    inputs:
+      accept_shrink:
+        description: "Record a listing that lost more than half of the last snapshot's assets (releases pruned on purpose)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: download-stats
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Snapshot release download counters
+    # A dispatch on a branch would run that branch's script with the write token
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Check out the data branch (create it on the first run)
+        env:
+          GIT_AUTH_TOKEN: ${{ github.token }}
+        run: bash scripts/download_stats_git.sh prepare
+
+      - name: Take the snapshot and rebuild the derived files
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ACCEPT_SHRINK: ${{ inputs.accept_shrink }}
+        run: |
+          extra=()
+          if [ "$ACCEPT_SHRINK" = "true" ]; then extra+=(--accept-shrink); fi
+          python3 scripts/download_stats.py --data-dir data --repo "$GITHUB_REPOSITORY" "${extra[@]}"
+
+      - name: Commit and push the data branch
+        env:
+          GIT_AUTH_TOKEN: ${{ github.token }}
+        run: bash scripts/download_stats_git.sh publish
+
+      - name: Show the summary
+        run: cat data/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
