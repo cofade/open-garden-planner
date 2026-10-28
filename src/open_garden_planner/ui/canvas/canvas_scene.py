@@ -459,8 +459,9 @@ class CanvasScene(QGraphicsScene):
     def _needs_synchronous_z_refresh(self, item: QGraphicsItem) -> bool:
         """Whether adding *item* can re-order items already in its layer.
 
-        A plant linked to a bed, a bed with children, a roof ridge and its
-        owner, and any child item are all clamped by
+        A plant linked to a bed, a plant INSIDE a bed it was drawn around (#629), a
+        bed with children, a plant-parent that can now contain existing plants, a
+        roof ridge and its owner, and any child item are all clamped by
         :func:`core.stacking.normalize_order`; their arrival changes ranks
         that already exist. A ground surface sorts into ``GROUND_Z_RANGE``
         ahead of every solid, so its band position is not the next index. A
@@ -475,10 +476,63 @@ class CanvasScene(QGraphicsScene):
         if getattr(item, "has_children", False):
             return True
         object_type = getattr(item, "object_type", None)
+        if object_type is not None:
+            from open_garden_planner.core.object_types import is_plant_parent_type
+
+            # A bed/container/trellis drawn around an existing plant captures it by
+            # containment, and the clamp moves the plant above it (#629) - so its
+            # arrival re-derives the layer. Only when it really captures one: a parent
+            # added elsewhere only appends, and 600 childless beds added one command at
+            # a time must not pay 600 full derivations.
+            if is_plant_parent_type(object_type):
+                return self._parent_captures_a_plant(item)
         if getattr(object_type, "name", "") == "ROOF_RIDGE":
             return True
         metadata = getattr(item, "metadata", None)
         return bool(isinstance(metadata, dict) and "ridge_item_id" in metadata)
+
+    def _parent_captures_a_plant(self, parent: QGraphicsItem) -> bool:
+        """Does *parent*'s outline contain a plant already in its layer (#629)?
+
+        The condition that makes an arriving plant-parent re-derive the layer: a plant
+        it captures must come above it. Asked of the plants' stable centres and the
+        parent's shape (built once), with a scene-rect prefilter - so a parent added
+        where no plant stands answers after a few comparisons.
+
+        The centre is asked LAZILY, after the cheap bounding-box overlap: for a
+        non-circle it builds the item's outline (8.9 ms at 16 000 vertices), and this
+        runs on every plant-parent add.
+        """
+        from open_garden_planner.core.object_types import is_plant_type
+        from open_garden_planner.ui.canvas.footprints import (
+            contains_path,
+            shape_contains,
+            standing_point,
+        )
+
+        layer_id = getattr(parent, "layer_id", None)
+        rect = parent.sceneBoundingRect()
+        shape: Any = None
+        for other in self.items():
+            if other is parent or other.parentItem() is not None:
+                continue
+            object_type = getattr(other, "object_type", None)
+            if object_type is None or not is_plant_type(object_type):
+                continue
+            if getattr(other, "layer_id", None) != layer_id:
+                continue
+            # The plant's centre is inside its own bounding box, so a box that misses
+            # the parent's rect cannot hold a captured plant.
+            if not other.sceneBoundingRect().intersects(rect):
+                continue
+            point = standing_point(other)
+            if point is None or not rect.contains(point):
+                continue
+            if shape is None:
+                shape = contains_path(parent)
+            if shape_contains(parent, point, shape):
+                return True
+        return False
 
     def _layer_band_base(self, layer_id: UUID | None) -> float | None:
         """The bottom of *layer_id*'s z band, or None when the layer is unknown."""
@@ -678,10 +732,13 @@ class CanvasScene(QGraphicsScene):
             with contextlib.suppress(RuntimeError, TypeError):
                 previous.stack_changed.disconnect(self._restack_ground_changes)
             with contextlib.suppress(RuntimeError, TypeError):
+                previous.stack_changed.disconnect(self._on_stack_changed_containment)
+            with contextlib.suppress(RuntimeError, TypeError):
                 previous.stack_changed.disconnect(self.note_plan_changed)
         self._command_manager = command_manager
         if command_manager is not None:
             command_manager.stack_changed.connect(self._restack_ground_changes)
+            command_manager.stack_changed.connect(self._on_stack_changed_containment)
             command_manager.stack_changed.connect(self.note_plan_changed)
 
     @property
@@ -1122,44 +1179,52 @@ class CanvasScene(QGraphicsScene):
 
     def _stack_entries(
         self,
-        layer_id: UUID | None,
-        candidates: list[QGraphicsItem] | None = None,
+        candidates: list[QGraphicsItem],
     ) -> list[stacking.StackEntry]:
-        """Build one layer's raw (not-yet-normalized) ``StackEntry`` list (issue #338).
+        """Build one BAND's raw (not-yet-normalized) ``StackEntry`` list (issue #338).
 
         This is the ONE place that derives ``StackEntry.parent_id``/``rect``
         from live Qt items — used by both :meth:`_normalized_layer_order`
         (for the z-value refresh) and
-        ``ui.canvas.arrange.build_arrange_command`` (which feeds it straight
-        to :func:`core.stacking.arrange`). There must be exactly one way to
-        build entries — and both callers build them per BAND
-        (:meth:`_band_entries`): a reader of a layer's stacking order goes through
-        :meth:`_normalized_layer_order` or :meth:`_band_entries`, never through
-        this method on a whole layer (that disagreed with the drawing, PR #584).
+        ``ui.canvas.arrange.build_arrange_command`` (through :meth:`_band_entries`).
+        There must be exactly one way to build entries.
 
-        *candidates*: the layer's top-level items, already computed via
-        :meth:`_layer_top_level_items`. Pass it in when the caller already
-        has it (as :meth:`_normalized_layer_order` does) so this doesn't
-        walk the whole scene a second time — ``scene.items()`` is O(n), and
-        every extra walk here is another O(n) hit on every single
-        ``addItem`` call (performance finding, issue #338 review). Omit it
-        to have this method compute it itself (``build_arrange_command``'s
-        case, which doesn't already have the list).
+        *candidates* is required, and is always one band's top-level items from
+        :meth:`_layer_top_level_items` via :meth:`_band_entries`: a reader of a layer's
+        stacking order goes through :meth:`_normalized_layer_order` or
+        :meth:`_band_entries`, never through this method on a whole layer (that
+        disagreed with the drawing, PR #584 — the ground band would leak into the
+        clamp's parent set). It used to be optional, for a caller that computed the
+        list itself; no such caller exists.
         """
-        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.core.object_types import (
+            ObjectType,
+            is_plant_parent_type,
+            is_plant_type,
+        )
 
-        if candidates is None:
-            candidates = self._layer_top_level_items(layer_id)
-        ids_in_layer = {self._stack_identity(item) for item in candidates}
+        items_by_id = {self._stack_identity(item): item for item in candidates}
+        bounds = {id(item): item.sceneBoundingRect() for item in candidates}
+        # The layer's plant-parents, with their rects, for the geometric clamp below
+        # (#629). Built once per call: a plant with no link asks which of them
+        # contains it, and a scan must not ask Qt for a rect per plant.
+        plant_parents = [
+            (bounds[id(item)], item) for item in candidates
+            if getattr(item, "object_type", None) is not None
+            and is_plant_parent_type(item.object_type)
+        ]
+        shapes: dict[int, Any] = {}
 
         entries: list[stacking.StackEntry] = []
         for item in candidates:
-            parent_id = None
-            parent_bed_id = getattr(item, "_parent_bed_id", None)
-            if parent_bed_id is not None and parent_bed_id in ids_in_layer:
-                parent_id = parent_bed_id
+            parent: QGraphicsItem | None = None
+            object_type = getattr(item, "object_type", None)
+            if object_type is not None and is_plant_type(object_type):
+                parent = self._derived_plant_parent(
+                    item, None, items_by_id, plant_parents, shapes
+                )
             elif (
-                getattr(item, "object_type", None) == ObjectType.ROOF_RIDGE
+                object_type == ObjectType.ROOF_RIDGE
                 and hasattr(item, "get_metadata")
             ):
                 owner_id_str = item.get_metadata("owner_polygon_id")
@@ -1169,17 +1234,79 @@ class CanvasScene(QGraphicsScene):
                         owner_uuid = UUID(owner_id_str)
                     except (ValueError, TypeError):
                         owner_uuid = None
-                    if owner_uuid is not None and owner_uuid in ids_in_layer:
-                        parent_id = owner_uuid
-            rect = item.sceneBoundingRect()
+                    if owner_uuid is not None:
+                        parent = items_by_id.get(owner_uuid)
+            rect = bounds[id(item)]
             entries.append(
                 stacking.StackEntry(
                     item_id=self._stack_identity(item),
-                    parent_id=parent_id,
+                    parent_id=None if parent is None else self._stack_identity(parent),
                     rect=(rect.x(), rect.y(), rect.width(), rect.height()),
                 )
             )
         return entries
+
+    def _derived_plant_parent(
+        self,
+        plant: QGraphicsItem,
+        point: QPointF | None,
+        items_by_id: dict[object, QGraphicsItem],
+        plant_parents: list[tuple[QRectF, QGraphicsItem]],
+        shapes: dict[int, Any],
+    ) -> QGraphicsItem | None:
+        """The parent the z DERIVATION puts *plant* above, or None (#629).
+
+        The LINK wins when ``parent_bed_id`` names an item of the same band (the
+        shipped clamp — a plant created inside a bed), else the SMALLEST plant-parent
+        whose outline contains *point* (a bed drawn around a standing plant makes no
+        link, #443; before this the plant stayed under it — visible in 3D, gone in
+        2D, its sun badge with it).
+
+        ONE answer for the derivation (:meth:`_stack_entries`) and for the per-command
+        check (:meth:`_restack_plant_containment`): the check compares the plant's z
+        against this parent's, so it cannot drift from what it checks.
+
+        Asked of the plant's STABLE centre (``footprints.standing_point``) and the
+        app's one containment predicate (``footprints.shape_contains``), which is what
+        the lift and the sun estimate ask. The caller passes each parent with its
+        scene rect and a *shapes* cache — a scan asks every parent about every plant,
+        and Qt rebuilds an item's shape on every ``contains``
+        (``ItemLookup.shape_of`` has the same reason; without the cache the adversarial
+        200-plant plan cost 1 661 ms at 1 200 vertices, against 133 ms with it). A
+        plant outside every parent is the common case and costs one rect comparison
+        each.
+        """
+        from open_garden_planner.ui.canvas.footprints import (
+            contains_path,
+            shape_contains,
+            standing_point,
+        )
+
+        parent_bed_id = getattr(plant, "_parent_bed_id", None)
+        if parent_bed_id is not None:
+            linked = items_by_id.get(parent_bed_id)
+            if linked is not None:
+                return linked
+        if point is None:
+            point = standing_point(plant)
+        if point is None:
+            return None
+        best: QGraphicsItem | None = None
+        best_area = float("inf")
+        for rect, parent in plant_parents:
+            if not rect.contains(point):
+                continue
+            key = id(parent)
+            shape = shapes.get(key)
+            if shape is None:
+                shape = shapes[key] = contains_path(parent)
+            if not shape_contains(parent, point, shape):
+                continue
+            box = parent.boundingRect()
+            area = box.width() * box.height()
+            if area < best_area:
+                best, best_area = parent, area
+        return best
 
     def _band_entries(
         self,
@@ -1202,7 +1329,7 @@ class CanvasScene(QGraphicsScene):
         bands = []
         for ground in (True, False):
             members = [item for item in candidates if on_ground(item) is ground]
-            bands.append((members, self._stack_entries(layer_id, members)))
+            bands.append((members, self._stack_entries(members)))
         return bands
 
     def _normalized_layer_order(self, layer_id: UUID | None) -> list[QGraphicsItem]:
@@ -1301,6 +1428,104 @@ class CanvasScene(QGraphicsScene):
             and stacking.supports_stacking(item)
             and self._ground_band_is_stale(item)
         }
+        for layer_id in stale:
+            self._refresh_layer_z(layer_id)
+
+    def _on_stack_changed_containment(self) -> None:
+        """`stack_changed` slot: restack for a command that can change containment.
+
+        Adds and deletes declare `Command.changes_containment = False`: a
+        plant-parent's arrival is derived synchronously by `addItem` and a new plant
+        already lands on top, so the O(items) scan would buy nothing (#629).
+        """
+        command = getattr(self._command_manager, "last_command", None)
+        if command is not None and not getattr(command, "changes_containment", True):
+            return
+        self._restack_plant_containment()
+
+    def _restack_plant_containment(self) -> None:
+        """Restack a layer where the drawing disagrees with the plant clamp (#629).
+
+        The geometric clamp is derived on ADD (``_needs_synchronous_z_refresh``) and
+        on arrange, but a command can also create the condition: a bed RESIZED or
+        MOVED around a standing plant, a vertex edit that swallows it, or a plant
+        dragged into a bed. This runs after every executed/undone/redone command — NOT
+        gated by ``changes_ground_band`` (#592), because the commands that change
+        containment (move/resize/rotate/vertex) are exactly the ones that set it False.
+
+        The test is the derivation's own answer compared with the drawing: for each
+        plant, ``_derived_plant_parent`` (the link, else the smallest parent whose
+        outline contains its stable centre) must not be ABOVE it. One O(items) pass,
+        no geometry for a layer whose plants are linked to a parent **of their own
+        band** (the band-local index cannot resolve a link into the ground band, and
+        then the centre is asked as for any unlinked plant), and only a layer that
+        disagrees is re-derived (once). The parents' shapes are cached for the pass (a
+        scan asks every parent about every plant — without the cache it rebuilt each
+        one per pair, measured 1 661 ms at 1 200 vertices); at 200 plants under 50
+        concave beds this is tens of milliseconds, and a realistic 300-plant garden
+        2 ms.
+
+        The plant's stable centre is asked LAZILY — only for a plant that gets past the
+        per-layer z test — because ``standing_point`` builds the item's outline for a
+        non-circle (8.9 ms for a 16 000-vertex polygon, and a polygon can be typed as a
+        tree in two clicks).
+        """
+        from open_garden_planner.core.object_types import (
+            is_plant_parent_type,
+            is_plant_type,
+        )
+
+        items_by_layer: dict[Any, dict[object, QGraphicsItem]] = {}
+        parents_by_layer: dict[Any, list[tuple[QRectF, QGraphicsItem]]] = {}
+        top_parent_z: dict[Any, float] = {}
+        plants: list[QGraphicsItem] = []
+        for item in self.items():
+            if item.parentItem() is not None:
+                continue
+            # The clamp acts inside ONE band: a plant is a solid, so a ground surface
+            # (an in-ground bed) lies under it by the band, not by the clamp — asking
+            # about it would re-derive forever and never change anything.
+            if on_ground(item) or not stacking.supports_stacking(item):
+                continue
+            layer_id = getattr(item, "layer_id", None)
+            # Every band item, as `_stack_entries` indexes them: the link lookup below
+            # must resolve exactly what the derivation resolves.
+            items_by_layer.setdefault(layer_id, {})[self._stack_identity(item)] = item
+            object_type = getattr(item, "object_type", None)
+            if object_type is None:
+                continue
+            if is_plant_type(object_type):
+                plants.append(item)
+            elif is_plant_parent_type(object_type):
+                parents_by_layer.setdefault(layer_id, []).append(
+                    (item.sceneBoundingRect(), item)
+                )
+                top_parent_z[layer_id] = max(
+                    top_parent_z.get(layer_id, float("-inf")), item.zValue()
+                )
+        if not parents_by_layer or not plants:
+            return
+
+        shapes: dict[int, Any] = {}
+        stale: set[Any] = set()
+        for plant in plants:
+            layer_id = getattr(plant, "layer_id", None)
+            if layer_id in stale:
+                continue
+            parents = parents_by_layer.get(layer_id)
+            if not parents:
+                continue
+            # A layer whose highest parent is below this plant cannot have anything to
+            # fix: the derived parent would have to be above it to hide it. This is
+            # what keeps a garden whose plants are planted above its beds at one
+            # comparison per plant, with no geometry.
+            if top_parent_z[layer_id] <= plant.zValue():
+                continue
+            parent = self._derived_plant_parent(
+                plant, None, items_by_layer[layer_id], parents, shapes
+            )
+            if parent is not None and parent.zValue() > plant.zValue():
+                stale.add(layer_id)
         for layer_id in stale:
             self._refresh_layer_z(layer_id)
 

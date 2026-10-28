@@ -36,6 +36,7 @@ import pytest
 from open_garden_planner.core import ProjectManager
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d import (
+    Mesh,
     Record,
     RecordingSink,
     SceneDiff,
@@ -258,8 +259,13 @@ def test_g7_every_mesh_validates_reaches_its_height_and_covers_its_footprint(pla
         for part in parts:
             part.validate()
             assert float(part.mesh.bounds()[1][2]) == pytest.approx(record.height_cm, rel=1e-6)
-            assert _cap_area(part.mesh) == pytest.approx(record.plan_area_cm2, rel=1e-6), record.name
-            _assert_walls_face_away_from_the_solid(part.mesh, record)
+        # #627: the solid is the tinted sides and the fill cap - the union's UP
+        # triangles are the cap (a ground pond's water is its own part)
+        if parts:
+            cap = Mesh.merge([part.mesh for part in parts])
+            assert _cap_area(cap) == pytest.approx(record.plan_area_cm2, rel=1e-6), record.name
+            _assert_walls_face_away_from_the_solid(
+                Mesh.merge([part.mesh for part in parts if not part.fill_texture]), record)
             solids += 1
     assert solids >= 12  # two houses, six fences, bed, pot, hedge, plants with a height
 

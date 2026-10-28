@@ -50,6 +50,7 @@ from open_garden_planner.core.scene3d import (
     default_builder,
     plan_overreach,
     pose_points,
+    prism_mesh,
     verify_builder,
 )
 from open_garden_planner.core.scene3d.builders import (
@@ -669,7 +670,8 @@ class TestAResolvedOutlineGetsNoRoof:
         parts = verify_builder(builder, record, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)
         assert [part.name for part in parts] == ["prism"]             # no walls + roof
-        _assert_the_house_block(parts[0], default_builder(record)[0].mesh)  # the regions, as a block
+        _assert_the_house_block(parts[0], prism_mesh(record.footprints, record.height_cm,
+                                                 record.holes))  # the regions, as a block
         assert float(parts[0].mesh.positions[:, 2].max()) == float(np.float32(record.height_cm))
 
         # It is the FLAG that decides — not the missing ridge. Hand the builder a ridge it
@@ -754,7 +756,8 @@ class TestTheEdgeCasePlan:
         parts = verify_builder(registry.builder_for("HOUSE"), crossed, height_tolerance_cm=0.5,
                                plan_margin_cm=0.0, hole_cover_limit=0.0)
         assert [part.name for part in parts] == ["prism"]
-        _assert_the_house_block(parts[0], default_builder(crossed)[0].mesh)
+        _assert_the_house_block(parts[0], prism_mesh(crossed.footprints, crossed.height_cm,
+                                                 crossed.holes))
         assert float(parts[0].mesh.positions[:, 2].max()) == 450.0 == crossed.height_cm
         beyond_cm2, _cover = plan_overreach(parts, crossed.regions, 0.0)
         assert beyond_cm2 == 0.0

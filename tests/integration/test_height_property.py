@@ -61,6 +61,31 @@ def _field_by_label(panel: PropertiesPanel, label_text: str):
     return None
 
 
+def _outline_less_item(kind: str):
+    """One item of every kind whose ``item_outline`` is None (#628's "not offered")."""
+    from open_garden_planner.ui.canvas.items.arc_item import ArcItem
+    from open_garden_planner.ui.canvas.items.bezier_item import BezierItem
+    from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
+    from open_garden_planner.ui.canvas.items.group_item import GroupItem
+    from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+    if kind == "text":
+        return TextItem(10.0, 10.0, "note")
+    if kind == "group":
+        return GroupItem()
+    if kind == "callout":
+        return CalloutItem(QPointF(100.0, 100.0), QPointF(30.0, 30.0), "note")
+    if kind == "arc":
+        return ArcItem(QPointF(300.0, 220.0), 80.0, 20.0, 120.0)
+    if kind == "bezier":
+        return BezierItem(
+            [QPointF(600.0, 120.0), QPointF(700.0, 260.0)],
+            [QPointF(570.0, 160.0), QPointF(650.0, 210.0)],
+            [QPointF(630.0, 90.0), QPointF(730.0, 280.0)],
+        )
+    raise AssertionError(kind)
+
+
 class TestRoundTrip:
     def test_file_version_not_bumped(self) -> None:
         """object_height_cm is additive metadata — no FILE_VERSION bump."""
@@ -186,11 +211,125 @@ class TestPanelUndo:
         cmd_mgr.undo()
         assert wall.metadata[METADATA_KEY] == 250.0
 
-    def test_no_height_row_for_type_without_semantics(self, qtbot) -> None:
-        panel = PropertiesPanel(command_manager=CommandManager())
+    def test_a_generic_shape_can_be_given_a_height(self, qtbot) -> None:
+        """#628: the field is the only way to set one, so it appears for a footprint.
+
+        Before, the row was gated on the TYPE having a height semantic, which for a
+        type with no default was only true once an explicit height existed — the field
+        that would create one could never appear. A polygon could not cast a shadow,
+        and an in-ground bed could not be mounded, without changing the object's type
+        (and with it its look and 3D builder).
+        """
+        cmd_mgr = CommandManager()
+        panel = PropertiesPanel(command_manager=cmd_mgr)
         generic = RectangleItem(0, 0, 100, 100)  # GENERIC_RECTANGLE
         panel.set_selected_items([generic])
+
+        spin = _field_by_label(panel, "Object height")
+        assert isinstance(spin, QDoubleSpinBox)
+        assert spin.value() == 0.0 and spin.text() == "Auto"   # today's behaviour
+        assert METADATA_KEY not in generic.metadata
+
+        spin.setValue(150.0)
+        assert generic.metadata[METADATA_KEY] == 150.0
+        assert effective_height_cm(generic.object_type, generic.metadata) == 150.0
+        cmd_mgr.undo()
+        assert METADATA_KEY not in generic.metadata
+        assert effective_height_cm(generic.object_type, generic.metadata) is None
+
+    def test_the_field_sets_a_ground_surface_up_as_a_solid(self, qtbot) -> None:
+        """A terrace given a height is a platform: ``lies_on_ground`` yields (#628)."""
+        from open_garden_planner.core.object_height import lies_on_ground
+
+        panel = PropertiesPanel(command_manager=CommandManager())
+        terrace = RectangleItem(0, 0, 400, 300, object_type=ObjectType.TERRACE_PATIO)
+        panel.set_selected_items([terrace])
+        assert lies_on_ground(terrace.object_type, terrace.metadata) is True
+        spin = _field_by_label(panel, "Object height")
+        assert isinstance(spin, QDoubleSpinBox)
+        spin.setValue(30.0)
+        assert lies_on_ground(terrace.object_type, terrace.metadata) is False
+        assert effective_height_cm(terrace.object_type, terrace.metadata) == 30.0
+
+    def test_an_item_without_a_footprint_has_no_height_row(self, qtbot) -> None:
+        """Text has no outline, so it cannot be a solid: no field (and no regression)."""
+        from open_garden_planner.ui.canvas.items.text_item import TextItem
+
+        panel = PropertiesPanel(command_manager=CommandManager())
+        text = TextItem(10.0, 10.0, "note")
+        panel.set_selected_items([text])
         assert _field_by_label(panel, "Object height") is None
+
+    @pytest.mark.parametrize("kind", ["text", "group", "callout", "arc", "bezier"])
+    def test_every_outline_less_kind_has_no_height_row(
+            self, qtbot, kind: str) -> None:
+        """The whole "not offered" set, through the real panel (#628).
+
+        The gate is ``footprints.item_outline(item) is not None``; these five have no
+        outline (pinned by ``item_outline`` itself, not by a type list), so none can be
+        given a height and none may show the row.
+        """
+        from open_garden_planner.ui.canvas.footprints import item_outline
+
+        item = _outline_less_item(kind)
+        assert item_outline(item) is None, f"{kind} grew a footprint: pin it instead"
+        panel = PropertiesPanel(command_manager=CommandManager())
+        panel.set_selected_items([item])
+        assert _field_by_label(panel, "Object height") is None
+
+    @pytest.mark.parametrize("type_name", [
+        "GENERIC_POLYGON", "GENERIC_RECTANGLE", "GENERIC_CIRCLE", "GENERIC_ELLIPSE",
+        "GARDEN_BED", "TERRACE_PATIO", "POND_POOL", "LAWN", "PATH", "DRIVEWAY",
+    ])
+    def test_every_footprint_type_offers_the_height_field(
+            self, qtbot, type_name: str) -> None:
+        """The whole #628 set, through the real panel: the field appears and is Auto."""
+        panel = PropertiesPanel(command_manager=CommandManager())
+        item = RectangleItem(0, 0, 200, 150, object_type=ObjectType[type_name])
+        panel.set_selected_items([item])
+        spin = _field_by_label(panel, "Object height")
+        assert spin is not None, f"{type_name}: Height row missing"
+        assert spin.value() == 0.0 and spin.text() == "Auto"
+        assert spin.toolTip() == "No height — no shadow on the 2D plan"
+        spin.setValue(120.0)
+        assert effective_height_cm(item.object_type, item.metadata) == 120.0
+
+    def test_a_generic_shape_with_a_height_casts_a_shadow(self, qtbot) -> None:
+        """The point of the field: a plain polygon becomes a caster and a 3D solid.
+
+        The owner's workaround was to change the object's type to Garage - which also
+        changed its look and its 3D builder. With the height alone, the walk finds it
+        (the same rule the 3D snapshot uses) and its shadow is not empty.
+        """
+        from open_garden_planner.core.shadow_geometry import compute_scene_shadows
+        from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+        from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            collect_identified_casters,
+        )
+
+        scene = CanvasScene(1000.0, 1000.0)
+        star = PolygonItem([QPointF(x, y) for x, y in (
+            (500.0, 700.0), (590.0, 400.0), (320.0, 580.0), (680.0, 580.0),
+            (410.0, 400.0))], object_type=ObjectType.GENERIC_POLYGON,
+            layer_id=scene.active_layer.id)
+        scene.addItem(star)
+        panel = PropertiesPanel(command_manager=CommandManager())
+        panel.set_selected_items([star])
+        assert collect_identified_casters(scene) == []      # no height: no caster
+        spin = _field_by_label(panel, "Object height")
+        assert isinstance(spin, QDoubleSpinBox)
+        spin.setValue(150.0)
+        assert star.metadata[METADATA_KEY] == 150.0
+        casters = collect_identified_casters(scene)
+        assert len(casters) == 1 and casters[0].height_cm == 150.0
+        shadow = compute_scene_shadows(
+            [(footprint, 150.0) for footprint in casters[0].footprints], 35.0, 180.0)
+        assert shadow, "a height must give the shape a shadow"
+
+        spin.setValue(0.0)                                  # back to Auto
+        assert METADATA_KEY not in star.metadata
+        assert collect_identified_casters(scene) == []
 
     @pytest.mark.parametrize("type_name", FORMERLY_HEIGHT_LESS)
     def test_every_standing_object_shows_its_default_and_takes_a_height(

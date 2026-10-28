@@ -192,6 +192,26 @@ Item {
         })
     }
 
+    // The plan's own fill pictures (#628 follow-up): ONE Texture per (pattern,
+    // colour), created with its data object and never re-pointed (a Texture pointed
+    // at a second QQuick3DTextureData goes white: ogp-3d-renderer section 5). A
+    // fill_texture Model shows one through `patternMap`; Python destroys it with its
+    // last user (release_fill).
+    Component {
+        id: patternTexture
+        Texture {
+            tilingModeHorizontal: Texture.Repeat
+            tilingModeVertical: Texture.Repeat
+            flipV: false          // uv = item coordinates / 256, row 0 at the item's y = 0
+            generateMipmaps: true
+            mipFilter: Texture.Linear
+        }
+    }
+
+    function createPatternTexture(data) {
+        return patternTexture.createObject(view.scene, {"textureData": data})
+    }
+
     // Plant Forge: material state only. A date scrub keeps every Model and buffer.
     property var plantSeasons: ({})
     function applyPlantSeason(part) {
@@ -414,6 +434,7 @@ Item {
             property real seasonSnow: 0.0
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
+            property var patternMap: null  // #628: the item's own fill picture, or null
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
@@ -424,6 +445,7 @@ Item {
                 id: vcLook
                 vertexColorsEnabled: true
                 baseColor: Qt.rgba(tint.r * seasonTint.x, tint.g * seasonTint.y, tint.b * seasonTint.z, 1)
+                baseColorMap: patternMap ? patternMap : null
                 roughness: 0.78
                 specularAmount: 0.35
                 // Cutaway: the inner faces of a roofless house's walls
@@ -530,6 +552,7 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            property var patternMap: null  // #627: the item's own water picture, or null
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
             // a custom shader keeps the water's hue in every mood; see water.frag for why
@@ -537,6 +560,12 @@ Item {
             materials: fade < 1.0 ? [waterDoor] : [waterLook]
             CustomMaterial {
                 id: waterLook
+                // a raised pool shows the plan's own water picture, in the canvas's
+                // phase; a ground pond has none and keeps the flat tint (water.frag)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
                 property vector3d uTint: tintLinear
                 property real uBody: 0.5      // = the principled diffuse's (1 - specularAmount)
                 property real uReflect: 0.15
@@ -548,6 +577,12 @@ Item {
             }
             CustomMaterial {   // the same water as a screen door (X-ray, L2.4)
                 id: waterDoor
+                // the raised pool's own water picture travels with it (water.frag has
+                // the same branch: the door is the look plus the dither)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
                 property vector3d uTint: tintLinear
                 property real uBody: 0.5
                 property real uReflect: 0.15

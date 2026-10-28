@@ -542,12 +542,12 @@ class TestRidgeIsTheRecordsRidge:
         NO ridge — no param, or one that is not two points — gets a flat roof (L4.1: the
         automatic style; ``TestRoofStyles``)."""
         ring = rectangle(900.0, 540.0)
-        block = default_builder(polygon_record("HOUSE", ring, 450.0))
+        block = prism_mesh((ring,), 450.0)
         for params in ({"ridge": ((10.0, 0.0), (10.0, 0.0))},
                        {"ridge": ((2000.0, 0.0), (2000.0, 500.0))}):  # a line that misses the house
             parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
             assert len(parts) == 1 and parts[0].name == "walls"
-            assert_the_block(parts[0], block[0].mesh, "HOUSE")  # in its sandstone, never its fill
+            assert_the_block(parts[0], block, "HOUSE")  # in its sandstone, never its fill
         for params in ({}, {"ridge": "nonsense"}, {"ridge": ((0.0, 0.0),)},
                        {"ridge": ((0.0, True), (1.0, 2.0))}):
             parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
@@ -1099,6 +1099,12 @@ class TestPolylinesAreBuiltFromTheCentreLine:
 
 
 def soil_level(parts: tuple[MeshPart, ...]) -> float:
+    for part in parts:  # a GARDEN_BED's soil shows the item's fill (#628): its colours are
+        if part.fill_texture and part.name == "soil":  # the picture's, not a palette entry
+            levels = np.unique(part.mesh.positions[:, 2])
+            assert len(levels) == 1
+            assert (part.mesh.normals[:, 2] > 0.999).all()
+            return float(levels[0])
     soil = np.asarray(palette.SOIL.linear, dtype=np.float32)
     for part in parts:
         mesh = part.mesh
@@ -1132,6 +1138,20 @@ class TestSoilRule:
         is_bed = record.kind in ("RAISED_BED", "GARDEN_BED")
         assert soil_level(parts) == float(np.float32(height - SOIL_DROP_CM if is_bed else height))
         assert float(positions(parts)[:, 2].max()) == float(np.float32(height))  # the rim
+
+    def test_a_garden_beds_soil_is_the_items_own_fill(self) -> None:
+        """#628 follow-up: the Properties panel names a garden bed's fill "Boden-
+        Substrat" and the bed's whole 2D picture is that substrate. Its 3D soil cap
+        shows that picture (``fill_texture``); a CONTAINER keeps the builder's own
+        soil colour — its fill is its body, not its soil."""
+        walls, soil = built(polygon_record("GARDEN_BED", rectangle(120.0, 80.0), 30.0))
+        assert soil.name == "soil" and soil.fill_texture and not soil.tinted
+        assert walls.name == "walls" and walls.tinted and not walls.fill_texture
+        assert np.all(soil.mesh.colors == 1.0)
+        container_walls, container_soil = built(
+            polygon_record("CONTAINER", rectangle(80.0, 40.0), 30.0))
+        assert container_walls.tinted and not container_walls.fill_texture
+        assert not container_soil.fill_texture and not container_soil.tinted
 
     def test_a_container_has_no_lip_and_no_crack_at_its_soil(self) -> None:
         """Soil flush with the top (review round 1, P2-7): the frame's top runs straight
@@ -1324,14 +1344,16 @@ PALETTE_SRGB = np.asarray([entry.srgb for entry in palette.ALL], dtype=np.float6
 @pytest.mark.parametrize("case", CASES, ids=str)
 def test_every_vertex_colour_is_a_2d_table_entry(case: Case) -> None:
     """Gate G5. A tinted part is pure white — the sink multiplies it with the item's
-    own colour. Every other vertex colour maps back (linear → sRGB, ± 1/255) to an
-    entry of ``builders/palette.py``, whose entries are pinned to their 2D sources
-    by ``test_scene3d_builders_palette.py``. No stray literal."""
+    own colour. A fill-part's colour is the item's own fill picture (``fill_texture``),
+    which comes from the canvas's textures, not from ``builders/palette.py``. Every
+    other vertex colour maps back (linear → sRGB, ± 1/255) to an entry of
+    ``builders/palette.py``, whose entries are pinned to their 2D sources by
+    ``test_scene3d_builders_palette.py``. No stray literal."""
     for part in built(case.record):
         colors = part.mesh.colors
         assert np.all(colors[:, 3] == 1.0)
-        if part.tinted:
-            assert np.all(colors == 1.0), f"{part.name}: a tinted part carries no colour of its own"
+        if part.tinted or part.fill_texture:
+            assert np.all(colors == 1.0), f"{part.name}: a tinted/fill part carries no colour"
             continue
         unique = np.unique(colors[:, :3], axis=0)
         srgb = _srgb8(unique)
@@ -1432,7 +1454,8 @@ class TestGroundThatIsNotOnePlainRing:
         parts = verify_builder(builder, record, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)  # nothing outside, nothing over a hole
         assert [part.name for part in parts] == ["prism"]
-        assert_the_block(parts[0], default_builder(record)[0].mesh, kind)  # the default prism
+        assert_the_block(parts[0], prism_mesh(record.footprints, record.height_cm,
+                                             record.holes), kind)  # the default prism
         assert plan_area([parts[0].mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         assert float(positions(parts)[:, 2].max()) == 150.0 and builder.fit_scale(record) == 1.0
         assert parts[0].casts_shadow
@@ -1539,7 +1562,8 @@ class TestGroundThatIsNotOnePlainRing:
         parts = verify_builder(builder, flagged, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)
         assert [part.name for part in parts] == ["prism"]
-        assert_the_block(parts[0], default_builder(flagged)[0].mesh, kind)
+        assert_the_block(parts[0], prism_mesh(flagged.footprints, flagged.height_cm,
+                                             flagged.holes), kind)
         assert float(positions(parts)[:, 2].max()) == 150.0 and builder.fit_scale(flagged) == 1.0
         # … where the very same ring WITHOUT the flag is built as its kind
         as_its_kind = built(plain)
@@ -1563,7 +1587,8 @@ class TestGroundThatIsNotOnePlainRing:
         function = getattr(buildings, shape)
         assert [part.name for part in function(plain, 450.0)] == ["walls", "roof", "facade"]
         (block,) = function(flagged, 450.0)
-        assert block.name == "walls" and block.mesh == default_builder(flagged)[0].mesh
+        assert block.name == "walls" and block.mesh == prism_mesh(flagged.footprints,
+                                                                  flagged.height_cm, flagged.holes)
 
     @pytest.mark.parametrize(("name", "record"), [
         ("a ridge without length", polygon_record("HOUSE", L_SHAPE, 450.0,
@@ -1578,7 +1603,8 @@ class TestGroundThatIsNotOnePlainRing:
                                        plan_margin_cm=0.0)
         assert (walls_part.name, walls_part.material_kind) == ("walls", "vc")
         assert plan_area([walls_part.mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6), name
-        assert_the_block(walls_part, default_builder(record)[0].mesh, "HOUSE")  # concave L and all
+        assert_the_block(walls_part, prism_mesh(record.footprints, record.height_cm,
+                                                record.holes), "HOUSE")  # concave L and all
 
     def test_one_plain_ring_is_what_every_matrix_record_is(self) -> None:
         for case in CASES:

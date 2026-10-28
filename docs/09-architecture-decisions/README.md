@@ -978,7 +978,7 @@ No `FILE_VERSION` change. Added tests: `tests/unit/test_ai_client_onboarding.py`
 - **Per-tool token check, not a blanket middleware.** Reads must stay open so D1 clients onboarded *without* a token keep working; a server-wide auth middleware would break them. Only the write tools require the token. A pure-ASGI middleware (`_bearer_token_middleware`, wrapping `mcp.streamable_http_app()` in `AgentApiServer._start_locked`) reads the `Authorization: Bearer <token>` header off each request into a module `contextvars.ContextVar`; each write tool's `async` handler calls `_require_write_auth(write_token)` — running in the SAME request task, so it sees that request's token — **before** the `anyio.to_thread.run_sync` main-thread hop. Comparison is constant-time (`secrets.compare_digest`). Empirically verified end-to-end against mcp 1.28.1 with `stateless_http=True` (the ContextVar set in middleware is visible in the tool handler for the same request). Chosen over a `ctx: Context` tool parameter reading `ctx.request_context.request.headers` so the gate does not depend on FastMCP `Context` internals.
 - **Two independent guards: a writes-enabled toggle AND a token.** `agent_api_writes_enabled` (Settings, **default OFF**) is the user's explicit opt-in to agent editing; the bearer token gates each call on top of it. The write tools are **registered only when `writes_enabled and write_token`** — when either is missing they don't appear in the agent's tool list at all (cleanest UX and defence in depth: a disabled write path is unreachable, not merely rejected). Settings changes already restart the server (`_on_preferences`), so this re-evaluates live.
 - **Auto-generated, in-app token (reuses D1.6).** `agent_api_token` is lazily generated with `secrets.token_urlsafe(32)` on first access and persisted, so a user who enables editing always has a token to hand out — never invents one. It is read (and thus generated) **only when writes are enabled**, so a user who never opts in never gets a token written to settings. Surfaced with Copy + Regenerate in Preferences → Agent API and threaded into the D1.6 "Connect AI Assistant" onboarding writers so a one-click install actually reaches the write tools. It is delivered to clients **in the server URL as a `?token=` query parameter** (see the addendum below); the server also still accepts an `Authorization: Bearer` header for clients that reliably send one. `Regenerate` is a deliberate revoke — clients using the old token must reconnect.
-- **Writes go through the existing command system (invariants #3/#4/#13, unchanged) — matching GUI *behaviour*, not just reusing a Command class.** Each write tool routes through an `AgentProviders` callable that, on the Qt main thread via `MainThreadBridge`, resolves the item by UUID (`scene.find_item_by_id`) and runs `canvas_view.command_manager.execute(cmd)` — never a hand-append. `delete_object` is genuinely one command (`DeleteItemsCommand` already detaches contained plants and restores that on undo). `move_object` mirrors the *whole* drag-release sequence `CanvasView` runs, not only its simplest branch: a bed/container/trellis carries its contained plants along (`AlignItemsCommand` over item+children, same as `_propagate_bed_children_during_drag`'s release-time commit), and a moved plant has its bed membership re-evaluated afterward (`SetParentBedCommand`, same as `_update_plant_bed_relationships`) — a first cut that used a bare `MoveItemsCommand([item], delta)` looked like it matched the GUI's call site but silently abandoned a bed's plants and left stale parent/child links for soil-mismatch diagnostics to act on. So **one agent write is one undo step for a lone item, and two when the move also reparents a plant** — exactly mirroring the GUI's own two-command sequence in that case, never more. Every command still dirties the document via `stack_changed`; no parallel mutation path is invented for agents.
+- **Writes go through the existing command system (invariants #3/#4/#13, unchanged) — matching GUI *behaviour*, not just reusing a Command class.** Each write tool routes through an `AgentProviders` callable that, on the Qt main thread via `MainThreadBridge`, resolves the item by UUID (`scene.find_item_by_id`) and runs `canvas_view.command_manager.execute(cmd)` — never a hand-append. `delete_object` is genuinely one command (`DeleteItemsCommand` already detaches contained plants and restores that on undo). `move_object` mirrors the *whole* drag-release sequence `CanvasView` runs, not only its simplest branch: a bed/container/trellis carries its contained plants along (`AlignItemsCommand` over item+children, same as `_propagate_bed_children_during_drag`'s release-time commit), and a moved plant has its bed membership re-evaluated afterward (`SetParentBedCommand`, same as `_update_plant_bed_relationships`) — a first cut that used a bare `MoveItemsCommand([item], delta)` looked like it matched the GUI's call site but silently abandoned a bed's plants and left stale parent/child links for soil-mismatch diagnostics to act on. So **one agent write is one undo step for a lone item, and two when the move also reparents a plant** — the sequence the GUI ran when this was written; the GUI now wraps its move and its links in ONE `CompoundCommand` (#627), while this path is unchanged - never more than two. Every command still dirties the document via `stack_changed`; no parallel mutation path is invented for agents.
 - **Curated `WriteResult` return.** A stable pydantic confirmation (`item_id`, `action`, `undo_description`, resulting `x`/`y` for move) decoupled from the `.ogp` serializer — mirrors D1.2's curated-schema principle.
 
 **Alternatives considered**:
@@ -1195,6 +1195,275 @@ is the only date-dependent one and reports `SOURCE_GROWN`.
 functions from the resolver over explicit/container/species/current/grown/default/none
 cases and checks the grown source; all existing precedence, shadow and 3D height tests
 are unchanged. No `.ogp`, UI or behaviour change.
+
+### ADR-037 addendum — one caster's ring set is one REGION (#444, 2026-10-27)
+
+**Status**: Accepted. **Changes shipped 2D behaviour** — the sun & shade overlay
+(FR-SUN-03) and the hours-of-sun heatmap (FR-SUN-05) — for exactly two classes of item:
+a fence, wall or hedge stroke whose centre line closes on itself, and an outline that
+crosses itself. It closes the alternative this ADR's base-stacking addendum deliberately
+left open ("*Fixing the closed-polyline footprint in the same change* … a separate defect
+with its own issue").
+
+**Context.** A closed polyline comes back from `PyclipperOffset` as an outer ring **and a
+hole** (`polyline_footprint([(0,0),(1000,0),(1000,800),(0,800),(0,0)], 10)` → +818,062
+and −782,100 cm²). `_caster_paths_int` normalised each ring counter-clockwise and swept it
+as a **solid**, so the hole cast the shadow of a slab the size of the enclosed garden.
+Measured on master (`81d2b62f`, and in v1.30.0 as shipped): a 10 m × 8 m loop, 10 cm
+stroke, 1.2 m high, 60° sun, azimuth 180° — **888,037 cm² of shade where the stroke's
+prisms give 174,526 cm²**. The issue's four-rectangle reference gives 174,564: the 38 cm²
+is the ring's own chamfered corners (outer area 818,062.1, not the rectangles' 818,100),
+so the repaired ring's figure is the exact one for the outline the plan holds. A
+self-crossing outline had the same shape of defect: `[(0,0),(400,300),(400,0),(0,300)]` at
+300 cm and 60° drew **80,000 cm²** where its two lobes' prisms give **129,282 cm²**, and a
+pentagram of radius 400 drew **334,617 cm²** where its five lobes give **321,565**.
+
+**Decision.** One caster is one REGION, and the region is repaired once per WALK, where
+the item is still known — `core.shadow_geometry.shadow_region(footprints)`.
+
+1. **Detection is structural, not a type test.** A ring set needs the repair when (a) some
+   ring's enclosed area is negative while there is more than one ring — a hole — or (b)
+   some ring's even-odd decomposition is not exactly ONE ring (`SimplifyPolygons`) — a
+   self-crossing outline. (b) is not an area difference: a pentagram decomposes into an
+   outer plus a hole whose total area is SMALLER than the ring's printed area (235,114
+   cm² printed, 124,108 in five lobes), so the sign of that difference is not fixed. A
+   LONE ring is never a hole whatever its winding: a solid drawn clockwise is a solid,
+   and the sweep already normalises winding. Everything else is returned **point for
+   point**, which is what keeps `tests/fixtures/shadows/shadow_golden.json` valid — every
+   footprint it pins
+   is a simple ring (measured: no hole-bearing and no self-crossing caster in
+   `bench_small.ogp`'s 87 or `bench_large.ogp`'s 379).
+2. **A hole is cut open by a zero-width slit.** `_bridge_holes_int` runs a vertical ray
+   from the hole's topmost vertex to the nearest boundary above it (at x offsets
+   0, ±1, ±2 … grid steps; a ray that still lands on a vertex duplicates it, and the
+   region is exact either way — measured), and the ring visits it down
+   and up again. The slit encloses no ground, so the ring's region is exactly
+   `outer − holes`; the sweep of a region is the sweep of its rings, so nothing else
+   changes. Holes are bridged highest-first, so a lower hole's slit meets the boundary
+   above it and the result stays simple; a hole is attached to the INNERMOST outer ring
+   that contains it. Containment is asked of ONE vertex normally — a full scan would be
+   O(vertices × vertices) and cost seconds on a crafted 16,384-point closed fence — and a
+   MAJORITY only when that vertex lies exactly on the boundary, which is how two pieces
+   of a pinched outline (sharing that vertex) are told apart.
+3. **A self-crossing outline is split into its lobes** by `SimplifyPolygons` (even-odd),
+   and each lobe is swept as the solid it is — whichever way the outline winds. A
+   mirrored or clockwise star draws the same ground as a counter-clockwise one, and the
+   app's own mirror tool flips the winding, so the split must not ask the ring's sign
+   whether it is a hole (measured: a clockwise pentagram swept as one ring also drew
+   334,617 cm² where its lobes give 321,565). The SIGN selects that branch; the ROLE is
+   decided by CONTAINMENT, because a lone reversed solid has a negative sign too: a ring
+   whose majority of vertices lies strictly inside another ring is a hole (its lobes
+   reversed), and one inside nothing is a solid (its lobes positive). "Crosses itself" is decided by the
+   decomposition returning more than one ring — not by an area difference, because a
+   pentagram decomposes into an outer **plus a hole** whose total area is SMALLER than
+   the ring's printed area (printed 235,114 cm², five lobes 124,108). Measured: one
+   5-vertex pentagram swept as one ring drew 334,617 cm² where its five lobes' prisms
+   give 321,565 cm². Above `MAX_REGION_VERTICES = 256` the test is skipped, so a
+   crafted 16,384-vertex outline pays no `SimplifyPolygons` call on every walk (measured
+   257 ms) and is swept exactly as it was before this repair — the hole half of the
+   repair has no such bound.
+4. **The role of a ring is its winding sign**, which is what every pyclipper offset hands
+   out; a negative ring inside no outer ring is kept as a piece of its own rather than
+   dropped (it is a caller's lone reversed ring, not a hole).
+
+The repair lives in `collect_identified_casters` — the one walk the overlay
+(`collect_shadow_casters`), the heatmap (`compute_grouped_shadows`) and the per-plant
+estimates all read. `item_footprints` is unchanged: it answers *which ground does the
+item cover* (the 3D records and the golden-pinned extraction), not *what does this shadow
+sweep*. The sweep functions still take simple rings; a hole passed to them on its own
+would still be cast as a solid, which is why the repair is not inside them.
+
+**Cost, and the gate that keeps it.** The repair needs `pyclipper` work, so the walk asks
+for it only where the extractor can have produced something to repair: more than one ring,
+or `footprints.footprints_can_self_cross(item)` — True exactly for a `PolygonItem`, whose
+vertices are the user's own order (a polyline's crossing centre line is resolved by the
+offset into separate rings, and circles, ellipses and rectangles are generated from a
+centre/radius/rect). Measured on bench_large (379 casters: 320 circles, 56 rectangles, 2
+polygons, 1 polyline; best of 30, Windows, against an `origin/master` worktree in the same
+session): **10.5 ms a walk with the repair on every ring, 6.7 ms with the gate, 6.8 ms on
+master.** The base-stacking addendum measured this walk at 5.0–5.3 ms, so the gate restores
+the released cost. A ring above `MAX_REGION_VERTICES = 256` skips only the self-crossing
+test: the loader's ceiling is 16,384 vertices and one `SimplifyPolygons` call costs 0.12 ms
+at 256, 20 ms at 4,096 and **257 ms at 16,384**, per walk. The premise is measured, not
+asserted: `tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself`
+walks every `OUTLINE_SHAPES` value, checks the predicate and that each non-polygon ring is
+one positively wound ring, and pins that a crossing closed polyline arrives as several
+rings. Two known limits of this decision, both stated rather than hidden: a self-crossing
+outline above 256 vertices is swept as one ring (as it was before this repair), and an
+outline whose crossing the decomposition resolves into ONE ring would not be detected (no
+such ring was produced by 4,000 fuzzed 5–9-gons; a ring that touches itself is resolved
+into two).
+
+**Validation.** `tests/integration/test_shadow_region.py` - both before/after numbers
+above; a pentagram whose decomposition is an outer plus a hole; a clockwise and a
+mirrored pentagram and a pinched outline in both windings and through the mirror tool
+(the winding must not decide the role); a hole inside an island
+inside a hole (the innermost-outer rule); a **ray oracle** that knows no polygons (a
+ground point is shaded iff some point between it and the sun's footprint of it is in the
+region) agreeing with the polygon answer on every cell of a 20 cm grid over the loop, and
+rejecting the old answer on >1,500 cells; the simple-ring pass-through (including a
+clockwise ring); a 16,384-vertex ring passing through with no `SimplifyPolygons` call at
+all (the vertex bound, pinned by a monkeypatch that raises); idempotence; the
+walk handing out one ring and one `ShadowCaster` for a closed `FENCE` item; the real
+`SunShadowController` overlay leaving the garden inside a loop in the sun while still
+drawing the fence's own shadow; and a self-crossing `PolygonItem` in a plan keeping both
+lobes. The full golden gate is unchanged - regenerating it was not needed and was not
+done. The mutation check keeps its shadow mutants killed (`scripts/mutation_check_built_world.py`).
+
+**Left out.** The pore/gable modelling of a porous fence or a gabled roof (#440) is a
+product decision and stays open. The 3D meshes of fences and walls are not the prisms
+this ADR casts (ADR-059). The mesh of a closed loop in 3D still builds its own shape,
+not this region. Nothing serialized; no `FILE_VERSION` change; no new user-visible string.
+
+### ADR-037 addendum — every item with a footprint can be given a height (#628, 2026-10-27)
+
+**Context.** The precedence ladder above honours an explicit `object_height_cm` for ANY
+type, and `lies_on_ground` already yields the moment a ground surface has one. The
+Properties panel, however, showed its Height field only when
+`has_height_semantics(type, metadata)` was true — and for a type with no per-type default
+that predicate's last clause is "an explicit height already exists". The field that would
+create that value could therefore never appear: a generic polygon (the owner's star), an
+in-ground bed, a terrace, a pond, a lawn, a path and a driveway had no way to become a
+solid, and the only workaround was to change the object's TYPE to one with a default
+(Garage), losing its look and its 3D builder.
+
+**Decision.** The question splits in two. `has_height_semantics` stays the TYPE-level
+answer (a default, a container's fill, a plant's species/measurement, or an explicit
+value). The new `shows_height_field(object_type, metadata, has_footprint=...)` answers
+what the panel asks: true for every item that HAS a footprint — asked of
+`footprints.item_has_footprint(item)`, the yes/no form of `item_outline(item)`, which the
+casters and the 3D records use — and for every type with height semantics. The yes/no form
+exists because the panel asks it for every selected item on every rebuild and materialising
+a 16 000-vertex polygon's outline to answer it cost 8.9 ms; a drift guard pins it equal to
+`item_outline(...) is not None` over every placeable kind, including the one clause that is
+not a class check (an ellipse with no area has no outline). "Auto" (0) remains no height,
+so an object that was not given one behaves exactly as before: a lawn, path, terrace,
+driveway or pond keeps lying on the ground (and under the sun overlays, FR-STACK-09), and a
+generic shape casts nothing and stands as nothing in 3D. Typing a value stores the explicit
+override, one undo step, and that is all: the ladder, `is_solid_soil_parent` (a mounded bed
+becomes a soil parent), the shadow casters and the 3D builders already agreed.
+
+**Not offered.** An item without a footprint — a text annotation, a callout, a group, an
+arc, a bezier or a journal pin — has no closed outline to extrude, so the field stays
+absent (pinned for all six through the real panel).
+
+**Pins.** `tests/integration/test_height_property.py`: a generic rectangle shows the row,
+reads "Auto", stores 150 on one undo step and clears back to none; a terrace's
+`lies_on_ground` flips when it is given 30 cm; the six outline-less kinds have no row; and
+the whole set (generic polygon/rectangle/circle/ellipse, in-ground bed, terrace, pond,
+lawn, path, driveway) offers the field with the "No height — no shadow on the 2D plan"
+tooltip; a generic polygon given a height becomes a caster with a non-empty shadow and
+stops being one when cleared.
+`tests/unit/test_footprint_predicate.py` pins `item_has_footprint` against `item_outline`
+for every placeable kind. PF-UI-29 records the class ("a control that is the only way to
+set a value must not be gated on the value existing"), and FR-SUN-02 states the rule.
+
+**Follow-up — the solid keeps the fill the ground baked (owner manual pass of #627).** The
+field worked, but every surface the owner raised lost its texture: a 40 cm lawn became a flat
+green slab and a 10 cm soil bed a plain brown one, because a solid was ONE tinted prism and no
+3D solid had ever shown a fill pattern (a height on these kinds could not be set before this
+requirement). The fix is a part flag and one picture rule: `MeshPart.fill_texture` says "this
+part shows the item's own fill", and the sink supplies
+`core.fill_patterns.tinted_pattern_pixels` — the very picture the 2D brush paints (the same
+`_tint_texture`, RGBA8, opaque, its mean the fill colour) — as `vcPart`'s `baseColorMap`
+(the Model's `patternMap`). It is per (pattern, colour), shared and refcounted by the sink
+(`release_fill` with the last Model), so a recolour is a material update and leaves no texture
+behind. UVs are `(position + paint_origin) / PATTERN_TILE_CM` — `paint_origin` is
+`params["paint_origin"]`, the anchor the canvas phases the fill from, so the solid shows the
+bake's own picture: NCC **0.995** against the bake with the mesh's own UVs on a real
+rectangle (MULCH; BRICK 0.995), while the opposite sign reads 0.759 / 0.866
+(`tests/integration/test_scene3d_fill_phase.py`, measured 2026-10-27) — and the 256 cm ruler is
+pinned against every shipped texture's size. A SOLID fill has no picture and shows its colour
+through the same `set_part_fill` call, so the two cases cannot diverge. A GARDEN_BED's soil cap
+is the item's fill too — the Properties panel calls it "Boden-Substrat" — while a raised bed's
+and a container's soil stay the builder's palette soil, and a raised deck keeps its boards.
+
+**Second manual pass — the TOP keeps the picture, the SIDES are the tint, and a lawn still
+grows (2026-10-28).** The owner confirmed the field and reported three residues, each a
+different layer:
+
+- **A raised lawn lost its blades** ("looks like a lower quality setting"). The fill picture is
+  the paint; the *blades* are the relief geometry that made the ground lawn read as grass, and
+  `_lawn` returned the plain prism at a height. It now builds the solid AND the sward, lifted to
+  the new top. `top_cm`/`fit_scale` and `verify_builder`'s G1 height gate ignore `ground_detail` parts:
+  relief standing 0.3-9.4 cm above the solid (swept h = 1..200; 20.3-29.4 cm for h = 20) is not
+  the item's height, and counting it failed G1 for every raised lawn - the blades are the one
+  registered relief, so the exception is written into the gate rather than hidden in a test.
+- **One fill-textured prism smeared the picture down the sides** (a lawn's grass stretched the
+  full height of the edge, a generic shape's pattern ran down its wall). The canvas paints a
+  texture on the TOP and no texture down an edge. A raised flat surface is now TWO Models:
+  tinted sides (`walls_mesh`, no UVs) and a fill cap (`cap_mesh`, plan UVs). `default_builder`,
+  `raised_surface` (a terrace/platform) and the raised lawn share one helper. `plain_block` — a
+  building's or an odd outline's honest block — stays one tinted part.
+- **A raised pond was the flat fill colour** ("the water became unreflective"): `_raised_pool`
+  drew its water with the water material's tint only. The water part now takes
+  `fill_texture=True`, and `water.frag` samples it through a `TextureInput` (`uFill`, gated by
+  `uHasFill`) as its albedo — linearised with the ground's own polynomial — while keeping the
+  hue-in-every-mood rule and the sky reflection. A ground pond has no picture and is unchanged.
+- **A bed dragged on its own left its child plant behind** (found by the review of the fix
+  above, pre-existing): the child's origin was recorded as `child.pos() - delta` on its first
+  sighting, when it had not moved yet, so a two-step drag left the plant short by the first
+  frame and undo overshot it the other way (measured: bed +600 cm, plant +300, undo -300). The
+  origin is the child's own position; the bed's cumulative delta is then the whole story.
+- **A plant dropped into a bed linked, but Ctrl+Z undid only the link** — the move and the link
+  were two stack entries. A finished drag now executes its move and the links it decides as ONE
+  `CompoundCommand` (`core/commands.py`), which undoes in reverse. The link commands are asked
+  where the drag LEFT everything — its final positions — so a bed dragged in the same gesture is
+  found at its new place and a plant that travelled with it keeps its parent (a first version
+  predicted the centre from the pre-drag point plus the delta, against beds still at their old
+  place, and unlinked the plant).
+
+**Why a picture and not a luminance map multiplied by a tint.** The obvious smaller design — a
+greyscale detail map per pattern with the fill colour as the tint — was rejected: an 8-bit
+texture has no value above white, so every texel brighter than the pattern's mean would clip.
+For soil those bright specks are what make it read as soil (the owner's L4 pass made the same
+point about the 2D fills). The engine holds 256 KB per picture actually in use (the tinted
+QPixmap it is made from is another 256 KB, shared with the canvas and cleared with its
+200-entry cache), and the sink's refcount is what keeps the engine side bounded.
+
+**One tint rule.** `materials.part_tint` is the ONE answer every engine read-back compares
+against (the render driver, the engine test, the adapter's double): a `fill_texture` part is
+white when its pattern has a picture — the picture carries the colour — and the fill colour for
+SOLID. `set_part_fill` still writes `tintLinear` from the fill colour when `tint` is white,
+because the X-ray screen door samples no picture and must ghost in the colour: left at 1, a
+faded raised lawn measured a white ghost (max 255) instead of its green.
+
+**Measured** (dev box, Direct3D 11, 1000 × 400 top-down frame, two 300 cm squares at 40 cm): the
+GRASS square's top reads luma std **26.0**, the SOLID one **0.0**, at the same mean (121.3 /
+120.8) — the texture is there and the average brightness is the fill colour. A raised lawn's
+blades measure 20.3–29.4 cm above the ground for a 20 cm lawn (rooted on its top, ±30 %
+variation), and its sides carry no UVs. A raised pool's water carries PLAN UVs, without which
+`texture(uFill, UV0)` sampled one texel: measured luma std **17.25** with the UVs against
+**0.000** (7.1e-15) without, on the same 300 × 220 cm pond at 40 cm. Engine traps, measured: `baseColorMap: patternMap` logs
+"Unable to assign [undefined] to QQuick3DTexture*" until the binding is
+`patternMap ? patternMap : null`; and a `Texture` is made with its data at birth — re-pointing
+one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer` §5).
+
+**Pins.** `tests/unit/test_fill_patterns.py::TestThe3DFillPicture` (the picture is the canvas's:
+256 × 256 RGBA, opaque, mean = the fill; names resolve; every texture is 256 px);
+`tests/unit/test_scene3d_mesh.py` (the default solid is sides + cap, the cap carries
+`(position + paint_origin) / 256`, a fill part must be `vc` or `water`, untinted and not ground
+detail); `tests/unit/test_scene3d_builders.py::TestSoilRule`
+(a garden bed's soil is the item's fill, a container's is not);
+`tests/unit/test_scene3d_l4_surfaces.py` (a raised platform is a fill cap beside tinted sides, a
+raised deck is not; a raised lawn's blades ride its top; a raised pool's water is a fill part);
+`tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill` (the picture reaches the engine,
+a recolour swaps it without an upload, one picture per key, released with its last user);
+`tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture` (the binding and
+the one-Texture-per-data rule) and `test_every_custom_shader_multiplies_with_the_tint` (water's
+`uFill` branch); `tests/unit/test_quick3d_pure.py` (the fill branch of the one tint rule);
+`tests/integration/test_scene3d_fill_phase.py` (the mesh's own UVs against the ground bake: NCC
+0.995, the opposite sign 0.759 / 0.866); `tests/integration/test_plant_drop_undo.py` (a drag
+into a bed is one Ctrl+Z, and one Ctrl+Y, and a bed dragged with its plant keeps the link); and
+the render gate
+`tests/integration/test_quick3d_render.py` — the raised GRASS square's top std > 5 against a
+SOLID twin's < 0.5 at the same mean, a faded GRASS ghost below 235 (no white), the raised
+POOL's water luma std > 4 (the caustics, which a constant UV cannot show), and the live
+lifetime counts (1 picture, 2 after a recolour, 0 after the removal, geometry uploads 1).
+`tests/unit/test_scene3d_mesh.py` also refuses a heighted record whose every part is
+`ground_detail`: the gate may skip relief, never the solid itself.
+PF-L3D-17 records the traps, FR-3D-BUILT-09 and FR-SUN-02 state the rule, and
+`ogp-lush-cinematic`'s owner taste log holds the pass itself.
 
 ## ADR-038: 3D Engine Choice — GO/NO-GO Spike (Phase 14, US-E5)
 
@@ -1562,6 +1831,113 @@ classifications, and still sees the badge on `AddConstraintCommand` and the band
 **Pins.** `tests/integration/test_canvas_command_refresh.py` (zero classifications and
 zero badge refreshes for neutral commands; a FIXED constraint refreshes only its item; a
 type change still restacks; a move is neutral). PF-CAN-25 and §8.25.4 record the rule.
+
+### ADR-043 addendum — a plant draws above the bed it stands in, linked or not (#629, 2026-10-27)
+
+**Context.** The clamp in `normalize_order` ("a child renders immediately above its
+parent") has always been right, and it followed `parent_bed_id` — the LINK. Drawing a bed
+AROUND a standing plant makes no link (#443), so the plant stayed below the new parent:
+gone behind it in 2D, still drawn on the soil in 3D, and its sun badge (#481/#627) gone
+with it. Measured (plant added first, parent drawn around it): z(plant) 0.00001 against
+z(parent) 0.00002 for `RAISED_BED`, `CONTAINER`, `CONTAINER_ROUND`, `WALL_PLANTER` and
+`TRELLIS`. The in-ground `GARDEN_BED` looked immune only because it is a *ground surface*
+and sorts into `GROUND_Z_RANGE` under everything — a `GARDEN_BED` with a stored height is a
+solid and hid the plant the same way. The owner's rule, from the manual pass: "plants are
+always on top of beds. Needs to be the same for raised beds and planters."
+
+**Decision.** A plant's stacking parent is its LINK, or — when it has none — the SMALLEST
+plant-parent in its layer whose outline contains the plant's **stable centre**
+(`footprints.standing_point`, the same point the lift and the sun estimate ask;
+`footprints.shape_contains`, the app's one containment predicate). It is the choice #481
+already made for the sun estimate: geometry over bookkeeping. The derive-only clamp does
+the rest, so the plant renders immediately above that parent — in the drawing order and
+therefore in hit-testing (a click at the plant's centre finds the plant, not the bed).
+
+Re-derivation, all through the one `_stack_entries`:
+- **add**: `_needs_synchronous_z_refresh` now asks `_parent_captures_a_plant(item)` for an
+  arriving plant-parent — a bed drawn round a plant re-derives at once, while a bed added
+  where no plant stands only appends (600 childless beds added one at a time: 0.24 s, not
+  the 2.12 s a blanket synchronous re-derivation cost).
+- **arrange**: unchanged — the clamp is applied inside `core.stacking.normalize_order`, so
+  Send to Back on a plant stops just above its bed, and the bed's own block carries it.
+- **every other command**: a new `Command.changes_containment` flag (default **True**,
+  `False` on the create/delete commands, which `addItem` and a deletion make neutral) gates
+  `CanvasScene._restack_plant_containment`, a `stack_changed` slot that re-derives a layer
+  whose drawing disagrees with the derivation. That covers a bed RESIZED or MOVED around a
+  plant, a vertex edit that swallows one, and a plant dragged into a bed — none of which is
+  an add. It is NOT gated by `changes_ground_band` (#592), because the commands that change
+  containment (move/resize/rotate/vertex) are exactly the ones that set that flag False.
+
+**One answer, checked rather than re-derived.** Which parent a plant takes is
+`CanvasScene._derived_plant_parent` — the link, else the smallest containing parent — and
+BOTH the derivation (`_stack_entries`) and the per-command check call it. The check is
+therefore not a second rule: it compares the plant's z against the parent that function
+names, so the two cannot drift (review round 2 found three near-copies of this question
+with three different points and caching, and the check rebuilt each parent's
+`QPainterPath` per (plant, parent) pair). Two structural details follow from the
+derivation and are load-bearing: only a parent of the plant's own BAND counts (an
+in-ground bed lies under the plant by the ground band, §8.25.2, not by the clamp — asking
+about it re-derived on every command and never changed anything), and the check runs on
+the SMALLEST containing parent rather than "any parent above the plant" (the latter marks
+a layer stale forever when an outer bed is arranged above an inner one, because the
+derivation can only move the plant above the inner one).
+
+**Cost, measured (dev box, 2026-10-27).** `_restack_plant_containment` on the 990-item
+reference plan (200 plants, no links): **0.9 ms**; 300 plants in 30 raised beds: 1.1 ms
+linked and 2.8 ms unlinked. It is one O(items) classification pass, then per plant: a
+single z comparison against the layer's highest parent (a garden whose plants stand above
+its beds ends there), the link lookup when the linked parent is in the plant's own band (no
+geometry), or - unlinked, or linked into the ground band - a rect prefilter plus the cached
+shape test. Shapes are cached for the pass, as
+`ItemLookup.shape_of` caches them for a walk: an adversarial plan (200 plants under 50
+concave beds whose bounding boxes all cover them) cost **8 ms at 6 vertices, 30 ms at 200
+and 133 ms at 1 200**, against 43 / 330 / 1 661 ms for the draft that rebuilt each shape
+per (plant, parent) pair. Only a layer that fails the test is re-derived, once. The pinned
+budgets are untouched: the paint gate, the ground-bake G3 gate (it times the bake, not the
+command), the caster walk and the snapshot.
+
+**Known limits, stated.** (a) One-way: the check asks whether the plant is BELOW the
+parent the derivation names, so a plant that LEAVES a bed keeps the higher z it was given
+while inside — harmless (a plant above a bed it is not in hides nothing) and it is what
+keeps the scan a one-way test. (b) Containment is asked of the plant's CENTRE, so a plant
+straddling a bed's edge with its centre outside is not clamped (it is beside the bed, not
+in it). (c) The clamp follows the SMALLEST containing parent, so a larger parent that also
+contains the plant — arranged above that one, or simply added after it — still covers it:
+the derive-only clamp cannot fix that, because `normalize_order` only ever moves a plant
+above its one parent, so a second containing parent above it stays where it is. (d)
+Stacking is geometric; where a plant STANDS is not. A bed drawn around an unlinked plant
+is now a stacking parent, but `footprints.item_base_cm`
+(ADR-037 decision 5) lifts a solid by its parent's soil only when the LINK names a visible
+solid AND the centre is inside it. So an unlinked plant in a bed that has a height is drawn
+above the bed and still stands on the floor — its shadow base and its 3D base do not move
+until it is linked. That split is deliberate for now: drawing a bed must not silently
+raise every plant it happens to cover in 3D and in the sun study (the bed may be an
+annotation by the owner's hand, not soil), and reconciling the link itself is #443, where
+the decision belongs. It is stated in FR-STACK-10's known limits and FR-SUN-02.
+(e) Only plants: a pot standing on a raised bed is not clamped to it by geometry (the app
+parents only plants, ADR-037 decision 5), and a `GARDEN_BED` that becomes a ground surface
+again by losing its height simply drops out of the parent set.
+
+**Pins.** `tests/integration/test_plant_above_parent_stacking.py` — every parent type (a
+parametrised matrix over `RAISED_BED`/`CONTAINER`/`CONTAINER_ROUND`/`WALL_PLANTER`/
+`TRELLIS`/`GARDEN_BED`) keeps an existing plant on top both in z and as the item a click
+finds through a real `CanvasView`; an L-shaped bed clamps a plant in its arm but not in its
+notch; a distant bed does not clamp; the linked case is unchanged; a plant moved into a bed
+by `MoveItemsCommand` comes above it (and undo leaves it outside, with the note above); a
+bed grown around a plant is raised by a real `ResizeItemCommand` - through the command's
+own slot, not a hand-made call; a healthy layer asks `shape_contains` **and**
+`standing_point` zero times (the centre is asked lazily); one pass builds each parent's
+path **once** (counted: five concave beds over twenty plants in the notch, five builds —
+the per-(plant, parent) rebuild this addendum measures fails at 100); the
+`changes_containment` table is re-derived from `core.commands` (every command class but the
+three neutral ones must keep the default, and the neutral set is named), and a create is
+pinned to skip the scan while a move runs it. The cost itself is a budget in
+`tests/perf/test_nfr_budgets.py::TestNfrPerf01ContainmentScanBudget` (linked and
+unlinked). The drift guards in
+`tests/integration/test_scene3d_base_stacking.py` name the new users of `standing_point`
+and `contains_path`. `tests/unit/test_plant_bed_relationship.py`'s rank-symmetry test now
+puts its plant OUTSIDE the bed, because a contained plant is clamped by geometry and the
+pre-attach assertion would stop being falsifiable.
 
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
@@ -3748,6 +4124,35 @@ follow-up, not this decision. `measurement_method` keeps its identifier
 in bare PyQt the closure v1.30.1 hung there runs 0 times when the wrappers are collected
 before Qt's deferred delete, 5 of 5); its theme listener asks at the moment of use and takes
 itself off the registry.
+
+**Addendum — the estimate spares the soil solid a plant stands in, linked or not (#481,
+2026-10-27).** The paragraph above ("reads 0 hours — the bed-membership follow-up") is
+reversed for the ESTIMATE, because the follow-up (#443) is not a prerequisite for reading
+the right sun. **Measured on master**: a full-sun tomato inside a 40 cm raised bed whose
+outline contains it, Berlin, 21 June — **0.0 h** and a `too_little` mismatch when the link
+was never made (a bed drawn around the plant, a mirror copy without its bed, a move by the
+arrow keys or a typed coordinate), **16.5 h** linked. The link is bookkeeping and follows
+only some edit paths; the geometry is the fact.
+
+`IdentifiedCaster` gained `holds_plants` (the walk's `is_solid_soil_parent`: a bed, raised
+bed, container or wall planter with a resolved, positive, finite height — the predicate
+`object_height` already documents as "the per-plant sun estimate must not count that solid
+as shade"). `_aggregate_day` spares such a caster for every receiver whose own point lies
+inside its outline, on top of the existing `stands_on` link spare. It is a PER-RECEIVER
+spare, not a hole in the bed's shadow: a plant 15 cm north or south of the same bed still
+loses sun to it (pinned). The test is static for a run, so it costs one pass of
+`points_in_polygons` per soil caster per run, not per sample. A `WALL`, a `TRELLIS` or an
+in-ground bed with no height is NOT spared (pinned) — a solid that contains the point but
+cannot hold soil is still between the plant and the sun. **Why not fix the link instead**:
+making the link, or the base, follow the geometry is #443, whose nesting decisions (a
+trellis in a bed, a pot on a bed) are open; this addendum changes only what the estimate
+leaves out, and leaves where a plant STANDS (FR-SUN-11, `item_base_cm`) exactly as shipped.
+The residue is stated: an unlinked plant inside a raised bed still casts its OWN shadow
+from the ground (its base is 0), so its estimate is right and its own shadow is the known
+link gap. Pins: `tests/integration/test_sun_exposure_raised_soil.py` (the
+no-link estimate, the per-receiver spare with a neighbouring plant, the wall negative
+control, the walk-vs-predicate drift guard). No `.ogp` change, no `FILE_VERSION` bump, no
+user-visible string.
 
 ## ADR-057: Bounded 2D canvas paint for crafted plans (#472)
 

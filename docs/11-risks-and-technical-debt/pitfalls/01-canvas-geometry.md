@@ -265,3 +265,39 @@ The owner pass made gravel and dirt paths their fill textures, drawn as a textur
 - **Legacy:** none (new entry)
 
 A pair of odd-even stroke outlines is insufficient: Qt stroke contours overlap at bends. Exact subtraction was measured at 6.6 s for 4,096 points. Use DestinationOut on bounded device tiles for translucent rims and retain the opaque fast path. Textures remain pattern fills for SVG/PDF.
+
+### PF-CAN-29
+
+- **Rule:** A parenting clamp must follow the GEOMETRY, not only the link: a plant renders above the plant-parent whose outline contains its stable centre, linked or not. When a visual guarantee can be satisfied by a category accident (a ground surface sitting under everything), check the guarantee on the categories where the accident does not apply.
+- **Pinned by:** `tests/integration/test_plant_above_parent_stacking.py::test_a_parent_drawn_around_a_standing_plant_keeps_it_on_top`; `tests/integration/test_plant_above_parent_stacking.py::test_a_plant_moved_into_a_bed_is_raised_by_the_command`; `tests/integration/test_plant_above_parent_stacking.py::test_a_healthy_layer_asks_no_shape_question`; `tests/integration/test_plant_above_parent_stacking.py::test_the_scan_builds_each_parent_shape_once`; `tests/perf/test_nfr_budgets.py::TestNfrPerf01ContainmentScanBudget`
+- **Source:** #629 (owner manual pass of #627)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`core.stacking.normalize_order` has clamped a CHILD immediately above its parent since
+#338, and the child relation it read was `parent_bed_id`. Drawing a bed AROUND a standing
+plant makes no link (#443), so the plant stayed below the new parent: hidden in 2D, drawn
+on the soil in 3D, and its sun badge hidden with it. The in-ground `GARDEN_BED` looked
+immune because it has no height and sorts into `GROUND_Z_RANGE` under everything — so the
+owner's "plants are always on top of beds" held only for the one type whose guarantee came
+from the ground band. The same bed with a stored height would have hidden the plant too.
+
+Measured before the fix: a plant added first and a `RAISED_BED`, `CONTAINER`,
+`CONTAINER_ROUND`, `WALL_PLANTER` or `TRELLIS` drawn around it left z(plant) 0.00001
+against z(parent) 0.00002. After: the clamp's parent is the link, or the smallest
+plant-parent containing the plant's centre; `_stack_entries` is still the one place that
+derives it, and a plant-parent's arrival re-derives the layer only when it CAPTURES a
+plant (`_parent_captures_a_plant`), which kept 600 childless bed adds at 0.24 s instead of
+2.12 s.
+
+Two traps to keep: `Command.changes_containment` is NOT the same gate as
+`changes_ground_band` - the commands that change containment (move/resize/rotate/vertex)
+are exactly the ones that set the ground-band flag False; and the per-command check must
+compare the plant's z against the parent the DERIVATION names (`_derived_plant_parent`) -
+not "any parent that contains it", which never settles once an outer bed is arranged above
+an inner one, and not a second copy of the rule, which drifted into rebuilding each
+parent's shape per (plant, parent) pair (1 661 ms on the adversarial 200-plant plan, 133 ms
+with the pass's shape cache, 8 ms at 6 vertices). That rebuild is why the pin is
+**counted**, not timed: five concave beds over twenty plants in the notch must build five
+paths, and a per-pair rebuild fails at 100 - a wall-clock budget on small beds cannot see
+the difference, and a budget that cannot fail is not a pin.

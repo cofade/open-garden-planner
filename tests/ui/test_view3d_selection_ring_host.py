@@ -140,7 +140,7 @@ def test_a_selection_session_through_the_real_sink_touches_no_model(host) -> Non
         assert host.engine_parts() == parts and set(host._parts) == handles  # noqa: SLF001
         assert host.scene_property("selectionVisible") is bool(ids)
         assert sink.state() == sync.expected_state()
-    assert BufferGeometry.uploads == uploads and sink.geometry_uploads == 3
+    assert BufferGeometry.uploads == uploads and sink.geometry_uploads == 6  # two per item
     assert ReloadableGeometry.created == made + 1 and sink.ring_uploads == 5 == host.ring_loads
 
     sync.set_selection(["a"])
@@ -149,7 +149,8 @@ def test_a_selection_session_through_the_real_sink_touches_no_model(host) -> Non
     sync.apply(moved)
     assert host.ring_loads == loads + 1, "the ring went with the move"
     assert BufferGeometry.uploads == uploads and set(host._parts) == handles  # noqa: SLF001
-    assert [p.position for p in host.engine_parts() if p.item_id == "a"] == [(60.0, 0.0, 0.0)]
+    assert [p.position for p in host.engine_parts()
+            if p.item_id == "a"] == [(60.0, 0.0, 0.0), (60.0, 0.0, 0.0)]  # sides + cap
     sync.apply({**moved, "b": _record("b", 250.0)})
     assert host.ring_loads == loads + 1, "an edit of something else does not reload the ring"
 

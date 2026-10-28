@@ -29,7 +29,13 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Final
 
-from open_garden_planner.core.scene3d import Material, MeshPart, Rgba, srgb8_to_linear
+from open_garden_planner.core.scene3d import (
+    Material,
+    MeshPart,
+    Rgba,
+    pattern_texture_name,
+    srgb8_to_linear,
+)
 
 #: ``MeshPart.material_kind`` → id of the part ``Component`` in ``Garden.qml``. Its keys
 #: are exactly ``core.scene3d.MATERIAL_KINDS`` (pinned, with the QML, by a test).
@@ -47,7 +53,17 @@ WHITE: Final[Rgba] = (255, 255, 255, 255)
 
 
 def part_tint(part: MeshPart, material: Material) -> Rgba:
-    """The sRGB tint the Model of ``part`` carries for an item with ``material``."""
+    """The sRGB tint the Model of ``part`` carries for an item with ``material``.
+
+    THE rule — the engine read-backs (``quick3d_render_driver``, the engine test,
+    the adapter's double) must call it rather than copy it. A ``fill_texture`` part
+    shows the item's own picture, which carries the colour, so its tint is white —
+    except for a SOLID fill, which has no picture and shows the fill colour through
+    the same ``set_part_fill`` call. (``host.engine_parts`` reads the QML ``tint``
+    property; it does not call this.)
+    """
+    if part.fill_texture:
+        return WHITE if pattern_texture_name(material.pattern) is not None else material.tint_rgba
     return material.tint_rgba if part.tinted else WHITE
 
 

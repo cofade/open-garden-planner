@@ -82,7 +82,7 @@ WINDOWS = sys.platform == "win32"
 LINUX = sys.platform.startswith("linux")
 FRAME, REFUSED, EITHER, ANY = "frame", "refused", "either", "any"
 #: The three releases: legal on a closed host, where they do nothing.
-RELEASES = ("destroy_part", "clear", "close")
+RELEASES = ("destroy_part", "release_fill", "clear", "close")
 #: Asked of a closed host they still answer (asserted where they are used).
 ANSWERS_WHEN_CLOSED = {"is_visible", "health"}
 
@@ -939,7 +939,7 @@ def test_reset_alone_recovers_from_a_dead_engine_and_a_fresh_host_renders(
     fresh = clear_orders["fresh"]
     assert fresh["ready"] is True
     judge_step("sink_clear_orders", "fresh", fresh["look"], FRAME)
-    assert fresh["parts"] == 1 and fresh["items"] == ["w"]
+    assert fresh["parts"] == 2 and fresh["items"] == ["w"]  # sides + cap (#627)
     assert fresh["state_equals_expected"] is True
 
 

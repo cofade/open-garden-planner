@@ -238,6 +238,17 @@ class TestMaterials:
         assert part_tint(MeshPart(mesh, tinted=True), material) == (200, 30, 30, 255)
         assert part_tint(MeshPart(mesh, tinted=False), material) == WHITE
 
+    def test_a_fill_part_is_white_for_a_picture_and_coloured_for_solid(self) -> None:
+        """The fill branch of THE tint rule (#628): a patterned part's Model tint is white
+        (the picture carries the colour); a SOLID fill has no picture, so its tint is the
+        fill colour — the same value ``set_part_fill`` writes for it."""
+        mesh = prism_mesh([SQUARE], 10.0)
+        part = MeshPart(mesh, fill_texture=True)
+        picture = Material("LAWN", fill_rgba=(90, 160, 60, 255), pattern="GRASS")
+        flat = Material("LAWN", fill_rgba=(90, 160, 60, 255), pattern="SOLID")
+        assert part_tint(part, picture) == WHITE
+        assert part_tint(part, flat) == (90, 160, 60, 255)
+
     def test_the_shader_tint_is_exactly_the_materials_linear_tint(self) -> None:
         material = Material("SHED", fill_rgba=(200, 30, 188, 255))
         assert tint_uniform(material.tint_rgba) == material.tint_linear()[:3]

@@ -117,6 +117,13 @@ def _check_root_docs(root: Path, errors: list[str]) -> None:
         errors.append("CLAUDE.md and AGENTS.md differ")
     max_bytes = _configured_doc_max_bytes(root, errors)
     if codex.is_file() and max_bytes is not None and codex.stat().st_size > max_bytes:
+        # Bytes ON DISK, deliberately. The budget is a byte limit on the FILE a reader
+        # loads, so a CRLF working copy (the Windows default in this repo) spends one
+        # byte per line and the document must fit on both platforms. Measuring the
+        # line-normalised text let the gate pass a checkout whose tail a byte-limited
+        # reader truncates — #444's batch landed at 5 bytes of headroom on Windows with
+        # the gate saying OK, which is how a pickup bullet came to be unverifiable
+        # locally. Keep headroom instead (test_the_checked_in_documents_keep_headroom).
         errors.append(
             f"AGENTS.md exceeds the Codex project-doc budget of {max_bytes} bytes"
         )

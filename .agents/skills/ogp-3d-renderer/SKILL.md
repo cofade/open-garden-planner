@@ -26,9 +26,10 @@ lives now; the values production was drift-guarded against are frozen in
   `QtQml` or `QtQuickWidgets`. The production package inherited the rule as
   `ui/view3d/quick3d/`.
 - **One engine package (L1.2).** In the product, only `ui/view3d/quick3d/` imports those
-  bindings — and inside it only `geometry.py`, `host.py` and (L1.5, the ground's tile
-  textures) `ground_tiles.py` do; `selftest.py` names them as
-  strings to import them one by one. Pinned over the WHOLE tree, imports by name included
+  bindings — and inside it only `geometry.py`, `host.py`, (L1.5, the ground's tile
+  textures) `ground_tiles.py` and (#628, the items' own fill pictures) `patterns.py` do;
+  `selftest.py` names them as strings to import them one by one. Pinned over the
+  WHOLE tree, imports by name included
   (`__import__("PyQt6.QtQuick3D")` is an import), by `tests/unit/test_quick3d_boundary.py`,
   which also pins that app start loads neither the bindings nor the package and that the
   package never uses a `QQuickWidget`.
@@ -321,6 +322,45 @@ lives now; the values production was drift-guarded against are frozen in
   `textureDataNodeDirty` by hand, nor setting the `Texture`'s property to null and back in the
   same turn (each variant rendered and read back: twelve cycles, the first picture every time).
   A fresh object per change shows. (`markAllDirty()` is not exposed by PyQt6 6.11.)
+- **A solid's own fill is a picture per (pattern, colour) (#628 follow-up).** A lawn, path,
+  terrace, driveway, generic shape or garden bed that the user gives a HEIGHT stops being
+  painted by the ground bake (it is a solid), so its faces show the fill the canvas gave it:
+  `MeshPart.fill_texture` -> `vcPart.baseColorMap: patternMap`, the picture being
+  `core.fill_patterns.tinted_pattern_pixels` — the 2D brush's own tinted texture, RGBA8 and
+  opaque, its mean the fill colour. Measured, Direct3D 11, 1000 x 400 top-down, two 300 cm
+  squares at 40 cm: luma std 26.0 with `GRASS` against 0.0 with `SOLID`, at the same mean
+  (121.3 / 120.8). One `Texture` per (pattern, colour), made with its data at birth and never
+  re-pointed (the white rule below), shared by every Model that shows it; the sink refcounts
+  the pictures and calls `EngineScene.release_fill` with the last user, so a recolour leaves no
+  texture behind (`PatternTexture.uploads` 1 -> 2, `textures_alive()` 0 after the removal).
+  A `var`-typed map must bind as `patternMap ? patternMap : null`: `baseColorMap: patternMap`
+  with no picture logs "Unable to assign [undefined] to QQuick3DTexture*" and fails the render
+  gate (PF-L3D-17). UVs are `(position + paint_origin) / 256` on the CAP — `paint_origin` is
+  the record's anchor (its footprint is centred on it, so the canvas's item coordinate is
+  `position + paint_origin`); `tests/integration/test_scene3d_fill_phase.py` correlates the
+  mesh's own UVs against the ground bake (NCC 0.995; the opposite sign 0.759 / 0.866). The
+  SIDES of a raised surface are the item's TINT (`walls_mesh`, no UVs): the canvas paints no
+  texture down an edge, and one fill prism smeared a lawn's grass and a bed's soil down the
+  walls (the owner's second pass) — so the default solid is TWO Models, `prism_sides` and the
+  fill cap. Relief rides above the solid: a raised lawn keeps its blades, lifted to the new
+  top, and `top_cm`/`fit_scale`/`verify_builder` measure only non-`ground_detail` parts (the
+  blades stand 0.3-9.4 cm over the requested height, swept h = 1..200; counting them failed
+  G1 for every raised lawn).
+  A `fill_texture` part is not tinted (the picture carries the colour), but `set_part_fill`
+  still writes `tintLinear` from the fill colour: the X-ray screen door samples no picture, and
+  a white tintLinear ghosted a faded lawn white (max 255). The render gate
+  `tests/integration/test_quick3d_render.py` measures a raised GRASS square's top (std > 5
+  against a SOLID twin's < 0.5 at the same mean), the faded ghost (max < 235) and the lifetime
+  counts (1 picture, 2 after a recolour, 0 after the removal) — a QML string match cannot see
+  a white slab.
+
+- **Water has a second albedo source (`uFill`) on a raised pool (#627).** `water.frag` keeps
+  its hue rule: `BASE_COLOR` is `VAR_COLOR * uTint` — unless the part carries the plan's water
+  picture (`fill_texture` on a `water` part), when it samples `texture(uFill, UV0)` and
+  linearises it with the ground's polynomial. A ground pond has no picture. `water_door.frag`
+  is the same shader plus the dither, and `test_quick3d_qml` pins the two apart only by that
+  block: change both or neither.
+
 - **ONE texture per `Texture` element, for life — a re-pointed `Texture` goes WHITE.** When a
   `QQuick3DTextureData` that a `Texture` once held is destroyed, Qt resets that element's
   `textureData` to null, whatever it holds by then (a QML binding `textureData: someProperty`

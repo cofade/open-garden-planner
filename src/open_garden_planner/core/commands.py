@@ -5,7 +5,7 @@ executed, undone, and redone.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext, suppress
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
@@ -36,6 +36,16 @@ class Command(ABC):
     #: anything must leave this True (the default), or a lawn can stay in the
     #: solid band (#592).
     changes_ground_band: bool = True
+
+    #: Whether executing or undoing this command can change which plant-parent CONTAINS
+    #: a plant, or move a plant inside/outside one — the geometric half of the stacking
+    #: clamp (#629). ``CanvasScene._restack_plant_containment`` skips its O(items) scan
+    #: for a command that says ``False``. Adds and deletes are neutral: a plant-parent's
+    #: arrival is handled synchronously by ``addItem`` (``_needs_synchronous_z_refresh``),
+    #: a new plant already lands on top, and a deletion cannot hide anything. A command
+    #: that moves, resizes, rotates, vertex-edits, groups or re-types an item must leave
+    #: this True (the default), or a bed grown around a plant leaves it behind the bed.
+    changes_containment: bool = True
 
     @property
     @abstractmethod
@@ -594,6 +604,54 @@ class MoveItemsCommand(Command):
         """Move items back by negative delta."""
         for item in self._items:
             item.moveBy(-self._delta.x(), -self._delta.y())
+
+
+class CompoundCommand(Command):
+    """Several commands that undo as ONE step.
+
+    The case it exists for: a plant dragged into a bed is moved AND linked, and
+    the link is decided after the move (positions, then containment). Two stack
+    entries made the first Ctrl+Z undo only the link and the second the move, so
+    the drag looked half-undoable (#627's manual pass). The commands run in
+    order here and undo in reverse, so one undo puts the plant back where it was
+    WITH its old parent.
+
+    ``description``: the step's own name; the first command's when omitted.
+    ``execute`` undoes the commands that RETURNED if a later one raises - a step
+    with no half-left work and no stack entry. (A command that raises in the middle
+    of its own mutations is that command's contract to keep clean, as before.)
+    """
+
+    def __init__(self, commands: Sequence[Command], description: str | None = None) -> None:
+        # a tuple: the two flags below are computed once, so the set of commands they
+        # describe must not be able to change afterwards
+        self._commands = tuple(commands)
+        if not self._commands:
+            raise ValueError("CompoundCommand needs at least one command")
+        self._description = description
+        # the scene's restack scans ask these of the ONE command it ran: a step that
+        # can move, link or re-type anything must keep asking for them
+        self.changes_ground_band = any(command.changes_ground_band for command in self._commands)
+        self.changes_containment = any(command.changes_containment for command in self._commands)
+
+    @property
+    def description(self) -> str:
+        return self._description or self._commands[0].description
+
+    def execute(self) -> None:
+        done: list[Command] = []
+        try:
+            for command in self._commands:
+                command.execute()
+                done.append(command)
+        except Exception:
+            for command in reversed(done):
+                command.undo()
+            raise
+
+    def undo(self) -> None:
+        for command in reversed(self._commands):
+            command.undo()
 
 
 class ChangePropertyCommand(Command):
@@ -3165,3 +3223,9 @@ _GROUND_BAND_NEUTRAL_COMMANDS: tuple[type[Command], ...] = (
 )
 for _ground_band_neutral in _GROUND_BAND_NEUTRAL_COMMANDS:
     _ground_band_neutral.changes_ground_band = False
+
+#: Commands that cannot change which plant-parent contains a plant (#629): an add is
+#: derived synchronously by `addItem` and a delete cannot hide anything.
+CONTAINMENT_NEUTRAL_COMMANDS = (CreateItemCommand, CreateItemsCommand, DeleteItemsCommand)
+for _containment_neutral in CONTAINMENT_NEUTRAL_COMMANDS:
+    _containment_neutral.changes_containment = False

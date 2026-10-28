@@ -313,9 +313,24 @@ def test_the_scene_uses_no_order_independent_transparency() -> None:
 
 
 def test_every_custom_shader_multiplies_with_the_tint() -> None:
-    for name in ("foliage.frag", "water.frag"):
-        source = (QML_DIR / name).read_text(encoding="utf-8")
-        assert re.search(r"BASE_COLOR\s*=\s*vec4\([\w.]+\s*\*\s*uTint\s*,", source), name
+    """The albedo of every custom kind is its vertex colour times the part's tint.
+
+    Water also takes the plan's own picture (``uFill``, a raised pool: #627) - its
+    flat path must still be the tint, both in the look and in its screen door, and
+    the picture must reach ``BASE_COLOR``. A shader string match cannot see a
+    constant-UV defect (the picture sampled at one texel looked "fixed" while it
+    was not), so the BEHAVIOUR is pinned by the raised-pool render gate; this test
+    holds the albedo's shape, anchored at the assignment, not a loose search."""
+    foliage = strip_comments((QML_DIR / "foliage.frag").read_text(encoding="utf-8"))
+    assert re.search(r"BASE_COLOR = vec4\(vColor\.rgb \* uTint, 1\.0\);", foliage)
+    for name in ("water.frag", "water_door.frag"):
+        source = strip_comments((QML_DIR / name).read_text(encoding="utf-8"))
+        assert re.search(r"vec3 base = VAR_COLOR\.rgb \* uTint;", source), name
+        assert re.search(r"BASE_COLOR = vec4\(base, 1\.0\);", source), name
+        assert re.search(r"if \(uHasFill > 0\.5\)\s*\{[^}]*texture\(uFill, UV0\)", source), name
+        # the flat tint is the value the picture overrides, never the reverse
+        assert source.index("vec3 base = VAR_COLOR.rgb * uTint;") < source.index(
+            "if (uHasFill > 0.5)")
 
 
 #: Root properties of the look block that are STATE of the wind's clock, not look.
@@ -477,6 +492,22 @@ def test_the_scene_obeys_the_measured_engine_rules() -> None:
     assert not re.search(r"sharpnessAmount:\s*0\.0*[1-9]", code), "no sharpening (spike: speckles)"
     assert "function destroyPart" in code and "part.geometry = null" in code
 
+
+def test_a_fill_part_shows_the_plans_own_picture() -> None:
+    """#628 follow-up: a raised object keeps its fill texture.
+
+    The Model carries ``patternMap`` — a shared ``Texture`` the sink sets and clears —
+    and its PrincipledMaterial samples it as ``baseColorMap``. The scene makes every
+    picture with its data at birth and never re-points a ``Texture`` at another
+    ``QQuick3DTextureData`` (that goes white: ``ogp-3d-renderer`` §5).
+    """
+    code = _scene()
+    blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]}
+    assert "property var patternMap: null" in blocks["vcPart"]
+    assert "baseColorMap: patternMap ? patternMap : null" in blocks["vcPart"]
+    assert "flipV: false" in blocks["patternTexture"]
+    assert re.search(r"function createPatternTexture\(data\)\s*\{\s*return patternTexture"
+                     r"\.createObject\(view\.scene, \{\"textureData\": data\}\)", code)
 
 
 @pytest.mark.parametrize("look", ["foliage.vert", "grass.vert"])

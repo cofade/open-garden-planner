@@ -382,11 +382,13 @@ def lies_on_ground(object_type: Any, metadata: dict[str, Any] | None) -> bool:
 
 
 def has_height_semantics(object_type: Any, metadata: dict[str, Any] | None) -> bool:
-    """Should this object expose a Height field / participate in shadows?
+    """Does this object's TYPE carry a height of its own (a default, a container's
+    fill, a plant's species or measurement, or an explicit value)?
 
-    True for every type with a default (every object kind that stands up),
-    containers, plant types (even species-less placeholders, so the user can set
-    a height by hand), and any object that already carries an explicit height.
+    The type-level half of "can this object have a height" — a type that answers
+    False (a generic shape, an in-ground bed, a lawn) can still be GIVEN one, and
+    the Properties panel must offer the field for it (#628); that question is
+    ``shows_height_field``.
     """
     name = _type_name(object_type)
     return (
@@ -395,3 +397,21 @@ def has_height_semantics(object_type: Any, metadata: dict[str, Any] | None) -> b
         or name in _PLANT_TYPE_NAMES
         or explicit_height_cm(metadata) is not None
     )
+
+
+def shows_height_field(
+    object_type: Any, metadata: dict[str, Any] | None, *, has_footprint: bool
+) -> bool:
+    """Should the Properties panel offer the Height field for this object (#628)?
+
+    True for every item that HAS a footprint — a generic shape, an in-ground bed, a
+    terrace, a pond, a lawn, a path, a driveway — and for every type with height
+    semantics. The field is the only way to set an explicit ``object_height_cm``, so
+    gating it on an explicit value having been set already (``has_height_semantics``
+    for a type with no default) made it unreachable: a polygon could never become a
+    solid, and an in-ground bed could never be mounded. "Auto" (0) is no height and
+    keeps today's behaviour — a ground surface stays on the ground
+    (``lies_on_ground`` yields the moment a height is set) and a generic shape simply
+    casts nothing.
+    """
+    return has_footprint or has_height_semantics(object_type, metadata)

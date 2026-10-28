@@ -80,6 +80,7 @@ from .interleave import (
 )
 from .mesh import (
     BENT_NORMAL_KINDS,
+    FILL_TEXTURE_KINDS,
     FLAT_NORMAL_MIN_DOT,
     MATERIAL_KINDS,
     Mesh,
@@ -129,6 +130,7 @@ from .record import (
     PARAM_SPECIES_KEY,
     PARAM_SPECIES_NAME,
     PARAM_SPRITE_SPECIES,
+    PATTERN_TILE_CM,
     SHAPE_CIRCLE,
     SHAPE_ELLIPSE,
     SHAPE_POLYGON,
@@ -146,6 +148,7 @@ from .record import (
     RecordRangeError,
     Ring,
     Transform,
+    pattern_texture_name,
     quantize_cm,
     quantize_deg,
 )
@@ -170,6 +173,7 @@ __all__ = [
     "EMPTY_PARAMS",
     "ENGINE_TO_SCENE",
     "FALLBACK_RGBA",
+    "FILL_TEXTURE_KINDS",
     "FLAT_NORMAL_MIN_DOT",
     "GEOMETRY_FIELDS",
     "LENGTH_DECIMALS",
@@ -186,6 +190,7 @@ __all__ = [
     "PARAM_SPECIES_KEY",
     "PARAM_SPECIES_NAME",
     "PARAM_SPRITE_SPECIES",
+    "PATTERN_TILE_CM",
     "POSITION_OFFSET",
     "SCENE_TO_ENGINE",
     "SHAPES",
@@ -254,6 +259,7 @@ __all__ = [
     "pose_points",
     "pose_ring",
     "prism_mesh",
+    "pattern_texture_name",
     "quantize_cm",
     "quantize_deg",
     "regions_area",

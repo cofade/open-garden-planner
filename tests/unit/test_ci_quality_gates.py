@@ -277,13 +277,24 @@ def test_current_head_verifier_refuses_absence_and_failed_checks(change: str) ->
     assert check_differences(pr, "abc", ["Test"])
 
 
-def test_agent_functional_requirements_ids_are_unique() -> None:
+def test_functional_requirement_ids_are_unique() -> None:
+    """Every FR id is DEFINED once — the whole file, not just the agent ids (#449).
+
+    One requirement pasted twice — the defect #449 closed for FR-AGENT-27, and the one
+    a merge conflict produced for FR-STACK-10 — is invisible to every other check: both
+    lines read correctly, and a reader has no way to know which is normative. Only
+    ``- **FR-...**`` LINES are definitions; a cross-reference ("see FR-STACK-08") is not.
+    """
     root = Path(__file__).resolve().parents[2]
     text = (root / "docs/functional-requirements.md").read_text(encoding="utf-8")
-    definitions = re.findall(r"^- \*\*(FR-AGENT-[0-9a-zA-Z_-]+)\*\*", text, re.MULTILINE)
-    assert len(definitions) >= 30
-    assert len(definitions) == len(set(definitions))
+    definitions = re.findall(
+        r"^- \*\*(FR-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)\*\*", text, re.MULTILINE
+    )
+    assert len(definitions) >= 350
+    duplicates = sorted({value for value in definitions if definitions.count(value) > 1})
+    assert duplicates == [], f"defined more than once: {', '.join(duplicates)}"
     assert "FR-AGENT-12a" in definitions
     assert "FR-AGENT-27" in definitions
     assert "FR-AGENT-29" in definitions
+    assert "FR-STACK-10" in definitions
 

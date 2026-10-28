@@ -26,7 +26,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import math
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from typing import Final, TypeAlias
 
 import numpy as np
@@ -34,7 +34,7 @@ from numpy.typing import NDArray
 
 from .mesh import Mesh, MeshError, MeshPart
 from .polygon import Region, ccw, cut_region, cw, is_flat_ring
-from .record import Material, Record, Ring, Transform
+from .record import PARAM_PAINT_ORIGIN, PATTERN_TILE_CM, Material, Record, Ring, Transform
 
 Builder: TypeAlias = Callable[[Record], tuple[MeshPart, ...]]
 
@@ -73,11 +73,18 @@ def item_seed(item_id: str, salt: str = "") -> int:
     return int(digest.hexdigest()[:12], 16)
 
 
-def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[float]) -> None:
+def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[float],
+           uvs: list[float]) -> None:
     """Two triangles per edge with the flat normal on the RIGHT of the direction
-    of travel: outward for a counter-clockwise outer ring, into the hole — away
-    from the solid — for a clockwise hole ring."""
+    of travel: outward for a counter-clockwise outer ring, into the hole - away
+    from the solid - for a clockwise hole ring.
+
+    Its UVs are written (the mesh contract) but never read: these are the TINTED
+    sides of a raised surface - ``walls_mesh`` is the one caller - and a fill
+    surface's picture lives on its cap (``cap_mesh``), with plan UVs. ``u`` counts
+    the distance along the ring, ``v`` the height, both / ``PATTERN_TILE_CM``."""
     n = len(ring)
+    travelled = ring[0][0] if n else 0.0
     for i in range(n):
         x1, y1 = ring[i]
         x2, y2 = ring[(i + 1) % n]
@@ -85,12 +92,16 @@ def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[f
         if edge <= 1e-9:
             continue
         nx, ny = (y2 - y1) / edge, -(x2 - x1) / edge
-        for px, py, pz in (
-            (x1, y1, 0.0), (x2, y2, 0.0), (x2, y2, height_cm),
-            (x1, y1, 0.0), (x2, y2, height_cm), (x1, y1, height_cm),
+        u1, u2 = travelled / PATTERN_TILE_CM, (travelled + edge) / PATTERN_TILE_CM
+        v0, v1 = 0.0, height_cm / PATTERN_TILE_CM
+        for px, py, pz, u, v in (
+            (x1, y1, 0.0, u1, v0), (x2, y2, 0.0, u2, v0), (x2, y2, height_cm, u2, v1),
+            (x1, y1, 0.0, u1, v0), (x2, y2, height_cm, u2, v1), (x1, y1, height_cm, u1, v1),
         ):
             positions.extend((px, py, pz))
             normals.extend((nx, ny, 0.0))
+            uvs.extend((u, v))
+        travelled += edge
 
 
 #: A mesh is float32: a coordinate of size m is stored to about m · 2⁻²⁴, so the
@@ -118,7 +129,8 @@ def _as_ring(points: Sequence[Sequence[float]]) -> Ring:
 
 
 def prism_mesh(
-    footprints: Sequence[Ring], height_cm: float, holes: Sequence[Sequence[Ring]] = ()
+    footprints: Sequence[Ring], height_cm: float, holes: Sequence[Sequence[Ring]] = (),
+    *, uv_origin: tuple[float, float] = (0.0, 0.0),
 ) -> Mesh:
     """Item-local prism(s) from z = 0 up to ``height_cm``: one solid per region.
 
@@ -127,6 +139,13 @@ def prism_mesh(
     Each region gets walls around its outer ring, walls around every hole facing
     into the hole, and a cap that covers the outer MINUS the holes. Neutral white
     vertex colours (a tinted part), flat normals, no bottom cap.
+
+    ``uv_origin``: the item's ``params["paint_origin"]`` — its anchor in ITEM
+    coordinates, which the record's footprint is centred on. The canvas paints the
+    item at ``anchor + position`` and phases the fill from that scene point, so the
+    CAP samples ``(x + ox) / PATTERN_TILE_CM`` (``cap_mesh``). The walls' own UVs
+    are not the fill's: a raised surface's sides are tinted (``walls_mesh``). (0, 0)
+    for a caller with no record.
 
     A hole-free ring of fewer than ``polygon.ARRAY_EAR_CLIP_FROM`` (256) vertices
     produces exactly the vertices of the Qt 3D view's ``extrude_footprint`` (same
@@ -157,56 +176,167 @@ def prism_mesh(
         raise MeshError(f"a height of {height_cm!r} cm is not finite in float32")
     if float(np.float32(height_cm)) == 0.0:  # 1e-46, 1e-300: zero in the mesh — as good as none
         return Mesh.empty()
-    positions: list[float] = []
-    normals: list[float] = []
+    # ONE implementation of each half: ``walls_mesh`` and ``cap_mesh`` are the raised
+    # surface's two Models, and a solid is their union — the hole rules and the
+    # float32 sliver rule cannot drift between the one-part and two-part routes.
+    walls = walls_mesh(footprints, height_cm, holes)
+    cap = cap_mesh(footprints, height_cm, holes, uv_origin=uv_origin)
+    if not walls.vertex_count and not cap.vertex_count:
+        return Mesh.empty()
+    return Mesh.merge([mesh for mesh in (walls, cap) if mesh.vertex_count])
+
+
+def _cap_into(
+    vertices: Sequence[Sequence[float]], triangles: Sequence[Sequence[int]], height_cm: float,
+    uv_origin: tuple[float, float],
+    positions: list[float], normals: list[float], uvs: list[float],
+) -> None:
+    """Append one region's cap triangles (``cut_region``'s output) to the arrays.
+
+    The one place the cap's float32 sliver rule lives: ``prism_mesh`` and
+    ``cap_mesh`` (a raised surface's fill top) must not disagree about a cap.
+    """
+    for triangle in triangles:
+        (ax, ay), (bx, by), (cx, cy) = (vertices[vertex] for vertex in triangle)
+        reach = max(abs(ax), abs(ay), abs(bx), abs(by), abs(cx), abs(cy))
+        edges = abs(bx - ax) + abs(by - ay) + abs(cx - ax) + abs(cy - ay)
+        if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) <= _FLOAT32_SLIVER * reach * edges:
+            continue  # nothing at float32 precision (see _FLOAT32_SLIVER)
+        for x, y in ((ax, ay), (bx, by), (cx, cy)):
+            positions.extend((x, y, height_cm))
+            normals.extend((0.0, 0.0, 1.0))
+            uvs.extend(((x + uv_origin[0]) / PATTERN_TILE_CM,
+                        (y + uv_origin[1]) / PATTERN_TILE_CM))  # the canvas's phase
+
+
+def _regions(
+    footprints: Sequence[Ring], holes: Sequence[Sequence[Ring]],
+) -> Iterator[tuple[Ring, tuple[Ring, ...], tuple[tuple[float, float], ...],
+                    tuple[tuple[int, int, int], ...]]]:
+    """Every buildable region of a record's ground: ``(outer, inner, vertices,
+    triangles)``, rings wound, holes cut by ``cut_region`` - THE one place the
+    outline rule is applied, shared by ``walls_mesh`` and ``cap_mesh`` (and so by
+    ``prism_mesh``). A ring that is flat (fewer than three corners, or all on one
+    line) covers no ground and is skipped; a ring that crosses itself raises
+    ``ValueError`` (``cut_region``), so no half a solid is ever built."""
     for index, raw in enumerate(footprints):
         ring = _as_ring(raw)
         if is_flat_ring(ring):
-            continue  # fewer than three corners, or all on one line: no ground covered
+            continue
         outer = ccw(ring)
         inner = tuple(cw(_as_ring(hole)) for hole in (holes[index] if len(holes) else ()))
-        vertices, triangles = cut_region(outer, inner)  # raises ValueError: no wrong cap, ever
-        _walls(outer, height_cm, positions, normals)
+        vertices, triangles = cut_region(outer, inner)  # raises: no wrong cap, ever
+        yield outer, inner, vertices, triangles
+
+
+def walls_mesh(
+    footprints: Sequence[Ring], height_cm: float, holes: Sequence[Sequence[Ring]] = (),
+) -> Mesh:
+    """Only the SIDES of ``prism_mesh``: the outline's walls and every hole's.
+
+    A raised flat surface (a lawn, a bed, a generic shape) shows its fill on the
+    TOP and its tint on the sides — the canvas paints no texture down an item's
+    edge, and one fill-textured prism smeared the picture there (#627's manual
+    pass). Its UVs are written (the mesh contract, ``_walls``) but never sampled: the
+    part is never a ``fill_texture`` part, so the sink binds no picture to it.
+    """
+    positions: list[float] = []
+    normals: list[float] = []
+    uvs: list[float] = []
+    for outer, inner, _vertices, _triangles in _regions(footprints, holes):
+        _walls(outer, height_cm, positions, normals, uvs)
         for hole in inner:
-            _walls(hole, height_cm, positions, normals)
-        for triangle in triangles:
-            (ax, ay), (bx, by), (cx, cy) = (vertices[vertex] for vertex in triangle)
-            reach = max(abs(ax), abs(ay), abs(bx), abs(by), abs(cx), abs(cy))
-            edges = abs(bx - ax) + abs(by - ay) + abs(cx - ax) + abs(cy - ay)
-            if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) <= _FLOAT32_SLIVER * reach * edges:
-                continue  # nothing at float32 precision (see _FLOAT32_SLIVER)
-            for x, y in ((ax, ay), (bx, by), (cx, cy)):
-                positions.extend((x, y, height_cm))
-                normals.extend((0.0, 0.0, 1.0))
+            _walls(hole, height_cm, positions, normals, uvs)
     if not positions:
         return Mesh.empty()
     count = len(positions) // 3
     return Mesh.from_arrays(
-        positions,
-        normals,
-        np.ones((count, 4), np.float32),
-        np.zeros((count, 2), np.float32),
+        positions, normals, np.ones((count, 4), np.float32), uvs,
         np.arange(count, dtype=np.uint32),
     )
+
+
+def cap_mesh(
+    footprints: Sequence[Ring], height_cm: float, holes: Sequence[Sequence[Ring]] = (),
+    *, uv_origin: tuple[float, float] = (0.0, 0.0),
+) -> Mesh:
+    """Only the TOP of ``prism_mesh``: every region's cap, holes cut out, with the
+    item's fill UVs (``(position + paint_origin) / PATTERN_TILE_CM``)."""
+    positions: list[float] = []
+    normals: list[float] = []
+    uvs: list[float] = []
+    for _outer, _inner, vertices, triangles in _regions(footprints, holes):
+        _cap_into(vertices, triangles, height_cm, uv_origin, positions, normals, uvs)
+    if not positions:
+        return Mesh.empty()
+    count = len(positions) // 3
+    return Mesh.from_arrays(
+        positions, normals, np.ones((count, 4), np.float32), uvs,
+        np.arange(count, dtype=np.uint32),
+    )
+
+
+def uv_origin_of(record: Record) -> tuple[float, float]:
+    """The item's fill-texture anchor in its own coordinates — ``(0, 0)`` when the
+    record carries none (a hand-made record, a kind never painted on the ground).
+
+    ``params["paint_origin"]`` is written by the snapshot for every item the ground
+    bake paints: it is the record's anchor (a rectangle's centre, a circle's centre)
+    in item coordinates. The record's footprint is CENTRED on it, so the canvas's
+    item coordinate is ``position + paint_origin`` — the phase a fill texture needs.
+    """
+    origin = record.params.get(PARAM_PAINT_ORIGIN)
+    if isinstance(origin, tuple) and len(origin) == 2:
+        first, second = origin
+        if isinstance(first, float) and isinstance(second, float):
+            return (first, second)
+    return (0.0, 0.0)
+
+
+def raised_surface(
+    record: Record, height_cm: float, *, name: str = "platform", casts_shadow: bool = True,
+) -> tuple[MeshPart, ...]:
+    """A raised FLAT surface: tinted walls and a fill-textured cap.
+
+    The canvas paints a flat item's fill on its TOP and strokes its outline; it
+    has no textured edge. One fill-textured prism wrapped the picture down the
+    walls (a lawn's grass smeared the full height of the side, a bed's soil ran
+    down its frame — #627's manual pass), so the walls carry the item's tint and
+    only the cap shows the fill. Both parts come from one region list, so the
+    sides and the top cannot disagree about a hole or a ring.
+
+    ``()`` for a record without ground; a ring that is not a simple polygon
+    raises ``ValueError`` (``SceneSync`` then shows the item without a solid).
+    """
+    walls = walls_mesh(record.footprints, height_cm, record.holes)
+    cap = cap_mesh(record.footprints, height_cm, record.holes, uv_origin=uv_origin_of(record))
+    parts: list[MeshPart] = []
+    if walls.vertex_count:
+        parts.append(MeshPart(walls, "vc", casts_shadow=casts_shadow, tinted=True,
+                              name=f"{name}_sides"))
+    if cap.vertex_count:
+        parts.append(MeshPart(cap, "vc", casts_shadow=casts_shadow, fill_texture=True,
+                              name=name))
+    return tuple(parts)
 
 
 def default_builder(record: Record) -> tuple[MeshPart, ...]:
     """The honest v0 for a kind without a builder of its own.
 
-    With a height: ONE part — a prism of the local footprint, holes cut out,
-    whose top is exactly ``height_cm``, neutral and ``tinted`` (the sink colours
-    it from the item's material, so a recolour is a material update). Without a
-    height: no parts — the item casts no shadow in 2D and has no solid in 3D.
-    Raises ``ValueError`` for a ring that is not a simple polygon
+    With a height: a prism of the local footprint, holes cut out, whose top is
+    exactly ``height_cm`` — its SIDES tinted and its CAP showing the item's own
+    FILL (``fill_texture``: the fill pattern textured by the fill colour, or that
+    colour alone for SOLID), so a lawn, path, generic shape or bed the user gave
+    a height keeps the look it had while the ground bake painted it (#628
+    follow-up) without smearing that picture down its edges (#627's manual pass).
+    Without a height: no parts — the item casts no shadow in 2D and has no solid
+    in 3D. Raises ``ValueError`` for a ring that is not a simple polygon
     (``prism_mesh``); ``SceneSync`` then shows the item without a solid and
     reports it.
     """
     if record.height_cm is None:
         return ()
-    mesh = prism_mesh(record.footprints, record.height_cm, record.holes)
-    if not mesh.vertex_count:
-        return ()
-    return (MeshPart(mesh, "vc", casts_shadow=True, tinted=True, name="prism"),)
+    return raised_surface(record, record.height_cm, name="prism")
 
 
 class BuilderRegistry:
@@ -279,7 +409,11 @@ def checked_parts(parts: object) -> tuple[MeshPart, ...]:
 
 
 def _top_cm(parts: Sequence[MeshPart]) -> float | None:
-    tops = [float(p.mesh.positions[:, 2].max()) for p in parts if p.mesh.vertex_count]
+    """The solid's top — relief (``ground_detail``: a raised lawn's blades, up to
+    9.4 cm above the requested height) is not it: every registered kind's solid
+    measures exactly its height (swept over 44 kinds and h = 1..200 cm)."""
+    tops = [float(p.mesh.positions[:, 2].max()) for p in parts
+            if p.mesh.vertex_count and not p.ground_detail]
     return max(tops) if tops else None
 
 
@@ -499,6 +633,12 @@ def verify_builder(
         except MeshError as error:
             raise BuilderContractError(f"part {index} ({part.name or part.material_kind}): {error}") from error
     top = _top_cm(parts)
+    if record.height_cm is not None and top is None and parts:
+        raise BuilderContractError(
+            "every part is ground_detail: relief is not a solid, and a record with a height "
+            "needs one whose top is that height - the gate cannot be opted out of with a flag "
+            "on the data it measures"
+        )
     if record.height_cm is not None and top is not None:
         if height_tolerance_cm is not None:
             allowed, rule = height_tolerance_cm, f"±{height_tolerance_cm:g} cm"

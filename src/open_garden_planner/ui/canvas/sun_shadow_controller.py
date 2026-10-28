@@ -51,14 +51,22 @@ from open_garden_planner.core.object_height import effective_height_cm
 from open_garden_planner.core.shade_aggregation import IdentifiedCaster
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
+    Polygon,
     ShadowCaster,
     compute_scene_shadows,
+    shadow_region,
 )
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
-from .footprints import ItemLookup, item_base_cm, item_footprints
+from .footprints import (
+    ItemLookup,
+    footprints_can_self_cross,
+    holds_plants,
+    item_base_cm,
+    item_footprints,
+)
 
 # Simulation states (stable identifiers — user-visible hints live in the app).
 STATE_DISABLED = "disabled"
@@ -212,6 +220,22 @@ class SunShadowOverlayItem(QGraphicsPathItem):
 # here served the Qt 3D view's tests and the L0 spike's; they left with both in L1.10.)
 
 
+def _shadow_footprints(item: Any, at_date: date | None) -> list[Polygon]:
+    """An item's footprint set as the rings its shadow sweep can take (#444).
+
+    ``shadow_region`` repairs a closed stroke's hole and a self-crossing outline;
+    both need ``pyclipper`` work, so the walk asks for it only where the extractor
+    can have produced one: more than one ring, or the one shape whose outline is
+    the user's own vertex order (``footprints.footprints_can_self_cross``). A
+    circle's, ellipse's or rectangle's ring is simple by construction and comes
+    back untouched — which is what keeps the walk's cost where it was.
+    """
+    raw = item_footprints(item, at_date)
+    if len(raw) > 1 or footprints_can_self_cross(item):
+        return shadow_region(raw)
+    return raw
+
+
 def collect_identified_casters(
     scene: QGraphicsScene,
     at_date: date | None = None,
@@ -229,6 +253,16 @@ def collect_identified_casters(
     (Phase 17 L1.6, ADR-037 addendum) is where the item stands: 0 on the ground,
     the soil surface for a plant in a raised bed or container
     (``footprints.item_base_cm`` — the rule the 3D records use too).
+
+    The footprints are the item's REGION, not its raw ring list: a fence that
+    closes on itself hands out an outer ring and a hole, and
+    ``core.shadow_geometry.shadow_region`` repairs that (and a self-crossing
+    outline) into simple rings here, where the item is still known (#444). A
+    hole swept on its own would cast the enclosed garden as a slab.
+    ``holds_plants`` marks a soil solid a plant can stand in
+    (``core.object_height.is_solid_soil_parent``): the sun estimate spares such
+    a solid for a plant inside its outline, because it is under the plant, not
+    between it and the sun (#481).
     """
     casters: list[IdentifiedCaster] = []
     items = scene.items()
@@ -244,12 +278,15 @@ def collect_identified_casters(
         )
         if height is None:
             continue
-        footprints = tuple(tuple(footprint) for footprint in item_footprints(item, at_date)
-                           if len(footprint) >= 3)
+        footprints = tuple(
+            tuple(footprint)
+            for footprint in _shadow_footprints(item, at_date)
+            if len(footprint) >= 3)
         if footprints:
             casters.append(IdentifiedCaster(
                 str(getattr(item, "item_id", id(item))), footprints, height,
-                item_base_cm(item, lookup, at_date)))
+                item_base_cm(item, lookup, at_date),
+                holds_plants=holds_plants(item, at_date)))
     return casters
 
 

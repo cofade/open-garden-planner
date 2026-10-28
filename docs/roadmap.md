@@ -3493,3 +3493,74 @@ inside the sprite soil. The 114-plant forest uses historical perennial dates,
 nursery anchors, cultivated understory and nearby guild membership. The balcony
 has 14 herbs, chairs, rails, a wall and a parasol. Reference dates are explicit
 teaching choices; opening does not move the shared simulation clock.
+
+### The 2D sun study's geometry and estimates (#444, #481, #620) — parallel non-3D batch 3
+
+Built beside Phase 17 L4 without touching the 3D/sun/sim-clock product code or
+serialization: one caster's ring set is now one REGION (#444), the per-plant estimate
+spares the soil solid a plant stands in whether or not the link was made (#481), and the
+mutation that names the heatmap worker now points at the line the worker really calls
+(#620). **Measured** (#444): a 10 m × 8 m closed fence stroke drew **88.8 m²** of shade
+where its stroke's prisms give **17.5 m²**; a self-crossing outline drew 80,000 cm² where
+its two lobes give 129,282. `core.shadow_geometry.shadow_region` repairs the hole with a
+zero-width slit and splits a self-crossing ring into lobes, once per item on the one
+caster walk; every simple ring is returned point for point, so the shadow golden fixture
+is **not** regenerated (measured: no hole-bearing caster in either bench plan). **Measured**
+(#481): a full-sun tomato inside a 40 cm raised bed whose link was never made read **0.0 h**
+and warned; it now reads **16.5 h**, and a plant one step outside the bed still loses sun
+to it (a per-receiver spare, not a hole in the bed's shadow). ADR-037 addendum "one
+caster's ring set is one REGION", ADR-056 addendum, FR-SUN-05/09/11, PF-DOM-28, §8.10.
+
+### A plant draws above the bed it stands in, linked or not (#629)
+
+Found by the owner on #627's manual pass: a raised bed, container, wall planter or trellis
+drawn AROUND a standing plant hid it in 2D — still visible in 3D, and its sun badge with it.
+The in-ground garden bed only looked immune because it is a ground surface in
+`GROUND_Z_RANGE`, under everything. The clamp that was meant to prevent this followed
+`parent_bed_id`, and drawing a bed around a plant makes no link (#443). Now a plant's
+stacking parent is its link, or the smallest plant-parent whose outline contains its stable
+centre; it is re-derived on add (only when the parent CAPTURES a plant: 600 childless bed
+adds stay at 0.24 s), on arrange, and after every command that can change containment
+(`Command.changes_containment`, not `changes_ground_band` — the geometry commands set that
+one False). The check is the derivation's own answer compared with the drawing
+(`_derived_plant_parent`), not a second rule. Measured: 0.9 ms per command on the 990-item
+reference plan (200 plants, none linked), 1.1 ms for 300 plants in 30 beds linked and 2.8 ms
+unlinked; a linked plant costs no geometry at all, and a layer whose highest parent is below
+every plant costs one comparison each. The parents' shapes are cached for the pass — without
+that cache the adversarial 200-plants-under-50-concave-beds plan cost 43 / 330 / 1 661 ms at
+6 / 200 / 1 200 vertices, against 8 / 30 / 133 ms with it. ADR-043 addendum, FR-STACK-10,
+PF-CAN-29. The merge that landed this section had pasted FR-STACK-10 twice; the duplicate is
+gone and the FR-id uniqueness gate now covers **every** FR id instead of only FR-AGENT-*
+(it found four pre-existing collisions — FR-SNAP-04/05, FR-PLANT-19, FR-LAYER-09 — which are
+renumbered here: FR-SNAP-11/12, FR-PLANT-24, FR-LAYER-10).
+
+### Every item with a footprint can be given a height (#628)
+
+The Properties panel's Height field was gated on has_height_semantics, whose last clause
+for a type without a per-type default is "an explicit height already exists" — so the field
+that would create one could never appear. A generic polygon (the owner's star), an
+in-ground bed, a terrace, a pond, a lawn, a path and a driveway could not become solids
+without changing the object's TYPE (to Garage, with its look and 3D builder). The question
+now splits: the type-level predicate stays, and the panel asks
+shows_height_field(..., has_footprint=item_has_footprint(item)) — every footprint
+item gets the row, "Auto" (0) stays no height, so a ground surface keeps lying on the
+ground until someone types one (then lies_on_ground yields and it is a platform).
+Text, callouts, groups, arcs, beziers and journal pins have no footprint and stay without
+the field (the whole set is pinned through the real panel, and `item_has_footprint` is
+pinned equal to `item_outline(...) is not None` over every placeable kind, because it
+answers the same question without building a 16 000-vertex outline). ADR-037 addendum,
+FR-SUN-02, PF-UI-29.
+
+The owner's manual pass confirmed the field and found the follow-up: every surface that got a
+height lost its texture (a 40 cm lawn became a flat green slab, a 10 cm soil bed a brown one).
+New `MeshPart.fill_texture`: such a part shows the item's own fill — the 2D pattern tinted by
+the fill colour, or that colour alone for SOLID — supplied by
+`core.fill_patterns.tinted_pattern_pixels` and cached per (pattern, colour), refcounted by the
+sink so a recolour or a removal leaves no picture behind. UVs are (position + paint_origin) / 256 on a
+cap (the canvas's phase); the SIDES are the item's tint (tinted sides + fill cap, no smear down an edge). A garden bed's soil cap is its
+"Boden-Substrat"; a container's soil stays the palette's. Measured on Direct3D 11, 1000 × 400
+top-down, two 300 cm squares at 40 cm: luma std 26.0 for GRASS against 0.0 for SOLID at the same
+mean (121.3 / 120.8). A second owner pass fixed three residues: a raised plain surface is now tinted SIDES + a fill CAP (one prism smeared the picture down the edge), a raised lawn keeps its blades (lifted to the new top; the height gates ignore `ground_detail`), and a raised pool's water samples the plan's own water picture (`uFill`) instead of a flat tint. A plant dropped into a bed also undoes as ONE step now (move + link in one `CompoundCommand`). The phase is pinned against the canvas's own painter, not a formula:
+`tests/integration/test_scene3d_fill_phase.py` bakes a real rectangle and correlates the
+mesh's UVs (NCC 0.995; the opposite sign 0.759 / 0.866). ADR-037 addendum, FR-3D-BUILT-09,
+PF-L3D-17.

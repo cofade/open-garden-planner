@@ -182,7 +182,7 @@ def test_scripted_edit_session_sends_minimal_calls(canvas: CanvasView, mouse_eve
     # auto-parented by the create command: the record knows its bed …
     assert pipeline.sync.records[perennial_id].parent_id == bed_id
     assert pipeline.sink.item(perennial_id).parts == ()  # … and has no height yet: no solid
-    assert len(pipeline.sink.item(fence_id).parts) == 1  # FENCE: 120 cm by default
+    assert len(pipeline.sink.item(fence_id).parts) == 2  # FENCE: 120 cm, sides + cap
 
     # ── move: ONE update_transform, no builder call ──────────────────────────
     commands.execute(MoveItemsCommand([bed], QPointF(137.25, -42.5)))

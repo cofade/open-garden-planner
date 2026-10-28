@@ -1217,6 +1217,15 @@ Established by `tests/integration/test_shadow_caster_golden.py`,
   `t` in the height interval?) that knows nothing of polygons, sweeps or the integer grid — next
   to the algebraic identity (the raised shadow is the ground shadow translated). The identity
   alone would pass a wrong formula that is self-consistent.
+- **The same oracle catches a region taken as a list of solids.** A caster's rings are one REGION
+  (#444): a closed fence's stroke is an outer ring and a hole, and a self-crossing outline is two
+  lobes. The repair that makes them simple rings (a zero-width bridge, `SimplifyPolygons`) is
+  judged by the same ray oracle on a grid of cells — the polygon answer and "is some point between
+  it and the sun inside the region" must agree cell for cell, and the swept-rings answer must not.
+  That is what makes "the slit costs no ground" a measurement. It does not adjudicate the 38 cm²
+  between the issue's four-rectangle reference and the offset ring (its cells are 400 cm²);
+  the ring's own printed area, 818,062.1 against the rectangles' 818,100, does.
+  (`tests/integration/test_shadow_region.py`).
 - **A builder matrix turns the local geometry, not only the item.** A builder never sees an
   item's rotation (it is the transform's), so "parametrise over rotation" has to mean the
   footprint and the path *inside the local frame*. Doing that found a shed whose ridge lay askew
@@ -3607,12 +3616,16 @@ v1.29.10 functions, kept as a test oracle, give identical results on any
 platform (`tests/unit/test_shadow_caster_base.py::TestTheGroundPathIsTheReleasedCode`),
 and `tests/integration/test_shadow_caster_golden.py` pins the absolute
 numbers — bit for bit on win32, where the fixture was generated; structure,
-±2e-3 cm and areas on Linux (ADR-037 addendum, decision 3). Known and
-unchanged in 2D: `polyline_footprint` of a CLOSED polyline returns an outer
-ring and a hole, the shadow functions take each ring for a footprint, and so
-the shadow of a fence drawn as a closed loop covers the enclosed area — a
-separate defect with its own follow-up, not touched by base stacking (the 3D
-records were fixed: there the hole is a hole, §8.29.1).
+±2e-3 cm and areas on Linux (ADR-037 addendum, decision 3). The closed-loop
+defect this section used to leave open is fixed (#444): `polyline_footprint` of a
+CLOSED polyline still returns an outer ring and a hole — that is the offset's
+answer, and the 3D records keep reading it — but the 2D caster walk now repairs
+the item's ring set into ONE region before the sweep
+(`core.shadow_geometry.shadow_region`: the hole is bridged by a zero-width
+slit, a self-crossing outline is split into its lobes). The shadow of a fence
+drawn as a closed loop is its stroke, not the slab it encloses: measured, the
+10 m × 8 m loop of the reproduction went from 888,037 cm² of shade to 174,526.
+ADR-037 addendum "one caster's ring set is one REGION", PF-DOM-28. The self-crossing half is bounded at `MAX_REGION_VERTICES = 256` (a crafted 16,384-vertex outline pays no `SimplifyPolygons` on every walk) and the hole half is not.
 
 **Recompute discipline** for canvas-scale overlays (shadow overlay,
 heatmap): precompute on change — `scene.changed` debounced (150 ms) +
@@ -4130,12 +4143,17 @@ lawn hid them.
 **purely for z derivation** — it reorders a layer's list, it never writes a
 rank:
 
-- A plant (`_parent_bed_id`) always renders immediately above its parent bed,
-  **only when that bed is itself present in the same layer's list** — a bed
-  in a different layer is ignored, and the plant sorts as an ordinary
-  top-level entry by its own rank. Since the ground band (8.25.2) the list is
-  one BAND of the layer: a plant on an in-ground bed is above it by the band and
-  sorts by its own rank among the layer's other items.
+- A plant always renders immediately above the parent it stands in: its **link**
+  (`_parent_bed_id`) when that parent is in the same layer's list, else — with no
+  link — the **smallest** plant-parent of the layer whose outline contains the
+  plant's stable centre (`footprints.standing_point`, the point the lift and the
+  sun estimate ask; #629, FR-STACK-10). One answer
+  (`CanvasScene._derived_plant_parent`) serves both the derivation and the
+  per-command check below, so a bed drawn around a standing plant captures it
+  without a link (#443). A parent in a different layer is ignored, and the plant
+  sorts as an ordinary top-level entry by its own rank. Since the ground band
+  (8.25.2) the list is one BAND of the layer: a plant on an in-ground bed is above
+  it by the band, and only a parent of the plant's own band can be its parent.
 - A `ROOF_RIDGE` always renders immediately above its owner polygon, under
   the identical same-layer-only condition.
 
@@ -4160,7 +4178,8 @@ scene order rather than by the original session's order.
 `Z_POSITION_SCALE` grid inside its layer band — exactly the value the
 derivation would assign it — so it is never re-derived; one derivation per
 layer serves a whole add loop. Any item that can re-order existing items — a
-pre-ranked re-add, a child, a bed with children, a linked plant, a roof ridge,
+pre-ranked re-add, a child, a bed with children, a plant (linked, or a parent that
+captures it), a roof ridge,
 or a ground surface (which sorts into its own band, §8.25.2) — runs
 `_refresh_layer_z` synchronously instead. Every derivation reseeds the per-layer
 provisional cache; a full `_update_items_z_order` sweep clears both it and the
@@ -4226,6 +4245,28 @@ unlock clears it) and skips everything else. Measured on the dev box, 600 single
 adds: 0.31 s → 0.11 s; the pin counts zero classification calls and zero badge
 refreshes for a neutral command, and still pins the badge and the band change.
 
+**A command can also change which parent CONTAINS a plant** (#629): it can resize,
+move or vertex-edit a bed around a standing plant, or carry a plant into one.
+`CanvasScene._restack_plant_containment` runs on the same `stack_changed` signal and
+re-derives only a layer whose drawing disagrees with the derivation — it compares each
+plant's z against the parent `_derived_plant_parent` names, so the check cannot drift
+from what it checks (a plant above the layer's HIGHEST parent costs one z comparison and
+nothing else — the per-plant test is against that top, not against its own parent; a plant
+linked to a parent of its own band costs nothing more, because the band-local index
+resolves the link before any geometry — a link into the ground band falls through to the
+centre, as for an unlinked plant). Only a parent
+of the plant's own band counts: an in-ground bed lies under the plant by the band, not
+by the clamp, so asking about it would re-derive on every command and never change
+anything. `Command.changes_containment` follows #592's shape: the base is `True`, and
+the three neutral commands (`CreateItemCommand`, `CreateItemsCommand`,
+`DeleteItemsCommand`) say `False` because `addItem` derives an arriving parent
+synchronously and a deletion cannot newly hide a plant. Cost, measured on the dev box:
+0.9 ms on the 990-item reference plan, 1.1 ms for 300 linked plants in 30 beds, 2.8 ms
+for the same garden unlinked, and 30 ms for the adversarial case — 200 plants under 50
+concave 200-vertex beds whose bounding boxes all cover the plants. The parents' shapes
+are cached for the pass, as `ItemLookup.shape_of` caches them for a walk: without that
+cache the adversarial case cost 330 ms, and 1.7 s at 1 200 vertices.
+
 Beyond `addItem`'s automatic refresh, an **explicit** refresh is needed
 wherever an item becomes top-level or gets re-linked to a parent without
 going through `addItem`: `GroupCommand.undo`/`UngroupCommand.execute` (members
@@ -4246,7 +4287,7 @@ refreshes.
 
 `ui/canvas/arrange.py::build_arrange_command(scene, items, mode) -> tuple[ArrangeItemsCommand | None, ArrangeOutcome]`
 is the **only** place that groups a selection by layer, reads each layer's
-current order via `scene._stack_entries`/`_normalized_layer_order`, asks the
+current order via `scene._band_entries`/`_normalized_layer_order`, asks the
 Qt-free `core.stacking.arrange` what changes, and builds the undoable
 `ArrangeItemsCommand`. Every surface that can arrange an object calls this one
 function — the same discipline `ui/canvas/geometry_apply.py` established for
@@ -4355,7 +4396,7 @@ Guild links are orthogonal to §8.14 plant-parent relationships; no new bed pred
 
 ## 8.27 Cached sun exposure and shared diagnostics
 
-US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposure` shares the explicit day's sample loop with the existing grid aggregator. `collect_identified_casters` is the single footprint / height / base collector (one `ItemLookup` per walk; `collect_shadow_casters` flattens it for the overlay). Sparse coverage uses unioned owner footprints — each swept from where its owner stands — and excludes the receiver's own UUID and, for a plant that stands in a soil parent with a height, that parent (`SunReceiver.stands_on`, from `footprints.standing_parent`: without it every plant in a raised bed read 0 hours, ADR-056 addendum). Receiver coordinates use base-shape centres transformed by `mapToScene`; badge/decorative bounds are never sampling geometry. Row zero remains south.
+US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposure` shares the explicit day's sample loop with the existing grid aggregator. `collect_identified_casters` is the single footprint / height / base collector (one `ItemLookup` per walk; `collect_shadow_casters` flattens it for the overlay). Sparse coverage uses unioned owner footprints — each swept from where its owner stands — and excludes the receiver's own UUID, every soil solid whose outline contains the receiver (a bed, raised bed, container or wall planter with a height: `IdentifiedCaster.holds_plants`, so a plant inside a bed it was never linked to reads the bed's real sun, #481) and, for a plant that stands in a soil parent with a height, that parent (`SunReceiver.stands_on`, from `footprints.standing_parent`: without it every plant in a raised bed read 0 hours, ADR-056 addendum). Receiver coordinates use base-shape centres transformed by `mapToScene`; badge/decorative bounds are never sampling geometry. Row zero remains south.
 
 `SunExposureCoordinator` compares immutable runtime snapshots in 60 ms and publishes cached evaluations. Commands are subscribed separately because metadata-only changes need not repaint. Requirement-only edits reclassify without recomputing. No panel, selection, repaint or Agent API read can start work. Ordinary edits retain the grid's visual snapshot with a stale tooltip, but clear receiver minutes, badges and mismatches. Missing location, cancellation, absent results, hidden plants and out-of-grid centres remain unavailable rather than becoming zero hours. Known unavailable requirements produce `sun_evaluation` information diagnostics; Information is a panel severity filter and counts say diagnostics.
 
@@ -5977,10 +6018,27 @@ takes a raised bed and two real plants through both).
 | `FENCE` | `lines` → `fences` / `walls` | `fence`: vc — or `hedge`: foliage (hedge style), `wall`: vc (stone style) | tinted (the item's stroke) |
 | `WALL` | `lines` → `walls` / `fences` | `wall`: vc — or the fence of its style | tinted |
 | `RAISED_BED` | `beds` | `bed`: vc | baked: oak planks, soil |
-| `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND`, a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil baked |
+| `CONTAINER`, `WALL_PLANTER`, `CONTAINER_ROUND` | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil baked (the palette's soil) |
+| a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil = the item's own fill (`fill_texture`: its "Boden-Substrat") |
 | `HEDGE_SECTION`, `HEDGE_POLYGON` | `hedges` | `hedge`: foliage (the dark core and the leaf shell in one mesh) | baked: the hedge texture's greens |
 | `TREE`, `SHRUB`, `PERENNIAL` | `plants` (L1.7, §8.29.7 — registered by `plants.register`, not by this section's `register`) | `wood`: vc · `foliage`: foliage — or `placeholder`: vc for a plant without a height (no shadow) | baked: the recipe's palette, the 2D bark colour |
-| everything else | `build.default_builder` | one tinted prism, or nothing without a height | tinted |
+| everything else | `build.default_builder` | tinted sides (`prism_sides`) + a `fill_texture` cap (`prism`), or nothing without a height | the item's own fill on top, the tint on the edges |
+
+**A solid shows the fill the ground baked (#628 follow-up, ADR-037 addendum).** A lawn, path,
+terrace, driveway or generic shape is painted into the ground while it lies flat (§8.29.5); the
+moment it is given a height it becomes a solid and that painting stops, so its 3D faces carry the
+item's own fill: `MeshPart.fill_texture=True` names such a part, and the sink hands its Model
+the canvas's picture (`core.fill_patterns.tinted_pattern_pixels` — the same tinted texture the 2D
+brush uses, RGBA8, opaque, its mean the fill colour) through `vcPart`'s `baseColorMap`
+(`patternMap`). One picture per (pattern, fill colour), shared and refcounted by the sink
+(`release_fill` with the last Model), so a recolour is a material update and a removed object
+leaves nothing behind. A SOLID fill has no picture and shows its colour through the same call.
+UVs are (position + paint_origin) / 256 on the CAP — the canvas's phase, the record's footprint being centred on its anchor (the forge's 256 px at 1 px = 1 cm, pinned against every texture). The SIDES are the item's tint, not the picture: the canvas paints no texture down an edge, and one fill prism smeared a lawn's grass and a bed's soil down the walls (the owner's second pass). A raised flat item keeps its RELIEF too — a lawn's blades ride the new top, and the height gates (`top_cm`/`fit_scale`, `verify_builder`) ignore `ground_detail` so they are not squashed under the requested height. A raised pool's water takes the same picture WITH plan UVs — without them `texture(uFill, UV0)` read one texel (the committed gate measures luma std 0.000 without the UVs — one value over 194,304 pixels — against 17.25 with them, on a 300 × 220 cm pond at 40 cm): `water.frag` samples it through `uFill` (linearised) and keeps its hue rule and reflection. Measured, Direct3D 11,
+1000 × 400 top-down, two 300 cm squares at 40 cm: GRASS reads luma std 26.0, SOLID 0.0, at the
+same mean (121.3 / 120.8). The X-ray screen door does not sample the map, so a ghosted solid keeps
+its fill colour; PF-L3D-17 holds the two engine traps — a `var` map must bind as
+`patternMap ? patternMap : null`, and a `Texture` gets its data at birth because a re-pointed one
+goes white (`ogp-3d-renderer` §5).
 
 **What a line becomes is decided in one place**, `builders/lines.py`, from its kind and its style
 (`params["path_style"]`, a `PathFenceStyle` name, absent for the plain line); `fences.py` and

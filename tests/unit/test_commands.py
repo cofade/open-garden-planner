@@ -9,7 +9,9 @@ from open_garden_planner.core.commands import (
     AddVertexCommand,
     ApplySpeciesCommand,
     ChangePropertyCommand,
+    Command,
     CommandManager,
+    CompoundCommand,
     CreateItemCommand,
     DeleteItemsCommand,
     DeleteLayerCommand,
@@ -144,6 +146,51 @@ class TestCommandManager:
             manager.command_executed,
         ]):
             manager.execute(command)
+
+
+class TestCompoundCommand:
+    """Several commands undone as ONE step (a drag that also links a plant, #627)."""
+
+    class _Log(Command):
+        def __init__(self, log: list[str], name: str, *, fail: bool = False) -> None:
+            self._log, self._name, self._fail = log, name, fail
+
+        @property
+        def description(self) -> str:
+            return self._name
+
+        def execute(self) -> None:
+            if self._fail:
+                raise RuntimeError(f"{self._name} failed")
+            self._log.append(f"+{self._name}")
+
+        def undo(self) -> None:
+            self._log.append(f"-{self._name}")
+
+    def test_execute_runs_in_order_and_undo_in_reverse(self) -> None:
+        log: list[str] = []
+        compound = CompoundCommand([self._Log(log, "a"), self._Log(log, "b")], "move and link")
+        compound.execute()
+        assert log == ["+a", "+b"]
+        compound.undo()
+        assert log == ["+a", "+b", "-b", "-a"]
+        assert compound.description == "move and link"
+
+    def test_a_failing_step_rolls_the_ones_already_run_back(self) -> None:
+        """No half a step: the stack gets nothing, and the scene is where it was."""
+        log: list[str] = []
+        compound = CompoundCommand([self._Log(log, "a"), self._Log(log, "b", fail=True)])
+        with pytest.raises(RuntimeError, match="b failed"):
+            compound.execute()
+        assert log == ["+a", "-a"]
+
+    def test_it_asks_every_command_about_history_side_effects(self) -> None:
+        """A drag moves (both flags) and a link changes containment: the scene's
+        restack scans must run - a compound that answered False would skip them."""
+        compound = CompoundCommand([self._Log([], "a")])
+        assert compound.changes_ground_band is True and compound.changes_containment is True
+        with pytest.raises(ValueError, match="at least one command"):
+            CompoundCommand([])
 
 
 class TestCreateItemCommand:

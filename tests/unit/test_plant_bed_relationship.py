@@ -351,7 +351,12 @@ class TestSetParentBedCommand:
         layer_id = scene.active_layer.id
         bed = _make_bed()
         bed.layer_id = layer_id
-        plant = _make_plant()
+        # OUTSIDE the bed (which spans 100..500): since #629 a plant the bed's outline
+        # CONTAINS is clamped above it by geometry alone, so a contained plant would
+        # start elevated and the pre-attach assertion below would not be falsifiable.
+        # This test is about the LINK clamp and the rank it derives from; the geometric
+        # one has its own file (tests/integration/test_plant_above_parent_stacking.py).
+        plant = _make_plant(cx=700.0, cy=300.0)
         plant.layer_id = layer_id
         # Plant added first -> ranked (and rendered) below the bed before
         # any attach clamp is in effect.

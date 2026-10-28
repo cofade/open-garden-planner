@@ -304,6 +304,26 @@ def item_base_cm(item: Any, lookup: ItemLookup, at_date: date | None = None) -> 
     )
 
 
+def holds_plants(item: Any, at_date: date | None = None) -> bool:
+    """Is this item a soil container a plant can stand in — the base rule's parent
+    half, without a link (``core.object_height.is_solid_soil_parent``: a bed, raised
+    bed, container or wall planter with a resolved, positive, finite height).
+
+    Asked by the one caster walk for the per-plant sun estimate (#481): the ground
+    point under a plant inside such a solid is inside its footprint all day, and the
+    solid is UNDER the plant, not between it and the sun, whether or not the plant
+    was ever linked to it. The estimate spares exactly the casters this answers True
+    for, so a kind the predicate learns about is spared without a second list
+    (the gap #621 found for cold frames and pots began as such a list).
+
+    The one home of the predicate on the item side: the drift guard in
+    ``tests/integration/test_scene3d_base_stacking.py`` names every caller of
+    ``is_solid_soil_parent`` and expects this module.
+    """
+    return is_solid_soil_parent(
+        getattr(item, "object_type", None), getattr(item, "metadata", None), at_date)
+
+
 def standing_parent(item: Any, lookup: ItemLookup, at_date: date | None = None) -> Any | None:
     """The soil parent whose solid the item stands in, or None — the membership
     half of the base rule (``item_base_cm`` has the whole rule and its reasons).
@@ -344,6 +364,23 @@ def _bounding_center(points: tuple[Point, ...]) -> Point:
     xs = [x for x, _y in points]
     ys = [y for _x, y in points]
     return ((min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0)
+
+
+def item_has_footprint(item: Any) -> bool:
+    """Does this item have an outline at all — ``item_outline(item) is not None``?
+
+    Asked WITHOUT building the vertices: the Properties panel asks it of every
+    selected item on every rebuild, and materialising a 16 000-vertex polygon's
+    outline just to answer yes/no cost 8.9 ms (#628). Exact, not approximate: the
+    ellipse's area check is the one clause of ``item_outline`` that can say None
+    for a footprint shape.
+    """
+    if isinstance(item, EllipseItem):
+        rect = item.rect()
+        return rect.width() > 0 and rect.height() > 0
+    return isinstance(
+        item, (CircleItem, RectangleItem, PolygonItem, PolylineItem)
+    )
 
 
 def item_outline(item: Any, at_date: date | None = None) -> ItemOutline | None:
@@ -415,3 +452,24 @@ def item_footprints(item: Any, at_date: date | None = None) -> list[Polygon]:
     if outline.shape == OUTLINE_POLYLINE:
         return polyline_footprint(scene_points, outline.width_cm or 1.0)
     return [scene_points]
+
+
+def footprints_can_self_cross(item: Any) -> bool:
+    """Can this item's own outline cross itself? Only a free polygon can.
+
+    The extractor is the reason: a circle, an ellipse and a rectangle are
+    generated from a centre/radius or a rect and cannot, and a polyline's
+    centre line is OFFSET by ``pyclipper``, which resolves a crossing line into
+    separate rings — so a crossing polyline arrives as more than one ring, the
+    case the shadow walk always repairs (``core.shadow_geometry.shadow_region``).
+    A ``PolygonItem`` keeps the user's own vertex order, which may cross.
+
+    The walk asks this so that the repair's ``SimplifyPolygons`` call is paid
+    only where it can find something: 379 of bench_large's 382 casters are
+    circles and rectangles, and a call each cost 4.5 ms a walk (measured: 10.5 ms
+    against master's 6.1 ms, Windows, before this gate). A new footprint shape
+    that can cross must answer True here — pinned by
+    ``tests/integration/test_shadow_region.py::test_only_a_polygon_s_own_outline_can_cross_itself``,
+    which walks every ``OUTLINE_SHAPES`` value.
+    """
+    return isinstance(item, PolygonItem)

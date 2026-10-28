@@ -74,6 +74,7 @@ from open_garden_planner.core.scene3d import (  # noqa: E402
     pose_points,
     prism_mesh,
 )
+from open_garden_planner.ui.view3d.quick3d.materials import part_tint  # noqa: E402
 from open_garden_planner.ui.view3d.quick3d.shots import (  # noqa: E402
     PerspectiveShot,
     TopDownShot,
@@ -446,6 +447,100 @@ def scenario_truth(ctx: Context) -> dict[str, Any]:
     return out
 
 
+FILL_SQUARE = ((-150.0, -150.0), (150.0, -150.0), (150.0, 150.0), (-150.0, 150.0))
+FILL_RGBA = (110, 170, 70, 255)
+#: The raised pool's water fill (the scenario's colour and material pattern).
+POND_RGBA = (64, 164, 223, 255)
+
+
+def _fill_record(item_id: str, east: float, pattern: str) -> Record:
+    """A 300 cm raised generic shape with a fill pattern — the kinds #628 made raisable."""
+    return Record(item_id=item_id, kind="GENERIC_POLYGON", shape="polygon",
+                  footprints=(FILL_SQUARE,), transform=Transform(east_cm=east),
+                  material=Material("GENERIC_POLYGON", fill_rgba=FILL_RGBA, pattern=pattern),
+                  height_cm=40.0,
+                  params=Params({"seed": item_id, "paint_origin": (east, 0.0)}))
+
+
+def pond_record() -> Record:
+    """The raised pool the `pond` scenario renders - ONE definition, read by the test
+    too, so the frame and the footprint mask can never describe different ponds."""
+    return Record(item_id="pond", kind="POND_POOL", shape="polygon",
+                  footprints=(rect_ring(300.0, 220.0),), transform=Transform(),
+                  height_cm=40.0,
+                  material=Material("POND_POOL", fill_rgba=POND_RGBA, pattern="WATER"),
+                  params=Params({"seed": "pond", "paint_origin": (0.0, 0.0)}))
+
+
+def scenario_pond(ctx: Context) -> dict[str, Any]:
+    """#627's manual pass: a raised pool shows the plan's own water picture.
+
+    One 300 x 220 cm POND_POOL at 40 cm, built by the PRODUCTION registry (the wall
+    and the water part), top-down. The water must be the plan's water texture -
+    caustics and all - not the flat fill colour: a picture whose UVs are all (0,0)
+    samples one texel and reads as a flat slab.
+    """
+    from open_garden_planner.core.scene3d.builders import production_registry
+
+    shot = TopDownShot((0.0, 0.0), 2.0)
+    frame = ctx.offscreen("pond_top", {"pond": pond_record()}, shot=shot,
+                          sun=SunState(60.0, 180.0), size=(1000, 700),
+                          registry=production_registry())
+    return {"top": frame, "fill": list(POND_RGBA)}
+
+
+def scenario_fill(ctx: Context) -> dict[str, Any]:
+    """#628 follow-up: a raised object shows the fill the ground bake painted.
+
+    Two 300 cm squares at 40 cm, one GRASS and one SOLID of the same colour: the
+    patterned top must vary, the flat twin must not, and both must average the fill
+    colour. A second frame fades the patterned one (X-ray): its screen door ghosts in
+    the fill colour, not white. The lifetime is measured on a live, never-shown host —
+    one picture per (pattern, colour), released with its last user.
+    """
+    from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
+    from open_garden_planner.ui.view3d.quick3d.host import Quick3DHost
+    from open_garden_planner.ui.view3d.quick3d.patterns import PatternTexture, textures_alive
+
+    shot = TopDownShot((0.0, 0.0), 0.5)
+    records = {"grass": _fill_record("grass", -400.0, "GRASS"),
+               "solid": _fill_record("solid", 400.0, "SOLID")}
+    top = ctx.offscreen("fill_top", records, shot=shot, sun=SunState(60.0, 180.0),
+                        size=(1000, 400), registry=BuilderRegistry())
+    faded = ctx.offscreen("fill_faded", records, shot=shot, sun=SunState(60.0, 180.0),
+                          size=(1000, 400), registry=BuilderRegistry(), faded=("grass",))
+
+    host = Quick3DHost((320, 200), qml_dir=ctx.qml_dir, log=ctx.log)
+    sink = Quick3DSink(host)
+    part = MeshPart(prism_mesh([FILL_SQUARE], 40.0), "vc", fill_texture=True, name="prism")
+    alive0, uploads0 = textures_alive(), PatternTexture.uploads
+    lifetime: dict[str, int] = {}
+    try:
+        if not host.renders_3d():
+            raise RuntimeError(f"the fill lifetime needs a 3D backend, got {host.graphics_api()}")
+        sink.begin()
+        sink.add("lawn", (part,), Transform(),
+                 Material("LAWN", fill_rgba=FILL_RGBA, pattern="GRASS"))
+        sink.commit()
+        lifetime["alive_after_add"] = textures_alive() - alive0
+        lifetime["uploads_after_add"] = PatternTexture.uploads - uploads0
+        sink.begin()
+        sink.update_material("lawn", Material("LAWN", fill_rgba=(120, 60, 30, 255),
+                                               pattern="SOIL"))
+        sink.commit()
+        lifetime["alive_after_recolour"] = textures_alive() - alive0
+        lifetime["uploads_after_recolour"] = PatternTexture.uploads - uploads0
+        lifetime["geometry_uploads"] = sink.geometry_uploads
+        sink.begin()
+        sink.remove("lawn")
+        sink.commit()
+        lifetime["alive_after_remove"] = textures_alive() - alive0
+    finally:
+        sink.clear()
+        host.close()
+    return {"top": top, "faded": faded, "lifetime": lifetime}
+
+
 def scenario_materials(ctx: Context) -> dict[str, Any]:
     """G9 (clean run): every material kind — every shader — rendered, top-down and in
     perspective, hidden. A shader that does not compile raises in ``render_records``."""
@@ -594,7 +689,7 @@ def _expected_parts(sync: SceneSync) -> list[dict[str, Any]]:
         pose = engine_pose(held.transform)
         for index, part in enumerate(held.parts):
             if part.mesh.vertex_count:
-                tint = held.material.tint_rgba if part.tinted else (255, 255, 255, 255)
+                tint = part_tint(part, held.material)
                 rows.append({"id": item_id, "part": index, "kind": part.material_kind,
                              "position": list(pose.position), "yaw": pose.yaw_deg,
                              "tint": list(tint[:3]), "casts": part.casts_shadow})
@@ -618,14 +713,15 @@ def scenario_recovery(ctx: Context) -> dict[str, Any]:
         out["before"] = ctx.save("recovery_0_before", host.grab("recovery_before"))
         out["before"]["state_equals_expected"] = sink.state() == sync.expected_state()
 
-        # the engine refuses the SECOND Model of the next transaction: "c" is built,
-        # "d" is not, "a" is not moved yet — a transaction applied half way
+        # the engine refuses "d"'s FIRST Model of the next transaction: "c" is whole
+        # (a default solid is two Models since #627), "d" is not built, "a" is not
+        # moved yet - a transaction applied half way
         real_create = host.create_part
         calls = {"n": 0}
 
         def refusing(spec: Any, pose: Any, tint: Any) -> object:
             calls["n"] += 1
-            if calls["n"] == 2:
+            if calls["n"] == 3:
                 raise EngineError("injected: the engine refused this Model")
             return real_create(spec, pose, tint)
 
@@ -793,7 +889,7 @@ def _recording_summary(sink: RecordingSink) -> dict[str, Any]:
         for index, part in enumerate(held.parts):
             if not part.mesh.vertex_count:
                 continue
-            tint = held.material.tint_rgba if part.tinted else (255, 255, 255, 255)
+            tint = part_tint(part, held.material)
             rows.append({"id": item_id, "part": index, "kind": part.material_kind,
                          "position": list(pose.position), "yaw": pose.yaw_deg,
                          "tint": list(tint[:3]), "casts": part.casts_shadow})
@@ -1020,6 +1116,8 @@ def scenario_embed(ctx: Context) -> dict[str, Any]:
 SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "truth": scenario_truth,
     "materials": scenario_materials,
+    "fill": scenario_fill,
+    "pond": scenario_pond,
     "sun": scenario_sun,
     "edits": scenario_edits,
     "pick": scenario_pick,

@@ -112,12 +112,20 @@ class IdentifiedCaster:
     on the garden floor, the soil surface for a plant on raised soil. Its solid is
     ``footprint x [base_cm, base_cm + height_cm]`` everywhere it shades — the
     overlay, the heatmap grid and the per-plant estimates.
+
+    ``holds_plants``: this solid is a SOIL container a plant can stand in
+    (``core.object_height.is_solid_soil_parent`` — a bed, raised bed, container
+    or wall planter with a resolved height), not a wall. A plant inside its
+    outline is inside its soil, so the estimate must not count it as shade
+    whether or not the plant is LINKED to it (#481, the ``spared`` map in
+    ``_aggregate_day``).
     """
 
     item_id: str
     footprints: tuple[tuple[tuple[float, float], ...], ...]
     height_cm: float
     base_cm: float = 0.0
+    holds_plants: bool = False
 
 
 @dataclass(frozen=True)
@@ -130,9 +138,15 @@ class SunReceiver:
     ``ui/canvas/footprints.standing_parent``), else None. That parent is under
     the plant, not between it and the sun: it is left out for this receiver
     exactly like the receiver's own solid. Without it every plant in a raised
-    bed reads 0 hours — the bed's footprint covers the point all day. Every
-    OTHER caster shades the receiver as if it stood on the ground (a stated
-    limit of the ground-level estimate).
+    bed reads 0 hours — the bed's footprint covers the point all day.
+
+    A soil solid the plant stands in WITHOUT that link is left out too (#481):
+    ``_aggregate_day`` spares every caster whose ``holds_plants`` is set and
+    whose outline contains this receiver's point. Before that, a bed drawn
+    around an existing plant (or a plant moved in with the arrow keys) read 0
+    hours and warned "too little sun", because the link the estimate trusted was
+    never made. Every OTHER caster shades the receiver as if it stood on the
+    ground (a stated limit of the ground-level estimate).
     """
 
     item_id: str
@@ -387,13 +401,24 @@ def _aggregate_day(
              and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[1] < grid.cols]
     points = np.asarray([grid.cell_center(*grid.cell_at(receiver.x_cm, receiver.y_cm))
                          for receiver in valid], dtype=float).reshape(-1, 2)
-    # caster id -> the receivers it never shades: itself, and the plants standing
-    # on its soil (``SunReceiver.stands_on``)
+    # caster id -> the receivers it never shades: itself, the plants standing
+    # on its soil (``SunReceiver.stands_on``), and — #481 — every plant whose
+    # point lies inside a soil container's own outline, linked or not. The
+    # containment test is static for a run (casters do not move between
+    # samples), so it is answered once here, on the same points the estimate
+    # reports, with the caster walk's own footprints.
     spared: dict[str, list[int]] = {}
     for index, receiver in enumerate(valid):
         spared.setdefault(receiver.item_id, []).append(index)
         if receiver.stands_on is not None and receiver.stands_on != receiver.item_id:
             spared.setdefault(receiver.stands_on, []).append(index)
+    if len(valid) and any(caster.holds_plants for caster in identified):
+        for caster in identified:
+            if not caster.holds_plants:
+                continue
+            inside = np.flatnonzero(points_in_polygons(caster.footprints, points))
+            if len(inside):
+                spared.setdefault(caster.item_id, []).extend(int(index) for index in inside)
     exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
     packed_cols = (grid.cols + 7) // 8

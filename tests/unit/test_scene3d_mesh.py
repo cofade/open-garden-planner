@@ -48,6 +48,11 @@ from open_garden_planner.core.scene3d.build import (
 SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
                    .read_text(encoding="utf-8"))
 
+def default_mesh(record: Record) -> Mesh:
+    """The default solid as ONE mesh: its tinted sides plus its fill cap (#627)."""
+    return Mesh.merge([part.mesh for part in default_builder(record)])
+
+
 SQUARE = ((-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0))
 L_SHAPE = ((0.0, 0.0), (100.0, 0.0), (100.0, 50.0), (50.0, 50.0), (50.0, 100.0), (0.0, 100.0))
 BOW_TIE = ((0.0, 0.0), (400.0, 300.0), (400.0, 0.0), (0.0, 300.0))
@@ -374,19 +379,20 @@ class TestSpikeDriftGuards:
 class TestDefaultBuilder:
     @pytest.mark.parametrize("height", [40.0, 0.1, 123.456789, 450.0, 1e-3, 33.3])
     def test_prism_top_is_exactly_the_height(self, height: float) -> None:
-        (part,) = default_builder(record(height_cm=height))
-        low, high = part.mesh.bounds()
+        parts = default_builder(record(height_cm=height))
+        low, high = default_mesh(record(height_cm=height)).bounds()
         assert float(high[2]) == float(np.float32(height))  # exact, in the float32 the engine gets
         assert float(low[2]) == 0.0  # the item's own ground plane: base_cm is the transform's
-        part.validate()
+        for part in parts:
+            part.validate()
 
     def test_footprint_is_the_local_footprint(self) -> None:
-        (part,) = default_builder(record(footprints=(L_SHAPE,)))
-        low, high = part.mesh.bounds()
+        mesh = default_mesh(record(footprints=(L_SHAPE,)))
+        low, high = mesh.bounds()
         assert low[:2].tolist() == [0.0, 0.0] and high[:2].tolist() == [100.0, 100.0]
         # 6 walls x 2 triangles + 4 cap triangles (n - 2 for a simple polygon)
-        assert part.mesh.triangle_count == 16
-        dots, flat = normal_vs_winding(part.mesh)
+        assert mesh.triangle_count == 16
+        dots, flat = normal_vs_winding(mesh)
         assert flat.all() and dots.min() >= 0.99
 
     def test_prism_mesh_takes_a_clockwise_ring_and_still_faces_out(self) -> None:
@@ -397,26 +403,60 @@ class TestDefaultBuilder:
         assert mesh.triangle_count == prism_mesh((L_SHAPE,), 40.0).triangle_count == 16
         assert cap_area(mesh) == pytest.approx(7500.0)
 
-    def test_part_is_neutral_and_tinted_by_the_sink(self) -> None:
-        """A pure colour change must not rebuild geometry: the mesh carries no
-        colour of the item, and the part asks the sink to tint it."""
-        (part,) = default_builder(record())
-        assert part.tinted is True and part.material_kind == "vc" and part.casts_shadow is True
-        assert np.all(part.mesh.colors == 1.0)
+    def test_part_is_neutral_and_shows_the_items_fill(self) -> None:
+        """A pure colour or pattern change must not rebuild geometry: the mesh carries
+        no colour of the item, and the part asks the sink for the item's own fill
+        picture (#628 follow-up) - which for SOLID is a flat tint of the same colour."""
+        sides, cap = default_builder(record())
+        assert (sides.tinted, sides.fill_texture, sides.name) == (True, False, "prism_sides")
+        assert (cap.tinted, cap.fill_texture, cap.name) == (False, True, "prism")
+        assert sides.material_kind == cap.material_kind == "vc"
+        assert sides.casts_shadow is cap.casts_shadow is True
+        assert np.all(sides.mesh.colors == 1.0) and np.all(cap.mesh.colors == 1.0)
         recoloured = record(material=Material("RAISED_BED", fill_rgba=(1, 2, 3, 255)))
-        assert default_builder(recoloured) == (part,)
+        assert default_builder(recoloured) == (sides, cap)
 
     def test_no_height_means_no_parts(self) -> None:
         """A lawn, a path, a rain barrel: the resolver gives no height, so there is
         no solid — the ground bake (L1.5) paints flat surfaces."""
         assert default_builder(record(height_cm=None)) == ()
 
+    def test_the_prism_shows_the_items_fill_with_plan_uvs(self) -> None:
+        """#628 follow-up: the raised shape keeps its texture. The part asks for the
+        item's fill picture and carries the canvas's phase — ``(position + paint_origin)
+        / 256`` on its top, a wrapped ``u`` on its walls — not raw record coordinates
+        (the record's footprint is centred on the anchor ``paint_origin``)."""
+        from open_garden_planner.core.scene3d import PATTERN_TILE_CM
+
+        origin = (137.0, -42.0)
+        rec = record(height_cm=100.0,
+                     params=Params({"seed": "x", "paint_origin": origin}))
+        sides, cap = default_builder(rec)
+        assert cap.fill_texture is True and cap.tinted is False
+        assert sides.fill_texture is False and sides.tinted is True
+        mesh = cap.mesh
+        assert np.all(mesh.normals[:, 2] > 0.999), "the cap is the top face"
+        expected = (mesh.positions[:, :2] + np.asarray(origin)) / PATTERN_TILE_CM
+        assert np.allclose(mesh.uvs, expected)
+
+    def test_a_fill_part_is_vc_only_and_untinted(self) -> None:
+        """The rules ``MeshPart.__post_init__`` holds (a fill picture is a base colour
+        map: only the ``vc`` material takes one, and it already carries the colour)."""
+        with pytest.raises(ValueError, match="vc"):
+            MeshPart(prism_mesh([SQUARE], 10.0), "roof", fill_texture=True)
+        with pytest.raises(ValueError, match="not tinted"):
+            MeshPart(prism_mesh([SQUARE], 10.0), "vc", tinted=True, fill_texture=True)
+        with pytest.raises(ValueError, match="ground detail"):
+            MeshPart(prism_mesh([SQUARE], 10.0), "vc", casts_shadow=False,
+                     ground_detail=True, fill_texture=True)
+
     def test_several_rings_become_one_part(self) -> None:
         other = tuple((x + 300.0, y) for x, y in SQUARE)
-        (part,) = default_builder(record(shape="polyline", footprints=(SQUARE, other),
-                                         path=((-50.0, 0.0), (350.0, 0.0)), path_width_cm=100.0))
-        assert part.mesh.triangle_count == 2 * (8 + 2)
-        part.validate()
+        rec = record(shape="polyline", footprints=(SQUARE, other),
+                     path=((-50.0, 0.0), (350.0, 0.0)), path_width_cm=100.0)
+        assert default_mesh(rec).triangle_count == 2 * (8 + 2)
+        for part in default_builder(rec):
+            part.validate()
 
     def test_degenerate_footprints_give_no_parts(self) -> None:
         assert default_builder(record(footprints=())) == ()
@@ -428,20 +468,22 @@ class TestDefaultBuilder:
 
     def test_a_hole_is_cut_out_of_the_cap(self) -> None:
         """The closed fence: 3.6 m² of stroke, not the 80 m² it encloses."""
-        (part,) = default_builder(record(footprints=(FRAME,), holes=((FRAME_HOLE,),)))
-        part.validate()
-        assert cap_area(part.mesh) == pytest.approx(FRAME_AREA, rel=1e-6)
-        assert cap_area(part.mesh) < 0.05 * 1010.0 * 810.0
+        rec = record(footprints=(FRAME,), holes=((FRAME_HOLE,),))
+        mesh = default_mesh(rec)
+        for part in default_builder(rec):
+            part.validate()
+        assert cap_area(mesh) == pytest.approx(FRAME_AREA, rel=1e-6)
+        assert cap_area(mesh) < 0.05 * 1010.0 * 810.0
         # 4 outer walls + 4 hole walls, two triangles each, + a cap of 4 + 4 + 2 - 2
-        assert part.mesh.triangle_count == 16 + 8
-        assert float(part.mesh.bounds()[1][2]) == 40.0
+        assert mesh.triangle_count == 16 + 8
+        assert float(mesh.bounds()[1][2]) == 40.0
 
     def test_walls_face_away_from_the_solid_on_both_sides(self) -> None:
         holed = record(footprints=(FRAME,), holes=((FRAME_HOLE,),))
-        (part,) = default_builder(holed)
-        assert_walls_face_away_from_the_solid(part.mesh, holed.regions)
-        (plain,) = default_builder(record(footprints=(L_SHAPE,)))
-        assert_walls_face_away_from_the_solid(plain.mesh, record(footprints=(L_SHAPE,)).regions)
+        walls, _cap = default_builder(holed)
+        assert_walls_face_away_from_the_solid(walls.mesh, holed.regions)
+        walls, _cap = default_builder(record(footprints=(L_SHAPE,)))
+        assert_walls_face_away_from_the_solid(walls.mesh, record(footprints=(L_SHAPE,)).regions)
 
     def test_prism_mesh_without_the_holes_argument_fills_them(self) -> None:
         """Why ``holes`` must be passed along: the outer ring alone IS the slab."""
@@ -531,17 +573,20 @@ class TestDefaultBuilder:
         has them), a sliver, a speck. Each builds, validates, and its cap is the
         ring's area — ``plan_margin_cm=0.0``: nothing outside the footprint at all."""
         rec = record(shape="polygon", footprints=(ring,))
-        (part,) = verify_builder(default_builder, rec, plan_margin_cm=0.0)
-        assert cap_area(part.mesh) == pytest.approx(rec.plan_area_cm2, rel=1e-6)
+        parts = verify_builder(default_builder, rec, plan_margin_cm=0.0)
+        assert cap_area(Mesh.merge([part.mesh for part in parts])) == pytest.approx(
+            rec.plan_area_cm2, rel=1e-6)
 
     def test_a_frame_whose_rings_have_collinear_vertices(self) -> None:
         outer = ((0.0, 0.0), (100.0, 0.0), (200.0, 0.0), (200.0, 200.0), (0.0, 200.0))
         hole = ((50.0, 50.0), (50.0, 150.0), (100.0, 150.0), (150.0, 150.0), (150.0, 50.0),
                 (100.0, 50.0))
         rec = record(shape="polygon", footprints=(outer,), holes=((hole,),))
-        (part,) = verify_builder(default_builder, rec, plan_margin_cm=0.0)
-        assert cap_area(part.mesh) == pytest.approx(200.0 * 200.0 - 100.0 * 100.0, rel=1e-6)
-        assert_walls_face_away_from_the_solid(part.mesh, rec.regions)
+        parts = verify_builder(default_builder, rec, plan_margin_cm=0.0)
+        mesh = Mesh.merge([part.mesh for part in parts])
+        assert cap_area(mesh) == pytest.approx(200.0 * 200.0 - 100.0 * 100.0, rel=1e-6)
+        walls = next(part.mesh for part in parts if part.tinted)
+        assert_walls_face_away_from_the_solid(walls, rec.regions)
 
     def test_output_does_not_depend_on_pose_material_or_name(self) -> None:
         verify_builder(default_builder, record())
@@ -609,6 +654,20 @@ class TestRegistry:
 class TestVerifyBuilder:
     def test_returns_the_parts(self) -> None:
         assert verify_builder(default_builder, record()) == default_builder(record())
+
+    def test_relief_alone_is_not_a_solid_a_height_can_hide_in(self) -> None:
+        """#627: the height gate measures the SOLID, so `ground_detail` cannot count.
+
+        A raised lawn's blades are relief above its top - and G1 skips them. A builder
+        that returns ONLY relief for a record with a height would then pass the gate
+        with no solid at all; it is refused instead (the flag must not be an opt-out
+        from the one truth rule)."""
+        def blades_only(rec: Record) -> tuple[MeshPart, ...]:
+            return (MeshPart(prism_mesh(rec.footprints, 9.4), "grass", casts_shadow=False,
+                             name="lawn_blades", ground_detail=True),)
+
+        with pytest.raises(BuilderContractError, match="every part is ground_detail"):
+            verify_builder(blades_only, record(height_cm=40.0))
 
     def test_a_builder_reading_the_material_is_caught(self) -> None:
         def bad(rec: Record) -> tuple[MeshPart, ...]:
@@ -812,7 +871,8 @@ class TestVerifyBuilder:
         nested = record(shape="polygon", footprints=(self.OUTER, self.ISLAND), holes=((self.MOAT,), ()))
         parts = verify_builder(default_builder, nested)
         assert plan_overreach(parts, nested.regions, PLAN_MARGIN_CM) == (0.0, 0.0)
-        assert cap_area(parts[0].mesh) == pytest.approx(nested.plan_area_cm2)
+        assert cap_area(Mesh.merge([part.mesh for part in parts])) == pytest.approx(
+            nested.plan_area_cm2)
         # what is still caught: the moat itself built over — the open part of the hole
         def moat_filled(rec: Record) -> tuple[MeshPart, ...]:
             return (MeshPart(prism_mesh((self.OUTER,), 40.0)),)

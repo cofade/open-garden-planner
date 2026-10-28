@@ -819,8 +819,14 @@ class TestTheLinkAloneNeverLifts:
             "app/application.py",           # the agent's re-link after move_object
         }
         assert users["centre_is_inside"] == {"app/application.py"}  # set_parent_bed's link_is_geometric
-        assert users["standing_point"] == {"ui/canvas/footprints.py"}  # the LIFT's point
-        assert users["contains_path"] == {"ui/canvas/footprints.py"}   # inside ItemLookup.shape_of
+        assert users["standing_point"] == {
+            "ui/canvas/footprints.py",      # the LIFT's point
+            "ui/canvas/canvas_scene.py",    # the stacking clamp asks the SAME point (#629)
+        }
+        assert users["contains_path"] == {
+            "ui/canvas/footprints.py",      # inside ItemLookup.shape_of
+            "ui/canvas/canvas_scene.py",    # the stacking clamp's per-call shape cache (#629)
+        }
         assert users["shape_of"] == {"ui/canvas/footprints.py"}        # inside item_base_cm
 
     @pytest.mark.parametrize(("source", "expected"), [
@@ -1773,6 +1779,9 @@ class TestOneCasterWalk:
         assert calls["IdentifiedCaster"] == {"ui/canvas/sun_shadow_controller.py"}  # one maker
         assert calls["compute_grouped_shadows"] == {"core/shade_aggregation.py"}
         assert calls["GroupedCaster"] == {"core/shade_aggregation.py"}  # base included
+        assert calls["shadow_region"] == {
+            "ui/canvas/sun_shadow_controller.py",   # the ONE region repair (#444)
+        }
         assert calls["item_base_cm"] == {
             "ui/canvas/sun_shadow_controller.py",   # 2D: the caster walk
             "ui/view3d/snapshot.py",                # 3D: the record walk

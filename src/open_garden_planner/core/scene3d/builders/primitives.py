@@ -30,6 +30,7 @@ from numpy.typing import ArrayLike, NDArray
 
 from ..mesh import Mesh
 from ..polygon import triangulate_polygon
+from ..record import PATTERN_TILE_CM
 
 F64: TypeAlias = NDArray[np.float64]
 
@@ -74,25 +75,36 @@ def _rows(values: ArrayLike, count: int, width: int) -> F64:
 
 
 def flat_mesh(triangles: ArrayLike, colors: ArrayLike = _WHITE,
-              outward: ArrayLike | None = None, uvs: ArrayLike | None = None) -> Mesh:
+              outward: ArrayLike | None = None, uvs: ArrayLike | None = None,
+              *, vertex_uvs: ArrayLike | None = None) -> Mesh:
     """A flat-shaded mesh from triangles ``(t, 3, 3)``.
 
     ``colors``: one linear RGBA or one per triangle. ``outward``: one direction
-    or one per triangle — a triangle wound against its direction is flipped, so
+    or one per triangle - a triangle wound against its direction is flipped, so
     a caller that knows which way a face looks cannot get the winding wrong.
-    ``uvs``: one (u, v) or one per triangle. Degenerate triangles are dropped.
-    The stored normal of every vertex is its triangle's winding normal.
+    ``uvs``: one (u, v) or one per triangle. ``vertex_uvs``: one (u, v) PER
+    VERTEX, shape ``(t, 3, 2)`` - what a part that shows a texture needs, because
+    one uv per triangle samples a single texel (a fill texture's faces use their
+    plan coordinates, ``plan_cap``). The two uv forms are exclusive.
+    Degenerate triangles are dropped. The stored normal of every vertex is its
+    triangle's winding normal.
     """
     tri = np.array(triangles, dtype=np.float64).reshape(-1, 3, 3)
     count = len(tri)
     if count == 0:
         return Mesh.empty()
+    if vertex_uvs is not None and uvs is not None:
+        raise ValueError("flat_mesh takes uvs or vertex_uvs, not both")
     col = _rows(colors, count, 4)
     uv = _rows(uvs if uvs is not None else (0.0, 0.0), count, 2)
+    per_vertex = None if vertex_uvs is None else np.array(
+        vertex_uvs, dtype=np.float64).reshape(count, 3, 2)
     cross = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
     if outward is not None:
         flip = (cross * _rows(outward, count, 3)).sum(axis=1) < 0.0
         tri[flip] = tri[flip][:, [0, 2, 1]]
+        if per_vertex is not None:
+            per_vertex[flip] = per_vertex[flip][:, [0, 2, 1]]
         cross[flip] = -cross[flip]
     length = np.linalg.norm(cross, axis=1)
     keep = length > MIN_DOUBLE_AREA
@@ -104,7 +116,7 @@ def flat_mesh(triangles: ArrayLike, colors: ArrayLike = _WHITE,
         tri[keep].reshape(-1, 3),
         np.repeat(normals, 3, axis=0),
         np.repeat(col[keep], 3, axis=0),
-        np.repeat(uv[keep], 3, axis=0),
+        per_vertex[keep].reshape(-1, 2) if per_vertex is not None else np.repeat(uv[keep], 3, axis=0),
         np.arange(kept * 3),
     )
 
@@ -324,6 +336,25 @@ def polygon_cap(ring: ArrayLike, z: float, color: ArrayLike = _WHITE, *, up: boo
         return Mesh.empty()
     triangles = np.concatenate([plan, np.full((len(plan), 3, 1), float(z))], axis=2)
     return flat_mesh(triangles, color, outward=(0.0, 0.0, 1.0 if up else -1.0))
+
+
+def plan_cap(ring: ArrayLike, z: float, color: ArrayLike = _WHITE, *, up: bool = True,
+             uv_origin: tuple[float, float] = (0.0, 0.0)) -> Mesh:
+    """``polygon_cap`` whose UVs are the ring's plan coordinates / ``PATTERN_TILE_CM``.
+
+    For a part that shows the item's fill texture: the record's ring is centred on
+    the item's anchor, so a vertex at record coordinate ``(x, y)`` is item coordinate
+    ``(x + ox, y + oy)`` and samples the texture at ``((x + ox) / 256, (y + oy) /
+    256)`` — ``uv_origin`` is the record's ``params["paint_origin"]``
+    (``build.uv_origin_of``) and (0, 0) when it has none.
+    """
+    plan = polygon_triangles(ring)
+    if not len(plan):
+        return Mesh.empty()
+    triangles = np.concatenate([plan, np.full((len(plan), 3, 1), float(z))], axis=2)
+    uvs = (triangles[:, :, :2] + np.asarray(uv_origin, dtype=np.float64)) / PATTERN_TILE_CM
+    return flat_mesh(triangles, color, outward=(0.0, 0.0, 1.0 if up else -1.0),
+                     vertex_uvs=uvs)
 
 
 def prism(ring: ArrayLike, z0: float, z1: float, color: ArrayLike = _WHITE, *,

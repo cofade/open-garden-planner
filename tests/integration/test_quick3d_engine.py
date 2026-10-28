@@ -45,6 +45,7 @@ from open_garden_planner.core.scene3d import (
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
+from open_garden_planner.ui.view3d.quick3d.materials import part_tint
 from open_garden_planner.ui.view3d.snapshot import snapshot_records
 from tests.integration.quick3d_render_driver import largest_solids
 from tests.integration.quick3d_render_support import (
@@ -62,7 +63,7 @@ JUNE = date(2026, 6, 21)
 #: house), 9 of them flat (the fire pit and the rain barrel have a default height since
 #: L4's second owner pass), 89 parts. One number for both tiers: e4df9674 raised the
 #: recording engine's copy and left the render tier's, and CI's Render 3D went red.
-RECORDS, ENGINE_PARTS = 98, 89
+RECORDS, ENGINE_PARTS = 98, 178  # two Models per solid since #627 (sides + cap)
 SOFTWARE_ADAPTERS = ("basic render", "llvmpipe", "softpipe", "swiftshader", "lavapipe")
 
 
@@ -117,7 +118,7 @@ class TestAgainstARecordingEngine:
             for item_id, held in recording.state().items.items():
                 for index, part in enumerate(held.parts):
                     if part.mesh.vertex_count:
-                        tint = held.material.tint_rgba if part.tinted else (255, 255, 255, 255)
+                        tint = part_tint(part, held.material)
                         expected[(item_id, index)] = (
                             part.material_kind, engine_pose(held.transform), tint,
                             part.casts_shadow, engine_buffers(part.mesh))
@@ -144,15 +145,17 @@ class TestAgainstARecordingEngine:
         engine.calls.clear()
         commands.execute(_recolour(target, QColor(250, 30, 200)))
         tick()
-        assert engine.calls == [("tint", str(target.item_id)), ("frame",)]
+        # a recolour retints the sides and swaps the cap's picture (#627)
+        assert [call[0] for call in engine.calls] == ["tint", "fill", "release_fill", "frame"]
+        assert ("fill", str(target.item_id), "ROOF_TILES") in engine.calls
         assert quick.geometry_uploads == uploads  # neither a move nor a recolour uploaded
 
         commands.execute(DeleteItemsCommand(scene, [victim]))
         tick()
-        assert len(engine.parts) == ENGINE_PARTS - 1
+        assert len(engine.parts) == ENGINE_PARTS - 2  # the victim's sides and cap
         commands.undo()
         tick()
-        assert len(engine.parts) == ENGINE_PARTS and quick.geometry_uploads == uploads + 1
+        assert len(engine.parts) == ENGINE_PARTS and quick.geometry_uploads == uploads + 2
         commands.undo()
         commands.undo()
         tick()
@@ -254,10 +257,16 @@ class TestOnTheRealRenderer:
         before, after = parts_of("0_open", moved)[0], parts_of("1_move", moved)[0]
         delta = np.array(after["position"]) - np.array(before["position"])
         assert delta == pytest.approx([137.25, 0.0, 42.5], abs=1e-2)  # engine z = −north
-        # recolour: one material, no upload, the tint is the new colour
+        # recolour: one material, no upload. The engine's tint is the ONE rule
+        # (`part_tint`): a patterned fill part keeps white — its picture carries the
+        # colour — and a flat one takes the new colour; the step's own pixels (below)
+        # prove the surface changed either way.
         assert steps["2_recolour"]["diff"]["material"] == 1
         assert steps["2_recolour"]["uploads"] == steps["1_move"]["uploads"]
-        assert all(part["tint"] == [250, 30, 200] for part in parts_of("2_recolour", moved))
+        expected = {(row["id"], row["part"]): row["tint"]
+                    for row in steps["2_recolour"]["expected"]["parts"]}
+        for part in parts_of("2_recolour", moved):
+            assert part["tint"] == expected[(part["id"], part["part"])]
         # delete and undo
         assert parts_of("3_delete", deleted) == [] and steps["3_delete"]["diff"]["removed"] == 1
         assert len(parts_of("4_undo_delete", deleted)) == len(parts_of("0_open", deleted)) >= 1

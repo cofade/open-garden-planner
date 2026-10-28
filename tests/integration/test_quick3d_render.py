@@ -29,6 +29,7 @@ from open_garden_planner.core.scene3d import sun_direction_scene as sun_directio
 from open_garden_planner.core.shadow_geometry import compute_scene_shadows, shadow_direction_scene
 from open_garden_planner.ui.view3d.quick3d.host import GRAPHICS_API_NAMES, RENDERING_APIS
 from open_garden_planner.ui.view3d.quick3d.look import NEUTRAL_DAY
+from open_garden_planner.ui.view3d.quick3d.shots import TopDownShot, top_down_pixel
 from tests.integration import quick3d_render_driver as driver
 from tests.integration.quick3d_render_support import (
     QML_SOURCE,
@@ -57,7 +58,7 @@ Run = tuple[dict[str, Any], Path]
 def run(tmp_path_factory: pytest.TempPathFactory) -> Run:
     out = tmp_path_factory.mktemp("quick3d_render")
     proc, result = run_driver(
-        out, "truth,materials,rest,states,edits,recovery,pick,sun,shown_materials")
+        out, "truth,materials,fill,pond,rest,states,edits,recovery,pick,sun,shown_materials")
     assert proc.returncode == 0 and result.get("status") == "ok", failure_report(proc, out)
     return result, out
 
@@ -206,7 +207,7 @@ def test_adding_items_shows_them(run: Run) -> None:
     rgb, dpr = _frame(run, step)
     assert iou(red_mask(rgb), footprint_mask(driver.EDIT_A, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert iou(blue_mask(rgb), footprint_mask(driver.EDIT_B, driver.TOP, rgb.shape, dpr)) >= 0.95
-    assert step["uploads_delta"] == 2 and step["sink_uploads"] == 2
+    assert step["uploads_delta"] == 4 and step["sink_uploads"] == 4  # sides + cap each
     assert {part["id"] for part in step["engine_parts"]} == {"a", "b"}
     assert step["picks"]["a"]["hit"] == "a" and step["picks"]["b"]["hit"] == "b"
 
@@ -220,8 +221,10 @@ def test_update_transform_moves_the_pixels_and_uploads_nothing(run: Run) -> None
     assert step["uploads_delta"] == 0, "a move must not upload geometry"
     assert step["build_count"] == steps["0_add"]["build_count"], "a move must not run a builder"
     assert step["picks"]["a"]["hit"] == "a" and step["picks"]["old"]["hit"] is None
-    (part,) = [p for p in step["engine_parts"] if p["id"] == "a"]
-    assert part["position"] == pytest.approx([-250.0, 0.0, 150.0]) and part["yaw"] == 30.0
+    parts = [p for p in step["engine_parts"] if p["id"] == "a"]
+    assert len(parts) == 2  # sides + cap (#627), posed together
+    assert all(p["position"] == pytest.approx([-250.0, 0.0, 150.0]) and p["yaw"] == 30.0
+               for p in parts)
 
 
 def test_update_material_recolours_and_uploads_nothing(run: Run) -> None:
@@ -232,8 +235,8 @@ def test_update_material_recolours_and_uploads_nothing(run: Run) -> None:
     assert iou(yellow_mask(rgb), footprint_mask(driver.EDIT_A_YELLOW, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert step["uploads_delta"] == 0, "a recolour must not upload geometry"
     assert step["build_count"] == steps["0_add"]["build_count"]
-    (part,) = [p for p in step["engine_parts"] if p["id"] == "a"]
-    assert part["tint"] == list(driver.YELLOW[:3])
+    parts = [p for p in step["engine_parts"] if p["id"] == "a"]
+    assert [p["tint"] for p in parts] == [list(driver.YELLOW[:3])] * 2  # sides + cap
 
 
 def test_replace_geometry_changes_the_silhouette(run: Run) -> None:
@@ -242,7 +245,7 @@ def test_replace_geometry_changes_the_silhouette(run: Run) -> None:
     yellow = yellow_mask(rgb)
     assert iou(yellow, footprint_mask(driver.EDIT_A_WIDE, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert iou(yellow, footprint_mask(driver.EDIT_A_YELLOW, driver.TOP, rgb.shape, dpr)) < 0.5
-    assert step["uploads_delta"] == 1
+    assert step["uploads_delta"] == 2  # the replaced item's sides and cap
     assert step["picks"]["a"]["hit"] == "a"
 
 
@@ -251,9 +254,34 @@ def test_remove_clears_the_item(run: Run) -> None:
     rgb, dpr = _frame(run, step)
     assert int(yellow_mask(rgb).sum()) == 0 and int(red_mask(rgb).sum()) == 0
     assert iou(blue_mask(rgb), footprint_mask(driver.EDIT_B, driver.TOP, rgb.shape, dpr)) >= 0.95
-    assert [part["id"] for part in step["engine_parts"]] == ["b"]
+    assert [part["id"] for part in step["engine_parts"]] == ["b", "b"]
     assert step["picks"]["gone"]["hit"] is None and step["picks"]["b"]["hit"] == "b"
     assert step["uploads_delta"] == 0
+
+
+def test_a_raised_pool_shows_the_plans_water(run: Run) -> None:
+    """#627's manual pass: a raised pool's water showed one texel of its picture.
+
+    ``_water`` gave the mesh no UVs, so ``texture(uFill, UV0)`` read the corner
+    texel of the water texture for ever - a flat, darker blue the owner read as
+    "the water became unreflective". Here the water region's luma must VARY (the
+    plan's caustics) and average the fill colour.
+    """
+    step = run[0]["scenarios"]["pond"]["top"]
+    rgb, dpr = _frame(run, step)
+    # the scenario's OWN record: a footprint or params drift would silently mis-cover
+    # the mask (and the fill the scenario reports is the one this checks)
+    record = driver.pond_record()
+    assert list(record.material.fill_rgba) == run[0]["scenarios"]["pond"]["fill"]
+    inside = footprint_mask(record, driver.TopDownShot((0.0, 0.0), 2.0), rgb.shape, dpr)
+    water = inside & (rgb[:, :, 2].astype(int) - rgb[:, :, 0].astype(int) > 40)
+    assert int(water.sum()) > 20_000, "the pond's water must be in the frame"
+    pixels = rgb[water][:, :3].astype(float)
+    luma = pixels @ np.asarray([0.2126, 0.7152, 0.0722])
+    assert float(luma.std()) > 4.0, "the water is a flat colour: its UVs sample one texel"
+    # lit and reflected by the water shader, so darker than the raw fill colour -
+    # the check is only that it is water, not black or white
+    assert 20.0 < float(luma.mean()) < 200.0
 
 
 def test_an_item_removed_and_added_again_renders_and_picks(run: Run) -> None:
@@ -265,7 +293,7 @@ def test_an_item_removed_and_added_again_renders_and_picks(run: Run) -> None:
     before, _ = _frame(run, steps["3_replace"])
     after, _ = _frame(run, step)
     assert float(np.abs(after - before).mean()) < 0.5
-    assert step["uploads_delta"] == 1, "a re-added item gets FRESH geometry"
+    assert step["uploads_delta"] == 2, "a re-added item gets FRESH geometry (sides + cap)"
     assert step["picks"]["a"]["hit"] == "a" and step["picks"]["b"]["hit"] == "b"
     assert step["picks"]["a"]["point"] == pytest.approx([-250.0, -150.0, 80.0], abs=0.5)
 
@@ -284,7 +312,7 @@ def test_reset_then_the_same_items_again_renders_and_picks(run: Run) -> None:
     before, _ = _frame(run, steps["5_readd"])
     after, _ = _frame(run, step)
     assert float(np.abs(after - before).mean()) < 0.5
-    assert step["uploads_delta"] == 2
+    assert step["uploads_delta"] == 4  # two items, sides + cap each
     assert step["state_equals_expected"] is True
     assert step["picks"]["a"]["hit"] == "a" and step["picks"]["b"]["hit"] == "b"
 
@@ -307,7 +335,7 @@ def test_an_engine_call_that_fails_mid_transaction_is_recovered_by_reset(run: Ru
 
     # half applied: "c" was built before the failure, "d" was not, "a" was not moved
     half = recovery["half_applied"]
-    assert sorted(part["id"] for part in half["engine_parts"]) == ["a", "b", "c"]
+    assert sorted({part["id"] for part in half["engine_parts"]}) == ["a", "b", "c"]
     rgb, dpr = _frame(run, half)
     assert iou(red_mask(rgb), footprint_mask(driver.EDIT_A, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert iou(yellow_mask(rgb), footprint_mask(driver.RECOVERY_C, driver.TOP, rgb.shape, dpr)) >= 0.95
@@ -327,7 +355,7 @@ def test_an_engine_call_that_fails_mid_transaction_is_recovered_by_reset(run: Ru
                        tuple(p["tint"]), p["casts"]) for p in parts)
 
     assert rows(after["engine_parts"]) == rows(after["expected_parts"])
-    assert [p["id"] for p in after["engine_parts"]].count("c") == 1, "no orphan of the failed call"
+    assert [p["id"] for p in after["engine_parts"]].count("c") == 2, "no orphan of the failed call"
     assert all(p["geometry"] and p["visible"] for p in after["engine_parts"])
     rgb, dpr = _frame(run, after)
     red = footprint_mask(driver.EDIT_A_MOVED, driver.TOP, rgb.shape, dpr)
@@ -457,7 +485,7 @@ def test_our_projection_agrees_with_the_engines(run: Run) -> None:
 # ── G9: errors are loud; a clean run is silent ───────────────────────────────
 
 
-OFFSCREEN_SCENARIOS = ("truth", "materials", "rest")
+OFFSCREEN_SCENARIOS = ("truth", "materials", "fill", "pond", "rest")
 SHOWN_SCENARIOS = ("states", "edits", "recovery", "pick", "sun", "shown_materials")
 
 
@@ -668,3 +696,64 @@ def test_the_run_names_its_graphics_device(run: Run) -> None:
     expected = {"win32": "Direct3D11", "linux": "OpenGL"}.get(sys.platform)
     if expected is not None:
         assert {frame["graphics_api"] for frame in frames} == {expected}
+
+
+# ── #628 follow-up: the item's own fill on a raised solid ────────────────────
+
+#: The shot ``scenario_fill`` renders: the same 1000 x 400 top-down frame the owner's
+#: metric came from (two 300 cm squares at 40 cm, one GRASS and one SOLID).
+FILL_SHOT = TopDownShot((0.0, 0.0), 0.5)
+
+
+def _fill_box(rgb: np.ndarray, dpr: float, east_cm: float) -> tuple[slice, slice]:
+    """The interior of the square at ``east_cm`` in a rendered frame (device pixels)."""
+    x, y = top_down_pixel(east_cm, 0.0, FILL_SHOT, (rgb.shape[1], rgb.shape[0]), dpr)
+    half = 150.0 * FILL_SHOT.px_per_cm * dpr * 0.8   # 80 % of the half side: inside the top
+    return (slice(int(y - half), int(y + half)), slice(int(x - half), int(x + half)))
+
+
+def _fill_luma(rgb: np.ndarray) -> np.ndarray:
+    return 0.299 * rgb[:, :, 0] + 0.587 * rgb[:, :, 1] + 0.114 * rgb[:, :, 2]
+
+
+def test_a_raised_solid_shows_the_items_own_fill(run: Run) -> None:
+    """The owner's metric, on the real engine: the patterned top varies, the flat twin
+    of the same colour does not, and both average the fill colour. A white slab — the
+    picture never reaching the Model — reads std 0.0 (PF-L3D-17)."""
+    fill = run[0]["scenarios"]["fill"]
+    rgb, dpr = _frame(run, fill["top"])
+    luma = _fill_luma(rgb)
+    grass = luma[_fill_box(rgb, dpr, -400.0)]
+    solid = luma[_fill_box(rgb, dpr, 400.0)]
+    print(f"\nfill: GRASS std {grass.std():.2f} mean {grass.mean():.1f}; "
+          f"SOLID std {solid.std():.2f} mean {solid.mean():.1f}")
+    assert grass.std() > 5.0, "the raised lawn is a flat colour: its fill picture is not on the Model"
+    assert solid.std() < 0.5, "a SOLID fill must stay flat"
+    assert abs(grass.mean() - solid.mean()) < 4.0, "the picture's mean must be the fill colour"
+
+
+def test_a_faded_raised_lawn_ghosts_in_its_colour_not_white(run: Run) -> None:
+    """X-ray fades a solid to a screen door of its COLOUR (FR-3D-BUILT-09). The door
+    samples no picture, so the fade's tint must be the fill colour: left white, the
+    ghost reaches 255 (measured before the fix)."""
+    fill = run[0]["scenarios"]["fill"]
+    rgb, dpr = _frame(run, fill["faded"])
+    ghost = _fill_luma(rgb)[_fill_box(rgb, dpr, -400.0)]
+    print(f"\nfaded fill: max {ghost.max():.1f} p90 {np.percentile(ghost, 90):.1f}")
+    assert ghost.max() < 235.0, "a white ghost: the faded fill part lost its colour"
+
+
+def test_one_fill_picture_per_pattern_and_colour(run: Run) -> None:
+    """The lifetime rule, on a live host: one picture per (pattern, colour), a recolour
+    makes the second and lets the first go, and a removal takes the last one — no
+    picture per colour left behind, and no geometry upload for a material change."""
+    lifetime = run[0]["scenarios"]["fill"]["lifetime"]
+    print(f"\nfill lifetime: {lifetime}")
+    assert lifetime == {
+        "alive_after_add": 1,
+        "uploads_after_add": 1,
+        "alive_after_recolour": 1,
+        "uploads_after_recolour": 2,
+        "geometry_uploads": 1,
+        "alive_after_remove": 0,
+    }

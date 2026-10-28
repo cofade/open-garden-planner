@@ -474,21 +474,6 @@
     "state": "MERGED",
     "title": "feat: add agent layers and shape creation tools"
   },
-  "353": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Follow-up: live MCP QA findings for reload counts and concurrent deletes"
-  },
-  "354": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Follow-up: CI performance threshold is flaky for snap spatial index"
-  },
-  "355": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Follow-up: bound MCP callout box offsets before Qt geometry"
-  },
   "356": {
     "is_pr": false,
     "state": "CLOSED",
@@ -499,45 +484,10 @@
     "state": "OPEN",
     "title": "Norton 360 detects Open Garden Planner 1.27.9 as FileRepMalware[Misc]"
   },
-  "360": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#353,#355): harden MCP history, deletion, and callout input"
-  },
-  "361": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-D2.6): agent geometry escape hatches (#330)"
-  },
-  "362": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "US-D2.7: get_history - expose the undo/redo stack to the agent (Package D2, epic #237)"
-  },
   "364": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "HOUSE roof ridge drifts off its polygon on vertex edits and never recovers on undo/redo (membrane projection, not recompute)"
-  },
-  "365": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Agent API gaps from the #361 manual pass: new_plan, open_plan, and agent-writable layer lock (policy reversal)"
-  },
-  "368": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-G1,G2,G3): plant data attribution, profile header, and Permapeople companions"
-  },
-  "369": {
-    "is_pr": true,
-    "state": "CLOSED",
-    "title": "feat(US-D3.1,D2.7): agent domain intelligence tools + get_history"
-  },
-  "370": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-D3.1,D2.7): agent domain-intelligence tools + get_history"
   },
   "372": {
     "is_pr": false,
@@ -548,11 +498,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "App shutdown waits ~10 seconds for the Agent API server thread"
-  },
-  "374": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-D3.2): succession agent tools — first agent write into ProjectData (#331)"
   },
   "375": {
     "is_pr": false,
@@ -569,20 +514,10 @@
     "state": "CLOSED",
     "title": "Plant/shape drag preview is drawn behind beds and objects — invisible until you release"
   },
-  "378": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Crop rotation panel ignores an existing succession plan"
-  },
   "379": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Retire the hand-made dogfood fixture once bundled examples exist (#316)"
-  },
-  "380": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Agent writes are not canvas-clamped: an object can be created or moved entirely off-plan and becomes invisible"
   },
   "382": {
     "is_pr": true,
@@ -624,40 +559,15 @@
     "state": "CLOSED",
     "title": "fill_translations.py: 5 duplicate context keys drop 62 translations; German PDF 'Garden Notes' page prints 5 strings in English (Audit 2026-10, epic #392)"
   },
-  "394": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Text annotations are not saved to the .ogp file (TextItem missing from ProjectManager serializer) (Audit 2026-10, epic #392)"
-  },
-  "395": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Array tools (grid/linear/circular/along-path) have zero test coverage behind their modal dialogs (Audit 2026-10, epic #392)"
-  },
   "396": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Agent API: make Host/Origin (DNS-rebinding) validation explicit, test it, and raise the mcp floor to >=1.23 (Audit 2026-10, epic #392)"
   },
-  "397": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Loader silently drops items it cannot decode: a legacy plan whose background image moved loses it on load and permanently on the next save; duplicate item_ids accepted (Audit 2026-10, epic #392)"
-  },
-  "398": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "skills: CI job count, 'no token auth' and 'ADR-001…034' statements contradict ci.yml / server.py / docs/09 (Audit 2026-10, epic #392)"
-  },
   "399": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "'Never merge on red' is prose-only: required status checks are off on master, merges use --admin, PR #323 merged on a red Test (Audit 2026-10, epic #392)"
-  },
-  "400": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Copy/paste drops spacing override, frost flag, label visibility, fence style and skips Arc/Bezier/Group items (clipboard serializer diverged from file serializer) (Audit 2026-10, epic #392)"
   },
   "401": {
     "is_pr": false,
@@ -668,11 +578,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "CI: coverage is declared (>80 % non-UI) but never measured — add a coverage job with per-package floors (Audit 2026-10, epic #392)"
-  },
-  "403": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Opening a corrupt .ogp leaves a partial scene under the previous file's name — Ctrl+S overwrites the good plan (Audit 2026-10, epic #392)"
   },
   "404": {
     "is_pr": false,
@@ -709,16 +614,6 @@
     "state": "MERGED",
     "title": "fix(#393,#408,#410): localize shared-service display strings; enforce translation-key uniqueness; full-tree ruff"
   },
-  "412": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(core): harden serialization, clipboard unification, and atomic plan loading (#394, #400, #397, #403)"
-  },
-  "414": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Task calendar: GUI task surfaces miss every frost-relative window anchored on another year's frost (TD-037)"
-  },
   "415": {
     "is_pr": false,
     "state": "CLOSED",
@@ -738,11 +633,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Plant data: convert the harvest offsets to their true reading (split from #416)"
-  },
-  "419": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#414,#415,#395,#396,#398): task-date correctness and audit P1s"
   },
   "421": {
     "is_pr": true,
@@ -798,6 +688,16 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
+  },
+  "443": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Bed membership is not reconciled on many edit paths (a bed that changes, most ways of moving or copying a plant)"
+  },
+  "444": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "The 2D shadow of a closed-loop fence or wall covers the whole enclosed area"
   },
   "445": {
     "is_pr": false,
@@ -898,6 +798,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "The installed app aborts at exit (0xC0000409, \"QThread: Destroyed while thread is still running\") when it is closed while its update check is in flight"
+  },
+  "481": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A plant inside a raised bed without a link to the bed reads 0 hours of sun and gets a \"too little sun\" warning"
   },
   "482": {
     "is_pr": false,
@@ -1334,6 +1239,11 @@
     "state": "OPEN",
     "title": "Gravel texture reads as wet bubbles in shade at walk height (owner taste)"
   },
+  "620": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Mutation check: \"the heatmap's worker drops the base\" survives (pre-existing on master)"
+  },
   "621": {
     "is_pr": false,
     "state": "OPEN",
@@ -1353,6 +1263,21 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Flaky G6 memory-growth gate on windows-latest CI (WARP): 2.06 MB/cycle vs 2.0 bound"
+  },
+  "627": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#444, #481, #620, #628, #629): the 2D sun study's geometry, plant stacking and object heights"
+  },
+  "628": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A generic shape, an in-ground bed, a terrace or a pool cannot be given a height: the Height field can never appear"
+  },
+  "629": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A plant is hidden behind a raised bed, container, wall planter or trellis drawn around it (only the in-ground garden bed keeps it visible)"
   },
   "630": {
     "is_pr": true,

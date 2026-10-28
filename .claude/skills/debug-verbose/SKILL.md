@@ -1019,9 +1019,9 @@ Three brand-new fields were declared on the dataclass (US-12.10d) but never adde
 
 **Key signal**: in the live session, both bed and plant had `zValue() == 0`. The plant was on top. After load, both still had `zValue() == 0` — but the bed was on top. So the *tie-break* between same-z items had flipped between sessions.
 
-**Root cause**: `ui/canvas/canvas_scene.py:1214` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
+**Root cause**: `ui/canvas/canvas_scene.py:1337` `_refresh_layer_z` set every item's z to `layer.z_order * 100` (since revised by #338/ADR-043 into a per-item ranked z within that band — §8.25). Items in the same layer get *the same z*. Qt's `QGraphicsScene` then tie-breaks by item insertion order. The live session inserts bed first, then plant — plant on top. The post-load reconstruction inserts items in scene-traversal order from the saved JSON, which is reversed by serialization, putting the plant first and the bed on top.
 
-**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:1151` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
+**Fix**: Add a third pass in `_update_items_z_order` (mirroring the existing ROOF_RIDGE special case, now `ui/canvas/canvas_scene.py:1228` `ROOF_RIDGE` inside `_stack_entries` since #338/ADR-043's rewrite — §8.25) that walks every item with `_parent_bed_id` set and bumps its z to `parent.zValue() + 1`. Now plants always have a strictly higher z than their bed, regardless of insertion order.
 
 **Lesson**: Identical zValues are a footgun across save/load boundaries because `QGraphicsScene` tie-breaks by *insertion order*, which is **not stable** between live mutation order and JSON-load order. Whenever a parent-child draw relationship matters, encode it explicitly via `parent.zValue() + 1` — never rely on "I inserted them in the right order, it'll just work". Pattern: anywhere `_update_items_z_order` touches multiple item categories, add an explicit ordering pass per parent-child relationship.
 
@@ -4485,3 +4485,34 @@ call had occurred. Windows started the native app minimized, so the product
 correctly paused its controller and forge. The test's user-entry helper now
 restores a minimized window before entering 3D. It keeps every rest condition,
 uses a real QWidget regression, and removes temporary hide-stack instrumentation.
+
+## Case study: a plant vanished behind the bed drawn around it (#629)
+
+**Symptom.** The owner's manual pass on #627: a raised bed, container, wall planter or
+trellis drawn AROUND a standing plant hid it in 2D. 3D still drew the plant on the soil,
+and its sun badge was gone with it. A click at the plant's centre selected the bed.
+**Wrong theory.** A paint or z-value problem in the bed's fill — repainting the bed, or
+forcing the plant's `zValue()` up at the click site, changed nothing that lasted. So did
+"the clamp will lift it when the bed is added": the bed was added after the plant.
+**Evidence.** A two-line dump of the two z values was enough:
+`plant 0.0000100` / `RAISED_BED 0.0000200` for all five parent types, while `GARDEN_BED`
+read `-750.0000000` — the ground band, which is why the in-ground bed looked immune. The
+clamp in `core.stacking.normalize_order` was doing exactly what it was told: it follows
+`StackEntry.parent_id`, and `_stack_entries` filled that from `parent_bed_id` only. The
+owner's gesture makes no link (#443), so the entry had no parent and the plant sorted
+below a newer bed.
+**Root cause.** The clamp's parent was BOOKKEEPING (the link), while the question the
+user asks — "which bed is this plant in?" — is GEOMETRY, which the lift and the sun
+estimate already answer geometrically (`footprints.standing_point` +
+`shape_contains`). Three subsystems, three answers.
+**Fix.** One answer: `CanvasScene._derived_plant_parent` (link, else the smallest
+plant-parent whose outline contains the stable centre) is asked by the derivation AND by
+the per-command check that compares a plant's z with that parent's — so the check cannot
+measure a different rule than the thing it checks. `Command.changes_containment` scopes
+the scan (adds/deletes neutral), and the parents' shapes are cached for the pass: without
+that cache the adversarial plan cost 1.7 s per command instead of 133 ms.
+**Lesson.** When a user says "X is not on top of Y", first ask WHICH SUBSYSTEM answers
+"which Y is X in" — and make them all call the same function. A symptom that spares one
+object TYPE is a classification difference, not a rendering bug. And a probe that
+re-implements the derivation is a second truth waiting to drift; compare against the
+derivation's own output instead.

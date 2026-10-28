@@ -170,7 +170,7 @@ def test_a_camera_that_is_none_is_refused(call) -> None:
 def test_a_ray_from_above_meets_the_top_and_one_from_the_side_the_face() -> None:
     scene = scene_of(box("a", 100.0, 200.0, 80.0, 60.0, 150.0))
     top = cast(scene, down_at(110.0, 190.0))
-    assert top is not None and top.item_id == "a" and top.part_index == 0
+    assert top is not None and top.item_id == "a" and top.part_index == 1  # the fill cap
     assert top.point == pytest.approx((110.0, 190.0, 150.0)) and top.distance_cm == pytest.approx(4850.0)
     side = cast(scene, Ray((-500.0, 200.0, 40.0), (1.0, 0.0, 0.0)))
     assert side is not None and side.point == pytest.approx((60.0, 200.0, 40.0))

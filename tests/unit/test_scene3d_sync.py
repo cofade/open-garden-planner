@@ -297,7 +297,7 @@ class TestMinimalCalls:
                                        ("commit", None)]
         assert builder.calls == ["a", "b", "c"]
         assert sink_of(sync).item("c").parts == ()  # no height: in the engine's books, no solid
-        assert len(sink_of(sync).item("a").parts) == 1
+        assert sink_of(sync).item("a").parts  # the default solid: sides + cap (#627)
 
     def test_unchanged_scene_makes_no_call_at_all(self, sync, builder) -> None:
         sync.apply(scene(record("a"), record("b")))
@@ -485,7 +485,7 @@ class TestReset:
         assert sync.failures == {}
         builder.fail_for = set()
         sync.apply(scene(record("h", kind="HOUSE")))  # same geometry: built again, now fine
-        assert sync.failures == {} and len(sink_of(sync).item("h").parts) == 1
+        assert sync.failures == {} and sink_of(sync).item("h").parts
 
     def test_reset_on_an_empty_sync(self, sync) -> None:
         sync.reset()
@@ -527,7 +527,7 @@ class TestBuilderFailure:
         assert sink_of(sync).ops() == [("begin", None), ("add", "a"), ("add", "h"), ("add", "b"),
                                        ("commit", None)]
         assert sink_of(sync).item("h").parts == ()
-        assert len(sink_of(sync).item("a").parts) == len(sink_of(sync).item("b").parts) == 1
+        assert sink_of(sync).item("a").parts and len(sink_of(sync).item("a").parts) == len(sink_of(sync).item("b").parts)
         failure = sync.failures["h"]
         assert failure == BuildFailure("h", "HOUSE", "RuntimeError", "cannot build HOUSE")
         assert "cannot build HOUSE" in caplog.text and "'h'" in caplog.text
@@ -600,7 +600,7 @@ class TestBuilderFailure:
         sync.apply(scene(record("h", kind="HOUSE")))
         builder.fail_for = set()
         sync.apply(scene(record("h", kind="HOUSE", height_cm=300.0)))
-        assert sync.failures == {} and len(sink_of(sync).item("h").parts) == 1
+        assert sync.failures == {} and sink_of(sync).item("h").parts
 
     def test_removing_the_item_clears_its_failure(self, sync, builder) -> None:
         builder.fail_for = {"HOUSE"}
@@ -677,7 +677,7 @@ class TestBuilderFailure:
         assert isinstance(failure, BuildFailure) and failure.error_type == "ValueError"
         assert "not a simple polygon" in failure.error_message
         assert sink_of(sync).item("h").parts == ()
-        assert len(sink_of(sync).item("a").parts) == 1
+        assert sink_of(sync).item("a").parts  # sides + cap (#627)
         for item in sink_of(sync).state().items.values():
             for part in item.parts:
                 part.validate()

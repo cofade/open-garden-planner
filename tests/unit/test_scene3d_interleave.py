@@ -47,7 +47,8 @@ def _record(ring: tuple[tuple[float, float], ...], height: float, shape: str = "
 def _default_meshes() -> list[tuple[str, Mesh]]:
     """Meshes from the DEFAULT builder — what the engine is handed today."""
     cases = [("square", SQUARE, 100.0), ("bar", BAR, 50.0), ("l-shape", L_SHAPE, 240.0)]
-    return [(name, default_builder(_record(ring, height))[0].mesh) for name, ring, height in cases]
+    return [(name, Mesh.merge([part.mesh for part in default_builder(_record(ring, height))]))
+            for name, ring, height in cases]
 
 
 MESHES = _default_meshes()

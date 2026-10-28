@@ -48,7 +48,7 @@ from open_garden_planner.ui.view3d.quick3d.adapter import (
     PartSpec,
     Quick3DSink,
 )
-from open_garden_planner.ui.view3d.quick3d.materials import WHITE
+from open_garden_planner.ui.view3d.quick3d.materials import WHITE, part_tint
 
 SQUARE = ((-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0))
 RED = Material("SHED", fill_rgba=(200, 30, 30, 255))
@@ -61,6 +61,7 @@ class FakePart:
     pose: EnginePose
     tint: tuple[int, int, int, int]
     alive: bool = True
+    fill: tuple[str | None, tuple[int, int, int, int]] | None = None
 
 
 class EngineGone(RuntimeError):
@@ -142,6 +143,19 @@ class FakeScene:
         handle.tint = tint_rgba
         self.calls.append(("tint", handle.spec.item_id))
 
+    def set_part_fill(self, handle: object, pattern: str | None,
+                      tint_rgba: tuple[int, int, int, int]) -> None:
+        self._alive("set_part_fill")
+        assert isinstance(handle, FakePart) and handle.alive
+        handle.fill = (pattern, tint_rgba)
+        self.calls.append(("fill", handle.spec.item_id, pattern))
+
+    def release_fill(self, pattern: str | None, tint_rgba: tuple[int, int, int, int]) -> None:
+        if self.dead:  # a release, like destroy_part: nothing to do on a gone engine
+            return
+        self._alive("release_fill")
+        self.calls.append(("release_fill", pattern, tint_rgba))
+
     def set_sun(self, travel: tuple[float, float, float] | None) -> None:
         self._alive("set_sun")
         self.sun = travel
@@ -170,9 +184,9 @@ class FakeScene:
 
 
 def _prism(height: float = 100.0, *, tinted: bool = True, kind: str = "vc",
-           casts: bool = True, name: str = "prism") -> MeshPart:
+           casts: bool = True, name: str = "prism", fill: bool = False) -> MeshPart:
     return MeshPart(prism_mesh([SQUARE], height), kind, casts_shadow=casts, tinted=tinted,
-                    name=name)
+                    name=name, fill_texture=fill)
 
 
 @pytest.fixture()
@@ -369,6 +383,81 @@ class TestUpdates:
         assert sink.geometry_uploads == 2
 
 
+class TestTheItemsOwnFill:
+    """``MeshPart.fill_texture`` (#628 follow-up): the raised object keeps its texture.
+
+    The sink hands the Model the item's picture — its fill pattern tinted with the
+    fill colour, or that colour alone for SOLID — and refcounts the picture, so a
+    recolour or a plan edit does not leave one behind.
+    """
+
+    GRASS = Material("LAWN", fill_rgba=(90, 160, 60, 255), pattern="GRASS")
+    SOIL = Material("GARDEN_BED", fill_rgba=(120, 80, 40, 255), pattern="SOIL")
+    SOLID = Material("TERRACE_PATIO", fill_rgba=(150, 140, 130, 255), pattern="SOLID")
+
+    def test_a_fill_part_gets_the_items_picture_and_no_tint(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        sink, scene = rig
+        sink.begin()
+        sink.add("lawn", (_prism(fill=True, tinted=False),), Transform(), self.GRASS)
+        (part,) = scene.of("lawn")
+        assert part.fill == ("GRASS", (90, 160, 60, 255))
+        assert part.tint == WHITE, "the picture carries the colour; nothing is tinted on top"
+        assert sink.fill_pictures() == (("GRASS", (90, 160, 60, 255)),)
+
+    def test_solid_fill_has_no_picture_and_the_flat_colour(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        """A raised generic shape with a SOLID fill: no texture exists, so the host
+        paints the fill colour — the same flat look the 2D canvas gives it."""
+        sink, scene = rig
+        sink.begin()
+        sink.add("terrace", (_prism(fill=True, tinted=False),), Transform(), self.SOLID)
+        (part,) = scene.of("terrace")
+        assert part.fill == (None, (150, 140, 130, 255))
+
+    def test_a_recolour_swaps_the_picture_and_uploads_no_geometry(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        sink, scene = rig
+        sink.begin()
+        sink.add("bed", (_prism(fill=True, tinted=False),), Transform(), self.SOIL)
+        uploads, models = sink.geometry_uploads, list(scene.of("bed"))
+        scene.calls.clear()
+        sink.update_material("bed", self.GRASS)
+        assert scene.of("bed") == models and sink.geometry_uploads == uploads
+        assert scene.calls == [
+            ("fill", "bed", "GRASS"),
+            ("release_fill", "SOIL", (120, 80, 40, 255)),
+        ]
+        assert sink.fill_pictures() == (("GRASS", (90, 160, 60, 255)),)
+
+    def test_one_picture_is_shared_and_released_with_its_last_user(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        """Two lawns of one colour are one picture; the first removal frees nothing."""
+        sink, scene = rig
+        sink.begin()
+        sink.add("a", (_prism(fill=True, tinted=False),), Transform(), self.GRASS)
+        sink.add("b", (_prism(fill=True, tinted=False),), Transform(), self.GRASS)
+        assert sink.fill_pictures() == (("GRASS", (90, 160, 60, 255)),)
+        scene.calls.clear()
+        sink.remove("a")
+        assert not [call for call in scene.calls if call[0] == "release_fill"]
+        sink.remove("b")
+        assert [call for call in scene.calls if call[0] == "release_fill"] == [
+            ("release_fill", "GRASS", (90, 160, 60, 255)),
+        ]
+        assert sink.fill_pictures() == ()
+
+    def test_a_clear_frees_every_picture_without_asking_one_by_one(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        """The host's clear() drops them all; the sink's books say so."""
+        sink, scene = rig
+        sink.begin()
+        sink.add("a", (_prism(fill=True, tinted=False),), Transform(), self.GRASS)
+        sink.commit()
+        sink.clear()
+        assert sink.fill_pictures() == () and scene.parts == []
+
+
 class TestSunAndGround:
     def test_the_light_travels_away_from_the_sun_in_the_engine_frame(
             self, rig: tuple[Quick3DSink, FakeScene]) -> None:
@@ -536,7 +625,7 @@ class TestStateAndTeardown:
         sink.attach(new)
         assert sink.scene is new
         sync.apply({"a": record})
-        assert [p.spec.item_id for p in new.parts] == ["a"] and len(old.parts) == 1  # old: untouched
+        assert [p.spec.item_id for p in new.parts] == ["a", "a"] and len(old.parts) == 2  # old: untouched
 
     def test_attach_refuses_a_sink_that_still_holds_something(
             self, rig: tuple[Quick3DSink, FakeScene]) -> None:
@@ -672,7 +761,7 @@ class TestThroughSceneSync:
         sync.apply({"a": self._record("a")})
         scene.calls.clear()
         sync.apply({"a": self._record("a", east=10.0)})
-        assert scene.calls == [("pose", "a"), ("frame",)]
+        assert scene.calls == [("pose", "a"), ("pose", "a"), ("frame",)]  # sides + cap
 
     def test_a_failing_engine_poisons_the_sync_until_it_is_cleared_and_reset(self) -> None:
         scene = FakeScene(fail_on_create=2)
@@ -687,7 +776,7 @@ class TestThroughSceneSync:
         assert not sync.poisoned and scene.parts == [] and sink.item_ids() == ()
         scene.fail_on_create = None
         sync.apply({"a": self._record("a")})
-        assert [p.spec.item_id for p in scene.parts] == ["a"]
+        assert [p.spec.item_id for p in scene.parts] == ["a", "a"]  # sides + cap (#627)
         assert sink.state() == sync.expected_state()
 
     def _engine_matches(self, scene: FakeScene, sync: SceneSync) -> None:
@@ -695,7 +784,7 @@ class TestThroughSceneSync:
         drawable mesh part of ``expected_state()``, with its pose and tint."""
         expected = sync.expected_state()
         want = sorted((item_id, index, engine_pose(held.transform),
-                       held.material.tint_rgba if part.tinted else WHITE)
+                       part_tint(part, held.material))
                       for item_id, held in expected.items.items()
                       for index, part in enumerate(held.parts) if part.mesh.vertex_count)
         have = sorted((p.spec.item_id, p.spec.part_index, p.pose, p.tint) for p in scene.parts)
@@ -706,10 +795,11 @@ class TestThroughSceneSync:
 
     @pytest.mark.parametrize(("call", "trigger"), [
         ("create_part", "add"), ("create_part", "replace"), ("pose_part", "move"),
-        ("tint_part", "recolour"), ("set_sun", "sun"), ("set_ground", "ground"),
+        ("set_part_fill", "recolour"), ("release_fill", "recolour"),
+        ("set_sun", "sun"), ("set_ground", "ground"),
         ("request_frame", "move"),
-    ], ids=["add", "replace_geometry", "update_transform", "update_material", "set_sun",
-            "set_ground", "commit"])
+    ], ids=["add", "replace_geometry", "update_transform", "update_material",
+            "release_fill", "set_sun", "set_ground", "commit"])
     def test_any_engine_call_failing_mid_transaction_is_recovered_by_reset(
             self, call: str, trigger: str) -> None:
         """The L1.1 recipe for a sink (its report, F.2): make ONE engine call fail in the
@@ -739,7 +829,10 @@ class TestThroughSceneSync:
         elif trigger == "move":
             after.update(a=self._record("a", east=40.0), b=self._record("b", 340.0))
         elif trigger == "recolour":
-            after.update(a=self._record("a", colour=(1, 2, 3, 255)))
+            # BOTH items: the old fill picture has two users, so it is released only
+            # when the second one moves — the case a picture's lifetime rests on
+            after.update(a=self._record("a", colour=(1, 2, 3, 255)),
+                         b=self._record("b", 300.0, colour=(1, 2, 3, 255)))
         elif trigger == "sun":
             new_sun = SunState(55.0, 200.0)
         else:
@@ -807,10 +900,14 @@ class TestThroughSceneSync:
         sync = SceneSync(Quick3DSink(scene), BuilderRegistry(), validate=True)
         record = self._record("a", height=180.0)
         sync.apply({"a": record})
-        (part,) = scene.parts
-        packed = np.frombuffer(part.spec.buffers.vertex_data, "<f4").reshape(-1, 12)
+        sides, cap = scene.parts
+        packed = np.frombuffer(sides.spec.buffers.vertex_data, "<f4").reshape(-1, 12)
         assert float(packed[:, 1].max()) == 180.0 and float(packed[:, 1].min()) == 0.0  # y = up
-        assert isinstance(part.spec.buffers, EngineBuffers)
+        cap_packed = np.frombuffer(cap.spec.buffers.vertex_data, "<f4").reshape(-1, 12)
+        assert np.all(cap_packed[:, 1] == 180.0)  # the cap: the top face, nothing else
+        for part in scene.parts:
+            assert isinstance(part.spec.buffers, EngineBuffers)
+        assert (sides.spec.name, cap.spec.name) == ("prism_sides", "prism")
 
 
 def test_the_adapter_module_does_not_import_the_engine() -> None:

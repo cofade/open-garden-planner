@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import numpy as np
 import pytest
 from PyQt6.QtGui import QBrush, QColor, QPixmap
 
@@ -12,6 +13,8 @@ from open_garden_planner.core.fill_patterns import (
     _tint_texture,
     clear_texture_cache,
     create_pattern_brush,
+    pattern_from_name,
+    tinted_pattern_pixels,
 )
 
 
@@ -204,6 +207,50 @@ class TestCreatePatternBrush:
         brush = create_pattern_brush(FillPattern.GLASS, QColor(210, 230, 245, 140))
         assert isinstance(brush, QBrush)
         assert not brush.texture().isNull()
+
+
+class TestThe3DFillPicture:
+    """#628 follow-up: a raised object's own faces show the fill it had on the ground.
+
+    The ground bake paints a lawn, path, shape or bed while it lies flat; the moment
+    the user gives it a height it stops being painted there and becomes a solid, so
+    ``tinted_pattern_pixels`` hands the 3D pipeline the very picture the canvas made.
+    """
+
+    def test_solid_has_no_picture(self, qtbot: object) -> None:
+        assert tinted_pattern_pixels(FillPattern.SOLID, QColor(90, 150, 60)) is None
+
+    def test_a_pattern_is_the_canvas_texture_in_rgba(self, qtbot: object) -> None:
+        got = tinted_pattern_pixels(FillPattern.GRASS, QColor(90, 150, 60))
+        assert got is not None
+        width, height, data = got
+        assert (width, height) == (256, 256)
+        assert len(data) == width * height * 4
+        assert data[3::4] == b"\xff" * (width * height), "a solid body is opaque"
+        pixels = np.frombuffer(data, dtype=np.uint8).reshape(height, width, 4)
+        # the mean IS the fill colour — the same rule `_tint_texture` follows in 2D
+        for channel, value in enumerate((90, 150, 60)):
+            assert abs(int(pixels[:, :, channel].mean()) - value) <= 4
+        assert int(pixels[:, :, 1].std()) > 1, "a flat fill would carry no detail"
+
+    def test_the_tile_ruler_and_the_textures_are_one_size(self, qtbot: object) -> None:
+        """UVs are plan centimetres / 256: a texture of another size would stretch."""
+        from open_garden_planner.core.scene3d import PATTERN_TILE_CM
+
+        assert PATTERN_TILE_CM == 256.0
+        for pattern in FillPattern:
+            if pattern == FillPattern.SOLID:
+                continue
+            texture = _load_texture(pattern)
+            assert texture is not None, pattern
+            assert (texture.width(), texture.height()) == (256, 256), pattern
+
+    def test_a_records_pattern_name_resolves(self, qtbot: object) -> None:
+        assert pattern_from_name("GRASS") is FillPattern.GRASS
+        assert pattern_from_name("SOLID") is None
+        assert pattern_from_name(None) is None
+        assert pattern_from_name("") is None
+        assert pattern_from_name("NO_SUCH_PATTERN") is None
 
 
 class TestClearTextureCache:

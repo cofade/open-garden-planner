@@ -41,7 +41,13 @@ from typing import Final, NamedTuple
 import numpy as np
 from numpy.typing import NDArray
 
-from ..build import BuilderRegistry, default_builder, item_seed, prism_mesh
+from ..build import (
+    BuilderRegistry,
+    default_builder,
+    item_seed,
+    raised_surface,
+    uv_origin_of,
+)
 from ..mesh import Mesh, MeshPart
 from ..polygon import cut_region
 from ..record import (
@@ -50,6 +56,7 @@ from ..record import (
     PARAM_RADIUS_CM,
     PARAM_SEED,
     PARAM_SURFACE_PATTERN,
+    PATTERN_TILE_CM,
     SHAPE_CIRCLE,
     Record,
     Ring,
@@ -470,10 +477,14 @@ def _surface(record: Record) -> tuple[MeshPart, ...]:
     if record.height_cm is not None:  # a raised terrace: a solid, its top the height
         top = record.height_cm
         boarded = _deck(record, top, solid=True) if deck else None
-        meshes = boarded if boarded is not None else [prism_mesh(record.footprints, top, record.holes)]
-        mesh = Mesh.merge(meshes)
-        return (MeshPart(mesh, "vc", tinted=True, name="deck" if boarded is not None else "platform"),) \
-            if mesh.vertex_count else ()
+        if boarded is not None:
+            mesh = Mesh.merge(boarded)
+            return (MeshPart(mesh, "vc", tinted=True, name="deck"),) \
+                if mesh.vertex_count else ()
+        # not a deck: the platform shows the item's own fill - a raised driveway or
+        # terrace keeps the texture the ground bake painted while it lay flat (#628),
+        # on its TOP; its sides are the item's tint (no smear down the edge)
+        return raised_surface(record, top, name="platform")
     boarded = _deck(record, DECK_TOP_CM, solid=False) if deck else None
     if boarded is not None:
         return _relief(boarded, "deck")
@@ -515,15 +526,27 @@ def _water_plan(record: Record) -> F64 | None:
     return np.stack(triangles) if triangles else None
 
 
-def _water(plan: F64, level: float) -> Mesh:
-    return flat_mesh(np.concatenate([plan, np.full((len(plan), 3, 1), level)], axis=2),
-                     _shade(0.9), outward=(0.0, 0.0, 1.0))
+def _water(plan: F64, level: float, uv_origin: tuple[float, float] = (0.0, 0.0)) -> Mesh:
+    """The water surface at ``level``, with the plan's UVs (a raised pool shows its
+    own water picture: one texel per vertex would sample a single texel, #627)."""
+    triangles = np.concatenate([plan, np.full((len(plan), 3, 1), level)], axis=2)
+    normalised = np.asarray(uv_origin, dtype=np.float64)
+    uvs = (triangles[:, :, :2] + normalised) / PATTERN_TILE_CM
+    return flat_mesh(triangles, _shade(0.9), outward=(0.0, 0.0, 1.0), vertex_uvs=uvs)
 
 
 def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ...]:
     """A pond the user gave a HEIGHT: a raised pool — a stone wall just inside its
     outline up to the height (a solid: it casts a shadow, as its 2D caster does) and
-    the water a hand under the wall's top."""
+    the water a hand under the wall's top.
+
+    The water shows the item's own FILL picture (``fill_texture``): the plan's
+    water texture tinted with its colour, which the ``water.frag`` look samples as
+    its albedo (and still lights and reflects like water). Without it a raised pond
+    was the fill COLOUR alone — a flat blue slab the owner read as "the water
+    became unreflective" (#627's manual pass): on the ground the same item keeps its
+    picture, and the raised one must too.
+    """
     walls = []
     thick = min(18.0, 0.2 * min(np.ptp(np.asarray(record.footprints[0]), axis=0)))
     regions = pond_regions(record)
@@ -540,9 +563,9 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
             profile = [(thick, 0.0), (thick, height - cut), (thick - cut, height), (cut, height),
                        (0.0, height - cut), (0.0, 0.0)]
             walls.append(sweep(profile, points, palette.STONE.linear, closed=True))
-    water = _water(plan, max(0.5, height - min(6.0, 0.25 * height)))
+    water = _water(plan, max(0.5, height - min(6.0, 0.25 * height)), uv_origin_of(record))
     return (MeshPart(Mesh.merge(walls), "vc", name="walls"),
-            MeshPart(water, "water", casts_shadow=False, tinted=True, name="water"))
+            MeshPart(water, "water", casts_shadow=False, fill_texture=True, name="water"))
 
 
 def _pond(record: Record) -> tuple[MeshPart, ...]:
@@ -748,15 +771,22 @@ def _cutouts(record: Record) -> list[F64]:
 
 
 def _lawn(record: Record) -> tuple[MeshPart, ...]:
-    if record.height_cm is not None:  # a lawn the user gave a height: the plain prism, as before L4
-        return default_builder(record)
+    # A lawn the user gave a height is a solid whose TOP keeps the fill (and its
+    # sides the turf's tint) — and it still grows its sward: the blades are what
+    # made the ground lawn read as grass, and without them the raised one became a
+    # flat textured slab (#627's manual pass). The blades ride the new top.
+    solid: tuple[MeshPart, ...] = ()
+    lift = 0.0
+    if record.height_cm is not None:
+        solid = raised_surface(record, record.height_cm, name="lawn")
+        lift = record.height_cm
     if lawn_blade_share(record.params) == 0:
-        return ()  # Low/Medium: do not synthesize or cache even an empty sward
+        return solid  # Low/Medium: do not synthesize or cache even an empty sward
     seed = str(record.params.get(PARAM_SEED, ""))
     sward = _sward(record.footprints, record.holes, seed, lawn_blade_share(record.params))
     roots = sward.roots
     if not len(roots):
-        return ()
+        return solid
     keep = np.ones(len(roots), dtype=bool)
     for ring in _cutouts(record):
         low, high = ring.min(axis=0) - BLADE_CM, ring.max(axis=0) + BLADE_CM
@@ -767,13 +797,17 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
             keep[index[_inside(roots[index], ring)]] = False
     k = int(keep.sum())
     if not k:
-        return ()
+        return solid
     arrays = sward[1:] if k == len(roots) else tuple(array[keep] for array in sward[1:])
     positions, normals, colors, uvs = arrays
+    if lift:
+        positions = positions.copy()      # the cache's array is shared: never move it
+        positions[:, :, 2] += lift
     indices = (_BLADE_CORNERS[None, :] + (np.arange(k) * 5)[:, None]).reshape(-1)
     mesh = Mesh.from_arrays(positions, normals, colors, uvs, indices)
-    return (MeshPart(mesh, "grass", casts_shadow=False, tinted=True, name=LAWN_BLADES,
-                     ground_detail=True),)
+    return (*solid,
+            MeshPart(mesh, "grass", casts_shadow=False, tinted=True, name=LAWN_BLADES,
+                     ground_detail=True))
 
 
 def clear_lawn_cache() -> None:

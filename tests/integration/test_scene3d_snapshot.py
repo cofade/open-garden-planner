@@ -55,6 +55,8 @@ from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
 from open_garden_planner.core.scene3d import (
     SHAPES,
     Material,
+    Mesh,
+    MeshPart,
     Paint,
     Params,
     Record,
@@ -258,6 +260,13 @@ def _resize_command(item: Any, shape: str, *, keep_center: bool, factor: float =
         old, new = build_rect_resize(item, rect.width() * factor, rect.height() * 0.8,
                                      keep_center=keep_center)
     return ResizeItemCommand(item, old, new, apply_rect_like_geometry)
+
+
+def _solid(parts: tuple[MeshPart, ...]) -> MeshPart:
+    """A builder's parts as one part: the default solid is two Models (#627: tinted
+    sides and a fill cap), and these tests ask the SOLID - its outline, its cap
+    area, its height. Merging them changes neither the winding nor the bounds."""
+    return MeshPart(Mesh.merge([part.mesh for part in parts]), "vc")
 
 
 # ── G1: the diff matrix ───────────────────────────────────────────────────────
@@ -940,7 +949,7 @@ class TestRecordContent:
         # the height the bound still allows — 10 km — is a solid like any other
         shed.metadata[METADATA_KEY] = 1e6
         record = snapshot_records(scene)[str(shed.item_id)]
-        (part,) = default_builder(record)
+        part = _solid(default_builder(record))
         assert record.height_cm == 1e6 and float(part.mesh.bounds()[1][2]) == 1e6
         assert np.isfinite(part.mesh.positions).all()
 
@@ -962,7 +971,7 @@ class TestRecordContent:
         assert "is below what a solid can have" in skipped[0].error_message
         shed.metadata[METADATA_KEY] = 1e-3  # the floor itself: a record, and a solid
         record = snapshot_records(canvas.scene())[str(shed.item_id)]
-        (part,) = default_builder(record)
+        part = _solid(default_builder(record))
         assert float(part.mesh.bounds()[1][2]) == float(np.float32(1e-3))
 
     def test_a_height_of_nothing_is_no_height(self, canvas: CanvasView) -> None:
@@ -1106,7 +1115,7 @@ class TestClosedStrokes:
         # pyclipper's grid — the two inflate the same line in two frames (5e-4);
         # (3) both are the line's length times its width, to 0.5 % — square
         # joins and butt ends are the rest. The slab of the defect was off by 4,350 %.
-        (part,) = verify_builder(default_builder, record)
+        part = _solid(verify_builder(default_builder, record))
         part.validate()
         cap = _cap_area(part.mesh)
         length = sum(math.dist(centre_line[i], centre_line[i + 1]) for i in range(len(centre_line) - 1))
@@ -1157,7 +1166,7 @@ class TestClosedStrokes:
         item.metadata[METADATA_KEY] = 100.0
         record = snapshot_records(canvas.scene())[str(item.item_id)]
         assert len(record.footprints) == 1 and len(record.holes[0]) >= 2
-        (part,) = verify_builder(default_builder, record)
+        part = _solid(verify_builder(default_builder, record))
         assert _cap_area(part.mesh) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         assert _cap_area(part.mesh) == pytest.approx(_signed_area_sum(item_footprints(item)), rel=5e-4)
 
@@ -1188,7 +1197,7 @@ class TestSelfCrossingPolygon:
 
         vertical_sun = compute_scene_shadows([(item_footprints(bow)[0], 300.0)], 89.999, 180.0)
         assert _signed_area_sum(vertical_sun) == pytest.approx(record.plan_area_cm2, rel=1e-6)
-        (part,) = verify_builder(default_builder, record)
+        part = _solid(verify_builder(default_builder, record))
         part.validate()
         assert _cap_area(part.mesh) == pytest.approx(60000.0, rel=1e-6)
         sync = SceneSync(RecordingSink(), validate=True)
@@ -1259,7 +1268,7 @@ class TestSelfCrossingPolygon:
         assert "ridge" not in record.params
         # every region is one a builder can build: the predicate, and the builder itself
         assert all(is_buildable_region(outer, holes) for outer, holes in record.regions)
-        (part,) = verify_builder(default_builder, record)
+        part = _solid(verify_builder(default_builder, record))
         part.validate()
         assert _cap_area(part.mesh) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         sync = SceneSync(RecordingSink(), validate=True)
@@ -1618,7 +1627,7 @@ class TestStrokesThatTouchThemselves:
         assert "outline_resolved" not in record.params
         assert len(record.path) == 6 and record.path_width_cm == 10.0
 
-        (part,) = verify_builder(default_builder, record, plan_margin_cm=0.0)
+        part = _solid(verify_builder(default_builder, record, plan_margin_cm=0.0))
         part.validate()
         assert _cap_area(part.mesh) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         sync = SceneSync(RecordingSink(), validate=True)
@@ -1654,7 +1663,7 @@ class TestStrokesThatTouchThemselves:
         outline = sum(math.dist(ring[i - 1], ring[i]) for ring in drawn for i in range(len(ring)))
         full = _signed_area_sum(drawn)
         assert full - 0.006 * outline <= record.plan_area_cm2 <= full  # the band, and no more
-        (part,) = verify_builder(default_builder, record, plan_margin_cm=0.0)
+        part = _solid(verify_builder(default_builder, record, plan_margin_cm=0.0))
         part.validate()
         assert diff(snapshot, snapshot_records(canvas.scene())).is_empty
 
@@ -2912,9 +2921,10 @@ class TestDefaultBuilderOnRealItems:
         stage.item.metadata[METADATA_KEY] = 187.3
         stage.step()
         parts = verify_builder(default_builder, stage.record)
-        assert len(parts) == 1
-        parts[0].validate()
-        top = float(parts[0].mesh.bounds()[1][2])
+        assert len(parts) == 2  # tinted sides + fill cap (#627)
+        for part in parts:
+            part.validate()
+        top = float(_solid(parts).mesh.bounds()[1][2])
         assert top == float(np.float32(187.3))  # exact, in the float32 the engine receives
 
     def test_a_shape_without_a_height_has_no_solid(self, canvas: CanvasView) -> None:
@@ -2932,7 +2942,7 @@ class TestDefaultBuilderOnRealItems:
         for record in records.values():
             parts = verify_builder(default_builder, record)
             assert bool(parts) is (record.height_cm is not None)
-            solids += len(parts)
+            solids += bool(parts)
         assert solids == sum(1 for r in records.values() if r.height_cm is not None) > 80
 
 
