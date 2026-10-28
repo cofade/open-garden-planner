@@ -2730,6 +2730,18 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
+### Test lifecycle, popup focus, release classification, and 3D workspace modularization — **shipped 2026-10-28 as v1.34.2, PR #632**
+
+One package covers #561, #515, #460, #463, #583, and #580 (closing #447).
+- **#515 / AUD-019 / #447:** Parented CategoryDropdown to CategoryToolbar, reclaiming 870 leaked widgets per cycle on window close and eliminating native access violations during QApplication.setStyleSheet re-polish.
+- **#561:** Suppressed focus-stealing popups during automated test runs via WA_ShowWithoutActivating and WindowDoesNotAcceptFocus.
+- **AUD-018:** Documented formal test layer contract and test-suite hygiene in §8.10.
+- **AUD-038 / AUD-086 / AUD-090:** Added tag disposition validation in 
+elease.yml, documented ADR-050 version derivation evaluation addendum, and enforced check_release_classification.py in CI to differentiate executable changes from chore PRs.
+- **#583:** Split ui/view3d/workspace.py from 2,381 to 1,861 lines by extracting selection, walk, analysis, wipe, and legend coordinators with typed protocols (EngineHost, EngineSink, ShadowsSource, HeatmapSource, SunHoursSource).
+- **#580:** Expanded info card body line budget (BODY_LINES = 8) to keep all fact rows (including harvest window) visible without vertical clipping at the narrowest 455 px split pane width.
+- **#577:** De-scoped for dedicated geometry research; preserved clean ground drape depth occlusion.
+
 ### L4 follow-up hardening — **shipped 2026-10-27 as v1.34.1, PR #630**
 
 One PR covers #611, #607, #604, #617, #624, #618, #609, #600, #603, #626

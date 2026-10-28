@@ -93,9 +93,9 @@ from open_garden_planner.ui.sun_exposure_text import sun_requirement_label
 
 #: A scientific name is clipped like any name, but may be a little longer.
 _SPECIES_MAX_CHARS: Final = 120
-#: Lines of facts the card has room for below its title (the slot's height). Five
-#: since v1 (L2.3): the source of the height, the growth, the sun and the windows.
-BODY_LINES: Final = 5
+#: Lines of facts the card has room for below its title (the slot's height). Eight
+#: so that the sowing/harvest windows and model notes fit at narrow widths (#580).
+BODY_LINES: Final = 8
 #: The height's source when no height is known and an illustrative one is drawn (#557).
 SOURCE_ESTIMATED: Final = "estimated"
 #: The windows the card names (``task_generator._CALENDAR_TASK_DEFS`` types).

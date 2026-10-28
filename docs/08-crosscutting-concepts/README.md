@@ -511,7 +511,14 @@ control fails. See §11.4 (PR #490).
 
 Unit tests and widget tests protect individual components but cannot catch regressions in the interaction between tools, canvas, and scene — the most failure-prone area of the app. Integration tests lock in observed behavior so that refactoring and feature additions don't silently break existing workflows.
 
-### Test location
+### Test layer contract (AUD-018)
+
+The test battery is partitioned into four distinct layers:
+
+1. **`tests/unit/` (Unit Layer)**: Fast, deterministic unit tests verifying isolated models, geometry calculations, algorithms, and services without UI dependencies or full-application initialization.
+2. **`tests/ui/` (UI Component Layer)**: Tests exercising individual UI widgets, dialogs, and collapsible panels in isolation. `tests/ui/test_main_window.py` is the designated smoke test for top-level menu bar actions, status bar feeds, and preview mode switching.
+3. **`tests/integration/` (Integration Layer)**: Mandatory multi-component end-to-end workflows exercising tool gestures, canvas interactions, command/undo chains, file persistence, and 3D pipelines.
+4. **`tests/perf/` (Performance Tier)**: Timing-sensitive performance benchmarks and memory/nfr budget tests deselected by default and run separately under `pytest tests/ -m perf -n 0`.
 
 All integration tests live in `tests/integration/`. Shared fixtures are in `tests/integration/conftest.py`.
 

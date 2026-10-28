@@ -337,3 +337,78 @@ def test_the_hint_stands_where_the_card_would(slot: View3DCardSlot) -> None:
     assert slot.hint() == "" and slot.card.isVisible() and hint.isHidden()
     slot.show_hint("2 objects selected.")
     assert slot.card.isHidden() and slot.card.item_id == "" and slot.hint() == "2 objects selected."
+
+
+# ---------------------------------------------------------------------------
+# Last fact row visibility at narrowest Split width (#580)
+# ---------------------------------------------------------------------------
+
+
+def test_last_fact_row_visible_at_narrowest_split_width(
+    slot: View3DCardSlot, qtbot
+) -> None:
+    """Issue #580: Assert that the info card's last fact row is visible at 455 px Split width.
+
+    A full plant with species, height source, growth, sun hours, sowing and harvest
+    windows must fit within the card's slot height without clipping the last row.
+    """
+    from PyQt6.QtGui import QFont
+
+    from open_garden_planner.ui.view3d.info_card import CardFacts
+
+    # Test with standard desktop UI font
+    desktop_font = QFont("Segoe UI", 9)
+    slot.setFont(desktop_font)
+    slot.card._body.setFont(desktop_font)
+    slot.card._title.setFont(desktop_font)
+
+    # Re-calculate slot height with the desktop font
+    slot.setFixedHeight(slot.card.slot_height())
+    NARROWEST_SPLIT_WIDTH = 455  # 455 px Split pane in 1366 px window (#580)
+    slot.resize(NARROWEST_SPLIT_WIDTH, slot.height())
+
+    plant = record("PERENNIAL", shape="circle", height=160.0, params={"radius_cm": 35.0}, parent="b")
+    tomato = item(
+        "Fleischtomate 'Brandywine'",
+        ObjectType.PERENNIAL,
+        metadata={
+            "plant_species": {
+                "common_name": "Fleischtomate",
+                "scientific_name": "Solanum lycopersicum L.",
+            }
+        },
+    )
+    facts = CardFacts(
+        height_basis="grown",
+        growth=0.85,
+        sun=(390.0, date(2026, 7, 15)),
+        windows=[
+            ("indoor_sow", date(2026, 3, 1), date(2026, 4, 15)),
+            ("direct_sow", date(2026, 5, 15), date(2026, 6, 15)),
+            ("harvest", date(2026, 7, 15), date(2026, 10, 15)),
+        ],
+    )
+    subject = CardSubject(
+        item=tomato,
+        record=plant,
+        has_model=True,
+        parent_name="Northern Raised Bed 1",
+        plan_date=date(2026, 7, 15),
+        facts=facts,
+    )
+
+    slot.show_subject(subject)
+    qtbot.wait(10)
+
+    body = slot.card._body
+    needed = body.heightForWidth(body.width())
+    has = body.height()
+    lines_needed = needed / body.fontMetrics().lineSpacing()
+
+    # The last row (Harvest) must not be clipped off
+    assert needed <= has, (
+        f"Card clipped at width {body.width()} px: "
+        f"{lines_needed:.1f} lines needed but only {has // body.fontMetrics().lineSpacing()} fit"
+    )
+    # The harvest row is actually part of the rows and text
+    assert slot.card.value("Harvest:") is not None or any("Harvest" in r[0] for r in slot.card.rows())
