@@ -187,7 +187,8 @@ def prism_mesh(
 
 
 def _cap_into(
-    vertices: object, triangles: object, height_cm: float, uv_origin: tuple[float, float],
+    vertices: Sequence[Sequence[float]], triangles: Sequence[Sequence[int]], height_cm: float,
+    uv_origin: tuple[float, float],
     positions: list[float], normals: list[float], uvs: list[float],
 ) -> None:
     """Append one region's cap triangles (``cut_region``'s output) to the arrays.
@@ -195,8 +196,8 @@ def _cap_into(
     The one place the cap's float32 sliver rule lives: ``prism_mesh`` and
     ``cap_mesh`` (a raised surface's fill top) must not disagree about a cap.
     """
-    for triangle in triangles:  # type: ignore[union-attr]
-        (ax, ay), (bx, by), (cx, cy) = (vertices[vertex] for vertex in triangle)  # type: ignore[index]
+    for triangle in triangles:
+        (ax, ay), (bx, by), (cx, cy) = (vertices[vertex] for vertex in triangle)
         reach = max(abs(ax), abs(ay), abs(bx), abs(by), abs(cx), abs(cy))
         edges = abs(bx - ax) + abs(by - ay) + abs(cx - ax) + abs(cy - ay)
         if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) <= _FLOAT32_SLIVER * reach * edges:

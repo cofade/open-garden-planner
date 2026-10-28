@@ -626,18 +626,14 @@ class CompoundCommand(Command):
         if not self._commands:
             raise ValueError("CompoundCommand needs at least one command")
         self._description = description
+        # the scene's restack scans ask these of the ONE command it ran: a step that
+        # can move, link or re-type anything must keep asking for them
+        self.changes_ground_band = any(command.changes_ground_band for command in self._commands)
+        self.changes_containment = any(command.changes_containment for command in self._commands)
 
     @property
     def description(self) -> str:
         return self._description or self._commands[0].description
-
-    @property
-    def changes_ground_band(self) -> bool:
-        return any(command.changes_ground_band for command in self._commands)
-
-    @property
-    def changes_containment(self) -> bool:
-        return any(command.changes_containment for command in self._commands)
 
     def execute(self) -> None:
         done: list[Command] = []
