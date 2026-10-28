@@ -96,6 +96,15 @@ pitch, overhang, windows and a door; paths show their surface on the 3D ground a
 their real width; lawns grow individual blades from the Medium preset up. See the
 [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l4-acceptance-highlights--built-world-complete-388-adr-065--shipped-v1340-pr-613).
 
+Patch releases since then: L4 follow-up hardening in
+[v1.34.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.1) via
+[PR #630](https://github.com/cofade/open-garden-planner/pull/630); internal test-lifecycle and
+workspace work in [v1.34.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.2)
+via [PR #632](https://github.com/cofade/open-garden-planner/pull/632); and the 2D sun study's
+geometry, plant stacking and object heights in
+[v1.34.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.3) via
+[PR #627](https://github.com/cofade/open-garden-planner/pull/627) after owner acceptance.
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.
