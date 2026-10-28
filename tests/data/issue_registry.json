@@ -524,16 +524,6 @@
     "state": "CLOSED",
     "title": "Agent API gaps from the #361 manual pass: new_plan, open_plan, and agent-writable layer lock (policy reversal)"
   },
-  "366": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Generalize AI-client onboarding: a target registry plus a vendor-agnostic fallback, instead of one branch per client"
-  },
-  "367": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#366,#365): registry-driven client onboarding + agent document lifecycle tools"
-  },
   "368": {
     "is_pr": true,
     "state": "MERGED",
@@ -819,6 +809,11 @@
     "state": "CLOSED",
     "title": "Plant sprite lookup matches by substring: \"Lemon Balm\" is drawn as a lemon tree, \"Melon\" as an eggplant, \"Bean (Bush)\" as a climbing bean, \"Sweet Potato\" as a potato, a blank species as a rose"
   },
+  "447": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Rare native crash (access violation) in QApplication.setStyleSheet during the test suite under heavy machine load"
+  },
   "448": {
     "is_pr": false,
     "state": "CLOSED",
@@ -848,6 +843,16 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Audit A5: Constraint descriptors and stronger solver assertions (epic #392)"
+  },
+  "460": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Audit A8: Test precision, lifecycle hygiene and test-layer documentation (epic #392)"
+  },
+  "463": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Audit A11: Release attribution, version consistency and release recovery (epic #392)"
   },
   "465": {
     "is_pr": false,
@@ -981,7 +986,7 @@
   },
   "515": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Identify the holder of the test suite's leaked widget graphs (38 271 widgets)"
   },
   "516": {
@@ -1134,6 +1139,11 @@
     "state": "CLOSED",
     "title": "Properties and Plant Details: focused text/numeric editors suppress history refresh"
   },
+  "561": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Testing artifacts and popups"
+  },
   "562": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1164,10 +1174,25 @@
     "state": "CLOSED",
     "title": "pyproject license metadata is deprecated by setuptools (due 2027-02-18)"
   },
+  "577": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "L2 3D: bias the drape's clip depth instead of relying on the 1.5 cm lift"
+  },
+  "580": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "L2: test that the info card's last fact row is visible, not only present"
+  },
   "581": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "One resolver for (height, source) instead of three copies of the precedence ladder"
+  },
+  "583": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Split ui/view3d/workspace.py (selection, walk, analysis, wipe, legend) and type its 2D sources"
   },
   "584": {
     "is_pr": true,
@@ -1333,5 +1358,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#611): 3D hardening after L4 (#607, #604, #617, #624, #618, #609, #600, #603, #626, #536)"
+  },
+  "632": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(test-release-3d): resolve widget leaks (#515), popup focus (#561), release classification (#463), workspace split (#583), info card facts (#580), drape clip bias (#577)"
   }
 }
