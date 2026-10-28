@@ -3557,7 +3557,7 @@ New `MeshPart.fill_texture`: such a part shows the item's own fill — the 2D pa
 the fill colour, or that colour alone for SOLID — supplied by
 `core.fill_patterns.tinted_pattern_pixels` and cached per (pattern, colour), refcounted by the
 sink so a recolour or a removal leaves no picture behind. UVs are (position + paint_origin) / 256 on a
-cap (the canvas's phase) and distance-along-the-ring / height on the walls. A garden bed's soil cap is its
+cap (the canvas's phase); the SIDES are the item's tint (tinted sides + fill cap, no smear down an edge). A garden bed's soil cap is its
 "Boden-Substrat"; a container's soil stays the palette's. Measured on Direct3D 11, 1000 × 400
 top-down, two 300 cm squares at 40 cm: luma std 26.0 for GRASS against 0.0 for SOLID at the same
 mean (121.3 / 120.8). A second owner pass fixed three residues: a raised plain surface is now tinted SIDES + a fill CAP (one prism smeared the picture down the edge), a raised lawn keeps its blades (lifted to the new top; the height gates ignore `ground_detail`), and a raised pool's water samples the plan's own water picture (`uFill`) instead of a flat tint. A plant dropped into a bed also undoes as ONE step now (move + link in one `CompoundCommand`). The phase is pinned against the canvas's own painter, not a formula:

@@ -216,7 +216,7 @@ Door targets and the heightless-lawn predicate determine which old parameters re
 
 ### PF-L3D-17
 
-- **Rule:** A solid that should keep its 2D fill shows it on its TOP only, through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — with UVs `(position + paint_origin) / 256` (the canvas's phase, its `params["paint_origin"]`). Its SIDES are the item's tint (`walls_mesh`, no UVs): one fill-textured prism smears the picture down the edge. A raised flat item that also has relief (a lawn's blades) keeps it, lifted to the new top, and the height gates (`top_cm`/`fit_scale`) ignore `ground_detail` parts. A raised pond's water takes the same picture (`fill_texture` on a `water` part; `water.frag` samples `uFill`). Every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it. A fill part's fade tint (`tintLinear`) is its fill colour even when the picture's `tint` is white: the screen door samples no picture.
+- **Rule:** A solid that should keep its 2D fill shows it on its TOP only, through a per-item `baseColorMap` (`MeshPart.fill_texture`, `vcPart.patternMap`) built from the canvas's own tinted texture — one picture per (pattern, fill colour), never one per item — with UVs `(position + paint_origin) / 256` (the canvas's phase, its `params["paint_origin"]`). Its SIDES are the item's tint (`walls_mesh`, no UVs): one fill-textured prism smears the picture down the edge. A raised flat item that also has relief (a lawn's blades) keeps it, lifted to the new top, and the height gates (`top_cm`/`fit_scale`) ignore `ground_detail` parts. A raised pond's water takes the same picture (`fill_texture` on a `water` part; `water.frag` samples `uFill`). Every `Texture` gets its data at birth: a `Texture` re-pointed at another `QQuick3DTextureData` goes white. Bind a `var`-typed map as `patternMap ? patternMap : null`; `baseColorMap: patternMap` with a null value logs "Unable to assign [undefined] to QQuick3DTexture*" and the render gate fails on it. A fill part's fade tint (`tintLinear`) is its fill colour even when the picture's `tint` is white: a `vc` part's screen door samples no picture (a faded lawn is its colour), while the water door samples `uFill` through the same branch, so a faded raised pool keeps its caustics.
 - **Pinned by:** `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture`; `tests/unit/test_quick3d_adapter.py`; `tests/unit/test_fill_patterns.py`; `tests/unit/test_scene3d_mesh.py`; `tests/unit/test_scene3d_l4_surfaces.py`; `tests/integration/test_scene3d_fill_phase.py`; `tests/integration/test_quick3d_render.py`
 - **Source:** #628 follow-up (owner manual pass of #627), ADR-037 addendum
 - **Status:** standing
@@ -253,14 +253,20 @@ grass was gone; it now builds the solid AND the sward lifted to the new top. Lif
 (measured z 0.3..24.4 instead of 20.3..29.4). (2) The sides: ONE fill prism wraps the picture
 down the walls (a lawn's grass smeared the full height of the edge), so a raised flat surface
 is two Models — tinted sides, fill cap. `top_cm`/`fit_scale` and `verify_builder`'s height gate
-must ignore `ground_detail`: a lawn's blades stand ~7 cm above the requested height, and
-measuring them squashed the whole lawn (0.68 scale) to keep them under it.
+must ignore `ground_detail`: a lawn's blades stand 0.3-9.4 cm above the requested height
+(swept h = 1..200; 20.3-29.4 for h = 20), and counting them failed G1 for every raised lawn.
+The gate's numbers are therefore "the SOLID's top", and `ogp-lush-cinematic` §1 says so.
 
 A raised pool had the same class of loss in a different material: `_raised_pool` drew its
 water with the water shader's tint only, so the plan's water texture vanished ("the water
 became unreflective"). The water part now takes `fill_texture=True`, and `water.frag` samples
 it through a `TextureInput` (`uFill`, gated by `uHasFill`), linearising it with the ground's
 polygon (`x(x(0.3053x + 0.6822) + 0.0125)`) while keeping the hue rule and the sky reflection.
+**The UVs are the picture too**: `_water` first took `flat_mesh`'s default, one UV per vertex,
+and `texture(uFill, UV0)` read a single texel for ever — a flat, darker blue that looked exactly
+like the bug it was meant to fix (measured luma std 2.8–4.1 against 10.8–15.9 with plan UVs on
+a 300 × 220 cm pond at 40 cm). The flag alone is not the fix; the render gate
+(`test_a_raised_pool_shows_the_plans_water`) is.
 The screen-door copy `water_door.frag` must carry the same branch (a test pins the two files
 apart only by the dither block).
 
@@ -275,6 +281,6 @@ with the last Model, which kept a recolour of a raised lawn from leaving one tex
 behind (`PatternTexture.uploads` 1 → 2, `textures_alive()` back to 0 after a remove). A
 `fill_texture` part is not `tinted`: the picture carries the colour, so a patterned part's Model
 tint is white — but its fade tint (`tintLinear`) must stay the fill colour, or the X-ray screen
-door (which samples no picture) ghosts white: measured max 255 before the fix. The engine holds
+door of a `vc` part (which samples no picture) ghosts white: measured max 255 before the fix. A water part's door DOES sample the picture, so a faded raised pool keeps its caustics. The engine holds
 256 KB per picture plus the 256 KB tinted QPixmap it was made from (shared with the canvas's
 200-entry cache).

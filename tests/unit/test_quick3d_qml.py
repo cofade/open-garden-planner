@@ -316,17 +316,21 @@ def test_every_custom_shader_multiplies_with_the_tint() -> None:
     """The albedo of every custom kind is its vertex colour times the part's tint.
 
     Water also takes the plan's own picture (``uFill``, a raised pool: #627) - its
-    flat path must still be the tint, both in the look and in its screen door."""
-    for name in ("foliage.frag", "water.frag"):
-        source = (QML_DIR / name).read_text(encoding="utf-8")
-        assert re.search(r"[\w.]+\.rgb\s*\*\s*uTint", source), name
-    water = (QML_DIR / "water.frag").read_text(encoding="utf-8")
-    assert re.search(r"if \(uHasFill > 0\.5\)", water)
-    assert re.search(r"texture\(uFill, UV0\)", water)
-    # the screen door is the look shader plus the dither: it carries the same albedo
-    door = (QML_DIR / "water_door.frag").read_text(encoding="utf-8")
-    assert re.search(r"if \(uHasFill > 0\.5\)", door)
-    assert re.search(r"texture\(uFill, UV0\)", door)
+    flat path must still be the tint, both in the look and in its screen door, and
+    the picture must reach ``BASE_COLOR``. A shader string match cannot see a
+    constant-UV defect (the picture sampled at one texel looked "fixed" while it
+    was not), so the BEHAVIOUR is pinned by the raised-pool render gate; this test
+    holds the albedo's shape, anchored at the assignment, not a loose search."""
+    foliage = strip_comments((QML_DIR / "foliage.frag").read_text(encoding="utf-8"))
+    assert re.search(r"BASE_COLOR = vec4\(vColor\.rgb \* uTint, 1\.0\);", foliage)
+    for name in ("water.frag", "water_door.frag"):
+        source = strip_comments((QML_DIR / name).read_text(encoding="utf-8"))
+        assert re.search(r"vec3 base = VAR_COLOR\.rgb \* uTint;", source), name
+        assert re.search(r"BASE_COLOR = vec4\(base, 1\.0\);", source), name
+        assert re.search(r"if \(uHasFill > 0\.5\)\s*\{[^}]*texture\(uFill, UV0\)", source), name
+        # the flat tint is the value the picture overrides, never the reverse
+        assert source.index("vec3 base = VAR_COLOR.rgb * uTint;") < source.index(
+            "if (uHasFill > 0.5)")
 
 
 #: Root properties of the look block that are STATE of the wind's clock, not look.

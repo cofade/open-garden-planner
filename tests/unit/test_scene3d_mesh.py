@@ -655,6 +655,20 @@ class TestVerifyBuilder:
     def test_returns_the_parts(self) -> None:
         assert verify_builder(default_builder, record()) == default_builder(record())
 
+    def test_relief_alone_is_not_a_solid_a_height_can_hide_in(self) -> None:
+        """#627: the height gate measures the SOLID, so `ground_detail` cannot count.
+
+        A raised lawn's blades are relief above its top - and G1 skips them. A builder
+        that returns ONLY relief for a record with a height would then pass the gate
+        with no solid at all; it is refused instead (the flag must not be an opt-out
+        from the one truth rule)."""
+        def blades_only(rec: Record) -> tuple[MeshPart, ...]:
+            return (MeshPart(prism_mesh(rec.footprints, 9.4), "grass", casts_shadow=False,
+                             name="lawn_blades", ground_detail=True),)
+
+        with pytest.raises(BuilderContractError, match="every part is ground_detail"):
+            verify_builder(blades_only, record(height_cm=40.0))
+
     def test_a_builder_reading_the_material_is_caught(self) -> None:
         def bad(rec: Record) -> tuple[MeshPart, ...]:
             height = 10.0 if rec.material.fill_rgba == (120, 80, 40, 255) else 20.0

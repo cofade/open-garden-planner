@@ -617,8 +617,9 @@ class CompoundCommand(Command):
     WITH its old parent.
 
     ``description``: the step's own name; the first command's when omitted.
-    ``execute`` undoes what it already ran if a later command raises - a failed
-    step leaves no half-executed state and no stack entry.
+    ``execute`` undoes the commands that RETURNED if a later one raises - a step
+    with no half-left work and no stack entry. (A command that raises in the middle
+    of its own mutations is that command's contract to keep clean, as before.)
     """
 
     def __init__(self, commands: Sequence[Command], description: str | None = None) -> None:

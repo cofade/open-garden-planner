@@ -7,7 +7,7 @@ commands it decides now run as one ``CompoundCommand``.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtTest import QTest
 
 from open_garden_planner.core.object_types import ObjectType
@@ -54,3 +54,46 @@ def test_dragging_a_plant_into_a_bed_undoes_as_one_step(qtbot) -> None:
 
     view.command_manager.redo()
     assert plant.parent_bed_id == bed.item_id and plant.pos() != start_pos
+
+
+def test_a_bed_dragged_with_its_linked_plant_keeps_the_link(qtbot) -> None:
+    """The link is asked where the drag LEFT everything, not where it started.
+
+    A first version predicted the membership point as "pre-drag point + delta",
+    against beds still at their pre-drag positions - so dragging a bed and its
+    plant together unlinked the plant. The bed's own move is part of the gesture.
+    """
+    scene = CanvasScene(width_cm=5000, height_cm=3000)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    view.resize(1000, 800)
+    bed = RectangleItem(x=200, y=200, width=400, height=400,
+                        object_type=ObjectType.GARDEN_BED)
+    scene.addItem(bed)
+    plant = CircleItem(center_x=400, center_y=400, radius=20, object_type=ObjectType.TREE)
+    plant.metadata["plant_species"] = {"common_name": "Apple", "scientific_name": "Malus domestica"}
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+    view.show()
+    qtbot.waitExposed(view)
+    view.centerOn(bed.mapToScene(bed.rect().center()))
+
+    bed_start, plant_start = QPointF(bed.pos()), QPointF(plant.pos())
+    bed.setSelected(True)
+    plant.setSelected(True)
+    before = len(view.command_manager._undo_stack)
+    start = view.mapFromScene(plant.mapToScene(plant.boundingRect().center()))
+    target = start + QPoint(90, 0)  # ~400 cm at this zoom: far enough to leave the old bed
+    QTest.mousePress(view.viewport(), Qt.MouseButton.LeftButton,
+                     Qt.KeyboardModifier.NoModifier, start)
+    QTest.mouseMove(view.viewport(), target)
+    QTest.mouseRelease(view.viewport(), Qt.MouseButton.LeftButton,
+                       Qt.KeyboardModifier.NoModifier, target)
+
+    assert bed.pos() != bed_start and plant.pos() != plant_start
+    assert plant.parent_bed_id == bed.item_id, "the plant travelled with its bed"
+    assert len(view.command_manager._undo_stack) == before + 1
+    view.command_manager.undo()
+    assert bed.pos() == bed_start and plant.pos() == plant_start
+    assert plant.parent_bed_id == bed.item_id

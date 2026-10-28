@@ -344,7 +344,8 @@ lives now; the values production was drift-guarded against are frozen in
   walls (the owner's second pass) — so the default solid is TWO Models, `prism_sides` and the
   fill cap. Relief rides above the solid: a raised lawn keeps its blades, lifted to the new
   top, and `top_cm`/`fit_scale`/`verify_builder` measure only non-`ground_detail` parts (the
-  blades stand ~7 cm over the requested height and once squashed the lawn to 0.68 x).
+  blades stand 0.3-9.4 cm over the requested height, swept h = 1..200; counting them failed
+  G1 for every raised lawn).
   A `fill_texture` part is not tinted (the picture carries the colour), but `set_part_fill`
   still writes `tintLinear` from the fill colour: the X-ray screen door samples no picture, and
   a white tintLinear ghosted a faded lawn white (max 255). The render gate

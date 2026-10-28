@@ -978,7 +978,7 @@ No `FILE_VERSION` change. Added tests: `tests/unit/test_ai_client_onboarding.py`
 - **Per-tool token check, not a blanket middleware.** Reads must stay open so D1 clients onboarded *without* a token keep working; a server-wide auth middleware would break them. Only the write tools require the token. A pure-ASGI middleware (`_bearer_token_middleware`, wrapping `mcp.streamable_http_app()` in `AgentApiServer._start_locked`) reads the `Authorization: Bearer <token>` header off each request into a module `contextvars.ContextVar`; each write tool's `async` handler calls `_require_write_auth(write_token)` — running in the SAME request task, so it sees that request's token — **before** the `anyio.to_thread.run_sync` main-thread hop. Comparison is constant-time (`secrets.compare_digest`). Empirically verified end-to-end against mcp 1.28.1 with `stateless_http=True` (the ContextVar set in middleware is visible in the tool handler for the same request). Chosen over a `ctx: Context` tool parameter reading `ctx.request_context.request.headers` so the gate does not depend on FastMCP `Context` internals.
 - **Two independent guards: a writes-enabled toggle AND a token.** `agent_api_writes_enabled` (Settings, **default OFF**) is the user's explicit opt-in to agent editing; the bearer token gates each call on top of it. The write tools are **registered only when `writes_enabled and write_token`** — when either is missing they don't appear in the agent's tool list at all (cleanest UX and defence in depth: a disabled write path is unreachable, not merely rejected). Settings changes already restart the server (`_on_preferences`), so this re-evaluates live.
 - **Auto-generated, in-app token (reuses D1.6).** `agent_api_token` is lazily generated with `secrets.token_urlsafe(32)` on first access and persisted, so a user who enables editing always has a token to hand out — never invents one. It is read (and thus generated) **only when writes are enabled**, so a user who never opts in never gets a token written to settings. Surfaced with Copy + Regenerate in Preferences → Agent API and threaded into the D1.6 "Connect AI Assistant" onboarding writers so a one-click install actually reaches the write tools. It is delivered to clients **in the server URL as a `?token=` query parameter** (see the addendum below); the server also still accepts an `Authorization: Bearer` header for clients that reliably send one. `Regenerate` is a deliberate revoke — clients using the old token must reconnect.
-- **Writes go through the existing command system (invariants #3/#4/#13, unchanged) — matching GUI *behaviour*, not just reusing a Command class.** Each write tool routes through an `AgentProviders` callable that, on the Qt main thread via `MainThreadBridge`, resolves the item by UUID (`scene.find_item_by_id`) and runs `canvas_view.command_manager.execute(cmd)` — never a hand-append. `delete_object` is genuinely one command (`DeleteItemsCommand` already detaches contained plants and restores that on undo). `move_object` mirrors the *whole* drag-release sequence `CanvasView` runs, not only its simplest branch: a bed/container/trellis carries its contained plants along (`AlignItemsCommand` over item+children, same as `_propagate_bed_children_during_drag`'s release-time commit), and a moved plant has its bed membership re-evaluated afterward (`SetParentBedCommand`, same as `_update_plant_bed_relationships`) — a first cut that used a bare `MoveItemsCommand([item], delta)` looked like it matched the GUI's call site but silently abandoned a bed's plants and left stale parent/child links for soil-mismatch diagnostics to act on. So **one agent write is one undo step for a lone item, and two when the move also reparents a plant** — exactly mirroring the GUI's own two-command sequence in that case, never more. Every command still dirties the document via `stack_changed`; no parallel mutation path is invented for agents.
+- **Writes go through the existing command system (invariants #3/#4/#13, unchanged) — matching GUI *behaviour*, not just reusing a Command class.** Each write tool routes through an `AgentProviders` callable that, on the Qt main thread via `MainThreadBridge`, resolves the item by UUID (`scene.find_item_by_id`) and runs `canvas_view.command_manager.execute(cmd)` — never a hand-append. `delete_object` is genuinely one command (`DeleteItemsCommand` already detaches contained plants and restores that on undo). `move_object` mirrors the *whole* drag-release sequence `CanvasView` runs, not only its simplest branch: a bed/container/trellis carries its contained plants along (`AlignItemsCommand` over item+children, same as `_propagate_bed_children_during_drag`'s release-time commit), and a moved plant has its bed membership re-evaluated afterward (`SetParentBedCommand`, same as `_update_plant_bed_relationships`) — a first cut that used a bare `MoveItemsCommand([item], delta)` looked like it matched the GUI's call site but silently abandoned a bed's plants and left stale parent/child links for soil-mismatch diagnostics to act on. So **one agent write is one undo step for a lone item, and two when the move also reparents a plant** — the sequence the GUI ran when this was written; the GUI now wraps its move and its links in ONE `CompoundCommand` (#627), while this path is unchanged - never more than two. Every command still dirties the document via `stack_changed`; no parallel mutation path is invented for agents.
 - **Curated `WriteResult` return.** A stable pydantic confirmation (`item_id`, `action`, `undo_description`, resulting `x`/`y` for move) decoupled from the `.ogp` serializer — mirrors D1.2's curated-schema principle.
 
 **Alternatives considered**:
@@ -1385,8 +1385,10 @@ different layer:
 - **A raised lawn lost its blades** ("looks like a lower quality setting"). The fill picture is
   the paint; the *blades* are the relief geometry that made the ground lawn read as grass, and
   `_lawn` returned the plain prism at a height. It now builds the solid AND the sward, lifted to
-  the new top. `top_cm`/`fit_scale` (the G1 gate) ignore `ground_detail` parts: relief standing
-  7 cm above the solid is not the item's height, and measuring it squashed the whole lawn.
+  the new top. `top_cm`/`fit_scale` and `verify_builder`'s G1 height gate ignore `ground_detail` parts:
+  relief standing 0.3-9.4 cm above the solid (swept h = 1..200; 20.3-29.4 cm for h = 20) is not
+  the item's height, and counting it failed G1 for every raised lawn - the blades are the one
+  registered relief, so the exception is written into the gate rather than hidden in a test.
 - **One fill-textured prism smeared the picture down the sides** (a lawn's grass stretched the
   full height of the edge, a generic shape's pattern ran down its wall). The canvas paints a
   texture on the TOP and no texture down an edge. A raised flat surface is now TWO Models:
@@ -1400,8 +1402,11 @@ different layer:
   hue-in-every-mood rule and the sky reflection. A ground pond has no picture and is unchanged.
 - **A plant dropped into a bed linked, but Ctrl+Z undid only the link** — the move and the link
   were two stack entries. A finished drag now executes its move and the links it decides as ONE
-  `CompoundCommand` (`core/commands.py`), which undoes in reverse; the link commands are asked
-  at the item's pre-move position plus the drag's delta, so the answer is the finished drag's.
+  `CompoundCommand` (`core/commands.py`), which undoes in reverse. The link commands are asked
+  where the drag LEFT everything — its final positions — so a bed dragged in the same gesture is
+  found at its new place and a plant that travelled with it keeps its parent (a first version
+  predicted the centre from the pre-drag point plus the delta, against beds still at their old
+  place, and unlinked the plant).
 
 **Why a picture and not a luminance map multiplied by a tint.** The obvious smaller design — a
 greyscale detail map per pattern with the fill colour as the tint — was rejected: an 8-bit
@@ -1422,7 +1427,9 @@ faded raised lawn measured a white ghost (max 255) instead of its green.
 GRASS square's top reads luma std **26.0**, the SOLID one **0.0**, at the same mean (121.3 /
 120.8) — the texture is there and the average brightness is the fill colour. A raised lawn's
 blades measure 20.3–29.4 cm above the ground for a 20 cm lawn (rooted on its top, ±30 %
-variation), and its sides carry no UVs. Engine traps, measured: `baseColorMap: patternMap` logs
+variation), and its sides carry no UVs. A raised pool's water carries PLAN UVs, without which
+`texture(uFill, UV0)` sampled one texel: measured luma std **10.8–15.9** with the UVs against
+**2.8–4.1** without, on the same 300 × 220 cm pond at 40 cm. Engine traps, measured: `baseColorMap: patternMap` logs
 "Unable to assign [undefined] to QQuick3DTexture*" until the binding is
 `patternMap ? patternMap : null`; and a `Texture` is made with its data at birth — re-pointing
 one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer` §5).
@@ -1442,10 +1449,14 @@ the one-Texture-per-data rule) and `test_every_custom_shader_multiplies_with_the
 `uFill` branch); `tests/unit/test_quick3d_pure.py` (the fill branch of the one tint rule);
 `tests/integration/test_scene3d_fill_phase.py` (the mesh's own UVs against the ground bake: NCC
 0.995, the opposite sign 0.759 / 0.866); `tests/integration/test_plant_drop_undo.py` (a drag
-into a bed is one Ctrl+Z, and one Ctrl+Y); and the render gate
+into a bed is one Ctrl+Z, and one Ctrl+Y, and a bed dragged with its plant keeps the link); and
+the render gate
 `tests/integration/test_quick3d_render.py` — the raised GRASS square's top std > 5 against a
-SOLID twin's < 0.5 at the same mean, a faded GRASS ghost below 235 (no white), and the live
+SOLID twin's < 0.5 at the same mean, a faded GRASS ghost below 235 (no white), the raised
+POOL's water luma std > 4 (the caustics, which a constant UV cannot show), and the live
 lifetime counts (1 picture, 2 after a recolour, 0 after the removal, geometry uploads 1).
+`tests/unit/test_scene3d_mesh.py` also refuses a heighted record whose every part is
+`ground_detail`: the gate may skip relief, never the solid itself.
 PF-L3D-17 records the traps, FR-3D-BUILT-09 and FR-SUN-02 state the rule, and
 `ogp-lush-cinematic`'s owner taste log holds the pass itself.
 

@@ -64,6 +64,17 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-EDIT-19** *(issue #550)*: **Combine shapes > Union** accepts any number of polygons, rectangles, circles and ellipses that are connected by contact or overlap, replaces the whole selection with one result in **one undo step**, and preserves the source's appearance (through `core/item_look.copy_visual_style`) and opaque metadata through save/reopen. **Intersect** and **Subtract** remain exactly-two-shape operations and require a real shared area, not just contact. The existing ellipse context menu entries now produce a result. A selection containing a plant or sprite, a linked or constrained object, an item on a locked layer, subjects on different layers (the result is one item, so there is no correct layer to pick), or two subjects with different non-empty metadata is refused before the preview/confirmation and leaves the scene and undo stack untouched. A union whose result would enclose a hole (a closed ring of touching shapes) is also refused, because the polygon result cannot carry the hole without drawing its connector as a stroke. Closed-shape support is `item_to_painter_path` (a circle's `rect()`, never its shadow-inflated `boundingRect()`); union connectivity is `all_paths_connected` with a 0.001 cm contact tolerance, and a point-contact union is grown by `POINT_CONTACT_MERGE_CM` = 0.01 cm so it is one contour. A result above the plan's `MAX_POLYGON_VERTICES` (16 384) is refused before the preview: the loader would drop such a polygon on reopen, so the user would lose it after saving. A result above 256 vertices keeps #472's paint bound: while it is selected (as it is right after the operation) it fills normally, and once deselected its interactive paint is a cosmetic-pen outline until it is selected again; exports, prints and reports always draw the full fill.
 - **FR-EDIT-20** *(issues #592, #594)*: Canvas refresh work is proportional to what changed. After every command, lock badges refresh only for objects pinned now or already showing a badge, and the ground-band classification runs only for commands that can change an object's type, height or group membership. A dense vertex-edit overlay keeps its sampled handles while the viewport stays within the scene region the sample covered, and re-samples on zoom or after a pan beyond it. A one-item-per-command loop therefore stays linear in items, not quadratic, and a 16 384-vertex outline does not re-walk every vertex on each scrollbar step.
 
+- **FR-EDIT-21** *(issue #627)*: A plant dragged into (or out of) a plant-parent is
+  **moved and linked as ONE undoable step**: one Ctrl+Z restores both its position
+  and its previous parent, and one Ctrl+Y re-applies both. The link is decided where
+  the drag LEFT the items - their final positions, so a bed dragged in the same
+  gesture is found at its new place and a plant that went with it keeps its parent -
+  and the move and its links then run as one `CompoundCommand`.
+  Acceptance: `tests/integration/test_plant_drop_undo.py` (a real mouse drag on a
+  `CanvasView`: a plant dropped into a bed is one undo/redo pair, and a bed dragged
+  with its linked plant keeps the link), `tests/unit/test_commands.py::TestCompoundCommand`
+  (order, reverse undo, a step that raises rolls the ones that ran back).
+
 
 ## FR-3: Layers
 
@@ -824,15 +835,6 @@ The built world complete (L4, #388, ADR-065).
   The picture is cached per (pattern, colour) and shared, so a recolour is a material
   update and a removed object leaves no picture behind. Not shown while X-ray fades
   an object: a faded solid is a screen door of its colour.
-
-- **FR-EDIT-21** (#627, owner manual pass): A plant dragged into a plant-parent is
-  **moved and linked as ONE undoable step**: one Ctrl+Z restores both its position
-  and its previous parent, and one Ctrl+Y re-applies both. The link is decided at the
-  drag's finished centre (the item's pre-move membership point plus the drag delta),
-  so the step is the drag, not two edits wearing one gesture.
-  Acceptance: `tests/integration/test_plant_drop_undo.py` (a real mouse drag on a
-  `CanvasView`, one undo, one redo), `tests/unit/test_commands.py::TestCompoundCommand`
-  (order, reverse undo, a failing step rolls back).
 
 Acceptance (L4): `tests/integration/test_l4_built_world.py` (§8.10 — the roof
 rows through the real panel, undo and a save/load; the door against the path and

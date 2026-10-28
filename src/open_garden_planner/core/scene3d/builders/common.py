@@ -106,9 +106,10 @@ def top_cm(parts: Sequence[MeshPart]) -> float | None:
     """The highest vertex of the union of ``parts`` that make the SOLID — None when
     they hold none.
 
-    Relief (``ground_detail``) does not count: a raised lawn's blades stand 7 cm
-    above the top the plan asked for, and measuring them made ``fit_scale`` squash
-    the whole lawn to keep them under it (#627's manual pass)."""
+    Relief (``ground_detail``) does not count: a raised lawn's blades stand up to
+    9.4 cm above the top the plan asked for (h + 0.3..9.4, swept over h = 1..200),
+    and they are not the item's height. Measuring them also squashed any builder
+    that fitted itself to ``height_cm``."""
     tops = [float(part.mesh.positions[:, 2].max()) for part in parts
             if part.mesh.vertex_count and not part.ground_detail]
     return max(tops) if tops else None

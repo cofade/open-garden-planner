@@ -449,6 +449,8 @@ def scenario_truth(ctx: Context) -> dict[str, Any]:
 
 FILL_SQUARE = ((-150.0, -150.0), (150.0, -150.0), (150.0, 150.0), (-150.0, 150.0))
 FILL_RGBA = (110, 170, 70, 255)
+#: The raised pool's water fill (the scenario's colour and material pattern).
+POND_RGBA = (64, 164, 223, 255)
 
 
 def _fill_record(item_id: str, east: float, pattern: str) -> Record:
@@ -458,6 +460,27 @@ def _fill_record(item_id: str, east: float, pattern: str) -> Record:
                   material=Material("GENERIC_POLYGON", fill_rgba=FILL_RGBA, pattern=pattern),
                   height_cm=40.0,
                   params=Params({"seed": item_id, "paint_origin": (east, 0.0)}))
+
+
+def scenario_pond(ctx: Context) -> dict[str, Any]:
+    """#627's manual pass: a raised pool shows the plan's own water picture.
+
+    One 300 x 220 cm POND_POOL at 40 cm, built by the PRODUCTION registry (the wall
+    and the water part), top-down. The water must be the plan's water texture -
+    caustics and all - not the flat fill colour: a picture whose UVs are all (0,0)
+    samples one texel and reads as a flat slab.
+    """
+    from open_garden_planner.core.scene3d.builders import production_registry
+
+    shot = TopDownShot((0.0, 0.0), 2.0)
+    record = Record(item_id="pond", kind="POND_POOL", shape="polygon",
+                    footprints=(rect_ring(300.0, 220.0),),
+                    transform=Transform(), height_cm=40.0,
+                    material=Material("POND_POOL", fill_rgba=POND_RGBA, pattern="WATER"),
+                    params=Params({"seed": "pond", "paint_origin": (0.0, 0.0)}))
+    frame = ctx.offscreen("pond_top", {"pond": record}, shot=shot, sun=SunState(60.0, 180.0),
+                          size=(1000, 700), registry=production_registry())
+    return {"top": frame, "fill": list(POND_RGBA)}
 
 
 def scenario_fill(ctx: Context) -> dict[str, Any]:
@@ -1088,6 +1111,7 @@ SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "truth": scenario_truth,
     "materials": scenario_materials,
     "fill": scenario_fill,
+    "pond": scenario_pond,
     "sun": scenario_sun,
     "edits": scenario_edits,
     "pick": scenario_pick,

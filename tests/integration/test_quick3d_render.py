@@ -58,7 +58,7 @@ Run = tuple[dict[str, Any], Path]
 def run(tmp_path_factory: pytest.TempPathFactory) -> Run:
     out = tmp_path_factory.mktemp("quick3d_render")
     proc, result = run_driver(
-        out, "truth,materials,fill,rest,states,edits,recovery,pick,sun,shown_materials")
+        out, "truth,materials,fill,pond,rest,states,edits,recovery,pick,sun,shown_materials")
     assert proc.returncode == 0 and result.get("status") == "ok", failure_report(proc, out)
     return result, out
 
@@ -257,6 +257,34 @@ def test_remove_clears_the_item(run: Run) -> None:
     assert [part["id"] for part in step["engine_parts"]] == ["b", "b"]
     assert step["picks"]["gone"]["hit"] is None and step["picks"]["b"]["hit"] == "b"
     assert step["uploads_delta"] == 0
+
+
+def test_a_raised_pool_shows_the_plans_water(run: Run) -> None:
+    """#627's manual pass: a raised pool's water showed one texel of its picture.
+
+    ``_water`` gave the mesh no UVs, so ``texture(uFill, UV0)`` read the corner
+    texel of the water texture for ever - a flat, darker blue the owner read as
+    "the water became unreflective". Here the water region's luma must VARY (the
+    plan's caustics) and average the fill colour.
+    """
+    step = run[0]["scenarios"]["pond"]["top"]
+    rgb, dpr = _frame(run, step)
+    from open_garden_planner.core.scene3d import Material, Params, Record, Transform
+
+    record = Record(item_id="pond", kind="POND_POOL", shape="polygon",
+                    footprints=(driver.rect_ring(300.0, 220.0),), transform=Transform(),
+                    height_cm=40.0, params=Params({"seed": "pond", "paint_origin": (0.0, 0.0)}),
+                    material=Material("POND_POOL", fill_rgba=(64, 164, 223, 255),
+                                      pattern="WATER"))
+    inside = footprint_mask(record, driver.TopDownShot((0.0, 0.0), 2.0), rgb.shape, dpr)
+    water = inside & (rgb[:, :, 2].astype(int) - rgb[:, :, 0].astype(int) > 40)
+    assert int(water.sum()) > 20_000, "the pond's water must be in the frame"
+    pixels = rgb[water][:, :3].astype(float)
+    luma = pixels @ np.asarray([0.2126, 0.7152, 0.0722])
+    assert float(luma.std()) > 4.0, "the water is a flat colour: its UVs sample one texel"
+    # lit and reflected by the water shader, so darker than the raw fill colour -
+    # the check is only that it is water, not black or white
+    assert 20.0 < float(luma.mean()) < 200.0
 
 
 def test_an_item_removed_and_added_again_renders_and_picks(run: Run) -> None:

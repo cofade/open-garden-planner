@@ -4,15 +4,16 @@ The view handles rendering, pan, zoom, and coordinate transformation.
 It flips the Y-axis to provide CAD-style coordinates (origin at bottom-left,
 Y increasing upward).
 """
+from __future__ import annotations
 
 import contextlib
 import json
 import logging
-from collections.abc import Mapping
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from open_garden_planner.core.commands import Command
     from open_garden_planner.core.plant_renderer import PlantCategory
     from open_garden_planner.ui.canvas.items import CircleItem
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
@@ -1193,7 +1194,7 @@ class CanvasView(QGraphicsView):
         return handled
 
     @property
-    def point_snapper(self) -> "PointSnapper":
+    def point_snapper(self) -> PointSnapper:
         """The shared click-time point snapper (Package A US-A3)."""
         return self._point_snapper
 
@@ -1712,7 +1713,7 @@ class CanvasView(QGraphicsView):
         self._snap_index_dirty = False
 
     @property
-    def current_snap_candidate(self) -> "SnapCandidate | None":
+    def current_snap_candidate(self) -> SnapCandidate | None:
         """The most recent snap result, or ``None`` if the cursor isn't snapped.
 
         Drawing tools read this in `mouse_press` to record *which* snap kind
@@ -1727,7 +1728,7 @@ class CanvasView(QGraphicsView):
         self,
         scene_pos: QPointF,
         threshold: float = 15.0,
-    ) -> tuple[QPointF, "SnapCandidate | None"]:
+    ) -> tuple[QPointF, SnapCandidate | None]:
         """Snap ``scene_pos`` to the closest enabled anchor candidate.
 
         Returns the (possibly unchanged) point and the snap candidate that
@@ -1749,7 +1750,7 @@ class CanvasView(QGraphicsView):
             return scene_pos, None
         return QPointF(hit.point), hit
 
-    def _active_tool_reference_point(self) -> "QPointF | None":
+    def _active_tool_reference_point(self) -> QPointF | None:
         """Return the active drawing tool's anchor for perpendicular/tangent.
 
         Reads ``last_point`` from the tool — ``None`` when no tool is
@@ -1764,7 +1765,7 @@ class CanvasView(QGraphicsView):
         return QPointF(last)
 
     @property
-    def coordinate_input_buffer(self) -> "CoordinateInputBuffer":
+    def coordinate_input_buffer(self) -> CoordinateInputBuffer:
         """The shared typed-coordinate buffer (Package A US-A1/A2/A4)."""
         return self._input_buffer
 
@@ -1807,7 +1808,7 @@ class CanvasView(QGraphicsView):
         self._set_current_snap(candidate)
         return snapped
 
-    def _set_current_snap(self, candidate: "SnapCandidate | None") -> None:
+    def _set_current_snap(self, candidate: SnapCandidate | None) -> None:
         """Update the current snap candidate; trigger redraw on change."""
         previous = self._current_snap
         self._current_snap = candidate
@@ -1845,9 +1846,9 @@ class CanvasView(QGraphicsView):
         obj_type: ObjectType,
         radius: float,
         species_name: str = "",
-        plant_category: "PlantCategory | None" = None,
+        plant_category: PlantCategory | None = None,
         species_dict: dict[str, Any] | None = None,
-    ) -> "CircleItem":
+    ) -> CircleItem:
         """Create a plant item directly at scene_pos with auto-parenting and undo support.
 
         Shared canonical drop path for gallery drops and Plant Lists panel drops.
@@ -3257,7 +3258,7 @@ class CanvasView(QGraphicsView):
                 self._command_manager.execute(command)
 
     @staticmethod
-    def _get_vertex_local(item: QGraphicsItem, index: int) -> "QPointF | None":
+    def _get_vertex_local(item: QGraphicsItem, index: int) -> QPointF | None:
         """Get a vertex position in item-local coordinates."""
         from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 
@@ -3272,7 +3273,7 @@ class CanvasView(QGraphicsView):
         return None
 
     @staticmethod
-    def _iter_item_vertices(item: QGraphicsItem) -> "list[QPointF]":
+    def _iter_item_vertices(item: QGraphicsItem) -> list[QPointF]:
         """Return current vertices of a deformable item in item-local coords.
 
         Dispatches on item type so callers don't have to special-case the
@@ -3290,7 +3291,7 @@ class CanvasView(QGraphicsView):
     @staticmethod
     def _gather_deformable_info(
         item_map: dict,
-    ) -> "tuple[set, dict[..., list[tuple[float, float]]]]":
+    ) -> tuple[set, dict[..., list[tuple[float, float]]]]:
         """Build deformable_items set and deformable_vertices dict from item_map.
 
         Returns:
@@ -3323,7 +3324,7 @@ class CanvasView(QGraphicsView):
 
     def _compute_edge_length_constraint_moves(
         self, command: AddConstraintCommand
-    ) -> "tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]":
+    ) -> tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]:
         """Compute direct endpoint movement for a newly created edge-length constraint."""
         from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 
@@ -3459,8 +3460,8 @@ class CanvasView(QGraphicsView):
 
     def _compute_constraint_solve_moves(
         self,
-        extra_pinned: "set | None" = None,
-    ) -> "tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]":
+        extra_pinned: set | None = None,
+    ) -> tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]:
         """Run the constraint solver and return position changes.
 
         Should be called while the constraint graph already has the desired
@@ -3870,6 +3871,12 @@ class CanvasView(QGraphicsView):
                 item_deltas.append((child, delta))
 
         if item_deltas:
+            # Ask the LINK question where the drag left everything - the FINAL
+            # positions: a bed dragged in the same gesture is at its new place, and
+            # a plant that went with it keeps its bed (the old path's answer). Only
+            # then reset for the move command, which re-applies the deltas.
+            links = self._plant_bed_link_commands()
+
             # Reset all items to their start positions
             for item, start_pos in self._drag_start_positions.items():
                 item.setPos(start_pos)
@@ -3893,12 +3900,13 @@ class CanvasView(QGraphicsView):
                 command = AlignItemsCommand(item_deltas, desc)
             # A plant dragged into (or out of) a bed is linked in the SAME step:
             # two stack entries made the first Ctrl+Z undo only the link (#627).
-            links = self._plant_bed_link_commands(dict(item_deltas))
             if links:
                 from open_garden_planner.core.commands import CompoundCommand
 
                 command = CompoundCommand([command, *links], desc)
             self._command_manager.execute(command)
+        else:  # a click, not a drag: the old re-evaluation of what is selected
+            self._update_plant_bed_relationships()
 
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
@@ -3939,33 +3947,30 @@ class CanvasView(QGraphicsView):
         commands together with its move (``_plant_bed_link_commands`` +
         ``CompoundCommand``), so one Ctrl+Z undoes both (#627).
         """
-        for command in self._plant_bed_link_commands({}):
+        for command in self._plant_bed_link_commands():
             self._command_manager.execute(command)
 
-    def _plant_bed_link_commands(
-        self, moves: Mapping[QGraphicsItem, QPointF]
-    ) -> list[Any]:
-        """The parent links a finished drag would change, as commands - NOT executed.
+    def _plant_bed_link_commands(self) -> list[Command]:
+        """The parent links the selection's positions ask for, as commands - NOT run.
 
-        ``moves``: each moved item's delta. The membership point is asked at the
-        item's position BEFORE the move (the drag put everything back) plus that
-        delta, so the answer is the one the finished drag gives - and the move and
-        its links can be executed as ONE undoable step (``CompoundCommand``).
+        Asked where the items ARE: a finished drag calls it before resetting them
+        for its move command, so the answer is the one the drag produced - a bed
+        dragged in the same gesture is at its new place, and the link commands ride
+        together with the move in ONE undoable step (``CompoundCommand``).
         """
         from open_garden_planner.core.commands import SetParentBedCommand
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.footprints import bed_membership_point
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
-        commands: list[Any] = []
-        still = QPointF()
+        commands: list[Command] = []
         for item in self.scene().selectedItems():
             if not isinstance(item, GardenItemMixin):
                 continue
             if not is_plant_type(item.object_type):
                 continue
 
-            plant_center = bed_membership_point(item) + moves.get(item, still)
+            plant_center = bed_membership_point(item)
             current_parent_id = item.parent_bed_id
 
             new_bed = self._canvas_scene.find_smallest_bed_containing(plant_center)
@@ -4635,7 +4640,7 @@ class CanvasView(QGraphicsView):
         for group in groups:
             self.ungroup_item(group)
 
-    def ungroup_item(self, group: "QGraphicsItem") -> None:
+    def ungroup_item(self, group: QGraphicsItem) -> None:
         """Ungroup a specific GroupItem."""
         from open_garden_planner.core.commands import UngroupCommand
 
