@@ -8499,3 +8499,45 @@ anchors. Spacing is measured against actual plant circles and the shipped 2D bed
 sprite's soil rectangle, which is narrower than its 3D soil. Guild membership
 describes nearby plants, while missing roles remain honest diagnostics. Production
 scene rendering and real-font annotation bounds supplement structural assertions.
+
+## ADR-067: Release download statistics without telemetry
+
+**Status:** Accepted (owner decision, 28 October 2026: no telemetry); awaiting owner acceptance of the first live run.
+**Date:** 2026-10-28.
+
+**Context.** We want to know how often the release executables are downloaded per day,
+through the release page and through the in-app update. GitHub exposes only a cumulative
+`download_count` per asset (`GET /repos/{owner}/{repo}/releases`), no history and no
+per-day, per-country or per-user breakdown; *Insights → Traffic* covers page views and
+clones, not release downloads. The app must not report anything about itself.
+
+**Decision.** A scheduled workflow (`download-stats.yml`) snapshots the counters daily;
+`scripts/download_stats.py` derives daily deltas. The raw snapshots are append-only and
+the only source of truth; `daily.csv` and `SUMMARY.md` are rebuilt from them. The way a
+download took is estimated from what each path fetches: an in-app update loads
+`SHA256SUMS.txt` and then the installer (`services/verified_update.py`), a web visitor
+the installer only, so the checksum file's daily increase approximates in-app updates and
+the installer's increase minus that approximates web downloads. The result is labelled an
+estimate and a count of downloads, not of users.
+
+The data goes to the orphan branch `download-stats`. `master` requires a pull request and
+green checks (`quality/master-protection.json`, administrators included), and every push
+to it runs `release.yml`; a bot could not commit there at all, and a pull request per day
+would be noise. The orphan branch shares no history with `master`, and neither `ci.yml`
+nor `release.yml` runs for it.
+
+**Rejected.**
+- *App telemetry or an update ping:* the owner ruled it out; it would also count users
+  who never download.
+- *Commit to `master`:* blocked by the protection and would trigger a release run.
+- *Actions artifacts:* expire after 90 days by default; history is the point.
+- *Issue comment per day (as `dependency-review.yml` does):* a month of noise and no
+  machine-readable form.
+- *Reconstructing the past:* GitHub keeps no history; the series starts at the first
+  snapshot, whose own values are a baseline (no daily value is claimed for it).
+
+**Consequences.** The numbers include bots, virus scanners, retries and manual downloads
+of the checksum file. A skipped scheduled run is reported as one delta over its span, a
+falling counter as a reset. If a later release adds or renames assets, the installer is
+recognised by the `-Setup.exe` suffix and the checksum file by `SHA256SUMS.txt`; the
+other assets are recorded but not summarised. See `docs/07-deployment-view/README.md` §7.4.

@@ -532,6 +532,46 @@ advisory is waived: the one former exception, the `setuptools` advisory `PYSEC-2
 (unused macOS source-distribution publishing), ended on 2026-10-24 when setuptools 84.1.0
 fixed it (#571, #572; §11.2).
 
+### Download statistics (ADR-067)
+
+GitHub keeps one cumulative `download_count` per release asset and no history, and the app
+sends nothing (no telemetry). `.github/workflows/download-stats.yml` therefore snapshots
+those counters once a day (03:17 UTC, plus `workflow_dispatch`) and
+`scripts/download_stats.py` (standard library only) derives the daily values.
+
+**Where the data is.** On the orphan branch `download-stats`, not on `master`: `master` is
+protected and every push to it starts `release.yml`. The branch shares no history with
+`master`, and `ci.yml`/`release.yml` only run for `master`, so a push there starts nothing.
+It holds three files:
+
+| File | Content |
+|------|---------|
+| `downloads.csv` | The source of truth: one row per UTC date, release tag and asset with the cumulative counter. A rerun on the same date replaces that date's rows. |
+| `daily.csv` | Derived: the difference between consecutive snapshots, with `days_covered` and a `kind` (`baseline`, `normal`, `new`, `reset`). |
+| `SUMMARY.md` | Derived: the last 30 days and the totals per release. |
+
+**How to read it.**
+
+- The first snapshot is a **baseline**: GitHub does not tell us the counter's history, so
+  no daily value is claimed for it. Daily values start with the second run.
+- A skipped day yields one delta over the whole span (`days_covered` > 1), never an even
+  split. A counter that falls (asset deleted and uploaded again) is a `reset` and takes
+  the new count. An asset first seen after the baseline counts from zero (`new`).
+- *In-app* is **estimated** from the daily increase of `SHA256SUMS.txt`: an in-app update
+  fetches it before the installer (`services/verified_update.py`), while an update check
+  only reads the release JSON and a web visitor takes the installer alone. *Web* is the
+  installer's increase minus that. People who fetch the checksum file by hand inflate
+  *in-app*.
+- The counters are **downloads, not users**: bots, virus scanners, retries and CI runs are
+  included.
+
+A failed fetch fails the run and writes nothing; it never records a zero. The workflow
+holds `contents: write` only in its job, serialises runs with a `concurrency` group and
+pins `actions/checkout` like every workflow (`scripts/check_action_pins.py`). It is pinned
+by `tests/unit/test_download_stats.py`. The branch is created by the first run, so after
+the pull request is merged trigger it once by hand (`gh workflow run download-stats.yml`).
+Scheduled workflows run from the default branch only.
+
 ### PR Labels for Versioning
 
 | Label | Effect | Example |
