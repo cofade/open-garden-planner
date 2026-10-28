@@ -4516,3 +4516,50 @@ that cache the adversarial plan cost 1.7 s per command instead of 133 ms.
 object TYPE is a classification difference, not a rendering bug. And a probe that
 re-implements the derivation is a second truth waiting to drift; compare against the
 derivation's own output instead.
+
+
+## Case study: re-promoting a release counted its downloads twice (ADR-067 chart review)
+
+**Symptom.** A final release at count 5, temporarily marked prerelease at 6 and
+restored to final at 7, produced a chart total of 12 instead of 7.
+**Wrong assumption.** The immediately preceding prerelease flag was treated as
+proof that the counter had never been admitted to the regular-release chart.
+**Evidence.** The isolated instrumented report printed
+`[DL-ADMIT] count=7 old_count=6 old_pre=True admitted=7 kind=new`, with a
+`[DL-ADMIT-STACK]` traceback at re-admission; `[DL-TOTAL] 12.0 expected=7`.
+**Root cause.** Last observation and last counted observation shared one map.
+A mutable visibility flag erased the distinction between initial promotion and
+re-promotion of an already-counted asset.
+**Fix.** Keep independent observed and admitted counter maps. Re-promotion adds
+only the delta since last admission, retaining that real multi-date window as
+an estimate. First promotion still admits its full counter once. Pinned by
+`tests/unit/test_download_stats_report.py` (temporary-prerelease regression).
+**Lesson.** A current classification is not a lifetime admission record. Track
+what was actually counted independently of whether the asset is currently visible.
+
+
+**Reset follow-up.** Comparing only with the last admitted counter still lost a reset
+if the hidden counter recovered: `[DL-RESET] count=12 last_counted=10
+last_observed=3 admitted=2 kind=normal` yielded 12 instead of 22. For assets
+already admitted, accumulate increments and resets against EVERY observed counter,
+including excluded rows, then publish the pending sum on restoration. Two hidden
+resets (10 -> 3 -> 2 -> 12) total 25, not 22 or 12. Both recovered-above-old and
+multiple-reset cases are pinned in the same report test module. Observation,
+admission and pending increments are three different pieces of accounting state.
+
+
+## Case study: an excluded observation completed an uncovered chart day (ADR-067)
+
+**Symptom.** A historical baseline ending at 17:00 lost its partial-day label after
+a later snapshot contained only an excluded prerelease observation.
+**Wrong assumption.** A newer global snapshot was treated as chart coverage even
+when none of its observations had been admitted.
+**Evidence.** An isolated instrumented copy printed `[DL-COVERAGE] baseline=
+2026-08-02T17:00:00Z latest_global=2026-08-03T00:17:00Z last_day=2026-08-02`;
+`[DL-PARTIAL] before False`, whereas coverage still ended at 17:00. The corrected
+counterpart printed `[DL-PARTIAL] after True` without changing any counts.
+**Fix.** Track the endpoint of admitted coverage separately from the newest raw
+snapshot. Keep the raw timestamp for freshness and use the admitted endpoint for
+the partial label. Pinned by `tests/unit/test_download_stats_report.py` (excluded
+observations do not complete the baseline day; restored admission does).
+**Lesson.** Fresh input is not necessarily additional coverage of an output series.

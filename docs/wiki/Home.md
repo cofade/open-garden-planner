@@ -9,6 +9,9 @@ It combines a 2D canvas, plant records, garden tasks, exports, and a 3D view.
 - [Roadmap](Roadmap): shipped features and planned work.
 - [Architecture](Architecture): the main subsystems and detailed technical documentation.
 - [Contributing](Contributing): development and contribution guidance.
+- [Download statistics](https://cofade.github.io/open-garden-planner/): UTC installer-download
+  bars grouped by day, week, month or year. Historical and gap estimates are labelled;
+  the counters include bots and retries and do not represent unique users.
 
 ## Current status
 

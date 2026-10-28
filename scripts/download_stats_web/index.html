@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Open Garden Planner</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="messages.js"></script>
+  <script defer src="data.js"></script>
+  <script defer src="chart.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <div><p class="eyebrow">Open Garden Planner</p><h1 data-i18n="title"></h1><p data-i18n="subtitle"></p></div>
+    <div class="preferences">
+      <label><span data-i18n="language"></span><select id="language"><option value="en">English</option><option value="de">Deutsch</option><option value="es">Español</option></select></label>
+      <label><span data-i18n="theme"></span><select id="theme"><option value="system" data-i18n="system"></option><option value="light" data-i18n="light"></option><option value="dark" data-i18n="dark"></option></select></label>
+    </div>
+  </header>
+  <section class="panel">
+    <div class="controls">
+      <label><span data-i18n="aggregation"></span><select id="aggregation"><option value="day" data-i18n="day"></option><option value="week" data-i18n="week"></option><option value="month" data-i18n="month"></option><option value="year" data-i18n="year"></option></select></label>
+      <label><span data-i18n="range"></span><select id="range"><option value="30" data-i18n="days30"></option><option value="90" data-i18n="days90"></option><option value="365" selected data-i18n="days365"></option><option value="all" data-i18n="all"></option></select></label>
+      <div class="stat"><span data-i18n="total"></span><strong id="total"></strong></div>
+    </div>
+    <div class="legend"><span class="historical" data-i18n="historical"></span><span class="observed" data-i18n="observed"></span><span class="gap" data-i18n="gap"></span></div>
+    <p id="selection" class="muted"></p>
+    <div id="chart-container"><svg id="chart" viewBox="0 0 1080 350" role="group" aria-describedby="instructions"></svg><div id="tooltip" hidden></div></div>
+    <p id="instructions" class="muted" data-i18n="instructions"></p>
+    <p id="empty" data-i18n="empty" hidden></p>
+    <noscript><p>Enable JavaScript / JavaScript aktivieren.</p><img src="preview.svg" alt="Installer downloads / Installer-Downloads"></noscript>
+  </section>
+  <details open><summary data-i18n="details"></summary><p data-i18n="method"></p><p id="stamps" class="muted"></p></details>
+  <footer><a id="source" data-i18n="source"></a><a href="timeline.json" download data-i18n="download"></a></footer>
+</main>
+</body>
+</html>

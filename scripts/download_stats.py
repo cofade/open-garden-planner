@@ -40,6 +40,23 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+if __package__:
+    from .download_stats_report import (
+        BASELINE_FILE,
+        atomic_text,
+        json_text,
+        prepare_report,
+        publish_report,
+    )
+else:
+    from download_stats_report import (  # type: ignore[no-redef]
+        BASELINE_FILE,
+        atomic_text,
+        json_text,
+        prepare_report,
+        publish_report,
+    )
+
 SNAPSHOT_DIR = "snapshots"
 DAILY_DIR = "daily"
 SUMMARY_FILE = "SUMMARY.md"
@@ -301,10 +318,19 @@ def _tag_key(tag: str) -> tuple[int, int, int, int, tuple[tuple[int, int | str],
     return (major, minor, patch, 0, tuple(parts))
 
 
-def render_summary(rows: list[Row], deltas: list[Delta]) -> str:
+def render_summary(
+    rows: list[Row], deltas: list[Delta], repo: str = "cofade/open-garden-planner"
+) -> str:
     """``SUMMARY.md``: the last 30 snapshots, newest first, plus the totals per release."""
     lines = [
         "# Release downloads",
+        "",
+        f"[![Daily installer downloads](https://raw.githubusercontent.com/{repo}/"
+        "download-stats/site/preview.svg)]"
+        f"(https://{repo.split('/')[0]}.github.io/{repo.split('/')[1]}/)",
+        "",
+        f"[Interactive chart: day / week / month / year](https://{repo.split('/')[0]}"
+        f".github.io/{repo.split('/')[1]}/) · UTC · Historical and gap values are estimates.",
         "",
         "Generated from GitHub's per-asset download counters; no data comes from the app.",
         "These are downloads, not users: bots, virus scanners and retries are included.",
@@ -431,7 +457,9 @@ def _write_csv(path: Path, fields: tuple[str, ...], records: Iterable[Iterable[o
     tmp_path.replace(path)
 
 
-def write_outputs(data_dir: Path, rows: list[Row], deltas: list[Delta]) -> None:
+def write_outputs(
+    data_dir: Path, rows: list[Row], deltas: list[Delta], repo: str = "cofade/open-garden-planner"
+) -> None:
     """Write the files; the same input always yields byte-identical files."""
     data_dir.mkdir(parents=True, exist_ok=True)
     for month in sorted({row.month for row in rows}):
@@ -457,7 +485,7 @@ def write_outputs(data_dir: Path, rows: list[Row], deltas: list[Delta]) -> None:
         )
     summary_path = data_dir / SUMMARY_FILE
     tmp_summary = summary_path.with_suffix(".tmp")
-    tmp_summary.write_text(render_summary(rows, deltas), encoding="utf-8", newline="\n")
+    tmp_summary.write_text(render_summary(rows, deltas, repo), encoding="utf-8", newline="\n")
     tmp_summary.replace(summary_path)
 
 
@@ -490,7 +518,12 @@ def run(
                 "(releases pruned on purpose? rerun with --accept-shrink)"
             )
     rows = merge(existing, new_rows)
-    write_outputs(data_dir, rows, daily_deltas(rows))
+    seed, report = prepare_report(data_dir, rows, existing or new_rows, repo)
+    # Freeze BEFORE write_outputs can replace the first UTC date on a manual rerun.
+    if not (data_dir / BASELINE_FILE).exists():
+        atomic_text(data_dir / BASELINE_FILE, json_text(seed))
+    write_outputs(data_dir, rows, daily_deltas(rows), repo)
+    publish_report(data_dir, report)
     return len(new_rows)
 
 
@@ -499,6 +532,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--data-dir", type=Path, required=True, help="where the files live")
     parser.add_argument("--repo", default="cofade/open-garden-planner", help="owner/name")
     parser.add_argument("--now", help="UTC time to stamp (YYYY-MM-DDTHH:MM:SSZ); default: now")
+    parser.add_argument(
+        "--report-only", action="store_true",
+        help="rebuild the report from stored snapshots without contacting GitHub",
+    )
     parser.add_argument(
         "--releases-json",
         type=Path,
@@ -525,6 +562,16 @@ def main(argv: list[str] | None = None) -> int:
 
     fetcher: Fetcher = from_file if args.releases_json else fetch_releases
     try:
+        if args.report_only:
+            rows = read_snapshots(args.data_dir)
+            if not rows:
+                raise StatsError("no stored snapshots to report")
+            seed, report = prepare_report(args.data_dir, rows, rows, args.repo)
+            if not (args.data_dir / BASELINE_FILE).exists():
+                atomic_text(args.data_dir / BASELINE_FILE, json_text(seed))
+            write_outputs(args.data_dir, rows, daily_deltas(rows), args.repo)
+            publish_report(args.data_dir, report)
+            return 0
         count = run(
             args.data_dir, args.repo, now, os.environ.get("GITHUB_TOKEN"), fetcher, args.accept_shrink
         )

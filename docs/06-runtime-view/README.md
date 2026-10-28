@@ -857,3 +857,29 @@ sequenceDiagram
 
 The product remains asynchronous. Only measurement code waits for complete rest;
 see section 8.10.14 and ADR-065's hardening addendum.
+
+## Release download reporting (ADR-067)
+
+```mermaid
+sequenceDiagram
+    participant Runner as Scheduled/manual workflow
+    participant API as GitHub release counters
+    participant Data as download-stats branch
+    participant Report as Qt-free calendar report
+    participant Pages as GitHub Pages
+    Runner->>Data: prepare data worktree
+    opt normal measurement (not report_only)
+        Runner->>API: fetch validated counters
+    end
+    Runner->>Report: existing snapshots + new rows
+    Report->>Report: validate/freeze earliest baseline before replacement
+    Report->>Report: history fractions + later increments → daily series
+    Report->>Data: baseline, CSVs, summary, SVG and static website
+    Runner->>Data: commit/push durable data
+    Runner->>Pages: upload site artifact; separate deploy job
+```
+
+The viewer filters the daily series by range, then sums components into the selected
+calendar grain. A Pages failure leaves the pushed history intact. Report-only runs never
+contact the API or advance the observation time. See section 7.4 for UTC assignment,
+estimate labels and first-deployment setup; no runtime app dependency is involved.

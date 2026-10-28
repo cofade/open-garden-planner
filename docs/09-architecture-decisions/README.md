@@ -127,7 +127,7 @@ actual finite source symbols/data fields and binds exact dynamic consumers; unre
 or stale bindings fail rather than silently excluding a file.
 
 **Consequences:** every new wrapped UI key needs all supported target translations in
-the same PR. Existing English/German catalogs were reconciled without grandfathered
+the same PR. Existing English/German/Spanish catalogs were reconciled without grandfathered
 gaps. Developer diagnostics remain English; linguistic quality, visual fit and truly
 unwrapped text still require review. The existing required Test check owns enforcement.
 Pinned by the translation gate unit/integration tests and registry-driven menu tests.
@@ -722,7 +722,7 @@ Epic #237 required **one** answer across #332 and #333, and #333 escalated it: *
 
 - **No second translation path.** The agent layer **passes the generator's string through unchanged**; the localisation stays upstream where it already lives. A test asserts pass-through *and* upstream translation separately, because asserting only "the title changed" would pass even if the wrapper had invented a translation of its own.
 - **No new `title_key` field.** `task_type` + `source` + `task_id` already give an agent every branch it needs; a parallel label would be a second thing to keep in sync.
-- **Amendment names are data, not translations.** `Amendment.name` / `name_de` are bilingual *data* fields (an invariant-16 exemption), so `display_name` is *selected*, not translated. The convention is unchanged either way: `amendment_id` never moves with the UI language.
+- **Amendment names are data, not translations.** `Amendment.name` / `name_de` are localized *data* fields (an invariant-16 exemption), so `display_name` is *selected*, not translated. The convention is unchanged either way: `amendment_id` never moves with the UI language.
 - **Enforcement.** `tests/unit/test_agent_d3_localisation.py` installs a real `QTranslator` and asserts that the machine keys are byte-identical while the display strings change. It also asserts the schema field descriptions carry the rule, because a convention nothing states erodes.
 
 **Addendum (US-D3.3 — task sources).** `Task.source` has **six** values — `calendar`, `propagation`, `succession`, `soil`, `frost`, `manual` — read off the `source=` argument of all seven generators. **Not** seven: both soil generators emit `source="soil"`, and the two are distinguished by `task_type` (`soil_amendment` vs `soil_mismatch`), not by `source`. An agent filtering by `source` alone therefore cannot select one of them, which the `get_tasks` docstring states. A drift guard asserts **equality** in both directions between the tuple and the engine; see §11.4 for why a subset-only guard was not enough.
@@ -8907,7 +8907,7 @@ scene rendering and real-font annotation bounds supplement structural assertions
 
 ## ADR-067: Release download statistics without telemetry
 
-**Status:** Accepted (owner decision, 28 October 2026: no telemetry); awaiting owner acceptance of the first live run.
+**Status:** Accepted (owner decision, 28 October 2026: no telemetry; chart accepted as "perfect" on the same date).
 **Date:** 2026-10-28.
 
 **Context.** We want to know how often the release executables are downloaded over time.
@@ -8947,8 +8947,8 @@ nor `release.yml` runs for it (and a `GITHUB_TOKEN` push starts no workflow anyw
 - *Actions artifacts:* expire after 90 days by default; history is the point.
 - *Issue comment per day (as `dependency-review.yml` does):* a month of noise and no
   machine-readable form.
-- *Reconstructing the past:* GitHub keeps no history; the series starts at the first
-  snapshot, whose own values are a baseline (no value is claimed for it).
+- *Presenting reconstructed history as measured:* GitHub keeps no history; the raw
+  series starts at the first snapshot. The addendum below permits a labelled model.
 
 **Consequences.** The numbers include bots, virus scanners and retries and are not users.
 A skipped scheduled run or a manual run gives a window of a different length, reported in
@@ -8962,3 +8962,43 @@ isolated, so the workflow does not claim a token boundary between them: it relie
 `master`-only job, no persisted credentials, hook-free commits and a publish step that
 checks it is committing in the data worktree. Scheduled workflows stop after 60 days of
 repository inactivity (§7.4). See `docs/07-deployment-view/README.md` §7.4.
+
+### Addendum — daily chart and explicit historical model (28 October 2026)
+
+**Owner decision.** Show daily installer downloads, with sum-preserving week/month/year
+switches, rather than only release totals. Model the pre-observation past by allocating
+each baseline release's count uniformly while it was the latest regular release. This
+is an assumption, not an inference of download timestamps. UTC was explicitly chosen;
+missing observations are bridged by equal daily estimates. The owner accepted the chart
+on 28 October 2026 ("perfect") and authorized finalization. Pages deploys after protected merge.
+
+**Decision.** Preserve the earliest available snapshot in immutable `baseline.json`
+BEFORE a same-date run can replace it. Exact elapsed-second fractions handle multiple
+releases on one date and retain every baseline download. The most recent seed release
+ends at the seed time. Future increments are computed against this seed once and then
+against their own previous asset observation; the frozen historical component never
+changes. One-date windows approximate the previous UTC date, same-date manual windows
+are partial, longer windows are shared equally and coloured as gap estimates. Schedule
+00:17 UTC, off the hour. Preserve actual timestamps and new/reset markers in daily JSON.
+Raw snapshot/delta CSV schemas and meanings remain unchanged. No in-app/web inference.
+
+The standard-library report module emits a daily series, SVG and a local-asset website.
+Its browser code SUMS days into Monday weeks, calendar months or years after applying
+the selected date range; cut-off buckets retain partial labels and estimate components.
+Default view: daily, last 365 covered calendar dates. Website English/German/Spanish catalogs
+are separate from Qt: reporting runs on a plain Python runner, not an installed app.
+Both themes, mobile layout, accessible bar descriptions and keyboard inspection are
+supported without an external chart dependency or CDN.
+
+Persist data before uploading/deploying only the site through a separate least-privilege
+Pages job. Pages is enabled once after owner acceptance and merge. A deploy failure
+cannot lose the stored measurement; `--report-only` rebuilds without a network call or
+new snapshot. Do not use branch-triggered publication: bot-token pushes do not start
+workflows. The owner-requested estimates supersede the earlier exclusion of all past
+modelling; the rejection of unlabelled reconstruction remains.
+
+**Evidence.** Unit cases pin the owner's 4/2 and 12/4 example, fractions, subday releases,
+migration, immutable reruns, zero counts, missing asset windows, promotions and resets.
+The CLI integration test produces a complete site from existing snapshots. Tests execute
+the real browser aggregation with Node for all four grains, ISO boundaries and leap day.
+Browser look/interaction evidence and the manual acceptance checklist accompany the PR.

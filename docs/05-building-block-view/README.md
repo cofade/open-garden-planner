@@ -668,7 +668,13 @@ remain outside application runtime dependencies. See ADR-050.
 
 Daily download statistics (#634): `scripts/download_stats.py` and `scripts/download_stats_git.sh`
 snapshot release download counters daily onto the orphan `download-stats` branch without app
-telemetry, deriving elapsed-hour window values and `SUMMARY.md`. See ADR-067 and section 7.4.
+telemetry, deriving elapsed-hour window values and `SUMMARY.md`.
+`scripts/download_stats_report.py` freezes the first observation before any replacement,
+allocates historical counts using exact fractions and emits the UTC daily series, SVG
+and self-contained website. Its local browser module sums days into Monday weeks,
+calendar months and years; English/German/Spanish catalogs translate all website controls.
+The data branch holds durable history; the workflow deploys only `site/` after pushing
+the data. No application-runtime dependencies are added. See ADR-067 and section 7.4.
 
 ## Audit A2 build reproducibility and distribution inventory (#454)
 

@@ -26,9 +26,13 @@ name: Download statistics (daily)
 
 on:
   schedule:
-    - cron: "17 3 * * *" # 03:17 UTC daily, off the hour where scheduled runs are delayed
+    - cron: "17 0 * * *" # 00:17 UTC; the increment approximates the preceding UTC day
   workflow_dispatch:
     inputs:
+      report_only:
+        description: "Rebuild the charts from stored snapshots without taking a new measurement"
+        type: boolean
+        default: false
       accept_shrink:
         description: "Record a listing that lost more than half of the last snapshot's assets (releases pruned on purpose)"
         type: boolean
@@ -64,9 +68,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           ACCEPT_SHRINK: ${{ inputs.accept_shrink }}
+          REPORT_ONLY: ${{ inputs.report_only }}
         run: |
           extra=()
           if [ "$ACCEPT_SHRINK" = "true" ]; then extra+=(--accept-shrink); fi
+          if [ "$REPORT_ONLY" = "true" ]; then extra+=(--report-only); fi
           python3 scripts/download_stats.py --data-dir data --repo "$GITHUB_REPOSITORY" "${extra[@]}"
 
       - name: Commit and push the data branch
@@ -76,3 +82,29 @@ jobs:
 
       - name: Show the summary
         run: cat data/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Data is already safely pushed. A Pages failure cannot discard a measurement.
+      - name: Upload the static website
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: data/site
+
+  deploy:
+    name: Publish download chart
+    needs: snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
