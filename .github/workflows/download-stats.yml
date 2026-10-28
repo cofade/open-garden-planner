@@ -12,15 +12,27 @@ name: Download statistics (daily)
 # `master`, tags or releases. The git side lives in scripts/download_stats_git.sh (tested
 # against a temporary bare repository in tests/unit/test_download_stats_git.py).
 #
-# Least privilege: the checkout keeps no credentials, the Python step (the only code that
-# parses the API answer) gets no token — the release listing is public — and only the two
-# git steps receive the write token. A failed fetch fails this run (red) and writes
-# nothing; it never records a zero.
+# Trust model, stated plainly: the steps of one job share a filesystem and are NOT isolated
+# from each other, so there is no token boundary between them. What limits the damage is
+# that the job runs only on `master` (reviewed code), keeps no persisted credentials
+# (persist-credentials: false; the write token reaches git only as a header of the two git
+# steps), runs `git commit` with hooks disabled, and can only write this repository's
+# contents, in practice only its own branch. The release listing is fetched WITH the job
+# token: anonymous calls from shared runner IPs hit the 60/hour API limit on a bad day.
+#
+# A failed fetch fails this run (red) and writes nothing; it never records a zero. If
+# releases were pruned on purpose, a manual run with `accept_shrink` records the smaller
+# listing (the guard otherwise refuses an answer that lost more than half of the assets).
 
 on:
   schedule:
     - cron: "17 3 * * *" # 03:17 UTC daily, off the hour where scheduled runs are delayed
   workflow_dispatch:
+    inputs:
+      accept_shrink:
+        description: "Record a listing that lost more than half of the last snapshot's assets (releases pruned on purpose)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,12 +56,16 @@ jobs:
           persist-credentials: false
 
       - name: Check out the data branch (create it on the first run)
-        env:
-          GIT_AUTH_TOKEN: ${{ github.token }}
         run: bash scripts/download_stats_git.sh prepare
 
       - name: Take the snapshot and rebuild the derived files
-        run: python3 scripts/download_stats.py --data-dir data --repo "$GITHUB_REPOSITORY"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ACCEPT_SHRINK: ${{ inputs.accept_shrink }}
+        run: |
+          extra=()
+          if [ "$ACCEPT_SHRINK" = "true" ]; then extra+=(--accept-shrink); fi
+          python3 scripts/download_stats.py --data-dir data --repo "$GITHUB_REPOSITORY" "${extra[@]}"
 
       - name: Commit and push the data branch
         env:

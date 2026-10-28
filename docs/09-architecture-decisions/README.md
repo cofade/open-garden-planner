@@ -8550,4 +8550,10 @@ A skipped scheduled run or a manual run gives a window of a different length, re
 hours and flagged. A falling counter is a reset; a re-uploaded asset (new id) counts from
 zero. The listing is validated before anything is written; an empty or sharply shrunken
 listing fails the run. A snapshot row is only ever replaced by a rerun on the same UTC
-date. See `docs/07-deployment-view/README.md` §7.4.
+date, and a snapshot older than the latest stored one is refused. A listing that lost
+more than half of the assets is refused unless `--accept-shrink` (the `accept_shrink`
+dispatch input) says the releases were pruned on purpose. Steps of one job are not
+isolated, so the workflow does not claim a token boundary between them: it relies on the
+`master`-only job, no persisted credentials, hook-free commits and a publish step that
+checks it is committing in the data worktree. Scheduled workflows stop after 60 days of
+repository inactivity (§7.4). See `docs/07-deployment-view/README.md` §7.4.

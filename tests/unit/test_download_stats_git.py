@@ -16,7 +16,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 ENV = {
-    **os.environ,
+    # inherited GIT_DIR/GIT_INDEX_FILE (pytest run from a git hook) would aim the commands at
+    # the real repository
+    **{k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
     "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
     "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid",
     "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull,
@@ -127,3 +129,38 @@ def test_publish_never_force_pushes_over_a_diverged_remote(repos: tuple[Path, Pa
 def test_usage_error_for_an_unknown_action(repos: tuple[Path, Path]) -> None:
     remote, work = repos
     assert _stats(work, "bogus", check=False).returncode == 64
+
+
+def test_publish_refuses_to_commit_when_data_is_not_the_data_worktree(
+    repos: tuple[Path, Path],
+) -> None:
+    remote, work = repos
+    (work / "data").mkdir()
+    (work / "data" / "SUMMARY.md").write_text("stray\n", encoding="utf-8")
+    result = _stats(work, "publish", check=False)
+    assert result.returncode == 1 and "refusing to commit" in result.stderr
+    assert _git(work, "log", "--format=%s") == "init", "nothing was committed on master"
+    assert "download-stats" not in _git(remote, "branch", "--list")
+
+
+def test_a_lookalike_branch_is_not_the_data_branch(repos: tuple[Path, Path]) -> None:
+    remote, work = repos
+    _git(work, "push", "-q", "origin", "HEAD:refs/heads/feature/download-stats")
+    result = _stats(work, "prepare")
+    assert "creating it as an orphan" in result.stdout
+
+
+def test_a_shallow_clone_publishes_onto_existing_history(
+    repos: tuple[Path, Path], tmp_path: Path
+) -> None:
+    """The runner's checkout is `--depth=1`; the data branch is fetched shallow too."""
+    remote, work = repos
+    _stats(work, "prepare")
+    (work / "data" / "SUMMARY.md").write_text("one\n", encoding="utf-8")
+    _stats(work, "publish")
+    shallow = tmp_path / "shallow"
+    _git(tmp_path, "clone", "-q", "--depth=1", f"file://{remote}", str(shallow))
+    _stats(shallow, "prepare")
+    (shallow / "data" / "SUMMARY.md").write_text("two\n", encoding="utf-8")
+    _stats(shallow, "publish")
+    assert _git(remote, "rev-list", "--count", "download-stats") == "2"

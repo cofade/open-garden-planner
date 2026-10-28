@@ -26,7 +26,7 @@ remote_git() {
 
 prepare() {
   local rc=0
-  remote_git ls-remote --exit-code --heads "$REMOTE" "$BRANCH" > /dev/null || rc=$?
+  remote_git ls-remote --exit-code --heads "$REMOTE" "refs/heads/${BRANCH}" > /dev/null || rc=$?
   case "$rc" in
     0)
       remote_git fetch --depth=1 "$REMOTE" "+refs/heads/${BRANCH}:refs/remotes/${REMOTE}/${BRANCH}"
@@ -46,13 +46,24 @@ prepare() {
 }
 
 publish() {
+  local want
+  want="$(cd "$DATA_DIR" && pwd -P)"
   cd "$DATA_DIR"
+  # never commit in the master checkout because the data worktree is missing or misnamed
+  # (symbolic-ref, not rev-parse: the orphan branch is unborn until its first commit)
+  if [ "$(git symbolic-ref --short HEAD)" != "$BRANCH" ] \
+      || [ "$(git rev-parse --show-toplevel)" != "$want" ]; then
+    echo "${DATA_DIR} is not the ${BRANCH} worktree: refusing to commit" >&2
+    exit 1
+  fi
   git add -A
   if git diff --cached --quiet; then
-    echo "No change in the counters; nothing to commit."
+    echo "No file changed; nothing to commit."
     exit 0
   fi
-  git -c user.name="github-actions[bot]" \
+  # core.hooksPath: a hook in the shared .git directory must not run with the token in the environment
+  git -c core.hooksPath=/dev/null \
+      -c user.name="github-actions[bot]" \
       -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
       commit -q -m "chore: download stats $(date -u +%F)"
   remote_git push "$REMOTE" "HEAD:refs/heads/${BRANCH}"

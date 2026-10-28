@@ -1,5 +1,6 @@
 """Release-download statistics: snapshots, deltas, summary, fetching and the workflow wiring."""
 
+import http.client
 import io
 import json
 import re
@@ -220,6 +221,86 @@ def test_summary_leaves_prereleases_out_of_the_table_and_sorts_totals_by_version
     assert tags == ["v2.0.0-rc1", "v1.34.2", "v1.9.3"]
 
 
+def test_a_row_reports_its_own_snapshot_window_when_an_asset_was_missing_before() -> None:
+    """Asset v2 is absent on day 2 and back on day 3: day 3 is still a 24 h row."""
+    both = [_release("v1.0.0", 10, 1), _release("v2.0.0", 1, 1)]
+    rows = _history(
+        (T1, both),
+        (T2, [_release("v1.0.0", 11, 1), *[_release(f"v9.{n}", 1, 1) for n in range(3)]]),
+        (T3, [_release("v1.0.0", 12, 1), _release("v2.0.0", 5, 1), *[_release(f"v9.{n}", 1, 1) for n in range(3)]]),
+    )
+    summary = ds.render_summary(rows, ds.daily_deltas(rows))
+    line = next(row for row in summary.splitlines() if row.startswith("| 2026-10-03"))
+    assert "| 24 |" in line and "window is not about a day" not in line
+    assert "2 assets span a longer window" in line
+
+
+def test_a_promoted_prerelease_counts_again_in_the_window_table() -> None:
+    summary = _summary(
+        (T1, [_release("v2.0.0", 1, 1, prerelease=True)]),
+        (T2, [_release("v2.0.0", 3, 2, prerelease=True)]),
+        (T3, [_release("v2.0.0", 7, 4)]),
+    )
+    # the flag of the latest row decides, so the earlier windows of the promoted release count too
+    assert "| 2026-10-02 03:17 | 24 | 2 | 1 |" in summary
+    assert "| 2026-10-03 03:17 | 24 | 4 | 2 |" in summary
+
+
+def test_a_snapshot_older_than_the_latest_stored_one_is_refused(tmp_path: Path) -> None:
+    _run(tmp_path, T2, _release("v1.0.0", 5, 1))
+    before = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    with pytest.raises(ds.StatsError, match="rewrite history"):
+        _run(tmp_path, T1, _release("v1.0.0", 9, 9))
+    assert {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()} == before
+
+
+def test_accept_shrink_records_a_pruned_listing_and_recovers_the_lockout(tmp_path: Path) -> None:
+    many = [_release(f"v1.0.{n}", 1, 1) for n in range(10)]
+    ds.run(tmp_path, "o/r", _at(T1), None, lambda _r, _t: many)
+    few = many[:2]
+    with pytest.raises(ds.StatsError, match="--accept-shrink"):
+        ds.run(tmp_path, "o/r", _at(T2), None, lambda _r, _t: few)
+    ds.run(tmp_path, "o/r", _at(T2), None, lambda _r, _t: few, accept_shrink=True)
+    ds.run(tmp_path, "o/r", _at(T3), None, lambda _r, _t: few)  # the new baseline holds
+
+
+def test_unreadable_inputs_end_in_exit_2_not_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    listing = tmp_path / "releases.json"
+    listing.write_bytes(b"\xff\xfe not utf-8")
+    assert ds.main(["--data-dir", str(tmp_path / "o"), "--releases-json", str(listing)]) == 2
+
+    def truncated(_request: urllib.request.Request) -> _Response:
+        raise http.client.IncompleteRead(b"par")
+
+    with pytest.raises(ds.StatsError):
+        ds.fetch_releases("o/r", None, truncated)
+
+    path = tmp_path / ds.SNAPSHOT_DIR / "2026-10.csv"
+    path.parent.mkdir()
+    path.write_text(",".join(ds.SNAPSHOT_FIELDS) + '\n"unterminated\n', encoding="utf-8")
+    with pytest.raises(ds.StatsError):
+        ds.read_snapshots(tmp_path)
+
+
+def test_main_hands_the_environment_token_to_the_fetcher(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[str | None] = []
+
+    def fetcher(_repo: str, token: str | None) -> list[dict]:
+        seen.append(token)
+        return [_release("v1.0.0", 1, 1)]
+
+    monkeypatch.setattr(ds, "fetch_releases", fetcher)
+    monkeypatch.setenv("GITHUB_TOKEN", "from-env")
+    assert ds.main(["--data-dir", str(tmp_path), "--now", T1]) == 0
+    monkeypatch.delenv("GITHUB_TOKEN")
+    assert ds.main(["--data-dir", str(tmp_path), "--now", T2]) == 0
+    assert seen == ["from-env", None]
+
+
 # ---- files ---------------------------------------------------------------------------
 
 
@@ -371,6 +452,22 @@ def test_fetch_never_requests_a_url_taken_from_the_response() -> None:
     assert all(r.full_url.startswith(f"{ds._API_PREFIX}repos/o/r/releases?") for r in seen)
 
 
+def test_the_default_opener_is_built_with_the_no_redirect_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    built: list[tuple] = []
+
+    class _Opener:
+        def open(self, request: object, timeout: int) -> str:
+            return f"opened {timeout}"
+
+    monkeypatch.setattr(
+        urllib.request, "build_opener", lambda *handlers: built.append(handlers) or _Opener()
+    )
+    assert ds._default_open(urllib.request.Request(f"{ds._API_PREFIX}x")) == "opened 30"
+    assert built == [(ds._NoRedirect,)]
+
+
 def test_fetch_never_follows_a_redirect() -> None:
     handler = ds._NoRedirect()
     request = urllib.request.Request(f"{ds._API_PREFIX}repos/o/r/releases")
@@ -391,21 +488,29 @@ def test_workflow_runs_daily_off_the_hour_and_on_demand() -> None:
     assert "workflow_dispatch:" in WORKFLOW
 
 
-def test_workflow_gives_the_write_token_to_the_git_steps_only() -> None:
+def test_workflow_keeps_no_credentials_and_writes_only_from_master() -> None:
     top = WORKFLOW.split("jobs:", 1)[0]
     assert re.search(r"^permissions:\n  contents: read$", top, re.MULTILINE)
     assert WORKFLOW.count("contents: write") == 1, "only the job may write"
     assert "persist-credentials: false" in WORKFLOW
-    steps = WORKFLOW.split("steps:", 1)[1].split("      - ")
-    holders = [s.splitlines()[0] for s in steps if "github.token" in s]
-    assert holders == ["name: Check out the data branch (create it on the first run)",
-                       "name: Commit and push the data branch"], (
-        "the step that parses the API answer must not hold the token"
-    )
     assert "github.ref == 'refs/heads/master'" in WORKFLOW
     assert "group: download-stats" in WORKFLOW and "cancel-in-progress: false" in WORKFLOW
 
 
-def test_workflow_never_touches_master_tags_or_releases() -> None:
-    assert not re.search(r"git push[^\n]*master", WORKFLOW)
-    assert "gh release" not in WORKFLOW and "git tag" not in WORKFLOW
+def test_workflow_fetches_with_the_job_token_and_does_not_claim_a_step_boundary() -> None:
+    """Steps of one job are not isolated; the anonymous API limit (60/h) is the real risk."""
+    step = WORKFLOW.split("name: Take the snapshot")[1].split("- name:")[0]
+    assert "GITHUB_TOKEN: ${{ github.token }}" in step
+    assert "NOT isolated" in WORKFLOW, "the header says what the trust model really is"
+    assert "inputs.accept_shrink" in WORKFLOW and '"$ACCEPT_SHRINK" = "true"' in WORKFLOW, (
+        "the input reaches the script through the environment, never pasted into the shell"
+    )
+
+
+def test_the_only_push_is_to_the_data_branch_and_nothing_tags_or_releases() -> None:
+    shell = (ROOT / "scripts/download_stats_git.sh").read_text(encoding="utf-8")
+    pushes = re.findall(r"^\s*remote_git push .*$", shell, re.MULTILINE)
+    assert pushes == ['  remote_git push "$REMOTE" "HEAD:refs/heads/${BRANCH}"']
+    assert "--force" not in shell and "--tags" not in shell and "git tag" not in shell
+    assert "gh release" not in WORKFLOW and "git push" not in WORKFLOW
+    assert "-c core.hooksPath=/dev/null" in shell, "no repo hook runs while the token is set"

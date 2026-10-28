@@ -26,7 +26,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import http.client
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -67,8 +69,9 @@ MIN_ASSET_SHARE = 0.5
 #: ``baseline`` = the first snapshot ever taken, so the counter's history is unknown and no
 #: value is claimed; ``new`` = the asset first appears after the first snapshot, so the
 #: whole count belongs to the window since the previous snapshot; ``normal`` = the
-#: difference to the asset's previous snapshot; ``reset`` = the counter fell (the asset
-#: was deleted and uploaded again), so the new count is taken as the window's downloads.
+#: difference to the asset's previous snapshot; ``reset`` = the counter fell under the
+#: same asset id (defensive: GitHub does not do this, a re-upload gets a new id and is ``new``), so
+#: the new count is taken as the window's downloads.
 KIND_BASELINE = "baseline"
 KIND_NEW = "new"
 KIND_NORMAL = "normal"
@@ -163,7 +166,9 @@ def fetch_releases(
             with open_url(request) as response:
                 payload = json.load(response)
                 link = response.headers.get("Link") or ""
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        except (
+            urllib.error.URLError, TimeoutError, json.JSONDecodeError, http.client.HTTPException
+        ) as exc:
             raise StatsError(f"release listing failed on page {page}: {exc}") from exc
         if not isinstance(payload, list):
             raise StatsError(f"release listing page {page} is not a list: {type(payload)}")
@@ -271,13 +276,18 @@ def render_summary(rows: list[Row], deltas: list[Delta]) -> str:
         "`SHA256SUMS.txt` is fetched by in-app updates from v1.30.3 on *and* by web users who",
         "follow the install instructions; older apps download the installer only. The two",
         "columns are therefore reported as they are and are not split into in-app and web.",
-        "Prereleases are left out of the table.",
+        "Prereleases are left out of the window table (not of the totals).",
         "",
     ]
     if not rows:
         return "\n".join([*lines, "No snapshot yet.", ""])
 
-    prerelease_ids = {row.asset_id for row in rows if row.prerelease}
+    # the flag of an asset's latest row: a prerelease that was promoted counts again
+    newest: dict[int, Row] = {}
+    for row in rows:
+        if row.asset_id not in newest or row.taken_at >= newest[row.asset_id].taken_at:
+            newest[row.asset_id] = row
+    prerelease_ids = {asset_id for asset_id, row in newest.items() if row.prerelease}
     by_snapshot: dict[str, list[Delta]] = {}
     for delta in deltas:
         if delta.kind != KIND_BASELINE and delta.asset_id not in prerelease_ids:
@@ -292,8 +302,10 @@ def render_summary(rows: list[Row], deltas: list[Delta]) -> str:
             "| Snapshot (UTC) | Window (h) | Installer | SHA256SUMS.txt | Note |",
             "| --- | ---: | ---: | ---: | --- |",
         ]
+        times = sorted({row.taken_at for row in rows})
+        before = {t: (times[i - 1] if i else None) for i, t in enumerate(times)}
         for taken_at in sorted(by_snapshot, reverse=True)[:SUMMARY_SNAPSHOTS]:
-            lines.append(_summary_row(taken_at, by_snapshot[taken_at]))
+            lines.append(_summary_row(taken_at, before[taken_at], by_snapshot[taken_at]))
         lines.append("")
 
     latest = max(row.taken_at for row in rows)
@@ -316,13 +328,17 @@ def render_summary(rows: list[Row], deltas: list[Delta]) -> str:
     return "\n".join(lines)
 
 
-def _summary_row(taken_at: str, deltas: list[Delta]) -> str:
+def _summary_row(taken_at: str, previous: str | None, deltas: list[Delta]) -> str:
+    """One snapshot's line; its window is snapshot to snapshot, whatever each asset's was."""
     installer = sum(d.delta or 0 for d in deltas if d.asset.endswith(INSTALLER_SUFFIX))
     manifest = sum(d.delta or 0 for d in deltas if d.asset == MANIFEST_NAME)
-    window = max(d.hours or 0.0 for d in deltas)
+    window = _hours(taken_at, previous) if previous else 0.0
     notes: list[str] = []
     if not NOMINAL_HOURS[0] <= window <= NOMINAL_HOURS[1]:
         notes.append("window is not about a day")
+    longer = sum(1 for d in deltas if (d.hours or 0.0) > window + 0.05)
+    if longer:
+        notes.append(f"{longer} assets span a longer window (missing from an earlier snapshot)")
     if any(d.kind == KIND_NEW for d in deltas):
         notes.append("new release or asset")
     if any(d.kind == KIND_RESET for d in deltas):
@@ -358,7 +374,7 @@ def read_snapshots(data_dir: Path) -> list[Row]:
                     if row.month != path.stem:
                         raise StatsError(f"{path}: row {reader.line_num} belongs to {row.month}")
                     rows.append(row)
-        except (OSError, ValueError, KeyError) as exc:
+        except (OSError, ValueError, KeyError, csv.Error) as exc:
             raise StatsError(f"{path}: cannot read ({exc})") from exc
     seen: set[tuple[str, int]] = set()
     for row in rows:
@@ -409,6 +425,7 @@ def run(
     now: datetime,
     token: str | None,
     fetcher: Fetcher = fetch_releases,
+    accept_shrink: bool = False,
 ) -> int:
     """Take a snapshot at ``now`` and rebuild the derived files; returns the row count."""
     taken_at = now.astimezone(UTC).strftime(TIMESTAMP_FORMAT)
@@ -418,11 +435,17 @@ def run(
         raise StatsError("the listing holds no installer or checksum asset: refusing to record it")
     if existing:
         latest = max(row.taken_at for row in existing)
+        if taken_at < latest:
+            raise StatsError(
+                f"{taken_at} is earlier than the latest stored snapshot {latest}: "
+                "refusing to rewrite history"
+            )
         previous = sum(1 for row in existing if row.taken_at == latest)
-        if len(new_rows) < previous * MIN_ASSET_SHARE:
+        if len(new_rows) < previous * MIN_ASSET_SHARE and not accept_shrink:
             raise StatsError(
                 f"the listing holds {len(new_rows)} tracked assets, the last snapshot {previous}: "
-                "refusing to record an answer that lost most of them"
+                "refusing to record an answer that lost most of them "
+                "(releases pruned on purpose? rerun with --accept-shrink)"
             )
     rows = merge(existing, new_rows)
     write_outputs(data_dir, rows, daily_deltas(rows))
@@ -438,6 +461,11 @@ def main(argv: list[str] | None = None) -> int:
         "--releases-json",
         type=Path,
         help="read the release listing from this file instead of the API (dry runs)",
+    )
+    parser.add_argument(
+        "--accept-shrink",
+        action="store_true",
+        help="record a listing that lost more than half of the previous snapshot's assets",
     )
     args = parser.parse_args(argv)
 
@@ -455,8 +483,10 @@ def main(argv: list[str] | None = None) -> int:
 
     fetcher: Fetcher = from_file if args.releases_json else fetch_releases
     try:
-        count = run(args.data_dir, args.repo, now, None, fetcher)
-    except (StatsError, OSError, json.JSONDecodeError) as exc:
+        count = run(
+            args.data_dir, args.repo, now, os.environ.get("GITHUB_TOKEN"), fetcher, args.accept_shrink
+        )
+    except (StatsError, OSError, ValueError) as exc:
         print(f"download stats failed: {exc}", file=sys.stderr)
         return 2
     print(f"Recorded {count} asset counters at {now.strftime(TIMESTAMP_FORMAT)} in {args.data_dir}")

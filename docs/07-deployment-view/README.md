@@ -563,9 +563,12 @@ file nears GitHub's size limits:
   merge) gives a different length, which the summary flags. Nothing is spread over days.
 - The first snapshot is a **baseline**: GitHub does not tell us the counter's history, so no
   value is claimed for it. Values start with the second run.
-- A counter that falls (asset deleted and uploaded again) is a `reset` and takes the new
-  count. An asset first seen after the baseline (a new release, or a re-upload, which has a
-  new id) counts from zero over the window since the previous snapshot (`new`).
+- An asset first seen after the baseline (a new release, or a re-upload, which has a new id)
+  counts from zero over the window since the previous snapshot (`new`). A counter that fell
+  under the *same* id would be a `reset` taking the new count; GitHub is not known to do
+  this, it is a defensive case.
+- A row's window is snapshot to snapshot. An asset that was missing from an earlier snapshot
+  spans a longer window of its own; the row says how many assets do.
 - The counters are **downloads, not users**: bots, virus scanners, retries and CI runs are
   included.
 - **There is no in-app/web split.** An in-app update fetches `SHA256SUMS.txt` and then the
@@ -574,18 +577,36 @@ file nears GitHub's size limits:
   `Installation`, release notes) fetch the checksum file as well. Both biases are large and
   point in opposite directions, so the summary reports the two raw columns and labels them
   as such. Real counts are small (single digits per release), so read trends over weeks.
-- Prereleases are left out of the summary table (in-app updates only target `latest`).
+- Prereleases are left out of the **window table** (in-app updates only target `latest`); the
+  totals table lists them. The flag of an asset's latest row decides, so a promoted prerelease
+  counts again, including its earlier windows.
 
-A failed fetch fails the run and writes nothing; an empty listing, or one that lost more
-than half of the previous snapshot's assets, is refused rather than recorded. The checkout
-keeps no credentials, the step that parses the API answer gets no token (the listing is
-public), and only the two git steps receive the write token; the job runs on `master` only,
-serialised by a `concurrency` group, and `actions/checkout` is pinned like every workflow
-(`scripts/check_action_pins.py`). The branch is created by the first run, so after the pull
-request is merged trigger it once by hand (`gh workflow run download-stats.yml`). Scheduled
-workflows run from the default branch only. Measured against the real listing (199 releases, 398
-tracked assets): about 65 KB per day for both CSV kinds together, so roughly 2 MB per month
-and 24 MB per year across the monthly files, each far below any limit.
+A failed fetch fails the run and writes nothing. Refused rather than recorded: an empty
+listing, a listing that lost more than half of the previous snapshot's assets, and a snapshot
+time earlier than the latest stored one (no rewriting of history). If releases were pruned on
+purpose, run the workflow by hand with the `accept_shrink` input (`--accept-shrink`); without
+it every later run would keep failing against the unchanged last snapshot.
+
+**Trust model.** The steps of one job share a filesystem and are *not* isolated from each
+other, so there is no token boundary between the Python step and the git steps. What limits
+the damage: the job runs only on `master` (reviewed code), `actions/checkout` keeps no
+credentials (`persist-credentials: false`; the write token reaches git only as a header of
+the two git steps), `git commit` runs with hooks disabled, the token can only write this
+repository's contents, `publish` refuses to commit unless `data/` is the `download-stats`
+worktree, and the push is never forced. The release listing is fetched **with** the job
+token, because anonymous calls from shared runner IPs hit the 60-per-hour API limit.
+`actions/checkout` is pinned like every workflow (`scripts/check_action_pins.py`).
+
+**Operating notes.** The branch is created by the first run, so after the pull request is
+merged trigger it once by hand (`gh workflow run download-stats.yml`). Scheduled workflows
+run from the default branch only, and GitHub **disables scheduled workflows in a public
+repository after 60 days without repository activity**: the statistics would stop quietly
+when the project goes quiet; re-enable the workflow in the Actions tab. Size: about 160 bytes
+per tracked asset and day across both CSV kinds, so it grows with the release count — 398
+assets today (65 KB per day), and at the October rate of 43 releases a month roughly 1,400
+assets, 55–60 MB per year, after a year. Each monthly file stays in the low megabytes.
+Every run rewrites all monthly files with identical bytes where nothing changed, so git
+stores only the current month's change.
 
 ### PR Labels for Versioning
 
