@@ -83,6 +83,17 @@ def test_gaps_are_estimates_and_zero_days_remain_zero(tmp_path: Path) -> None:
     assert total(data) == 6
 
 
+def test_excluded_observations_do_not_complete_the_baseline_day(tmp_path: Path) -> None:
+    first = sample("v1", 4, "2026-08-01T00:00:00Z", "2026-08-02T17:00:00Z")
+    excluded = replace(first, prerelease=True, taken_at="2026-08-03T00:17:00Z")
+    data = series(tmp_path, [first], excluded)
+    assert data["updated_at"] == excluded.taken_at
+    assert data["days"][-1]["date"] == "2026-08-02"
+    assert data["days"][-1]["partial"]
+    included = replace(first, taken_at="2026-08-04T00:17:00Z")
+    assert not series(tmp_path, [first], excluded, included)["days"][-1]["partial"]
+
+
 def test_asset_missing_for_one_snapshot_retains_its_own_window(tmp_path: Path) -> None:
     first = sample("v1", 4, "2026-08-01T00:00:00Z", "2026-08-02T00:17:00Z")
     other = replace(first, tag="v2", asset_id=2)

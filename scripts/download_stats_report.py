@@ -135,6 +135,7 @@ def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[st
     days: dict[date, CalendarDay] = defaultdict(CalendarDay)
     _history(days, seed)
     cutoff = seed["taken_at"]
+    covered_until = cutoff
     previous = {asset["asset_id"]: asset for asset in seed["assets"]}
     admitted = {key: asset for key, asset in previous.items() if not asset["prerelease"]}
     pending: dict[int, int] = defaultdict(int)
@@ -182,12 +183,13 @@ def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[st
             if not length:
                 slot.partial = True
         admitted[row.asset_id] = asdict(row)
+        covered_until = max(covered_until, row.taken_at)
         pending.pop(row.asset_id, None)
         resets.discard(row.asset_id)
     latest = max([cutoff, *(r.taken_at for r in rows)])
     # A baseline taken partway through a day is a partial last day until observed.
     last_day = max(days, default=None)
-    if last_day is not None and last_day >= instant(latest).date():
+    if last_day is not None and last_day >= instant(covered_until).date():
         days[last_day].partial = True
     return {"version": 1, "timezone": "UTC", "repo": repo,
             "baseline_at": cutoff, "updated_at": latest,
