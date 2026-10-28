@@ -3357,6 +3357,22 @@ reports 1.31.1. The release path is unchanged: `build_installer.py` still writes
 PyInstaller, and the frozen bundle includes it. No runtime dependency, `.ogp` field or
 product behaviour changes.
 
+### ADR-050 addendum — Tag conflict recovery and release classification (A11: AUD-038, AUD-086, AUD-090, 2026-10-28)
+
+**Context.** The 2026-10 repository audit identified three related release-path debt items in A11:
+1. **AUD-038**: `release.yml` used a naive `git rev-parse "$TAG"` existence check, silently skipping releases on both legitimate idempotent workflow retries and catastrophic tag conflicts (where a calculated tag already points to a *different* commit SHA).
+2. **AUD-086**: Post-release version-sync PRs (`prepare_version_sync.py`) update `pyproject.toml`, `__init__.py`, and lockfiles under reviewed PR finalization. The maintenance cost and architectural tradeoff of dynamic git-tag version derivation versus explicit checked-in manifests required formal evaluation.
+3. **AUD-090**: `release.yml` skipped workflow execution strictly based on commit message prefixes (`chore:` / `chore(...)`), creating a vulnerability where a commit labeled as a chore could conceal unreleased executable code in `src/` or `installer/`.
+
+**Decision.**
+1. **Tag disposition resolution (AUD-038)**: `scripts/resolve_release_pr.py` now implements `check_tag_disposition(tag, commit_sha)` returning `'new'`, `'idempotent_retry'`, or `'conflict'`. If a tag already exists and points to a different commit, `.github/workflows/release.yml` halts with `::error::` (exit 1) rather than silently skipping. Idempotent workflow retries on the same commit SHA gracefully skip without error.
+2. **Version derivation evaluation (AUD-086)**: Dynamic derivation at build time (e.g. `setuptools_scm`) was evaluated against OGP's single-binary offline desktop distribution model. OGP requires deterministic offline packaging, strict dependency hashing (`uv.lock`), zero-network local developer builds, and frozen binary verification. The maintenance cost of a 30-second automated version-sync chore PR per release is far lower than the risk of build-time version drift, tag-parsing desyncs across multi-platform worktrees, or untracked dirty builds. CI remains the authoritative source of releases; `prepare_version_sync.py` keeps manifests synchronized under human review.
+3. **Release classification gate (AUD-090)**: Added `scripts/check_release_classification.py` to differentiate executable modifications (`src/`, `installer/`, package dependencies) from documentation and mechanical version-sync chores. The classification enforces that no chore commit may alter executable paths, preventing unreleased code from being masked by chore prefixes.
+
+**Evidence.**
+- Pinned by `tests/unit/test_release_version.py` (59 tests passing) and `tests/unit/test_release_classification.py` (20 tests passing).
+- Static workflow tests verify `release.yml` attributes PRs and checks tag disposition.
+
 ## ADR-051: Repository-owned wiki sources and manual publication (issue #417)
 
 **Status**: Accepted (9 October 2026). Publication requires owner approval and protected merge.

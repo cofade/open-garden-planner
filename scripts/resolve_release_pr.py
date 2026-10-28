@@ -119,6 +119,62 @@ def _resolve_gh_executable(gh_cmd: str | None) -> str:
     return "gh"
 
 
+def check_tag_disposition(
+    tag: str,
+    commit_sha: str,
+    git_cmd: str | None = None,
+    cwd: Path = ROOT,
+) -> str:
+    """Check tag status against the commit SHA (AUD-038).
+
+    Returns:
+    - 'new': tag does not exist.
+    - 'idempotent_retry': tag exists and points to commit_sha.
+    - 'conflict': tag exists and points to a different commit.
+    """
+    git = git_cmd or shutil.which("git") or "git"
+    try:
+        tag_proc = subprocess.run(
+            [git, "rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if tag_proc.returncode != 0 or not tag_proc.stdout.strip():
+            tag_proc = subprocess.run(
+                [git, "rev-parse", "-q", "--verify", f"{tag}^{{commit}}"],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if tag_proc.returncode != 0 or not tag_proc.stdout.strip():
+                return "new"
+
+        tag_sha = tag_proc.stdout.strip().lower()
+
+        commit_proc = subprocess.run(
+            [git, "rev-parse", "-q", "--verify", f"{commit_sha}^{{commit}}"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if commit_proc.returncode != 0 or not commit_proc.stdout.strip():
+            target_sha = commit_sha.strip().lower()
+            if tag_sha.startswith(target_sha) or target_sha.startswith(tag_sha):
+                return "idempotent_retry"
+            return "conflict"
+
+        target_sha = commit_proc.stdout.strip().lower()
+        if tag_sha == target_sha:
+            return "idempotent_retry"
+        return "conflict"
+    except Exception:
+        return "new"
+
+
 def resolve_pr_and_bump(
     commit_sha: str,
     repo: str = "cofade/open-garden-planner",
@@ -227,6 +283,7 @@ def resolve_pr_and_bump(
 
     bump = determine_bump_type(labels)
     version, tag = compute_next_version(latest_tag, bump)
+    tag_disposition = check_tag_disposition(tag, commit_sha, git_cmd=git, cwd=ROOT)
 
     return {
         "commit_sha": commit_sha,
@@ -238,6 +295,9 @@ def resolve_pr_and_bump(
         "version": version,
         "tag": tag,
         "source": source,
+        "tag_disposition": tag_disposition,
+        "is_idempotent_retry": tag_disposition == "idempotent_retry",
+        "tag_exists": tag_disposition != "new",
     }
 
 
@@ -269,7 +329,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--write-github-output",
         action="store_true",
-        help="Append version, tag, bump, and pr_number to $GITHUB_OUTPUT file if set",
+        help="Append version, tag, bump, pr_number, and tag_disposition to $GITHUB_OUTPUT file if set",
+    )
+    parser.add_argument(
+        "--fail-on-tag-conflict",
+        action="store_true",
+        help="Exit with code 1 if the tag already exists pointing to a different commit (AUD-038)",
     )
     args = parser.parse_args(argv)
 
@@ -303,6 +368,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"tag={result['tag']}")
         print(f"bump={result['bump']}")
         print(f"pr_number={result['pr_number'] or ''}")
+        print(f"tag_disposition={result['tag_disposition']}")
+        print(f"is_idempotent_retry={'true' if result['is_idempotent_retry'] else 'false'}")
+        print(f"tag_exists={'true' if result['tag_exists'] else 'false'}")
     else:
         pr_str = f"PR #{result['pr_number']}" if result["pr_number"] else "no PR"
         labels_str = f"labels: {result['labels']}" if result["labels"] else "no labels"
@@ -320,11 +388,21 @@ def main(argv: list[str] | None = None) -> int:
                 f.write(f"tag={result['tag']}\n")
                 f.write(f"bump={result['bump']}\n")
                 f.write(f"pr_number={result['pr_number'] or ''}\n")
+                f.write(f"tag_disposition={result['tag_disposition']}\n")
+                f.write(f"is_idempotent_retry={'true' if result['is_idempotent_retry'] else 'false'}\n")
+                f.write(f"tag_exists={'true' if result['tag_exists'] else 'false'}\n")
         else:
             print(
                 "Warning: --write-github-output specified but GITHUB_OUTPUT environment variable is not set",
                 file=sys.stderr,
             )
+
+    if getattr(args, "fail_on_tag_conflict", False) and result["tag_disposition"] == "conflict":
+        print(
+            f"ERROR: Tag {result['tag']} already exists for a different commit SHA! (AUD-038 conflict)",
+            file=sys.stderr,
+        )
+        return 1
 
     return 0
 

@@ -203,6 +203,12 @@ a = Analysis(
         # input and the list of what 3D could not show come with the first switch
         # to 3D.
         "open_garden_planner.ui.view3d.workspace",
+        "open_garden_planner.ui.view3d.workspace_analysis",
+        "open_garden_planner.ui.view3d.workspace_legend",
+        "open_garden_planner.ui.view3d.workspace_protocols",
+        "open_garden_planner.ui.view3d.workspace_selection",
+        "open_garden_planner.ui.view3d.workspace_walk",
+        "open_garden_planner.ui.view3d.workspace_wipe",
         "open_garden_planner.ui.view3d.sync_controller",
         "open_garden_planner.ui.view3d.init_guard",
         "open_garden_planner.ui.view3d.orbit_input",

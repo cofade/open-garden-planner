@@ -703,7 +703,10 @@ WORKSPACE_MODULES = ("workspace.py", "sync_controller.py", "orbit_input.py",
                      "problems_dialog.py", "init_guard.py",
                      "selection_bridge.py", "info_card.py", "walk_mode.py",  # L1.8's three
                      "analysis_controller.py", "analysis_modes.py", "growth_jump.py",
-                     "wipe.py", "compass_glyphs.py")                        # L2's five
+                     "wipe.py", "compass_glyphs.py",                        # L2's five
+                     "workspace_analysis.py", "workspace_legend.py",
+                     "workspace_protocols.py", "workspace_selection.py",
+                     "workspace_walk.py", "workspace_wipe.py")
 #: The frame-taking calls the workspace makes, by name and by place — each a user's own
 #: action: the click handler of the 3D view picks, once per click (L1.8); a growth jump
 #: takes its before and its after picture (L2.3, ``growth_jump._grab``).
