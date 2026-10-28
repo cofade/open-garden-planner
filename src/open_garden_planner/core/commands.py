@@ -623,7 +623,9 @@ class CompoundCommand(Command):
     """
 
     def __init__(self, commands: Sequence[Command], description: str | None = None) -> None:
-        self._commands = list(commands)
+        # a tuple: the two flags below are computed once, so the set of commands they
+        # describe must not be able to change afterwards
+        self._commands = tuple(commands)
         if not self._commands:
             raise ValueError("CompoundCommand needs at least one command")
         self._description = description

@@ -237,8 +237,8 @@ def walls_mesh(
     A raised flat surface (a lawn, a bed, a generic shape) shows its fill on the
     TOP and its tint on the sides — the canvas paints no texture down an item's
     edge, and one fill-textured prism smeared the picture there (#627's manual
-    pass). Its UVs are constant (0, 0), like any tinted part's: the part is never a
-    ``fill_texture`` part, so the sink binds no picture to it.
+    pass). Its UVs are written (the mesh contract, ``_walls``) but never sampled: the
+    part is never a ``fill_texture`` part, so the sink binds no picture to it.
     """
     positions: list[float] = []
     normals: list[float] = []

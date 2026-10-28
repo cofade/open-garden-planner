@@ -70,10 +70,13 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   the drag LEFT the items - their final positions, so a bed dragged in the same
   gesture is found at its new place and a plant that went with it keeps its parent -
   and the move and its links then run as one `CompoundCommand`.
-  Acceptance: `tests/integration/test_plant_drop_undo.py` (a real mouse drag on a
-  `CanvasView`: a plant dropped into a bed is one undo/redo pair, and a bed dragged
-  with its linked plant keeps the link), `tests/unit/test_commands.py::TestCompoundCommand`
-  (order, reverse undo, a step that raises rolls the ones that ran back).
+  A bed dragged ALONE carries its child plants with no lag, and one undo puts the
+  bed and its children back to the centimetre.
+  Acceptance: `tests/integration/test_plant_drop_undo.py` (real mouse drags on a
+  `CanvasView`: a plant dropped into a bed is one undo/redo pair; a bed dragged with
+  its linked plant keeps the link; a bed dragged alone carries its child),
+  `tests/unit/test_commands.py::TestCompoundCommand` (order, reverse undo, a step
+  that raises rolls the ones that ran back).
 
 
 ## FR-3: Layers

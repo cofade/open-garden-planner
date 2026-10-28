@@ -1400,6 +1400,11 @@ different layer:
   `fill_texture=True`, and `water.frag` samples it through a `TextureInput` (`uFill`, gated by
   `uHasFill`) as its albedo — linearised with the ground's own polynomial — while keeping the
   hue-in-every-mood rule and the sky reflection. A ground pond has no picture and is unchanged.
+- **A bed dragged on its own left its child plant behind** (found by the review of the fix
+  above, pre-existing): the child's origin was recorded as `child.pos() - delta` on its first
+  sighting, when it had not moved yet, so a two-step drag left the plant short by the first
+  frame and undo overshot it the other way (measured: bed +600 cm, plant +300, undo -300). The
+  origin is the child's own position; the bed's cumulative delta is then the whole story.
 - **A plant dropped into a bed linked, but Ctrl+Z undid only the link** — the move and the link
   were two stack entries. A finished drag now executes its move and the links it decides as ONE
   `CompoundCommand` (`core/commands.py`), which undoes in reverse. The link commands are asked
@@ -1428,8 +1433,8 @@ GRASS square's top reads luma std **26.0**, the SOLID one **0.0**, at the same m
 120.8) — the texture is there and the average brightness is the fill colour. A raised lawn's
 blades measure 20.3–29.4 cm above the ground for a 20 cm lawn (rooted on its top, ±30 %
 variation), and its sides carry no UVs. A raised pool's water carries PLAN UVs, without which
-`texture(uFill, UV0)` sampled one texel: measured luma std **10.8–15.9** with the UVs against
-**2.8–4.1** without, on the same 300 × 220 cm pond at 40 cm. Engine traps, measured: `baseColorMap: patternMap` logs
+`texture(uFill, UV0)` sampled one texel: measured luma std **17.25** with the UVs against
+**0.000** (7.1e-15) without, on the same 300 × 220 cm pond at 40 cm. Engine traps, measured: `baseColorMap: patternMap` logs
 "Unable to assign [undefined] to QQuick3DTexture*" until the binding is
 `patternMap ? patternMap : null`; and a `Texture` is made with its data at birth — re-pointing
 one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer` §5).

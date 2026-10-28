@@ -462,6 +462,16 @@ def _fill_record(item_id: str, east: float, pattern: str) -> Record:
                   params=Params({"seed": item_id, "paint_origin": (east, 0.0)}))
 
 
+def pond_record() -> Record:
+    """The raised pool the `pond` scenario renders - ONE definition, read by the test
+    too, so the frame and the footprint mask can never describe different ponds."""
+    return Record(item_id="pond", kind="POND_POOL", shape="polygon",
+                  footprints=(rect_ring(300.0, 220.0),), transform=Transform(),
+                  height_cm=40.0,
+                  material=Material("POND_POOL", fill_rgba=POND_RGBA, pattern="WATER"),
+                  params=Params({"seed": "pond", "paint_origin": (0.0, 0.0)}))
+
+
 def scenario_pond(ctx: Context) -> dict[str, Any]:
     """#627's manual pass: a raised pool shows the plan's own water picture.
 
@@ -473,13 +483,9 @@ def scenario_pond(ctx: Context) -> dict[str, Any]:
     from open_garden_planner.core.scene3d.builders import production_registry
 
     shot = TopDownShot((0.0, 0.0), 2.0)
-    record = Record(item_id="pond", kind="POND_POOL", shape="polygon",
-                    footprints=(rect_ring(300.0, 220.0),),
-                    transform=Transform(), height_cm=40.0,
-                    material=Material("POND_POOL", fill_rgba=POND_RGBA, pattern="WATER"),
-                    params=Params({"seed": "pond", "paint_origin": (0.0, 0.0)}))
-    frame = ctx.offscreen("pond_top", {"pond": record}, shot=shot, sun=SunState(60.0, 180.0),
-                          size=(1000, 700), registry=production_registry())
+    frame = ctx.offscreen("pond_top", {"pond": pond_record()}, shot=shot,
+                          sun=SunState(60.0, 180.0), size=(1000, 700),
+                          registry=production_registry())
     return {"top": frame, "fill": list(POND_RGBA)}
 
 

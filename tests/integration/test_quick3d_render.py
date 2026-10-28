@@ -269,13 +269,10 @@ def test_a_raised_pool_shows_the_plans_water(run: Run) -> None:
     """
     step = run[0]["scenarios"]["pond"]["top"]
     rgb, dpr = _frame(run, step)
-    from open_garden_planner.core.scene3d import Material, Params, Record, Transform
-
-    record = Record(item_id="pond", kind="POND_POOL", shape="polygon",
-                    footprints=(driver.rect_ring(300.0, 220.0),), transform=Transform(),
-                    height_cm=40.0, params=Params({"seed": "pond", "paint_origin": (0.0, 0.0)}),
-                    material=Material("POND_POOL", fill_rgba=(64, 164, 223, 255),
-                                      pattern="WATER"))
+    # the scenario's OWN record: a footprint or params drift would silently mis-cover
+    # the mask (and the fill the scenario reports is the one this checks)
+    record = driver.pond_record()
+    assert list(record.material.fill_rgba) == run[0]["scenarios"]["pond"]["fill"]
     inside = footprint_mask(record, driver.TopDownShot((0.0, 0.0), 2.0), rgb.shape, dpr)
     water = inside & (rgb[:, :, 2].astype(int) - rgb[:, :, 0].astype(int) > 40)
     assert int(water.sum()) > 20_000, "the pond's water must be in the frame"

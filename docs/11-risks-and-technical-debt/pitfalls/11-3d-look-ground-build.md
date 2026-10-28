@@ -264,8 +264,9 @@ it through a `TextureInput` (`uFill`, gated by `uHasFill`), linearising it with 
 polygon (`x(x(0.3053x + 0.6822) + 0.0125)`) while keeping the hue rule and the sky reflection.
 **The UVs are the picture too**: `_water` first took `flat_mesh`'s default, one UV per vertex,
 and `texture(uFill, UV0)` read a single texel for ever — a flat, darker blue that looked exactly
-like the bug it was meant to fix (measured luma std 2.8–4.1 against 10.8–15.9 with plan UVs on
-a 300 × 220 cm pond at 40 cm). The flag alone is not the fix; the render gate
+like the bug it was meant to fix (the committed gate measures luma std **17.25** with the plan
+UVs against **0.000** without — one value over 194,304 pixels, on a 300 × 220 cm pond at
+40 cm). The flag alone is not the fix; the render gate
 (`test_a_raised_pool_shows_the_plans_water`) is.
 The screen-door copy `water_door.frag` must carry the same branch (a test pins the two files
 apart only by the dither block).

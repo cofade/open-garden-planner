@@ -388,7 +388,10 @@ def test_a_round_pond_is_round_not_the_records_24_facets() -> None:
 
 
 def test_a_pond_the_user_gave_a_height_is_a_raised_pool() -> None:
-    record = polygon_record("POND_POOL", rectangle(400.0, 300.0), 60.0)
+    # a NON-zero anchor: the water's picture must sit in the canvas's phase, and with
+    # (0, 0) a builder that dropped the origin would still compare equal
+    record = dataclasses.replace(polygon_record("POND_POOL", rectangle(400.0, 300.0), 60.0),
+                                 params=Params({"seed": "pond", "paint_origin": (137.0, -42.0)}))
     walls, water = verify_builder(REGISTRY.builder_for("POND_POOL"), record, plan_margin_cm=0.5)
     assert walls.casts_shadow and not walls.ground_detail
     assert float(walls.mesh.positions[:, 2].max()) == pytest.approx(60.0)
@@ -397,13 +400,13 @@ def test_a_pond_the_user_gave_a_height_is_a_raised_pool() -> None:
     # colour - the water shader samples the picture (uFill) and still lights it
     assert water.material_kind == "water" and water.fill_texture and not water.tinted
     # ... and it samples it with the plan's UVs: one texel would be a flat colour
-    # (measured: the caustic picture's luma std 10.8-15.9 against 2.8-4.1 without)
+    # (the render gate: luma std 17.25 with the plan UVs, 0.000 without - one texel)
     from open_garden_planner.core.scene3d import PATTERN_TILE_CM
 
     uvs = water.mesh.uvs
     assert np.ptp(uvs[:, 0]) > 0.5 and np.ptp(uvs[:, 1]) > 0.5
-    expected = (water.mesh.positions[:, :2] + np.asarray([0.0, 0.0])) / PATTERN_TILE_CM
-    assert np.allclose(uvs, expected)
+    expected = (water.mesh.positions[:, :2] + np.asarray([137.0, -42.0])) / PATTERN_TILE_CM
+    assert np.allclose(uvs, expected)  # the cap's own rule, the anchor included
 
 
 # ── lawns ────────────────────────────────────────────────────────────────────

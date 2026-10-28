@@ -3932,11 +3932,12 @@ class CanvasView(QGraphicsView):
                 child = self._canvas_scene.find_item_by_id(child_id)
                 if child is None or child in self._drag_start_positions:
                     continue
-                # Track the child's original position only once
+                # Track the child's original position only once. On the first sighting
+                # it has NOT moved yet, so its position IS that origin - subtracting
+                # the parent's cumulative delta made the child lag the bed by the
+                # first frame's movement and put it back short on undo (#627 review).
                 if child not in self._child_drag_origins:
-                    # First frame: child hasn't moved yet, so compute
-                    # its origin from the parent's start delta
-                    self._child_drag_origins[child] = child.pos() - delta
+                    self._child_drag_origins[child] = child.pos()
                 child.setPos(self._child_drag_origins[child] + delta)
 
     def _update_plant_bed_relationships(self) -> None:
