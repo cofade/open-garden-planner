@@ -696,7 +696,7 @@
   },
   "444": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "The 2D shadow of a closed-loop fence or wall covers the whole enclosed area"
   },
   "445": {
@@ -801,7 +801,7 @@
   },
   "481": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A plant inside a raised bed without a link to the bed reads 0 hours of sun and gets a \"too little sun\" warning"
   },
   "482": {
@@ -1241,7 +1241,7 @@
   },
   "620": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Mutation check: \"the heatmap's worker drops the base\" survives (pre-existing on master)"
   },
   "621": {
@@ -1266,17 +1266,17 @@
   },
   "627": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(#444, #481, #620, #628, #629): the 2D sun study's geometry, plant stacking and object heights"
   },
   "628": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A generic shape, an in-ground bed, a terrace or a pool cannot be given a height: the Height field can never appear"
   },
   "629": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A plant is hidden behind a raised bed, container, wall planter or trellis drawn around it (only the in-ground garden bed keeps it visible)"
   },
   "630": {
@@ -1288,5 +1288,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(test-release-3d): resolve widget leaks (#515), popup focus (#561), release classification (#463), workspace split (#583), info card facts (#580), drape clip bias (#577)"
+  },
+  "635": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "One agent move that reparents a plant records two undo steps, while the GUI now records one"
   }
 }

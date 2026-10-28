@@ -129,3 +129,13 @@ and [audit epic #392](https://github.com/cofade/open-garden-planner/issues/392) 
 
 L4 follow-up hardening shipped in v1.34.1 via PR #630 after owner executable acceptance;
 the included canonical Phase 17 section records its scope and evidence.
+
+The 2D sun study's geometry and estimates (#444, #481, #620), the plant stacking rule
+(#629) and a settable height for every footprint (#628) shipped in v1.34.3 via
+[PR #627](https://github.com/cofade/open-garden-planner/pull/627) after owner acceptance:
+a closed fence's shadow is its stroke and a self-crossing outline casts its lobes, a plant
+draws above the bed it stands in whether or not the link was made, any footprint can take a
+height while keeping its 2D fill on top (a raised lawn keeps its blades, a raised pool its
+water), and a plant dropped into a bed undoes in one step. The internal test-lifecycle and
+workspace work (#561, #515, #583, #580) shipped in v1.34.2 via
+[PR #632](https://github.com/cofade/open-garden-planner/pull/632).

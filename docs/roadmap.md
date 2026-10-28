@@ -3494,7 +3494,7 @@ nursery anchors, cultivated understory and nearby guild membership. The balcony
 has 14 herbs, chairs, rails, a wall and a parasol. Reference dates are explicit
 teaching choices; opening does not move the shared simulation clock.
 
-### The 2D sun study's geometry and estimates (#444, #481, #620) — parallel non-3D batch 3
+### The 2D sun study's geometry and estimates (#444, #481, #620) — parallel non-3D batch 3 — **shipped 2026-10-28 as v1.34.3, PR #627**
 
 Built beside Phase 17 L4 without touching the 3D/sun/sim-clock product code or
 serialization: one caster's ring set is now one REGION (#444), the per-plant estimate
@@ -3511,7 +3511,7 @@ and warned; it now reads **16.5 h**, and a plant one step outside the bed still 
 to it (a per-receiver spare, not a hole in the bed's shadow). ADR-037 addendum "one
 caster's ring set is one REGION", ADR-056 addendum, FR-SUN-05/09/11, PF-DOM-28, §8.10.
 
-### A plant draws above the bed it stands in, linked or not (#629)
+### A plant draws above the bed it stands in, linked or not (#629) — **shipped 2026-10-28 as v1.34.3, PR #627**
 
 Found by the owner on #627's manual pass: a raised bed, container, wall planter or trellis
 drawn AROUND a standing plant hid it in 2D — still visible in 3D, and its sun badge with it.
@@ -3534,7 +3534,7 @@ gone and the FR-id uniqueness gate now covers **every** FR id instead of only FR
 (it found four pre-existing collisions — FR-SNAP-04/05, FR-PLANT-19, FR-LAYER-09 — which are
 renumbered here: FR-SNAP-11/12, FR-PLANT-24, FR-LAYER-10).
 
-### Every item with a footprint can be given a height (#628)
+### Every item with a footprint can be given a height (#628) — **shipped 2026-10-28 as v1.34.3, PR #627**
 
 The Properties panel's Height field was gated on has_height_semantics, whose last clause
 for a type without a per-type default is "an explicit height already exists" — so the field
@@ -3560,7 +3560,9 @@ sink so a recolour or a removal leaves no picture behind. UVs are (position + pa
 cap (the canvas's phase); the SIDES are the item's tint (tinted sides + fill cap, no smear down an edge). A garden bed's soil cap is its
 "Boden-Substrat"; a container's soil stays the palette's. Measured on Direct3D 11, 1000 × 400
 top-down, two 300 cm squares at 40 cm: luma std 26.0 for GRASS against 0.0 for SOLID at the same
-mean (121.3 / 120.8). A second owner pass fixed three residues: a raised plain surface is now tinted SIDES + a fill CAP (one prism smeared the picture down the edge), a raised lawn keeps its blades (lifted to the new top; the height gates ignore `ground_detail`), and a raised pool's water samples the plan's own water picture (`uFill`) instead of a flat tint. A plant dropped into a bed also undoes as ONE step now (move + link in one `CompoundCommand`). The phase is pinned against the canvas's own painter, not a formula:
+mean (121.3 / 120.8). A second owner pass fixed three residues: a raised plain surface is now tinted SIDES + a fill CAP (one prism smeared the picture down the edge), a raised lawn keeps its blades (lifted to the new top; the height gates ignore `ground_detail`), and a raised pool's water samples the plan's own water picture (`uFill`) instead of a flat tint. A plant dropped into a bed also undoes as ONE step now (move + link in one `CompoundCommand`), and a bed dragged on its own now carries its child plants with no lag
+(the origin used to be recorded as `child.pos() - delta` on a first sighting, when the child
+had not moved). The phase is pinned against the canvas's own painter, not a formula:
 `tests/integration/test_scene3d_fill_phase.py` bakes a real rectangle and correlates the
 mesh's UVs (NCC 0.995; the opposite sign 0.759 / 0.866). ADR-037 addendum, FR-3D-BUILT-09,
 PF-L3D-17.
