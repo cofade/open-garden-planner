@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-garden-planner"
-version = "1.34.1"
+version = "1.34.2"
 description = "Open-source garden planning tool with CAD-like precision"
 readme = "README.md"
 license = "GPL-3.0-or-later"
