@@ -274,6 +274,7 @@ def daylight_samples(
     lon_deg: float,
     day: date,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+
 ) -> list[SunSample]:
     """Sun-up sample instants across the UTC civil day, at ``step_minutes``.
 
@@ -336,6 +337,7 @@ def compute_heatmap(
     rasterize: Rasterizer,
     *,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> np.ndarray | None:
@@ -370,6 +372,7 @@ def compute_sun_exposure(
     rasterize: Rasterizer,
     *,
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    include_sample_masks: bool = False,
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> SunExposureResult | None:
@@ -382,6 +385,7 @@ def compute_sun_exposure(
     # sweeps (base included); the anonymous list is only for a caller without ids.
     return _aggregate_day((), lat_deg, lon_deg, day, grid, rasterize,
                           identified=casters, receivers=receivers, step_minutes=step_minutes,
+                          include_sample_masks=include_sample_masks,
                           progress=progress, should_cancel=should_cancel)
 
 
@@ -390,6 +394,7 @@ def _aggregate_day(
     lat_deg: float, lon_deg: float, day: date, grid: HeatmapGrid, rasterize: Rasterizer,
     *, identified: Sequence[IdentifiedCaster] = (), receivers: Sequence[SunReceiver] = (),
     step_minutes: int = SAMPLE_STEP_MINUTES,
+    include_sample_masks: bool = False,
     progress: Callable[[int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
 ) -> SunExposureResult | None:
@@ -422,7 +427,7 @@ def _aggregate_day(
     exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
     packed_cols = (grid.cols + 7) // 8
-    keep_masks = total * grid.rows * packed_cols <= MAX_SAMPLE_SHADE_BYTES
+    keep_masks = include_sample_masks and (total * grid.rows * packed_cols <= MAX_SAMPLE_SHADE_BYTES)
     masks = np.zeros((total, grid.rows, packed_cols), dtype=np.uint8) if keep_masks else None
     for index, sample in enumerate(samples):
         if should_cancel is not None and should_cancel():

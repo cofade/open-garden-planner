@@ -55,7 +55,7 @@ def test_ci_audits_the_locked_closure_on_every_shipped_platform() -> None:
         "running platform, so a Linux-only scan never sees the Windows-only runtime "
         "dependency (pywin32)"
     )
-    assert "os: [ubuntu-latest, windows-latest]" in dependencies_job
+    assert "os: [ubuntu-24.04, windows-latest]" in dependencies_job
     assert "shell: bash" in dependencies_job, (
         "the Windows runner needs bash so the export redirection stays UTF-8"
     )
