@@ -685,6 +685,9 @@ remain outside application runtime dependencies. See ADR-050.
   release whose toolchain it cannot state.
 - `scripts/check_action_pins.py`: read-only CI gate; every external `uses:` in the workflows
   and the shared composite action must be a commit SHA with a `# vX.Y.Z` comment.
+- `scripts/download_stats.py` + `scripts/download_stats_git.sh`: the daily release-download
+  snapshot run by `.github/workflows/download-stats.yml` onto the orphan `download-stats`
+  branch (no telemetry, ADR-067; `docs/07-deployment-view` §7.4).
 - `installer/build_installer.py` orchestrates PyInstaller → inventory (generate + check) →
   NSIS, and the installer compiles only when the notices exist. See ADR-044/050 addenda and
   `docs/07-deployment-view` §7.2/§7.4.

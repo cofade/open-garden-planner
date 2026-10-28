@@ -1,16 +1,21 @@
 name: Download statistics (daily)
 
-# Release download counts per day, without any telemetry in the app. GitHub keeps one
+# Release download counts over time, without any telemetry in the app. GitHub keeps one
 # cumulative `download_count` per release asset and no history, so this workflow takes a
-# snapshot of those counters once a day and `scripts/download_stats.py` derives the daily
-# values from consecutive snapshots. See docs/07-deployment-view/README.md §7.4 and ADR-067.
+# snapshot of those counters once a day and `scripts/download_stats.py` derives the values
+# between consecutive snapshots. See docs/07-deployment-view/README.md §7.4 and ADR-067.
 #
 # The data lives on the orphan branch `download-stats`, not on `master`: `master` is
 # protected (pull request + required checks) and every push to it starts release.yml. The
-# branch shares no history with `master`; ci.yml and release.yml only run for `master`,
-# so a push here starts nothing. The workflow never touches `master`, tags or releases.
+# branch shares no history with `master`; ci.yml and release.yml only run for `master`, and
+# a push made with GITHUB_TOKEN starts no workflow at all. The workflow never touches
+# `master`, tags or releases. The git side lives in scripts/download_stats_git.sh (tested
+# against a temporary bare repository in tests/unit/test_download_stats_git.py).
 #
-# A failed fetch fails this run (red) and writes nothing; it never records a zero.
+# Least privilege: the checkout keeps no credentials, the Python step (the only code that
+# parses the API answer) gets no token — the release listing is public — and only the two
+# git steps receive the write token. A failed fetch fails this run (red) and writes
+# nothing; it never records a zero.
 
 on:
   schedule:
@@ -27,42 +32,29 @@ concurrency:
 jobs:
   snapshot:
     name: Snapshot release download counters
+    # A dispatch on a branch would run that branch's script with the write token
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Check out the data branch (create it on the first run)
-        run: |
-          if git ls-remote --exit-code --heads origin download-stats > /dev/null; then
-            git fetch --depth=1 origin +refs/heads/download-stats:refs/remotes/origin/download-stats
-            git worktree add -B download-stats data origin/download-stats
-          else
-            echo "No download-stats branch yet: creating it as an orphan branch."
-            git worktree add --detach data HEAD
-            git -C data checkout --orphan download-stats
-            git -C data rm -rf --quiet .
-          fi
+        env:
+          GIT_AUTH_TOKEN: ${{ github.token }}
+        run: bash scripts/download_stats_git.sh prepare
 
       - name: Take the snapshot and rebuild the derived files
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         run: python3 scripts/download_stats.py --data-dir data --repo "$GITHUB_REPOSITORY"
 
       - name: Commit and push the data branch
-        run: |
-          cd data
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No change in the counters; nothing to commit."
-            exit 0
-          fi
-          git -c user.name="github-actions[bot]" \
-              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-              commit -m "chore: download stats $(date -u +%F)"
-          git push origin HEAD:download-stats
+        env:
+          GIT_AUTH_TOKEN: ${{ github.token }}
+        run: bash scripts/download_stats_git.sh publish
 
       - name: Show the summary
-        run: cat data/SUMMARY.md
+        run: cat data/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"

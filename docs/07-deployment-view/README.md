@@ -255,8 +255,9 @@ warnings — see §11.1/§11.2 and ADR-044.
 
 ## 7.4 CI/CD Pipeline (GitHub Actions)
 
-Three workflow files in `.github/workflows/` (`ci.yml`, `release.yml`, and the report-only
-`dependency-review.yml` described below):
+Five workflow files in `.github/workflows/`: `ci.yml`, `release.yml`, `frozen-selftest.yml`
+(frozen-exe smoke on demand and on pull requests touching the app), and the two scheduled
+report-only workflows `dependency-review.yml` and `download-stats.yml`, both described below:
 
 ### CI Workflow (`ci.yml`)
 
@@ -537,40 +538,54 @@ fixed it (#571, #572; §11.2).
 GitHub keeps one cumulative `download_count` per release asset and no history, and the app
 sends nothing (no telemetry). `.github/workflows/download-stats.yml` therefore snapshots
 those counters once a day (03:17 UTC, plus `workflow_dispatch`) and
-`scripts/download_stats.py` (standard library only) derives the daily values.
+`scripts/download_stats.py` (standard library only) derives the values between consecutive
+snapshots. The git side is `scripts/download_stats_git.sh`; it is tested against a temporary
+bare repository (`tests/unit/test_download_stats_git.py`), as is the script
+(`tests/unit/test_download_stats.py`).
 
 **Where the data is.** On the orphan branch `download-stats`, not on `master`: `master` is
 protected and every push to it starts `release.yml`. The branch shares no history with
-`master`, and `ci.yml`/`release.yml` only run for `master`, so a push there starts nothing.
-It holds three files:
+`master`; `ci.yml` and `release.yml` only run for `master`, and a push made with
+`GITHUB_TOKEN` starts no workflow at all. Only the installer (`*-Setup.exe`) and
+`SHA256SUMS.txt` of published (non-draft) releases are recorded, one file per month, so no
+file nears GitHub's size limits:
 
 | File | Content |
 |------|---------|
-| `downloads.csv` | The source of truth: one row per UTC date, release tag and asset with the cumulative counter. A rerun on the same date replaces that date's rows. |
-| `daily.csv` | Derived: the difference between consecutive snapshots, with `days_covered` and a `kind` (`baseline`, `normal`, `new`, `reset`). |
-| `SUMMARY.md` | Derived: the last 30 days and the totals per release. |
+| `snapshots/YYYY-MM.csv` | The source of truth: one row per snapshot time and asset (keyed by GitHub's asset id) with the cumulative counter. A rerun on the same UTC date replaces that date's rows; nothing else is rewritten. |
+| `daily/YYYY-MM.csv` | Derived: the difference to the asset's previous snapshot, the **hours** it covers, and a `kind` (`baseline`, `normal`, `new`, `reset`). |
+| `SUMMARY.md` | Derived: the last 30 snapshots and the totals per release (version-sorted, with a total). |
 
 **How to read it.**
 
-- The first snapshot is a **baseline**: GitHub does not tell us the counter's history, so
-  no daily value is claimed for it. Daily values start with the second run.
-- A skipped day yields one delta over the whole span (`days_covered` > 1), never an even
-  split. A counter that falls (asset deleted and uploaded again) is a `reset` and takes
-  the new count. An asset first seen after the baseline counts from zero (`new`).
-- *In-app* is **estimated** from the daily increase of `SHA256SUMS.txt`: an in-app update
-  fetches it before the installer (`services/verified_update.py`), while an update check
-  only reads the release JSON and a web visitor takes the installer alone. *Web* is the
-  installer's increase minus that. People who fetch the checksum file by hand inflate
-  *in-app*.
+- A value is the window between two snapshots, in hours, **not a calendar day**. The nominal
+  window is 24 h; a skipped run or a manual run (for example the bootstrap run after the
+  merge) gives a different length, which the summary flags. Nothing is spread over days.
+- The first snapshot is a **baseline**: GitHub does not tell us the counter's history, so no
+  value is claimed for it. Values start with the second run.
+- A counter that falls (asset deleted and uploaded again) is a `reset` and takes the new
+  count. An asset first seen after the baseline (a new release, or a re-upload, which has a
+  new id) counts from zero over the window since the previous snapshot (`new`).
 - The counters are **downloads, not users**: bots, virus scanners, retries and CI runs are
   included.
+- **There is no in-app/web split.** An in-app update fetches `SHA256SUMS.txt` and then the
+  installer (`services/verified_update.py`) *from v1.30.3 on*; older apps download the
+  installer only. Web users who follow the install instructions (README, wiki
+  `Installation`, release notes) fetch the checksum file as well. Both biases are large and
+  point in opposite directions, so the summary reports the two raw columns and labels them
+  as such. Real counts are small (single digits per release), so read trends over weeks.
+- Prereleases are left out of the summary table (in-app updates only target `latest`).
 
-A failed fetch fails the run and writes nothing; it never records a zero. The workflow
-holds `contents: write` only in its job, serialises runs with a `concurrency` group and
-pins `actions/checkout` like every workflow (`scripts/check_action_pins.py`). It is pinned
-by `tests/unit/test_download_stats.py`. The branch is created by the first run, so after
-the pull request is merged trigger it once by hand (`gh workflow run download-stats.yml`).
-Scheduled workflows run from the default branch only.
+A failed fetch fails the run and writes nothing; an empty listing, or one that lost more
+than half of the previous snapshot's assets, is refused rather than recorded. The checkout
+keeps no credentials, the step that parses the API answer gets no token (the listing is
+public), and only the two git steps receive the write token; the job runs on `master` only,
+serialised by a `concurrency` group, and `actions/checkout` is pinned like every workflow
+(`scripts/check_action_pins.py`). The branch is created by the first run, so after the pull
+request is merged trigger it once by hand (`gh workflow run download-stats.yml`). Scheduled
+workflows run from the default branch only. Measured against the real listing (199 releases, 398
+tracked assets): about 65 KB per day for both CSV kinds together, so roughly 2 MB per month
+and 24 MB per year across the monthly files, each far below any limit.
 
 ### PR Labels for Versioning
 

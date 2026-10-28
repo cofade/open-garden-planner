@@ -8505,39 +8505,49 @@ scene rendering and real-font annotation bounds supplement structural assertions
 **Status:** Accepted (owner decision, 28 October 2026: no telemetry); awaiting owner acceptance of the first live run.
 **Date:** 2026-10-28.
 
-**Context.** We want to know how often the release executables are downloaded per day,
-through the release page and through the in-app update. GitHub exposes only a cumulative
-`download_count` per asset (`GET /repos/{owner}/{repo}/releases`), no history and no
-per-day, per-country or per-user breakdown; *Insights → Traffic* covers page views and
-clones, not release downloads. The app must not report anything about itself.
+**Context.** We want to know how often the release executables are downloaded over time.
+GitHub exposes only a cumulative `download_count` per asset
+(`GET /repos/{owner}/{repo}/releases`), no history and no per-day, per-country or per-user
+breakdown; *Insights → Traffic* covers page views and clones, not release downloads. The
+app must not report anything about itself.
 
 **Decision.** A scheduled workflow (`download-stats.yml`) snapshots the counters daily;
-`scripts/download_stats.py` derives daily deltas. The raw snapshots are append-only and
-the only source of truth; `daily.csv` and `SUMMARY.md` are rebuilt from them. The way a
-download took is estimated from what each path fetches: an in-app update loads
-`SHA256SUMS.txt` and then the installer (`services/verified_update.py`), a web visitor
-the installer only, so the checksum file's daily increase approximates in-app updates and
-the installer's increase minus that approximates web downloads. The result is labelled an
-estimate and a count of downloads, not of users.
+`scripts/download_stats.py` derives the values between consecutive snapshots. Snapshots
+carry a timestamp and the asset id, only the installer and `SHA256SUMS.txt` of non-draft
+releases are recorded, and files are split per month. The snapshots are the only source of
+truth; `daily/` and `SUMMARY.md` are rebuilt from them. A value is a window in hours, not a
+calendar day.
 
 The data goes to the orphan branch `download-stats`. `master` requires a pull request and
 green checks (`quality/master-protection.json`, administrators included), and every push
 to it runs `release.yml`; a bot could not commit there at all, and a pull request per day
 would be noise. The orphan branch shares no history with `master`, and neither `ci.yml`
-nor `release.yml` runs for it.
+nor `release.yml` runs for it (and a `GITHUB_TOKEN` push starts no workflow anyway).
 
 **Rejected.**
 - *App telemetry or an update ping:* the owner ruled it out; it would also count users
   who never download.
+- *Splitting in-app from web via `SHA256SUMS.txt`:* first planned (an in-app update fetches
+  the checksum file and the installer, a web visitor the installer only) and dropped after
+  review. Two of our own artifacts break the inference: the README, wiki and release notes
+  tell web users to fetch the checksum file, and apps older than v1.30.3 update without
+  fetching it. The errors point in opposite directions, so the sign of the error is
+  unknown and a derived column would look more certain than it is. The summary reports
+  the raw columns and says so.
+- *One ever-growing CSV recording every asset:* at the current release rate (about five
+  assets per release, 40+ releases a month) it would pass GitHub's 100 MB file limit in
+  under two years and every push would then fail. Per-month files of two asset kinds
+  avoid a later migration.
 - *Commit to `master`:* blocked by the protection and would trigger a release run.
 - *Actions artifacts:* expire after 90 days by default; history is the point.
 - *Issue comment per day (as `dependency-review.yml` does):* a month of noise and no
   machine-readable form.
 - *Reconstructing the past:* GitHub keeps no history; the series starts at the first
-  snapshot, whose own values are a baseline (no daily value is claimed for it).
+  snapshot, whose own values are a baseline (no value is claimed for it).
 
-**Consequences.** The numbers include bots, virus scanners, retries and manual downloads
-of the checksum file. A skipped scheduled run is reported as one delta over its span, a
-falling counter as a reset. If a later release adds or renames assets, the installer is
-recognised by the `-Setup.exe` suffix and the checksum file by `SHA256SUMS.txt`; the
-other assets are recorded but not summarised. See `docs/07-deployment-view/README.md` §7.4.
+**Consequences.** The numbers include bots, virus scanners and retries and are not users.
+A skipped scheduled run or a manual run gives a window of a different length, reported in
+hours and flagged. A falling counter is a reset; a re-uploaded asset (new id) counts from
+zero. The listing is validated before anything is written; an empty or sharply shrunken
+listing fails the run. A snapshot row is only ever replaced by a rerun on the same UTC
+date. See `docs/07-deployment-view/README.md` §7.4.
