@@ -46,6 +46,7 @@ from ..build import (
     default_builder,
     item_seed,
     raised_surface,
+    uv_origin_of,
 )
 from ..mesh import Mesh, MeshPart
 from ..polygon import cut_region
@@ -55,6 +56,7 @@ from ..record import (
     PARAM_RADIUS_CM,
     PARAM_SEED,
     PARAM_SURFACE_PATTERN,
+    PATTERN_TILE_CM,
     SHAPE_CIRCLE,
     Record,
     Ring,
@@ -524,9 +526,13 @@ def _water_plan(record: Record) -> F64 | None:
     return np.stack(triangles) if triangles else None
 
 
-def _water(plan: F64, level: float) -> Mesh:
-    return flat_mesh(np.concatenate([plan, np.full((len(plan), 3, 1), level)], axis=2),
-                     _shade(0.9), outward=(0.0, 0.0, 1.0))
+def _water(plan: F64, level: float, uv_origin: tuple[float, float] = (0.0, 0.0)) -> Mesh:
+    """The water surface at ``level``, with the plan's UVs (a raised pool shows its
+    own water picture: one texel per vertex would sample a single texel, #627)."""
+    triangles = np.concatenate([plan, np.full((len(plan), 3, 1), level)], axis=2)
+    normalised = np.asarray(uv_origin, dtype=np.float64)
+    uvs = (triangles[:, :, :2] + normalised) / PATTERN_TILE_CM
+    return flat_mesh(triangles, _shade(0.9), outward=(0.0, 0.0, 1.0), vertex_uvs=uvs)
 
 
 def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ...]:
@@ -557,7 +563,7 @@ def _raised_pool(record: Record, height: float, plan: F64) -> tuple[MeshPart, ..
             profile = [(thick, 0.0), (thick, height - cut), (thick - cut, height), (cut, height),
                        (0.0, height - cut), (0.0, 0.0)]
             walls.append(sweep(profile, points, palette.STONE.linear, closed=True))
-    water = _water(plan, max(0.5, height - min(6.0, 0.25 * height)))
+    water = _water(plan, max(0.5, height - min(6.0, 0.25 * height)), uv_origin_of(record))
     return (MeshPart(Mesh.merge(walls), "vc", name="walls"),
             MeshPart(water, "water", casts_shadow=False, fill_texture=True, name="water"))
 

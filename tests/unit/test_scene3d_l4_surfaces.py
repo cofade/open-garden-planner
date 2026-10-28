@@ -396,6 +396,14 @@ def test_a_pond_the_user_gave_a_height_is_a_raised_pool() -> None:
     # #627's manual pass: the water shows the plan's own water, not the flat fill
     # colour - the water shader samples the picture (uFill) and still lights it
     assert water.material_kind == "water" and water.fill_texture and not water.tinted
+    # ... and it samples it with the plan's UVs: one texel would be a flat colour
+    # (measured: the caustic picture's luma std 10.8-15.9 against 2.8-4.1 without)
+    from open_garden_planner.core.scene3d import PATTERN_TILE_CM
+
+    uvs = water.mesh.uvs
+    assert np.ptp(uvs[:, 0]) > 0.5 and np.ptp(uvs[:, 1]) > 0.5
+    expected = (water.mesh.positions[:, :2] + np.asarray([0.0, 0.0])) / PATTERN_TILE_CM
+    assert np.allclose(uvs, expected)
 
 
 # ── lawns ────────────────────────────────────────────────────────────────────
