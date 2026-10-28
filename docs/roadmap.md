@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Download-report follow-up to #634 (ADR-067): implemented, awaiting owner acceptance.**
+**Download-report follow-up to #634 (ADR-067): owner-accepted on 28 October 2026 ("perfect").**
 The tooling-only chart adds frozen, explicitly estimated pre-observation history and
 daily installer bars with sum-preserving week/month/year grouping, independent time
 ranges, UTC boundaries, an SVG preview and a localized accessible Pages viewer.

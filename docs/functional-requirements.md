@@ -921,4 +921,4 @@ ADR-066 and `tests/integration/test_templates_gallery.py` own the behavior.
   accessible, English/German/Spanish, light/dark responsive website and downloadable daily JSON.
   Durable data is pushed before Pages deployment; reports can be rebuilt offline.
 
-Acceptance and Pages publication pending; section 7.4 owns the operational procedure.
+Owner accepted the chart on 28 October 2026 ("perfect"); section 7.4 owns Pages deployment.

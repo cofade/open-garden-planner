@@ -8907,7 +8907,7 @@ scene rendering and real-font annotation bounds supplement structural assertions
 
 ## ADR-067: Release download statistics without telemetry
 
-**Status:** Accepted (owner decision, 28 October 2026: no telemetry); awaiting owner acceptance of the first live run.
+**Status:** Accepted (owner decision, 28 October 2026: no telemetry; chart accepted as "perfect" on the same date).
 **Date:** 2026-10-28.
 
 **Context.** We want to know how often the release executables are downloaded over time.
@@ -8969,8 +8969,8 @@ repository inactivity (§7.4). See `docs/07-deployment-view/README.md` §7.4.
 switches, rather than only release totals. Model the pre-observation past by allocating
 each baseline release's count uniformly while it was the latest regular release. This
 is an assumption, not an inference of download timestamps. UTC was explicitly chosen;
-missing observations are bridged by equal daily estimates. Implementation is awaiting
-owner chart acceptance; live Pages publication is pending protected merge.
+missing observations are bridged by equal daily estimates. The owner accepted the chart
+on 28 October 2026 ("perfect") and authorized finalization. Pages deploys after protected merge.
 
 **Decision.** Preserve the earliest available snapshot in immutable `baseline.json`
 BEFORE a same-date run can replace it. Exact elapsed-second fractions handle multiple
