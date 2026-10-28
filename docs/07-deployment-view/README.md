@@ -537,7 +537,7 @@ fixed it (#571, #572; §11.2).
 
 GitHub keeps one cumulative `download_count` per release asset and no history, and the app
 sends nothing (no telemetry). `.github/workflows/download-stats.yml` therefore snapshots
-those counters once a day (03:17 UTC, plus `workflow_dispatch`) and
+those counters once a day (00:17 UTC, plus `workflow_dispatch`) and
 `scripts/download_stats.py` (standard library only) derives the values between consecutive
 snapshots. The git side is `scripts/download_stats_git.sh`; it is tested against a temporary
 bare repository (`tests/unit/test_download_stats_git.py`), as is the script
@@ -555,12 +555,60 @@ file nears GitHub's size limits:
 | `snapshots/YYYY-MM.csv` | The source of truth: one row per snapshot time and asset (keyed by GitHub's asset id) with the cumulative counter. A rerun on the same UTC date replaces that date's rows; nothing else is rewritten. |
 | `daily/YYYY-MM.csv` | Derived: the difference to the asset's previous snapshot, the **hours** it covers, and a `kind` (`baseline`, `normal`, `new`, `reset`). |
 | `SUMMARY.md` | Derived: the last 30 snapshots and the totals per release (version-sorted, with a total). |
+| `baseline.json` | Immutable earliest snapshot, frozen before a same-date rerun can replace it; the sole basis for the historical estimate. |
+| `site/timeline.json` | UTC daily installer series with historical/observed/gap components, partial flags and actual observation windows. |
+| `site/` | Self-contained bilingual interactive chart and SVG preview; only this directory is deployed to Pages. |
+
+**Chart (ADR-067 addendum, #634 follow-up).** `SUMMARY.md` embeds a daily SVG preview
+above the tables and links to `https://cofade.github.io/open-garden-planner/`.
+Default: daily bars over the last 365 calendar dates ending at the last covered date.
+Controls select day/week/month/year and 30/90/365 days/all history. Weeks start Monday;
+all boundaries are UTC. Groups SUM their daily values, retaining historical estimates
+(grey), recorded increments (green), and gap estimates (amber). Cut-off periods are
+labelled partial. Nothing before the first release or after the last covered date is
+padded with zeros. An unchanged observed counter is a genuine zero.
+
+Historical baseline counts are allocated uniformly over the exact elapsed seconds
+between successive regular release publications, ending at the baseline for its newest
+release. Same-time releases share a boundary; same-day contributions sum. Fractions
+are retained internally; rounding is presentation-only. Later downloads never change
+this modelled history. A live one-date window belongs to the UTC date preceding its
+ending snapshot; multiple dates share the increase equally and are marked estimated.
+A same-date manual window belongs to that date and is partial. Each asset retains its
+own previous observation when missing from a snapshot. New assets cannot contribute
+before publication. Promotion from prerelease admits the counter once; a reset admits
+the new count. Calendar bars approximate days: execution delays and downloads around
+midnight are not knowable from counters. The original CSVs remain exact window reports.
+
+The Qt-free report uses only the Python standard library and local HTML/CSS/JavaScript,
+with no CDN, browser API calls or app telemetry. Website text uses complete English/German
+catalogs (`messages.json`, checked by report tests), independent of desktop Qt catalogs.
+Language follows the browser; appearance follows the system with light/dark overrides.
+Bars have accessible descriptions, Left/Right, Home/End and Escape navigation, and
+tooltips with observation times. Daily JSON is downloadable. Rebuild without fetching
+GitHub or advancing counters:
+
+```bash
+python scripts/download_stats.py --data-dir data --report-only
+```
+
+**Pages introduction and recovery.** After owner acceptance and protected merge, enable
+Settings → Pages → Source: **GitHub Actions** (or owner-admin CLI:
+`gh api --method POST repos/cofade/open-garden-planner/pages -f build_type=workflow`).
+There is no existing Pages site to replace. Dispatch with `report_only=true` to publish
+the stored history without moving its observation time. Confirm the deploy job's URL;
+publication remains pending until a live run succeeds. The snapshot job commits/pushes
+data BEFORE uploading the Pages artifact. A separate deployment job receives only
+`contents: read`, `pages: write`, `id-token: write`. Failed upload/deployment leaves
+history safely committed. Repair Pages and dispatch `report_only=true`; never delete
+the data branch or baseline. Artifacts transport the site; durable history stays in git.
 
 **How to read it.**
 
 - A value is the window between two snapshots, in hours, **not a calendar day**. The nominal
   window is 24 h; a skipped run or a manual run (for example the bootstrap run after the
-  merge) gives a different length, which the summary flags. Nothing is spread over days.
+  merge) gives a different length, which the summary flags. The CSV and window table
+  never spread values over days; only the separately labelled chart does.
 - The first snapshot is a **baseline**: GitHub does not tell us the counter's history, so no
   value is claimed for it. Values start with the second run.
 - An asset first seen after the baseline (a new release, or a re-upload, which has a new id)

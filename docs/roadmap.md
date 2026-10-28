@@ -2,6 +2,13 @@
 
 ## Overview
 
+**Download-report follow-up to #634 (ADR-067): implemented, awaiting owner acceptance.**
+The tooling-only chart adds frozen, explicitly estimated pre-observation history and
+daily installer bars with sum-preserving week/month/year grouping, independent time
+ranges, UTC boundaries, an SVG preview and a bilingual accessible Pages viewer.
+No application release is required. Pages publication follows protected merge and the
+one-time setup in deployment section 7.4; FR-STATS records acceptance requirements.
+
 | Phase | Version | Status | Description |
 |-------|---------|--------|-------------|
 | 1 | v0.1 | ✅ Complete | Foundation: Canvas, drawing, file operations |

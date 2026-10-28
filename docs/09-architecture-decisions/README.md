@@ -8947,8 +8947,8 @@ nor `release.yml` runs for it (and a `GITHUB_TOKEN` push starts no workflow anyw
 - *Actions artifacts:* expire after 90 days by default; history is the point.
 - *Issue comment per day (as `dependency-review.yml` does):* a month of noise and no
   machine-readable form.
-- *Reconstructing the past:* GitHub keeps no history; the series starts at the first
-  snapshot, whose own values are a baseline (no value is claimed for it).
+- *Presenting reconstructed history as measured:* GitHub keeps no history; the raw
+  series starts at the first snapshot. The addendum below permits a labelled model.
 
 **Consequences.** The numbers include bots, virus scanners and retries and are not users.
 A skipped scheduled run or a manual run gives a window of a different length, reported in
@@ -8962,3 +8962,43 @@ isolated, so the workflow does not claim a token boundary between them: it relie
 `master`-only job, no persisted credentials, hook-free commits and a publish step that
 checks it is committing in the data worktree. Scheduled workflows stop after 60 days of
 repository inactivity (§7.4). See `docs/07-deployment-view/README.md` §7.4.
+
+### Addendum — daily chart and explicit historical model (28 October 2026)
+
+**Owner decision.** Show daily installer downloads, with sum-preserving week/month/year
+switches, rather than only release totals. Model the pre-observation past by allocating
+each baseline release's count uniformly while it was the latest regular release. This
+is an assumption, not an inference of download timestamps. UTC was explicitly chosen;
+missing observations are bridged by equal daily estimates. Implementation is awaiting
+owner chart acceptance; live Pages publication is pending protected merge.
+
+**Decision.** Preserve the earliest available snapshot in immutable `baseline.json`
+BEFORE a same-date run can replace it. Exact elapsed-second fractions handle multiple
+releases on one date and retain every baseline download. The most recent seed release
+ends at the seed time. Future increments are computed against this seed once and then
+against their own previous asset observation; the frozen historical component never
+changes. One-date windows approximate the previous UTC date, same-date manual windows
+are partial, longer windows are shared equally and coloured as gap estimates. Schedule
+00:17 UTC, off the hour. Preserve actual timestamps and new/reset markers in daily JSON.
+Raw snapshot/delta CSV schemas and meanings remain unchanged. No in-app/web inference.
+
+The standard-library report module emits a daily series, SVG and a local-asset website.
+Its browser code SUMS days into Monday weeks, calendar months or years after applying
+the selected date range; cut-off buckets retain partial labels and estimate components.
+Default view: daily, last 365 covered calendar dates. Website English/German catalogs
+are separate from Qt: reporting runs on a plain Python runner, not an installed app.
+Both themes, mobile layout, accessible bar descriptions and keyboard inspection are
+supported without an external chart dependency or CDN.
+
+Persist data before uploading/deploying only the site through a separate least-privilege
+Pages job. Pages is enabled once after owner acceptance and merge. A deploy failure
+cannot lose the stored measurement; `--report-only` rebuilds without a network call or
+new snapshot. Do not use branch-triggered publication: bot-token pushes do not start
+workflows. The owner-requested estimates supersede the earlier exclusion of all past
+modelling; the rejection of unlabelled reconstruction remains.
+
+**Evidence.** Unit cases pin the owner's 4/2 and 12/4 example, fractions, subday releases,
+migration, immutable reruns, zero counts, missing asset windows, promotions and resets.
+The CLI integration test produces a complete site from existing snapshots. Tests execute
+the real browser aggregation with Node for all four grains, ISO boundaries and leap day.
+Browser look/interaction evidence and the manual acceptance checklist accompany the PR.
