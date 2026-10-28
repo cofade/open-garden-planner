@@ -8499,3 +8499,61 @@ anchors. Spacing is measured against actual plant circles and the shipped 2D bed
 sprite's soil rectangle, which is narrower than its 3D soil. Guild membership
 describes nearby plants, while missing roles remain honest diagnostics. Production
 scene rendering and real-font annotation bounds supplement structural assertions.
+
+## ADR-067: Release download statistics without telemetry
+
+**Status:** Accepted (owner decision, 28 October 2026: no telemetry); awaiting owner acceptance of the first live run.
+**Date:** 2026-10-28.
+
+**Context.** We want to know how often the release executables are downloaded over time.
+GitHub exposes only a cumulative `download_count` per asset
+(`GET /repos/{owner}/{repo}/releases`), no history and no per-day, per-country or per-user
+breakdown; *Insights → Traffic* covers page views and clones, not release downloads. The
+app must not report anything about itself.
+
+**Decision.** A scheduled workflow (`download-stats.yml`) snapshots the counters daily;
+`scripts/download_stats.py` derives the values between consecutive snapshots. Snapshots
+carry a timestamp and the asset id, only the installer and `SHA256SUMS.txt` of non-draft
+releases are recorded, and files are split per month. The snapshots are the only source of
+truth; `daily/` and `SUMMARY.md` are rebuilt from them. A value is a window in hours, not a
+calendar day.
+
+The data goes to the orphan branch `download-stats`. `master` requires a pull request and
+green checks (`quality/master-protection.json`, administrators included), and every push
+to it runs `release.yml`; a bot could not commit there at all, and a pull request per day
+would be noise. The orphan branch shares no history with `master`, and neither `ci.yml`
+nor `release.yml` runs for it (and a `GITHUB_TOKEN` push starts no workflow anyway).
+
+**Rejected.**
+- *App telemetry or an update ping:* the owner ruled it out; it would also count users
+  who never download.
+- *Splitting in-app from web via `SHA256SUMS.txt`:* first planned (an in-app update fetches
+  the checksum file and the installer, a web visitor the installer only) and dropped after
+  review. Two of our own artifacts break the inference: the README, wiki and release notes
+  tell web users to fetch the checksum file, and apps older than v1.30.3 update without
+  fetching it. The errors point in opposite directions, so the sign of the error is
+  unknown and a derived column would look more certain than it is. The summary reports
+  the raw columns and says so.
+- *One ever-growing CSV recording every asset:* at the current release rate (about five
+  assets per release, 40+ releases a month) it would pass GitHub's 100 MB file limit in
+  under two years and every push would then fail. Per-month files of two asset kinds
+  avoid a later migration.
+- *Commit to `master`:* blocked by the protection and would trigger a release run.
+- *Actions artifacts:* expire after 90 days by default; history is the point.
+- *Issue comment per day (as `dependency-review.yml` does):* a month of noise and no
+  machine-readable form.
+- *Reconstructing the past:* GitHub keeps no history; the series starts at the first
+  snapshot, whose own values are a baseline (no value is claimed for it).
+
+**Consequences.** The numbers include bots, virus scanners and retries and are not users.
+A skipped scheduled run or a manual run gives a window of a different length, reported in
+hours and flagged. A falling counter is a reset; a re-uploaded asset (new id) counts from
+zero. The listing is validated before anything is written; an empty or sharply shrunken
+listing fails the run. A snapshot row is only ever replaced by a rerun on the same UTC
+date, and a snapshot older than the latest stored one is refused. A listing that lost
+more than half of the assets is refused unless `--accept-shrink` (the `accept_shrink`
+dispatch input) says the releases were pruned on purpose. Steps of one job are not
+isolated, so the workflow does not claim a token boundary between them: it relies on the
+`master`-only job, no persisted credentials, hook-free commits and a publish step that
+checks it is committing in the data worktree. Scheduled workflows stop after 60 days of
+repository inactivity (§7.4). See `docs/07-deployment-view/README.md` §7.4.

@@ -664,6 +664,10 @@ verifiers. prepare_version_sync stages mechanical source/lock updates before an 
 Versioned policy files live in quality/. These tools have subprocess integration coverage and
 remain outside application runtime dependencies. See ADR-050.
 
+Daily download statistics (#634): `scripts/download_stats.py` and `scripts/download_stats_git.sh`
+snapshot release download counters daily onto the orphan `download-stats` branch without app
+telemetry, deriving elapsed-hour window values and `SUMMARY.md`. See ADR-067 and section 7.4.
+
 ## Audit A2 build reproducibility and distribution inventory (#454)
 
 - `installer/runtime_closure.py`: the single resolver of the project's installed runtime
