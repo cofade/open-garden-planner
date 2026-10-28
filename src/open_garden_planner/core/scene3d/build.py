@@ -83,7 +83,7 @@ def _walls(ring: Ring, height_cm: float, positions: list[float], normals: list[f
     (``x + uv_origin[0]``, the record being centred on its anchor), ``v`` the
     height, both / ``PATTERN_TILE_CM``.
     A prism that shows its item's fill texture therefore reads as one material on
-    every face; the top's own UVs are its plan coordinates less the anchor."""
+    every face; the top's own UVs are its plan coordinates plus the anchor."""
     n = len(ring)
     travelled = ring[0][0] + uv_origin[0] if n else 0.0
     for i in range(n):
