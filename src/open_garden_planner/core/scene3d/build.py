@@ -176,30 +176,14 @@ def prism_mesh(
         raise MeshError(f"a height of {height_cm!r} cm is not finite in float32")
     if float(np.float32(height_cm)) == 0.0:  # 1e-46, 1e-300: zero in the mesh — as good as none
         return Mesh.empty()
-    positions: list[float] = []
-    normals: list[float] = []
-    uvs: list[float] = []
-    for index, raw in enumerate(footprints):
-        ring = _as_ring(raw)
-        if is_flat_ring(ring):
-            continue  # fewer than three corners, or all on one line: no ground covered
-        outer = ccw(ring)
-        inner = tuple(cw(_as_ring(hole)) for hole in (holes[index] if len(holes) else ()))
-        vertices, triangles = cut_region(outer, inner)  # raises ValueError: no wrong cap, ever
-        _walls(outer, height_cm, positions, normals, uvs, uv_origin)
-        for hole in inner:
-            _walls(hole, height_cm, positions, normals, uvs, uv_origin)
-        _cap_into(vertices, triangles, height_cm, uv_origin, positions, normals, uvs)
-    if not positions:
+    # ONE implementation of each half: ``walls_mesh`` and ``cap_mesh`` are the raised
+    # surface's two Models, and a solid is their union — the hole rules and the
+    # float32 sliver rule cannot drift between the one-part and two-part routes.
+    walls = walls_mesh(footprints, height_cm, holes)
+    cap = cap_mesh(footprints, height_cm, holes, uv_origin=uv_origin)
+    if not walls.vertex_count and not cap.vertex_count:
         return Mesh.empty()
-    count = len(positions) // 3
-    return Mesh.from_arrays(
-        positions,
-        normals,
-        np.ones((count, 4), np.float32),
-        uvs,
-        np.arange(count, dtype=np.uint32),
-    )
+    return Mesh.merge([mesh for mesh in (walls, cap) if mesh.vertex_count])
 
 
 def _cap_into(
