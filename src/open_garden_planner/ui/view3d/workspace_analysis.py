@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
 
-from PyQt6.QtCore import QCoreApplication, QTimer
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import QMenu, QToolButton, QWidget
 
@@ -208,7 +208,7 @@ class WorkspaceAnalysisCoordinator:
             QCoreApplication.translate("Workspace", "Sun and shade on the ground, the sun path, a day sweep, Cutaway and growth")
         )
         self._analyze_button.setAutoRaise(True)
-        self._analyze_button.setFocusPolicy(QtCoreQtNoFocus())
+        self._analyze_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._analyze_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         menu = QMenu(self._analyze_button)
         menu.addSection(QCoreApplication.translate("Workspace", "On the ground"))
@@ -438,7 +438,3 @@ class WorkspaceAnalysisCoordinator:
             lambda: (controller.sync.records, parts_of),
         )
 
-
-def QtCoreQtNoFocus():
-    from PyQt6.QtCore import Qt
-    return Qt.FocusPolicy.NoFocus

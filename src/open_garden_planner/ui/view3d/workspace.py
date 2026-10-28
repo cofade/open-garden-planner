@@ -1256,9 +1256,11 @@ class Workspace(QWidget):
         dialog.set_problems(problems, lambda item_id: names.get(item_id, ""),
                             max_rows=MAX_PROBLEM_ROWS)
 
-    def _find_item(self, item_id: str) -> Any:
+    def _find_item(self, item_id: str | None) -> Any:
         from open_garden_planner.ui.canvas.select_by_id import item_with_id
 
+        if not item_id:
+            return None
         scene = self._scene
         return None if scene is None else item_with_id(scene, item_id)
 

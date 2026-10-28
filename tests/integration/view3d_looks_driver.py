@@ -133,15 +133,9 @@ class Context:
 
     def host(self, *, software: bool = False, qml_dir: Path | None = None,
              size: tuple[int, int] = VIEW) -> Any:
-        from PyQt6.QtCore import Qt
-
         from open_garden_planner.ui.view3d.quick3d.host import Quick3DHost
 
         made = Quick3DHost(size, qml_dir=qml_dir, log=self.log, prefer_software=software)
-        container = made.container()
-        container.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        container.setWindowFlags(container.windowFlags() | Qt.WindowType.WindowDoesNotAcceptFocus)
-        container.move(-20000, -20000)
         made.show()
         if not made.wait_ready(20.0):
             state = made.state.value

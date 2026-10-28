@@ -368,15 +368,9 @@ class Context:
         return info
 
     def shown_host(self, size: tuple[int, int] = VIEW) -> Any:
-        from PyQt6.QtCore import Qt
-
         from open_garden_planner.ui.view3d.quick3d.host import Quick3DHost
 
         host = Quick3DHost(size, qml_dir=self.qml_dir, log=self.log)
-        container = host.container()
-        container.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        container.setWindowFlags(container.windowFlags() | Qt.WindowType.WindowDoesNotAcceptFocus)
-        container.move(-20000, -20000)
         host.show()
         require_ready(host, "a freshly shown host")
         return host
@@ -979,11 +973,7 @@ def scenario_embed(ctx: Context) -> dict[str, Any]:
         else:
             splitter.addWidget(QWidget())
         window.setCentralWidget(splitter)
-        from PyQt6.QtCore import Qt
         window.resize(1200, 600)
-        window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-        window.setWindowFlags(window.windowFlags() | Qt.WindowType.WindowDoesNotAcceptFocus)
-        window.move(-20000, -20000)
         window.show()
         frame_ok = None
         if host is not None:

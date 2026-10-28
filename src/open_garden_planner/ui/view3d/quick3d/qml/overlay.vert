@@ -6,8 +6,5 @@ VARYING vec4 vColor;
 void MAIN()
 {
     vColor = COLOR;
-    vec4 clip = MODELVIEWPROJECTION_MATRIX * vec4(VERTEX, 1.0);
-    // Bias clip depth slightly towards the near plane to prevent z-fighting with ground (#577)
-    clip.z = mix(NEAR_CLIP_VALUE * clip.w, clip.z, 0.999);
-    POSITION = clip;
+    POSITION = MODELVIEWPROJECTION_MATRIX * vec4(VERTEX, 1.0);
 }

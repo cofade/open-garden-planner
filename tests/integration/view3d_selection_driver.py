@@ -515,10 +515,6 @@ def scenario_workspace(ctx: Context) -> dict[str, Any]:
     workspace.connect_plan(scene, SimClock(datetime.combine(JUNE, clock_time(12, 0))),
                            lambda: None, commands, None)
     layout.addWidget(workspace)
-    from PyQt6.QtCore import Qt
-    window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-    window.setWindowFlags(window.windowFlags() | Qt.WindowType.WindowDoesNotAcceptFocus)
-    window.move(-20000, -20000)
     window.show()
     _pump(200)
     out: dict[str, Any] = {}
@@ -848,8 +844,6 @@ def scenario_app_walk(_ctx: Context) -> dict[str, Any]:
     GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
 
     window = GardenPlannerApp()
-    window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
-    window.setWindowFlags(window.windowFlags() | Qt.WindowType.WindowDoesNotAcceptFocus)
     # Use the desktop's work area; a fixed 1500x900 exceeds a scaled 1280x720 screen.
     window.showMaximized()
     _pump(300)

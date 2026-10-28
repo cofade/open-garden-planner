@@ -38,7 +38,6 @@ class EngineHost(Protocol):
         self,
         eye_scene: tuple[float, float, float],
         target_scene: tuple[float, float, float],
-        up_scene: tuple[float, float, float] = ...,
         fov_deg: float = ...,
     ) -> None: ...
     def view_size(self) -> tuple[float, float]: ...

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, Qt
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
+from PyQt6.QtWidgets import QGraphicsScene
 
 from .info_card import CardSubject, View3DCardSlot, View3DInfoCard, card_facts
 from .problems_dialog import BUILD_FAILED, reason_text
@@ -32,7 +32,7 @@ class WorkspaceSelectionCoordinator:
         get_clock: Callable[[], Any],
         get_location: Callable[[], Any],
         get_sun_heatmap: Callable[[], Any],
-        find_item: Callable[[str | None], QGraphicsItem | None],
+        find_item: Callable[[str | None], Any],
         is_chrome_visible: Callable[[], bool],
         is_pane_showing: Callable[[], bool],
         schedule_xray: Callable[[], None],
