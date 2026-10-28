@@ -109,6 +109,36 @@ def test_new_asset_after_midnight_is_not_plotted_before_publication(tmp_path: Pa
     assert data["days"][-1]["windows"][0]["from"] == new.published_at
 
 
+def test_temporary_prerelease_does_not_readmit_a_final_counter(tmp_path: Path) -> None:
+    first = sample("v1", 5, "2026-08-01T00:00:00Z", "2026-08-02T00:17:00Z")
+    hidden = replace(first, prerelease=True, download_count=6, taken_at="2026-08-03T00:17:00Z")
+    visible = replace(first, download_count=7, taken_at="2026-08-04T00:17:00Z")
+    data = series(tmp_path, [first], hidden, visible)
+    assert total(data) == pytest.approx(7)
+    assert sum(day["gap"] for day in data["days"]) == 2
+    assert data["days"][-1]["windows"][0] == {
+        "from": first.taken_at, "to": visible.taken_at, "kind": "normal"}
+
+
+def test_repeated_promotions_of_an_initially_prerelease_asset_count_once(tmp_path: Path) -> None:
+    first = sample("v1", 5, "2026-08-01T00:00:00Z", "2026-08-02T00:17:00Z", prerelease=True)
+    promoted = replace(first, download_count=7, prerelease=False, taken_at="2026-08-03T00:17:00Z")
+    hidden = replace(first, download_count=9, taken_at="2026-08-04T00:17:00Z")
+    restored = replace(promoted, download_count=10, taken_at="2026-08-05T00:17:00Z")
+    data = series(tmp_path, [first], promoted, hidden, restored)
+    assert total(data) == 10
+    assert {w["kind"] for day in data["days"] for w in day["windows"]} == {"new", "normal"}
+
+
+def test_reset_during_excluded_interval_retains_the_last_admitted_counter(tmp_path: Path) -> None:
+    first = sample("v1", 10, "2026-08-01T00:00:00Z", "2026-08-02T00:17:00Z")
+    hidden = replace(first, download_count=3, prerelease=True, taken_at="2026-08-03T00:17:00Z")
+    restored = replace(first, download_count=4, taken_at="2026-08-04T00:17:00Z")
+    data = series(tmp_path, [first], hidden, restored)
+    assert total(data) == pytest.approx(14)
+    assert data["days"][-1]["windows"][0]["kind"] == "reset"
+
+
 def test_a_same_date_rerun_freezes_seed_before_replacing_snapshot(tmp_path: Path) -> None:
     def fetch(count):
         return lambda _r, _t: [{"tag_name": "v1", "published_at": "2026-08-01T00:00:00Z",

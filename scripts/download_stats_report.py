@@ -136,26 +136,30 @@ def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[st
     _history(days, seed)
     cutoff = seed["taken_at"]
     previous = {asset["asset_id"]: asset for asset in seed["assets"]}
+    admitted = {key: asset for key, asset in previous.items() if not asset["prerelease"]}
     snapshot_times = sorted({r.taken_at for r in rows if r.taken_at > cutoff})
     preceding = {stamp: (snapshot_times[i - 1] if i else cutoff)
                  for i, stamp in enumerate(snapshot_times)}
     for row in sorted(rows, key=lambda r: (r.taken_at, r.asset_id)):
         if row.taken_at <= cutoff:
             continue
-        old = previous.get(row.asset_id)
+        seen = previous.get(row.asset_id)
         previous[row.asset_id] = asdict(row)
         if row.prerelease or not row.asset.endswith("-Setup.exe"):
             continue
-        start_stamp = old["taken_at"] if old else preceding[row.taken_at]
-        # Promotion admits the counter once; prerelease downloads were never charted.
-        if old is None or old["prerelease"]:
+        old = admitted.get(row.asset_id)
+        start_stamp = (old["taken_at"] if old else
+                       seen["taken_at"] if seen else preceding[row.taken_at])
+        # Admission and observation differ: temporarily hiding a final release
+        # must not make a re-promotion count its entire total for a second time.
+        if old is None:
             count, kind = row.download_count, "new"
         elif row.download_count < old["download_count"]:
             count, kind = row.download_count, "reset"
         else:
             count, kind = row.download_count - old["download_count"], "normal"
         start, stop = instant(start_stamp), instant(row.taken_at)
-        if old is None or old["prerelease"]:
+        if old is None:
             # A newly published asset cannot contribute to a day before it existed.
             start = max(start, instant(row.published_at))
             start_stamp = start.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -170,6 +174,7 @@ def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[st
             slot.windows.add((start_stamp, row.taken_at, kind))
             if not length:
                 slot.partial = True
+        admitted[row.asset_id] = asdict(row)
     latest = max([cutoff, *(r.taken_at for r in rows)])
     # A baseline taken partway through a day is a partial last day until observed.
     last_day = max(days, default=None)
