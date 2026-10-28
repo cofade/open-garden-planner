@@ -45,7 +45,8 @@
   const catalogs = globalThis.DOWNLOAD_MESSAGES;
   const get = id => document.getElementById(id);
   const svg = get("chart"), tooltip = get("tooltip"), container = get("chart-container");
-  let language = navigator.language.toLowerCase().startsWith("de") ? "de" : "en";
+  const preferred = navigator.language.toLowerCase().split("-")[0];
+  let language = Object.hasOwn(catalogs, preferred) ? preferred : "en";
   let active = 0;
   const t = key => catalogs[language][key];
   const number = value => new Intl.NumberFormat(language, {maximumFractionDigits: 6}).format(value);

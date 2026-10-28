@@ -557,7 +557,7 @@ file nears GitHub's size limits:
 | `SUMMARY.md` | Derived: the last 30 snapshots and the totals per release (version-sorted, with a total). |
 | `baseline.json` | Immutable earliest snapshot, frozen before a same-date rerun can replace it; the sole basis for the historical estimate. |
 | `site/timeline.json` | UTC daily installer series with historical/observed/gap components, partial flags and actual observation windows. |
-| `site/` | Self-contained bilingual interactive chart and SVG preview; only this directory is deployed to Pages. |
+| `site/` | Self-contained localized interactive chart and SVG preview; only this directory is deployed to Pages. |
 
 **Chart (ADR-067 addendum, #634 follow-up).** `SUMMARY.md` embeds a daily SVG preview
 above the tables and links to `https://cofade.github.io/open-garden-planner/`.
@@ -577,11 +577,12 @@ ending snapshot; multiple dates share the increase equally and are marked estima
 A same-date manual window belongs to that date and is partial. Each asset retains its
 own previous observation when missing from a snapshot. New assets cannot contribute
 before publication. Promotion from prerelease admits the counter once; a reset admits
-the new count. Calendar bars approximate days: execution delays and downloads around
+the new count. Previously admitted assets retain pending increments and every observed
+reset while temporarily excluded as prereleases. Calendar bars approximate days: execution delays and downloads around
 midnight are not knowable from counters. The original CSVs remain exact window reports.
 
 The Qt-free report uses only the Python standard library and local HTML/CSS/JavaScript,
-with no CDN, browser API calls or app telemetry. Website text uses complete English/German
+with no CDN, browser API calls or app telemetry. Website text uses complete English/German/Spanish
 catalogs (`messages.json`, checked by report tests), independent of desktop Qt catalogs.
 Language follows the browser; appearance follows the system with light/dark overrides.
 Bars have accessible descriptions, Left/Right, Home/End and Escape navigation, and

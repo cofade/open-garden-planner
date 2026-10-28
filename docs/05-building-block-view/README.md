@@ -672,7 +672,7 @@ telemetry, deriving elapsed-hour window values and `SUMMARY.md`.
 `scripts/download_stats_report.py` freezes the first observation before any replacement,
 allocates historical counts using exact fractions and emits the UTC daily series, SVG
 and self-contained website. Its local browser module sums days into Monday weeks,
-calendar months and years; English/German catalogs translate all website controls.
+calendar months and years; English/German/Spanish catalogs translate all website controls.
 The data branch holds durable history; the workflow deploys only `site/` after pushing
 the data. No application-runtime dependencies are added. See ADR-067 and section 7.4.
 

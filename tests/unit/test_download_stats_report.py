@@ -1,6 +1,8 @@
 """Calendar accounting, immutable migration and real JavaScript aggregation."""
 
+import ast
 import json
+import re
 import shutil
 import subprocess
 from dataclasses import replace
@@ -139,6 +141,20 @@ def test_reset_during_excluded_interval_retains_the_last_admitted_counter(tmp_pa
     assert data["days"][-1]["windows"][0]["kind"] == "reset"
 
 
+@pytest.mark.parametrize("hidden_counts,expected", [([3], 22), ([3, 2], 25)])
+def test_observed_resets_survive_recovery_above_old_counter(
+    tmp_path: Path, hidden_counts: list[int], expected: int,
+) -> None:
+    first = sample("v1", 10, "2026-08-01T00:00:00Z", "2026-08-02T00:17:00Z")
+    hidden = [replace(first, download_count=value, prerelease=True,
+                      taken_at=f"2026-08-0{index+3}T00:17:00Z")
+              for index, value in enumerate(hidden_counts)]
+    restored = replace(first, download_count=12, taken_at="2026-08-06T00:17:00Z")
+    data = series(tmp_path, [first], *hidden, restored)
+    assert total(data) == pytest.approx(expected)
+    assert data["days"][-1]["windows"][0]["kind"] == "reset"
+
+
 def test_a_same_date_rerun_freezes_seed_before_replacing_snapshot(tmp_path: Path) -> None:
     def fetch(count):
         return lambda _r, _t: [{"tag_name": "v1", "published_at": "2026-08-01T00:00:00Z",
@@ -187,10 +203,14 @@ def test_malformed_seed_is_an_exit_code_not_a_traceback(tmp_path: Path, payload:
 
 def test_preview_is_valid_svg_and_translations_have_identical_keys(tmp_path: Path) -> None:
     catalogs = json.loads((report.WEB / "messages.json").read_text(encoding="utf-8"))
-    assert set(catalogs["en"]) == set(catalogs["de"])
+    registry = ast.parse((report.WEB.parents[1] / "src/open_garden_planner/core/i18n.py").read_text())
+    supported = next(ast.literal_eval(node.value) for node in registry.body
+                     if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+                     and node.target.id == "SUPPORTED_LANGUAGES")
+    assert set(catalogs) == set(supported)
+    assert all(set(catalog) == set(catalogs["en"]) for catalog in catalogs.values())
     assert all(value.strip() for catalog in catalogs.values() for value in catalog.values())
     html = (report.WEB / "index.html").read_text(encoding="utf-8")
-    import re
     assert set(re.findall(r'data-i18n="([^"]+)"', html)) <= set(catalogs["en"])
     data = series(tmp_path, [sample("v1", 5, "2026-08-01T00:00:00Z")])
     root = ElementTree.fromstring(report.preview_svg(data, catalogs["de"]))

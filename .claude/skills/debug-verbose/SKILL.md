@@ -4536,3 +4536,13 @@ an estimate. First promotion still admits its full counter once. Pinned by
 `tests/unit/test_download_stats_report.py` (temporary-prerelease regression).
 **Lesson.** A current classification is not a lifetime admission record. Track
 what was actually counted independently of whether the asset is currently visible.
+
+
+**Reset follow-up.** Comparing only with the last admitted counter still lost a reset
+if the hidden counter recovered: `[DL-RESET] count=12 last_counted=10
+last_observed=3 admitted=2 kind=normal` yielded 12 instead of 22. For assets
+already admitted, accumulate increments and resets against EVERY observed counter,
+including excluded rows, then publish the pending sum on restoration. Two hidden
+resets (10 -> 3 -> 2 -> 12) total 25, not 22 or 12. Both recovered-above-old and
+multiple-reset cases are pinned in the same report test module. Observation,
+admission and pending increments are three different pieces of accounting state.

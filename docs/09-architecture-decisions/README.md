@@ -127,7 +127,7 @@ actual finite source symbols/data fields and binds exact dynamic consumers; unre
 or stale bindings fail rather than silently excluding a file.
 
 **Consequences:** every new wrapped UI key needs all supported target translations in
-the same PR. Existing English/German catalogs were reconciled without grandfathered
+the same PR. Existing English/German/Spanish catalogs were reconciled without grandfathered
 gaps. Developer diagnostics remain English; linguistic quality, visual fit and truly
 unwrapped text still require review. The existing required Test check owns enforcement.
 Pinned by the translation gate unit/integration tests and registry-driven menu tests.
@@ -722,7 +722,7 @@ Epic #237 required **one** answer across #332 and #333, and #333 escalated it: *
 
 - **No second translation path.** The agent layer **passes the generator's string through unchanged**; the localisation stays upstream where it already lives. A test asserts pass-through *and* upstream translation separately, because asserting only "the title changed" would pass even if the wrapper had invented a translation of its own.
 - **No new `title_key` field.** `task_type` + `source` + `task_id` already give an agent every branch it needs; a parallel label would be a second thing to keep in sync.
-- **Amendment names are data, not translations.** `Amendment.name` / `name_de` are bilingual *data* fields (an invariant-16 exemption), so `display_name` is *selected*, not translated. The convention is unchanged either way: `amendment_id` never moves with the UI language.
+- **Amendment names are data, not translations.** `Amendment.name` / `name_de` are localized *data* fields (an invariant-16 exemption), so `display_name` is *selected*, not translated. The convention is unchanged either way: `amendment_id` never moves with the UI language.
 - **Enforcement.** `tests/unit/test_agent_d3_localisation.py` installs a real `QTranslator` and asserts that the machine keys are byte-identical while the display strings change. It also asserts the schema field descriptions carry the rule, because a convention nothing states erodes.
 
 **Addendum (US-D3.3 — task sources).** `Task.source` has **six** values — `calendar`, `propagation`, `succession`, `soil`, `frost`, `manual` — read off the `source=` argument of all seven generators. **Not** seven: both soil generators emit `source="soil"`, and the two are distinguished by `task_type` (`soil_amendment` vs `soil_mismatch`), not by `source`. An agent filtering by `source` alone therefore cannot select one of them, which the `get_tasks` docstring states. A drift guard asserts **equality** in both directions between the tuple and the engine; see §11.4 for why a subset-only guard was not enough.
@@ -8985,7 +8985,7 @@ Raw snapshot/delta CSV schemas and meanings remain unchanged. No in-app/web infe
 The standard-library report module emits a daily series, SVG and a local-asset website.
 Its browser code SUMS days into Monday weeks, calendar months or years after applying
 the selected date range; cut-off buckets retain partial labels and estimate components.
-Default view: daily, last 365 covered calendar dates. Website English/German catalogs
+Default view: daily, last 365 covered calendar dates. Website English/German/Spanish catalogs
 are separate from Qt: reporting runs on a plain Python runner, not an installed app.
 Both themes, mobile layout, accessible bar descriptions and keyboard inspection are
 supported without an external chart dependency or CDN.

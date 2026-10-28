@@ -918,7 +918,7 @@ ADR-066 and `tests/integration/test_templates_gallery.py` own the behavior.
   counters show zero; dates outside coverage are not invented. No user-count or
   in-app/web attribution is inferred, and the app sends no telemetry.
 - **FR-STATS-04:** The existing summary embeds a static preview and links to a keyboard-
-  accessible, English/German, light/dark responsive website and downloadable daily JSON.
+  accessible, English/German/Spanish, light/dark responsive website and downloadable daily JSON.
   Durable data is pushed before Pages deployment; reports can be rebuilt offline.
 
 Acceptance and Pages publication pending; section 7.4 owns the operational procedure.
