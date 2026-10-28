@@ -488,7 +488,7 @@ def test_our_projection_agrees_with_the_engines(run: Run) -> None:
 # ── G9: errors are loud; a clean run is silent ───────────────────────────────
 
 
-OFFSCREEN_SCENARIOS = ("truth", "materials", "fill", "rest")
+OFFSCREEN_SCENARIOS = ("truth", "materials", "fill", "pond", "rest")
 SHOWN_SCENARIOS = ("states", "edits", "recovery", "pick", "sun", "shown_materials")
 
 
