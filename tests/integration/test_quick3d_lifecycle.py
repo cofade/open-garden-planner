@@ -939,7 +939,7 @@ def test_reset_alone_recovers_from_a_dead_engine_and_a_fresh_host_renders(
     fresh = clear_orders["fresh"]
     assert fresh["ready"] is True
     judge_step("sink_clear_orders", "fresh", fresh["look"], FRAME)
-    assert fresh["parts"] == 1 and fresh["items"] == ["w"]
+    assert fresh["parts"] == 2 and fresh["items"] == ["w"]  # sides + cap (#627)
     assert fresh["state_equals_expected"] is True
 
 

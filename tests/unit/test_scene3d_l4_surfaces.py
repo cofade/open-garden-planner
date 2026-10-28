@@ -244,9 +244,10 @@ def test_a_terrace_has_kerbs_or_deck_boards_inside_its_outline(kind, pattern, ri
 def test_a_terrace_the_user_gave_a_height_is_a_solid_whose_top_is_it(pattern) -> None:
     record = polygon_record("TERRACE_PATIO", rectangle(400.0, 300.0), 45.0,
                             params={"surface_pattern": pattern})
-    (part,) = verify_builder(REGISTRY.builder_for("TERRACE_PATIO"), record, plan_margin_cm=0.5)
-    assert not part.ground_detail and part.casts_shadow
-    assert float(part.mesh.positions[:, 2].max()) == pytest.approx(45.0)
+    parts = verify_builder(REGISTRY.builder_for("TERRACE_PATIO"), record, plan_margin_cm=0.5)
+    assert parts and not any(part.ground_detail for part in parts)
+    assert all(part.casts_shadow for part in parts)
+    assert max(float(part.mesh.positions[:, 2].max()) for part in parts) == pytest.approx(45.0)
 
 
 def test_a_deck_s_boards_stay_inside_an_l() -> None:
@@ -286,7 +287,7 @@ def test_a_hostile_deck_is_bounded_by_construction(teeth: int, height: float | N
     assert triangles <= surfaces.MAX_DECK_BOARDS * 12 + 12 * surfaces.MAX_RELIEF_VERTICES
     names = {part.name for part in parts}
     if teeth == 100:   # 4 runs a row over 100 teeth: far beyond the cap
-        assert names == ({"platform"} if height is not None else {"kerb"})
+        assert names == ({"platform", "platform_sides"} if height is not None else {"kerb"})
 
 
 @pytest.mark.parametrize("pattern", [None, "FLAGSTONE", "STONE"])
@@ -296,8 +297,10 @@ def test_a_raised_terrace_platform_shows_its_own_fill(pattern: str | None) -> No
     keeps its boards, which are geometry of their own."""
     params = {"surface_pattern": pattern} if pattern is not None else {}
     record = polygon_record("TERRACE_PATIO", rectangle(200.0, 120.0), 30.0, params=params)
-    (part,) = REGISTRY.build(record)
-    assert part.name == "platform" and part.fill_texture and not part.tinted
+    sides, cap = REGISTRY.build(record)
+    assert cap.name == "platform" and cap.fill_texture and not cap.tinted
+    # the canvas paints no texture down an edge: the sides are the item's tint (#627)
+    assert sides.name == "platform_sides" and sides.tinted and not sides.fill_texture
 
 
 @pytest.mark.parametrize("width", [0.8, 20.0])
@@ -390,6 +393,9 @@ def test_a_pond_the_user_gave_a_height_is_a_raised_pool() -> None:
     assert walls.casts_shadow and not walls.ground_detail
     assert float(walls.mesh.positions[:, 2].max()) == pytest.approx(60.0)
     assert 50.0 < float(water.mesh.positions[:, 2].max()) < 60.0
+    # #627's manual pass: the water shows the plan's own water, not the flat fill
+    # colour - the water shader samples the picture (uFill) and still lights it
+    assert water.material_kind == "water" and water.fill_texture and not water.tinted
 
 
 # ── lawns ────────────────────────────────────────────────────────────────────
@@ -461,9 +467,18 @@ def test_a_lawn_with_a_small_area_in_a_huge_box_grows_a_bounded_grid(
     assert sum(part.mesh.triangle_count for part in parts) <= 3 * surfaces.MAX_BLADES
 
 
-def test_a_lawn_the_user_gave_a_height_is_the_prism() -> None:
+def test_a_lawn_the_user_gave_a_height_is_a_solid_that_still_grows_its_blades() -> None:
+    """#627's manual pass: a raised lawn was a flat textured slab - its blades are
+    what made the ground lawn read as grass. The solid is the default one (tinted
+    sides, fill cap) and the sward rides its new top."""
     record = polygon_record("LAWN", rectangle(800.0, 600.0), 20.0)
-    assert REGISTRY.build(record) == default_builder(record)
+    parts = REGISTRY.build(record)
+    sides, cap, blades = parts
+    assert (sides.name, cap.name, blades.name) == ("lawn_sides", "lawn", "lawn_blades")
+    assert cap.fill_texture and sides.tinted and blades.fill_texture is False
+    assert 20.0 <= float(blades.mesh.positions[:, 2].min()) < 21.0  # rooted on the new top
+    assert float(blades.mesh.positions[:, 2].max()) > 20.0
+    assert blades.ground_detail and not blades.casts_shadow
 
 
 def test_a_lawn_s_blades_are_remembered_by_its_own_geometry() -> None:

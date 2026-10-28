@@ -625,7 +625,7 @@ class TestStateAndTeardown:
         sink.attach(new)
         assert sink.scene is new
         sync.apply({"a": record})
-        assert [p.spec.item_id for p in new.parts] == ["a"] and len(old.parts) == 1  # old: untouched
+        assert [p.spec.item_id for p in new.parts] == ["a", "a"] and len(old.parts) == 2  # old: untouched
 
     def test_attach_refuses_a_sink_that_still_holds_something(
             self, rig: tuple[Quick3DSink, FakeScene]) -> None:
@@ -761,7 +761,7 @@ class TestThroughSceneSync:
         sync.apply({"a": self._record("a")})
         scene.calls.clear()
         sync.apply({"a": self._record("a", east=10.0)})
-        assert scene.calls == [("pose", "a"), ("frame",)]
+        assert scene.calls == [("pose", "a"), ("pose", "a"), ("frame",)]  # sides + cap
 
     def test_a_failing_engine_poisons_the_sync_until_it_is_cleared_and_reset(self) -> None:
         scene = FakeScene(fail_on_create=2)
@@ -776,7 +776,7 @@ class TestThroughSceneSync:
         assert not sync.poisoned and scene.parts == [] and sink.item_ids() == ()
         scene.fail_on_create = None
         sync.apply({"a": self._record("a")})
-        assert [p.spec.item_id for p in scene.parts] == ["a"]
+        assert [p.spec.item_id for p in scene.parts] == ["a", "a"]  # sides + cap (#627)
         assert sink.state() == sync.expected_state()
 
     def _engine_matches(self, scene: FakeScene, sync: SceneSync) -> None:
@@ -900,10 +900,14 @@ class TestThroughSceneSync:
         sync = SceneSync(Quick3DSink(scene), BuilderRegistry(), validate=True)
         record = self._record("a", height=180.0)
         sync.apply({"a": record})
-        (part,) = scene.parts
-        packed = np.frombuffer(part.spec.buffers.vertex_data, "<f4").reshape(-1, 12)
+        sides, cap = scene.parts
+        packed = np.frombuffer(sides.spec.buffers.vertex_data, "<f4").reshape(-1, 12)
         assert float(packed[:, 1].max()) == 180.0 and float(packed[:, 1].min()) == 0.0  # y = up
-        assert isinstance(part.spec.buffers, EngineBuffers)
+        cap_packed = np.frombuffer(cap.spec.buffers.vertex_data, "<f4").reshape(-1, 12)
+        assert np.all(cap_packed[:, 1] == 180.0)  # the cap: the top face, nothing else
+        for part in scene.parts:
+            assert isinstance(part.spec.buffers, EngineBuffers)
+        assert (sides.spec.name, cap.spec.name) == ("prism_sides", "prism")
 
 
 def test_the_adapter_module_does_not_import_the_engine() -> None:

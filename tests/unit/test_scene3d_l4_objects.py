@@ -19,7 +19,12 @@ import numpy as np
 import pytest
 
 from open_garden_planner.core.object_height import DEFAULT_HEIGHTS_CM
-from open_garden_planner.core.scene3d import BuilderContractError, Record, verify_builder
+from open_garden_planner.core.scene3d import (
+    BuilderContractError,
+    Record,
+    prism_mesh,
+    verify_builder,
+)
 from open_garden_planner.core.scene3d.builders import (
     OBJECT_KINDS,
     OBJECT_TRIANGLE_BUDGET,
@@ -256,13 +261,12 @@ def test_every_colour_is_a_2d_table_entry_or_a_shade_of_the_item_s(kind: str) ->
 def test_a_polygon_that_is_not_its_box_is_the_plain_block() -> None:
     """A table typed onto an L-shaped polygon: the object box cannot be honest about
     it, the plain block of its footprint is."""
-    from open_garden_planner.core.scene3d import default_builder
     from tests.unit.scene3d_builder_cases import L_SHAPE
 
     record = polygon_record("TABLE_RECTANGULAR", L_SHAPE, 75.0)
     assert object_box(record) is None
     (block,) = REGISTRY.build(record)
-    assert block.mesh == default_builder(record)[0].mesh
+    assert block.mesh == prism_mesh(record.footprints, record.height_cm, record.holes)
 
 
 @pytest.mark.parametrize("kind", sorted(OBJECT_KINDS))

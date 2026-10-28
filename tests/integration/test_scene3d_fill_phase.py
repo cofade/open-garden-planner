@@ -94,8 +94,9 @@ def test_the_cap_uvs_are_the_bakes_phase(qtbot, pattern: FillPattern,
     assert origin == (record.transform.east_cm, record.transform.north_cm) == (760.0, 480.0)
     assert record.footprints[0][0] == (-150.0, -100.0), "the footprint is centred on the anchor"
 
-    (part,) = production_registry().build(record)
+    (sides, part) = production_registry().build(record)
     assert part.fill_texture and part.name == "platform"
+    assert sides.tinted and not sides.fill_texture and sides.name == "platform_sides"
     top = part.mesh.normals[:, 2] > 0.999   # the cap; the part also holds the walls
     cap = [(part.mesh.positions[index], part.mesh.uvs[index])
            for index in range(len(part.mesh.positions)) if top[index]]

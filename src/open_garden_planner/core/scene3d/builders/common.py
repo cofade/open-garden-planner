@@ -92,9 +92,10 @@ def plain_block(record: Record, height_cm: float, *, name: str = "prism") -> tup
     """The honest solid of a record no shape function builds on — and of an item
     whose shape function has nothing to show (a house without a usable ridge):
     ALL of the record's regions, holes cut out, up to ``height_cm``, neutral and
-    ``tinted``. The same mesh ``build.default_builder`` gives a record with that
-    height. ``()`` for a record without ground; ``prism_mesh`` raises
-    ``ValueError`` for a ring that is not simple (``SceneSync`` contains it)."""
+    ``tinted`` — a building's block, not a flat item's surface (``default_builder``
+    is that, and it splits its sides from its fill cap). ``()`` for a record
+    without ground; ``prism_mesh`` raises ``ValueError`` for a ring that is not
+    simple (``SceneSync`` contains it)."""
     mesh = prism_mesh(record.footprints, height_cm, record.holes)
     if not mesh.vertex_count:
         return ()
@@ -102,8 +103,14 @@ def plain_block(record: Record, height_cm: float, *, name: str = "prism") -> tup
 
 
 def top_cm(parts: Sequence[MeshPart]) -> float | None:
-    """The highest vertex of the union of ``parts`` (None when they hold none)."""
-    tops = [float(part.mesh.positions[:, 2].max()) for part in parts if part.mesh.vertex_count]
+    """The highest vertex of the union of ``parts`` that make the SOLID — None when
+    they hold none.
+
+    Relief (``ground_detail``) does not count: a raised lawn's blades stand 7 cm
+    above the top the plan asked for, and measuring them made ``fit_scale`` squash
+    the whole lawn to keep them under it (#627's manual pass)."""
+    tops = [float(part.mesh.positions[:, 2].max()) for part in parts
+            if part.mesh.vertex_count and not part.ground_detail]
     return max(tops) if tops else None
 
 

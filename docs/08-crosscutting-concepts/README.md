@@ -6022,7 +6022,7 @@ takes a raised bed and two real plants through both).
 | a `GARDEN_BED` with a height | `beds` | `walls`: vc · `soil`: vc | walls tinted, soil = the item's own fill (`fill_texture`: its "Boden-Substrat") |
 | `HEDGE_SECTION`, `HEDGE_POLYGON` | `hedges` | `hedge`: foliage (the dark core and the leaf shell in one mesh) | baked: the hedge texture's greens |
 | `TREE`, `SHRUB`, `PERENNIAL` | `plants` (L1.7, §8.29.7 — registered by `plants.register`, not by this section's `register`) | `wood`: vc · `foliage`: foliage — or `placeholder`: vc for a plant without a height (no shadow) | baked: the recipe's palette, the 2D bark colour |
-| everything else | `build.default_builder` | one `fill_texture` prism, or nothing without a height | the item's own fill |
+| everything else | `build.default_builder` | tinted sides (`prism_sides`) + a `fill_texture` cap (`prism`), or nothing without a height | the item's own fill on top, the tint on the edges |
 
 **A solid shows the fill the ground baked (#628 follow-up, ADR-037 addendum).** A lawn, path,
 terrace, driveway or generic shape is painted into the ground while it lies flat (§8.29.5); the
@@ -6033,7 +6033,7 @@ brush uses, RGBA8, opaque, its mean the fill colour) through `vcPart`'s `baseCol
 (`patternMap`). One picture per (pattern, fill colour), shared and refcounted by the sink
 (`release_fill` with the last Model), so a recolour is a material update and a removed object
 leaves nothing behind. A SOLID fill has no picture and shows its colour through the same call.
-UVs are (position + paint_origin) / 256 on a cap — the canvas's phase, the record's footprint being centred on its anchor — (the forge's 256 px at 1 px = 1 cm, pinned against every texture) and distance along the ring / height on the walls. Measured, Direct3D 11,
+UVs are (position + paint_origin) / 256 on the CAP — the canvas's phase, the record's footprint being centred on its anchor (the forge's 256 px at 1 px = 1 cm, pinned against every texture). The SIDES are the item's tint, not the picture: the canvas paints no texture down an edge, and one fill prism smeared a lawn's grass and a bed's soil down the walls (the owner's second pass). A raised flat item keeps its RELIEF too — a lawn's blades ride the new top, and the height gates (`top_cm`/`fit_scale`, `verify_builder`) ignore `ground_detail` so they are not squashed under the requested height. A raised pool's water takes the same picture: `water.frag` samples it through `uFill` (linearised) and keeps its hue rule and reflection. Measured, Direct3D 11,
 1000 × 400 top-down, two 300 cm squares at 40 cm: GRASS reads luma std 26.0, SOLID 0.0, at the
 same mean (121.3 / 120.8). The X-ray screen door does not sample the map, so a ghosted solid keeps
 its fill colour; PF-L3D-17 holds the two engine traps — a `var` map must bind as

@@ -3560,7 +3560,7 @@ sink so a recolour or a removal leaves no picture behind. UVs are (position + pa
 cap (the canvas's phase) and distance-along-the-ring / height on the walls. A garden bed's soil cap is its
 "Boden-Substrat"; a container's soil stays the palette's. Measured on Direct3D 11, 1000 × 400
 top-down, two 300 cm squares at 40 cm: luma std 26.0 for GRASS against 0.0 for SOLID at the same
-mean (121.3 / 120.8). The phase is pinned against the canvas's own painter, not a formula:
+mean (121.3 / 120.8). A second owner pass fixed three residues: a raised plain surface is now tinted SIDES + a fill CAP (one prism smeared the picture down the edge), a raised lawn keeps its blades (lifted to the new top; the height gates ignore `ground_detail`), and a raised pool's water samples the plan's own water picture (`uFill`) instead of a flat tint. A plant dropped into a bed also undoes as ONE step now (move + link in one `CompoundCommand`). The phase is pinned against the canvas's own painter, not a formula:
 `tests/integration/test_scene3d_fill_phase.py` bakes a real rectangle and correlates the
 mesh's UVs (NCC 0.995; the opposite sign 0.759 / 0.866). ADR-037 addendum, FR-3D-BUILT-09,
 PF-L3D-17.

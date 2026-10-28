@@ -8,6 +8,7 @@ Y increasing upward).
 import contextlib
 import json
 import logging
+from collections.abc import Mapping
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
@@ -3886,19 +3887,23 @@ class CanvasView(QGraphicsView):
                 else QCoreApplication.translate("Commands", "Move item")
             )
             if len(item_deltas) == 1 and not has_propagated and not has_children:
-                # Single item, uniform delta — use simple MoveItemsCommand
+                # Single item, uniform delta - use simple MoveItemsCommand
                 command = MoveItemsCommand([item_deltas[0][0]], item_deltas[0][1])
             else:
                 command = AlignItemsCommand(item_deltas, desc)
+            # A plant dragged into (or out of) a bed is linked in the SAME step:
+            # two stack entries made the first Ctrl+Z undo only the link (#627).
+            links = self._plant_bed_link_commands(dict(item_deltas))
+            if links:
+                from open_garden_planner.core.commands import CompoundCommand
+
+                command = CompoundCommand([command, *links], desc)
             self._command_manager.execute(command)
 
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
         if hasattr(self, "_child_drag_origins"):
             self._child_drag_origins.clear()
-
-        # Re-evaluate parent-child relationships after move
-        self._update_plant_bed_relationships()
 
     def _propagate_bed_children_during_drag(self) -> None:
         """Move child plants to follow their parent bed during a live drag."""
@@ -3927,19 +3932,40 @@ class CanvasView(QGraphicsView):
                 child.setPos(self._child_drag_origins[child] + delta)
 
     def _update_plant_bed_relationships(self) -> None:
-        """Re-evaluate parent-child links for all selected plants after a move."""
+        """Re-evaluate parent-child links for all selected plants at their CURRENT
+        positions (no drag in flight).
+
+        Each change is its own undo step here; a finished drag wraps the same
+        commands together with its move (``_plant_bed_link_commands`` +
+        ``CompoundCommand``), so one Ctrl+Z undoes both (#627).
+        """
+        for command in self._plant_bed_link_commands({}):
+            self._command_manager.execute(command)
+
+    def _plant_bed_link_commands(
+        self, moves: Mapping[QGraphicsItem, QPointF]
+    ) -> list[Any]:
+        """The parent links a finished drag would change, as commands - NOT executed.
+
+        ``moves``: each moved item's delta. The membership point is asked at the
+        item's position BEFORE the move (the drag put everything back) plus that
+        delta, so the answer is the one the finished drag gives - and the move and
+        its links can be executed as ONE undoable step (``CompoundCommand``).
+        """
         from open_garden_planner.core.commands import SetParentBedCommand
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.footprints import bed_membership_point
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
+        commands: list[Any] = []
+        still = QPointF()
         for item in self.scene().selectedItems():
             if not isinstance(item, GardenItemMixin):
                 continue
             if not is_plant_type(item.object_type):
                 continue
 
-            plant_center = bed_membership_point(item)
+            plant_center = bed_membership_point(item) + moves.get(item, still)
             current_parent_id = item.parent_bed_id
 
             new_bed = self._canvas_scene.find_smallest_bed_containing(plant_center)
@@ -3950,16 +3976,15 @@ class CanvasView(QGraphicsView):
             )
 
             if new_parent_id != current_parent_id:
-                cmd = SetParentBedCommand(
-                    self.scene(),
-                    item,
-                    current_parent_id,
-                    new_parent_id,
+                commands.append(
+                    SetParentBedCommand(
+                        self.scene(),
+                        item,
+                        current_parent_id,
+                        new_parent_id,
+                    )
                 )
-                # SetParentBedCommand triggers _update_soil_mismatches itself
-                # (issue #173) so all attach/detach call sites stay in sync —
-                # including the properties-panel Unlink button.
-                self._command_manager.execute(cmd)
+        return commands
 
     def drawBackground(self, painter: QPainter, rect: QRectF) -> None:
         """Draw the background."""

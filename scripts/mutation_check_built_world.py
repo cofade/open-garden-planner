@@ -110,7 +110,7 @@ MUTANTS: tuple[Mutant, ...] = (
            (STACKING,), "TestWhichPointEachDecisionAsks"),
     Mutant("the drop after a drag asks the stable centre",
            SRC + "ui/canvas/canvas_view.py",
-           "            plant_center = bed_membership_point(item)\n",
+           "            plant_center = bed_membership_point(item) + moves.get(item, still)\n",
            f"            plant_center = {_RECT_CENTRE}\n",
            (STACKING,), "TestWhichPointEachDecisionAsks"),
     Mutant("the agent's re-link after move_object asks the stable centre",

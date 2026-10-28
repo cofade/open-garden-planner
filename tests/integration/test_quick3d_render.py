@@ -207,7 +207,7 @@ def test_adding_items_shows_them(run: Run) -> None:
     rgb, dpr = _frame(run, step)
     assert iou(red_mask(rgb), footprint_mask(driver.EDIT_A, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert iou(blue_mask(rgb), footprint_mask(driver.EDIT_B, driver.TOP, rgb.shape, dpr)) >= 0.95
-    assert step["uploads_delta"] == 2 and step["sink_uploads"] == 2
+    assert step["uploads_delta"] == 4 and step["sink_uploads"] == 4  # sides + cap each
     assert {part["id"] for part in step["engine_parts"]} == {"a", "b"}
     assert step["picks"]["a"]["hit"] == "a" and step["picks"]["b"]["hit"] == "b"
 
@@ -221,8 +221,10 @@ def test_update_transform_moves_the_pixels_and_uploads_nothing(run: Run) -> None
     assert step["uploads_delta"] == 0, "a move must not upload geometry"
     assert step["build_count"] == steps["0_add"]["build_count"], "a move must not run a builder"
     assert step["picks"]["a"]["hit"] == "a" and step["picks"]["old"]["hit"] is None
-    (part,) = [p for p in step["engine_parts"] if p["id"] == "a"]
-    assert part["position"] == pytest.approx([-250.0, 0.0, 150.0]) and part["yaw"] == 30.0
+    parts = [p for p in step["engine_parts"] if p["id"] == "a"]
+    assert len(parts) == 2  # sides + cap (#627), posed together
+    assert all(p["position"] == pytest.approx([-250.0, 0.0, 150.0]) and p["yaw"] == 30.0
+               for p in parts)
 
 
 def test_update_material_recolours_and_uploads_nothing(run: Run) -> None:
@@ -233,8 +235,8 @@ def test_update_material_recolours_and_uploads_nothing(run: Run) -> None:
     assert iou(yellow_mask(rgb), footprint_mask(driver.EDIT_A_YELLOW, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert step["uploads_delta"] == 0, "a recolour must not upload geometry"
     assert step["build_count"] == steps["0_add"]["build_count"]
-    (part,) = [p for p in step["engine_parts"] if p["id"] == "a"]
-    assert part["tint"] == list(driver.YELLOW[:3])
+    parts = [p for p in step["engine_parts"] if p["id"] == "a"]
+    assert [p["tint"] for p in parts] == [list(driver.YELLOW[:3])] * 2  # sides + cap
 
 
 def test_replace_geometry_changes_the_silhouette(run: Run) -> None:
@@ -243,7 +245,7 @@ def test_replace_geometry_changes_the_silhouette(run: Run) -> None:
     yellow = yellow_mask(rgb)
     assert iou(yellow, footprint_mask(driver.EDIT_A_WIDE, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert iou(yellow, footprint_mask(driver.EDIT_A_YELLOW, driver.TOP, rgb.shape, dpr)) < 0.5
-    assert step["uploads_delta"] == 1
+    assert step["uploads_delta"] == 2  # the replaced item's sides and cap
     assert step["picks"]["a"]["hit"] == "a"
 
 
@@ -252,7 +254,7 @@ def test_remove_clears_the_item(run: Run) -> None:
     rgb, dpr = _frame(run, step)
     assert int(yellow_mask(rgb).sum()) == 0 and int(red_mask(rgb).sum()) == 0
     assert iou(blue_mask(rgb), footprint_mask(driver.EDIT_B, driver.TOP, rgb.shape, dpr)) >= 0.95
-    assert [part["id"] for part in step["engine_parts"]] == ["b"]
+    assert [part["id"] for part in step["engine_parts"]] == ["b", "b"]
     assert step["picks"]["gone"]["hit"] is None and step["picks"]["b"]["hit"] == "b"
     assert step["uploads_delta"] == 0
 
@@ -266,7 +268,7 @@ def test_an_item_removed_and_added_again_renders_and_picks(run: Run) -> None:
     before, _ = _frame(run, steps["3_replace"])
     after, _ = _frame(run, step)
     assert float(np.abs(after - before).mean()) < 0.5
-    assert step["uploads_delta"] == 1, "a re-added item gets FRESH geometry"
+    assert step["uploads_delta"] == 2, "a re-added item gets FRESH geometry (sides + cap)"
     assert step["picks"]["a"]["hit"] == "a" and step["picks"]["b"]["hit"] == "b"
     assert step["picks"]["a"]["point"] == pytest.approx([-250.0, -150.0, 80.0], abs=0.5)
 
@@ -285,7 +287,7 @@ def test_reset_then_the_same_items_again_renders_and_picks(run: Run) -> None:
     before, _ = _frame(run, steps["5_readd"])
     after, _ = _frame(run, step)
     assert float(np.abs(after - before).mean()) < 0.5
-    assert step["uploads_delta"] == 2
+    assert step["uploads_delta"] == 4  # two items, sides + cap each
     assert step["state_equals_expected"] is True
     assert step["picks"]["a"]["hit"] == "a" and step["picks"]["b"]["hit"] == "b"
 
@@ -308,7 +310,7 @@ def test_an_engine_call_that_fails_mid_transaction_is_recovered_by_reset(run: Ru
 
     # half applied: "c" was built before the failure, "d" was not, "a" was not moved
     half = recovery["half_applied"]
-    assert sorted(part["id"] for part in half["engine_parts"]) == ["a", "b", "c"]
+    assert sorted({part["id"] for part in half["engine_parts"]}) == ["a", "b", "c"]
     rgb, dpr = _frame(run, half)
     assert iou(red_mask(rgb), footprint_mask(driver.EDIT_A, driver.TOP, rgb.shape, dpr)) >= 0.95
     assert iou(yellow_mask(rgb), footprint_mask(driver.RECOVERY_C, driver.TOP, rgb.shape, dpr)) >= 0.95
@@ -328,7 +330,7 @@ def test_an_engine_call_that_fails_mid_transaction_is_recovered_by_reset(run: Ru
                        tuple(p["tint"]), p["casts"]) for p in parts)
 
     assert rows(after["engine_parts"]) == rows(after["expected_parts"])
-    assert [p["id"] for p in after["engine_parts"]].count("c") == 1, "no orphan of the failed call"
+    assert [p["id"] for p in after["engine_parts"]].count("c") == 2, "no orphan of the failed call"
     assert all(p["geometry"] and p["visible"] for p in after["engine_parts"])
     rgb, dpr = _frame(run, after)
     red = footprint_mask(driver.EDIT_A_MOVED, driver.TOP, rgb.shape, dpr)

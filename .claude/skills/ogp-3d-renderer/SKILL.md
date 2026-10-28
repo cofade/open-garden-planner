@@ -335,18 +335,30 @@ lives now; the values production was drift-guarded against are frozen in
   texture behind (`PatternTexture.uploads` 1 -> 2, `textures_alive()` 0 after the removal).
   A `var`-typed map must bind as `patternMap ? patternMap : null`: `baseColorMap: patternMap`
   with no picture logs "Unable to assign [undefined] to QQuick3DTexture*" and fails the render
-  gate (PF-L3D-17). UVs are `(position + paint_origin) / 256` on a cap — `paint_origin` is
+  gate (PF-L3D-17). UVs are `(position + paint_origin) / 256` on the CAP — `paint_origin` is
   the record's anchor (its footprint is centred on it, so the canvas's item coordinate is
   `position + paint_origin`); `tests/integration/test_scene3d_fill_phase.py` correlates the
-  mesh's own UVs against the ground bake (NCC 0.995; the opposite sign 0.759 / 0.866) — and
-  distance-along-the-ring / height on the walls (the wall wrap has one seam on an edge, visible
-  only if the pattern has a strong feature there). A `fill_texture` part is not tinted (the
-  picture carries the colour), but `set_part_fill` still writes `tintLinear` from the fill
-  colour: the X-ray screen door samples no picture, and a white tintLinear ghosted a faded lawn
-  white (max 255). The render gate `tests/integration/test_quick3d_render.py` measures a raised
-  GRASS square's top (std > 5 against a SOLID twin's < 0.5 at the same mean), the faded ghost
-  (max < 235) and the lifetime counts (1 picture, 2 after a recolour, 0 after the removal) —
-  a QML string match cannot see a white slab.
+  mesh's own UVs against the ground bake (NCC 0.995; the opposite sign 0.759 / 0.866). The
+  SIDES of a raised surface are the item's TINT (`walls_mesh`, no UVs): the canvas paints no
+  texture down an edge, and one fill prism smeared a lawn's grass and a bed's soil down the
+  walls (the owner's second pass) — so the default solid is TWO Models, `prism_sides` and the
+  fill cap. Relief rides above the solid: a raised lawn keeps its blades, lifted to the new
+  top, and `top_cm`/`fit_scale`/`verify_builder` measure only non-`ground_detail` parts (the
+  blades stand ~7 cm over the requested height and once squashed the lawn to 0.68 x).
+  A `fill_texture` part is not tinted (the picture carries the colour), but `set_part_fill`
+  still writes `tintLinear` from the fill colour: the X-ray screen door samples no picture, and
+  a white tintLinear ghosted a faded lawn white (max 255). The render gate
+  `tests/integration/test_quick3d_render.py` measures a raised GRASS square's top (std > 5
+  against a SOLID twin's < 0.5 at the same mean), the faded ghost (max < 235) and the lifetime
+  counts (1 picture, 2 after a recolour, 0 after the removal) — a QML string match cannot see
+  a white slab.
+
+- **Water has a second albedo source (`uFill`) on a raised pool (#627).** `water.frag` keeps
+  its hue rule: `BASE_COLOR` is `VAR_COLOR * uTint` — unless the part carries the plan's water
+  picture (`fill_texture` on a `water` part), when it samples `texture(uFill, UV0)` and
+  linearises it with the ground's polynomial. A ground pond has no picture. `water_door.frag`
+  is the same shader plus the dither, and `test_quick3d_qml` pins the two apart only by that
+  block: change both or neither.
 
 - **ONE texture per `Texture` element, for life — a re-pointed `Texture` goes WHITE.** When a
   `QQuick3DTextureData` that a `Texture` once held is destroyed, Qt resets that element's

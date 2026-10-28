@@ -542,12 +542,12 @@ class TestRidgeIsTheRecordsRidge:
         NO ridge — no param, or one that is not two points — gets a flat roof (L4.1: the
         automatic style; ``TestRoofStyles``)."""
         ring = rectangle(900.0, 540.0)
-        block = default_builder(polygon_record("HOUSE", ring, 450.0))
+        block = prism_mesh((ring,), 450.0)
         for params in ({"ridge": ((10.0, 0.0), (10.0, 0.0))},
                        {"ridge": ((2000.0, 0.0), (2000.0, 500.0))}):  # a line that misses the house
             parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
             assert len(parts) == 1 and parts[0].name == "walls"
-            assert_the_block(parts[0], block[0].mesh, "HOUSE")  # in its sandstone, never its fill
+            assert_the_block(parts[0], block, "HOUSE")  # in its sandstone, never its fill
         for params in ({}, {"ridge": "nonsense"}, {"ridge": ((0.0, 0.0),)},
                        {"ridge": ((0.0, True), (1.0, 2.0))}):
             parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
@@ -1454,7 +1454,8 @@ class TestGroundThatIsNotOnePlainRing:
         parts = verify_builder(builder, record, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)  # nothing outside, nothing over a hole
         assert [part.name for part in parts] == ["prism"]
-        assert_the_block(parts[0], default_builder(record)[0].mesh, kind)  # the default prism
+        assert_the_block(parts[0], prism_mesh(record.footprints, record.height_cm,
+                                             record.holes), kind)  # the default prism
         assert plan_area([parts[0].mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6)
         assert float(positions(parts)[:, 2].max()) == 150.0 and builder.fit_scale(record) == 1.0
         assert parts[0].casts_shadow
@@ -1561,7 +1562,8 @@ class TestGroundThatIsNotOnePlainRing:
         parts = verify_builder(builder, flagged, height_tolerance_cm=0.5, plan_margin_cm=0.0,
                                hole_cover_limit=0.0)
         assert [part.name for part in parts] == ["prism"]
-        assert_the_block(parts[0], default_builder(flagged)[0].mesh, kind)
+        assert_the_block(parts[0], prism_mesh(flagged.footprints, flagged.height_cm,
+                                             flagged.holes), kind)
         assert float(positions(parts)[:, 2].max()) == 150.0 and builder.fit_scale(flagged) == 1.0
         # … where the very same ring WITHOUT the flag is built as its kind
         as_its_kind = built(plain)
@@ -1585,7 +1587,8 @@ class TestGroundThatIsNotOnePlainRing:
         function = getattr(buildings, shape)
         assert [part.name for part in function(plain, 450.0)] == ["walls", "roof", "facade"]
         (block,) = function(flagged, 450.0)
-        assert block.name == "walls" and block.mesh == default_builder(flagged)[0].mesh
+        assert block.name == "walls" and block.mesh == prism_mesh(flagged.footprints,
+                                                                  flagged.height_cm, flagged.holes)
 
     @pytest.mark.parametrize(("name", "record"), [
         ("a ridge without length", polygon_record("HOUSE", L_SHAPE, 450.0,
@@ -1600,7 +1603,8 @@ class TestGroundThatIsNotOnePlainRing:
                                        plan_margin_cm=0.0)
         assert (walls_part.name, walls_part.material_kind) == ("walls", "vc")
         assert plan_area([walls_part.mesh]) == pytest.approx(record.plan_area_cm2, rel=1e-6), name
-        assert_the_block(walls_part, default_builder(record)[0].mesh, "HOUSE")  # concave L and all
+        assert_the_block(walls_part, prism_mesh(record.footprints, record.height_cm,
+                                                record.holes), "HOUSE")  # concave L and all
 
     def test_one_plain_ring_is_what_every_matrix_record_is(self) -> None:
         for case in CASES:

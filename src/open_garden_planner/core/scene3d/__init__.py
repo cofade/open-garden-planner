@@ -80,6 +80,7 @@ from .interleave import (
 )
 from .mesh import (
     BENT_NORMAL_KINDS,
+    FILL_TEXTURE_KINDS,
     FLAT_NORMAL_MIN_DOT,
     MATERIAL_KINDS,
     Mesh,
@@ -172,6 +173,7 @@ __all__ = [
     "EMPTY_PARAMS",
     "ENGINE_TO_SCENE",
     "FALLBACK_RGBA",
+    "FILL_TEXTURE_KINDS",
     "FLAT_NORMAL_MIN_DOT",
     "GEOMETRY_FIELDS",
     "LENGTH_DECIMALS",

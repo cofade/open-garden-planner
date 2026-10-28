@@ -809,16 +809,30 @@ The built world complete (L4, #388, ADR-065).
   shows against the sky. That holds up to 380 m from the point looked at; farther
   out (the camera reaches 600 m) the haze begins at 570 m, so a camera pulled out
   to its limit sees the plan through thin haze.
-- **FR-3D-BUILT-09** (#628 follow-up, owner manual pass of #627): An item that has a
-  height is a solid, and the solid shows the item's own **fill** on its faces: its
-  fill pattern tinted with its fill colour, or that colour alone for a SOLID fill —
-  exactly the picture the ground bake painted while the item lay flat. This covers
-  the kinds a height was newly reachable for (a lawn, path, terrace, driveway,
-  generic shape, and a garden bed whose soil cap is its "Boden-Substrat", not a
-  builder's palette soil colour); a raised DECK keeps its boards instead, and a pond
-  its water. The picture is cached per (pattern, colour) and shared, so a recolour
-  is a material update and a removed object leaves no picture behind. Not shown
-  while X-ray fades an object: a faded solid is a screen door of its colour.
+- **FR-3D-BUILT-09** (#628 follow-up, owner manual passes of #627): An item that has a
+  height is a solid, and the solid shows the item's own **fill** on its TOP: its
+  fill pattern tinted with its fill colour, or that colour alone for a SOLID fill -
+  exactly the picture the ground bake painted while the item lay flat. Its SIDES
+  are the item's colour, not the picture (the canvas paints no texture down an edge;
+  one fill-textured prism smeared a lawn's grass and a bed's soil down the walls).
+  The item keeps its RELIEF as well: a raised lawn still grows its sward, on the new
+  top (the height gates measure the solid, not the blades). This covers the kinds a
+  height was newly reachable for (a lawn, path, terrace, driveway, generic shape, and
+  a garden bed whose soil cap is its "Boden-Substrat", not a builder's palette soil
+  colour); a raised DECK keeps its boards instead, and a raised pond its water — the
+  plan's water picture, sampled by the water shader, lit and reflecting as water.
+  The picture is cached per (pattern, colour) and shared, so a recolour is a material
+  update and a removed object leaves no picture behind. Not shown while X-ray fades
+  an object: a faded solid is a screen door of its colour.
+
+- **FR-EDIT-21** (#627, owner manual pass): A plant dragged into a plant-parent is
+  **moved and linked as ONE undoable step**: one Ctrl+Z restores both its position
+  and its previous parent, and one Ctrl+Y re-applies both. The link is decided at the
+  drag's finished centre (the item's pre-move membership point plus the drag delta),
+  so the step is the drag, not two edits wearing one gesture.
+  Acceptance: `tests/integration/test_plant_drop_undo.py` (a real mouse drag on a
+  `CanvasView`, one undo, one redo), `tests/unit/test_commands.py::TestCompoundCommand`
+  (order, reverse undo, a failing step rolls back).
 
 Acceptance (L4): `tests/integration/test_l4_built_world.py` (§8.10 — the roof
 rows through the real panel, undo and a save/load; the door against the path and

@@ -41,6 +41,9 @@ from numpy.typing import ArrayLike, NDArray
 MATERIAL_KINDS: Final[frozenset[str]] = frozenset(
     {"vc", "roof", "foliage", "grass", "glass", "water"}
 )
+#: Kinds whose material takes the item's fill picture (#628 follow-up): ``vc`` as
+#: its base colour map, ``water`` as the raised pool's own water (``uFill``).
+FILL_TEXTURE_KINDS: Final[frozenset[str]] = frozenset({"vc", "water"})
 #: Kinds shaded with bent (spherized) normals by design — exempt from the
 #: "a flat face stores its winding normal" rule (``ogp-lush-cinematic`` §2).
 BENT_NORMAL_KINDS: Final[frozenset[str]] = frozenset({"foliage", "grass"})
@@ -262,14 +265,15 @@ class MeshPart:
     as before L4) and casts no shadow — the plan gives a surface no height.
 
     ``fill_texture`` (#628 follow-up): the part shows the item's own FILL as the
-    canvas paints it — its fill pattern textured by its fill colour, or that
+    canvas paints it - its fill pattern textured by its fill colour, or that
     colour alone when the fill is SOLID. A ground surface given a height is no
     longer painted by the ground bake (it is a solid), so without this the owner
     saw a lawn turn into a flat green slab and a soil bed into a brown one. The
     sink supplies the picture from ``core.fill_patterns`` and never bakes it into
     the mesh, so a recolour or a pattern change is a material update. Not
-    ``tinted`` (the picture already carries the colour) and only for ``"vc"``
-    parts.
+    ``tinted`` (the picture already carries the colour) and only for the parts
+    whose material takes a picture: ``"vc"`` (``baseColorMap``) and ``"water"``
+    (``uFill``: a raised pool keeps the plan's water, #627's manual pass).
     """
 
     mesh: Mesh
@@ -291,9 +295,9 @@ class MeshPart:
                 "gives no height (pass casts_shadow=False)"
             )
         if self.fill_texture:
-            if self.material_kind != "vc":
-                raise ValueError("a fill_texture part must be a 'vc' part: only that material "
-                                 "takes a base colour map")
+            if self.material_kind not in FILL_TEXTURE_KINDS:
+                raise ValueError(f"a fill_texture part must be one of {sorted(FILL_TEXTURE_KINDS)}: "
+                                 "only those materials take a picture")
             if self.tinted:
                 raise ValueError("a fill_texture part is not tinted: its picture already carries "
                                  "the item's fill colour")

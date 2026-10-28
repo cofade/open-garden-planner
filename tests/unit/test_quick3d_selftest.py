@@ -249,7 +249,8 @@ class TestScene:
         sync.apply(selftest.records())
         assert {part.spec.kind for part in engine.parts} == MATERIAL_KINDS
         # one part per kind, and one faded cube per screen-door material (L2.4)
-        assert sync.failures == {} and len(engine.parts) == len(MATERIAL_KINDS) + 5
+        # + the faded cubes, and one more Model since #627: the box is sides + cap
+        assert sync.failures == {} and len(engine.parts) == len(MATERIAL_KINDS) + 6
         assert {selftest.records()[item_id].params["material_kind"] for item_id in
                 selftest.FADED} == {"vc", "foliage", "grass", "water"}
 

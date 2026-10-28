@@ -684,14 +684,15 @@ def scenario_recovery(ctx: Context) -> dict[str, Any]:
         out["before"] = ctx.save("recovery_0_before", host.grab("recovery_before"))
         out["before"]["state_equals_expected"] = sink.state() == sync.expected_state()
 
-        # the engine refuses the SECOND Model of the next transaction: "c" is built,
-        # "d" is not, "a" is not moved yet — a transaction applied half way
+        # the engine refuses "d"'s FIRST Model of the next transaction: "c" is whole
+        # (a default solid is two Models since #627), "d" is not built, "a" is not
+        # moved yet - a transaction applied half way
         real_create = host.create_part
         calls = {"n": 0}
 
         def refusing(spec: Any, pose: Any, tint: Any) -> object:
             calls["n"] += 1
-            if calls["n"] == 2:
+            if calls["n"] == 3:
                 raise EngineError("injected: the engine refused this Model")
             return real_create(spec, pose, tint)
 

@@ -5,7 +5,7 @@ executed, undone, and redone.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext, suppress
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
@@ -604,6 +604,55 @@ class MoveItemsCommand(Command):
         """Move items back by negative delta."""
         for item in self._items:
             item.moveBy(-self._delta.x(), -self._delta.y())
+
+
+class CompoundCommand(Command):
+    """Several commands that undo as ONE step.
+
+    The case it exists for: a plant dragged into a bed is moved AND linked, and
+    the link is decided after the move (positions, then containment). Two stack
+    entries made the first Ctrl+Z undo only the link and the second the move, so
+    the drag looked half-undoable (#627's manual pass). The commands run in
+    order here and undo in reverse, so one undo puts the plant back where it was
+    WITH its old parent.
+
+    ``description``: the step's own name; the first command's when omitted.
+    ``execute`` undoes what it already ran if a later command raises - a failed
+    step leaves no half-executed state and no stack entry.
+    """
+
+    def __init__(self, commands: Sequence[Command], description: str | None = None) -> None:
+        self._commands = list(commands)
+        if not self._commands:
+            raise ValueError("CompoundCommand needs at least one command")
+        self._description = description
+
+    @property
+    def description(self) -> str:
+        return self._description or self._commands[0].description
+
+    @property
+    def changes_ground_band(self) -> bool:
+        return any(command.changes_ground_band for command in self._commands)
+
+    @property
+    def changes_containment(self) -> bool:
+        return any(command.changes_containment for command in self._commands)
+
+    def execute(self) -> None:
+        done: list[Command] = []
+        try:
+            for command in self._commands:
+                command.execute()
+                done.append(command)
+        except Exception:
+            for command in reversed(done):
+                command.undo()
+            raise
+
+    def undo(self) -> None:
+        for command in reversed(self._commands):
+            command.undo()
 
 
 class ChangePropertyCommand(Command):

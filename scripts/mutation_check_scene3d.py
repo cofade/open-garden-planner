@@ -176,22 +176,18 @@ MUTANTS: tuple[Mutant, ...] = (
            (MESH,)),
     Mutant("the default builder bakes the colour (a recolour would need a rebuild)",
            SRC + "core/scene3d/build.py",
-           'return (MeshPart(mesh, "vc", casts_shadow=True, fill_texture=True, name="prism"),)',
-           'return (MeshPart(mesh, "vc", casts_shadow=True, tinted=True, name="prism"),)',
+           'MeshPart(cap, "vc", casts_shadow=casts_shadow, fill_texture=True,',
+           'MeshPart(cap, "vc", casts_shadow=casts_shadow, tinted=True,',
            (MESH,)),
     Mutant("the default prism is 1 % too tall",
            SRC + "core/scene3d/build.py",
-           "    mesh = prism_mesh(record.footprints, record.height_cm, record.holes,\n"
-           "                      uv_origin=uv_origin_of(record))\n",
-           "    mesh = prism_mesh(record.footprints, record.height_cm * 1.01, record.holes,\n"
-           "                      uv_origin=uv_origin_of(record))\n",
+           '    return raised_surface(record, record.height_cm, name="prism")\n',
+           '    return raised_surface(record, record.height_cm * 1.01, name="prism")\n',
            (MESH, SNAPSHOT)),
     Mutant("the default builder ignores the holes (review P1-1: the fence becomes a slab)",
            SRC + "core/scene3d/build.py",
-           "    mesh = prism_mesh(record.footprints, record.height_cm, record.holes,\n"
-           "                      uv_origin=uv_origin_of(record))\n",
-           "    mesh = prism_mesh(record.footprints, record.height_cm,\n"
-           "                      uv_origin=uv_origin_of(record))\n",
+           "    cap = cap_mesh(record.footprints, height_cm, record.holes, uv_origin=uv_origin_of(record))\n",
+           "    cap = cap_mesh(record.footprints, height_cm, (), uv_origin=uv_origin_of(record))\n",
            (MESH, SNAPSHOT, EDGE_PLAN)),
     Mutant("the cap is triangulated without its holes",
            SRC + "core/scene3d/build.py",
@@ -899,8 +895,8 @@ MUTANTS: tuple[Mutant, ...] = (
            (POLYGON,)),
     Mutant("a cap triangle that is nothing in float32 is emitted",
            SRC + "core/scene3d/build.py",
-           "            if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) <= _FLOAT32_SLIVER * reach * edges:\n"
-           "                continue  # nothing at float32 precision (see _FLOAT32_SLIVER)\n",
+           "        if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) <= _FLOAT32_SLIVER * reach * edges:\n"
+           "            continue  # nothing at float32 precision (see _FLOAT32_SLIVER)\n",
            "",
            (MESH,)),
     Mutant("prism_mesh needs hashable points again",

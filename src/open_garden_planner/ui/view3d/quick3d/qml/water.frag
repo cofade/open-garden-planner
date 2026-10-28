@@ -22,7 +22,15 @@ float waterLuma(vec3 c)
 
 void MAIN()
 {
-    BASE_COLOR = vec4(VAR_COLOR.rgb * uTint, 1.0);   // linear
+    // the plan's own water picture when the part has one (a raised pool, #627);
+    // its sRGB bytes are linearised with the ground's own polynomial
+    vec3 base = VAR_COLOR.rgb * uTint;
+    if (uHasFill > 0.5)
+    {
+        vec3 srgb = texture(uFill, UV0).rgb;
+        base = srgb * (srgb * (srgb * 0.305306011 + 0.682171111) + 0.012522878);
+    }
+    BASE_COLOR = vec4(base, 1.0);   // linear
     ROUGHNESS = uRough;
     METALNESS = 0.0;
     SPECULAR_AMOUNT = 0.5;

@@ -552,6 +552,7 @@ Item {
             property bool retired: false   // set by destroyPart(); never a reason to hide
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
+            property var patternMap: null  // #627: the item's own water picture, or null
             receivesShadows: true
             pickable: fade >= 1.0 && !groundDetail
             // a custom shader keeps the water's hue in every mood; see water.frag for why
@@ -559,6 +560,12 @@ Item {
             materials: fade < 1.0 ? [waterDoor] : [waterLook]
             CustomMaterial {
                 id: waterLook
+                // a raised pool shows the plan's own water picture, in the canvas's
+                // phase; a ground pond has none and keeps the flat tint (water.frag)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
                 property vector3d uTint: tintLinear
                 property real uBody: 0.5      // = the principled diffuse's (1 - specularAmount)
                 property real uReflect: 0.15
@@ -570,6 +577,12 @@ Item {
             }
             CustomMaterial {   // the same water as a screen door (X-ray, L2.4)
                 id: waterDoor
+                // the raised pool's own water picture travels with it (water.frag has
+                // the same branch: the door is the look plus the dither)
+                property TextureInput uFill: TextureInput {
+                    texture: patternMap ? patternMap : null
+                }
+                property real uHasFill: patternMap ? 1.0 : 0.0
                 property vector3d uTint: tintLinear
                 property real uBody: 0.5
                 property real uReflect: 0.15

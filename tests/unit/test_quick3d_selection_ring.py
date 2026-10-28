@@ -86,7 +86,7 @@ def test_a_selection_is_mapped_to_the_engine_frame_once_and_handed_over(rig) -> 
     assert np.array_equal(rows[:, UV_OFFSET // 4:UV_OFFSET // 4 + 2], selection.ring.uvs)
     assert sink.selection == selection == sink.state().selection
     assert (sink.ring_uploads, sink.geometry_uploads) == (1, uploads), "no Model buffer was uploaded"
-    assert len(scene.parts) == 2, "no Model was created or destroyed"
+    assert len(scene.parts) == 4, "no Model was created or destroyed"  # a and b: sides + cap
 
 
 def test_an_empty_selection_hides_the_ring(rig) -> None:
@@ -104,9 +104,9 @@ def test_the_ring_rides_the_transaction_of_the_move(rig) -> None:
     scene.calls.clear()
     moved = {**records, "a": item("a", 150.0, 250.0, rotation=30.0, base=38.0)}
     sync.apply(moved)
-    assert [call[0] for call in scene.calls] == ["pose", "ring", "frame"], "one transaction"
+    assert [call[0] for call in scene.calls] == ["pose", "pose", "ring", "frame"], "one transaction"
     assert sink.state() == sync.expected_state() and sink.selection == selection_of(moved, ["a"])
-    assert sink.geometry_uploads == 2, "the two Models of the first apply, and none since"
+    assert sink.geometry_uploads == 4, "the four Models of the first apply, and none since"
 
 
 def test_clear_drops_the_ring_from_the_books_and_the_scene_hides_it(rig) -> None:

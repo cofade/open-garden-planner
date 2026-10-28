@@ -1368,15 +1368,40 @@ part shows the item's own fill", and the sink supplies
 `_tint_texture`, RGBA8, opaque, its mean the fill colour) — as `vcPart`'s `baseColorMap`
 (the Model's `patternMap`). It is per (pattern, colour), shared and refcounted by the sink
 (`release_fill` with the last Model), so a recolour is a material update and leaves no texture
-behind. UVs are `(position + paint_origin) / PATTERN_TILE_CM` on a cap — `paint_origin` is
+behind. UVs are `(position + paint_origin) / PATTERN_TILE_CM` — `paint_origin` is
 `params["paint_origin"]`, the anchor the canvas phases the fill from, so the solid shows the
 bake's own picture: NCC **0.995** against the bake with the mesh's own UVs on a real
 rectangle (MULCH; BRICK 0.995), while the opposite sign reads 0.759 / 0.866
-(`tests/integration/test_scene3d_fill_phase.py`, measured 2026-10-27) — and distance along the ring / height on the walls; the 256 cm ruler is
+(`tests/integration/test_scene3d_fill_phase.py`, measured 2026-10-27) — and the 256 cm ruler is
 pinned against every shipped texture's size. A SOLID fill has no picture and shows its colour
 through the same `set_part_fill` call, so the two cases cannot diverge. A GARDEN_BED's soil cap
 is the item's fill too — the Properties panel calls it "Boden-Substrat" — while a raised bed's
 and a container's soil stay the builder's palette soil, and a raised deck keeps its boards.
+
+**Second manual pass — the TOP keeps the picture, the SIDES are the tint, and a lawn still
+grows (2026-10-28).** The owner confirmed the field and reported three residues, each a
+different layer:
+
+- **A raised lawn lost its blades** ("looks like a lower quality setting"). The fill picture is
+  the paint; the *blades* are the relief geometry that made the ground lawn read as grass, and
+  `_lawn` returned the plain prism at a height. It now builds the solid AND the sward, lifted to
+  the new top. `top_cm`/`fit_scale` (the G1 gate) ignore `ground_detail` parts: relief standing
+  7 cm above the solid is not the item's height, and measuring it squashed the whole lawn.
+- **One fill-textured prism smeared the picture down the sides** (a lawn's grass stretched the
+  full height of the edge, a generic shape's pattern ran down its wall). The canvas paints a
+  texture on the TOP and no texture down an edge. A raised flat surface is now TWO Models:
+  tinted sides (`walls_mesh`, no UVs) and a fill cap (`cap_mesh`, plan UVs). `default_builder`,
+  `raised_surface` (a terrace/platform) and the raised lawn share one helper. `plain_block` — a
+  building's or an odd outline's honest block — stays one tinted part.
+- **A raised pond was the flat fill colour** ("the water became unreflective"): `_raised_pool`
+  drew its water with the water material's tint only. The water part now takes
+  `fill_texture=True`, and `water.frag` samples it through a `TextureInput` (`uFill`, gated by
+  `uHasFill`) as its albedo — linearised with the ground's own polynomial — while keeping the
+  hue-in-every-mood rule and the sky reflection. A ground pond has no picture and is unchanged.
+- **A plant dropped into a bed linked, but Ctrl+Z undid only the link** — the move and the link
+  were two stack entries. A finished drag now executes its move and the links it decides as ONE
+  `CompoundCommand` (`core/commands.py`), which undoes in reverse; the link commands are asked
+  at the item's pre-move position plus the drag's delta, so the answer is the finished drag's.
 
 **Why a picture and not a luminance map multiplied by a tint.** The obvious smaller design — a
 greyscale detail map per pattern with the fill colour as the tint — was rejected: an 8-bit
@@ -1395,25 +1420,29 @@ faded raised lawn measured a white ghost (max 255) instead of its green.
 
 **Measured** (dev box, Direct3D 11, 1000 × 400 top-down frame, two 300 cm squares at 40 cm): the
 GRASS square's top reads luma std **26.0**, the SOLID one **0.0**, at the same mean (121.3 /
-120.8) — the texture is there and the average brightness is the fill colour. The garden bed's
-soil cap renders with the frame round it and its substrate on top. Engine traps, measured:
-`baseColorMap: patternMap` logs "Unable to assign [undefined] to QQuick3DTexture*" until the
-binding is `patternMap ? patternMap : null`; and a `Texture` is made with its data at birth —
-re-pointing one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer` §5).
+120.8) — the texture is there and the average brightness is the fill colour. A raised lawn's
+blades measure 20.3–29.4 cm above the ground for a 20 cm lawn (rooted on its top, ±30 %
+variation), and its sides carry no UVs. Engine traps, measured: `baseColorMap: patternMap` logs
+"Unable to assign [undefined] to QQuick3DTexture*" until the binding is
+`patternMap ? patternMap : null`; and a `Texture` is made with its data at birth — re-pointing
+one at another `QQuick3DTextureData` renders white (`ogp-3d-renderer` §5).
 
 **Pins.** `tests/unit/test_fill_patterns.py::TestThe3DFillPicture` (the picture is the canvas's:
 256 × 256 RGBA, opaque, mean = the fill; names resolve; every texture is 256 px);
-`tests/unit/test_scene3d_mesh.py` (the prism asks for the fill and carries
-`(position + paint_origin) / 256` UVs on its top and wrapped UVs on its walls; a fill part
-must be `vc`, untinted and not ground detail); `tests/unit/test_scene3d_builders.py::TestSoilRule`
+`tests/unit/test_scene3d_mesh.py` (the default solid is sides + cap, the cap carries
+`(position + paint_origin) / 256`, a fill part must be `vc` or `water`, untinted and not ground
+detail); `tests/unit/test_scene3d_builders.py::TestSoilRule`
 (a garden bed's soil is the item's fill, a container's is not);
-`tests/unit/test_scene3d_l4_surfaces.py` (a raised platform is a fill part, a raised deck is
-not); `tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill` (the picture reaches the engine,
+`tests/unit/test_scene3d_l4_surfaces.py` (a raised platform is a fill cap beside tinted sides, a
+raised deck is not; a raised lawn's blades ride its top; a raised pool's water is a fill part);
+`tests/unit/test_quick3d_adapter.py::TestTheItemsOwnFill` (the picture reaches the engine,
 a recolour swaps it without an upload, one picture per key, released with its last user);
 `tests/unit/test_quick3d_qml.py::test_a_fill_part_shows_the_plans_own_picture` (the binding and
-the one-Texture-per-data rule); `tests/unit/test_quick3d_pure.py` (the fill branch of the one
-tint rule); `tests/integration/test_scene3d_fill_phase.py` (the mesh's own UVs against the
-ground bake: NCC 0.995, the opposite sign 0.759 / 0.866); and the render gate
+the one-Texture-per-data rule) and `test_every_custom_shader_multiplies_with_the_tint` (water's
+`uFill` branch); `tests/unit/test_quick3d_pure.py` (the fill branch of the one tint rule);
+`tests/integration/test_scene3d_fill_phase.py` (the mesh's own UVs against the ground bake: NCC
+0.995, the opposite sign 0.759 / 0.866); `tests/integration/test_plant_drop_undo.py` (a drag
+into a bed is one Ctrl+Z, and one Ctrl+Y); and the render gate
 `tests/integration/test_quick3d_render.py` — the raised GRASS square's top std > 5 against a
 SOLID twin's < 0.5 at the same mean, a faded GRASS ghost below 235 (no white), and the live
 lifetime counts (1 picture, 2 after a recolour, 0 after the removal, geometry uploads 1).

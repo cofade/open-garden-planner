@@ -313,9 +313,20 @@ def test_the_scene_uses_no_order_independent_transparency() -> None:
 
 
 def test_every_custom_shader_multiplies_with_the_tint() -> None:
+    """The albedo of every custom kind is its vertex colour times the part's tint.
+
+    Water also takes the plan's own picture (``uFill``, a raised pool: #627) - its
+    flat path must still be the tint, both in the look and in its screen door."""
     for name in ("foliage.frag", "water.frag"):
         source = (QML_DIR / name).read_text(encoding="utf-8")
-        assert re.search(r"BASE_COLOR\s*=\s*vec4\([\w.]+\s*\*\s*uTint\s*,", source), name
+        assert re.search(r"[\w.]+\.rgb\s*\*\s*uTint", source), name
+    water = (QML_DIR / "water.frag").read_text(encoding="utf-8")
+    assert re.search(r"if \(uHasFill > 0\.5\)", water)
+    assert re.search(r"texture\(uFill, UV0\)", water)
+    # the screen door is the look shader plus the dither: it carries the same albedo
+    door = (QML_DIR / "water_door.frag").read_text(encoding="utf-8")
+    assert re.search(r"if \(uHasFill > 0\.5\)", door)
+    assert re.search(r"texture\(uFill, UV0\)", door)
 
 
 #: Root properties of the look block that are STATE of the wind's clock, not look.

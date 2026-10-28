@@ -63,7 +63,7 @@ JUNE = date(2026, 6, 21)
 #: house), 9 of them flat (the fire pit and the rain barrel have a default height since
 #: L4's second owner pass), 89 parts. One number for both tiers: e4df9674 raised the
 #: recording engine's copy and left the render tier's, and CI's Render 3D went red.
-RECORDS, ENGINE_PARTS = 98, 89
+RECORDS, ENGINE_PARTS = 98, 178  # two Models per solid since #627 (sides + cap)
 SOFTWARE_ADAPTERS = ("basic render", "llvmpipe", "softpipe", "swiftshader", "lavapipe")
 
 
@@ -145,16 +145,17 @@ class TestAgainstARecordingEngine:
         engine.calls.clear()
         commands.execute(_recolour(target, QColor(250, 30, 200)))
         tick()
-        assert [call[0] for call in engine.calls] == ["fill", "release_fill", "frame"]
-        assert engine.calls[0] == ("fill", str(target.item_id), "ROOF_TILES")
+        # a recolour retints the sides and swaps the cap's picture (#627)
+        assert [call[0] for call in engine.calls] == ["tint", "fill", "release_fill", "frame"]
+        assert ("fill", str(target.item_id), "ROOF_TILES") in engine.calls
         assert quick.geometry_uploads == uploads  # neither a move nor a recolour uploaded
 
         commands.execute(DeleteItemsCommand(scene, [victim]))
         tick()
-        assert len(engine.parts) == ENGINE_PARTS - 1
+        assert len(engine.parts) == ENGINE_PARTS - 2  # the victim's sides and cap
         commands.undo()
         tick()
-        assert len(engine.parts) == ENGINE_PARTS and quick.geometry_uploads == uploads + 1
+        assert len(engine.parts) == ENGINE_PARTS and quick.geometry_uploads == uploads + 2
         commands.undo()
         commands.undo()
         tick()
