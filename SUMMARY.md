@@ -1,5 +1,9 @@
 # Release downloads
 
+[![Daily installer downloads](https://raw.githubusercontent.com/cofade/open-garden-planner/download-stats/site/preview.svg)](https://cofade.github.io/open-garden-planner/)
+
+[Interactive chart: day / week / month / year](https://cofade.github.io/open-garden-planner/) · UTC · Historical and gap values are estimates.
+
 Generated from GitHub's per-asset download counters; no data comes from the app.
 These are downloads, not users: bots, virus scanners and retries are included.
 Each line is the window between two snapshots (not a calendar day).

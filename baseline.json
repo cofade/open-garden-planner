@@ -1,0 +1,3588 @@
+{
+  "version": 1,
+  "taken_at": "2026-10-28T17:19:46Z",
+  "assets": [
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.0",
+      "asset": "OpenGardenPlanner-v1.0.0-Setup.exe",
+      "asset_id": 355882765,
+      "download_count": 1,
+      "published_at": "2026-02-14T15:22:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 355882764,
+      "download_count": 1,
+      "published_at": "2026-02-14T15:22:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.1",
+      "asset": "OpenGardenPlanner-v1.0.1-Setup.exe",
+      "asset_id": 355887818,
+      "download_count": 4,
+      "published_at": "2026-02-14T15:40:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 355887819,
+      "download_count": 1,
+      "published_at": "2026-02-14T15:40:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.2",
+      "asset": "OpenGardenPlanner-v1.0.2-Setup.exe",
+      "asset_id": 355991943,
+      "download_count": 1,
+      "published_at": "2026-02-14T22:13:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 355991944,
+      "download_count": 1,
+      "published_at": "2026-02-14T22:13:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.3",
+      "asset": "OpenGardenPlanner-v1.0.3-Setup.exe",
+      "asset_id": 356027096,
+      "download_count": 2,
+      "published_at": "2026-02-14T23:28:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 356027095,
+      "download_count": 1,
+      "published_at": "2026-02-14T23:28:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.4",
+      "asset": "OpenGardenPlanner-v1.0.4-Setup.exe",
+      "asset_id": 356032500,
+      "download_count": 2,
+      "published_at": "2026-02-14T23:36:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 356032501,
+      "download_count": 1,
+      "published_at": "2026-02-14T23:36:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.5",
+      "asset": "OpenGardenPlanner-v1.0.5-Setup.exe",
+      "asset_id": 356318877,
+      "download_count": 0,
+      "published_at": "2026-02-15T17:04:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 356318876,
+      "download_count": 0,
+      "published_at": "2026-02-15T17:04:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.6",
+      "asset": "OpenGardenPlanner-v1.0.6-Setup.exe",
+      "asset_id": 356416671,
+      "download_count": 2,
+      "published_at": "2026-02-15T22:17:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.0.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 356416670,
+      "download_count": 2,
+      "published_at": "2026-02-15T22:17:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.1.0",
+      "asset": "OpenGardenPlanner-v1.1.0-Setup.exe",
+      "asset_id": 356910934,
+      "download_count": 1,
+      "published_at": "2026-02-16T20:14:27Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.1.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 356910935,
+      "download_count": 1,
+      "published_at": "2026-02-16T20:14:27Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.0",
+      "asset": "OpenGardenPlanner-v1.10.0-Setup.exe",
+      "asset_id": 412902799,
+      "download_count": 1,
+      "published_at": "2026-05-05T19:20:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 412902801,
+      "download_count": 0,
+      "published_at": "2026-05-05T19:20:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.1",
+      "asset": "OpenGardenPlanner-v1.10.1-Setup.exe",
+      "asset_id": 413786314,
+      "download_count": 1,
+      "published_at": "2026-05-06T19:42:35Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 413786313,
+      "download_count": 0,
+      "published_at": "2026-05-06T19:42:35Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.10",
+      "asset": "OpenGardenPlanner-v1.10.10-Setup.exe",
+      "asset_id": 421418493,
+      "download_count": 5,
+      "published_at": "2026-05-15T23:45:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.10",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 421418492,
+      "download_count": 0,
+      "published_at": "2026-05-15T23:45:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.2",
+      "asset": "OpenGardenPlanner-v1.10.2-Setup.exe",
+      "asset_id": 414684558,
+      "download_count": 0,
+      "published_at": "2026-05-07T20:18:08Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 414684557,
+      "download_count": 0,
+      "published_at": "2026-05-07T20:18:08Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.3",
+      "asset": "OpenGardenPlanner-v1.10.3-Setup.exe",
+      "asset_id": 414728946,
+      "download_count": 0,
+      "published_at": "2026-05-07T21:29:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 414728947,
+      "download_count": 0,
+      "published_at": "2026-05-07T21:29:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.4",
+      "asset": "OpenGardenPlanner-v1.10.4-Setup.exe",
+      "asset_id": 415592652,
+      "download_count": 0,
+      "published_at": "2026-05-08T22:03:30Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 415592651,
+      "download_count": 0,
+      "published_at": "2026-05-08T22:03:30Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.5",
+      "asset": "OpenGardenPlanner-v1.10.5-Setup.exe",
+      "asset_id": 416239588,
+      "download_count": 0,
+      "published_at": "2026-05-09T21:45:00Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 416239587,
+      "download_count": 0,
+      "published_at": "2026-05-09T21:45:00Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.6",
+      "asset": "OpenGardenPlanner-v1.10.6-Setup.exe",
+      "asset_id": 416263363,
+      "download_count": 3,
+      "published_at": "2026-05-09T22:40:05Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 416263364,
+      "download_count": 0,
+      "published_at": "2026-05-09T22:40:05Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.7",
+      "asset": "OpenGardenPlanner-v1.10.7-Setup.exe",
+      "asset_id": 419570968,
+      "download_count": 0,
+      "published_at": "2026-05-13T19:51:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 419570966,
+      "download_count": 0,
+      "published_at": "2026-05-13T19:51:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.8",
+      "asset": "OpenGardenPlanner-v1.10.8-Setup.exe",
+      "asset_id": 419625936,
+      "download_count": 1,
+      "published_at": "2026-05-13T21:15:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 419625935,
+      "download_count": 0,
+      "published_at": "2026-05-13T21:15:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.9",
+      "asset": "OpenGardenPlanner-v1.10.9-Setup.exe",
+      "asset_id": 420462437,
+      "download_count": 2,
+      "published_at": "2026-05-14T20:55:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.10.9",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 420462436,
+      "download_count": 1,
+      "published_at": "2026-05-14T20:55:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.11.0",
+      "asset": "OpenGardenPlanner-v1.11.0-Setup.exe",
+      "asset_id": 426512907,
+      "download_count": 1,
+      "published_at": "2026-05-21T22:07:59Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.11.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 426512908,
+      "download_count": 0,
+      "published_at": "2026-05-21T22:07:59Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.12.0",
+      "asset": "OpenGardenPlanner-v1.12.0-Setup.exe",
+      "asset_id": 427435239,
+      "download_count": 33,
+      "published_at": "2026-05-22T22:43:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.12.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 427435238,
+      "download_count": 2,
+      "published_at": "2026-05-22T22:43:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.13.0",
+      "asset": "OpenGardenPlanner-v1.13.0-Setup.exe",
+      "asset_id": 440586040,
+      "download_count": 7,
+      "published_at": "2026-06-07T01:20:39Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.13.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 440586041,
+      "download_count": 0,
+      "published_at": "2026-06-07T01:20:39Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.14.0",
+      "asset": "OpenGardenPlanner-v1.14.0-Setup.exe",
+      "asset_id": 442097256,
+      "download_count": 0,
+      "published_at": "2026-06-08T21:06:38Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.14.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 442097257,
+      "download_count": 0,
+      "published_at": "2026-06-08T21:06:38Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.15.0",
+      "asset": "OpenGardenPlanner-v1.15.0-Setup.exe",
+      "asset_id": 443970372,
+      "download_count": 15,
+      "published_at": "2026-06-10T19:11:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.15.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 443970371,
+      "download_count": 0,
+      "published_at": "2026-06-10T19:11:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.15.1",
+      "asset": "OpenGardenPlanner-v1.15.1-Setup.exe",
+      "asset_id": 445009852,
+      "download_count": 0,
+      "published_at": "2026-06-11T20:08:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.15.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 445009851,
+      "download_count": 0,
+      "published_at": "2026-06-11T20:08:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.15.2",
+      "asset": "OpenGardenPlanner-v1.15.2-Setup.exe",
+      "asset_id": 445038722,
+      "download_count": 0,
+      "published_at": "2026-06-11T20:52:21Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.15.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 445038721,
+      "download_count": 0,
+      "published_at": "2026-06-11T20:52:21Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.0",
+      "asset": "OpenGardenPlanner-v1.16.0-Setup.exe",
+      "asset_id": 446099037,
+      "download_count": 3,
+      "published_at": "2026-06-12T22:28:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 446099036,
+      "download_count": 1,
+      "published_at": "2026-06-12T22:28:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.1",
+      "asset": "OpenGardenPlanner-v1.16.1-Setup.exe",
+      "asset_id": 446794304,
+      "download_count": 3,
+      "published_at": "2026-06-13T20:43:28Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 446794305,
+      "download_count": 1,
+      "published_at": "2026-06-13T20:43:28Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.2",
+      "asset": "OpenGardenPlanner-v1.16.2-Setup.exe",
+      "asset_id": 446920750,
+      "download_count": 2,
+      "published_at": "2026-06-14T00:30:04Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 446920749,
+      "download_count": 0,
+      "published_at": "2026-06-14T00:30:04Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.3",
+      "asset": "OpenGardenPlanner-v1.16.3-Setup.exe",
+      "asset_id": 447552483,
+      "download_count": 2,
+      "published_at": "2026-06-14T20:48:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 447552484,
+      "download_count": 1,
+      "published_at": "2026-06-14T20:48:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.4",
+      "asset": "OpenGardenPlanner-v1.16.4-Setup.exe",
+      "asset_id": 449540915,
+      "download_count": 0,
+      "published_at": "2026-06-16T19:47:05Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 449540916,
+      "download_count": 0,
+      "published_at": "2026-06-16T19:47:05Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.5",
+      "asset": "OpenGardenPlanner-v1.16.5-Setup.exe",
+      "asset_id": 449568506,
+      "download_count": 0,
+      "published_at": "2026-06-16T20:29:04Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 449568505,
+      "download_count": 0,
+      "published_at": "2026-06-16T20:29:04Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.6",
+      "asset": "OpenGardenPlanner-v1.16.6-Setup.exe",
+      "asset_id": 451621173,
+      "download_count": 1,
+      "published_at": "2026-06-18T22:11:43Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 451621172,
+      "download_count": 0,
+      "published_at": "2026-06-18T22:11:43Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.7",
+      "asset": "OpenGardenPlanner-v1.16.7-Setup.exe",
+      "asset_id": 452487524,
+      "download_count": 0,
+      "published_at": "2026-06-19T21:11:46Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 452487525,
+      "download_count": 0,
+      "published_at": "2026-06-19T21:11:46Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.8",
+      "asset": "OpenGardenPlanner-v1.16.8-Setup.exe",
+      "asset_id": 452576236,
+      "download_count": 0,
+      "published_at": "2026-06-19T23:47:38Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.16.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 452576235,
+      "download_count": 0,
+      "published_at": "2026-06-19T23:47:38Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.17.0",
+      "asset": "OpenGardenPlanner-v1.17.0-Setup.exe",
+      "asset_id": 453299260,
+      "download_count": 0,
+      "published_at": "2026-06-20T23:09:07Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.17.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 453299259,
+      "download_count": 0,
+      "published_at": "2026-06-20T23:09:07Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.17.1",
+      "asset": "OpenGardenPlanner-v1.17.1-Setup.exe",
+      "asset_id": 454891065,
+      "download_count": 0,
+      "published_at": "2026-06-22T19:34:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.17.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 454891064,
+      "download_count": 0,
+      "published_at": "2026-06-22T19:34:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.17.2",
+      "asset": "OpenGardenPlanner-v1.17.2-Setup.exe",
+      "asset_id": 454918634,
+      "download_count": 1,
+      "published_at": "2026-06-22T20:15:59Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.17.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 454918633,
+      "download_count": 0,
+      "published_at": "2026-06-22T20:15:59Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.18.0",
+      "asset": "OpenGardenPlanner-v1.18.0-Setup.exe",
+      "asset_id": 457045718,
+      "download_count": 0,
+      "published_at": "2026-06-24T22:09:15Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.18.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 457045717,
+      "download_count": 0,
+      "published_at": "2026-06-24T22:09:15Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.19.0",
+      "asset": "OpenGardenPlanner-v1.19.0-Setup.exe",
+      "asset_id": 457985379,
+      "download_count": 0,
+      "published_at": "2026-06-25T20:48:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.19.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 457985380,
+      "download_count": 0,
+      "published_at": "2026-06-25T20:48:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.2.0",
+      "asset": "OpenGardenPlanner-v1.2.0-Setup.exe",
+      "asset_id": 356921038,
+      "download_count": 3,
+      "published_at": "2026-02-16T20:41:22Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.2.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 356921040,
+      "download_count": 1,
+      "published_at": "2026-02-16T20:41:22Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.2.1",
+      "asset": "OpenGardenPlanner-v1.2.1-Setup.exe",
+      "asset_id": 356943983,
+      "download_count": 1,
+      "published_at": "2026-02-16T21:48:24Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.2.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 356943985,
+      "download_count": 1,
+      "published_at": "2026-02-16T21:48:24Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.20.0",
+      "asset": "OpenGardenPlanner-v1.20.0-Setup.exe",
+      "asset_id": 459020960,
+      "download_count": 1,
+      "published_at": "2026-06-26T22:30:42Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.20.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 459020959,
+      "download_count": 0,
+      "published_at": "2026-06-26T22:30:42Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.21.0",
+      "asset": "OpenGardenPlanner-v1.21.0-Setup.exe",
+      "asset_id": 461453303,
+      "download_count": 0,
+      "published_at": "2026-06-29T20:00:30Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.21.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 461453305,
+      "download_count": 0,
+      "published_at": "2026-06-29T20:00:30Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.22.0",
+      "asset": "OpenGardenPlanner-v1.22.0-Setup.exe",
+      "asset_id": 463542704,
+      "download_count": 1,
+      "published_at": "2026-07-01T19:11:29Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.22.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 463542703,
+      "download_count": 1,
+      "published_at": "2026-07-01T19:11:29Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.23.0",
+      "asset": "OpenGardenPlanner-v1.23.0-Setup.exe",
+      "asset_id": 464686293,
+      "download_count": 6,
+      "published_at": "2026-07-02T20:27:42Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.23.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 464686294,
+      "download_count": 1,
+      "published_at": "2026-07-02T20:27:42Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.0",
+      "asset": "OpenGardenPlanner-v1.24.0-Setup.exe",
+      "asset_id": 467385657,
+      "download_count": 2,
+      "published_at": "2026-07-05T19:39:50Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 467385658,
+      "download_count": 0,
+      "published_at": "2026-07-05T19:39:50Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.1",
+      "asset": "OpenGardenPlanner-v1.24.1-Setup.exe",
+      "asset_id": 469494303,
+      "download_count": 2,
+      "published_at": "2026-07-07T19:35:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 469494301,
+      "download_count": 0,
+      "published_at": "2026-07-07T19:35:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.10",
+      "asset": "OpenGardenPlanner-v1.24.10-Setup.exe",
+      "asset_id": 488837471,
+      "download_count": 1,
+      "published_at": "2026-07-24T21:23:05Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.10",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 488837472,
+      "download_count": 0,
+      "published_at": "2026-07-24T21:23:05Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.11",
+      "asset": "OpenGardenPlanner-v1.24.11-Setup.exe",
+      "asset_id": 488902818,
+      "download_count": 3,
+      "published_at": "2026-07-24T22:49:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.11",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 488902819,
+      "download_count": 0,
+      "published_at": "2026-07-24T22:49:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.12",
+      "asset": "OpenGardenPlanner-v1.24.12-Setup.exe",
+      "asset_id": 489727245,
+      "download_count": 1,
+      "published_at": "2026-07-25T20:18:19Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.12",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 489727246,
+      "download_count": 0,
+      "published_at": "2026-07-25T20:18:19Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.2",
+      "asset": "OpenGardenPlanner-v1.24.2-Setup.exe",
+      "asset_id": 473047658,
+      "download_count": 11,
+      "published_at": "2026-07-11T00:26:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 473047657,
+      "download_count": 1,
+      "published_at": "2026-07-11T00:26:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.3",
+      "asset": "OpenGardenPlanner-v1.24.3-Setup.exe",
+      "asset_id": 482324570,
+      "download_count": 0,
+      "published_at": "2026-07-19T11:02:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 482324569,
+      "download_count": 0,
+      "published_at": "2026-07-19T11:02:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.4",
+      "asset": "OpenGardenPlanner-v1.24.4-Setup.exe",
+      "asset_id": 482693602,
+      "download_count": 1,
+      "published_at": "2026-07-19T20:08:45Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 482693603,
+      "download_count": 0,
+      "published_at": "2026-07-19T20:08:45Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.5",
+      "asset": "OpenGardenPlanner-v1.24.5-Setup.exe",
+      "asset_id": 483854198,
+      "download_count": 0,
+      "published_at": "2026-07-20T20:06:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 483854196,
+      "download_count": 0,
+      "published_at": "2026-07-20T20:06:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.6",
+      "asset": "OpenGardenPlanner-v1.24.6-Setup.exe",
+      "asset_id": 483964445,
+      "download_count": 4,
+      "published_at": "2026-07-20T22:14:15Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 483964444,
+      "download_count": 0,
+      "published_at": "2026-07-20T22:14:15Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.7",
+      "asset": "OpenGardenPlanner-v1.24.7-Setup.exe",
+      "asset_id": 486402295,
+      "download_count": 1,
+      "published_at": "2026-07-22T20:44:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 486402294,
+      "download_count": 0,
+      "published_at": "2026-07-22T20:44:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.8",
+      "asset": "OpenGardenPlanner-v1.24.8-Setup.exe",
+      "asset_id": 486470586,
+      "download_count": 21,
+      "published_at": "2026-07-22T22:13:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 486470585,
+      "download_count": 0,
+      "published_at": "2026-07-22T22:13:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.9",
+      "asset": "OpenGardenPlanner-v1.24.9-Setup.exe",
+      "asset_id": 487604388,
+      "download_count": 3,
+      "published_at": "2026-07-23T20:24:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.24.9",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 487604387,
+      "download_count": 0,
+      "published_at": "2026-07-23T20:24:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.25.0",
+      "asset": "OpenGardenPlanner-v1.25.0-Setup.exe",
+      "asset_id": 489907474,
+      "download_count": 3,
+      "published_at": "2026-07-26T01:03:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.25.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 489907475,
+      "download_count": 0,
+      "published_at": "2026-07-26T01:03:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.0",
+      "asset": "OpenGardenPlanner-v1.26.0-Setup.exe",
+      "asset_id": 491871180,
+      "download_count": 0,
+      "published_at": "2026-07-27T20:04:56Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 491871179,
+      "download_count": 0,
+      "published_at": "2026-07-27T20:04:56Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.1",
+      "asset": "OpenGardenPlanner-v1.26.1-Setup.exe",
+      "asset_id": 493183986,
+      "download_count": 6,
+      "published_at": "2026-07-28T20:50:17Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 493183987,
+      "download_count": 0,
+      "published_at": "2026-07-28T20:50:17Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.2",
+      "asset": "OpenGardenPlanner-v1.26.2-Setup.exe",
+      "asset_id": 495772948,
+      "download_count": 8,
+      "published_at": "2026-07-30T19:31:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 495772963,
+      "download_count": 1,
+      "published_at": "2026-07-30T19:31:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.3",
+      "asset": "OpenGardenPlanner-v1.26.3-Setup.exe",
+      "asset_id": 500503418,
+      "download_count": 7,
+      "published_at": "2026-08-03T20:24:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 500503417,
+      "download_count": 0,
+      "published_at": "2026-08-03T20:24:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.4",
+      "asset": "OpenGardenPlanner-v1.26.4-Setup.exe",
+      "asset_id": 506349935,
+      "download_count": 2,
+      "published_at": "2026-08-08T12:11:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 506349934,
+      "download_count": 0,
+      "published_at": "2026-08-08T12:11:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.5",
+      "asset": "OpenGardenPlanner-v1.26.5-Setup.exe",
+      "asset_id": 506858484,
+      "download_count": 8,
+      "published_at": "2026-08-08T23:08:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 506858483,
+      "download_count": 2,
+      "published_at": "2026-08-08T23:08:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.6",
+      "asset": "OpenGardenPlanner-v1.26.6-Setup.exe",
+      "asset_id": 509341043,
+      "download_count": 11,
+      "published_at": "2026-08-10T22:31:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 509341041,
+      "download_count": 1,
+      "published_at": "2026-08-10T22:31:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.7",
+      "asset": "OpenGardenPlanner-v1.26.7-Setup.exe",
+      "asset_id": 518434092,
+      "download_count": 0,
+      "published_at": "2026-08-17T19:52:10Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 518434094,
+      "download_count": 0,
+      "published_at": "2026-08-17T19:52:10Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.8",
+      "asset": "OpenGardenPlanner-v1.26.8-Setup.exe",
+      "asset_id": 518698290,
+      "download_count": 0,
+      "published_at": "2026-08-18T00:31:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 518698291,
+      "download_count": 0,
+      "published_at": "2026-08-18T00:31:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.9",
+      "asset": "OpenGardenPlanner-v1.26.9-Setup.exe",
+      "asset_id": 519231453,
+      "download_count": 0,
+      "published_at": "2026-08-18T09:27:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.26.9",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 519231452,
+      "download_count": 0,
+      "published_at": "2026-08-18T09:27:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.0",
+      "asset": "OpenGardenPlanner-v1.27.0-Setup.exe",
+      "asset_id": 519258573,
+      "download_count": 5,
+      "published_at": "2026-08-18T09:50:43Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 519258576,
+      "download_count": 1,
+      "published_at": "2026-08-18T09:50:43Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.1",
+      "asset": "OpenGardenPlanner-v1.27.1-Setup.exe",
+      "asset_id": 521447851,
+      "download_count": 1,
+      "published_at": "2026-08-19T23:01:29Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 521447852,
+      "download_count": 0,
+      "published_at": "2026-08-19T23:01:29Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.10",
+      "asset": "OpenGardenPlanner-v1.27.10-Setup.exe",
+      "asset_id": 587732841,
+      "download_count": 1,
+      "published_at": "2026-09-25T06:48:29Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.10",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 587732839,
+      "download_count": 1,
+      "published_at": "2026-09-25T06:48:29Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.11",
+      "asset": "OpenGardenPlanner-v1.27.11-Setup.exe",
+      "asset_id": 589131973,
+      "download_count": 7,
+      "published_at": "2026-09-25T19:59:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.11",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 589131972,
+      "download_count": 0,
+      "published_at": "2026-09-25T19:59:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.2",
+      "asset": "OpenGardenPlanner-v1.27.2-Setup.exe",
+      "asset_id": 523009330,
+      "download_count": 14,
+      "published_at": "2026-08-21T01:03:34Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 523009329,
+      "download_count": 0,
+      "published_at": "2026-08-21T01:03:34Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.3",
+      "asset": "OpenGardenPlanner-v1.27.3-Setup.exe",
+      "asset_id": 528332331,
+      "download_count": 33,
+      "published_at": "2026-08-24T23:26:12Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 528332332,
+      "download_count": 3,
+      "published_at": "2026-08-24T23:26:12Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.4",
+      "asset": "OpenGardenPlanner-v1.27.4-Setup.exe",
+      "asset_id": 538233628,
+      "download_count": 2,
+      "published_at": "2026-08-31T16:21:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 538233625,
+      "download_count": 0,
+      "published_at": "2026-08-31T16:21:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.5",
+      "asset": "OpenGardenPlanner-v1.27.5-Setup.exe",
+      "asset_id": 538519244,
+      "download_count": 8,
+      "published_at": "2026-08-31T20:57:05Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 538519245,
+      "download_count": 0,
+      "published_at": "2026-08-31T20:57:05Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.6",
+      "asset": "OpenGardenPlanner-v1.27.6-Setup.exe",
+      "asset_id": 539349598,
+      "download_count": 10,
+      "published_at": "2026-09-01T09:59:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 539349599,
+      "download_count": 1,
+      "published_at": "2026-09-01T09:59:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.7",
+      "asset": "OpenGardenPlanner-v1.27.7-Setup.exe",
+      "asset_id": 541865455,
+      "download_count": 24,
+      "published_at": "2026-09-02T22:58:30Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 541865456,
+      "download_count": 1,
+      "published_at": "2026-09-02T22:58:30Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.8",
+      "asset": "OpenGardenPlanner-v1.27.8-Setup.exe",
+      "asset_id": 550723419,
+      "download_count": 25,
+      "published_at": "2026-09-08T15:04:44Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 550723421,
+      "download_count": 2,
+      "published_at": "2026-09-08T15:04:44Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.9",
+      "asset": "OpenGardenPlanner-v1.27.9-Setup.exe",
+      "asset_id": 566380055,
+      "download_count": 52,
+      "published_at": "2026-09-15T19:41:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.27.9",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 566380053,
+      "download_count": 5,
+      "published_at": "2026-09-15T19:41:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.0",
+      "asset": "OpenGardenPlanner-v1.28.0-Setup.exe",
+      "asset_id": 592871258,
+      "download_count": 9,
+      "published_at": "2026-09-27T12:20:09Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 592871256,
+      "download_count": 0,
+      "published_at": "2026-09-27T12:20:09Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.1",
+      "asset": "OpenGardenPlanner-v1.28.1-Setup.exe",
+      "asset_id": 596209706,
+      "download_count": 7,
+      "published_at": "2026-09-28T19:20:32Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 596209705,
+      "download_count": 2,
+      "published_at": "2026-09-28T19:20:32Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.2",
+      "asset": "OpenGardenPlanner-v1.28.2-Setup.exe",
+      "asset_id": 598963578,
+      "download_count": 4,
+      "published_at": "2026-09-29T18:54:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 598963579,
+      "download_count": 0,
+      "published_at": "2026-09-29T18:54:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.3",
+      "asset": "OpenGardenPlanner-v1.28.3-Setup.exe",
+      "asset_id": 602748450,
+      "download_count": 1,
+      "published_at": "2026-10-01T08:01:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 602748449,
+      "download_count": 1,
+      "published_at": "2026-10-01T08:01:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.4",
+      "asset": "OpenGardenPlanner-v1.28.4-Setup.exe",
+      "asset_id": 604286049,
+      "download_count": 5,
+      "published_at": "2026-10-01T22:48:45Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.28.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 604286050,
+      "download_count": 1,
+      "published_at": "2026-10-01T22:48:45Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.0",
+      "asset": "OpenGardenPlanner-v1.29.0-Setup.exe",
+      "asset_id": 607666619,
+      "download_count": 8,
+      "published_at": "2026-10-03T11:05:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 607666618,
+      "download_count": 0,
+      "published_at": "2026-10-03T11:05:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.1",
+      "asset": "OpenGardenPlanner-v1.29.1-Setup.exe",
+      "asset_id": 610488408,
+      "download_count": 0,
+      "published_at": "2026-10-04T19:28:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 610488407,
+      "download_count": 1,
+      "published_at": "2026-10-04T19:28:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.10",
+      "asset": "OpenGardenPlanner-v1.29.10-Setup.exe",
+      "asset_id": 629109722,
+      "download_count": 7,
+      "published_at": "2026-10-10T22:07:47Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.10",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 629109723,
+      "download_count": 0,
+      "published_at": "2026-10-10T22:07:47Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.2",
+      "asset": "OpenGardenPlanner-v1.29.2-Setup.exe",
+      "asset_id": 610706618,
+      "download_count": 6,
+      "published_at": "2026-10-04T21:24:21Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 610706619,
+      "download_count": 1,
+      "published_at": "2026-10-04T21:24:21Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.3",
+      "asset": "OpenGardenPlanner-v1.29.3-Setup.exe",
+      "asset_id": 613654007,
+      "download_count": 2,
+      "published_at": "2026-10-05T21:31:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 613654008,
+      "download_count": 0,
+      "published_at": "2026-10-05T21:31:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.4",
+      "asset": "OpenGardenPlanner-v1.29.4-Setup.exe",
+      "asset_id": 613780552,
+      "download_count": 10,
+      "published_at": "2026-10-05T22:35:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 613780550,
+      "download_count": 1,
+      "published_at": "2026-10-05T22:35:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.5",
+      "asset": "OpenGardenPlanner-v1.29.5-Setup.exe",
+      "asset_id": 619896037,
+      "download_count": 16,
+      "published_at": "2026-10-07T21:44:35Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 619896040,
+      "download_count": 0,
+      "published_at": "2026-10-07T21:44:35Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.6",
+      "asset": "OpenGardenPlanner-v1.29.6-Setup.exe",
+      "asset_id": 625365415,
+      "download_count": 3,
+      "published_at": "2026-10-09T15:29:39Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 625365417,
+      "download_count": 1,
+      "published_at": "2026-10-09T15:29:39Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.7",
+      "asset": "OpenGardenPlanner-v1.29.7-Setup.exe",
+      "asset_id": 626106651,
+      "download_count": 1,
+      "published_at": "2026-10-09T20:34:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 626106646,
+      "download_count": 0,
+      "published_at": "2026-10-09T20:34:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.8",
+      "asset": "OpenGardenPlanner-v1.29.8-Setup.exe",
+      "asset_id": 626445288,
+      "download_count": 3,
+      "published_at": "2026-10-09T23:19:26Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 626445289,
+      "download_count": 1,
+      "published_at": "2026-10-09T23:19:26Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.9",
+      "asset": "OpenGardenPlanner-v1.29.9-Setup.exe",
+      "asset_id": 628999615,
+      "download_count": 1,
+      "published_at": "2026-10-10T21:09:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.29.9",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 628999617,
+      "download_count": 0,
+      "published_at": "2026-10-10T21:09:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.3.0",
+      "asset": "OpenGardenPlanner-v1.3.0-Setup.exe",
+      "asset_id": 357516283,
+      "download_count": 4,
+      "published_at": "2026-02-17T20:19:43Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.3.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 357516282,
+      "download_count": 1,
+      "published_at": "2026-02-17T20:19:43Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.0",
+      "asset": "OpenGardenPlanner-v1.30.0-Setup.exe",
+      "asset_id": 631659661,
+      "download_count": 4,
+      "published_at": "2026-10-11T19:53:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 631659662,
+      "download_count": 0,
+      "published_at": "2026-10-11T19:53:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.1",
+      "asset": "OpenGardenPlanner-v1.30.1-Setup.exe",
+      "asset_id": 633567911,
+      "download_count": 4,
+      "published_at": "2026-10-12T11:18:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 633567914,
+      "download_count": 0,
+      "published_at": "2026-10-12T11:18:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.10",
+      "asset": "OpenGardenPlanner-v1.30.10-Setup.exe",
+      "asset_id": 651828746,
+      "download_count": 2,
+      "published_at": "2026-10-17T22:57:35Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.10",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 651828733,
+      "download_count": 0,
+      "published_at": "2026-10-17T22:57:35Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.11",
+      "asset": "OpenGardenPlanner-v1.30.11-Setup.exe",
+      "asset_id": 654402208,
+      "download_count": 0,
+      "published_at": "2026-10-18T20:23:01Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.11",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 654402207,
+      "download_count": 0,
+      "published_at": "2026-10-18T20:23:01Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.12",
+      "asset": "OpenGardenPlanner-v1.30.12-Setup.exe",
+      "asset_id": 654628609,
+      "download_count": 0,
+      "published_at": "2026-10-18T22:26:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.12",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 654628612,
+      "download_count": 0,
+      "published_at": "2026-10-18T22:26:02Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.13",
+      "asset": "OpenGardenPlanner-v1.30.13-Setup.exe",
+      "asset_id": 656034035,
+      "download_count": 1,
+      "published_at": "2026-10-19T11:05:24Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.13",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 656034027,
+      "download_count": 0,
+      "published_at": "2026-10-19T11:05:24Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.14",
+      "asset": "OpenGardenPlanner-v1.30.14-Setup.exe",
+      "asset_id": 657539808,
+      "download_count": 3,
+      "published_at": "2026-10-19T21:55:28Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.14",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 657539804,
+      "download_count": 0,
+      "published_at": "2026-10-19T21:55:28Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.15",
+      "asset": "OpenGardenPlanner-v1.30.15-Setup.exe",
+      "asset_id": 660458905,
+      "download_count": 3,
+      "published_at": "2026-10-20T20:54:19Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.15",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 660458897,
+      "download_count": 0,
+      "published_at": "2026-10-20T20:54:19Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.16",
+      "asset": "OpenGardenPlanner-v1.30.16-Setup.exe",
+      "asset_id": 663642228,
+      "download_count": 0,
+      "published_at": "2026-10-21T20:02:47Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.16",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 663642226,
+      "download_count": 0,
+      "published_at": "2026-10-21T20:02:47Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.17",
+      "asset": "OpenGardenPlanner-v1.30.17-Setup.exe",
+      "asset_id": 663831643,
+      "download_count": 2,
+      "published_at": "2026-10-21T21:25:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.17",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 663831645,
+      "download_count": 2,
+      "published_at": "2026-10-21T21:25:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.18",
+      "asset": "OpenGardenPlanner-v1.30.18-Setup.exe",
+      "asset_id": 666969033,
+      "download_count": 2,
+      "published_at": "2026-10-22T20:16:36Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.18",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 666969034,
+      "download_count": 0,
+      "published_at": "2026-10-22T20:16:36Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.19",
+      "asset": "OpenGardenPlanner-v1.30.19-Setup.exe",
+      "asset_id": 668756148,
+      "download_count": 2,
+      "published_at": "2026-10-23T10:20:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.19",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 668756151,
+      "download_count": 1,
+      "published_at": "2026-10-23T10:20:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.2",
+      "asset": "OpenGardenPlanner-v1.30.2-Setup.exe",
+      "asset_id": 634929167,
+      "download_count": 4,
+      "published_at": "2026-10-12T20:39:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 634929168,
+      "download_count": 2,
+      "published_at": "2026-10-12T20:39:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.20",
+      "asset": "OpenGardenPlanner-v1.30.20-Setup.exe",
+      "asset_id": 670495660,
+      "download_count": 2,
+      "published_at": "2026-10-23T21:43:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.20",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 670495661,
+      "download_count": 2,
+      "published_at": "2026-10-23T21:43:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.21",
+      "asset": "OpenGardenPlanner-v1.30.21-Setup.exe",
+      "asset_id": 672897714,
+      "download_count": 0,
+      "published_at": "2026-10-24T17:43:03Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.21",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 672897712,
+      "download_count": 0,
+      "published_at": "2026-10-24T17:43:03Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.3",
+      "asset": "OpenGardenPlanner-v1.30.3-Setup.exe",
+      "asset_id": 638035982,
+      "download_count": 2,
+      "published_at": "2026-10-13T19:31:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 638035985,
+      "download_count": 0,
+      "published_at": "2026-10-13T19:31:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.4",
+      "asset": "OpenGardenPlanner-v1.30.4-Setup.exe",
+      "asset_id": 639538334,
+      "download_count": 3,
+      "published_at": "2026-10-14T06:59:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 639538336,
+      "download_count": 0,
+      "published_at": "2026-10-14T06:59:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.5",
+      "asset": "OpenGardenPlanner-v1.30.5-Setup.exe",
+      "asset_id": 641861431,
+      "download_count": 6,
+      "published_at": "2026-10-14T22:23:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 641861424,
+      "download_count": 1,
+      "published_at": "2026-10-14T22:23:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.6",
+      "asset": "OpenGardenPlanner-v1.30.6-Setup.exe",
+      "asset_id": 646379034,
+      "download_count": 2,
+      "published_at": "2026-10-16T06:25:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 646379032,
+      "download_count": 0,
+      "published_at": "2026-10-16T06:25:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.7",
+      "asset": "OpenGardenPlanner-v1.30.7-Setup.exe",
+      "asset_id": 647071859,
+      "download_count": 3,
+      "published_at": "2026-10-16T11:08:08Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 647071862,
+      "download_count": 0,
+      "published_at": "2026-10-16T11:08:08Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.8",
+      "asset": "OpenGardenPlanner-v1.30.8-Setup.exe",
+      "asset_id": 649121868,
+      "download_count": 0,
+      "published_at": "2026-10-17T01:01:30Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 649121872,
+      "download_count": 0,
+      "published_at": "2026-10-17T01:01:30Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.9",
+      "asset": "OpenGardenPlanner-v1.30.9-Setup.exe",
+      "asset_id": 649258288,
+      "download_count": 5,
+      "published_at": "2026-10-17T02:09:46Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.30.9",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 649258286,
+      "download_count": 0,
+      "published_at": "2026-10-17T02:09:46Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.31.0",
+      "asset": "OpenGardenPlanner-v1.31.0-Setup.exe",
+      "asset_id": 672932370,
+      "download_count": 1,
+      "published_at": "2026-10-24T18:00:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.31.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 672932368,
+      "download_count": 0,
+      "published_at": "2026-10-24T18:00:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.31.1",
+      "asset": "OpenGardenPlanner-v1.31.1-Setup.exe",
+      "asset_id": 674718782,
+      "download_count": 0,
+      "published_at": "2026-10-25T10:14:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.31.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 674718781,
+      "download_count": 0,
+      "published_at": "2026-10-25T10:14:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.32.0",
+      "asset": "OpenGardenPlanner-v1.32.0-Setup.exe",
+      "asset_id": 675820950,
+      "download_count": 1,
+      "published_at": "2026-10-25T18:42:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.32.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 675820944,
+      "download_count": 1,
+      "published_at": "2026-10-25T18:42:48Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.32.1",
+      "asset": "OpenGardenPlanner-v1.32.1-Setup.exe",
+      "asset_id": 677949499,
+      "download_count": 3,
+      "published_at": "2026-10-26T11:26:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.32.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 677949502,
+      "download_count": 0,
+      "published_at": "2026-10-26T11:26:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.33.0",
+      "asset": "OpenGardenPlanner-v1.33.0-Setup.exe",
+      "asset_id": 681039618,
+      "download_count": 0,
+      "published_at": "2026-10-27T09:06:32Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.33.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 681039606,
+      "download_count": 0,
+      "published_at": "2026-10-27T09:06:32Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.34.0",
+      "asset": "OpenGardenPlanner-v1.34.0-Setup.exe",
+      "asset_id": 681485503,
+      "download_count": 4,
+      "published_at": "2026-10-27T12:07:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.34.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 681485505,
+      "download_count": 2,
+      "published_at": "2026-10-27T12:07:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.34.1",
+      "asset": "OpenGardenPlanner-v1.34.1-Setup.exe",
+      "asset_id": 683000040,
+      "download_count": 0,
+      "published_at": "2026-10-27T21:59:27Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.34.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 683000049,
+      "download_count": 0,
+      "published_at": "2026-10-27T21:59:27Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.34.2",
+      "asset": "OpenGardenPlanner-v1.34.2-Setup.exe",
+      "asset_id": 684330904,
+      "download_count": 0,
+      "published_at": "2026-10-28T08:24:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.34.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 684330892,
+      "download_count": 0,
+      "published_at": "2026-10-28T08:24:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.4.0",
+      "asset": "OpenGardenPlanner-v1.4.0-Setup.exe",
+      "asset_id": 358780589,
+      "download_count": 1,
+      "published_at": "2026-02-19T21:11:15Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.4.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 358780588,
+      "download_count": 1,
+      "published_at": "2026-02-19T21:11:15Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.4.1",
+      "asset": "OpenGardenPlanner-v1.4.1-Setup.exe",
+      "asset_id": 359388544,
+      "download_count": 1,
+      "published_at": "2026-02-20T21:27:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.4.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 359388545,
+      "download_count": 1,
+      "published_at": "2026-02-20T21:27:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.4.2",
+      "asset": "OpenGardenPlanner-v1.4.2-Setup.exe",
+      "asset_id": 359417989,
+      "download_count": 3,
+      "published_at": "2026-02-20T22:43:44Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.4.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 359417990,
+      "download_count": 1,
+      "published_at": "2026-02-20T22:43:44Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.4.3",
+      "asset": "OpenGardenPlanner-v1.4.3-Setup.exe",
+      "asset_id": 359855892,
+      "download_count": 2,
+      "published_at": "2026-02-21T21:45:28Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.4.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 359855891,
+      "download_count": 1,
+      "published_at": "2026-02-21T21:45:28Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.5.0",
+      "asset": "OpenGardenPlanner-v1.5.0-Setup.exe",
+      "asset_id": 360374820,
+      "download_count": 3,
+      "published_at": "2026-02-22T21:40:08Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.5.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 360374819,
+      "download_count": 1,
+      "published_at": "2026-02-22T21:40:08Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.5.1",
+      "asset": "OpenGardenPlanner-v1.5.1-Setup.exe",
+      "asset_id": 360386943,
+      "download_count": 3,
+      "published_at": "2026-02-22T22:11:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.5.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 360386944,
+      "download_count": 1,
+      "published_at": "2026-02-22T22:11:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.0",
+      "asset": "OpenGardenPlanner-v1.6.0-Setup.exe",
+      "asset_id": 361000630,
+      "download_count": 3,
+      "published_at": "2026-02-23T20:28:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 361000629,
+      "download_count": 1,
+      "published_at": "2026-02-23T20:28:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.1",
+      "asset": "OpenGardenPlanner-v1.6.1-Setup.exe",
+      "asset_id": 361032129,
+      "download_count": 4,
+      "published_at": "2026-02-23T21:40:27Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 361032130,
+      "download_count": 1,
+      "published_at": "2026-02-23T21:40:27Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.10",
+      "asset": "OpenGardenPlanner-v1.6.10-Setup.exe",
+      "asset_id": 363716561,
+      "download_count": 0,
+      "published_at": "2026-02-27T21:12:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.10",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 363716562,
+      "download_count": 0,
+      "published_at": "2026-02-27T21:12:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.11",
+      "asset": "OpenGardenPlanner-v1.6.11-Setup.exe",
+      "asset_id": 363723485,
+      "download_count": 1,
+      "published_at": "2026-02-27T21:27:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.11",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 363723484,
+      "download_count": 0,
+      "published_at": "2026-02-27T21:27:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.12",
+      "asset": "OpenGardenPlanner-v1.6.12-Setup.exe",
+      "asset_id": 364275726,
+      "download_count": 2,
+      "published_at": "2026-02-28T20:43:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.12",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 364275727,
+      "download_count": 1,
+      "published_at": "2026-02-28T20:43:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.13",
+      "asset": "OpenGardenPlanner-v1.6.13-Setup.exe",
+      "asset_id": 364289486,
+      "download_count": 0,
+      "published_at": "2026-02-28T21:14:44Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.13",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 364289487,
+      "download_count": 1,
+      "published_at": "2026-02-28T21:14:44Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.14",
+      "asset": "OpenGardenPlanner-v1.6.14-Setup.exe",
+      "asset_id": 364294102,
+      "download_count": 2,
+      "published_at": "2026-02-28T21:28:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.14",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 364294101,
+      "download_count": 1,
+      "published_at": "2026-02-28T21:28:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.2",
+      "asset": "OpenGardenPlanner-v1.6.2-Setup.exe",
+      "asset_id": 361663059,
+      "download_count": 1,
+      "published_at": "2026-02-24T20:43:45Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 361663061,
+      "download_count": 1,
+      "published_at": "2026-02-24T20:43:45Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.3",
+      "asset": "OpenGardenPlanner-v1.6.3-Setup.exe",
+      "asset_id": 361680469,
+      "download_count": 0,
+      "published_at": "2026-02-24T21:23:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 361680468,
+      "download_count": 0,
+      "published_at": "2026-02-24T21:23:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.4",
+      "asset": "OpenGardenPlanner-v1.6.4-Setup.exe",
+      "asset_id": 361686349,
+      "download_count": 1,
+      "published_at": "2026-02-24T21:34:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 361686348,
+      "download_count": 1,
+      "published_at": "2026-02-24T21:34:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.5",
+      "asset": "OpenGardenPlanner-v1.6.5-Setup.exe",
+      "asset_id": 362359262,
+      "download_count": 2,
+      "published_at": "2026-02-25T20:35:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 362359261,
+      "download_count": 1,
+      "published_at": "2026-02-25T20:35:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.6",
+      "asset": "OpenGardenPlanner-v1.6.6-Setup.exe",
+      "asset_id": 362369653,
+      "download_count": 1,
+      "published_at": "2026-02-25T20:59:17Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 362369652,
+      "download_count": 0,
+      "published_at": "2026-02-25T20:59:17Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.7",
+      "asset": "OpenGardenPlanner-v1.6.7-Setup.exe",
+      "asset_id": 362388331,
+      "download_count": 0,
+      "published_at": "2026-02-25T21:32:19Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 362388332,
+      "download_count": 0,
+      "published_at": "2026-02-25T21:32:19Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.8",
+      "asset": "OpenGardenPlanner-v1.6.8-Setup.exe",
+      "asset_id": 363063770,
+      "download_count": 1,
+      "published_at": "2026-02-26T21:11:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 363063769,
+      "download_count": 1,
+      "published_at": "2026-02-26T21:11:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.9",
+      "asset": "OpenGardenPlanner-v1.6.9-Setup.exe",
+      "asset_id": 363079387,
+      "download_count": 1,
+      "published_at": "2026-02-26T21:46:28Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.6.9",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 363079386,
+      "download_count": 1,
+      "published_at": "2026-02-26T21:46:28Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.7.0",
+      "asset": "OpenGardenPlanner-v1.7.0-Setup.exe",
+      "asset_id": 364810236,
+      "download_count": 1,
+      "published_at": "2026-03-01T20:11:15Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.7.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 364810237,
+      "download_count": 0,
+      "published_at": "2026-03-01T20:11:15Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.0",
+      "asset": "OpenGardenPlanner-v1.8.0-Setup.exe",
+      "asset_id": 364825162,
+      "download_count": 2,
+      "published_at": "2026-03-01T20:46:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 364825161,
+      "download_count": 1,
+      "published_at": "2026-03-01T20:46:54Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.1",
+      "asset": "OpenGardenPlanner-v1.8.1-Setup.exe",
+      "asset_id": 364835923,
+      "download_count": 0,
+      "published_at": "2026-03-01T21:14:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 364835924,
+      "download_count": 0,
+      "published_at": "2026-03-01T21:14:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.10",
+      "asset": "OpenGardenPlanner-v1.8.10-Setup.exe",
+      "asset_id": 369662385,
+      "download_count": 1,
+      "published_at": "2026-03-08T22:18:08Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.10",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 369662386,
+      "download_count": 2,
+      "published_at": "2026-03-08T22:18:08Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.11",
+      "asset": "OpenGardenPlanner-v1.8.11-Setup.exe",
+      "asset_id": 372636223,
+      "download_count": 1,
+      "published_at": "2026-03-12T21:57:12Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.11",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 372636224,
+      "download_count": 0,
+      "published_at": "2026-03-12T21:57:12Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.12",
+      "asset": "OpenGardenPlanner-v1.8.12-Setup.exe",
+      "asset_id": 373343652,
+      "download_count": 1,
+      "published_at": "2026-03-13T20:48:59Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.12",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 373343651,
+      "download_count": 0,
+      "published_at": "2026-03-13T20:48:59Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.13",
+      "asset": "OpenGardenPlanner-v1.8.13-Setup.exe",
+      "asset_id": 374508212,
+      "download_count": 0,
+      "published_at": "2026-03-15T21:20:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.13",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 374508213,
+      "download_count": 0,
+      "published_at": "2026-03-15T21:20:20Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.14",
+      "asset": "OpenGardenPlanner-v1.8.14-Setup.exe",
+      "asset_id": 375226980,
+      "download_count": 0,
+      "published_at": "2026-03-16T20:20:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.14",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 375226981,
+      "download_count": 0,
+      "published_at": "2026-03-16T20:20:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.15",
+      "asset": "OpenGardenPlanner-v1.8.15-Setup.exe",
+      "asset_id": 375229297,
+      "download_count": 0,
+      "published_at": "2026-03-16T20:25:36Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.15",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 375229296,
+      "download_count": 0,
+      "published_at": "2026-03-16T20:25:36Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.16",
+      "asset": "OpenGardenPlanner-v1.8.16-Setup.exe",
+      "asset_id": 375977893,
+      "download_count": 0,
+      "published_at": "2026-03-17T20:33:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.16",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 375977892,
+      "download_count": 0,
+      "published_at": "2026-03-17T20:33:23Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.17",
+      "asset": "OpenGardenPlanner-v1.8.17-Setup.exe",
+      "asset_id": 376676137,
+      "download_count": 0,
+      "published_at": "2026-03-18T20:31:39Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.17",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 376676136,
+      "download_count": 0,
+      "published_at": "2026-03-18T20:31:39Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.18",
+      "asset": "OpenGardenPlanner-v1.8.18-Setup.exe",
+      "asset_id": 376705562,
+      "download_count": 18,
+      "published_at": "2026-03-18T21:33:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.18",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 376705561,
+      "download_count": 0,
+      "published_at": "2026-03-18T21:33:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.19",
+      "asset": "OpenGardenPlanner-v1.8.19-Setup.exe",
+      "asset_id": 378240447,
+      "download_count": 3,
+      "published_at": "2026-03-20T23:17:56Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.19",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 378240448,
+      "download_count": 0,
+      "published_at": "2026-03-20T23:17:56Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.2",
+      "asset": "OpenGardenPlanner-v1.8.2-Setup.exe",
+      "asset_id": 364847121,
+      "download_count": 2,
+      "published_at": "2026-03-01T21:44:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 364847122,
+      "download_count": 1,
+      "published_at": "2026-03-01T21:44:49Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.20",
+      "asset": "OpenGardenPlanner-v1.8.20-Setup.exe",
+      "asset_id": 378747186,
+      "download_count": 0,
+      "published_at": "2026-03-21T21:39:10Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.20",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 378747185,
+      "download_count": 0,
+      "published_at": "2026-03-21T21:39:10Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.21",
+      "asset": "OpenGardenPlanner-v1.8.21-Setup.exe",
+      "asset_id": 378763560,
+      "download_count": 8,
+      "published_at": "2026-03-21T22:27:24Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.21",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 378763561,
+      "download_count": 1,
+      "published_at": "2026-03-21T22:27:24Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.22",
+      "asset": "OpenGardenPlanner-v1.8.22-Setup.exe",
+      "asset_id": 384182105,
+      "download_count": 9,
+      "published_at": "2026-03-29T19:49:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.22",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 384182106,
+      "download_count": 1,
+      "published_at": "2026-03-29T19:49:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.23",
+      "asset": "OpenGardenPlanner-v1.8.23-Setup.exe",
+      "asset_id": 388161974,
+      "download_count": 7,
+      "published_at": "2026-04-03T19:54:44Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.23",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 388161976,
+      "download_count": 3,
+      "published_at": "2026-04-03T19:54:44Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.24",
+      "asset": "OpenGardenPlanner-v1.8.24-Setup.exe",
+      "asset_id": 389610191,
+      "download_count": 2,
+      "published_at": "2026-04-06T00:18:26Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.24",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 389610190,
+      "download_count": 1,
+      "published_at": "2026-04-06T00:18:26Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.25",
+      "asset": "OpenGardenPlanner-v1.8.25-Setup.exe",
+      "asset_id": 390270211,
+      "download_count": 1,
+      "published_at": "2026-04-06T20:01:31Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.25",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 390270212,
+      "download_count": 0,
+      "published_at": "2026-04-06T20:01:31Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.26",
+      "asset": "OpenGardenPlanner-v1.8.26-Setup.exe",
+      "asset_id": 391061478,
+      "download_count": 4,
+      "published_at": "2026-04-07T20:34:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.26",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 391061479,
+      "download_count": 1,
+      "published_at": "2026-04-07T20:34:53Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.27",
+      "asset": "OpenGardenPlanner-v1.8.27-Setup.exe",
+      "asset_id": 391887106,
+      "download_count": 3,
+      "published_at": "2026-04-08T21:44:01Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.27",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 391887105,
+      "download_count": 1,
+      "published_at": "2026-04-08T21:44:01Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.28",
+      "asset": "OpenGardenPlanner-v1.8.28-Setup.exe",
+      "asset_id": 393531656,
+      "download_count": 1,
+      "published_at": "2026-04-10T19:26:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.28",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 393531657,
+      "download_count": 0,
+      "published_at": "2026-04-10T19:26:16Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.29",
+      "asset": "OpenGardenPlanner-v1.8.29-Setup.exe",
+      "asset_id": 393567161,
+      "download_count": 0,
+      "published_at": "2026-04-10T20:18:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.29",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 393567160,
+      "download_count": 0,
+      "published_at": "2026-04-10T20:18:11Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.3",
+      "asset": "OpenGardenPlanner-v1.8.3-Setup.exe",
+      "asset_id": 365548263,
+      "download_count": 4,
+      "published_at": "2026-03-02T20:18:19Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 365548262,
+      "download_count": 0,
+      "published_at": "2026-03-02T20:18:19Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.30",
+      "asset": "OpenGardenPlanner-v1.8.30-Setup.exe",
+      "asset_id": 393588797,
+      "download_count": 1,
+      "published_at": "2026-04-10T20:49:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.30",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 393588799,
+      "download_count": 1,
+      "published_at": "2026-04-10T20:49:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.31",
+      "asset": "OpenGardenPlanner-v1.8.31-Setup.exe",
+      "asset_id": 393594239,
+      "download_count": 3,
+      "published_at": "2026-04-10T21:02:17Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.31",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 393594240,
+      "download_count": 0,
+      "published_at": "2026-04-10T21:02:17Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.32",
+      "asset": "OpenGardenPlanner-v1.8.32-Setup.exe",
+      "asset_id": 395497522,
+      "download_count": 4,
+      "published_at": "2026-04-13T15:25:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.32",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 395497523,
+      "download_count": 0,
+      "published_at": "2026-04-13T15:25:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.33",
+      "asset": "OpenGardenPlanner-v1.8.33-Setup.exe",
+      "asset_id": 397219197,
+      "download_count": 3,
+      "published_at": "2026-04-15T19:32:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.33",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 397219198,
+      "download_count": 1,
+      "published_at": "2026-04-15T19:32:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.34",
+      "asset": "OpenGardenPlanner-v1.8.34-Setup.exe",
+      "asset_id": 397317170,
+      "download_count": 2,
+      "published_at": "2026-04-15T22:11:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.34",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 397317169,
+      "download_count": 0,
+      "published_at": "2026-04-15T22:11:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.35",
+      "asset": "OpenGardenPlanner-v1.8.35-Setup.exe",
+      "asset_id": 398895384,
+      "download_count": 1,
+      "published_at": "2026-04-17T20:49:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.35",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 398895383,
+      "download_count": 0,
+      "published_at": "2026-04-17T20:49:06Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.36",
+      "asset": "OpenGardenPlanner-v1.8.36-Setup.exe",
+      "asset_id": 399544812,
+      "download_count": 0,
+      "published_at": "2026-04-18T20:35:43Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.36",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 399544813,
+      "download_count": 0,
+      "published_at": "2026-04-18T20:35:43Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.37",
+      "asset": "OpenGardenPlanner-v1.8.37-Setup.exe",
+      "asset_id": 399568535,
+      "download_count": 0,
+      "published_at": "2026-04-18T21:40:34Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.37",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 399568536,
+      "download_count": 0,
+      "published_at": "2026-04-18T21:40:34Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.38",
+      "asset": "OpenGardenPlanner-v1.8.38-Setup.exe",
+      "asset_id": 399574941,
+      "download_count": 5,
+      "published_at": "2026-04-18T21:56:10Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.38",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 399574942,
+      "download_count": 1,
+      "published_at": "2026-04-18T21:56:10Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.39",
+      "asset": "OpenGardenPlanner-v1.8.39-Setup.exe",
+      "asset_id": 402712595,
+      "download_count": 4,
+      "published_at": "2026-04-22T17:13:07Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.39",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 402712596,
+      "download_count": 0,
+      "published_at": "2026-04-22T17:13:07Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.4",
+      "asset": "OpenGardenPlanner-v1.8.4-Setup.exe",
+      "asset_id": 366316216,
+      "download_count": 2,
+      "published_at": "2026-03-03T21:46:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.4",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 366316217,
+      "download_count": 1,
+      "published_at": "2026-03-03T21:46:33Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.40",
+      "asset": "OpenGardenPlanner-v1.8.40-Setup.exe",
+      "asset_id": 403771894,
+      "download_count": 0,
+      "published_at": "2026-04-23T20:51:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.40",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 403771895,
+      "download_count": 0,
+      "published_at": "2026-04-23T20:51:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.41",
+      "asset": "OpenGardenPlanner-v1.8.41-Setup.exe",
+      "asset_id": 404865962,
+      "download_count": 0,
+      "published_at": "2026-04-24T22:24:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.41",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 404865963,
+      "download_count": 0,
+      "published_at": "2026-04-24T22:24:25Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.42",
+      "asset": "OpenGardenPlanner-v1.8.42-Setup.exe",
+      "asset_id": 404887731,
+      "download_count": 1,
+      "published_at": "2026-04-24T22:52:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.42",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 404887732,
+      "download_count": 0,
+      "published_at": "2026-04-24T22:52:14Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.43",
+      "asset": "OpenGardenPlanner-v1.8.43-Setup.exe",
+      "asset_id": 405522241,
+      "download_count": 9,
+      "published_at": "2026-04-25T21:27:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.43",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 405522242,
+      "download_count": 0,
+      "published_at": "2026-04-25T21:27:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.5",
+      "asset": "OpenGardenPlanner-v1.8.5-Setup.exe",
+      "asset_id": 366339179,
+      "download_count": 2,
+      "published_at": "2026-03-03T22:30:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.5",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 366339178,
+      "download_count": 2,
+      "published_at": "2026-03-03T22:30:57Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.6",
+      "asset": "OpenGardenPlanner-v1.8.6-Setup.exe",
+      "asset_id": 367001025,
+      "download_count": 1,
+      "published_at": "2026-03-04T19:52:27Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.6",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 367001026,
+      "download_count": 0,
+      "published_at": "2026-03-04T19:52:27Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.7",
+      "asset": "OpenGardenPlanner-v1.8.7-Setup.exe",
+      "asset_id": 367020259,
+      "download_count": 0,
+      "published_at": "2026-03-04T20:35:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.7",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 367020258,
+      "download_count": 0,
+      "published_at": "2026-03-04T20:35:55Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.8",
+      "asset": "OpenGardenPlanner-v1.8.8-Setup.exe",
+      "asset_id": 369159398,
+      "download_count": 2,
+      "published_at": "2026-03-07T23:53:40Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.8",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 369159397,
+      "download_count": 0,
+      "published_at": "2026-03-07T23:53:40Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.9",
+      "asset": "OpenGardenPlanner-v1.8.9-Setup.exe",
+      "asset_id": 369655963,
+      "download_count": 0,
+      "published_at": "2026-03-08T22:04:22Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.8.9",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 369655964,
+      "download_count": 0,
+      "published_at": "2026-03-08T22:04:22Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.9.0",
+      "asset": "OpenGardenPlanner-v1.9.0-Setup.exe",
+      "asset_id": 408262158,
+      "download_count": 0,
+      "published_at": "2026-04-29T14:13:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.9.0",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 408262156,
+      "download_count": 0,
+      "published_at": "2026-04-29T14:13:58Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.9.1",
+      "asset": "OpenGardenPlanner-v1.9.1-Setup.exe",
+      "asset_id": 408420846,
+      "download_count": 3,
+      "published_at": "2026-04-29T18:47:31Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.9.1",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 408420848,
+      "download_count": 0,
+      "published_at": "2026-04-29T18:47:31Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.9.2",
+      "asset": "OpenGardenPlanner-v1.9.2-Setup.exe",
+      "asset_id": 410461133,
+      "download_count": 2,
+      "published_at": "2026-05-02T10:05:51Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.9.2",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 410461134,
+      "download_count": 1,
+      "published_at": "2026-05-02T10:05:51Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.9.3",
+      "asset": "OpenGardenPlanner-v1.9.3-Setup.exe",
+      "asset_id": 410484044,
+      "download_count": 4,
+      "published_at": "2026-05-02T11:11:29Z",
+      "prerelease": false
+    },
+    {
+      "taken_at": "2026-10-28T17:19:46Z",
+      "tag": "v1.9.3",
+      "asset": "SHA256SUMS.txt",
+      "asset_id": 410484045,
+      "download_count": 0,
+      "published_at": "2026-05-02T11:11:29Z",
+      "prerelease": false
+    }
+  ]
+}
