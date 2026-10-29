@@ -14042,8 +14042,8 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
         </message>
         <message>
             <location filename="../../ui/sun_exposure_text.py" line="44" />
-            <source>Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
-            <translation>Schätzung am Boden ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.</translation>
+            <source>Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
+            <translation>Schätzung auf Bodenhöhe ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.</translation>
         </message>
         <message>
             <location filename="../../ui/sun_exposure_text.py" line="27" />

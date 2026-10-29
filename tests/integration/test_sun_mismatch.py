@@ -203,7 +203,7 @@ def test_german_names_hints_canopy_and_badge(sun_app, qtbot):
         assert load_translator(app, "de")
         compute(win, qtbot)
         win.sun_exposure_coordinator.refresh()
-        assert "Tomate" in north._sun_badge.toolTip() and "Boden" in north._sun_badge.toolTip()
+        assert "Tomate" in north._sun_badge.toolTip() and "Bodenhöhe" in north._sun_badge.toolTip()
         by_name(win)["Reference tree"].setSelected(True)
         qtbot.waitUntil(lambda: win.canopy_panel.tree.topLevelItemCount() == 1)
         assert win.canopy_panel.tree.topLevelItem(0).child(0).text(0) == "Tomate"

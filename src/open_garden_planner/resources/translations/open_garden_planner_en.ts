@@ -13794,8 +13794,8 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
         </message>
         <message>
             <location filename="../../ui/sun_exposure_text.py" line="44" />
-            <source>Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
-            <translation>Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</translation>
+            <source>Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
+            <translation>Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</translation>
         </message>
         <message>
             <location filename="../../ui/sun_exposure_text.py" line="27" />

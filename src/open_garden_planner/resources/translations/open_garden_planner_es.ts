@@ -13583,8 +13583,8 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
         </message>
         <message>
             <location filename="../../ui/sun_exposure_text.py" line="44" />
-            <source>Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
-            <translation>Estimado a nivel del suelo, excluyendo la propia sombra de esta planta; no se modela la altura de hojas ni la translucidez de la copa.</translation>
+            <source>Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.</source>
+            <translation>Estimado a la altura del sustrato, excluyendo la propia sombra de esta planta; no se modela la altura de hojas ni la translucidez de la copa.</translation>
         </message>
         <message>
             <location filename="../../ui/sun_exposure_text.py" line="27" />

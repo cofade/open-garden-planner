@@ -316,7 +316,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     'SunExposure': {
         'Compute sun hours to enable sun diagnostics.': 'Calcular horas de sol para habilitar los diagnósticos solares.',
         'Computing sun hours…': 'Calculando horas de sol…',
-        "Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.": 'Estimado a nivel del suelo, excluyendo la propia sombra de esta planta; no se modela la altura de hojas ni la translucidez de la copa.',
+        "Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.": 'Estimado a la altura del sustrato, excluyendo la propia sombra de esta planta; no se modela la altura de hojas ni la translucidez de la copa.',
         'Not evaluated — computation cancelled.': 'No evaluado — cálculo cancelado.',
         'Not evaluated — exposure data unavailable.': 'No evaluado — datos de exposición no disponibles.',
         'Not evaluated — plant is on a hidden layer.': 'No evaluado — la planta está en una capa oculta.',

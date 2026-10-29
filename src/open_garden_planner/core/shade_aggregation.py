@@ -160,7 +160,7 @@ class SunReceiver:
 
 @dataclass(frozen=True)
 class SunExposureResult:
-    """Ground heatmap plus sparse ground exposure excluding each receiver itself.
+    """Ground heatmap plus sparse soil-plane exposure excluding each receiver itself.
 
     ``samples`` / ``sample_shade`` (Phase 17 L2.2, #386): every daylight sample's
     instant and its shade mask — ``np.packbits`` of the rasterised mask along the

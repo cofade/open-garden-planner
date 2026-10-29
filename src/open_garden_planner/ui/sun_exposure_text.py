@@ -42,4 +42,4 @@ def mismatch_message(name: str, required: SunRequirement, hours: float, referenc
     ).format(name=name, required=sun_requirement_label(required.value), hours=QLocale().toString(hours, "f", 1),
              date=reference_date.isoformat(), direction=description)
     return message + "\n" + QCoreApplication.translate(
-        "SunExposure", "Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.")
+        "SunExposure", "Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.")

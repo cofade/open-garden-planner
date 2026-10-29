@@ -1,4 +1,4 @@
-"""Qt-free classification of completed ground exposure (ADR-056, US-F3).
+"""Qt-free classification of completed soil-plane exposure (ADR-056, US-F3).
 
 No computation or I/O: consumers supply cached minutes, or an explicit reason
 why the exposure has not been evaluated. UNKNOWN is never a warning.
