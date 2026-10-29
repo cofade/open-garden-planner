@@ -244,7 +244,7 @@ Held in [ADR: Addendum (#414 — one frost anchor per surface, and one date-wind
 
 ### PF-DOM-24
 
-- **Rule:** A plant's ground sun estimate excludes only its own caster, and `document_replaced` cancels and clears heatmap work so generation guards reject any late worker result.
+- **Rule:** A plant's soil-plane sun estimate excludes its own caster and applicable soil holders; document replacement cancels heatmap work and rejects late results.
 - **Pinned by:** none — The body describes its regressions without naming any test file or test.
 - **Source:** #314, #428
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1109-sun-self-shadow-and-late-document-results-314-428)

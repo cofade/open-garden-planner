@@ -3047,7 +3047,7 @@ F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/
 
 F3 (#314) and heatmap lifecycle fix #428 shipped together in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436) on 12 October 2026. The owner confirmed every manual acceptance check before protected finalization.
 
-- Explicit worker results feed ground-level sun estimates excluding self-shadow, cosmetic warning badges, shared panel/MCP diagnostics and mature-canopy groups. ADR-056 and FR-SUN-09/10 record the measurement and unavailable-state contracts; there is no persistent exposure or file-version change.
+- The initial F3 worker results fed ground-level sun estimates (now exact soil-plane estimates since #641) excluding self-shadow, cosmetic warning badges, shared panel/MCP diagnostics and mature-canopy groups. ADR-056 and FR-SUN-09/10 record the measurement and unavailable-state contracts; there is no persistent exposure or file-version change.
 - Document replacement cancels work and rejects running/queued late results. Deterministic GUI New/Open/recovery and real MCP replacement regressions are pinned in `tests/integration/test_sun_document_lifecycle.py`; the feature workflow is `tests/integration/test_sun_mismatch.py`.
 - Independent review reproduced and resolved concave-footprint badge containment and malformed legacy species handling, then returned clean final review. Full validation: 7,938 passed, 34 skipped; line coverage 76.9%, branch 60.3%; 200 casters/receivers 3.267 seconds. Frozen startup, subsystem self-test, real MCP reads/moves/New/Open and inspected renders passed; GitHub CI and release provenance passed.
 
