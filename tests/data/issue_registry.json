@@ -349,11 +349,6 @@
     "state": "CLOSED",
     "title": "US-F1: Permaculture layer + plant function tags on species — foundation of Package F (Permaculture & Polyculture), do first"
   },
-  "313": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "US-F2: Plant guilds — guild templates, canvas membership, missing-role diagnostic (Package F, after US-F1 #312)"
-  },
   "314": {
     "is_pr": false,
     "state": "CLOSED",
@@ -439,11 +434,6 @@
     "state": "MERGED",
     "title": "chore: deliver-package skill + strengthen the canonical frozen-exe gate (and gate the gate command)"
   },
-  "337": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "RuntimeError (deleted QGraphicsEllipseItem) in _on_new_project -> clear_compare_overlay (US-10.7)"
-  },
   "338": {
     "is_pr": false,
     "state": "CLOSED",
@@ -468,11 +458,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Satellite import: pan-grid view capture for higher resolution (follow-up to #346)"
-  },
-  "352": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat: add agent layers and shape creation tools"
   },
   "356": {
     "is_pr": false,
@@ -504,25 +489,10 @@
     "state": "OPEN",
     "title": "Investigate Authenticode code signing for Windows releases - the open half of #356 / #358"
   },
-  "376": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Docs state code signing necessarily costs money - inaccurate in 8 locations; correct before #375 is decided"
-  },
   "377": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Plant/shape drag preview is drawn behind beds and objects — invisible until you release"
-  },
-  "379": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Retire the hand-made dogfood fixture once bundled examples exist (#316)"
-  },
-  "382": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-D3.3,US-D3.4): task and soil tools complete Package D"
   },
   "385": {
     "is_pr": false,
@@ -584,11 +554,6 @@
     "state": "CLOSED",
     "title": "Lock the release build's dependency resolution (PEP 751 pylock.toml) — the #277 'process bug' is still open (Audit 2026-10, epic #392)"
   },
-  "405": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "§8.7 promises 'all errors logged' but the logging module has no handler anywhere: 55 handled-error log calls are discarded in the windowed exe (Audit 2026-10, epic #392)"
-  },
   "406": {
     "is_pr": false,
     "state": "CLOSED",
@@ -619,25 +584,10 @@
     "state": "CLOSED",
     "title": "Planting calendar: the propagation editor saves steps in the wrong year (and untranslated detail labels)"
   },
-  "416": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Plant data: harvest offsets are read two ways (garlic's follow \"after planting\", the task generator counts from the last frost)"
-  },
   "417": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Sync the wiki Roadmap with docs/roadmap.md (Phase 13 status stale, no Phase 17 section)"
-  },
-  "418": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Plant data: convert the harvest offsets to their true reading (split from #416)"
-  },
-  "421": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-G4): plant favourites and named collections (#320)"
   },
   "422": {
     "is_pr": true,
@@ -654,16 +604,6 @@
     "state": "CLOSED",
     "title": "Sun heatmap: a map still computing when a plan is opened or created paints onto the new plan"
   },
-  "429": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(L1.0): one sim clock for toolbar, overlay, heatmap and 3D (#385)"
-  },
-  "430": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(perf): canvas LOD and item caching for NFR-PERF-01 (#409)"
-  },
   "433": {
     "is_pr": true,
     "state": "MERGED",
@@ -674,30 +614,10 @@
     "state": "MERGED",
     "title": "feat(US-F3): add sun diagnostics and fix heatmap document ownership"
   },
-  "438": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Data loss: a recoloured rectangle-based object is saved with its type's default colour after load → save → load"
-  },
-  "440": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Limitation: the 2D sun/shade model treats porous fences as solid walls and a gable roof as a flat-topped box"
-  },
-  "441": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Offset, chamfer and fillet copies keep the source's brush but not its fill_color / fill_pattern: the copy loses its colour and pattern on save"
-  },
   "443": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Bed membership is not reconciled on many edit paths (a bed that changes, most ways of moving or copying a plant)"
-  },
-  "444": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "The 2D shadow of a closed-loop fence or wall covers the whole enclosed area"
   },
   "445": {
     "is_pr": false,
@@ -708,21 +628,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Plant sprite lookup matches by substring: \"Lemon Balm\" is drawn as a lemon tree, \"Melon\" as an eggplant, \"Bean (Bush)\" as a climbing bean, \"Sweet Potato\" as a potato, a blank species as a rose"
-  },
-  "447": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Rare native crash (access violation) in QApplication.setStyleSheet during the test suite under heavy machine load"
-  },
-  "448": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Two tests fail for reasons of the environment, not the product (type-CLI test under Python 3.12, 2D repaint budgets under machine load)"
-  },
-  "449": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Duplicate requirement id in the docs: FR-AGENT-27 is used twice in docs/functional-requirements.md"
   },
   "450": {
     "is_pr": false,
@@ -741,7 +646,7 @@
   },
   "456": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Audit A4: Import boundaries, package cycles and architecture enforcement (epic #392)"
   },
   "457": {
@@ -751,43 +656,28 @@
   },
   "458": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Audit A6: Canvas interaction and properties-panel maintainability (epic #392)"
   },
   "459": {
     "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A7: Application orchestration extraction (epic #392)"
-  },
-  "460": {
-    "is_pr": false,
     "state": "CLOSED",
-    "title": "Audit A8: Test precision, lifecycle hygiene and test-layer documentation (epic #392)"
+    "title": "Audit A7: Application orchestration extraction (epic #392)"
   },
   "461": {
     "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A9: Performance contracts, representative benchmarks and bulk insertion (epic #392)"
-  },
-  "463": {
-    "is_pr": false,
     "state": "CLOSED",
-    "title": "Audit A11: Release attribution, version consistency and release recovery (epic #392)"
+    "title": "Audit A9: Performance contracts, representative benchmarks and bulk insertion (epic #392)"
   },
   "464": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Audit A12: Agent context, skill loading and change/review discipline (epic #392)"
   },
   "465": {
     "is_pr": false,
-    "state": "OPEN",
-    "title": "Audit A13: Contributor onboarding and maintainer continuity (epic #392)"
-  },
-  "469": {
-    "is_pr": false,
     "state": "CLOSED",
-    "title": "A loaded item's stroke_color / stroke_width attributes are its object type's defaults (rectangle, circle, ellipse, polygon): the Properties panel shows the defaults and undo of a stroke edit restores the wrong values"
+    "title": "Audit A13: Contributor onboarding and maintainer continuity (epic #392)"
   },
   "470": {
     "is_pr": false,
@@ -804,35 +694,10 @@
     "state": "CLOSED",
     "title": "One polygon of a plan file can freeze the 2D canvas for minutes"
   },
-  "473": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "The reference plan of NFR-PERF-01 holds no line, so the repaint budgets cannot see a slower line paint"
-  },
-  "474": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "The furniture sprite renderer is asked for the item's size without a bound; its cache is bounded by entries, not bytes"
-  },
-  "477": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(406): characterize constraint gestures and enforce per-file coverage"
-  },
   "480": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "The installed app aborts at exit (0xC0000409, \"QThread: Destroyed while thread is still running\") when it is closed while its update check is in flight"
-  },
-  "481": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "A plant inside a raised bed without a link to the bed reads 0 hours of sun and gets a \"too little sun\" warning"
-  },
-  "482": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "The global search field connects a Python closure to its own destroyed signal"
   },
   "483": {
     "is_pr": false,
@@ -844,50 +709,15 @@
     "state": "MERGED",
     "title": "feat(#385): Phase 17 L1 - Qt Quick 3D replaces Qt 3D: the Plan / 3D / Split workspace with ground, looks, selection and walk"
   },
-  "485": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Rotating constrained objects leaves distance broken until the next move; investigate skipped rotation undo"
-  },
-  "487": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(453): validate plan inputs, verify downloads and secure Linux settings"
-  },
-  "489": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(457): constraint descriptors and stronger solver assertions"
-  },
   "490": {
     "is_pr": true,
     "state": "MERGED",
     "title": "build(454): pin the build toolchain and publish the frozen inventory"
   },
-  "495": {
-    "is_pr": true,
-    "state": "OPEN",
-    "title": "feat(i18n): add Russian translation (ru)"
-  },
   "496": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Enforce source-based translation completeness for every supported language before merge"
-  },
-  "497": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(i18n): require complete source coverage in every supported language"
-  },
-  "498": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix: resolve app exit thread aborts, cache bounds, and test hygiene (#480, #483, #482, #474, #449, #448)"
-  },
-  "501": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(470,472,473,502): bound polygon paint, one look-copy rule, line budgets, and show the chosen fill colour"
   },
   "502": {
     "is_pr": false,
@@ -909,26 +739,6 @@
     "state": "CLOSED",
     "title": "The test suite takes ~15.5 minutes and runs serially: no pytest-xdist, and CI runs all 8 551 tests twice"
   },
-  "512": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Commit the CI gate mutation harness as scripts/replay_gate_mutations.py"
-  },
-  "515": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Identify the holder of the test suite's leaked widget graphs (38 271 widgets)"
-  },
-  "516": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Remove the remaining review archaeology from shipped comments"
-  },
-  "520": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#512-#516): mutation-verified gate pin, required coverage floor, and the widget-leak probe"
-  },
   "522": {
     "is_pr": false,
     "state": "CLOSED",
@@ -938,11 +748,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Undoing a path/fence style-preset pick keeps the preset's pen"
-  },
-  "525": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Line type change: context menu and Properties panel disagree on a preset line, and the context-menu undo loses a re-stroked line's own pen"
   },
   "526": {
     "is_pr": false,
@@ -954,45 +759,20 @@
     "state": "CLOSED",
     "title": "perf-marker guard misses a median kept in an attribute and flags a test that times nothing"
   },
-  "530": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Seven Properties-panel edits (grid, soil depth, container material/drainage/height, soil volume) are not undoable and do not mark the plan modified"
-  },
-  "531": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "3D: about 15-20 kB per destroyed Qt Quick 3D Model is never returned (date playback churns Models)"
-  },
   "532": {
     "is_pr": false,
     "state": "OPEN",
     "title": "3D: Qt Quick 3D 6.11 leaks about half the ground-tile textures on every cache release (QSSGBufferManager::clear skips QHash entries)"
-  },
-  "533": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-F4): combine plan timeline and live sun simulation"
   },
   "534": {
     "is_pr": false,
     "state": "OPEN",
     "title": "3D: committed memory grows ~2 MB/min while the wind runs (FU-L14-2, intermittent)"
   },
-  "535": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "3D: a software-only adapter (WARP, no GPU) gets the hardware look - 12.8 s to the first readback"
-  },
   "536": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Render tier: one slow first frame errors all of test_quick3d_render.py (wait_ready no-progress cutoff)"
-  },
-  "537": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "L1.10 leftovers: dead OGP_QUICK3D in the workspace gate, unused walk.svg, a stale-DPR Qt warning"
   },
   "538": {
     "is_pr": false,
@@ -1004,16 +784,6 @@
     "state": "CLOSED",
     "title": "3D View and Alt+1/2/3 do nothing visible from any tab other than Garden Plan"
   },
-  "540": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "CI never runs the default 3D workspace on a real host; local WARP failures in the workspace/selection/default render files"
-  },
-  "541": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Keyboard Shortcuts: untranslated key name 'Home' in the 3D View group"
-  },
   "542": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1023,11 +793,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "release.yml reads the bump label from the newest-created merged PR, not the merged one (#484 shipped as v1.30.14 despite 'minor')"
-  },
-  "545": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix: restore line appearance undo and contain styled paint"
   },
   "550": {
     "is_pr": false,
@@ -1039,11 +804,6 @@
     "state": "CLOSED",
     "title": "Vertex editing a dense polygon creates four scene items per vertex - 1,000+ items for a 255-vertex shape"
   },
-  "552": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "The FIXED constraint (US-7.21) is bypassed by the Properties panel X/Y fields"
-  },
   "556": {
     "is_pr": true,
     "state": "MERGED",
@@ -1054,25 +814,10 @@
     "state": "CLOSED",
     "title": "3D: use category-based visual heights for plants with unknown height"
   },
-  "558": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Plant Details: editing maximum width does not update the 2D or 3D diameter"
-  },
   "559": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Plant Details: species and instance field edits bypass undo history"
-  },
-  "560": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Properties and Plant Details: focused text/numeric editors suppress history refresh"
-  },
-  "561": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Testing artifacts and popups"
   },
   "562": {
     "is_pr": false,
@@ -1099,45 +844,10 @@
     "state": "CLOSED",
     "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
   },
-  "574": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "pyproject license metadata is deprecated by setuptools (due 2027-02-18)"
-  },
-  "577": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "L2 3D: bias the drape's clip depth instead of relying on the 1.5 cm lift"
-  },
-  "579": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Heatmap: per-sample shade masks are allocated on every run, even when 3D never sweeps"
-  },
-  "580": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "L2: test that the info card's last fact row is visible, not only present"
-  },
-  "581": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "One resolver for (height, source) instead of three copies of the precedence ladder"
-  },
-  "583": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Split ui/view3d/workspace.py (selection, walk, analysis, wipe, legend) and type its 2D sources"
-  },
   "584": {
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#386): Phase 17 L2 — Analyze in 3D"
-  },
-  "585": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "fix(#450,#551,#550,#569,#538,#446): non-3D hardening batch"
   },
   "586": {
     "is_pr": false,
@@ -1148,11 +858,6 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Probes outside scripts/ bypass script_isolation - nothing stops one writing the owner's real settings (it switched off the Welcome dialog)"
-  },
-  "590": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "finalize-us §5: version sync must also update ADR status lines and the README Status paragraph"
   },
   "592": {
     "is_pr": false,
@@ -1179,11 +884,6 @@
     "state": "MERGED",
     "title": "chore: sync version to v1.32.0 after PR #593"
   },
-  "599": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "Phase 17: smart-symbol builders for 3D (deferred from L4 #388)"
-  },
   "600": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1209,11 +909,6 @@
     "state": "OPEN",
     "title": "2D paths: at an outer bend the fill and the border lines disagree (mitre vs chord, V spike)"
   },
-  "606": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "chore(#601): shorten Coverage critical path while retaining branch data"
-  },
   "607": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1224,11 +919,6 @@
     "state": "CLOSED",
     "title": "Two 3D render tests fail when the display is scaled (DPR 2.0, 1280x720 logical): a hard-coded 1.25 and a 1500x900 window"
   },
-  "610": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(US-F5): offline examples and portable templates (#316, #379)"
-  },
   "611": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1238,11 +928,6 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#388): Phase 17 L4 - the built world complete (roofs, facades, paths, surfaces, water, lawn, objects)"
-  },
-  "614": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "fee03ea3 stored CLAUDE.md, AGENTS.md, docs/05 and the ogp-docs-and-writing skills with CR CR LF line endings"
   },
   "615": {
     "is_pr": false,
@@ -1268,16 +953,6 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Gravel texture reads as wet bubbles in shade at walk height (owner taste)"
-  },
-  "620": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Mutation check: \"the heatmap's worker drops the base\" survives (pre-existing on master)"
-  },
-  "621": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "Per-plant sun: a plant inside a cold frame, planter pot or greenhouse reads 0 h (follow-up to #388)"
   },
   "623": {
     "is_pr": false,
@@ -1309,30 +984,10 @@
     "state": "CLOSED",
     "title": "A plant is hidden behind a raised bed, container, wall planter or trellis drawn around it (only the in-ground garden bed keeps it visible)"
   },
-  "630": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#611): 3D hardening after L4 (#607, #604, #617, #624, #618, #609, #600, #603, #626, #536)"
-  },
-  "632": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(test-release-3d): resolve widget leaks (#515), popup focus (#561), release classification (#463), workspace split (#583), info card facts (#580), drape clip bias (#577)"
-  },
   "635": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "One agent move that reparents a plant records two undo steps, while the GUI now records one"
-  },
-  "637": {
-    "is_pr": false,
-    "state": "CLOSED",
-    "title": "CI: Upgrade GitHub Actions to Node 24 runtime & pin runner image to ubuntu-24.04"
-  },
-  "639": {
-    "is_pr": true,
-    "state": "MERGED",
-    "title": "feat(#635, #621, #579, #616, #637): agent move atomicity, plant holder sun exposure, shade mask memory, Windows power throttling opt-out, and Node 24 CI"
   },
   "640": {
     "is_pr": true,
@@ -1348,5 +1003,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Missing preview icons for certain object types in properties panel dropdown"
+  },
+  "645": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#641, #643, #623, #605): precision, UI, and diagnostic bugfixes"
   }
 }

@@ -57,8 +57,9 @@ sequenceDiagram
     participant D as Shared Diagnostics / MCP
     U->>A: Select the single calendar date
     U->>H: Enable Hours of Sun
-    H->>W: Immutable document snapshot + receivers
-    W-->>H: Grid and own-shadow-excluded receiver minutes
+    H->>W: Immutable casters + receivers at canonical soil elevations
+    W->>W: Slice casters above each exact receiver elevation
+    W-->>H: Ground grid + self/holder-excluded soil-plane receiver minutes
     H->>H: Check generation and complete signature
     H-->>C: Exposure changed
     C->>D: Cached mismatch / unavailable records
@@ -78,6 +79,13 @@ sequenceDiagram
 ```
 
 Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes retain the labelled old preview while requesting the current map. Document replacement and location/grid changes clear old imagery. Diagnostics and canopy reads never launch a worker.
+
+Receiver elevation comes from `item_base_cm`, including its visible-parent and
+containment rules. Equal elevations share a shadow sweep; elevations are never
+rounded, because that can discard an obstacle still above the plant's soil plane
+(#641). The ground heatmap remains a ground measurement. For a caster solid
+`[base, top]`, discard it when `top <= elevation`; otherwise use base
+`max(0, base - elevation)` and height `top - max(base, elevation)`.
 
 ## 6.1 Drawing Workflow
 

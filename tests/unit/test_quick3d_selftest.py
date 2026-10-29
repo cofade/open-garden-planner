@@ -1047,6 +1047,36 @@ def test_a_supervisor_whose_wait_fails_says_so_and_terminates_nothing(tmp_path: 
     assert "[supervisor]" not in text, "nobody was terminated"
 
 
+@pytest.mark.parametrize("failure", ["crash_file", "announce"])
+def test_watchdog_setup_failure_preserves_error_and_releases_supervisor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str,
+) -> None:
+    from unittest.mock import Mock
+
+    from open_garden_planner.ui.view3d.quick3d import runlog
+
+    log = runlog.RenderLog(tmp_path / "setup.log", mirror=False)
+    supervisor = Mock()
+    supervisor.wait.return_value = runlog.SUPERVISOR_DONE
+    monkeypatch.setattr(runlog, "start_supervisor", lambda *_a: supervisor)
+    monkeypatch.setattr(runlog.sys, "platform", "win32")
+    error = RuntimeError("original setup failure")
+    target = "crash_file" if failure == "crash_file" else "__call__"
+    with monkeypatch.context() as patch:
+        patch.setattr(runlog.RenderLog, target, Mock(side_effect=error))
+        with pytest.raises(RuntimeError, match="original setup failure") as raised, \
+                runlog.watchdog(30, log, supervised=True):
+            pytest.fail("a failed setup must not enter the block")
+        assert raised.value is error
+    assert runlog._ARMED == []  # noqa: SLF001
+    if failure == "announce":
+        supervisor.release.assert_called_once()
+        supervisor.wait.assert_called_once()
+    with runlog.watchdog(30, log):
+        pass
+    log.close()
+
+
 def test_a_watchdog_whose_arming_fails_is_not_left_armed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """P2-2 on every platform, without a supervisor: arming fails (``faulthandler`` cannot
     start its thread) — the error reaches the caller, the block does not run, and the

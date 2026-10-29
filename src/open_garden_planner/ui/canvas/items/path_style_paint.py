@@ -813,14 +813,16 @@ class PathStylePaint:
             dx = p2.x() - p1.x()
             dy = p2.y() - p1.y()
             length = math.hypot(dx, dy)
-            if length < 0.001:
-                ux, uy = 1.0, 0.0
-                nx, ny = 0.0, 1.0
-            else:
-                ux, uy = dx / length, dy / length
-                nx, ny = -uy, ux
+            # Match the relief offset's degenerate-segment rule: a repeated vertex
+            # has no direction and must not invent a horizontal segment.
+            if length <= 1e-6:
+                continue
+            ux, uy = dx / length, dy / length
+            nx, ny = -uy, ux
             segments.append((p1, p2, ux, uy, nx, ny, length))
 
+        if not segments:
+            return None
         path = QPainterPath()
         first_p1, _, _, _, fnx, fny, _ = segments[0]
         path.moveTo(first_p1.x() + fnx * offset, first_p1.y() + fny * offset)
@@ -830,17 +832,20 @@ class PathStylePaint:
 
             if i < len(segments) - 1:
                 _, _, ux2, uy2, nx2, ny2, len2 = segments[i + 1]
-                dot_n = nx1 * nx2 + ny1 * ny2
                 cross_u = ux1 * uy2 - uy1 * ux2
                 # Inner bend: offset lines cross before vertex corner (#605)
-                if offset * cross_u > 1e-4 and dot_n > -0.99:
-                    denom = 1.0 + dot_n
-                    vx = offset * (nx1 + nx2) / denom
-                    vy = offset * (ny1 + ny2) / denom
-                    proj1 = -(vx * ux1 + vy * uy1)
-                    proj2 = vx * ux2 + vy * uy2
-                    if 0.0 <= proj1 <= len1 and 0.0 <= proj2 <= len2:
-                        path.lineTo(QPointF(p2.x() + vx, p2.y() + vy))
+                # Intersect the directed lines rather than dividing by 1+dot:
+                # that sum loses precision at near-reversals. The segment bounds,
+                # not an angle cutoff, decide whether an acute join can be trimmed.
+                if offset * cross_u > 0.0 and abs(cross_u) >= 1e-9:
+                    gap_x = offset * (nx2 - nx1)
+                    gap_y = offset * (ny2 - ny1)
+                    back = (gap_x * uy2 - gap_y * ux2) / cross_u
+                    crossing = QPointF(op2.x() + ux1 * back, op2.y() + uy1 * back)
+                    forward = ((crossing.x() - p2.x() - nx2 * offset) * ux2
+                               + (crossing.y() - p2.y() - ny2 * offset) * uy2)
+                    if -len1 <= back <= 0.0 and 0.0 <= forward <= len2:
+                        path.lineTo(crossing)
                         continue
 
             path.lineTo(op2)

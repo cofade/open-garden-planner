@@ -9091,3 +9091,15 @@ identity; ordinary startup never takes that path. Evidence and all finding
 dispositions live in `audits/2026-10/audit-392-remaining.md`; the historical audit
 snapshot remains unchanged. Each package closes only through its complete,
 reviewed draft PR and owner acceptance.
+
+### ADR-056 addendum - exact soil-plane receiver exposure (#641, PR #645)
+
+The ground heatmap remains at z=0. Per-plant exposure receives the canonical
+`item_base_cm` soil elevation and evaluates caster slices above that plane,
+while retaining the existing self and soil-holder exclusions. Equal elevations
+share a sweep. Five-centimetre bands were rejected during review: a 38 cm
+receiver rounded to 40 cm lost a 39 cm obstacle and gained 210 false minutes
+of sun in the boundary regression. No approximation budget authorizes that
+change. Vertical-translation equivalence at sub-centimetre and bed-height
+boundaries is pinned in `tests/unit/test_sun_exposure_base.py`; the real-window
+workflow is in `tests/integration/test_sun_exposure_raised_soil.py`.

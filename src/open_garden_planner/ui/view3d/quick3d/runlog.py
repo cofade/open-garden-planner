@@ -266,6 +266,7 @@ def watchdog(seconds: float, log: RenderLog, what: str = "the run", *,
     helper = threading.Timer(max(seconds - 1.0, seconds * 0.8), announce)
     helper.daemon = True
     nowhere = None
+    previously_enabled = faulthandler.is_enabled()
     # EVERYTHING that arms is inside the try: if any step of it raises — the log is
     # closed, the timer cannot be set — the finally disarms what was armed so far. (It
     # used to start the supervisor and mark the process armed BEFORE the try: a failure
@@ -296,7 +297,6 @@ def watchdog(seconds: float, log: RenderLog, what: str = "the run", *,
                  "here, and the process exits with code 1"
                  + (" (no log file and no stderr: the stacks are lost, the exit is not)"
                     if nowhere is not None else ""))
-        previously_enabled = faulthandler.is_enabled()
         if not previously_enabled and target is not None and _has_descriptor(target):
             with contextlib.suppress(Exception):
                 faulthandler.enable(file=target, all_threads=True)

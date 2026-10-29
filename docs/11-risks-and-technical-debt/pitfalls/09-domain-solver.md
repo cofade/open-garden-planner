@@ -374,3 +374,8 @@ fences or bed edging) that never reach the elevated plane.
 receivers by elevation: ground receivers sample ground shadows as before,
 while elevated receivers slice obstacle casters relative to receiver elevation
 and evaluate shadows on the elevated receiver plane.
+
+PR #645 review pins exact-plane vertical translation for sub-centimetre and
+bed-height receivers in `test_receiver_elevation_matches_exact_vertical_translation`.
+Do not round the receiver height: a 39 cm obstacle remains above 38 cm soil.
+The map stays at ground level; only the per-plant estimate changes its plane.

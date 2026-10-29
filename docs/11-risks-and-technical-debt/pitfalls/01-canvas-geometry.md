@@ -316,3 +316,9 @@ endpoints directly creates a reverse loop and crossing spikes across the interio
 the path. Trimming inner segments to their geometric intersection produces clean bends.
 For paved paths with decorative borders, the fill pen must also use `BevelJoin` to
 harmonize with the border chord join.
+
+The trim decision uses finite segment bounds, not an angle cutoff: a 175-degree turn
+with sufficiently long legs still has a valid inner intersection. Use a directed-line
+cross product rather than `1 + dot` near a reversal, and discard zero-length segments
+instead of inventing their normal. The painter/relief parity matrix pins both turn
+directions through 179.9 degrees.

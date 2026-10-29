@@ -36,3 +36,5 @@
 | PF-TST-32 | Sample ground memory after two presented frames retire replaced uploads, preserve the leak bound and control, and never use a grab as a presentation. | standing | [07](../07-test-suite-hygiene.md#pf-tst-32) |  |
 | PF-TST-33 | Opt the pytest runner out of Windows EcoQoS power throttling (`SetProcessInformation` with `ProcessPowerThrottling`, `ControlMask=EXECUTION_SPEED`, `StateMask=0`), so background thread classification does not inflate timings ~1.8× partway through local test runs. | standing | [07](../07-test-suite-hygiene.md#pf-tst-33) |  |
 | PF-TST-34 | Qt Quick 3D subprocesses exiting on fatal Windows SEH exceptions (`0xC000041D`) must enable `faulthandler` directly to the log destination, and selftest assertions must print the log tail on failure to expose the crash site. | standing | [07](../07-test-suite-hygiene.md#pf-tst-34) |  |
+
+| PF-TST-35 | Complete repaint and minimap events before measuring idle. | standing | [07](../07-test-suite-hygiene.md#pf-tst-35) |  |

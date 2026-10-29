@@ -252,7 +252,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - Epic #392: remaining audit packages A4/A6/A7/A9/A12/A13 (#456/#458/#459/#461/
   #464/#465) shipped in v1.34.5 (PR #640, ADR-068). Bugfix package for #641
   (elevated sun exposure), #643 (properties dropdown icons), #623 (selftest crash
-  diagnostics), and #605 (paved path corner joins and acute bend trimming) prepared.
+  diagnostics), and #605 (paved path corner joins and acute bend trimming) are in draft PR #645;
+  review fixes preserve exact soil elevations, sharp/duplicate path vertices and
+  watchdog cleanup. Owner manual testing and wiki publication remain pending.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

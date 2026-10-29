@@ -16,3 +16,10 @@ with bed sparing preserved. Pinned by `tests/unit/test_sun_exposure_base.py` and
 `tests/integration/test_sun_exposure_raised_soil.py`.
 **Lesson.** A receiver in 3D space cannot sample a 2D ground projection when surrounding
 occluders have heights below the receiver plane.
+
+**Review regression (PR #645).** Tagged boundary probes reported
+`[ELEVATION] actual=38.0 band=40 obstacle_top=39.0 discarded=True`.
+Six vertical-translation cases failed before removing the 5 cm rounding.
+A 1 cm wall slice at the true plane yielded 780 minutes; rounding it away
+yielded 990. Share sweeps at identical exact elevations only; precompute
+receiver indices and exclusions outside the daylight loop.

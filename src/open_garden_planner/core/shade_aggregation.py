@@ -428,27 +428,34 @@ def _aggregate_day(
             inside = np.flatnonzero(points_in_polygons(caster.footprints, points))
             if len(inside):
                 spared.setdefault(caster.item_id, []).extend(int(index) for index in inside)
-    # Bucket elevated receivers into 5.0 cm bands to bound Clipper workload
+    # Share a sweep only at identical elevations. Rounding can remove an obstacle
+    # whose top is above the real receiver but below the rounded elevation.
     elevations: dict[float, list[int]] = {}
     for idx, receiver in enumerate(valid):
         elev = receiver.elevation_cm
-        key = 0.0 if elev <= 0.0 else round(round(elev / 5.0) * 5.0, 1)
+        key = max(0.0, elev)
         elevations.setdefault(key, []).append(idx)
 
-    # Pre-calculate obstacle slices relative to each elevated band outside the sample loop
-    elev_casters_by_elev: dict[float, list[tuple[IdentifiedCaster, GroupedCaster]]] = {}
-    for elev in elevations:
-        if elev <= 0.0:
-            continue
+    # Slice and index once per distinct elevation, outside the daylight loop.
+    receiver_groups = []
+    for elev, indices in elevations.items():
+        if should_cancel is not None and should_cancel():
+            return None
+        group_indices = np.asarray(indices, dtype=int)
         slice_casters: list[tuple[IdentifiedCaster, GroupedCaster]] = []
         for caster in identified:
+            if elev == 0.0:
+                slice_casters.append((caster, GroupedCaster(
+                    caster.footprints, caster.height_cm, caster.base_cm)))
+                continue
             top_cm = caster.base_cm + caster.height_cm
             if top_cm > elev:
                 eff_base = max(0.0, caster.base_cm - elev)
                 eff_height = top_cm - max(caster.base_cm, elev)
                 slice_casters.append((caster, GroupedCaster(caster.footprints, eff_height, eff_base)))
-        if slice_casters:
-            elev_casters_by_elev[elev] = slice_casters
+        exclusions = {caster.item_id: np.isin(group_indices, spared.get(caster.item_id, []))
+                      for caster, _ in slice_casters}
+        receiver_groups.append((elev, group_indices, points[group_indices], slice_casters, exclusions))
     exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
     packed_cols = (grid.cols + 7) // 8
@@ -478,44 +485,24 @@ def _aggregate_day(
             minutes += float(step_minutes)
         if len(valid):
             coverage = np.zeros(len(valid), dtype=np.int32)
-            # Ground-level receivers (elevation <= 0) use the full ground shadow polygons
-            ground_indices = [idx for elev, idxs in elevations.items() if elev <= 0.0 for idx in idxs]
-            if ground_indices:
-                g_idx = np.asarray(ground_indices, dtype=int)
-                g_points = points[g_idx]
-                for caster, caster_polygons in zip(identified, owned_polygons, strict=True):
+            for elev, group_indices, group_points, slice_casters, exclusions in receiver_groups:
+                if elev == 0.0:
+                    group_owned = owned_polygons
+                else:
+                    elevated = compute_grouped_shadows(
+                        [gc for _, gc in slice_casters],
+                        max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG),
+                        sample.azimuth_deg, should_cancel,
+                    )
+                    if elevated is None:
+                        return None
+                    _, group_owned = elevated
+                for (caster, _), caster_polygons in zip(slice_casters, group_owned, strict=True):
                     if should_cancel is not None and should_cancel():
                         return None
-                    mask = points_in_polygons(caster_polygons, g_points)
-                    indices = spared.get(caster.item_id)
-                    if indices:
-                        spared_set = set(indices)
-                        mask[[i in spared_set for i in ground_indices]] = False
-                    coverage[g_idx] += mask
-
-            # Elevated receivers (elevation > 0, #641): evaluate obstacle slices above elevation
-            for elev, elev_casters in elev_casters_by_elev.items():
-                elev_indices = elevations[elev]
-                e_idx = np.asarray(elev_indices, dtype=int)
-                e_points = points[e_idx]
-                elev_shadows = compute_grouped_shadows(
-                    [gc for _, gc in elev_casters],
-                    max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG),
-                    sample.azimuth_deg,
-                    should_cancel,
-                )
-                if elev_shadows is None:
-                    return None
-                _, elev_owned = elev_shadows
-                for (caster, _), caster_polygons in zip(elev_casters, elev_owned, strict=True):
-                    if should_cancel is not None and should_cancel():
-                        return None
-                    mask = points_in_polygons(caster_polygons, e_points)
-                    indices = spared.get(caster.item_id)
-                    if indices:
-                        spared_set = set(indices)
-                        mask[[i in spared_set for i in elev_indices]] = False
-                    coverage[e_idx] += mask
+                    mask = points_in_polygons(caster_polygons, group_points)
+                    mask[exclusions[caster.item_id]] = False
+                    coverage[group_indices] += mask
 
             exposure += np.where(coverage == 0, float(step_minutes), 0.0)
         if progress is not None:

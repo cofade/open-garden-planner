@@ -259,3 +259,28 @@ def test_non_finite_receiver_elevation_is_excluded() -> None:
     assert "valid" in res
     assert "nan" not in res
     assert "inf" not in res
+
+
+@pytest.mark.parametrize("elevation", [0.1, 2.4, 37.6, 38.0, 39.9, 40.1])
+@pytest.mark.parametrize("base_offset", [-0.5, 2.0])
+def test_receiver_elevation_matches_exact_vertical_translation(
+    elevation: float, base_offset: float,
+) -> None:
+    """Moving the receiver to z=0 and slicing the caster must preserve exposure."""
+    footprint = (((50.0, 90.0), (350.0, 90.0), (350.0, 100.0), (50.0, 100.0)),)
+    base = max(0.0, elevation + base_offset)
+    top = elevation + 1.0 if base_offset < 0 else base + 10.0
+    caster = IdentifiedCaster("wall", footprint, top - base, base_cm=base)
+    translated = IdentifiedCaster(
+        "wall", footprint, top - max(base, elevation), base_cm=max(0.0, base - elevation),
+    )
+    grid = HeatmapGrid(0, 0, 1, 400, 150)
+    actual = compute_sun_exposure(
+        [caster], [SunReceiver("plant", 200, 100, elevation_cm=elevation)],
+        *BERLIN, DAY, grid, no_raster,
+    )
+    expected = compute_sun_exposure(
+        [translated], [SunReceiver("plant", 200, 100)], *BERLIN, DAY, grid, no_raster,
+    )
+    assert actual is not None and expected is not None
+    assert actual.receiver_minutes == expected.receiver_minutes

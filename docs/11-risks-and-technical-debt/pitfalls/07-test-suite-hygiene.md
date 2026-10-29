@@ -500,3 +500,18 @@ On Windows 11, power throttling can raise timings ~1.8× partway through a run w
 - **Legacy:** none (new entry)
 
 When running Qt Quick 3D child processes from source or during integration tests, fatal native exceptions (such as STATUS_FATAL_USER_CALLBACK_EXCEPTION, 0xC000041D) cause immediate process termination without Python traceback printing to stderr or log files if faulthandler is only used with `dump_traceback_later`. Enabling `faulthandler.enable(file=target, all_threads=True)` ensures crash tracebacks are written directly to the self-test log, and test failure assertions echo the log tail.
+
+### PF-TST-35
+
+- **Rule:** Finish queued repaint invalidation and its minimap debounce before
+  starting the audit driver's idle counters; fail explicitly if they never settle.
+- **Pinned by:** `tests/integration/test_audit_performance_driver.py` (ordinary
+  and queued-final-repaint cases).
+- **Source:** PR #645 Coverage partition 0 failure.
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A completed synchronous repaint can still leave a `scene.changed` delivery
+and a minimap timer pending. Counting either as idle produces an order/load
+dependent failure without proving an idle feedback loop. Drain the queued
+events, then wait for the actual debounce timer with a bounded deadline.

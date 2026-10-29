@@ -238,6 +238,47 @@ class TestSegmentInside:
 class TestOffsetPathCorners:
     """Tests for path corner joins and inner bend spike elimination (#605)."""
 
+    @pytest.mark.parametrize("angle_deg", [175.0, -175.0, 179.9, -179.9])
+    def test_long_hairpin_trims_at_the_real_intersection(self, angle_deg: float) -> None:
+        """A nearly reversed turn can still have an intersection inside both legs."""
+        length, offset = 100000.0, math.copysign(10.0, angle_deg)
+        radians = math.radians(angle_deg)
+        points = [QPointF(0.0, 0.0), QPointF(length, 0.0),
+                  QPointF(length + length * math.cos(radians), length * math.sin(radians))]
+        path = PathStylePaint(points, pen())._offset_path(offset)
+        assert path is not None and path.elementCount() == 3
+        corner = path.elementAt(1)
+        assert corner.x == pytest.approx(length - offset * math.tan(radians / 2.0))
+        assert corner.y == pytest.approx(offset)
+
+    @pytest.mark.parametrize("duplicate_at", [0, 1, 2])
+    def test_a_duplicate_vertex_does_not_change_the_border(self, duplicate_at: int) -> None:
+        points = [QPointF(0.0, 0.0), QPointF(100.0, 0.0), QPointF(100.0, 100.0)]
+        original = PathStylePaint(points, pen())._offset_path(10.0)
+        points.insert(duplicate_at, QPointF(points[duplicate_at]))
+        duplicated = PathStylePaint(points, pen())._offset_path(10.0)
+        assert original is not None and duplicated is not None
+        assert duplicated == original
+
+    @pytest.mark.parametrize("angle_deg", [-179.9, -175.0, -90.0, -15.0, 15.0, 90.0, 175.0, 179.9])
+    @pytest.mark.parametrize("offset", [-10.0, 10.0])
+    def test_canvas_border_and_relief_offset_keep_the_same_corner_contract(
+            self, angle_deg: float, offset: float) -> None:
+        """The separate Qt painter and Qt-free relief must not drift at bends."""
+        import numpy as np
+
+        from open_garden_planner.core.scene3d.builders.surfaces import _offset_line
+
+        length = 100000.0
+        radians = math.radians(angle_deg)
+        coordinates = [(0.0, 0.0), (length, 0.0),
+                       (length + length * math.cos(radians), length * math.sin(radians))]
+        path = PathStylePaint([QPointF(*point) for point in coordinates], pen())._offset_path(offset)
+        assert path is not None
+        painted = [(path.elementAt(i).x, path.elementAt(i).y) for i in range(path.elementCount())]
+        relief = _offset_line(np.asarray(coordinates), False, offset)
+        assert np.asarray(painted) == pytest.approx(relief, abs=1e-7)
+
     def test_inner_bend_trims_crossing_segments_without_v_spike(self) -> None:
         """At an inner bend, offset lines intersect cleanly without a reverse spike."""
         from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
