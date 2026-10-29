@@ -46,8 +46,9 @@ from open_garden_planner.core.scene3d.context import (
     with_context,
 )
 from open_garden_planner.core.scene3d.pick_oracle import pick_scene
-from open_garden_planner.core.scene3d.polygon import RegionTooLargeError
+from open_garden_planner.core.scene3d.polygon import RegionTooLargeError, group_rings
 from open_garden_planner.core.scene3d.record import BUILD_ONLY_PARAMS, Params
+from open_garden_planner.core.shadow_geometry import polyline_round_outline
 from tests.unit.scene3d_builder_cases import (
     BENT_PATH,
     CLOSED_PATH,
@@ -138,6 +139,14 @@ def reach_outside(record) -> float:
     their holes), in plan cm — per vertex and per triangle, which ``verify_builder``'s
     area check is not (3D review of #388: a boardwalk 15 cm, a gravel edging 18.6 cm
     past the path)."""
+    regions = record.regions
+    if record.kind == "PATH" and record.params.get("path_style") == "GRAVEL_PATH":
+        # The caster's nominal square/butt footprint is not the painted ground.
+        # Round caps extend half a width beyond it. This analytical comparison
+        # is independently pinned against Qt's stroke in test_gravel_rim_relief.
+        regions = group_rings([tuple(ring) for ring in polyline_round_outline(
+            record.path, record.path_width_cm,
+            arc_tolerance_cm=surfaces.GRAVEL_ARC_TOLERANCE_CM)])
     parts = REGISTRY.build(record)
     if not parts:
         return 0.0
@@ -149,7 +158,7 @@ def reach_outside(record) -> float:
                     (corners + np.roll(corners, -1, axis=1)).reshape(-1, 2) / 2.0]
     points = np.concatenate(samples)
     inside = np.zeros(len(points), dtype=bool)
-    for outer, holes in record.regions:
+    for outer, holes in regions:
         here = surfaces._inside(points, np.asarray(outer, dtype=np.float64))
         for hole in holes:
             here &= ~surfaces._inside(points, np.asarray(hole, dtype=np.float64))
@@ -157,7 +166,7 @@ def reach_outside(record) -> float:
     if inside.all():
         return 0.0
     rest = points[~inside]
-    rings = [ring for outer, holes in record.regions for ring in (outer, *holes)]
+    rings = [ring for outer, holes in regions for ring in (outer, *holes)]
     return float(np.min([distance_to_path(rest, ring, closed=True) for ring in rings], axis=0).max())
 
 
@@ -167,7 +176,7 @@ def reach_outside(record) -> float:
 @pytest.mark.parametrize("width", [40.0, 90.0, 150.0])
 def test_no_relief_vertex_lies_more_than_10_cm_past_the_path(style, path, width) -> None:
     record = line_record("PATH", path, None, width=width, style=style)
-    assert reach_outside(record) <= 10.0
+    assert reach_outside(record) <= (0.05 if style == "GRAVEL_PATH" else 10.0)
 
 
 @pytest.mark.parametrize("kind,params", [("TERRACE_PATIO", {}), ("TERRACE_PATIO", {"surface_pattern": "DECKING"}),

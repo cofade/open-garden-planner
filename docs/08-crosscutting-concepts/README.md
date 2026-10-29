@@ -7244,6 +7244,17 @@ Stepping stones follow the 2D painter's walk (`surfaces.walk_path` =
 `PathStylePaint._walk_path`); a stone that would hang past the path's end is slid half
 a stone along it, one that cannot be slid onto the footprint is left out.
 
+Gravel edging follows the round painted stroke, including outer bends and
+caps, through the canonical `shadow_geometry.polyline_round_outline` helper.
+Its bevelled profile is swept inward around every boundary; nominal analytical
+caster footprints remain square/butt. Visible curves use 0.01 cm arc tolerance
+and preflight/output guards cap the outline at 4096 vertices. Beyond that budget
+the accurate ground bake remains without relief. The independent Qt oracle in
+`tests/integration/test_gravel_rim_relief.py` checks outer arc/cap coverage and
+rejects relief over inner texture or outside the painted stroke; the 0.05 cm
+painted-outline bound replaces the old nominal-footprint gravel comparison
+(#605, PR #645 owner finding).
+
 **Presets.** Lawn blades are synthesized and uploaded only for High/Ultra.
 `LookController.preset_changed` updates `Scene3DController.set_lawn_blades`; its
 next snapshot adds/removes the geometry through SceneSync. Offscreen rendering

@@ -22,3 +22,4 @@ from dated measurements. New lessons belong in a new reference and index row.
 | 6. Review rubric (the reviewer agent's checklist) | [Read](references/006-6-review-rubric-the-reviewer-agent-s-checklist.md) |
 | 7. Spike artifact → fix log (keep growing) | [Read](references/007-7-spike-artifact-fix-log-keep-growing.md) |
 | 8. Owner taste log (append-only, newest last) | [Read](references/008-8-owner-taste-log-append-only-newest-last.md) |
+| Owner gravel rim correction (29 October 2026) | [Read](references/009-owner-gravel-rim-2026-10-29.md) |

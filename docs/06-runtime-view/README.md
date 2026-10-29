@@ -920,3 +920,13 @@ Normal startup applies the application stylesheet and palette before constructin
 the window. After show, `refresh_window_theme` updates native frames and opt-in
 palette/icon hooks without reapplying the stylesheet or notifying listeners a
 second time. A later user theme change still uses the complete `apply_theme` path.
+
+## Gravel ground detail (#605, PR #645 owner pass)
+
+The snapshot retains the nominal analytical caster regions and path centreline.
+The ground baker paints the existing round gravel stroke. The Qt-free gravel
+builder uses that centreline and width to obtain the shared round outline,
+checks its subdivision/vertex budget, then sweeps the low bevelled rim inward
+around its boundaries. SceneSync publishes one unpickable, non-shadowing
+`ground_detail` part; the ground remains painted beneath it. Budget refusal
+publishes no raised rim and preserves the ground picture.

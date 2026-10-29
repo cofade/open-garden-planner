@@ -322,3 +322,17 @@ with sufficiently long legs still has a valid inner intersection. Use a directed
 cross product rather than `1 + dot` near a reversal, and discard zero-length segments
 instead of inventing their normal. The painter/relief parity matrix pins both turn
 directions through 179.9 degrees.
+
+### PF-CAN-31
+
+- **Rule:** Rounded gravel relief follows the painted stroke rim, including caps; nominal analytical caster footprints cannot prove decorative rim coverage or exclusion.
+- **Pinned by:** `tests/integration/test_gravel_rim_relief.py`; `tests/unit/test_scene3d_l4_surfaces.py`
+- **Source:** #605, PR #645 owner pass
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Two offset rails joined by chords lay over the gravel texture at an outer bend,
+while a nominal square/butt footprint gate passed them. Reuse the round stroke
+outline already used for lawn cut-outs; sweep the bevelled profile inward and
+retain the analytical caster unchanged. Check both coverage of outer arcs/caps
+and exclusion from the texture interior against Qt's independent round stroke.
