@@ -249,13 +249,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Runtime/geometry contracts: [ADRs](docs/09-architecture-decisions/README.md)
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
-- Epic #392: remaining audit delivery is being prepared for A4/A6/A7/A9/A12/A13
-  (#456/#458/#459/#461/#464/#465). See the reconciliation and delivery evidence
-  under `docs/11-risks-and-technical-debt/audits/2026-10/`. It is not shipped
-  until owner acceptance and protected merge. The branch includes v1.34.4
-  from PR #639 and its version sync; the agent move/reparent operation is
-  now atomic. See the roadmap for holder sun, drape and CI hardening, and
-  follow-up #641 for elevated-receiver sun exposure.
+- Epic #392: remaining audit packages A4/A6/A7/A9/A12/A13 (#456/#458/#459/#461/
+  #464/#465) shipped in v1.34.5 (PR #640, ADR-068). See delivery evidence under
+  docs/11-risks-and-technical-debt/audits/2026-10/. The agent move/reparent
+  operation is atomic. Follow-up #641 tracks elevated-receiver sun exposure,
+  and #643 tracks missing properties dropdown preview icons.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

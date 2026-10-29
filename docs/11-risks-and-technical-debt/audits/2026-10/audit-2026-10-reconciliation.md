@@ -1,14 +1,14 @@
 # Audit 2026-10 — current reconciliation and delivery packages
 
-## Remaining-package delivery prepared (29 October 2026)
+## Remaining packages shipped (29 October 2026, v1.34.5)
 
 A4 (#456), A6 (#458), A7 (#459), A9 (#461), A12 (#464) and A13 (#465)
-are implemented together in a draft delivery, after A4's boundary prerequisite.
+are implemented together and shipped in v1.34.5 (PR #640), completing epic #392.
 Per-finding evidence, current measurements, review slices and explicit owner-only
 continuity actions are in [the delivery record](audit-392-remaining.md) (ADR-068).
 The dated intake rows below remain historical acceptance/evidence descriptions;
-they are not fresh measurements. These packages and epic #392 stay open until
-owner acceptance and protected merge. Other packages were already delivered.
+they are not fresh measurements. Other packages were already delivered.
+
 
 
 Reconciled 2026-10-12 against master `9e1629f` (v1.30.1). The [dated snapshot](audit-2026-10.md) retains its historical measurements. [Epic #392](https://github.com/cofade/open-garden-planner/issues/392) is the work ledger; #406 is its last open standalone P0/P1 remediation, not its final remaining finding.

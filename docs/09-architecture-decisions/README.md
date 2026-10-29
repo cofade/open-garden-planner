@@ -9012,7 +9012,7 @@ Browser look/interaction evidence and the manual acceptance checklist accompany 
 
 ## ADR-068: Audit boundaries, responsibility extraction and progressive agent context (#392)
 
-**Status**: Accepted for implementation; owner acceptance and protected merge pending.
+**Status**: Shipped in v1.34.5 (PR #640) after full manual-test confirmation, independent senior review, and protected merge.
 
 **Context**: A4 (#456) precedes A6 (#458) and A7 (#459). Current measurements
 replace the historical audit's line/import counts. A9 (#461) needs representative

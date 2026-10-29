@@ -184,4 +184,4 @@ place. Current architecture references now describe atomic agent reparenting;
 the migration manifest preserves original hashes and records this later
 semantic update separately. The latest validation and rebuilt-artifact results
 are reported on the synchronized PR head; earlier receipts above remain dated
-evidence for their original heads. Owner acceptance is still pending.
+evidence for their original heads. Owner manual acceptance confirmed (29 October 2026); merged as PR #640 and released as v1.34.5.

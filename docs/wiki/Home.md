@@ -106,7 +106,13 @@ workspace work in [v1.34.2](https://github.com/cofade/open-garden-planner/releas
 via [PR #632](https://github.com/cofade/open-garden-planner/pull/632); and the 2D sun study's
 geometry, plant stacking and object heights in
 [v1.34.3](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.3) via
-[PR #627](https://github.com/cofade/open-garden-planner/pull/627) after owner acceptance.
+[PR #627](https://github.com/cofade/open-garden-planner/pull/627) after owner acceptance;
+agent move atomicity and holder sun in
+[v1.34.4](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.4) via
+[PR #639](https://github.com/cofade/open-garden-planner/pull/639); and audit packages
+A4/A6/A7/A9/A12/A13 (completing epic #392) in
+[v1.34.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.5) via
+[PR #640](https://github.com/cofade/open-garden-planner/pull/640).
 
 ## Community
 
