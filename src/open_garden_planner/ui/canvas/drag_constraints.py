@@ -281,7 +281,8 @@ class DragConstraints:
         items to satisfy distance constraints.
         """
         host = self._host
-        if not host._drag_start_positions:
+        rotating = getattr(host, "_rotating_item", None)
+        if not host._drag_start_positions and rotating is None:
             return
 
         graph = host._canvas_scene.constraint_graph
@@ -295,13 +296,19 @@ class DragConstraints:
             ConstructionLineItem,
         )
 
-        selected = cast("CanvasScene", host.scene()).selectedItems()
-        if not selected:
-            return
+        # A rotation turns ONE item: it is the only pinned participant, and
+        # every other item — selected or not — may be corrected (#485). A
+        # normal drag pins everything selected.
+        if rotating is not None:
+            candidates: list[QGraphicsItem] = [rotating]
+        else:
+            candidates = list(cast("CanvasScene", host.scene()).selectedItems())
+            if not candidates:
+                return
 
         # Collect item IDs of dragged items (garden + construction)
         dragged_ids: set[Any] = set()
-        for item in selected:
+        for item in candidates:
             if isinstance(
                 item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
             ):
@@ -339,22 +346,28 @@ class DragConstraints:
         # hard pin). This makes constraints bidirectional and lets items orbit around
         # fixed partners.
         soft_dragged: set[Any] = set()
-        for uid in dragged_ids:
-            if uid in scene_construction_ids:
-                continue  # Construction items are always hard-pinned
-            item_constraints = graph.get_item_constraints(uid)
-            if not item_constraints:
-                continue
-            if all(
-                (
-                    c.anchor_a.item_id
-                    if c.anchor_b.item_id == uid
-                    else c.anchor_b.item_id
-                )
-                in pinned_reference_ids
-                for c in item_constraints
-            ):
-                soft_dragged.add(uid)
+        if rotating is None:
+            for uid in dragged_ids:
+                if uid in scene_construction_ids:
+                    continue  # Construction items are always hard-pinned
+                item_constraints = graph.get_item_constraints(uid)
+                if not item_constraints:
+                    continue
+                if all(
+                    (
+                        c.anchor_a.item_id
+                        if c.anchor_b.item_id == uid
+                        else c.anchor_b.item_id
+                    )
+                    in pinned_reference_ids
+                    for c in item_constraints
+                ):
+                    soft_dragged.add(uid)
+
+        # During a rotation the turned item stays hard-pinned: translating it
+        # to chase a FIXED partner would make it jump under the cursor. A
+        # relation that only a fixed anchor could satisfy is reported red —
+        # FIXED keeps its established meaning.
 
         # truly_dragged: follow the cursor and pull their constraint partners
         truly_dragged = dragged_ids - soft_dragged
@@ -522,7 +535,13 @@ class DragConstraints:
                 all_moves.append((item, i, old_v, QPointF(new_v)))
 
         cmd = MultiVertexMoveCommand(all_moves)
-        host.command_manager.register_applied(cmd)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        # A bed vertex drag can move its boundary away from / over plants: the
+        # link corrections belong to the same undo step (#443).
+        register_applied_with_membership(
+            host._canvas_scene, host.command_manager, cmd, item
+        )
 
         host._canvas_scene.update_dimension_lines()
 

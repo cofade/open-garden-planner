@@ -1177,7 +1177,9 @@ class VertexEditMixin:
         )
 
         # Add to undo stack without executing (move already applied)
-        command_manager.register_applied(command)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _on_vertex_add(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is added. Registers undo command.
@@ -1205,7 +1207,9 @@ class VertexEditMixin:
         )
 
         # Add to undo stack without executing (add already applied)
-        command_manager.register_applied(command)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is deleted. Registers undo command.
@@ -1233,7 +1237,9 @@ class VertexEditMixin:
         )
 
         # Add to undo stack without executing (delete already applied)
-        command_manager.register_applied(command)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _insert_vertex(self, index: int, pos: QPointF) -> None:
         """Insert a vertex at a specific index (for undo/redo).
@@ -1809,7 +1815,9 @@ class RectVertexEditMixin:
         )
 
         # Add to undo stack without executing (move already applied)
-        command_manager.register_applied(command)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
 
 # Minimum vertices for polylines (need at least 2 points for a line)
@@ -2239,7 +2247,9 @@ class PolylineVertexEditMixin:
             new_pos,
         )
 
-        command_manager.register_applied(command)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _on_vertex_add(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is added. Registers undo command."""
@@ -2261,7 +2271,9 @@ class PolylineVertexEditMixin:
             pos,
         )
 
-        command_manager.register_applied(command)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
         """Called when a vertex is deleted. Registers undo command."""
@@ -2283,7 +2295,9 @@ class PolylineVertexEditMixin:
             pos,
         )
 
-        command_manager.register_applied(command)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _insert_vertex(self, index: int, pos: QPointF) -> None:
         """Insert a vertex at a specific index (for undo/redo)."""
@@ -2579,7 +2593,9 @@ class CurveEditMixin(PositionLockMixin):
 
         command = SetCurveGeometryCommand(self, old, new)  # type: ignore[arg-type]
         # Geometry is already applied by the live drag — register without re-exec.
-        command_manager.register_applied(command)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
 
 # Selection dispatch and the view's dropped-grab recovery must recognise the

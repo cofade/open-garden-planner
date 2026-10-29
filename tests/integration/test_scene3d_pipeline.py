@@ -184,11 +184,14 @@ def test_scripted_edit_session_sends_minimal_calls(canvas: CanvasView, mouse_eve
     assert pipeline.sink.item(perennial_id).parts == ()  # … and has no height yet: no solid
     assert len(pipeline.sink.item(fence_id).parts) == 2  # FENCE: 120 cm, sides + cap
 
-    # ── move: ONE update_transform, no builder call ──────────────────────────
+    # ── move: ONE update_transform per moved solid, no builder call ──────────
     commands.execute(MoveItemsCommand([bed], QPointF(137.25, -42.5)))
     result, calls, built = pipeline.tick()
-    assert result == SceneDiff(transform=(bed_id,))
-    assert calls == [BEGIN, ("update_transform", bed_id), COMMIT] and built == []
+    # Since #443 (vi) a moved bed carries its plants, so the plant's transform
+    # move is part of the same edit — two update_transform calls, no rebuild.
+    assert result == SceneDiff(transform=(bed_id, perennial_id))
+    assert calls == [BEGIN, ("update_transform", bed_id),
+                     ("update_transform", perennial_id), COMMIT] and built == []
     assert pipeline.sink.item(bed_id).transform.east_cm == 687.25
 
     # ── rotate: ONE update_transform, no builder call ────────────────────────
@@ -209,8 +212,12 @@ def test_scripted_edit_session_sends_minimal_calls(canvas: CanvasView, mouse_eve
     old, new = build_rect_resize(bed, 500.0, 120.0, keep_center=True)
     commands.execute(ResizeItemCommand(bed, old, new, apply_rect_like_geometry))
     result, calls, built = pipeline.tick()
-    assert result == SceneDiff(geometry=(bed_id,))
-    assert calls == [BEGIN, ("replace_geometry", bed_id), COMMIT] and built == [bed_id]
+    # The resize also re-decides the plant's membership: the turned bed no longer
+    # holds it, so it is unlinked and re-posed (base 38 -> 0) in the same edit
+    # (#443 (i)) - one more update_transform, still one geometry rebuild.
+    assert result == SceneDiff(transform=(perennial_id,), geometry=(bed_id,), reordered=True)
+    assert calls == [BEGIN, ("replace_geometry", bed_id),
+                     ("update_transform", perennial_id), COMMIT] and built == [bed_id]
     low, high = pipeline.sink.item(bed_id).parts[0].mesh.bounds()
     assert (float(low[0]), float(high[0]), float(low[1]), float(high[1])) == (-250.0, 250.0, -60.0, 60.0)
 
@@ -235,20 +242,26 @@ def test_scripted_edit_session_sends_minimal_calls(canvas: CanvasView, mouse_eve
     # ── undo the resize, then redo it ────────────────────────────────────────
     commands.undo()
     result, calls, built = pipeline.tick()
-    assert result == SceneDiff(geometry=(bed_id,))
-    assert calls == [BEGIN, ("replace_geometry", bed_id), COMMIT] and built == [bed_id]
+    # The plant's link is restored too (#443 (i)): its base is part of the same step.
+    assert result == SceneDiff(transform=(perennial_id,), geometry=(bed_id,), reordered=True)
+    assert calls == [BEGIN, ("replace_geometry", bed_id),
+                     ("update_transform", perennial_id), COMMIT] and built == [bed_id]
     commands.redo()
     result, calls, built = pipeline.tick()
-    assert result == SceneDiff(geometry=(bed_id,))
-    assert calls == [BEGIN, ("replace_geometry", bed_id), COMMIT] and built == [bed_id]
+    assert result == SceneDiff(transform=(perennial_id,), geometry=(bed_id,), reordered=True)
+    assert calls == [BEGIN, ("replace_geometry", bed_id),
+                     ("update_transform", perennial_id), COMMIT] and built == [bed_id]
 
     # ── undo back through resize, recolour, rotation and move in one tick ────
     for _ in range(4):
         commands.undo()
     result, calls, built = pipeline.tick()
-    assert result == SceneDiff(geometry=(bed_id,), transform=(bed_id,), material=(bed_id,))
+    # The move carried the plant (#443 (vi)), so undoing it re-poses both solids.
+    assert result == SceneDiff(
+        geometry=(bed_id,), transform=(bed_id, perennial_id), material=(bed_id,), reordered=True
+    )
     assert calls == [BEGIN, ("replace_geometry", bed_id), ("update_transform", bed_id),
-                     ("update_material", bed_id), COMMIT]
+                     ("update_transform", perennial_id), ("update_material", bed_id), COMMIT]
     assert built == [bed_id]
     assert pipeline.sink.item(bed_id).transform == held.transform  # exactly where it was drawn
     assert pipeline.sync.build_count == 9  # 4 adds + resize + re-add + undo + redo + undo — no move, turn or recolour

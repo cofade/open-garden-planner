@@ -177,3 +177,5 @@
 
 | Case study: repaint events counted as idle (PR #645 CI) | [Read](176-case-study-repaint-events-counted-as-idle-pr645.md) |
 | Case study: gravel rim chord across rounded paint (#605 owner pass) | [Read](177-case-study-gravel-rim-chord-across-rounded-paint-605.md) |
+| Case study: a rotation was exempt from the constraint solver (#485) | [Read](178-case-study-rotation-exempt-from-constraint-solver-485.md) |
+| Case study: bed membership looked reconciled (#443) | [Read](179-case-study-bed-membership-looked-reconciled-443.md) |

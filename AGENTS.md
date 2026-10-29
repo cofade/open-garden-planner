@@ -259,6 +259,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   arc 25% near-half fade & constant width, ground slope clamp 0.22, interior wood
   floor & solid bed plants & generic ground shapes under Cutaway, Cutaway shader
   pre-warming (`shaderWarmer`), and ground-bake benchmark contract alignment.
+- #443/#485 (bed membership reconciled by every edit path; a constrained
+  rotation is one atomic undo step) are in review (PR #649): one membership rule
+  applied by the commands (ADR-037 addendum; PF-CAN-32) and a rotation that
+  records its solver corrections (PF-DOM-30). Both stay open until the owner's
+  manual pass.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

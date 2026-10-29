@@ -3541,6 +3541,47 @@ gone and the FR-id uniqueness gate now covers **every** FR id instead of only FR
 (it found four pre-existing collisions — FR-SNAP-04/05, FR-PLANT-19, FR-LAYER-09 — which are
 renumbered here: FR-SNAP-11/12, FR-PLANT-24, FR-LAYER-10).
 
+### Bed membership follows geometry, and a rotation keeps its constraint (#443, #485) — **shipped 2026-10-29, PR #NNN**
+
+Two canvas defects that both came from a write path that did not mirror the
+whole gesture.
+
+**#443 — bed membership.** `parent_bed_id`/`child_item_ids` were reconciled on
+three paths only; everything else kept a stale link (a bed that changed, most
+ways of moving a plant, every array copy, a mirror copy without its bed, a bed
+moved by a typed coordinate or align/distribute) while the Properties panel,
+the soil-mismatch/companion logic and the diagnostics followed it. Now ONE rule
+— a plant's link is the smallest plant-parent containing its **standing point**
+(the same point the lift asks) — is applied by every edit path: move/align
+commands (arrow keys, typed coordinates, align/distribute, constraint
+propagation), resize/rotate/vertex commands (in the same undo entry as the
+geometry, through one tracker), create/paste/duplicate/array/mirror (a copy no
+longer inherits its source's link), and the two bed moves that used to leave
+plants behind now carry them. One mutator keeps both sides in step; a stale id
+whose child list never got it self-heals. Nesting is unchanged (smallest parent
+wins, no sum) and "inside" keeps Qt's shape semantics (stroke included) — both
+recorded as decisions. ADR-037 addendum "bed membership is reconciled by
+geometry", FR-SUN-11, FR-STACK-10, §8.25.3.
+
+**#485 — constrained rotation.** Rotating an object on a corner-to-corner
+DISTANCE constraint moved the anchor and left the partner where it was; the
+dimension stayed red until an unrelated move happened to solve it, and the
+nudge and the rotation held separate undo entries — so undoing the nudge
+resurrected the broken relation. The live solver now runs during the gesture
+with only the turned item pinned, and `RotateItemCommand` records the partner
+corrections alongside the angle, so one completed rotation is exactly one undo
+entry that restores both. FIXED keeps its meaning (the relation reads red, not
+"corrected"), and the inter-object PARALLEL/PERPENDICULAR rotation refusal is
+unchanged. A view-level safety net also turns a rotation whose release never
+reaches the handle into an undo entry rather than leaving geometry the stack
+cannot reverse; the owner's skipped-undo report itself was not reproduced and
+its root cause is not claimed. ADR-037 addendum, §11.4.
+
+**Validation.** New suites `tests/integration/test_bed_membership_reconciliation.py`
+(10 tests) and `tests/integration/test_constrained_rotation.py` (10), and the
+knowingly updated pinned suite `test_scene3d_base_stacking.py`; the full suite,
+ruff, bandit, the i18n gate and both frozen-exe checks ran before the draft PR.
+
 ### Every item with a footprint can be given a height (#628) — **shipped 2026-10-28 as v1.34.3, PR #627**
 
 The Properties panel's Height field was gated on has_height_semantics, whose last clause

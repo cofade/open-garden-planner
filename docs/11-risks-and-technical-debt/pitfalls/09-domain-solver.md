@@ -379,3 +379,20 @@ PR #645 review pins exact-plane vertical translation for sub-centimetre and
 bed-height receivers in `test_receiver_elevation_matches_exact_vertical_translation`.
 Do not round the receiver height: a 39 cm obstacle remains above 38 cm soil.
 The map stays at ground level; only the per-plant estimate changes its plane.
+
+### PF-DOM-30
+
+- **Rule:** A gesture that changes an item's anchor positions (rotation) must run the live solver during the gesture and record every partner correction in the SAME command as the gesture's own change. "Skip the solver while rotating" is a decision, not an optimisation — it leaves a violated relation that the next unrelated move hides.
+- **Pinned by:** `tests/integration/test_constrained_rotation.py`
+- **Source:** #485, PR #NNN
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The solver was deliberately skipped for `RotationHandle` drags; the release
+registered a `RotateItemCommand` holding only the angle, and
+`_finalize_drag_move` treated that as the finished step. A corner-to-corner
+DISTANCE stayed red until a nudge happened to solve it, and undoing the nudge
+restored the violation. Pin only the turned item, record
+`(item, before, after)` for each correction, and let the command replay
+angle + corrections atomically. FIXED keeps its meaning: when the partner
+cannot follow, the relation reads red rather than being "corrected".

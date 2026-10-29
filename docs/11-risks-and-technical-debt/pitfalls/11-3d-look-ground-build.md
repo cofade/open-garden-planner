@@ -13,7 +13,7 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 ### PF-L3D-02
 
 - **Rule:** A plant in a raised bed casts from the bed's soil and is lifted only while its link holds and its stable geometric centre, not its `boundingRect()` centre, lies inside the bed's shape.
-- **Pinned by:** `tests/unit/test_shadow_caster_base.py::test_the_bed_casts_the_part_below`; `tests/integration/test_scene3d_base_stacking.py::TestTheLinkAloneNeverLifts`; `tests/integration/test_scene3d_base_stacking.py::TestWhichPointEachDecisionAsks`
+- **Pinned by:** `tests/unit/test_shadow_caster_base.py::test_the_bed_casts_the_part_below`; `tests/integration/test_scene3d_base_stacking.py::TestMembershipIsReconciledAndTheLinkAloneNeverLifts`; `tests/integration/test_scene3d_base_stacking.py::TestLinkAndLiftAskTheSamePoint`
 - **Source:** #385
 - **Status:** standing; narrative in [archive/08-l1-6-world-stacking.md](../archive/08-l1-6-world-stacking.md#11413-what-the-built-world-and-base-stacking-taught-phase-17-l16-385)
 - **Legacy:** b1faaa9 README L1396 (legacy 11.4.13)

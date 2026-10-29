@@ -336,3 +336,21 @@ while a nominal square/butt footprint gate passed them. Reuse the round stroke
 outline already used for lawn cut-outs; sweep the bevelled profile inward and
 retain the analytical caster unchanged. Check both coverage of outer arcs/caps
 and exclusion from the texture interior against Qt's independent round stroke.
+
+### PF-CAN-32
+
+- **Rule:** A relationship other surfaces read must be reconciled by EVERY edit path that can invalidate it, through one mutator and one geometric rule. Recompute membership inside the move/resize/rotate/vertex/copy command, so undo restores it in the same step — never at one call site.
+- **Pinned by:** `tests/integration/test_bed_membership_reconciliation.py`; `tests/integration/test_scene3d_base_stacking.py`
+- **Source:** #443, PR #NNN
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Three evaluators and four call sites looked like "the app reconciles
+membership". Every other path — arrow keys, a typed coordinate,
+align/distribute, arrays, a mirror copy without its bed, a bed's
+resize/turn/vertex edit, a bed moved by a typed coordinate — silently kept a
+stale link, and the Properties panel, the soil-mismatch and companion logic
+and the diagnostics followed it. The tell was that the lift and the link asked
+different points, so an antagonist badge could make them disagree about one
+plant. Ask one point (`standing_point`), apply the rule in the commands
+themselves, and make a copy drop the link it was serialised with.

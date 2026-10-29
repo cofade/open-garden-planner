@@ -26,22 +26,20 @@ item is linked to that parent AND its centre is inside the parent's shape. The
 2D shadow casters (overlay and heatmap) and the 3D records both ask it, so a
 plant's shadow and its 3D solid start at the same height.
 
-And one point-in-bed PREDICATE, ``shape_contains``, asked with one of two points:
+And one point-in-bed PREDICATE, ``shape_contains``, asked with one point:
 
 - the LINK decisions (auto-parenting on creation, bulk create and paste, the
-  re-link after a drag, the agent's re-link after ``move_object`` or
-  ``set_object_position``, and its ``link_is_geometric``) ask it with ``bed_membership_point`` — the centre of the
-  item's ``boundingRect()``, exactly as they always did (``centre_is_inside``);
-- the LIFT (``item_base_cm``) asks it with ``standing_point`` — the item's stable
-  geometric centre, the origin of its footprint and of its 3D record.
+  re-link after a drag and on every move/resize/rotate/vertex command, the
+  agent's re-link after ``move_object`` or ``set_object_position``, and its
+  ``link_is_geometric``) and the LIFT (``item_base_cm``) both ask it with
+  ``bed_membership_point`` — the item's stable geometric centre
+  (``standing_point``).
 
-The two points differ while a plant shows its antagonist badge: the badge grows
-the bounding rect towards +x / +y by ``0.3 * min(0.45 * radius, cap)``, which
-moves its centre by up to 1.8 cm along EACH axis — 2.55 cm in all, which is the
-margin against an edge at 45°. A link decision made in that state can therefore
-differ from the lift for a plant whose centre is within that margin of
-its bed's edge — the link is bookkeeping and keeps its shipped point; where a
-solid STANDS must not change when a warning is painted over it.
+Since issue #443 both questions are asked at the same point on purpose: the
+link is bookkeeping and the lift is what a plant STANDS on, and a disagreement
+between them is a bug, not a tolerance. Before #443 the link asked the centre
+of ``boundingRect()``, which the antagonist badge grows towards +x / +y by up
+to 1.8 cm per axis (2.55 cm against an edge at 45°).
 
 This module is collecting jobs — footprints, the base rule, the app's
 point-in-bed test, with ``core/commands.py`` importing from ``ui/`` lazily for
@@ -206,16 +204,22 @@ class ItemLookup:
 def bed_membership_point(item: Any) -> QPointF:
     """The scene point the LINK decisions ask: which bed is an item in?
 
-    The centre of the item's ``boundingRect()`` — the construct every link
-    decision of the app uses (auto-parenting on creation, bulk create and paste,
-    the re-link after a drag, the agent's re-link after ``move_object`` or
-    ``set_object_position``, and its ``link_is_geometric``). Kept exactly as shipped. It is NOT the geometric
-    centre: the antagonist badge grows the bounding rect towards +x / +y and so
-    moves this point by up to 1.8 cm along each axis (about 2.5 cm diagonally).
-    Where an item STANDS is asked of ``standing_point`` instead.
+    The item's stable geometric centre — ``standing_point`` (issue #443 (iii)).
+    Link decisions (auto-parenting on creation, bulk create and paste, the
+    re-link after a drag, the agent's re-link after ``move_object`` or
+    ``set_object_position``, and its ``link_is_geometric``) and the L1 lift
+    (``item_base_cm``) therefore ask the SAME question, so a plant can no
+    longer be "linked but not lifted" (or the reverse) merely because an
+    antagonist badge grew its bounding rect by up to 1.8 cm per axis.
+
+    Kept under its shipped name for the many call sites; the point it returns
+    changed knowingly from ``boundingRect().center()`` to the footprint anchor.
     """
-    point: QPointF = item.mapToScene(item.boundingRect().center())
-    return point
+    point = standing_point(item)
+    if point is not None:
+        return point
+    fallback: QPointF = item.mapToScene(item.boundingRect().center())
+    return fallback
 
 
 def standing_point(item: Any) -> QPointF | None:
@@ -261,8 +265,12 @@ def shape_contains(parent: Any, scene_point: QPointF,
 
 
 def centre_is_inside(item: Any, parent: Any) -> bool:
-    """Is the item in that parent, as the LINK decisions see it
-    (``bed_membership_point``)? Not the lift: ``item_base_cm``."""
+    """Is the item in that parent, by the point BOTH decisions ask?
+
+    ``bed_membership_point`` is ``standing_point`` since #443, so this is the
+    link's and the lift's one question (``item_base_cm`` additionally requires
+    the link to name that parent).
+    """
     return shape_contains(parent, bed_membership_point(item))
 
 
@@ -277,19 +285,19 @@ def item_base_cm(item: Any, lookup: ItemLookup, at_date: date | None = None) -> 
     2. the item's ``standing_point`` — its stable geometric centre — lies inside
        that parent's shape (``shape_contains``).
 
-    The link alone never decides where a solid stands: the app keeps it as
-    bookkeeping, not as geometry. It is evaluated when a plant is created (one
-    by one, in bulk, or pasted), when a selected plant is dropped after a drag,
-    and when the agent moves a plant — and by nothing that changes a BED, so
-    shrinking a bed away from its plant leaves the link in place
-    (``set_parent_bed`` even sets one on purpose without containment). A linked
-    plant that is not in its bed stands on the ground, exactly as every plant
-    did before bases existed.
+    The link alone never decides where a solid stands: it is bookkeeping, and
+    since issue #443 every edit path keeps the bookkeeping in step with the
+    geometry (creation, moves, a bed's create/resize/turn/vertex edits, paste,
+    duplicate, array, mirror, the panel and the agent). This second check stays
+    as the honest half: an EXPLICIT ``set_parent_bed`` link that geometry does
+    not support never lifts, and neither does a plan written before #443. A
+    linked plant that is not in its bed stands on the ground, exactly as every
+    plant did before bases existed.
 
-    The point is ``standing_point``, not the link decisions'
-    ``bed_membership_point``: a bounding rect grows with the antagonist badge,
-    and a plant 1 cm inside its bed's edge must not drop to the ground — and
-    lose 38 cm of shadow base — when a warning badge appears.
+    The point is ``standing_point`` — the SAME point ``bed_membership_point``
+    returns since #443, so the link and the lift cannot disagree: a bounding
+    rect grows with the antagonist badge, and a plant 1 cm inside its bed's edge
+    must not drop to the ground when a warning badge appears.
 
     Everything else stands on the ground too: no parent, an in-ground bed, a
     trellis, a dangling link. A parent that is not visible is not there either —

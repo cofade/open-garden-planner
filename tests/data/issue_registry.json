@@ -709,6 +709,11 @@
     "state": "MERGED",
     "title": "feat(#385): Phase 17 L1 - Qt Quick 3D replaces Qt 3D: the Plan / 3D / Split workspace with ground, looks, selection and walk"
   },
+  "485": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Rotating constrained objects leaves distance broken until the next move; investigate skipped rotation undo"
+  },
   "490": {
     "is_pr": true,
     "state": "MERGED",

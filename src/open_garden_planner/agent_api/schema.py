@@ -493,14 +493,15 @@ class WriteResult(BaseModel):
         description="Contained plants moved along with this object, e.g. moving "
         "or absolutely positioning a bed carries its plants. Move/set_position "
         "only — always 0 for every other action. Note resize does NOT move a "
-        "bed's plants: shrinking a bed leaves its linked plants where they are, "
-        "so a plant can end up linked to a bed it no longer sits inside (the "
-        "app's own resize behaves the same way).",
+        "bed's plants: they stay where they are, but the bed's new geometry "
+        "re-decides which plants it holds (a plant the bed no longer contains is "
+        "unlinked in the same undo step, and its sun/3D base follows).",
     )
     bed_membership_changed: bool = Field(
         default=False,
         description="True if this call changed which bed the plant belongs to. "
-        "For move/set_position, that reparenting was a SECOND undo step. For "
+        "For move/set_position, that reparenting happened inside the SAME undo "
+        "step as the move (the move command reconciles membership). For "
         "set_parent_bed it is always true and is the whole point of the call — "
         "still ONE undo step, since changing the link is the operation rather "
         "than a side "
@@ -585,14 +586,12 @@ class WriteResult(BaseModel):
         "inside the bed it was linked to. False means the link is valid but the "
         "plant sits outside the bed's outline — deliberately allowed (the app's "
         "own Link action does the same), but worth telling the user about. It is "
-        "the app's own link test — the centre of the plant's bounding box against "
-        "the bed's outline — and a warning badge on the plant moves that point by "
-        "1.8 cm along each axis (about 2.5 cm diagonally). So within that margin "
-        "of a bed's edge it can be false for a plant "
-        "that the sun study and the 3D view do stand on the bed's soil (they test "
-        "the centre of the plant itself), and true for one they leave on the "
-        "ground; do not report a mismatch to the user on that margin alone. Null "
-        "for a detach and for every other action.",
+        "the app's own link test, and since issue #443 it asks the SAME standing "
+        "point the sun study and the 3D view use: the plant's stable geometric "
+        "centre, which no warning badge, selection or spacing ring can move. So "
+        "this answer and where the plant stands always agree — a true here means "
+        "the plant is lifted onto the bed's soil. Null for a detach and for "
+        "every other action.",
     )
     # --- issue #338: arrange (stacking order) -------------------------------
     stack_index: int | None = Field(

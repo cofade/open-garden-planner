@@ -1158,7 +1158,7 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 
 **What changes for the user.** A plant on raised soil now casts from the soil: its shadow tip is `base / tan α` further out (54.3 cm for the example above; 141.8 cm at a 15° winter sun) and the plant becomes visible in the overlay and in the hours-of-sun map where it was hidden inside its bed's shadow. Everything on the ground is unchanged (decision 3). On the bench plans: 22 of 87 casters (bench_small: 19 at 38 cm in raised beds, 3 at 30 cm in pots) and 240 of 379 (bench_large) are raised, and every one of them stands inside its parent.
 
-**Known limits — a plant can be IN a raised bed and not ON it.** The rule needs the link, and the app does not reconcile links (follow-up issue: *bed membership is not reconciled when a bed is created or resized* — which also takes the link decisions' dependence on the antagonist badge, decision 5). Three standing states, each pinned by a test so that the reconciliation, when it comes, changes them knowingly. **(b) A raised bed drawn around a plant** links nothing: the plant has no parent and stays at ground level — in 2D it casts from the ground, inside the bed's own shadow; in 3D it is drawn inside the box — while the same-looking plan drawn bed-first gives 38. **(c) A climber on a trellis that stands in a raised bed** is linked to the trellis, the smallest parent that contains it; a trellis holds no soil and has no base of its own (parents do not nest), so the climber is at 0 while its neighbour in the same bed is at 38. **(d) A pot standing on a raised bed** is on the ground — only plants carry a parent link — and its plant stands at the pot's own soil, 30, not at 68. Case (a), a bed resized away from its plant, is what decision 5's second half handles: the link survives, the plant is back on the ground. **Two more ways into the same state** (found in the last review pass; shipped behaviour, pinned in `TestCopiesAndMovesThatDoNotEvaluateTheLink`): a plant **mirror-copied** into its source's raised bed without the bed gets no link — base 0 beside its source at 38 —, and an **array copy** takes its source's link unevaluated and is missing from the bed's child list — inside the bed it stands at 38, outside at 0 with a stale link. And two moves the link does not follow: a linked plant moved by anything but a mouse drop or an agent move keeps its link (where it stands still follows its centre: 38 → 0 → 38), and a bed moved by a typed coordinate or by align / distribute leaves its plants where they were, linked and on the ground.
+**Known limits — a plant can be IN a raised bed and not ON it.** *(Superseded for the link half by the addendum below, 2026-10-29: membership is now reconciled by every edit path and both decisions ask the same point. The nesting limits (c)/(d) remain as described.)* The rule needs the link, and the app does not reconcile links (follow-up issue: *bed membership is not reconciled when a bed is created or resized* — which also takes the link decisions' dependence on the antagonist badge, decision 5). Three standing states, each pinned by a test so that the reconciliation, when it comes, changes them knowingly. **(b) A raised bed drawn around a plant** links nothing: the plant has no parent and stays at ground level — in 2D it casts from the ground, inside the bed's own shadow; in 3D it is drawn inside the box — while the same-looking plan drawn bed-first gives 38. **(c) A climber on a trellis that stands in a raised bed** is linked to the trellis, the smallest parent that contains it; a trellis holds no soil and has no base of its own (parents do not nest), so the climber is at 0 while its neighbour in the same bed is at 38. **(d) A pot standing on a raised bed** is on the ground — only plants carry a parent link — and its plant stands at the pot's own soil, 30, not at 68. Case (a), a bed resized away from its plant, is what decision 5's second half handles: the link survives, the plant is back on the ground. **Two more ways into the same state** (found in the last review pass; shipped behaviour, pinned in `TestCopiesAndMovesThatDoNotEvaluateTheLink`): a plant **mirror-copied** into its source's raised bed without the bed gets no link — base 0 beside its source at 38 —, and an **array copy** takes its source's link unevaluated and is missing from the bed's child list — inside the bed it stands at 38, outside at 0 with a stale link. And two moves the link does not follow: a linked plant moved by anything but a mouse drop or an agent move keeps its link (where it stands still follows its centre: 38 → 0 → 38), and a bed moved by a typed coordinate or by align / distribute leaves its plants where they were, linked and on the ground.
 
 **Alternatives considered (rejected).**
 - *A base only in 3D.* Two answers to one question; the Split view would show a 3D shadow and a 2D overlay that disagree by half a metre.
@@ -1176,6 +1176,81 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 **Consequences.** The rule costs time on the two walks every edit runs. Measured on bench_large (505 items, 240 lifted plants; best of 80, three alternating runs per tree, a shared machine): the caster walk 3.7–4.0 ms before L1.6, 6.5–6.9 ms after round 1, **5.0–5.3 ms** now; `snapshot_records` 8.5–8.8 / 12.1–12.5 / **9.9–10.6 ms**. Per lifted plant the rule takes 2.8 µs — of round 1's 7.6 µs (its parts, summed), 4.1 were the plant's `boundingRect()` (a Python override; the stable centre costs 0.3) and 1.4 the parent's shape rebuilt per plant. A plan without raised soil pays nothing: the geometric test runs last, and only for an item that would be lifted. `collect_shadow_casters` returns `list[ShadowCaster]`. `transform.base_cm` of a scene record is real (ADR-059): a bed that changes height reaches its plants as `update_transform` — no plant mesh is rebuilt — and a re-parent is a transform change (it was an empty diff). No `.ogp` change, no `FILE_VERSION` bump, no user-visible string. Not changed: the shipped Qt 3D view (`collect_scene3d_records`) still extrudes a plant from the ground; it has no shadows and retires in L1.10. Parents do not nest (only plants are parented), so there is nothing to sum.
 
 **Validation.** `tests/unit/test_shadow_caster_base.py` — tip shift = `base / tan α` at 15° / 35° / 60° × five azimuths × three footprints (≤ 0.1 cm; measured ≤ 2e-3, the integer grid); `S(F, b, h)` = the translated ground shadow; a ray oracle that knows no polygons (a ground point is shaded iff the ray toward the sun crosses the solid), 4,000 points per case; the bed casts the part below; `TestTheGroundPathIsTheReleasedCode` — the v1.29.10 functions against today's (decision 3 i); `TestACasterIsATypeNotALength`; the soil rule for beds and for containers. `tests/integration/test_shadow_caster_golden.py` — the golden on every platform as far as that platform can hold it, plus on both bench plans: same walk, grounded union unchanged, ground casters unchanged, raised count = an independent oracle's. `tests/integration/test_scene3d_base_stacking.py` — gate G3 through a real scene; 3D base = 2D caster base for nine parent cases; `TestTheLinkAloneNeverLifts` — (a) the bed shrunk with the real resize command, (b)–(d) the three known limits, an explicit link without containment, a turned bed, and the one-predicate drift guard (both spellings of a containment test of a mapped point; its limit is in its docstring); `TestWhereAPlantStandsDoesNotDependOnABadge` — badge on and off: the 3D record, the 2D caster base and the real overlay's path unchanged; `TestWhichPointEachDecisionAsks` — create, bulk create / paste, the drop, the agent's move re-link and `link_is_geometric` on the real application window, each with the bounding rect's centre, the lift with the stable one; `TestTheParentShapeIsBuiltOncePerWalk` — the cached path against Qt's `contains` on 7,128 points over four parent shapes, one shape per parent and walk, and the lookup's lifetime (constructed only in the two walks, never kept); `TestTheOneRule::test_a_parent_without_a_record_lifts_nothing` (30 km wide; a failed record; an unbuildable outline) and `::test_a_plant_is_grounded_whichever_of_the_two_is_stacked_higher`; `TestTheOverlaysOwnEcho` — the overlay's own `scene.changed` echo, made deterministic; one caster walk and its consumers (AST guard); a bed height change and a re-parent reaching the real overlay through the command stack; `TestHeatmapEndToEnd` — a raised plant through `SunHeatmapController` and its worker, the tip read off the grid. `tests/unit/test_object_height.py::test_soil_parent_names_match_the_soil_predicate`.
+
+### ADR-037 addendum — bed membership is reconciled by geometry (#443, 2026-10-29)
+
+**Context.** Decision 5's second half ("the link AND the centre inside the parent")
+made the lift honest, but the LINK itself was only evaluated on a few paths: a
+plant's creation, a mouse drop, the agent's move. Everything else kept whatever
+link it had — a bed resized, turned or vertex-edited away from its plants; a
+bed drawn around standing plants; a plant moved by the arrow keys, a typed
+coordinate or align/distribute; a plant moved INTO a bed; every array copy
+(which inherited its source's `parent_bed_id` while the bed's `child_item_ids`
+never held it); a mirror copy without its bed; a bed moved by a typed
+coordinate or align/distribute (which left its plants behind). The Properties
+panel, the soil-mismatch and companion logic and the diagnostics could follow
+a link to a bed the plant no longer stood in, or miss one it did. The link
+decision's point was also the centre of `boundingRect()`, which the antagonist
+badge moves by up to 1.8 cm per axis, so it could disagree with the lift.
+
+**Decision.**
+
+1. **One rule.** A plant's link is the smallest plant-parent
+   (`find_smallest_bed_containing`) that contains its **standing point** —
+   ``footprints.bed_membership_point`` now returns ``standing_point``. The link
+   decision and the lift therefore ask the SAME question; a badge, a selection
+   or a spacing ring can change neither.
+2. **One mutator.** ``core/commands.set_parent_link(scene, plant, parent_id)``
+   sets ``parent_bed_id`` and the parent's ``child_item_ids`` together (and heals
+   a stale id whose child list never got it). ``_auto_parent_plant``,
+   ``SetParentBedCommand``, the neighbourhood reconcile and every command below
+   call it — no path writes ``parent_bed_id`` directly.
+3. **Every edit path applies it, in the same undo step.**
+   ``MoveItemsCommand``/``AlignItemsCommand`` reconcile after moving (covering
+   arrow keys, typed coordinates, align/distribute and constraint propagation)
+   and expand a moved plant-parent with its children; ``ResizeItemCommand`` and
+   ``RotateItemCommand`` carry a ``BedMembershipChange`` tracker for a plant or
+   plant-parent edit; the live-applied drag paths (resize, corner edit, vertex
+   edit) go through ``register_applied_with_membership``; the create, paste,
+   duplicate, array and mirror commands reconcile the items they add; a new
+   bed reconciles the plants that already stood where it lands. ``undo``
+   restores the recorded links, so one Ctrl+Z reverses geometry AND membership.
+4. **A copy never inherits its source's link.** Array, mirror-copy and paste
+   paths drop the serialised link for plants and let geometry decide; a
+   non-plant child's deliberate remap (mirror of a bed with its contents) is
+   kept.
+5. **An explicit link is not overruled until the next geometry edit.**
+   ``set_parent_bed`` / the panel's Link action may link a plant outside a bed
+   (``link_is_geometric: false``); the link alone still never lifts it, and
+   the plant's next move re-decides it. This is deliberate: the user's Link
+   action is a decision, not a stale link.
+6. **Nesting is unchanged (decision (ii) of #443).** Only plants carry a link;
+   parents do not nest, so the smallest parent wins and the base is that
+   parent's soil — a climber on a trellis inside a bed stands at 0, and a pot's
+   plant at the pot's soil, not the sum. A nesting model is a separate feature.
+7. **"Inside" keeps Qt's shape semantics (decision (vii) of #443).** The
+   predicate is the parent's own ``shape()`` (with its clip path), which
+   includes half the pen stroke for polygons and round containers. The lift and
+   the link ask the same predicate, so they agree; changing the definition
+   would move every plan's soil line and is not part of this fix.
+
+**Consequences.** ``.ogp`` unchanged (``parent_bed_id`` already serialised; the
+loader's ``_relink_parent_child_relationships`` remains the file-level heal).
+One gesture is still one undo entry. A bed edit is O(plants) on release (the
+tracker walks the scene's plants once) and a move of a plant is O(1); a move of
+a bed is O(plants) and carries its children. The agent's move/set-position
+reconcile and the drag-release link commands remain as belt-and-braces and are
+idempotent. FR-SUN-11 and FR-STACK-10's known limit (b) are updated; the tests
+that pinned the old behaviour in ``test_scene3d_base_stacking.py`` changed
+knowingly (classes ``TestMembershipIsReconciledAndTheLinkAloneNeverLifts``,
+``TestLinkAndLiftAskTheSamePoint``, ``TestCopiesAndMovesFollowTheLink``).
+
+**Validation.** ``tests/integration/test_bed_membership_reconciliation.py`` —
+resize/turn/vertex of a bed, plants moved in and out, a bed moved over a plant,
+a bed moved with its plants, array copy links by landing position, an explicit
+link surviving until the move, undo/redo of each; plus the updated pinned suite
+above. The full suite, ruff, bandit and the frozen exe gates ran before the
+draft PR.
 
 ### ADR-037 addendum — one resolver for (height, source) (#581, 2026-10-25)
 

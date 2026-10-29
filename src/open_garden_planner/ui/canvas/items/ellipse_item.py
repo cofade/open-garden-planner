@@ -201,31 +201,20 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         }
 
         command = ResizeItemCommand(self, old_geometry, new_geometry, apply_geometry)
-        command_manager.register_applied(command)
+        # A bed resize also re-decides which plants it holds, in one undo step (#443).
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
     def _on_rotation_end(self, initial_angle: float) -> None:
-        scene = self.scene()
-        if scene is None or not hasattr(scene, 'get_command_manager'):
-            return
+        # One implementation for every item type (issue #485): the command also
+        # carries the partner corrections the live solver applied during the
+        # gesture, so undo/redo move the angle and the partner together.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            register_rotation_command,
+        )
 
-        command_manager = scene.get_command_manager()
-        if command_manager is None:
-            return
-
-        current_angle = self.rotation_angle
-        if abs(initial_angle - current_angle) < 0.01:
-            return
-
-        from open_garden_planner.core.commands import RotateItemCommand
-
-        # US-D2.2: the canonical rotate apply path (ui.canvas.geometry_apply),
-        # shared with the Agent API's rotate_object. Every item class had an
-        # identical private copy of this one-liner; a shared name means the
-        # agent and the drag handles provably rotate the same way.
-        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
-
-        command = RotateItemCommand(self, initial_angle, current_angle, apply_rotation)
-        command_manager.register_applied(command)
+        register_rotation_command(self, initial_angle)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
