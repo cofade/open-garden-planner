@@ -41,6 +41,7 @@ from typing import Final, NamedTuple
 import numpy as np
 from numpy.typing import NDArray
 
+from ...shadow_geometry import polyline_round_outline
 from ..build import (
     BuilderRegistry,
     default_builder,
@@ -96,6 +97,8 @@ COPING_UP_CM: Final = 7.0
 GRAVEL_EDGE_CM: Final = 2.5
 GRAVEL_EDGE_SHARE: Final = 0.04
 GRAVEL_EDGE_SHADE: Final = 0.55
+#: A visible rim needs finer curves than a lawn cut-out (whose default is 0.5 cm).
+GRAVEL_ARC_TOLERANCE_CM: Final = 0.01
 
 #: Blades per square metre of lawn, and at most this many per lawn (a large lawn
 #: gets a sparser sward rather than an unbounded mesh: 3 triangles a blade).
@@ -243,6 +246,44 @@ def _rails(line: F64, closed: bool, offsets: tuple[float, ...], width: float, he
     return meshes
 
 
+def _gravel_rim(line: F64, width: float, edge: float, height: float) -> list[Mesh]:
+    """Bevelled edging along the ROUND stroke's boundary, including its end caps.
+
+    A rail on each offset centreline cuts a chord across the gravel at an outer
+    bend. Use the same round outline as the lawn cut-out, then sweep inward.
+    The nominal square/butt analytical caster footprint is unchanged.
+    """
+    if len(line) > MAX_RELIEF_VERTICES:
+        return []
+    keep = np.ones(len(line), dtype=bool)
+    keep[1:] = np.linalg.norm(np.diff(line, axis=0), axis=1) > 1e-3
+    points = line[keep]
+    if len(points) < 2:
+        return []
+    along = np.diff(points, axis=0)
+    along /= np.linalg.norm(along, axis=1, keepdims=True)
+    turns = np.abs(np.arctan2(
+        along[:-1, 0] * along[1:, 1] - along[:-1, 1] * along[1:, 0],
+        (along[:-1] * along[1:]).sum(axis=1),
+    ))
+    step = 2 * math.acos(1 - GRAVEL_ARC_TOLERANCE_CM / (width / 2))
+    # Bound arc work BEFORE the clipper allocates its rounded answer. Beyond
+    # the relief budget the accurate painted path remains, without 3D edging.
+    if 4 * len(points) + math.ceil((math.tau + float(turns.sum())) / step) > MAX_RELIEF_VERTICES:
+        return []
+    rings = polyline_round_outline(
+        [(float(x), float(y)) for x, y in points], width,
+        arc_tolerance_cm=GRAVEL_ARC_TOLERANCE_CM,
+    )
+    if sum(len(ring) for ring in rings) > MAX_RELIEF_VERTICES:
+        return []
+    cut = min(0.6, 0.15 * edge, 0.3 * height)
+    profile = [(0.0, 0.0), (edge, 0.0), (edge, height - cut), (edge - cut, height),
+               (cut, height), (0.0, height - cut)]
+    return [sweep(profile, np.asarray(ring, dtype=np.float64), _shade(GRAVEL_EDGE_SHADE), closed=True)
+            for ring in rings]
+
+
 def _trimmed(line: F64, distance: float) -> F64:
     """An open polyline shortened by ``distance`` at both ends (no points when it is
     not longer than twice that)."""
@@ -360,8 +401,7 @@ def _path(record: Record) -> tuple[MeshPart, ...]:
     if style == "GRAVEL_PATH":
         # the 2D rim's width and place (``path_style_paint.GRAVEL_EDGE_*``)
         edge = min(GRAVEL_EDGE_CM, GRAVEL_EDGE_SHARE * width)
-        return _relief(_rails(walked, False, (-width / 2.0 + edge / 2.0, width / 2.0 - edge / 2.0),
-                              edge, min(KERB_CM, 0.05 * width), _shade(GRAVEL_EDGE_SHADE)), "gravel")
+        return _relief(_gravel_rim(walked, width, edge, min(KERB_CM, 0.05 * width)), "gravel")
     return ()
 
 

@@ -3447,8 +3447,8 @@ _F3_TRANSLATIONS = {
         "too little sun": "zu wenig Sonne", "too much sun": "zu viel Sonne",
         "{name} needs {required}, but receives ~{hours} h direct sun on {date} ({direction}).":
             "{name} benötigt {required}, erhält aber am {date} etwa {hours} h direkte Sonne ({direction}).",
-        "Estimated at ground level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.":
-            "Schätzung am Boden ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.",
+        "Estimated at soil level, excluding this plant's own shadow; leaf height and canopy translucency are not modelled.":
+            "Schätzung auf Bodenhöhe ohne den eigenen Schatten der Pflanze; Blatthöhe und Lichtdurchlässigkeit der Krone werden nicht modelliert.",
     },
     "SunSimToolbar": {
         "21 June": "21. Juni", "Use 21 June of the current simulation year": "21. Juni des aktuellen Simulationsjahres verwenden",

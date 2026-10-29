@@ -167,6 +167,13 @@
 | Case study: a plant vanished behind the bed drawn around it (#629) | [Read](169-case-study-a-plant-vanished-behind-the-bed-drawn-around-it-629.md) |
 | Case study: re-promoting a release counted its downloads twice (ADR-067 chart review) | [Read](170-case-study-re-promoting-a-release-counted-its-downloads-twice-adr-067-chart-review.md) |
 | Case study: an excluded observation completed an uncovered chart day (ADR-067) | [Read](171-case-study-an-excluded-observation-completed-an-uncovered-chart-day-adr-067.md) |
+| Case study: elevated plant sun exposure evaluated at ground level (#641) | [Read](172-case-study-elevated-plant-sun-exposure-evaluated-at-ground-641.md) |
+| Case study: Properties panel missing icons for certain object types (#643) | [Read](173-case-study-properties-panel-missing-type-dropdown-icons-643.md) |
+| Case study: Qt Quick 3D crash diagnostics lost on SEH exception (#623) | [Read](174-case-study-quick3d-crash-diagnostics-lost-on-seh-exception-623.md) |
+| Case study: Paved path outer bend miter spikes and inner bend self-intersections (#605) | [Read](175-case-study-paved-path-miter-spike-and-inner-bend-self-intersection-605.md) |
 
 | Factory isolation after extraction | [Read](audit-a4-isolation-after-extraction.md) |
 | Extracted package coverage registration | [Read](audit-config-coverage-registration.md) |
+
+| Case study: repaint events counted as idle (PR #645 CI) | [Read](176-case-study-repaint-events-counted-as-idle-pr645.md) |
+| Case study: gravel rim chord across rounded paint (#605 owner pass) | [Read](177-case-study-gravel-rim-chord-across-rounded-paint-605.md) |

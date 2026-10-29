@@ -654,3 +654,40 @@ class TestRoofRows:
         assert all(label.buddy() is field for label, field in zip(labels, roof, strict=True))
         hints = {label.toolTip() for label in labels} | {field.accessibleDescription() for field in roof}
         assert len(hints) == 1 and "3D view" in hints.pop()
+
+
+class TestObjectTypeDropdownIcons:
+    """Every valid object type in properties panel dropdowns has a preview icon (#643)."""
+
+    def test_reported_missing_icons_are_resolved(self, qtbot) -> None:
+        """Explicitly pin the items reported in issue #643."""
+        for obj_type in (
+            ObjectType.CONTAINER,
+            ObjectType.WALL_PLANTER,
+            ObjectType.TRELLIS,
+            ObjectType.CONTAINER_ROUND,
+            ObjectType.HEDGE_POLYGON,
+            ObjectType.GENERIC_ELLIPSE,
+        ):
+            icon = PropertiesPanel._get_object_type_icon(obj_type)
+            assert icon is not None, f"Missing icon for {obj_type.name}"
+            assert not icon.isNull(), f"Null icon for {obj_type.name}"
+
+    @pytest.mark.parametrize("shape", ["rectangle", "circle", "polygon", "polyline", "ellipse"])
+    def test_all_valid_types_for_shape_have_icons(self, qtbot, shape: str) -> None:
+        """Every object type selectable for any shape in the properties panel has an icon."""
+        from open_garden_planner.core.object_types import get_valid_types_for_shape
+
+        valid_types = get_valid_types_for_shape(shape)
+        assert len(valid_types) > 0, f"No valid types for shape {shape}"
+        for obj_type in valid_types:
+            icon = PropertiesPanel._get_object_type_icon(obj_type)
+            assert icon is not None, f"Shape '{shape}' type '{obj_type.name}' has no icon"
+            assert not icon.isNull(), f"Shape '{shape}' type '{obj_type.name}' produced a null icon"
+
+    def test_all_object_types_have_icons(self, qtbot) -> None:
+        """Entire ObjectType enum has non-null preview icons."""
+        for obj_type in ObjectType:
+            icon = PropertiesPanel._get_object_type_icon(obj_type)
+            assert icon is not None, f"ObjectType '{obj_type.name}' has no icon"
+            assert not icon.isNull(), f"ObjectType '{obj_type.name}' produced a null icon"

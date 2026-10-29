@@ -176,14 +176,15 @@ def polyline_footprint(points: Sequence[Point], width_cm: float) -> list[Polygon
 ROUND_ARC_TOLERANCE_CM = 0.5
 
 
-def polyline_round_outline(points: Sequence[Point], width_cm: float) -> list[Polygon]:
+def polyline_round_outline(points: Sequence[Point], width_cm: float, *,
+                           arc_tolerance_cm: float = ROUND_ARC_TOLERANCE_CM) -> list[Polygon]:
     """The ground an open polyline covers when it is stroked with round caps and round
     joins — what the canvas paints for a gravel or a dirt path (``path_style_paint``),
     half a width past each end. Not a caster: a fence's footprint is
     ``polyline_footprint``."""
     if len(points) < 2 or width_cm <= 0:
         return []
-    pco = pyclipper.PyclipperOffset(arc_tolerance=ROUND_ARC_TOLERANCE_CM * CLIPPER_SCALE)
+    pco = pyclipper.PyclipperOffset(arc_tolerance=arc_tolerance_cm * CLIPPER_SCALE)
     pco.AddPath(_to_int(points), pyclipper.JT_ROUND, pyclipper.ET_OPENROUND)
     result = pco.Execute(round(width_cm / 2.0 * CLIPPER_SCALE))
     return [_from_int(path) for path in result]

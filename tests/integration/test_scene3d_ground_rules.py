@@ -1166,7 +1166,7 @@ class TestAPainterThatRaises:
 
 class TestTheTipOfAHairpin:
     def test_the_tile_a_mitred_tip_pokes_into_paints_it(self, qtbot: Any) -> None:
-        """A paved path strokes its base with a MITRED join: at a hairpin of 30° the
+        """A stone wall strokes its base with a MITRED join: at a hairpin of 30° the
         tip lies 1.93 pen widths from the corner — 87 cm at 45 cm. With a reach of
         1.5 widths the tile it pokes into did not list the path, and the tip was cut
         off at the border (26 px, measured by the review)."""
@@ -1176,7 +1176,7 @@ class TestTheTipOfAHairpin:
         legs = [QPointF(corner.x() - reach * math.cos(math.radians(15.0)),
                         corner.y() + sign * reach * math.sin(math.radians(15.0))) for sign in (1.0, -1.0)]
         item = PolylineItem([legs[0], corner, legs[1]], object_type=ObjectType.PATH,
-                            path_fence_style=PathFenceStyle.PAVED_PATH)
+                            path_fence_style=PathFenceStyle.STONE_WALL)
         pen = item.pen()
         pen.setWidthF(45.0)
         adopt_pen(item, pen)

@@ -2,6 +2,7 @@
 
 import contextlib
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from PyQt6.QtCore import QCoreApplication, Qt, QTimer, pyqtSignal
@@ -72,8 +73,40 @@ _TEXT_PROPERTY_LABELS = {
     "italic": "italic",
 }
 
-#: Shared width of every short Properties input: numeric fields, combo boxes
-#: and colour buttons. The panel's one control column (#596 manual pass).
+_TOOL_ICONS: dict[ObjectType, str] = {
+    ObjectType.GENERIC_RECTANGLE: "rectangle",
+    ObjectType.GENERIC_POLYGON: "polygon",
+    ObjectType.GENERIC_CIRCLE: "circle",
+    ObjectType.GENERIC_ELLIPSE: "ellipse",
+    ObjectType.GENERIC_TEXT: "text_annotation",
+    ObjectType.GENERIC_CALLOUT: "callout_annotation",
+    ObjectType.GARDEN_JOURNAL_PIN: "journal_pin",
+    ObjectType.ROOF_RIDGE: "path",
+    ObjectType.WALL_PLANTER: "vertical_container",
+    ObjectType.HOUSE: "house",
+    ObjectType.GARAGE_SHED: "shed",
+    ObjectType.TOOL_SHED: "shed",
+    ObjectType.GREENHOUSE: "greenhouse",
+    ObjectType.TERRACE_PATIO: "terrace",
+    ObjectType.DRIVEWAY: "driveway",
+    ObjectType.POND_POOL: "pond",
+    ObjectType.GARDEN_BED: "garden_bed",
+    ObjectType.LAWN: "lawn",
+    ObjectType.FENCE: "fence",
+    ObjectType.WALL: "wall",
+    ObjectType.PATH: "path",
+    ObjectType.TREE: "tree",
+    ObjectType.SHRUB: "shrub",
+    ObjectType.PERENNIAL: "flower",
+}
+
+_EXTRA_SVG_FILES: dict[ObjectType, Path] = {
+    ObjectType.CONTAINER: Path(__file__).resolve().parent.parent.parent / "resources" / "objects" / "furniture" / "planter_pot.svg",
+    ObjectType.CONTAINER_ROUND: Path(__file__).resolve().parent.parent.parent / "resources" / "objects" / "furniture" / "planter_pot.svg",
+    ObjectType.TRELLIS: Path(__file__).resolve().parent.parent.parent / "resources" / "plants" / "categories" / "climbing_plant.svg",
+    ObjectType.HEDGE_POLYGON: Path(__file__).resolve().parent.parent.parent / "resources" / "plants" / "categories" / "hedge_section.svg",
+}
+
 FIELD_WIDTH = 120
 
 
@@ -820,40 +853,41 @@ class PropertiesPanel(QWidget):
         combo.setCurrentIndex(current_idx)
 
     @staticmethod
-    def _get_object_type_icon(obj_type: ObjectType) -> QIcon | None:
-        """Return a small QIcon from the SVG file for the given object type, or None."""
+    def _get_object_type_icon(obj_type: ObjectType) -> QIcon:
+        """Return a small QIcon from the SVG file for the given object type."""
+        from open_garden_planner.core.plant_renderer import _resolve_svg_path
         from open_garden_planner.ui.icons import get_icon
 
         # 1. Furniture / infrastructure SVGs (objects/ directory — full-color art)
         svg_path = get_furniture_svg_path(obj_type)
         if svg_path is not None and svg_path.exists():
-            return QIcon(str(svg_path))
+            icon = QIcon(str(svg_path))
+            if not icon.isNull():
+                return icon
 
-        # 2. Themed UI icons (resources/icons/ui/ via the central provider)
-        _TOOL_ICON_FILES: dict[ObjectType, str] = {
-            ObjectType.GENERIC_RECTANGLE: "rectangle",
-            ObjectType.GENERIC_POLYGON: "polygon",
-            ObjectType.GENERIC_CIRCLE: "circle",
-            ObjectType.HOUSE: "house",
-            ObjectType.GARAGE_SHED: "shed",
-            ObjectType.GREENHOUSE: "greenhouse",
-            ObjectType.TERRACE_PATIO: "terrace",
-            ObjectType.DRIVEWAY: "driveway",
-            ObjectType.POND_POOL: "pond",
-            ObjectType.GARDEN_BED: "garden_bed",
-            ObjectType.LAWN: "lawn",
-            ObjectType.FENCE: "fence",
-            ObjectType.WALL: "wall",
-            ObjectType.PATH: "path",
-            ObjectType.TREE: "tree",
-            ObjectType.SHRUB: "shrub",
-            ObjectType.PERENNIAL: "flower",
-        }
-        tool_name = _TOOL_ICON_FILES.get(obj_type)
+        # 2. Plant categories (resources/plants/categories/)
+        plant_path = _resolve_svg_path(obj_type)
+        if plant_path is not None and plant_path.exists():
+            icon = QIcon(str(plant_path))
+            if not icon.isNull():
+                return icon
+
+        # 3. Extra SVGs (planters, trellises, hedge polygons)
+        extra_path = _EXTRA_SVG_FILES.get(obj_type)
+        if extra_path is not None and extra_path.exists():
+            icon = QIcon(str(extra_path))
+            if not icon.isNull():
+                return icon
+
+        # 4. Themed UI icons (resources/icons/ui/ via the central provider)
+        tool_name = _TOOL_ICONS.get(obj_type)
         if tool_name is not None:
-            return get_icon(tool_name)
+            icon = get_icon(tool_name)
+            if icon is not None and not icon.isNull():
+                return icon
 
-        return None
+        fallback = get_icon("warning")
+        return fallback if fallback is not None else QIcon()
 
     def _populate_layer_combo(self, combo: QComboBox, item: QGraphicsItem) -> None:
         """Populate layer combobox.

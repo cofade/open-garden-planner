@@ -132,6 +132,15 @@ def measure(rounds: int, idle_seconds: float) -> dict[str, Any]:
             started = time.perf_counter()
             window.canvas_view.viewport().repaint()
             frames.append((time.perf_counter() - started) * 1000)
+        # A synchronous repaint can queue scene.changed, which in turn queues
+        # the minimap debounce. Finish that workload before measuring idle.
+        QApplication.processEvents()
+        settle_deadline = time.monotonic() + 5.0
+        while window._minimap._update_timer.isActive():
+            if time.monotonic() >= settle_deadline:
+                raise RuntimeError("repaint workload did not settle before idle measurement")
+            QTest.qWait(10)
+        QApplication.processEvents()
         counts = {"scene_changed": 0, "minimap_renders": 0}
         def changed(_regions: Any) -> None:
             counts["scene_changed"] += 1

@@ -57,8 +57,9 @@ sequenceDiagram
     participant D as Shared Diagnostics / MCP
     U->>A: Select the single calendar date
     U->>H: Enable Hours of Sun
-    H->>W: Immutable document snapshot + receivers
-    W-->>H: Grid and own-shadow-excluded receiver minutes
+    H->>W: Immutable casters + receivers at canonical soil elevations
+    W->>W: Slice casters above each exact receiver elevation
+    W-->>H: Ground grid + self/holder-excluded soil-plane receiver minutes
     H->>H: Check generation and complete signature
     H-->>C: Exposure changed
     C->>D: Cached mismatch / unavailable records
@@ -78,6 +79,13 @@ sequenceDiagram
 ```
 
 Prevalidation load failure emits no document replacement and preserves the active valid result. Time-only changes preserve daily exposure; date changes retain the labelled old preview while requesting the current map. Document replacement and location/grid changes clear old imagery. Diagnostics and canopy reads never launch a worker.
+
+Receiver elevation comes from `item_base_cm`, including its visible-parent and
+containment rules. Equal elevations share a shadow sweep; elevations are never
+rounded, because that can discard an obstacle still above the plant's soil plane
+(#641). The ground heatmap remains a ground measurement. For a caster solid
+`[base, top]`, discard it when `top <= elevation`; otherwise use base
+`max(0, base - elevation)` and height `top - max(base, elevation)`.
 
 ## 6.1 Drawing Workflow
 
@@ -912,3 +920,13 @@ Normal startup applies the application stylesheet and palette before constructin
 the window. After show, `refresh_window_theme` updates native frames and opt-in
 palette/icon hooks without reapplying the stylesheet or notifying listeners a
 second time. A later user theme change still uses the complete `apply_theme` path.
+
+## Gravel ground detail (#605, PR #645 owner pass)
+
+The snapshot retains the nominal analytical caster regions and path centreline.
+The ground baker paints the existing round gravel stroke. The Qt-free gravel
+builder uses that centreline and width to obtain the shared round outline,
+checks its subdivision/vertex budget, then sweeps the low bevelled rim inward
+around its boundaries. SceneSync publishes one unpickable, non-shadowing
+`ground_detail` part; the ground remains painted beneath it. Budget refusal
+publishes no raised rim and preserves the ground picture.

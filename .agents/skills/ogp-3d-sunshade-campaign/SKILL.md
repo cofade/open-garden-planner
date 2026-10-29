@@ -39,3 +39,10 @@ from dated measurements. New lessons belong in a new reference and index row.
 | Provenance and maintenance | [Read](references/011-provenance-and-maintenance.md) |
 | F3 maintenance: receiver estimates and document ownership (ADR-056) | [Read](references/012-f3-maintenance-receiver-estimates-and-document-ownership-adr-056.md) |
 | F4 maintenance: plant lifetime on the shared date (ADR-062) | [Read](references/013-f4-maintenance-plant-lifetime-on-the-shared-date-adr-062.md) |
+
+Current receiver model (#641): the original F3 ground-level estimate in the
+dated maintenance reference below is historical. Per-plant results now use
+the exact soil elevation from `item_base_cm`, slice external obstacles above
+that plane and preserve holder exclusions. The heatmap remains at ground
+level. See `docs/functional-requirements.md` FR-SUN-09/11 and the ADR-056
+exact soil-plane addendum.

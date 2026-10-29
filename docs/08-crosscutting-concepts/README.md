@@ -4430,6 +4430,8 @@ US-F3 (#314) and #428 follow ADR-056. `core/shade_aggregation.compute_sun_exposu
 
 Tests distinguish the displayed ground heatmap from estimated receiver sun. The Berlin constants are measured outside the new sparse implementation, not computed expectations. Deterministic controlled workers emit even after cancellation to prove late-result rejection. Cancellation is checked inside caster loops; an owner keeps its worker until queued `finished` and refuses a second launch while cleanup is pending. The full suite retains the existing heatmap budget and adds a 200-receiver budget plus a live GUI timer assertion.
 
+**Receiver elevation and sliced obstacles (#641).** A plant elevated on raised soil (in a raised bed, container or wall planter with a height, via `ui/canvas/footprints.item_base_cm`) carries `SunReceiver.elevation_cm > 0`. Sparse evaluation groups receivers by elevation. Receivers at ground level ($e \le 0$) continue to sample against ground-level shadows ($z = 0$). For elevated receivers ($e > 0$), obstacles whose top height ($z_{\text{top}} = base + height$) is at or below $e$ cast zero shadow on the receiver plane and are skipped. Taller obstacles are sliced relative to $e$: effective base $b' = \max(0, base - e)$ and effective height $h' = z_{\text{top}} - \max(base, e)$, projecting their shadow onto the receiver's elevated plane with bed sparing preserved. Elevated plants thus clear low fences, walls and edges without receiving false shade warnings.
+
 ## A1 security ingestion contracts (#453; sections 8.8, 8.11 and 8.15)
 
 Linux settings protection remains in the one QSettings factory: owner-only 0600,
@@ -5638,6 +5640,9 @@ A 19 km gravel path used to generate its 475 001 elements on every canvas repain
 dots until L4's owner pass; a 5 cm chain-link path is the densest walk now);
 the live paint now generates only what the viewport exposes, while an export
 (cache cleared) still gets every element.
+
+Paved path base fills use `Qt.PenJoinStyle.BevelJoin` to align with the outer border chord, and `_offset_path` detects acute inner bends ($offset \cdot (\vec{u}_1 \times \vec{u}_2) > 0$) and trims overlapping segment ends to their exact intersection point, eliminating self-intersecting V-spikes (#605).
+
 
 **The paint frame.** The canvas paints an item in the item's OWN coordinates: a fill texture is
 anchored at the item's coordinate origin, a sprite is aligned to whole centimetres there. A
@@ -7238,6 +7243,17 @@ ponds water and coping, lawns blades. A surface with a height is a solid as befo
 Stepping stones follow the 2D painter's walk (`surfaces.walk_path` =
 `PathStylePaint._walk_path`); a stone that would hang past the path's end is slid half
 a stone along it, one that cannot be slid onto the footprint is left out.
+
+Gravel edging follows the round painted stroke, including outer bends and
+caps, through the canonical `shadow_geometry.polyline_round_outline` helper.
+Its bevelled profile is swept inward around every boundary; nominal analytical
+caster footprints remain square/butt. Visible curves use 0.01 cm arc tolerance
+and preflight/output guards cap the outline at 4096 vertices. Beyond that budget
+the accurate ground bake remains without relief. The independent Qt oracle in
+`tests/integration/test_gravel_rim_relief.py` checks outer arc/cap coverage and
+rejects relief over inner texture or outside the painted stroke; the 0.05 cm
+painted-outline bound replaces the old nominal-footprint gravel comparison
+(#605, PR #645 owner finding).
 
 **Presets.** Lawn blades are synthesized and uploaded only for High/Ultra.
 `LookController.preset_changed` updates `Scene3DController.set_lawn_blades`; its

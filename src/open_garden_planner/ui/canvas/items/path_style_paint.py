@@ -402,11 +402,11 @@ class PathStylePaint:
         width = self.pen().widthF()
         color = self.pen().color()
 
-        # Wide base fill
+        # Wide base fill (BevelJoin aligns outer bend chord with side border lines, #605)
         base_pen = QPen(color)
         base_pen.setWidthF(width)
         base_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
-        base_pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+        base_pen.setJoinStyle(Qt.PenJoinStyle.BevelJoin)
         painter.setPen(base_pen)
         painter.drawPath(self.path())
 
@@ -793,6 +793,9 @@ class PathStylePaint:
     def _offset_path(self, offset: float) -> QPainterPath | None:
         """Create an offset path parallel to the polyline.
 
+        Trims inner bend crossings to eliminate V spikes, and chords outer bends
+        to agree with BevelJoin fills (#605).
+
         Args:
             offset: Perpendicular offset distance (positive = left of direction)
 
@@ -803,20 +806,53 @@ class PathStylePaint:
         if len(points) < 2:
             return None
 
-        path = QPainterPath()
-        first = True
+        segments: list[tuple[QPointF, QPointF, float, float, float, float, float]] = []
         for i in range(len(points) - 1):
             p1 = points[i]
             p2 = points[i + 1]
-            nx, ny = self._get_segment_normal(p1, p2)
-            op1 = QPointF(p1.x() + nx * offset, p1.y() + ny * offset)
-            op2 = QPointF(p2.x() + nx * offset, p2.y() + ny * offset)
-            if first:
-                path.moveTo(op1)
-                first = False
-            else:
-                path.lineTo(op1)
+            dx = p2.x() - p1.x()
+            dy = p2.y() - p1.y()
+            length = math.hypot(dx, dy)
+            # Match the relief offset's degenerate-segment rule: a repeated vertex
+            # has no direction and must not invent a horizontal segment.
+            if length <= 1e-6:
+                continue
+            ux, uy = dx / length, dy / length
+            nx, ny = -uy, ux
+            segments.append((p1, p2, ux, uy, nx, ny, length))
+
+        if not segments:
+            return None
+        path = QPainterPath()
+        first_p1, _, _, _, fnx, fny, _ = segments[0]
+        path.moveTo(first_p1.x() + fnx * offset, first_p1.y() + fny * offset)
+
+        for i, (_p1, p2, ux1, uy1, nx1, ny1, len1) in enumerate(segments):
+            op2 = QPointF(p2.x() + nx1 * offset, p2.y() + ny1 * offset)
+
+            if i < len(segments) - 1:
+                _, _, ux2, uy2, nx2, ny2, len2 = segments[i + 1]
+                cross_u = ux1 * uy2 - uy1 * ux2
+                # Inner bend: offset lines cross before vertex corner (#605)
+                # Intersect the directed lines rather than dividing by 1+dot:
+                # that sum loses precision at near-reversals. The segment bounds,
+                # not an angle cutoff, decide whether an acute join can be trimmed.
+                if offset * cross_u > 0.0 and abs(cross_u) >= 1e-9:
+                    gap_x = offset * (nx2 - nx1)
+                    gap_y = offset * (ny2 - ny1)
+                    back = (gap_x * uy2 - gap_y * ux2) / cross_u
+                    crossing = QPointF(op2.x() + ux1 * back, op2.y() + uy1 * back)
+                    forward = ((crossing.x() - p2.x() - nx2 * offset) * ux2
+                               + (crossing.y() - p2.y() - ny2 * offset) * uy2)
+                    if -len1 <= back <= 0.0 and 0.0 <= forward <= len2:
+                        path.lineTo(crossing)
+                        continue
+
             path.lineTo(op2)
+            if i < len(segments) - 1:
+                _, _, _, _, nx2, ny2, _ = segments[i + 1]
+                path.lineTo(QPointF(p2.x() + nx2 * offset, p2.y() + ny2 * offset))
+
         return path
 
 

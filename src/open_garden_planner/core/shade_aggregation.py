@@ -130,7 +130,7 @@ class IdentifiedCaster:
 
 @dataclass(frozen=True)
 class SunReceiver:
-    """A plant whose direct sun is estimated, at the ground point under its centre.
+    """A plant whose direct sun is estimated, at its centre and soil elevation.
 
     ``stands_on``: the id of the soil parent whose solid the plant stands in (the
     membership half of the base rule: linked to a visible bed, raised bed or
@@ -142,22 +142,25 @@ class SunReceiver:
 
     A soil solid the plant stands in WITHOUT that link is left out too (#481):
     ``_aggregate_day`` spares every caster whose ``holds_plants`` is set and
-    whose outline contains this receiver's point. Before that, a bed drawn
-    around an existing plant (or a plant moved in with the arrow keys) read 0
-    hours and warned "too little sun", because the link the estimate trusted was
-    never made. Every OTHER caster shades the receiver as if it stood on the
-    ground (a stated limit of the ground-level estimate).
+    whose outline contains this receiver's point.
+
+    ``elevation_cm`` (issue #641): the soil elevation where the plant stands
+    (``ui/canvas/footprints.item_base_cm``, 0.0 on ground). When evaluating an
+    elevated receiver, shadow casting from obstacles is evaluated against the
+    obstacle slice strictly above ``elevation_cm``, preventing false shade warnings
+    for plants raised above fences, walls, or edgings.
     """
 
     item_id: str
     x_cm: float
     y_cm: float
     stands_on: str | None = None
+    elevation_cm: float = 0.0
 
 
 @dataclass(frozen=True)
 class SunExposureResult:
-    """Ground heatmap plus sparse ground exposure excluding each receiver itself.
+    """Ground heatmap plus sparse soil-plane exposure excluding each receiver itself.
 
     ``samples`` / ``sample_shade`` (Phase 17 L2.2, #386): every daylight sample's
     instant and its shade mask — ``np.packbits`` of the rasterised mask along the
@@ -402,6 +405,7 @@ def _aggregate_day(
     minutes = np.zeros((grid.rows, grid.cols), dtype=np.float32)
     valid = [receiver for receiver in receivers
              if math.isfinite(receiver.x_cm) and math.isfinite(receiver.y_cm)
+             and math.isfinite(receiver.elevation_cm)
              and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[0] < grid.rows
              and 0 <= grid.cell_at(receiver.x_cm, receiver.y_cm)[1] < grid.cols]
     points = np.asarray([grid.cell_center(*grid.cell_at(receiver.x_cm, receiver.y_cm))
@@ -424,6 +428,34 @@ def _aggregate_day(
             inside = np.flatnonzero(points_in_polygons(caster.footprints, points))
             if len(inside):
                 spared.setdefault(caster.item_id, []).extend(int(index) for index in inside)
+    # Share a sweep only at identical elevations. Rounding can remove an obstacle
+    # whose top is above the real receiver but below the rounded elevation.
+    elevations: dict[float, list[int]] = {}
+    for idx, receiver in enumerate(valid):
+        elev = receiver.elevation_cm
+        key = max(0.0, elev)
+        elevations.setdefault(key, []).append(idx)
+
+    # Slice and index once per distinct elevation, outside the daylight loop.
+    receiver_groups = []
+    for elev, indices in elevations.items():
+        if should_cancel is not None and should_cancel():
+            return None
+        group_indices = np.asarray(indices, dtype=int)
+        slice_casters: list[tuple[IdentifiedCaster, GroupedCaster]] = []
+        for caster in identified:
+            if elev == 0.0:
+                slice_casters.append((caster, GroupedCaster(
+                    caster.footprints, caster.height_cm, caster.base_cm)))
+                continue
+            top_cm = caster.base_cm + caster.height_cm
+            if top_cm > elev:
+                eff_base = max(0.0, caster.base_cm - elev)
+                eff_height = top_cm - max(caster.base_cm, elev)
+                slice_casters.append((caster, GroupedCaster(caster.footprints, eff_height, eff_base)))
+        exclusions = {caster.item_id: np.isin(group_indices, spared.get(caster.item_id, []))
+                      for caster, _ in slice_casters}
+        receiver_groups.append((elev, group_indices, points[group_indices], slice_casters, exclusions))
     exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
     packed_cols = (grid.cols + 7) // 8
@@ -453,14 +485,25 @@ def _aggregate_day(
             minutes += float(step_minutes)
         if len(valid):
             coverage = np.zeros(len(valid), dtype=np.int32)
-            for caster, caster_polygons in zip(identified, owned_polygons, strict=True):
-                if should_cancel is not None and should_cancel():
-                    return None
-                mask = points_in_polygons(caster_polygons, points)
-                indices = spared.get(caster.item_id)
-                if indices:
-                    mask[indices] = False
-                coverage += mask
+            for elev, group_indices, group_points, slice_casters, exclusions in receiver_groups:
+                if elev == 0.0:
+                    group_owned = owned_polygons
+                else:
+                    elevated = compute_grouped_shadows(
+                        [gc for _, gc in slice_casters],
+                        max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG),
+                        sample.azimuth_deg, should_cancel,
+                    )
+                    if elevated is None:
+                        return None
+                    _, group_owned = elevated
+                for (caster, _), caster_polygons in zip(slice_casters, group_owned, strict=True):
+                    if should_cancel is not None and should_cancel():
+                        return None
+                    mask = points_in_polygons(caster_polygons, group_points)
+                    mask[exclusions[caster.item_id]] = False
+                    coverage[group_indices] += mask
+
             exposure += np.where(coverage == 0, float(step_minutes), 0.0)
         if progress is not None:
             progress(index + 1, total)

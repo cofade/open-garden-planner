@@ -3047,7 +3047,7 @@ F1 (#312) and F2 (#313) shipped together in [v1.30.0](https://github.com/cofade/
 
 F3 (#314) and heatmap lifecycle fix #428 shipped together in [v1.30.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.1) via [PR #436](https://github.com/cofade/open-garden-planner/pull/436) on 12 October 2026. The owner confirmed every manual acceptance check before protected finalization.
 
-- Explicit worker results feed ground-level sun estimates excluding self-shadow, cosmetic warning badges, shared panel/MCP diagnostics and mature-canopy groups. ADR-056 and FR-SUN-09/10 record the measurement and unavailable-state contracts; there is no persistent exposure or file-version change.
+- The initial F3 worker results fed ground-level sun estimates (now exact soil-plane estimates since #641) excluding self-shadow, cosmetic warning badges, shared panel/MCP diagnostics and mature-canopy groups. ADR-056 and FR-SUN-09/10 record the measurement and unavailable-state contracts; there is no persistent exposure or file-version change.
 - Document replacement cancels work and rejects running/queued late results. Deterministic GUI New/Open/recovery and real MCP replacement regressions are pinned in `tests/integration/test_sun_document_lifecycle.py`; the feature workflow is `tests/integration/test_sun_mismatch.py`.
 - Independent review reproduced and resolved concave-footprint badge containment and malformed legacy species handling, then returned clean final review. Full validation: 7,938 passed, 34 skipped; line coverage 76.9%, branch 60.3%; 200 casters/receivers 3.267 seconds. Frozen startup, subsystem self-test, real MCP reads/moves/New/Open and inspected renders passed; GitHub CI and release provenance passed.
 
@@ -3614,3 +3614,12 @@ The branch incorporates master through v1.34.4 (PR #639 and its version sync).
 | Agent instructions and skills | Concise mirrored context, exact preserved reference fragments and recursive gates |
 | Deployment/security/contributing | Existing policy owner, verified aliases and honest continuity/recovery steps |
 | Wiki sources | Architecture and contribution pointers; publication pending after approval/merge |
+
+### Precision, UI, and diagnostic bugfixes (#641, #643, #623, #605)
+
+Targeted bugfix package addressing four high-priority defects across solar exposure, UI consistency, diagnostics, and 2D canvas path rendering:
+
+1. **#641: Elevated plant sun exposure calculation.** Plants standing in raised beds, containers, or wall planters ($z > 0$) were evaluated against ground-level obstacle shadows ($z = 0$), generating false shade warnings from low surrounding obstacles (e.g. 50 cm fences). `SunReceiver` now carries `elevation_cm`; `_aggregate_day` groups receivers by elevation and projects shadows on the receiver's elevated plane, slicing obstacle casters ($h' = z_{\text{top}} - \max(b, e)$, $b' = \max(0, b - e)$) and ignoring obstacles with $z_{\text{top}} \le e$.
+2. **#643: Properties panel ObjectType dropdown preview icons.** Added missing icon resolutions for `CONTAINER`, `CONTAINER_ROUND`, `WALL_PLANTER`, `TRELLIS`, `GENERIC_ELLIPSE`, and `HEDGE_POLYGON`, guaranteeing non-null icon display across all `ObjectType` entries.
+3. **#623: Qt Quick 3D subprocess crash diagnostics.** Enabled `faulthandler` directly into the selftest log target, ensuring fatal Windows SEH callback exceptions (`0xC000041D`) dump tracebacks into the log. Integration test assertions now echo the selftest log tail upon failure.
+4. **#605: Paved path corners and inner bend clipping.** Base fill pen join aligned to `BevelJoin` to match border chords. `_offset_path` now detects acute inner bends ($offset \cdot (\vec{u}_1 \times \vec{u}_2) > 0$) and trims overlapping segment ends to their exact intersection point, eliminating self-intersecting V-spikes.

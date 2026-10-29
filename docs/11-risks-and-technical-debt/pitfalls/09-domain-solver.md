@@ -244,7 +244,7 @@ Held in [ADR: Addendum (#414 — one frost anchor per surface, and one date-wind
 
 ### PF-DOM-24
 
-- **Rule:** A plant's ground sun estimate excludes only its own caster, and `document_replaced` cancels and clears heatmap work so generation guards reject any late worker result.
+- **Rule:** A plant's soil-plane sun estimate excludes its own caster and applicable soil holders; document replacement cancels heatmap work and rejects late results.
 - **Pinned by:** none — The body describes its regressions without naming any test file or test.
 - **Source:** #314, #428
 - **Status:** standing; narrative in [archive/12-incident-narratives.md](../archive/12-incident-narratives.md#archive-l1109-sun-self-shadow-and-late-document-results-314-428)
@@ -357,3 +357,25 @@ region with a hole, and even the sign of the winding cannot be flattened away at
 the sweep - `_caster_paths_int` normalised every ring to CCW. A zero-width
 bridge keeps a ring exact where a thin cut (0.001 cm) would have shown as a
 hairline in the overlay and moved the area.
+
+### PF-DOM-29
+
+- **Rule:** Sun exposure of elevated plants must evaluate shadows on the plant's elevated plane ($z = \text{elevation}$), slicing taller obstacles and ignoring obstacles below the receiver elevation.
+- **Pinned by:** `tests/unit/test_sun_exposure_base.py::test_obstacle_below_receiver_elevation_casts_zero_shade`; `tests/unit/test_sun_exposure_base.py::test_elevated_receiver_clears_fence_shadow_faster_than_ground`; `tests/integration/test_sun_exposure_raised_soil.py::test_elevated_plant_clears_fence_shadow_and_receives_sun`
+- **Source:** #641
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Plants in raised beds, planters, or wall planters sit above the ground level.
+Evaluating their solar exposure against shadows cast on the ground ($z = 0$)
+falsely subjects elevated plants to shade from low obstacles (such as 50 cm
+fences or bed edging) that never reach the elevated plane.
+`SunReceiver` carries `elevation_cm`, and `core/shade_aggregation.py` groups
+receivers by elevation: ground receivers sample ground shadows as before,
+while elevated receivers slice obstacle casters relative to receiver elevation
+and evaluate shadows on the elevated receiver plane.
+
+PR #645 review pins exact-plane vertical translation for sub-centimetre and
+bed-height receivers in `test_receiver_elevation_matches_exact_vertical_translation`.
+Do not round the receiver height: a 39 cm obstacle remains above 38 cm soil.
+The map stays at ground level; only the per-plant estimate changes its plane.

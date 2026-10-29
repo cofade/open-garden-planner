@@ -7,7 +7,7 @@ from typing import Any
 from open_garden_planner.core.guild_commands import guild_plant_bounds
 from open_garden_planner.core.object_types import is_plant_type
 from open_garden_planner.core.shade_aggregation import IdentifiedCaster, SunReceiver
-from open_garden_planner.ui.canvas.footprints import ItemLookup, standing_parent
+from open_garden_planner.ui.canvas.footprints import ItemLookup, item_base_cm, standing_parent
 from open_garden_planner.ui.canvas.sun_shadow_controller import collect_identified_casters
 
 
@@ -40,8 +40,10 @@ def collect_exposure_snapshot(scene: Any, location: dict[str, Any] | None, day: 
         # that parent: the bed is under it. Without this every plant in a raised
         # bed reads 0 hours.
         parent = standing_parent(item, lookup, day)
+        base = item_base_cm(item, lookup, day)
         receivers.append(SunReceiver(str(item.item_id), centre.x(), centre.y(),
-                                     str(parent.item_id) if parent is not None else None))
+                                     str(parent.item_id) if parent is not None else None,
+                                     elevation_cm=base))
     return ExposureSnapshot(
         getattr(scene, "_document_generation", 0), day,
         (location or {}).get("latitude"), (location or {}).get("longitude"), bounds,
