@@ -804,6 +804,12 @@ class Workspace(QWidget):
             from .sync_controller import Scene3DController
 
             host, sink = self.engine_factory(software)
+            if not software and host.is_software_adapter():
+                software = True
+                self._running_software = True
+                self._update_compat_notice()
+            else:
+                self._running_software = software
             container = host.container(pane)
             orbit = OrbitInput(self._camera, self._view_height, parent=self)
             host.install_event_filter(orbit)
@@ -1340,7 +1346,8 @@ class Workspace(QWidget):
         flagged = guard.software_requested()
         died = guard.reason is ModeReason.PREVIOUS_START_DIED
         running = self._state in (View3DState.STARTING, View3DState.RUNNING)
-        if guard.mode is RenderMode.SOFTWARE and running:
+        software_active = (guard.mode is RenderMode.SOFTWARE) or getattr(self, "_running_software", False)
+        if software_active and running:
             text = (self.tr("3D is running in compatibility mode (software rendering) because "
                             "it did not start properly last time.") if died
                     else self.tr("3D is running in compatibility mode (software rendering)."))

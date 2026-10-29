@@ -41,6 +41,6 @@ void MAIN()
     float west = groundLuma(texture(uBaseMap, uv - vec2(texel.x, 0.0)).rgb);
     float north = groundLuma(texture(uBaseMap, uv - vec2(0.0, texel.y)).rgb);
     float south = groundLuma(texture(uBaseMap, uv + vec2(0.0, texel.y)).rgb);
-    vec2 slope = clamp(vec2(east - west, north - south) * uDetail, vec2(-0.35), vec2(0.35));
+    vec2 slope = clamp(vec2(east - west, north - south) * uDetail, vec2(-0.22), vec2(0.22));
     NORMAL = normalize(vec3(-slope.x, 1.0, slope.y));
 }

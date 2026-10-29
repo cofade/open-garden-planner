@@ -3625,3 +3625,18 @@ Targeted bugfix package addressing four high-priority defects across solar expos
 4. **#605: Paved path corners and inner bend clipping.** Base fill pen join aligned to `BevelJoin` to match border chords. `_offset_path` now detects acute inner bends ($offset \cdot (\vec{u}_1 \times \vec{u}_2) > 0$) and trims overlapping segment ends to their exact intersection point, eliminating self-intersecting V-spikes.
 
 Shipped in v1.34.6 (PR #645) after full owner manual testing, a clean senior-reviewer pass, and protected merge. The gravel correction in the same PR makes 3D relief follow the canonical rounded painted rim within its relief budget, including caps and holes.
+
+
+### 3D visual and engine hardening package (#535, #578, #576, #619, #589, #582, #615) — **in progress, PR #...**
+
+Visual polish, engine hardening, and performance bounds for the Qt Quick 3D and solar simulation subsystems:
+
+1. **#535: Automatic software adapter detection.** Added `detect_is_software()`, `is_software_adapter_name()`, and `has_hardware_adapter()` in `adapter_info.py` using platform DXGI adapter enumeration on Windows and GL/RHI name checks (`WARP`, `llvmpipe`, `softpipe`, `software`). When a software adapter is detected, `_running_software` is automatically asserted in the 3D workspace to avoid the 12.8 s sky light probe freeze and 1,300% CPU wind loop.
+2. **#578 & #576: Sun-path arcs near-half fade and screen-constant line width.** Sun-path tube geometry populates `UV0` (`uvs[:, 0] = 1.0`, `uvs[:, 1] = radius`). `overlay.vert` computes screen-constant tube width via `uArcPerDepth` / `uArcFlat` (~2.5 px on screen) and applies a camera-relative opacity fade down to 25% for the near half of the dome between camera and center (`uDomeCenter`), preserving clear view of the garden interior while maintaining the full solar dome.
+3. **#619: Ground slope clamp reduction.** Lowered slope clamp in `ground.frag` from 0.35 to 0.22, preventing steep local ground slope differentials from generating dark gravel shadow pits.
+4. **#589: Phase 17 L2 follow-ups:**
+   - Neutral interior wood floor (`holzboden` / `palette.PLANK`) rendered at $z = 0.5$ cm inside building footprints in Cutaway mode, eliminating exposed ground lawn inside houses.
+   - Selected bed plants remain 100% solid in Cutaway mode even when obstructing the bed center or frame.
+   - Generic area shapes (`GENERIC_RECTANGLE`, `GENERIC_POLYGON`, `GENERIC_CIRCLE`, `GENERIC_ELLIPSE`) lie on the ground under 2D shadow and hours-of-sun overlays when height is 0 or unset, matching beds and paths.
+5. **#582: Cutaway shader compilation pre-warming.** Declared `shaderWarmer` in `Garden.qml` to compile PSOs for `screen.vert`/`screen.frag`, `foliage_door.vert`/`foliage_door.frag`, `grass_door.vert`/`foliage_door.frag`, and `water_door.frag` on initial load (with `uOpacity: 0.0`), eliminating GUI thread freeze on first Cutaway/X-ray toggle.
+6. **#615: Ground-bake benchmark bound alignment.** Aligned `test_scene3d_ground_bake.py` G3 test comments and docstrings with the shipped 20 ms / 2 passes contract for 4-tile edits (`BAKE_BUDGET_S`).

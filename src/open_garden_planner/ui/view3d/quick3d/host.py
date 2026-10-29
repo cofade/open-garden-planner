@@ -1126,6 +1126,14 @@ class Quick3DHost:
         would show the scene's 2D items and no garden."""
         return self.graphics_api() in RENDERING_APIS
 
+    def is_software_adapter(self) -> bool:
+        """True when this host renders on a software adapter (WARP, llvmpipe)."""
+        if self.prefers_software:
+            return True
+        from .adapter_info import detect_is_software
+
+        return detect_is_software()
+
     def grab(self, label: str = "") -> QImage:
         """Render the current state NOW and read it back (device pixels): the scene at
         the window's current size, or ``HostStateError`` (``lifecycle.py``).

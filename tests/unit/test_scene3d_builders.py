@@ -551,7 +551,7 @@ class TestRidgeIsTheRecordsRidge:
         for params in ({}, {"ridge": "nonsense"}, {"ridge": ((0.0, 0.0),)},
                        {"ridge": ((0.0, True), (1.0, 2.0))}):
             parts = built(polygon_record("HOUSE", ring, 450.0, params=params))
-            assert [part.name for part in parts] == ["walls", "roof", "facade"], params
+            assert [part.name for part in parts] == ["walls", "roof", "facade", "floor"], params
         too_low = built(polygon_record("HOUSE", ring, 15.0,
                                        params={"ridge": ((-450.0, 0.0), (450.0, 0.0))}))
         assert [part.name for part in too_low] == ["walls"]  # no room for a slab: a block
@@ -565,11 +565,13 @@ class TestRidgeIsTheRecordsRidge:
             (polygon_record("GARAGE_SHED", rectangle(400.0, 300.0), 250.0), True),
             (polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0), True),
         ):
-            walls_part, roof_part, facade_part = built(record)
+            walls_part, roof_part, facade_part, floor_part = built(record)
             assert (walls_part.name, walls_part.material_kind, walls_part.tinted) == ("walls", "vc", tinted)
             assert (roof_part.name, roof_part.material_kind, roof_part.tinted) == ("roof", "roof", False)
             assert (facade_part.name, facade_part.material_kind, facade_part.tinted) == (
                 "facade", "vc", False)
+            assert (floor_part.name, floor_part.material_kind, floor_part.tinted) == (
+                "floor", "vc", False)
 
 
 class TestShedRidge:
@@ -630,7 +632,7 @@ class TestAcuteCorners:
         overhang = buildings.HOUSE_ROOF.overhang_cm
         record = polygon_record("HOUSE", ring, 450.0, params={"ridge": ridge})
         parts = verify_builder(REGISTRY.builder_for("HOUSE"), record)
-        assert [part.name for part in parts] == ["walls", "roof", "facade"]  # a real roof, not the block
+        assert [part.name for part in parts] == ["walls", "roof", "facade", "floor"]  # a real roof, not the block
         roof = positions([parts[1]])[:, :2]
         walls_plan = positions([parts[0]])[:, :2]
         assert outside_distance(walls_plan, ring) <= 1e-3  # the walls stand on the footprint
@@ -1377,9 +1379,9 @@ def test_which_colours_each_kind_uses() -> None:
     house = polygon_record("HOUSE", rectangle(900.0, 540.0), 450.0,
                            params={"ridge": ((-450.0, 0.0), (450.0, 0.0))})
     facade = {"STEEL_LIGHT", "GLASS_OCC", "STONE_LIGHT", "STONE", "BRASS"}  # L4.1: windows, a door
-    assert used(house) == {"SANDSTONE", "ROOF_TILE", "ROOF_TILE_CAP", "TIMBER"} | facade
+    assert used(house) == {"SANDSTONE", "ROOF_TILE", "ROOF_TILE_CAP", "TIMBER", "PLANK"} | facade
     assert used(polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0)) == {
-        "TINT", "SHINGLE", "SHINGLE_CAP", "TIMBER"} | facade
+        "TINT", "SHINGLE", "SHINGLE_CAP", "TIMBER", "PLANK"} | facade
     assert used(polygon_record("RAISED_BED", rectangle(300.0, 120.0), 40.0)) == {
         "PLANK", "PLANK_GROOVE", "SOIL"}
     assert used(circle_record("CONTAINER_ROUND", 25.0, 30.0)) == {"TINT", "SOIL"}
@@ -1585,7 +1587,7 @@ class TestGroundThatIsNotOnePlainRing:
         flagged = polygon_record("HOUSE", ring, 450.0,
                                  params={"ridge": ridge, "outline_resolved": True})
         function = getattr(buildings, shape)
-        assert [part.name for part in function(plain, 450.0)] == ["walls", "roof", "facade"]
+        assert [part.name for part in function(plain, 450.0)] == ["walls", "roof", "facade", "floor"]
         (block,) = function(flagged, 450.0)
         assert block.name == "walls" and block.mesh == prism_mesh(flagged.footprints,
                                                                   flagged.height_cm, flagged.holes)

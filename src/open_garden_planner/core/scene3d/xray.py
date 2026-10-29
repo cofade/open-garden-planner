@@ -28,7 +28,7 @@ what is drawn in front, never a second build.
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, TypeAlias
 
 import numpy as np
@@ -69,6 +69,7 @@ class XrayScene:
     high: _F64
     rows: tuple[NDArray[np.int64], ...]
     flat: Mapping[str, tuple[Vector, ...]]
+    children: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     def index(self, item_id: str) -> int | None:
         try:
@@ -107,7 +108,12 @@ def xray_scene(records: Mapping[str, Record], parts_of: PartsOf) -> XrayScene:
     held = set(pick.item_ids)
     flat = {item_id: points for item_id, record in records.items()
             if item_id not in held and (points := flat_targets(record))}
-    return XrayScene(pick, low, high, tuple(rows), flat)
+    children: dict[str, list[str]] = {}
+    for item_id, record in records.items():
+        if record.parent_id:
+            children.setdefault(record.parent_id, []).append(item_id)
+    children_map = {k: tuple(v) for k, v in children.items()}
+    return XrayScene(pick, low, high, tuple(rows), flat, children_map)
 
 
 def flat_targets(record: Record) -> tuple[Vector, ...]:
@@ -177,6 +183,10 @@ def occluders(scene: XrayScene, eye: Sequence[float], selected: Collection[str])
         return frozenset()
     origin = np.asarray(eye, dtype=np.float64)
     keep = set(wanted)
+    if getattr(scene, "children", None):
+        for parent_id in wanted:
+            if parent_id in scene.children:
+                keep.update(scene.children[parent_id])
     found: set[str] = set()
     for item_id in wanted[:MAX_XRAY_ITEMS]:
         for point in target_points(scene, item_id):

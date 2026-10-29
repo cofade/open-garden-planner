@@ -769,6 +769,11 @@
     "state": "OPEN",
     "title": "3D: committed memory grows ~2 MB/min while the wind runs (FU-L14-2, intermittent)"
   },
+  "535": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a software-only adapter (WARP, no GPU) gets the hardware look - 12.8 s to the first readback"
+  },
   "536": {
     "is_pr": false,
     "state": "CLOSED",
@@ -844,6 +849,21 @@
     "state": "CLOSED",
     "title": "Plan & Sun strip layout tests fail on Windows offscreen (box font engine), pass on Linux CI"
   },
+  "576": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L2 3D: sun-path arcs should have a screen-constant width"
+  },
+  "578": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L2 3D: the near half of the sun-path dome crosses in front of the garden"
+  },
+  "582": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L2 3D: time the first Cutaway fade's shader compile (warm the door materials if > 100 ms)"
+  },
   "584": {
     "is_pr": true,
     "state": "MERGED",
@@ -858,6 +878,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "Probes outside scripts/ bypass script_isolation - nothing stops one writing the owner's real settings (it switched off the Welcome dialog)"
+  },
+  "589": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Phase 17 L2 follow-up: X-ray look, bed plants in Cutaway, flat sun map, building floor, generic shapes under the sun study"
   },
   "592": {
     "is_pr": false,

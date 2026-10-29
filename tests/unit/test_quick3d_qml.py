@@ -270,11 +270,13 @@ def test_the_overlays_blend_as_their_layer_says() -> None:
     assert "property real uExposure: 1.0" in shade
     assert "sourceBlend: CustomMaterial.SrcAlpha" in drape
     assert "destinationBlend: CustomMaterial.OneMinusSrcAlpha" in drape
-    for block in (shade, drape):
+    assert "sourceBlend: CustomMaterial.SrcAlpha" in lines
+    assert "destinationBlend: CustomMaterial.OneMinusSrcAlpha" in lines
+    for block in (shade, drape, lines):
         assert "sourceAlphaBlend: CustomMaterial.Zero" in block        # the frame's alpha stays
         assert "destinationAlphaBlend: CustomMaterial.One" in block
+    for block in (shade, drape):
         assert "depthDrawMode: Material.NeverDepthDraw" in block
-    assert "Blend" not in lines
     for block in (drape, lines):
         assert "property real uExposure: root.topDown ? 1.0 : root.exposure" in block
     overlay = (QML_DIR / "overlay.frag").read_text(encoding="utf-8")

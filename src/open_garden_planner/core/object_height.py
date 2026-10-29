@@ -128,11 +128,22 @@ _SOIL_PARENT_TYPE_NAMES = frozenset(
 )
 
 #: The garden's surfaces: with no height of their own they ARE the ground the 2D sun
-#: study's shadows and hours of sun lie on (``lies_on_ground``). Not here: a generic
-#: shape (often a zone or a highlight placed by layer: an owner question) and
-#: annotations. Every object that stands up has a default height and stands above.
+#: study's shadows and hours of sun lie on (``lies_on_ground``). Generic shapes with
+#: no height (zones, highlights) also lie on the ground (#589). Annotations stay above.
+#: Every object that stands up has a default height and stands above.
 GROUND_SURFACE_TYPE_NAMES = frozenset(
-    {"LAWN", "PATH", "TERRACE_PATIO", "DRIVEWAY", "POND_POOL", "GARDEN_BED"}
+    {
+        "LAWN",
+        "PATH",
+        "TERRACE_PATIO",
+        "DRIVEWAY",
+        "POND_POOL",
+        "GARDEN_BED",
+        "GENERIC_RECTANGLE",
+        "GENERIC_POLYGON",
+        "GENERIC_CIRCLE",
+        "GENERIC_ELLIPSE",
+    }
 )
 
 #: The soil of a BED lies this far below its rim. A modelling ASSUMPTION, not a

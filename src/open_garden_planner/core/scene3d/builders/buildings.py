@@ -54,7 +54,7 @@ from ...roof_style import (
     roof_pitch_deg,
     roof_style,
 )
-from ..build import BuilderRegistry
+from ..build import BuilderRegistry, cap_mesh
 from ..mesh import Mesh, MeshPart
 from ..record import (
     PARAM_DOOR_WALL,
@@ -274,6 +274,19 @@ def _block(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
     return plain_block(record, height_cm, name="walls")
 
 
+def _floor(record: Record) -> Mesh:
+    """A neutral interior floor (holzboden / palette.PLANK) inside the footprint at z = 0.5 cm.
+    Seen in Cutaway mode when the roof and upper walls are removed (#589)."""
+    cap = cap_mesh(record.footprints, 0.5, record.holes)
+    if not len(cap.positions):
+        return Mesh.empty()
+    colors = np.broadcast_to(
+        np.asarray(palette.PLANK.linear, dtype=np.float32),
+        (len(cap.positions), 4),
+    )
+    return Mesh.from_arrays(cap.positions, cap.normals, colors, cap.uvs, cap.indices)
+
+
 def _building(record: Record, height_cm: float, base: RoofStyle) -> tuple[MeshPart, ...]:
     """Walls in the item's fill colour (``tinted``), the roof and the facade — or the
     block, where no roof can be built."""
@@ -283,8 +296,11 @@ def _building(record: Record, height_cm: float, base: RoofStyle) -> tuple[MeshPa
     if built is None or built.wall_top is None:
         return _block(record, height_cm)
     front = facade(record.kind, footprint_of(record), built.wall_top, door_wall_of(record))
+    floor = _floor(record)
     return (MeshPart(built.walls, "vc", tinted=True, name="walls"),
-            MeshPart(built.roof, "roof", name="roof"), MeshPart(front, "vc", name="facade"))
+            MeshPart(built.roof, "roof", name="roof"),
+            MeshPart(front, "vc", name="facade"),
+            MeshPart(floor, "vc", tinted=False, name="floor"))
 
 
 def _house(record: Record, height_cm: float) -> tuple[MeshPart, ...]:

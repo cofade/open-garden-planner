@@ -181,10 +181,10 @@ class TestTheGroundBand:
         _add(view, note)
         pin = JournalPinItem(80, 80, "note-1", layer_id=scene.active_layer.id)
         _add(view, pin)
-        for item in (lawn, path, bed):
+        for item in (lawn, path, bed, zone):
             assert _in_ground_band(item), item.object_type
-        assert lawn.zValue() < path.zValue() < bed.zValue(), "their order among themselves stays"
-        for item in (shed, note, pin, zone, parasol, cold_frame):
+        assert lawn.zValue() < path.zValue() < bed.zValue() < zone.zValue(), "their order among themselves stays"
+        for item in (shed, note, pin, parasol, cold_frame):
             assert item.zValue() >= 0.0, item.object_type
         assert GROUND_Z_RANGE[0] > -1000.0, "above the background image"
         assert GROUND_Z_RANGE[1] < -500.0, "below the shadow overlay (-500) and the map (-450)"

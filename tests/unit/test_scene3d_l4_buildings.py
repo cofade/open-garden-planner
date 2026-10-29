@@ -104,7 +104,7 @@ def test_every_style_tops_out_at_the_height(style, kind, height) -> None:
     top = max(float(part.mesh.positions[:, 2].max()) for part in parts)
     assert top == pytest.approx(height, rel=1e-4)
     # a building too low for a door or a window has no facade part (an empty mesh is left out)
-    expected = ["walls", "roof", "facade"] if height >= 250.0 else ["walls", "roof"]
+    expected = ["walls", "roof", "facade", "floor"] if height >= 250.0 else ["walls", "roof", "floor"]
     assert [part.name for part in parts] == expected
 
 
@@ -428,9 +428,9 @@ def test_windows_and_doors_stay_under_the_wall_top_and_on_the_walls() -> None:
 
 def test_a_low_shed_gets_no_window_or_door_its_wall_cannot_hold() -> None:
     low = polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 140.0, shape="rectangle")
-    assert [part.name for part in REGISTRY.build(low)] == ["walls", "roof"]
+    assert [part.name for part in REGISTRY.build(low)] == ["walls", "roof", "floor"]
     tall = polygon_record("TOOL_SHED", rectangle(200.0, 150.0), 250.0, shape="rectangle")
-    assert [part.name for part in REGISTRY.build(tall)] == ["walls", "roof", "facade"]
+    assert [part.name for part in REGISTRY.build(tall)] == ["walls", "roof", "facade", "floor"]
 
 
 @pytest.mark.parametrize("wall", [0, 1, 2, 3])

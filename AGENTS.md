@@ -253,9 +253,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   #464/#465) shipped in v1.34.5 (PR #640, ADR-068). The bugfix package for #641
   (elevated sun exposure), #643 (properties dropdown icons), #623 (selftest crash
   diagnostics), and #605 (paved path corner joins and acute bend trimming) shipped
-  in v1.34.6 (PR #645) after owner manual testing and a clean senior review; the
-  owner-reported gravel outer bend follows the rounded painted rim in 3D,
-  including end caps.
+  in v1.34.6 (PR #645).
+- 3D Visual & Engine Hardening (#535, #578, #576, #619, #589, #582, #615):
+  Software adapter detection (`adapter_info.py`), sun-path arc 25% near-half fade &
+  constant width, ground slope clamp 0.22, interior wood floor & solid bed plants &
+  generic ground shapes under Cutaway, Cutaway shader pre-warming (`shaderWarmer`),
+  and ground-bake benchmark contract alignment.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
