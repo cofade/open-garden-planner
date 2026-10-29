@@ -397,3 +397,36 @@ class TestHeatmapMaskCoordination:
         controller.set_active(True)
         assert heatmap.include_sample_masks is True
         assert sun_hours.scheduled is True
+
+
+def test_drape_lift_clears_ground_relief_and_terrace_deck_boards() -> None:
+    from open_garden_planner.core.scene3d.builders.surfaces import DECK_TOP_CM, KERB_CM
+    from open_garden_planner.core.scene3d.drape import DRAPE_LIFT_CM
+    from open_garden_planner.core.scene3d.sun_path import COMPASS_LIFT_CM
+
+    assert DRAPE_LIFT_CM > DECK_TOP_CM
+    assert DRAPE_LIFT_CM > KERB_CM
+    assert COMPASS_LIFT_CM > DRAPE_LIFT_CM
+
+
+def test_terrace_relief_does_not_occlude_sun_hours_drape() -> None:
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.core.scene3d.drape import DRAPE_LIFT_CM
+    from open_garden_planner.core.scene3d.record import Material, Params, Record, Transform
+
+    for pattern in ('WOOD', 'DECKING', 'STONE', None):
+        terrace = Record(
+            item_id='terrace_1',
+            kind='TERRACE_PATIO',
+            shape='rectangle',
+            footprints=(((-100.0, -100.0), (100.0, -100.0), (100.0, 100.0), (-100.0, 100.0)),),
+            transform=Transform(east_cm=200.0, north_cm=200.0),
+            material=Material('terrace_1', fill_rgba=(200, 170, 120, 255)),
+            height_cm=None,
+            params=Params({'surface_pattern': pattern, 'seed': 'terrace_1'} if pattern else {'seed': 'terrace_1'}),
+        )
+        parts = production_registry().build(terrace)
+        assert len(parts) > 0
+        for part in parts:
+            max_z = float(part.mesh.positions[:, 2].max())
+            assert max_z < DRAPE_LIFT_CM, f'part {part.name} (pattern {pattern}) max z {max_z} >= DRAPE_LIFT_CM {DRAPE_LIFT_CM}'
