@@ -3594,7 +3594,7 @@ Package of five targeted bug fixes and hardening improvements across agent editi
    Upgraded GitHub Actions to Node 24 runtimes across `.github/workflows/ci.yml`, `.github/workflows/dependency-review.yml`, `.github/workflows/download-stats.yml`, and `.github/actions/setup-locked-env/action.yml`: `actions/checkout@v7.0.1`, `actions/setup-python@v7.1.0`, `actions/upload-artifact@v7.0.2`, `actions/download-artifact@v8.0.2`. Runner images pinned to `ubuntu-24.04` to prevent deprecation warnings and runner drift.
 
 
-### Remaining audit packages A4/A6/A7/A9/A12/A13 (#392) ? draft delivery
+### Remaining audit packages A4/A6/A7/A9/A12/A13 (#392) — **shipped 2026-10-29 as v1.34.5, PR #640**
 
 All six remaining bundle issues (#456/#458/#459/#461/#464/#465) are implemented
 on one branch against master, with A4's boundaries established before structural
@@ -3603,8 +3603,8 @@ own the current measurements, decisions, regression nets and residual owner-only
 continuity actions. The application/canvas/property/handle extractions preserve
 existing commands, serialization, translation contexts and lifecycle boundaries.
 The performance harness covers every NFR workload; the archived audit is unchanged.
-This is not shipped: owner executable/documentation acceptance and protected merge
-remain pending. The branch incorporates master through v1.34.4 (PR #639 and its version sync).
+Shipped in v1.34.5 (PR #640) after full owner manual testing, clean senior-reviewer pass, and protected merge.
+The branch incorporates master through v1.34.4 (PR #639 and its version sync).
 
 | Documentation | Update |
 |---|---|

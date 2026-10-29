@@ -551,7 +551,7 @@
   },
   "392": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Repository audit 2026-10 — hardening ledger (epic)"
   },
   "393": {
@@ -1334,9 +1334,19 @@
     "state": "MERGED",
     "title": "feat(#635, #621, #579, #616, #637): agent move atomicity, plant holder sun exposure, shade mask memory, Windows power throttling opt-out, and Node 24 CI"
   },
+  "640": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "refactor(#392): complete the remaining audit packages A4/A6/A7/A9/A12/A13"
+  },
   "641": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Sun exposure: plants elevated in raised beds/containers are evaluated at ground level (z = 0), receiving false shade warnings from fences/walls"
+  },
+  "643": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Missing preview icons for certain object types in properties panel dropdown"
   }
 }
