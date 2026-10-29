@@ -8,7 +8,7 @@ from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QApplication, QInputDialog
 
-from open_garden_planner.app.settings import get_settings
+from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.cad_geometry import chamfer_corner
 from open_garden_planner.core.commands import ChamferCornerCommand
 from open_garden_planner.core.tools.base_tool import ToolType

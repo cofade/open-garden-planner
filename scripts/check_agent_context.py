@@ -11,6 +11,10 @@ from pathlib import Path
 HOST_ONLY_SKILLS = frozenset({"agent-tools", "find-skills", "skill-creator"})
 """Skills supplied by the host rather than maintained by this repository."""
 
+ROOT_SOFT_LIMIT_BYTES = 32768
+ROOT_WARNING_BYTES = 28672
+SKILL_ENTRY_LIMIT_BYTES = 32768
+
 def _normalise_line_endings(value: str) -> str:
     return value.replace("\r\n", "\n").replace("\r", "\n")
 
@@ -116,6 +120,8 @@ def _check_root_docs(root: Path, errors: list[str]) -> None:
     ):
         errors.append("CLAUDE.md and AGENTS.md differ")
     max_bytes = _configured_doc_max_bytes(root, errors)
+    if codex.is_file() and codex.stat().st_size > ROOT_SOFT_LIMIT_BYTES:
+        errors.append("AGENTS.md exceeds the 32768-byte root-context soft budget; archive narrative")
     if codex.is_file() and max_bytes is not None and codex.stat().st_size > max_bytes:
         # Bytes ON DISK, deliberately. The budget is a byte limit on the FILE a reader
         # loads, so a CRLF working copy (the Windows default in this repo) spends one
@@ -146,6 +152,8 @@ def _check_skills(root: Path, errors: list[str]) -> None:
         for skill_root, label in ((claude_skill, ".claude/skills"), (codex_skill, ".agents/skills")):
             if not (skill_root / "SKILL.md").is_file():
                 errors.append(f"skill entry point missing from {label}: {name}/SKILL.md")
+            elif (skill_root / "SKILL.md").stat().st_size > SKILL_ENTRY_LIMIT_BYTES:
+                errors.append(f"skill entry exceeds 32768 bytes: {label}/{name}/SKILL.md")
         claude_files = _files_under(claude_skill)
         codex_files = _files_under(codex_skill)
         for relative in sorted(claude_files - codex_files):
@@ -215,6 +223,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     errors = check_repo(args.root.resolve())
+    root_doc = args.root.resolve() / "AGENTS.md"
+    if root_doc.is_file() and root_doc.stat().st_size > ROOT_WARNING_BYTES:
+        print("Warning: root context exceeds 28672 bytes; archive narrative before the soft limit.")
     if errors:
         print("Agent context parity check failed:")
         for error in errors:

@@ -1,0 +1,457 @@
+{
+  "baseline": "003c4bc4",
+  "source_sizes": {
+    "app/application.py": {
+      "before_lines": 9357,
+      "after_lines": 6692
+    },
+    "ui/canvas/canvas_view.py": {
+      "before_lines": 5882,
+      "after_lines": 4268
+    },
+    "ui/canvas/items/resize_handle.py": {
+      "before_lines": 3757,
+      "after_lines": 1282
+    },
+    "ui/panels/properties_panel.py": {
+      "before_lines": 2983,
+      "after_lines": 2668
+    }
+  },
+  "imports": {
+    "core.object_types": [
+      {
+        "ms": 151.276799995685,
+        "project_modules": 4,
+        "ui_modules": [],
+        "qt_widgets": false
+      },
+      {
+        "ms": 159.54219999548513,
+        "project_modules": 4,
+        "ui_modules": [],
+        "qt_widgets": false
+      },
+      {
+        "ms": 155.69509999477305,
+        "project_modules": 4,
+        "ui_modules": [],
+        "qt_widgets": false
+      }
+    ],
+    "core.tools.base_tool": [
+      {
+        "ms": 41.809400005149655,
+        "project_modules": 4,
+        "ui_modules": [],
+        "qt_widgets": false
+      },
+      {
+        "ms": 39.813700001104735,
+        "project_modules": 4,
+        "ui_modules": [],
+        "qt_widgets": false
+      },
+      {
+        "ms": 37.71840000990778,
+        "project_modules": 4,
+        "ui_modules": [],
+        "qt_widgets": false
+      }
+    ],
+    "models.smart_symbol": [
+      {
+        "ms": 31.724700005725026,
+        "project_modules": 6,
+        "ui_modules": [],
+        "qt_widgets": false
+      },
+      {
+        "ms": 33.53060000517871,
+        "project_modules": 6,
+        "ui_modules": [],
+        "qt_widgets": false
+      },
+      {
+        "ms": 31.733399999211542,
+        "project_modules": 6,
+        "ui_modules": [],
+        "qt_widgets": false
+      }
+    ]
+  },
+  "root_context_bytes": 20686,
+  "skill_entries": [
+    {
+      "name": "analyze-pr",
+      "entry_bytes": 12367,
+      "reference_files": 0
+    },
+    {
+      "name": "debug-verbose",
+      "entry_bytes": 1912,
+      "reference_files": 173
+    },
+    {
+      "name": "deliver-package",
+      "entry_bytes": 18004,
+      "reference_files": 0
+    },
+    {
+      "name": "finalize-us",
+      "entry_bytes": 9440,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-3d-renderer",
+      "entry_bytes": 3213,
+      "reference_files": 18
+    },
+    {
+      "name": "ogp-3d-sunshade-campaign",
+      "entry_bytes": 3419,
+      "reference_files": 14
+    },
+    {
+      "name": "ogp-architecture-contract",
+      "entry_bytes": 2231,
+      "reference_files": 10
+    },
+    {
+      "name": "ogp-asset-forge",
+      "entry_bytes": 12884,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-build-and-run",
+      "entry_bytes": 28027,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-change-control",
+      "entry_bytes": 28708,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-config-and-flags",
+      "entry_bytes": 26885,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-debugging-playbook",
+      "entry_bytes": 2492,
+      "reference_files": 11
+    },
+    {
+      "name": "ogp-diagnostics-and-tooling",
+      "entry_bytes": 26774,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-docs-and-writing",
+      "entry_bytes": 24455,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-external-positioning",
+      "entry_bytes": 20403,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-failure-archaeology",
+      "entry_bytes": 5189,
+      "reference_files": 27
+    },
+    {
+      "name": "ogp-garden-domain-reference",
+      "entry_bytes": 27947,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-lush-cinematic",
+      "entry_bytes": 2441,
+      "reference_files": 9
+    },
+    {
+      "name": "ogp-proof-and-analysis-toolkit",
+      "entry_bytes": 26811,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-qt-cad-reference",
+      "entry_bytes": 2390,
+      "reference_files": 11
+    },
+    {
+      "name": "ogp-research-frontier",
+      "entry_bytes": 27383,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-research-methodology",
+      "entry_bytes": 21689,
+      "reference_files": 0
+    },
+    {
+      "name": "ogp-validation-and-qa",
+      "entry_bytes": 21130,
+      "reference_files": 0
+    }
+  ],
+  "review_units": {
+    "scope": "last 50 commits at baseline, production paths only",
+    "samples": [
+      {
+        "sha": "003c4bc4c1fba470a8159ce9078a2d3086bd66e4",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "709e3ca9d1c87594519dac4686eff7b9b104d3e7",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "fac5b670d5dc5c8d11c9cadfa6442bc25faedeb3",
+        "production_files": 25,
+        "production_changed_lines": 1682
+      },
+      {
+        "sha": "d5105b113b5fa45af7f4a63c48817cedf726e351",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "f879332fca6f6ecdcf937bce22cf89d9a792e97b",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "f9e3b1d8951dce51fccbaca3e418c8b12d60c0a4",
+        "production_files": 9,
+        "production_changed_lines": 2148
+      },
+      {
+        "sha": "7bfed97b076a10fb5bed1602906de8cc961808d2",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "b9fa68397a9662967106e4df5b8d908c045714cc",
+        "production_files": 12,
+        "production_changed_lines": 293
+      },
+      {
+        "sha": "2cab0166a755efceae09353e1ab9079b9b95156a",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "bcdbb5fdabd315216331ab936a5773c3fafa0384",
+        "production_files": 48,
+        "production_changed_lines": 6621
+      },
+      {
+        "sha": "7fb770079c32c26c32c00b159c008d6e1d02af27",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "81d2b62f6ee92f5ddd4e16b70873b1f7b5dc52fb",
+        "production_files": 38,
+        "production_changed_lines": 69990
+      },
+      {
+        "sha": "fee03ea33a84ef6e133d0b0e90989daf0ab2aca7",
+        "production_files": 52,
+        "production_changed_lines": 503
+      },
+      {
+        "sha": "c0c67f9b359403b6bc0711047ff06c4039dd754d",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "712df90d991f958db8cdad54299365d2c70e7be2",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "0e84866f3ead7ee4a43b420dc15ed1424714a30b",
+        "production_files": 21,
+        "production_changed_lines": 2430
+      },
+      {
+        "sha": "aae08410e440450e9dd50bb630e68093fb9e5003",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "bdaecb218674f520891210ed2cbcb404fefcddb4",
+        "production_files": 38,
+        "production_changed_lines": 7344
+      },
+      {
+        "sha": "4c4868e87c88a2a08f0476aaf4902536e31f7556",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "f958b6575efcdcdf26dbae2ac86f4a96ab992957",
+        "production_files": 22,
+        "production_changed_lines": 2968
+      },
+      {
+        "sha": "95f655d0f2da51903eb735ff32dc385feae6184d",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "c6d63412117a40a6a6f3a1760a437c8e26bcfc35",
+        "production_files": 47,
+        "production_changed_lines": 6893
+      },
+      {
+        "sha": "a1b894a993e9ca3043fce7c2fd97156057946481",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "50324280188734f37b62bbf7f388ca5bddaabee5",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "f1d9c168a20e42470fcf36f5a492193d83b6e860",
+        "production_files": 29,
+        "production_changed_lines": 5982
+      },
+      {
+        "sha": "9b5ded9dad84ed5bd1d7f29ee75e96c20fbb1979",
+        "production_files": 1,
+        "production_changed_lines": 4
+      },
+      {
+        "sha": "b08fe65214285d932815b22e82bcd02adb0af568",
+        "production_files": 12,
+        "production_changed_lines": 4089
+      },
+      {
+        "sha": "b9e16b6f6f5b66569c07d07873b8b3b2b9a66437",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "3714842e797f09e4b6a5294e984e79cbf7945a99",
+        "production_files": 18,
+        "production_changed_lines": 5213
+      },
+      {
+        "sha": "67351b2503ad6faea98627f1d127da99687ac00c",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "e26d49bb567be7ead5eb27a351de0c51144cddd8",
+        "production_files": 36,
+        "production_changed_lines": 6208
+      },
+      {
+        "sha": "45bddaffc45da3a0783c5c5c0f442eb7075410c4",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "84f86f09ffbb4b7b901eeb3d8b0878f366a83bfa",
+        "production_files": 12,
+        "production_changed_lines": 435
+      },
+      {
+        "sha": "093595776d064d46ac912f58915cb82d246cb831",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "6d11323190b777cfdefb5e32a6eec0b1b2afea80",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "3d5dad61a68044dde64186e3555f22ffea2c0510",
+        "production_files": 5,
+        "production_changed_lines": 14
+      },
+      {
+        "sha": "b1faaa9aab9349251ab23d34db48602b02eb1218",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "bf4fd77af4500c2bd4fba1a265367d2a92148279",
+        "production_files": 132,
+        "production_changed_lines": 42570
+      },
+      {
+        "sha": "18b838435eda29ea68aaa3fbc179ad97832665f6",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "2371419193afe1f3bde30fe604d2a0f57b304148",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "23e2380c8d858b9e61ada964e2beb015f10634ab",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "56b0757af13b8b06b5dbdb07f1b44b9839dea79f",
+        "production_files": 5,
+        "production_changed_lines": 14083
+      },
+      {
+        "sha": "5db21c9c1bb7111fbe7a9f1745130588a0ce98c6",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "fb31ea054b6b8e410e0bc76ae1b247c6c7963077",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "719d1d11dfb438ae51c37fd4f2da6e64bded7929",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "603e3035cfdf345fa5f190d25cb95b5f325376e5",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "412f01bdb2df1f794539b1838a142234646c9b02",
+        "production_files": 7,
+        "production_changed_lines": 1770
+      },
+      {
+        "sha": "132f671553fcab05502a4cac43e7877e6104bdf6",
+        "production_files": 1,
+        "production_changed_lines": 2
+      },
+      {
+        "sha": "025e9cc7086cca6c674b0a5214eaff82d883f822",
+        "production_files": 0,
+        "production_changed_lines": 0
+      },
+      {
+        "sha": "3ea85fd5f4317da960fa1df4b0d1121b6440a78e",
+        "production_files": 1,
+        "production_changed_lines": 2
+      }
+    ],
+    "median_production_files": 1.0
+  }
+}

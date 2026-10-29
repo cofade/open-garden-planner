@@ -28,6 +28,9 @@ jobs:
       - name: Check Claude/Codex context parity
         run: python scripts/check_agent_context.py
 
+      - name: Check import boundaries
+        run: python scripts/check_import_boundaries.py
+
       - name: Check external action pins
         run: python scripts/check_action_pins.py
 

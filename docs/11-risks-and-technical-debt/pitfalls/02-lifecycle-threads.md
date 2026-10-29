@@ -69,20 +69,20 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Rule:** Every new `ItemIgnoresTransformations` drag handle joins the allow-list in `CanvasView.mousePressEvent`, because Qt drops its mouse grab and the view re-grabs only known handle types.
 - **Pinned by:** none — The body names no test for this rule.
 - **Source:** #193
-- **Status:** pointer → [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys and its two traps](../../../.claude/skills/ogp-qt-cad-reference/SKILL.md#3-itemignorestransformations--what-it-buys-and-its-two-traps)
+- **Status:** pointer → [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys and its two traps](../../../.claude/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md#3-itemignorestransformations--what-it-buys-and-its-two-traps)
 - **Legacy:** b1faaa9 README L290
 
-Held in [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys and its two traps](../../../.claude/skills/ogp-qt-cad-reference/SKILL.md#3-itemignorestransformations--what-it-buys-and-its-two-traps). The entry keeps the rule and its pin; the account is in the link.
+Held in [ogp-qt-cad-reference: 3. `ItemIgnoresTransformations` — what it buys and its two traps](../../../.claude/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md#3-itemignorestransformations--what-it-buys-and-its-two-traps). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-LIF-08
 
 - **Rule:** `QGraphicsScene.changed` ignores plain Python attribute writes, so any path that re-parents a plant calls `trigger_soil_mismatch_refresh(scene)` or goes through `SetParentBedCommand`.
 - **Pinned by:** none — The body names no test for this rule.
 - **Source:** #173
-- **Status:** pointer → [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-07)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07)
+- **Status:** pointer → [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-07)](../../../.claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07)
 - **Legacy:** b1faaa9 README L304
 
-Held in [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-07)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07). The entry keeps the rule and its pin; the account is in the link.
+Held in [debug-verbose: Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-07)](../../../.claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md#case-study-soil-mismatch-warning-goes-stale-on-plant-movereparent-issue-173-fixed-2026-05-07). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-LIF-09
 

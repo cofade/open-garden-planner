@@ -58,6 +58,17 @@ def test_checked_in_context_is_in_parity() -> None:
     assert check_repo(REPO_ROOT) == []
 
 
+def test_soft_context_budget_and_nested_reference_parity(tmp_path: Path) -> None:
+    root = _minimal_context_repo(tmp_path)
+    for name in ("AGENTS.md", "CLAUDE.md"):
+        (root / name).write_text("x" * 32769, encoding="utf-8")
+    assert any("soft budget" in e for e in check_repo(root))
+    nested = root / ".agents/skills/example/references"
+    nested.mkdir()
+    (nested / "case.md").write_text("A unique lesson", encoding="utf-8")
+    assert any("case.md" in e for e in check_repo(root))
+
+
 def test_the_doc_budget_counts_the_bytes_on_disk(tmp_path: Path) -> None:
     """CRLF spends the budget, deliberately: the limit is on the file a reader loads.
 

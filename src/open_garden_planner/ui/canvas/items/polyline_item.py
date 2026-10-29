@@ -554,16 +554,9 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         menu.addSeparator()
 
         # Duplicate action
-        duplicate_action = menu.addAction(_("PolylineItem", "Duplicate"))
+        from .common_menu import build_repeat_actions
 
-        # Linear array action
-        linear_array_action = menu.addAction(_("PolylineItem", "Create Linear Array..."))
-
-        # Grid array action
-        grid_array_action = menu.addAction(_("PolylineItem", "Create Grid Array..."))
-
-        # Circular array action
-        circular_array_action = menu.addAction(_("PolylineItem", "Create Circular Array..."))
+        repeat_actions = build_repeat_actions(menu, "PolylineItem")
 
         # Array along path (requires exactly 2 selected, one being a polyline)
         array_along_path_action = None
@@ -597,39 +590,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             scene = self.scene()
             for item in scene.selectedItems():
                 scene.removeItem(item)
-        elif action == duplicate_action:
-            # Duplicate via canvas view
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "duplicate_selected"):
-                        view.duplicate_selected()
-        elif action == linear_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_linear_array"):
-                        view.create_linear_array()
-        elif action == grid_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_grid_array"):
-                        view.create_grid_array()
-        elif action == circular_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_circular_array"):
-                        view.create_circular_array()
+        elif repeat_actions.dispatch(action, self.scene()):
+            return
         elif action == array_along_path_action and array_along_path_action is not None:
             scene = self.scene()
             if scene:

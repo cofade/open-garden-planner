@@ -290,7 +290,9 @@ def test_the_concepts_table_carries_the_reach() -> None:
 def test_the_gate_row_states_the_gate_the_conditions_and_the_reach(skill: Path) -> None:
     """Both skill trees: the gate's number, the measuring conditions of the listed
     numbers, and where the tip is — per kind, with the script's numbers."""
-    text = skill.read_text(encoding="utf-8")
+    text = skill.read_text(encoding="utf-8") + "\n" + "\n".join(
+        p.read_text(encoding="utf-8") for p in sorted((skill.parent / "references").glob("*.md"))
+    )
     row = _minus(next(line for line in text.splitlines() if line.startswith("| Shadows |")))
     assert "IoU ≥ 0.85" in row and "box caster" in row
     assert "scripts/measure_built_world_shadows.py" in row

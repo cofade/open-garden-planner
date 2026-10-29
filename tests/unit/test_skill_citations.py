@@ -16,6 +16,7 @@ from scripts.check_skill_citations import (
     build_fr_pool,
     build_section_pool,
     check_adr_refs,
+    check_fact_refs,
     check_file_line_refs,
     check_fr_refs,
     check_issue_refs,
@@ -27,6 +28,37 @@ from scripts.check_skill_citations import (
 
 def test_real_corpus_citations_all_resolve() -> None:
     assert check_repo(REPO_ROOT) == []
+
+
+def test_reference_files_are_checked_and_host_subtrees_are_excluded(tmp_path: Path) -> None:
+    for name in ("example", "skill-creator"):
+        folder = tmp_path / ".agents/skills" / name / "references"
+        folder.mkdir(parents=True)
+        (folder / "nested.md").write_text("See §8.99.\n", encoding="utf-8")
+    found = find_corpus_files(tmp_path)
+    assert [p.relative_to(tmp_path).as_posix() for p in found] == [
+        ".agents/skills/example/references/nested.md"
+    ]
+
+
+def test_shared_fact_requires_one_exact_ast_match(tmp_path: Path) -> None:
+    import json
+
+    corpus = _write_corpus_file(tmp_path, "`fact:hidden-panel`\n")
+    folder = tmp_path / "quality"
+    folder.mkdir()
+    (folder / "skill-facts.json").write_text(json.dumps({"hidden-panel": {
+        "path": "sample.py", "expression": "panels.show('symbols', False)"
+    }}), encoding="utf-8")
+    code = tmp_path / "sample.py"
+    for source, expected in [
+        ("panels.show('symbols', False)", False),
+        ("panels.show('symbols', True)", True),
+        ("panels.show('other', False)", True),
+        ("panels.show('symbols', False)\npanels.show('symbols', False)", True),
+    ]:
+        code.write_text(source, encoding="utf-8")
+        assert bool(check_fact_refs(tmp_path, [corpus])) is expected
 
 
 def test_no_exemption_is_dead(monkeypatch) -> None:

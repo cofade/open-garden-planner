@@ -442,6 +442,9 @@ def _install_excepthook() -> None:
 
 def main() -> int:
     """Run the Open Garden Planner application."""
+    import time
+
+    startup_started = time.perf_counter()
     # This is the product's own entry point, so it is allowed to open the owner's
     # real settings store even when launched from an agent/tooling shell (#587,
     # ADR-041 addendum). Keep the name in sync with
@@ -461,6 +464,10 @@ def main() -> int:
     if "--selftest" in sys.argv:
         return _run_selftest_bounded()
 
+    from open_garden_planner.core.startup_probe import start_probe
+
+    startup_probe = start_probe(sys.argv, startup_started)
+
     # Import here to avoid slow startup for --help, --version, etc.
     from PyQt6.QtWidgets import QApplication
 
@@ -473,7 +480,10 @@ def main() -> int:
     )
     from open_garden_planner.core.i18n import load_translator
     from open_garden_planner.core.logging_config import setup_logging
-    from open_garden_planner.ui.theme import apply_theme
+    from open_garden_planner.ui.theme import apply_theme, refresh_window_theme
+
+    if startup_probe:
+        startup_probe.mark("imports")
 
     app = QApplication(sys.argv)
     # Same pair the settings chokepoint builds every store from (ADR-041) — read
@@ -507,7 +517,12 @@ def main() -> int:
         )
         return 1
     load_translator(app, settings.language)
+    if startup_probe:
+        settings.show_welcome_on_startup = False
     apply_theme(app, settings.theme_mode)
+
+    if startup_probe:
+        startup_probe.mark("first_theme")
 
     # Turn an uncaught slot exception into a recoverable dialog instead of a
     # silent process kill that discards unsaved work (issue #277).
@@ -515,9 +530,17 @@ def main() -> int:
 
     window = GardenPlannerApp()
     window.show()
+    if startup_probe:
+        startup_probe.mark("window_shown")
 
-    # Reapply theme after window is shown to update title bar
-    apply_theme(app, settings.theme_mode)
+    # The stylesheet already applies to new children; refresh the native frame
+    # and opt-in palette/icon hooks without a second application-wide re-polish.
+    refresh_window_theme(app, settings.theme_mode)
+    if startup_probe:
+        from PyQt6.QtCore import QTimer
+
+        startup_probe.mark("second_theme")
+        QTimer.singleShot(0, lambda: startup_probe.finish(window))
 
     # Open file passed as command-line argument (e.g. double-click .ogp file)
     args = app.arguments()

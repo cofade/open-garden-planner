@@ -9002,3 +9002,86 @@ migration, immutable reruns, zero counts, missing asset windows, promotions and 
 The CLI integration test produces a complete site from existing snapshots. Tests execute
 the real browser aggregation with Node for all four grains, ISO boundaries and leap day.
 Browser look/interaction evidence and the manual acceptance checklist accompany the PR.
+
+
+## ADR-068: Audit boundaries, responsibility extraction and progressive agent context (#392)
+
+**Status**: Accepted for implementation; owner acceptance and protected merge pending.
+
+**Context**: A4 (#456) precedes A6 (#458) and A7 (#459). Current measurements
+replace the historical audit's line/import counts. A9 (#461) needs representative
+workloads, A12 (#464) needs smaller loading units without losing knowledge, and
+A13 (#465) must describe continuity without assigning privileges.
+
+**Decision**:
+1. **Shared leaves preserve identity.** `config.settings` and `config.paths`
+   own configuration and safe dialog paths; `app.settings`/`app.paths` alias the
+   exact module objects. Mutable isolation bindings therefore reach one factory.
+   `models.theme`, `models.parametric_eval` and `models.storage_paths` own the
+   Qt-free values/evaluator/data-directory resolver. The old evaluator module
+   also aliases its implementation. ADR-041's factory and isolation rules remain
+   binding. Core/tool exports are lazy, with explicit static-typing exports.
+2. **Static boundary enforcement.** `check_import_boundaries.py` checks eager
+   module/class imports, including relative imports, conditionals and try blocks.
+   Local and `TYPE_CHECKING` adapters remain permitted. The exception baseline
+   is empty. The permitted layer graph is acyclic; this does not claim that all
+   deferred runtime imports are cycle-free or that dynamic imports are analyzed.
+3. **Extract responsibilities through composition.** `ClipboardOperations`,
+   `DragConstraints`, `PropertyEdits` and `AgentHost` have an explicit typed host.
+   Hosts retain document, widget, bridge and server state and compatibility
+   methods. There is no attribute-forwarding proxy or duplicate state. The
+   command/serialization/geometry paths remain canonical; the property dispatcher
+   delegates to named handlers after its characterization net passes. Shared
+   repeat-menu actions retain literal translation contexts and shape-specific
+   guards. Handle primitives, vertex/midpoint/curve editing and resize/rotation
+   have separate owners; existing imports return the same classes/functions.
+4. **Keep the instruments attached.** Source censuses, mutation targets, child
+   isolation hooks, spies and cleanup scopes follow defining modules. Real MCP
+   transport and pending-hop shutdown tests remain mandatory. Moved UI strings
+   use their original explicit Qt translation contexts. No type allowances are
+   increased: newly extracted modules pass the existing zero-allowance rule.
+5. **Measure performance honestly.** The committed harness records every sample,
+   machine/profile, source versus frozen startup, native/headless Qt, traced
+   versus untraced execution, RSS and callbacks. Startup means a shown canvas,
+   synchronous repaint and an event-loop callback; launch timing includes the
+   executable's bootstrap. Fresh processes do not imply a cold filesystem cache.
+   Measured repeated theme work justifies a post-show palette/title-bar refresh
+   without another stylesheet/listener pass. Targets remain targets when a
+   measured machine misses them; no universal flaky timing assertion is added.
+6. **Progressive disclosure with provenance.** Large skill bodies move into
+   mirrored indexed references, after recursive citation discovery is extended.
+   Every original normalized body was reconstructed exactly before citation/link
+   repairs. `quality/context-migration.json` records original/current hashes;
+   tests pin the retained fragments. Root handoff narrative has a complete
+   snapshot. Root context warns at 28 KiB and fails above the 32 KiB soft budget,
+   below the configured 64 KiB reader cap; skill entries also cap at 32 KiB.
+   New historical lessons get their own references and index rows. Required
+   method/runbook rules remain discoverable from each entry point.
+7. **Review and authorization are distinct.** Changes touching >30 production
+   files, >1000 non-generated lines, several subsystems or new public APIs need
+   design-stage review and named semantic slices. Counts trigger scrutiny; they
+   never grant approval. Record review rounds, SHA, findings and dispositions.
+   `check_delivery_state.py` verifies the actual draft/base/head/closing-keyword
+   handoff. Local rules still cannot infer owner approval or private account
+   recovery. No host permission hook is invented, no grant is changed, and no
+   draft is made ready automatically. Existing manual-test/protected-merge rules
+   remain in force.
+
+**Alternatives considered**:
+- Re-exporting settings globals by value: rejected because isolation would split
+  factory state and could address the owner's real settings store.
+- Dynamic host proxies, copied construction/geometry paths, or increasing mypy
+  allowances after extraction: rejected; they hide coupling or erase the ratchet.
+- Deleting historical skills/pickups or enlarging the citation window: rejected.
+  Shared repeated facts instead have one exact-AST record, while line citations
+  retain the original 20-line window.
+- Claiming a backup maintainer or private recovery setup: rejected without
+  explicit nomination and evidence. The runbook identifies owner-only actions.
+
+**Consequences**: No dependency, file-format, permission or release-right change.
+The public UI and MCP behavior retain their existing contracts. A9's opt-in
+`--benchmark-startup` exits after measurement using its own temporary settings
+identity; ordinary startup never takes that path. Evidence and all finding
+dispositions live in `audits/2026-10/audit-392-remaining.md`; the historical audit
+snapshot remains unchanged. Each package closes only through its complete,
+reviewed draft PR and owner acceptance.

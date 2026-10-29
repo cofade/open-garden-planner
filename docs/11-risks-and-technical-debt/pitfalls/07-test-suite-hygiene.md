@@ -139,10 +139,10 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Rule:** A hidden texture wrap seam is located by measuring the per-column difference between row 0 and row 255, not by theorising about the layout, because the metric already knows where the seam is.
 - **Pinned by:** none — the body names no test; it describes a measurement method for locating a texture seam.
 - **Source:** #309
-- **Status:** pointer → [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories were wrong; one primitive default was the bug (Package 3b #309, fixed 2026-08-18)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18)
+- **Status:** pointer → [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories were wrong; one primitive default was the bug (Package 3b #309, fixed 2026-08-18)](../../../.claude/skills/debug-verbose/references/059-case-study-regenerated-wood-texture-fails-the-seam-gate-in-y-the-obvious-layout-theor.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18)
 - **Legacy:** b1faaa9 README L408
 
-Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories were wrong; one primitive default was the bug (Package 3b #309, fixed 2026-08-18)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18). The entry keeps the rule and its pin; the account is in the link.
+Held in [debug-verbose: Case study: regenerated wood texture fails the seam gate in y — the "obvious" layout theories were wrong; one primitive default was the bug (Package 3b #309, fixed 2026-08-18)](../../../.claude/skills/debug-verbose/references/059-case-study-regenerated-wood-texture-fails-the-seam-gate-in-y-the-obvious-layout-theor.md#case-study-regenerated-wood-texture-fails-the-seam-gate-in-y--the-obvious-layout-theories-were-wrong-one-primitive-default-was-the-bug-package-3b-309-fixed-2026-08-18). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-TST-14
 

@@ -1,0 +1,9 @@
+## Case study: a fill that costs minutes, and the frame it froze (#472, 2026-10-16)
+
+**Symptom.** A crafted plan froze the 2D canvas for minutes, with no crash and no log line.
+**Wrong theories.** The cost was in item lookup/snapping; the loader was the bottleneck; a plant or tree sprite was the expensive item; my own first fix ("bound the vertex count, draw the outline instead of the fill") bounded it.
+**Evidence.** Painting the issue's comb into an offscreen 512x512 `QImage` and timing `PolygonItem.paint` **with the item's own pen**, not a default painter pen. Full-detail fill: 38 ms at 256 vertices, 322 ms at 1024, 1449 ms at 4096, 5580 ms at 16384. The same shape stroked as "the outline": **35 / 319 / 640 / 2547 ms** - barely cheaper, because Qt strokes a *wide solid* pen by building a fill. The same outline with a **cosmetic** 1-px pen: 2 / 4 / 20 / 69 ms. A convex 4096-vertex polygon fills in a few milliseconds - the cost is reflex geometry, not size.
+**Root cause.** `PolygonItem.paint` called `painter.drawPolygon` on whatever vertex count the file held; nothing bounded it at load and nothing degraded the paint. Qt's rasteriser is quadratic on a reflex-heavy fill, and the first draft's bound sat at the very count the report called pathological (1024) while its "outline" reuse of the item's pen stayed quadratic.
+**Fix.** Bound full detail at 256 vertices; degrade an interactive, unselected over-budget paint to the exact outline with a **cosmetic** pen and no fill (exports and selected items keep the exact fill); refuse a polygon above 16384 at the load seam. ADR-057, section 8.28.
+**Lesson.** A degraded path must be measured with the same inputs as the slow one - the pen the item actually uses, not a convenient default - or you have bounded the shape, not the paint. And a bound set at the count the bug report quotes as pathological does not fix the report.
+

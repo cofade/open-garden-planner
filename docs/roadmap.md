@@ -3573,3 +3573,24 @@ had not moved). The phase is pinned against the canvas's own painter, not a form
 `tests/integration/test_scene3d_fill_phase.py` bakes a real rectangle and correlates the
 mesh's UVs (NCC 0.995; the opposite sign 0.759 / 0.866). ADR-037 addendum, FR-3D-BUILT-09,
 PF-L3D-17.
+
+### Remaining audit packages A4/A6/A7/A9/A12/A13 (#392) ? draft delivery
+
+All six remaining bundle issues (#456/#458/#459/#461/#464/#465) are implemented
+on one branch against master, with A4's boundaries established before structural
+extraction. ADR-068 and [the per-finding delivery evidence](11-risks-and-technical-debt/audits/2026-10/audit-392-remaining.md)
+own the current measurements, decisions, regression nets and residual owner-only
+continuity actions. The application/canvas/property/handle extractions preserve
+existing commands, serialization, translation contexts and lifecycle boundaries.
+The performance harness covers every NFR workload; the archived audit is unchanged.
+This is not shipped: owner executable/documentation acceptance and protected merge
+remain pending. PR #639 remains separate.
+
+| Documentation | Update |
+|---|---|
+| Building blocks and runtime | Shared leaves, composed adapters, handle owners and startup refresh |
+| Crosscutting/testing and quality | Canonical instruments after extraction and reproducible workload definitions |
+| ADRs and debt reconciliation | ADR-068, per-finding evidence, measured samples and preserved historical ledger |
+| Agent instructions and skills | Concise mirrored context, exact preserved reference fragments and recursive gates |
+| Deployment/security/contributing | Existing policy owner, verified aliases and honest continuity/recovery steps |
+| Wiki sources | Architecture and contribution pointers; publication pending after approval/merge |

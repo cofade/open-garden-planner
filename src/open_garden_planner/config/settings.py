@@ -1,0 +1,985 @@
+"""Application settings management.
+
+Provides persistent storage for user preferences using QSettings, and owns
+``create_qsettings()`` — the single place in ``src/`` where a QSettings backend
+is constructed (issue #285, ADR-041).
+"""
+
+import json
+import math
+import os
+import stat
+import sys
+from collections.abc import Mapping
+from pathlib import Path
+from typing import cast
+
+from PyQt6.QtCore import QSettings
+
+from open_garden_planner.models.theme import ThemeMode
+
+# The one (organization, application) pair every store in this app is built
+# from — and, via ``main.py``, the QApplication names Qt derives the user-data
+# directory from. Deliberately module-level names that ``create_qsettings()``
+# reads on every call rather than values captured at import time: that is what
+# lets a single redirection cover every consumer, for every store built *after*
+# the redirection. It cannot retarget a store that already exists (a QSettings
+# binds these at construction), so *when* the redirection runs is what matters:
+# the test suite rebinds them at `tests/conftest.py` import time, before any test
+# module is imported. The mechanism is specified once, in docs §8.8 — read it
+# there before changing anything here. Decision + alternatives: ADR-041.
+PRODUCTION_ORGANIZATION_NAME = "cofade"
+PRODUCTION_APPLICATION_NAME = "Open Garden Planner"
+ORGANIZATION_NAME = PRODUCTION_ORGANIZATION_NAME
+APPLICATION_NAME = PRODUCTION_APPLICATION_NAME
+
+#: Set by the product's own entry point (``main()`` in ``main.py``) before it
+#: builds anything. A probe that constructs ``GardenPlannerApp`` or a scene
+#: directly does not set it — and that is the process this guard exists for (#587).
+PRODUCT_PROCESS_ENV = "OGP_PRODUCT_PROCESS"
+#: The deliberate override for a one-off tool that really must read the real
+#: store. Never set it in a product run or a test.
+ALLOW_PRODUCTION_ENV = "OGP_ALLOW_PRODUCTION_SETTINGS"
+#: Exact environment-variable names that identify an agent/tooling shell.
+#: Deliberately exact: ``CODEX_API_KEY`` or ``GEMINI_API_KEY`` must not trigger
+#: the guard — only a session marker does.
+TOOLING_ENV_MARKERS = frozenset({
+    "CLAUDECODE",
+    "CLAUDE_CODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CODEX_HOME",
+    "CODEX_MANAGED_BY_NPM",
+    "CODEX_SANDBOX",
+    "OPENCODE",
+    "OPENCODE_BINARY",
+    "OPENCODE_SESSION_ID",
+    "OPENCODE_TERMINAL",
+})
+
+
+class SettingsSecurityError(OSError):
+    """The Linux credential store could not be restricted to its owner."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        super().__init__("Cannot secure the settings file")
+
+
+class SettingsIsolationError(RuntimeError):
+    """A probe or test tried to open the owner's real settings store (#587)."""
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+        super().__init__(
+            "Refusing to open the owner's real settings store: "
+            f"{reason}. Call scripts/script_isolation.isolate() before building "
+            "anything (it redirects the store and the Qt locations), or set "
+            f"{ALLOW_PRODUCTION_ENV}=1 only if this process really must read the "
+            "real store."
+        )
+
+
+def _tooling_environment_marker(environ: Mapping[str, str] | None = None) -> str | None:
+    """The first exact agent-session variable in ``environ`` (``os.environ`` by default)."""
+    source = os.environ if environ is None else environ
+    for name in source:
+        if name in TOOLING_ENV_MARKERS:
+            return name
+    return None
+
+
+def _unsafe_production_settings_reason() -> str | None:
+    """Why this process must not open the owner's real store, or ``None``.
+
+    The product's own entry point marks itself (``PRODUCT_PROCESS_ENV``); a probe
+    that builds an application or a scene directly does not. A test or script
+    that rebinds the names is already isolated. The two remaining dangerous
+    contexts are a headless Qt platform (the product never runs on one) and an
+    agent/tooling shell (where review probes run — one switched off the owner's
+    Welcome dialog on 2026-10-24, PF-TST-27).
+    """
+    if (ORGANIZATION_NAME, APPLICATION_NAME) != (
+        PRODUCTION_ORGANIZATION_NAME, PRODUCTION_APPLICATION_NAME,
+    ):
+        return None
+    if os.environ.get(PRODUCT_PROCESS_ENV) == "1":
+        return None
+    if os.environ.get(ALLOW_PRODUCTION_ENV) == "1":
+        return None
+    platform = os.environ.get("QT_QPA_PLATFORM", "").split(":", 1)[0].strip().lower()
+    if platform in {"offscreen", "minimal"}:
+        return f"the Qt platform is {platform!r}, which the product never uses"
+    marker = _tooling_environment_marker()
+    if marker is not None:
+        return f"the process looks like an agent/tooling shell ({marker} is set)"
+    return None
+
+
+def _secure_linux_settings(path: Path) -> None:
+    """Create or migrate an owner-only regular file, without changing its data."""
+    try:
+        target = path.resolve()
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        # These POSIX APIs do not exist in the Windows os stubs/runtime. This
+        # function is called only on Linux; use feature lookup at that boundary.
+        posix = vars(os)
+        flags = os.O_RDWR | os.O_CREAT | int(posix["O_NONBLOCK"]) | int(posix["O_NOFOLLOW"])
+        fd = os.open(target, flags, 0o600)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != posix["geteuid"]():
+                raise OSError("Settings file is not owned by the current user")
+            posix["fchmod"](fd, 0o600)
+            secured = os.fstat(fd)
+            if stat.S_IMODE(secured.st_mode) != 0o600:
+                raise OSError("Settings permissions were not applied")
+        finally:
+            os.close(fd)
+    except Exception as exc:
+        raise SettingsSecurityError(path) from exc
+
+
+def create_qsettings() -> QSettings:
+    """Build the application's settings backend.
+
+    THE settings chokepoint: no other module may so much as name a QSettings,
+    which ``tests/unit/test_settings_chokepoint.py`` enforces by walking the AST
+    of every module in ``src/``, ``tests/`` and ``scripts/`` (three test modules
+    are exempt, with stated reasons). Prefer calling this at **runtime** over
+    import time: an import-time store is still redirected by the test suite, but
+    once constructed it can be retargeted by nothing at all, which makes it a
+    trap for any other isolation scheme — so the gate flags it, as a smell rather
+    than a leak. Everything that persists user state routes through here —
+    :class:`AppSettings` for preferences, ``app/ui_state.UiStateStore`` for
+    window geometry — so one redirection isolates the whole app from the user's
+    real store. Before #285 ``UiStateStore`` built its own, escaped the test
+    isolation layered on :class:`AppSettings`, and full-app tests read *and
+    overwrote* the developer's real window state (see docs §11.4).
+
+    The chokepoint is also the guard (#587): under a headless Qt platform, or in
+    an agent/tooling shell without the product's own marker, the production names
+    are refused instead of opening the owner's registry. That is what stops a
+    review probe that "looked isolated" from switching off the Welcome dialog.
+    """
+    unsafe = _unsafe_production_settings_reason()
+    if unsafe is not None:
+        raise SettingsIsolationError(unsafe)
+    settings = QSettings(ORGANIZATION_NAME, APPLICATION_NAME)
+    if sys.platform.startswith("linux"):
+        _secure_linux_settings(Path(settings.fileName()))
+    return settings
+
+
+def _finite_float(value: object) -> float | None:
+    """``value`` as a finite float, or None: no bool, no string, no NaN / infinity, and
+    no integer too large for a float (``float`` raises ``OverflowError`` on it)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
+
+
+class AppSettings:
+    """Manages application settings using Qt's QSettings.
+
+    Settings are stored in the system's native location:
+    - Windows: Registry (HKEY_CURRENT_USER/Software/cofade/Open Garden Planner)
+    - macOS: ~/Library/Preferences/com.cofade.Open Garden Planner.plist
+    - Linux: ~/.config/cofade/Open Garden Planner.conf
+    """
+
+    # Settings keys
+    KEY_AUTOSAVE_ENABLED = "autosave/enabled"
+    KEY_AUTOSAVE_INTERVAL_MINUTES = "autosave/interval_minutes"
+    KEY_RECENT_FILES = "recent_files"
+    KEY_SHOW_WELCOME = "startup/show_welcome"
+    KEY_THEME_MODE = "appearance/theme_mode"
+    KEY_SHOW_SHADOWS = "appearance/show_shadows"
+    KEY_SHOW_SCALE_BAR = "appearance/show_scale_bar"
+    KEY_SHOW_LABELS = "appearance/show_labels"
+    KEY_SHOW_CONSTRAINTS = "appearance/show_constraints"
+    KEY_OBJECT_SNAP = "canvas/object_snap_enabled"
+    KEY_MIDPOINT_SNAP = "canvas/midpoint_snap_enabled"
+    KEY_INTERSECTION_SNAP = "canvas/intersection_snap_enabled"
+    KEY_NEAREST_SNAP = "canvas/nearest_snap_enabled"
+    KEY_PERPENDICULAR_SNAP = "canvas/perpendicular_snap_enabled"
+    KEY_TANGENT_SNAP = "canvas/tangent_snap_enabled"
+    KEY_DYNAMIC_INPUT = "canvas/dynamic_input_enabled"
+    KEY_LANGUAGE = "appearance/language"
+    KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
+    KEY_SKIPPED_VERSION = "updates/skipped_version"
+
+    # Frost alert thresholds (US-12.2)
+    KEY_FROST_WARNING_ORANGE_C = "weather/frost_warning_orange_c"
+    KEY_FROST_WARNING_RED_C = "weather/frost_warning_red_c"
+
+    # Task management (US-C2)
+    KEY_NOTIFY_OVERDUE_TASKS = "tasks/notify_overdue_on_startup"
+
+    # Agent API (US-D1.1) — embedded MCP server
+    KEY_AGENT_API_ENABLED = "agent_api/enabled"
+    KEY_AGENT_API_PORT = "agent_api/port"
+    # Agent API writes (US-D2.0) — scene-mutating tools + bearer-token gate
+    KEY_AGENT_API_WRITES_ENABLED = "agent_api/writes_enabled"
+    KEY_AGENT_API_TOKEN = "agent_api/token"
+
+    # Phase 13 Package B (US-B3) — fillet/chamfer "last used" values
+    KEY_FILLET_LAST_RADIUS_CM = "tools/fillet_last_radius_cm"
+    KEY_CHAMFER_LAST_DISTANCE_CM = "tools/chamfer_last_distance_cm"
+
+    # API key settings
+    KEY_GOOGLE_MAPS_API_KEY = "api_keys/google_maps_key"
+    KEY_TREFLE_API_TOKEN = "api_keys/trefle_token"
+    KEY_PERENUAL_API_KEY = "api_keys/perenual_key"
+    KEY_PERMAPEOPLE_KEY_ID = "api_keys/permapeople_key_id"
+    KEY_PERMAPEOPLE_KEY_SECRET = "api_keys/permapeople_key_secret"
+
+    # Plant data (US-G2, issue #317)
+    KEY_DOWNLOAD_PLANT_IMAGES = "plants/download_images"
+    KEY_FETCH_COMPANION_DATA = "plants/fetch_companion_data"
+
+    # 3D view (Phase 17 L1.4): rendering quality and the animation policy
+    KEY_VIEW3D_QUALITY = "view3d/quality"
+    KEY_VIEW3D_REDUCED_MOTION = "view3d/reduced_motion"
+    KEY_VIEW3D_AUTO_LEVEL = "view3d/auto_quality_level"
+    KEY_VIEW3D_AUTO_BARS = "view3d/auto_quality_bars"
+
+    # Default values
+    DEFAULT_AUTOSAVE_ENABLED = True
+    DEFAULT_SHOW_WELCOME = True
+    DEFAULT_SHOW_SHADOWS = True
+    DEFAULT_SHOW_SCALE_BAR = True
+    DEFAULT_SHOW_LABELS = True
+    DEFAULT_SHOW_CONSTRAINTS = True
+    DEFAULT_SHOW_SPACING_CIRCLES = True
+    DEFAULT_OBJECT_SNAP = True
+    DEFAULT_MIDPOINT_SNAP = True
+    DEFAULT_INTERSECTION_SNAP = True
+    # Phase 13 Package B (US-B4): nearest snap is a fallback below the
+    # other snap kinds, defaults off so it doesn't surprise users who
+    # rely on free placement near edges.
+    DEFAULT_NEAREST_SNAP = False
+    # Phase 13 Package B (US-B5): perpendicular snap from the active
+    # tool's anchor, defaults off (opt-in CAD precision aid).
+    DEFAULT_PERPENDICULAR_SNAP = False
+    # Phase 13 Package B (US-B6): tangent snap from the active tool's
+    # anchor onto circles / arcs, defaults off (opt-in CAD precision aid).
+    DEFAULT_TANGENT_SNAP = False
+    DEFAULT_DYNAMIC_INPUT = True
+    DEFAULT_LANGUAGE = "en"
+    DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
+    MIN_AUTOSAVE_INTERVAL_MINUTES = 1
+    MAX_AUTOSAVE_INTERVAL_MINUTES = 30
+    DEFAULT_THEME_MODE = "system"
+    DEFAULT_FROST_WARNING_ORANGE_C = 5.0
+    DEFAULT_FROST_WARNING_RED_C = 2.0
+    DEFAULT_NOTIFY_OVERDUE_TASKS = True
+    DEFAULT_GOOGLE_MAPS_API_KEY = ""
+
+    # Agent API (US-D1.1): embedded MCP server. Default ON (read-only,
+    # loopback-only) so AI assistants can connect without hunting through
+    # Preferences; users can disable it. Port within the IANA user range.
+    # NOTE: token auth must land before write tools default-expose mutate access.
+    DEFAULT_AGENT_API_ENABLED = True
+    DEFAULT_AGENT_API_PORT = 8765
+    MIN_AGENT_API_PORT = 1024
+    MAX_AGENT_API_PORT = 65535
+    # Writes are OFF by default: even with a valid token, an agent cannot mutate
+    # the plan until the user opts in (belt-and-suspenders over loopback trust).
+    DEFAULT_AGENT_API_WRITES_ENABLED = False
+
+    # Phase 13 Package B (US-B3): default fillet radius / chamfer distance
+    # in cm. These are the "last used" values that prefill the input dialog
+    # so repeat applications don't require retyping.
+    DEFAULT_FILLET_LAST_RADIUS_CM = 25.0
+    DEFAULT_CHAMFER_LAST_DISTANCE_CM = 25.0
+
+    # Plant data (US-G2, issue #317)
+    DEFAULT_DOWNLOAD_PLANT_IMAGES = True
+    DEFAULT_FETCH_COMPANION_DATA = True
+
+    # 3D view (Phase 17 L1.4, ADR-059 addendum). The two tuples ARE
+    # ``core.scene3d.look.QUALITY_CHOICES`` / ``AUTO_LEVELS`` — written out here so
+    # that reading a setting does not import the 3D core at app start; a unit test
+    # pins them against it.
+    VIEW3D_QUALITY_CHOICES = ("auto", "low", "medium", "high", "ultra")
+    VIEW3D_AUTO_LEVELS = ("low", "medium", "high")
+    # "auto": the app picks low / medium / high from the frame rate it measures.
+    DEFAULT_VIEW3D_QUALITY = "auto"
+    # Wind sways leaves and grass unless the user asks for a still view.
+    DEFAULT_VIEW3D_REDUCED_MOTION = False
+    # Where "auto" starts before it has measured anything on this machine: the
+    # preset budgeted for an integrated GPU. Afterwards it starts where it ended.
+    DEFAULT_VIEW3D_AUTO_LEVEL = "medium"
+
+    def __init__(self) -> None:
+        """Initialize the settings manager."""
+        self._settings = create_qsettings()
+
+    @property
+    def autosave_enabled(self) -> bool:
+        """Whether auto-save is enabled."""
+        return cast(bool, self._settings.value(
+            self.KEY_AUTOSAVE_ENABLED,
+            self.DEFAULT_AUTOSAVE_ENABLED,
+            type=bool,
+        ))
+
+    @autosave_enabled.setter
+    def autosave_enabled(self, enabled: bool) -> None:
+        """Set whether auto-save is enabled."""
+        self._settings.setValue(self.KEY_AUTOSAVE_ENABLED, enabled)
+
+    @property
+    def autosave_interval_minutes(self) -> int:
+        """Auto-save interval in minutes."""
+        value = self._settings.value(
+            self.KEY_AUTOSAVE_INTERVAL_MINUTES,
+            self.DEFAULT_AUTOSAVE_INTERVAL_MINUTES,
+            type=int,
+        )
+        # Clamp to valid range
+        return max(
+            self.MIN_AUTOSAVE_INTERVAL_MINUTES,
+            min(self.MAX_AUTOSAVE_INTERVAL_MINUTES, cast(int, value)),
+        )
+
+    @autosave_interval_minutes.setter
+    def autosave_interval_minutes(self, minutes: int) -> None:
+        """Set the auto-save interval in minutes."""
+        clamped = max(
+            self.MIN_AUTOSAVE_INTERVAL_MINUTES,
+            min(self.MAX_AUTOSAVE_INTERVAL_MINUTES, minutes),
+        )
+        self._settings.setValue(self.KEY_AUTOSAVE_INTERVAL_MINUTES, clamped)
+
+    @property
+    def recent_files(self) -> list[str]:
+        """List of recently opened file paths."""
+        value = self._settings.value(self.KEY_RECENT_FILES, [], type=list)
+        return [str(f) for f in value] if value else []
+
+    @recent_files.setter
+    def recent_files(self, files: list[str]) -> None:
+        """Set the list of recent files."""
+        self._settings.setValue(self.KEY_RECENT_FILES, files)
+
+    def add_recent_file(self, file_path: str, max_files: int = 10) -> None:
+        """Add a file to the recent files list.
+
+        Args:
+            file_path: Path to the file to add
+            max_files: Maximum number of recent files to keep
+        """
+        files = self.recent_files
+        # Remove if already in list (will be moved to front)
+        if file_path in files:
+            files.remove(file_path)
+        # Add to front
+        files.insert(0, file_path)
+        # Truncate to max
+        self.recent_files = files[:max_files]
+
+    def clear_recent_files(self) -> None:
+        """Clear the recent files list."""
+        self.recent_files = []
+
+    @property
+    def show_welcome_on_startup(self) -> bool:
+        """Whether to show welcome screen on startup."""
+        return cast(bool, self._settings.value(
+            self.KEY_SHOW_WELCOME,
+            self.DEFAULT_SHOW_WELCOME,
+            type=bool,
+        ))
+
+    @show_welcome_on_startup.setter
+    def show_welcome_on_startup(self, show: bool) -> None:
+        """Set whether to show welcome screen on startup."""
+        self._settings.setValue(self.KEY_SHOW_WELCOME, show)
+
+    # NOTE: window geometry / QMainWindow state are owned solely by
+    # `app/ui_state.UiStateStore` under its `UiState/` group (§8.8). This class
+    # used to carry a duplicate, never-called `window_geometry`/`window_state`
+    # pair on `window/geometry` / `window/state`; both were removed in #285
+    # because a second ownership story for the same data is exactly the debt
+    # that issue was filed against. Real stores may still hold those orphaned
+    # keys — nothing reads them.
+
+    @property
+    def theme_mode(self) -> ThemeMode:
+        """Get the current theme mode preference.
+
+        Returns:
+            ThemeMode enum value (LIGHT, DARK, or SYSTEM)
+        """
+        value = self._settings.value(
+            self.KEY_THEME_MODE,
+            self.DEFAULT_THEME_MODE,
+            type=str,
+        )
+        # Convert string to enum, default to SYSTEM if invalid
+        try:
+            return ThemeMode(value.lower())
+        except (ValueError, AttributeError):
+            return ThemeMode.SYSTEM
+
+    @theme_mode.setter
+    def theme_mode(self, mode: ThemeMode) -> None:
+        """Set the theme mode preference.
+
+        Args:
+            mode: ThemeMode enum value to save
+        """
+        self._settings.setValue(self.KEY_THEME_MODE, mode.value)
+
+    @property
+    def show_shadows(self) -> bool:
+        """Whether to show drop shadows on canvas objects."""
+        return cast(bool, self._settings.value(
+            self.KEY_SHOW_SHADOWS,
+            self.DEFAULT_SHOW_SHADOWS,
+            type=bool,
+        ))
+
+    @show_shadows.setter
+    def show_shadows(self, show: bool) -> None:
+        """Set whether to show drop shadows on canvas objects."""
+        self._settings.setValue(self.KEY_SHOW_SHADOWS, show)
+
+    @property
+    def show_scale_bar(self) -> bool:
+        """Whether to show the scale bar on the canvas."""
+        return cast(bool, self._settings.value(
+            self.KEY_SHOW_SCALE_BAR,
+            self.DEFAULT_SHOW_SCALE_BAR,
+            type=bool,
+        ))
+
+    @show_scale_bar.setter
+    def show_scale_bar(self, show: bool) -> None:
+        """Set whether to show the scale bar on the canvas."""
+        self._settings.setValue(self.KEY_SHOW_SCALE_BAR, show)
+
+    @property
+    def show_labels(self) -> bool:
+        """Whether to show object labels on the canvas."""
+        return cast(bool, self._settings.value(
+            self.KEY_SHOW_LABELS,
+            self.DEFAULT_SHOW_LABELS,
+            type=bool,
+        ))
+
+    @show_labels.setter
+    def show_labels(self, show: bool) -> None:
+        """Set whether to show object labels on the canvas."""
+        self._settings.setValue(self.KEY_SHOW_LABELS, show)
+
+    @property
+    def show_constraints(self) -> bool:
+        """Whether to show constraint dimension lines on the canvas."""
+        return cast(bool, self._settings.value(
+            self.KEY_SHOW_CONSTRAINTS,
+            self.DEFAULT_SHOW_CONSTRAINTS,
+            type=bool,
+        ))
+
+    @show_constraints.setter
+    def show_constraints(self, show: bool) -> None:
+        """Set whether to show constraint dimension lines on the canvas."""
+        self._settings.setValue(self.KEY_SHOW_CONSTRAINTS, show)
+
+    @property
+    def show_spacing_circles(self) -> bool:
+        """Whether to show spacing circles around plant items."""
+        return cast(bool, self._settings.value(
+            self.KEY_SHOW_SPACING_CIRCLES,
+            self.DEFAULT_SHOW_SPACING_CIRCLES,
+            type=bool,
+        ))
+
+    @show_spacing_circles.setter
+    def show_spacing_circles(self, show: bool) -> None:
+        """Set whether to show spacing circles around plant items."""
+        self._settings.setValue(self.KEY_SHOW_SPACING_CIRCLES, show)
+
+    @property
+    def object_snap_enabled(self) -> bool:
+        """Whether snap-to-object is enabled."""
+        return cast(bool, self._settings.value(
+            self.KEY_OBJECT_SNAP,
+            self.DEFAULT_OBJECT_SNAP,
+            type=bool,
+        ))
+
+    @object_snap_enabled.setter
+    def object_snap_enabled(self, enabled: bool) -> None:
+        """Set whether snap-to-object is enabled."""
+        self._settings.setValue(self.KEY_OBJECT_SNAP, enabled)
+
+    @property
+    def midpoint_snap_enabled(self) -> bool:
+        """Whether the midpoint snap mode is enabled."""
+        return cast(bool, self._settings.value(
+            self.KEY_MIDPOINT_SNAP,
+            self.DEFAULT_MIDPOINT_SNAP,
+            type=bool,
+        ))
+
+    @midpoint_snap_enabled.setter
+    def midpoint_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_MIDPOINT_SNAP, enabled)
+
+    @property
+    def intersection_snap_enabled(self) -> bool:
+        """Whether the intersection snap mode is enabled."""
+        return cast(bool, self._settings.value(
+            self.KEY_INTERSECTION_SNAP,
+            self.DEFAULT_INTERSECTION_SNAP,
+            type=bool,
+        ))
+
+    @intersection_snap_enabled.setter
+    def intersection_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_INTERSECTION_SNAP, enabled)
+
+    @property
+    def nearest_snap_enabled(self) -> bool:
+        """Whether the nearest-point fallback snap mode is enabled."""
+        return cast(bool, self._settings.value(
+            self.KEY_NEAREST_SNAP,
+            self.DEFAULT_NEAREST_SNAP,
+            type=bool,
+        ))
+
+    @nearest_snap_enabled.setter
+    def nearest_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_NEAREST_SNAP, enabled)
+
+    @property
+    def perpendicular_snap_enabled(self) -> bool:
+        """Whether perpendicular snap (from tool last_point) is enabled."""
+        return cast(bool, self._settings.value(
+            self.KEY_PERPENDICULAR_SNAP,
+            self.DEFAULT_PERPENDICULAR_SNAP,
+            type=bool,
+        ))
+
+    @perpendicular_snap_enabled.setter
+    def perpendicular_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_PERPENDICULAR_SNAP, enabled)
+
+    @property
+    def tangent_snap_enabled(self) -> bool:
+        """Whether tangent snap (from tool last_point onto circles/arcs) is enabled."""
+        return cast(bool, self._settings.value(
+            self.KEY_TANGENT_SNAP,
+            self.DEFAULT_TANGENT_SNAP,
+            type=bool,
+        ))
+
+    @tangent_snap_enabled.setter
+    def tangent_snap_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_TANGENT_SNAP, enabled)
+
+    @property
+    def dynamic_input_enabled(self) -> bool:
+        """Whether typed coordinate input (status bar + cursor overlay) is on."""
+        return cast(bool, self._settings.value(
+            self.KEY_DYNAMIC_INPUT,
+            self.DEFAULT_DYNAMIC_INPUT,
+            type=bool,
+        ))
+
+    @dynamic_input_enabled.setter
+    def dynamic_input_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_DYNAMIC_INPUT, enabled)
+
+    @property
+    def language(self) -> str:
+        """Get the current UI language code (e.g. 'en', 'de')."""
+        return str(
+            self._settings.value(
+                self.KEY_LANGUAGE,
+                self.DEFAULT_LANGUAGE,
+                type=str,
+            )
+        )
+
+    @language.setter
+    def language(self, lang_code: str) -> None:
+        """Set the UI language code."""
+        self._settings.setValue(self.KEY_LANGUAGE, lang_code)
+
+    # --- API key properties ---
+
+    @property
+    def google_maps_api_key(self) -> str:
+        """Google Maps API key entered in Preferences, if any."""
+        return str(
+            self._settings.value(
+                self.KEY_GOOGLE_MAPS_API_KEY,
+                self.DEFAULT_GOOGLE_MAPS_API_KEY,
+                type=str,
+            )
+        )
+
+    @google_maps_api_key.setter
+    def google_maps_api_key(self, key: str) -> None:
+        """Persist the Google Maps API key entered in Preferences."""
+        self._settings.setValue(self.KEY_GOOGLE_MAPS_API_KEY, key)
+
+    @property
+    def trefle_api_token(self) -> str:
+        """Trefle API token."""
+        return str(
+            self._settings.value(self.KEY_TREFLE_API_TOKEN, "", type=str)
+        )
+
+    @trefle_api_token.setter
+    def trefle_api_token(self, token: str) -> None:
+        """Set the Trefle API token."""
+        self._settings.setValue(self.KEY_TREFLE_API_TOKEN, token)
+
+    @property
+    def perenual_api_key(self) -> str:
+        """Perenual API key."""
+        return str(
+            self._settings.value(self.KEY_PERENUAL_API_KEY, "", type=str)
+        )
+
+    @perenual_api_key.setter
+    def perenual_api_key(self, key: str) -> None:
+        """Set the Perenual API key."""
+        self._settings.setValue(self.KEY_PERENUAL_API_KEY, key)
+
+    @property
+    def permapeople_key_id(self) -> str:
+        """Permapeople API key ID."""
+        return str(
+            self._settings.value(self.KEY_PERMAPEOPLE_KEY_ID, "", type=str)
+        )
+
+    @permapeople_key_id.setter
+    def permapeople_key_id(self, key_id: str) -> None:
+        """Set the Permapeople API key ID."""
+        self._settings.setValue(self.KEY_PERMAPEOPLE_KEY_ID, key_id)
+
+    @property
+    def permapeople_key_secret(self) -> str:
+        """Permapeople API key secret."""
+        return str(
+            self._settings.value(self.KEY_PERMAPEOPLE_KEY_SECRET, "", type=str)
+        )
+
+    @permapeople_key_secret.setter
+    def permapeople_key_secret(self, secret: str) -> None:
+        """Set the Permapeople API key secret."""
+        self._settings.setValue(self.KEY_PERMAPEOPLE_KEY_SECRET, secret)
+
+    @property
+    def skipped_version(self) -> str:
+        """Version tag the user chose to skip (e.g. ``"v1.6.0"``), or ``""``."""
+        return str(self._settings.value(self.KEY_SKIPPED_VERSION, "", type=str))
+
+    @skipped_version.setter
+    def skipped_version(self, tag: str) -> None:
+        """Persist the version tag the user chose to skip."""
+        self._settings.setValue(self.KEY_SKIPPED_VERSION, tag)
+
+    @property
+    def frost_warning_orange_c(self) -> float:
+        """Temperature threshold (°C) for orange half-hardy frost warning."""
+        return float(
+            self._settings.value(
+                self.KEY_FROST_WARNING_ORANGE_C,
+                self.DEFAULT_FROST_WARNING_ORANGE_C,
+                type=float,
+            )
+        )
+
+    @frost_warning_orange_c.setter
+    def frost_warning_orange_c(self, value: float) -> None:
+        """Set the orange frost warning threshold."""
+        self._settings.setValue(self.KEY_FROST_WARNING_ORANGE_C, value)
+
+    @property
+    def frost_warning_red_c(self) -> float:
+        """Temperature threshold (°C) for red tender-plant frost alert."""
+        return float(
+            self._settings.value(
+                self.KEY_FROST_WARNING_RED_C,
+                self.DEFAULT_FROST_WARNING_RED_C,
+                type=float,
+            )
+        )
+
+    @frost_warning_red_c.setter
+    def frost_warning_red_c(self, value: float) -> None:
+        """Set the red frost alert threshold."""
+        self._settings.setValue(self.KEY_FROST_WARNING_RED_C, value)
+
+    @property
+    def notify_overdue_tasks_on_startup(self) -> bool:
+        """Whether to notify about overdue tasks on startup."""
+        return cast(bool, self._settings.value(
+            self.KEY_NOTIFY_OVERDUE_TASKS,
+            self.DEFAULT_NOTIFY_OVERDUE_TASKS,
+            type=bool,
+        ))
+
+    @notify_overdue_tasks_on_startup.setter
+    def notify_overdue_tasks_on_startup(self, value: bool) -> None:
+        """Set whether to notify about overdue tasks on startup."""
+        self._settings.setValue(self.KEY_NOTIFY_OVERDUE_TASKS, bool(value))
+
+    @property
+    def fillet_last_radius_cm(self) -> float:
+        """Most recently used fillet radius (cm)."""
+        return float(
+            self._settings.value(
+                self.KEY_FILLET_LAST_RADIUS_CM,
+                self.DEFAULT_FILLET_LAST_RADIUS_CM,
+                type=float,
+            )
+        )
+
+    @fillet_last_radius_cm.setter
+    def fillet_last_radius_cm(self, value: float) -> None:
+        self._settings.setValue(self.KEY_FILLET_LAST_RADIUS_CM, float(value))
+
+    @property
+    def chamfer_last_distance_cm(self) -> float:
+        """Most recently used chamfer distance (cm)."""
+        return float(
+            self._settings.value(
+                self.KEY_CHAMFER_LAST_DISTANCE_CM,
+                self.DEFAULT_CHAMFER_LAST_DISTANCE_CM,
+                type=float,
+            )
+        )
+
+    @chamfer_last_distance_cm.setter
+    def chamfer_last_distance_cm(self, value: float) -> None:
+        self._settings.setValue(self.KEY_CHAMFER_LAST_DISTANCE_CM, float(value))
+
+    @property
+    def download_plant_images(self) -> bool:
+        """Whether to download plant images for the database panel (US-G2)."""
+        return cast(bool, self._settings.value(
+            self.KEY_DOWNLOAD_PLANT_IMAGES,
+            self.DEFAULT_DOWNLOAD_PLANT_IMAGES,
+            type=bool,
+        ))
+
+    @download_plant_images.setter
+    def download_plant_images(self, value: bool) -> None:
+        self._settings.setValue(self.KEY_DOWNLOAD_PLANT_IMAGES, bool(value))
+
+    @property
+    def fetch_companion_data(self) -> bool:
+        """Whether to fetch companion data from Permapeople (US-G3)."""
+        return cast(bool, self._settings.value(
+            self.KEY_FETCH_COMPANION_DATA,
+            self.DEFAULT_FETCH_COMPANION_DATA,
+            type=bool,
+        ))
+
+    @fetch_companion_data.setter
+    def fetch_companion_data(self, value: bool) -> None:
+        self._settings.setValue(self.KEY_FETCH_COMPANION_DATA, bool(value))
+
+    @property
+    def agent_api_enabled(self) -> bool:
+        """Whether the embedded Agent API MCP server is enabled (default on)."""
+        return cast(bool, self._settings.value(
+            self.KEY_AGENT_API_ENABLED,
+            self.DEFAULT_AGENT_API_ENABLED,
+            type=bool,
+        ))
+
+    @agent_api_enabled.setter
+    def agent_api_enabled(self, value: bool) -> None:
+        """Set whether the embedded Agent API MCP server is enabled."""
+        self._settings.setValue(self.KEY_AGENT_API_ENABLED, bool(value))
+
+    @property
+    def agent_api_port(self) -> int:
+        """TCP port for the embedded Agent API server (loopback only)."""
+        value = self._settings.value(
+            self.KEY_AGENT_API_PORT,
+            self.DEFAULT_AGENT_API_PORT,
+            type=int,
+        )
+        return max(self.MIN_AGENT_API_PORT, min(self.MAX_AGENT_API_PORT, cast(int, value)))
+
+    @agent_api_port.setter
+    def agent_api_port(self, value: int) -> None:
+        """Set the Agent API port, clamped to the IANA user range."""
+        clamped = max(self.MIN_AGENT_API_PORT, min(self.MAX_AGENT_API_PORT, value))
+        self._settings.setValue(self.KEY_AGENT_API_PORT, clamped)
+
+    @property
+    def agent_api_writes_enabled(self) -> bool:
+        """Whether agents may mutate the plan via write tools (default off).
+
+        The bearer token still gates every write even when this is on; this
+        toggle is the user's explicit opt-in to agent editing on top of that.
+        """
+        return cast(bool, self._settings.value(
+            self.KEY_AGENT_API_WRITES_ENABLED,
+            self.DEFAULT_AGENT_API_WRITES_ENABLED,
+            type=bool,
+        ))
+
+    @agent_api_writes_enabled.setter
+    def agent_api_writes_enabled(self, value: bool) -> None:
+        """Set whether agents may mutate the plan via write tools."""
+        self._settings.setValue(self.KEY_AGENT_API_WRITES_ENABLED, bool(value))
+
+    @property
+    def agent_api_token(self) -> str:
+        """The bearer token an agent must present to call write tools.
+
+        Auto-generated on first access (and persisted) so a user who enables
+        writes always has a token to hand to their client — they never have to
+        invent one. Reads never require it (loopback trust, unchanged).
+        """
+        import secrets
+
+        token = self._settings.value(self.KEY_AGENT_API_TOKEN, "", type=str)
+        if not token:
+            token = secrets.token_urlsafe(32)
+            self._settings.setValue(self.KEY_AGENT_API_TOKEN, token)
+        return cast(str, token)
+
+    def regenerate_agent_api_token(self) -> str:
+        """Replace the Agent API bearer token with a fresh one and return it.
+
+        Any client configured with the old token stops being able to write
+        until re-registered — the intended effect of "revoke access".
+        """
+        import secrets
+
+        token = secrets.token_urlsafe(32)
+        self._settings.setValue(self.KEY_AGENT_API_TOKEN, token)
+        return token
+
+    @property
+    def view3d_quality(self) -> str:
+        """Rendering quality of the 3D view: ``auto`` or a preset name (L1.4).
+
+        Anything else in the store (a hand-edited value, a preset a later version
+        dropped) reads as the default — a quality nobody can name must not reach
+        the renderer.
+        """
+        value = self._settings.value(self.KEY_VIEW3D_QUALITY, self.DEFAULT_VIEW3D_QUALITY, type=str)
+        text = str(value).strip().lower()
+        return text if text in self.VIEW3D_QUALITY_CHOICES else self.DEFAULT_VIEW3D_QUALITY
+
+    @view3d_quality.setter
+    def view3d_quality(self, value: str) -> None:
+        text = str(value).strip().lower()
+        if text not in self.VIEW3D_QUALITY_CHOICES:
+            text = self.DEFAULT_VIEW3D_QUALITY
+        self._settings.setValue(self.KEY_VIEW3D_QUALITY, text)
+
+    @property
+    def view3d_reduced_motion(self) -> bool:
+        """Whether the 3D view stands still: no wind in leaves and grass (default off)."""
+        return bool(self._settings.value(
+            self.KEY_VIEW3D_REDUCED_MOTION,
+            self.DEFAULT_VIEW3D_REDUCED_MOTION,
+            type=bool,
+        ))
+
+    @view3d_reduced_motion.setter
+    def view3d_reduced_motion(self, value: bool) -> None:
+        self._settings.setValue(self.KEY_VIEW3D_REDUCED_MOTION, bool(value))
+
+    @property
+    def view3d_auto_level(self) -> str:
+        """The preset the automatic quality last settled on — where it starts next time.
+
+        Not a preference with a control: the app writes it when ``auto`` steps.
+        """
+        value = self._settings.value(
+            self.KEY_VIEW3D_AUTO_LEVEL, self.DEFAULT_VIEW3D_AUTO_LEVEL, type=str)
+        text = str(value).strip().lower()
+        return text if text in self.VIEW3D_AUTO_LEVELS else self.DEFAULT_VIEW3D_AUTO_LEVEL
+
+    @view3d_auto_level.setter
+    def view3d_auto_level(self, value: str) -> None:
+        text = str(value).strip().lower()
+        if text not in self.VIEW3D_AUTO_LEVELS:
+            text = self.DEFAULT_VIEW3D_AUTO_LEVEL
+        self._settings.setValue(self.KEY_VIEW3D_AUTO_LEVEL, text)
+
+    @property
+    def view3d_auto_bars(self) -> dict[str, tuple[float, float]]:
+        """The levels the automatic quality had to leave for being too slow, each with
+        when it may be tried again (seconds since the epoch) and how long its next bar
+        lasts — ``{level: (until, next_retry_s)}``. Stored as JSON; anything that is not
+        a level with two finite numbers is dropped — also an integer too large for a
+        float, on which ``math.isfinite`` raises (re-check of L1.4 fix round 1) — so a
+        hand-edited store only ever loses a bar. How far ahead a bar may reach is the
+        reader's to cap (``AutoPreset`` clamps it to its longest retry).
+
+        Not a preference with a control: the app writes it when ``auto`` steps."""
+        raw = self._settings.value(self.KEY_VIEW3D_AUTO_BARS, "", type=str)
+        try:
+            data = json.loads(raw) if raw else {}
+        except (TypeError, ValueError):
+            return {}
+        bars: dict[str, tuple[float, float]] = {}
+        if not isinstance(data, dict):
+            return bars
+        for level, value in data.items():
+            if not (level in self.VIEW3D_AUTO_LEVELS and isinstance(value, list)
+                    and len(value) == 2):
+                continue
+            numbers = [_finite_float(v) for v in value]
+            if numbers[0] is not None and numbers[1] is not None:
+                bars[level] = (numbers[0], numbers[1])
+        return bars
+
+    @view3d_auto_bars.setter
+    def view3d_auto_bars(self, bars: dict[str, tuple[float, float]]) -> None:
+        clean = {level: [float(until), float(retry)] for level, (until, retry) in bars.items()
+                 if level in self.VIEW3D_AUTO_LEVELS
+                 and math.isfinite(until) and math.isfinite(retry)}
+        self._settings.setValue(self.KEY_VIEW3D_AUTO_BARS, json.dumps(clean, sort_keys=True))
+
+    def sync(self) -> None:
+        """Force settings to be written to storage."""
+        self._settings.sync()
+
+
+# Singleton instance
+_settings_instance: AppSettings | None = None
+
+
+def get_settings() -> AppSettings:
+    """Get the global settings instance."""
+    global _settings_instance
+    if _settings_instance is None:
+        _settings_instance = AppSettings()
+    return _settings_instance
+
+
+def active_language() -> str:
+    """Return the active UI language code, or "en" when settings are unavailable.
+
+    The one source of the UI language for shared, Qt-free services that build a
+    display string. A service that selects a bilingual data field (amendment or
+    companion names) or that must render a name in the user's language calls
+    this rather than defaulting to "en". Returns "en" when no settings exist
+    (for example in a headless import), so callers never raise.
+    """
+    try:
+        return get_settings().language or "en"
+    except Exception:
+        return "en"

@@ -283,7 +283,7 @@ pin). Cross-refs: FR-*, §8.x, PF-*.>
 | `docs/12-glossary/` | <new terms / shortcuts> |
 ```
 
-### Debug-verbose case study (append to `.agents/skills/debug-verbose/SKILL.md`)
+### Debug-verbose case study (add a mirrored reference and update its case index)
 
 ```markdown
 ## Case study: <short symptom title> (fixed YYYY-MM-DD)

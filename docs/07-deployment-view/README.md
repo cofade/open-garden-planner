@@ -832,3 +832,15 @@ The inventory tests decide whether to skip at collection, then inspect the exe
 and manifest later. PyInstaller COLLECT replaces that directory; concurrent runs
 can therefore produce a missing-exe or missing-manifest failure. Finish the build
 and inventory generation before running the suite against the stable artifact.
+
+
+### Maintainer continuity and audit handoff
+
+The [continuity runbook](maintainer-continuity.md) names the current policy owner,
+verified identity reconciliation, recovery sequence and owner-only actions. It
+does not grant release rights or assert a backup maintainer exists. Review routing
+is in CODEOWNERS. A package handoff is checked read-only with
+`scripts/check_delivery_state.py <PR> --issue <N>` (repeat `--issue` for siblings).
+It must still target master, match the local feature head and remain a draft.
+The existing owner acceptance, frozen gates and protected release sequence remain
+binding; ADR-068 and the audit evidence record the new measurements.

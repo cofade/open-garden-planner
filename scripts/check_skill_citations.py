@@ -53,6 +53,7 @@ implement (see §11.4).
 
 from __future__ import annotations
 
+import ast
 import json
 import keyword
 import re
@@ -71,8 +72,8 @@ from check_agent_context import HOST_ONLY_SKILLS  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 CORPUS_GLOBS: tuple[str, ...] = (
-    ".claude/skills/*/SKILL.md",
-    ".agents/skills/*/SKILL.md",
+    ".claude/skills/**/*.md",
+    ".agents/skills/**/*.md",
     "CLAUDE.md",
     "AGENTS.md",
 )
@@ -94,11 +95,11 @@ ISSUE_REGISTRY_PATH = "tests/data/issue_registry.json"
 # test_no_exemption_is_dead fails if an entry stops being needed.
 KNOWN_EXCEPTIONS: dict[tuple[str, str], str] = {
     (
-        ".claude/skills/debug-verbose/SKILL.md",
+        ".claude/skills/debug-verbose/references/060-case-study-the-full-battery-aborts-with-heap-corruption-in-a-plant-sprite-test-an-unp.md",
         "pytestqt/plugin.py:220",
     ): "third-party library (pytest-qt runtime dependency), not part of this repo",
     (
-        ".agents/skills/debug-verbose/SKILL.md",
+        ".agents/skills/debug-verbose/references/060-case-study-the-full-battery-aborts-with-heap-corruption-in-a-plant-sprite-test-an-unp.md",
         "pytestqt/plugin.py:220",
     ): "third-party library (pytest-qt runtime dependency), not part of this repo",
 }
@@ -160,7 +161,8 @@ def find_corpus_files(root: Path = REPO_ROOT) -> list[Path]:
             # own content for these) — this repo can't fix what it doesn't
             # author, the same carve-out check_agent_context.py's own
             # parity gate makes.
-            if path.parent.name in HOST_ONLY_SKILLS:
+            relative = path.relative_to(root).parts
+            if len(relative) > 2 and relative[1] == "skills" and relative[2] in HOST_ONLY_SKILLS:
                 continue
             files.append(path)
     return files
@@ -486,6 +488,34 @@ def check_repo(root: Path = REPO_ROOT) -> list[str]:
     errors += check_fr_refs(root, corpus_files, build_fr_pool(root))
     errors += check_file_line_refs(root, corpus_files)
     errors += check_issue_refs(root, corpus_files, load_issue_registry(root))
+    errors += check_fact_refs(root, corpus_files)
+    return errors
+
+
+def check_fact_refs(root: Path, corpus_files: list[Path]) -> list[str]:
+    """One exact AST expression per repeated fact; no line-number tolerance."""
+    pattern = re.compile(r"`fact:([a-z0-9-]+)`")
+    registry_path = root / "quality/skill-facts.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8")) if registry_path.exists() else {}
+    referenced = {m.group(1) for p in corpus_files
+                  for m in pattern.finditer(p.read_text(encoding="utf-8"))}
+    errors = []
+    for key in sorted(referenced):
+        record = registry.get(key)
+        if record is None:
+            errors.append(f"Unknown skill fact: {key}")
+            continue
+        path = root / record["path"]
+        if not path.is_file():
+            errors.append(f"Skill fact {key}: missing {record['path']}")
+            continue
+        expression = ast.dump(ast.parse(record["expression"], mode="eval").body)
+        matches = sum(ast.dump(node) == expression for node in
+                      ast.walk(ast.parse(path.read_text(encoding="utf-8"))))
+        if matches != 1:
+            errors.append(f"Skill fact {key}: expected one exact expression, found {matches}")
+    for key in registry.keys() - referenced:
+        errors.append(f"Unreferenced skill fact: {key}")
     return errors
 
 

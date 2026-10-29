@@ -1,0 +1,143 @@
+{
+  "startup": [
+    {
+      "frozen": true,
+      "platform": "Windows-10-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+      "python": "3.11.9",
+      "qt": "6.11.0",
+      "qt_platform": "native",
+      "pid": 27640,
+      "usable_window": true,
+      "stages_ms": {
+        "imports": 255.3460999915842,
+        "first_theme": 281.10759999253787,
+        "window_shown": 1572.768600002746,
+        "second_theme": 2022.1762000001036,
+        "painted_event_loop": 2034.436400004779
+      },
+      "definition": "shown canvas, synchronous repaint, first event-loop callback",
+      "cache": "filesystem cache uncontrolled; repeated fresh processes",
+      "launch_to_usable_ms": 2328.9901000098325
+    },
+    {
+      "frozen": true,
+      "platform": "Windows-10-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+      "python": "3.11.9",
+      "qt": "6.11.0",
+      "qt_platform": "native",
+      "pid": 7012,
+      "usable_window": true,
+      "stages_ms": {
+        "imports": 272.6137999998173,
+        "first_theme": 303.15089999930933,
+        "window_shown": 1533.7890000082552,
+        "second_theme": 2014.338900000439,
+        "painted_event_loop": 2028.745899995556
+      },
+      "definition": "shown canvas, synchronous repaint, first event-loop callback",
+      "cache": "filesystem cache uncontrolled; repeated fresh processes",
+      "launch_to_usable_ms": 2319.715099991299
+    },
+    {
+      "frozen": true,
+      "platform": "Windows-10-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+      "python": "3.11.9",
+      "qt": "6.11.0",
+      "qt_platform": "native",
+      "pid": 4084,
+      "usable_window": true,
+      "stages_ms": {
+        "imports": 261.4233999920543,
+        "first_theme": 292.2642000048654,
+        "window_shown": 1572.7811999968253,
+        "second_theme": 1926.5608999994583,
+        "painted_event_loop": 1941.033700000844
+      },
+      "definition": "shown canvas, synchronous repaint, first event-loop callback",
+      "cache": "filesystem cache uncontrolled; repeated fresh processes",
+      "launch_to_usable_ms": 2230.92989998986
+    }
+  ],
+  "workloads": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+    "python": "3.11.9",
+    "qt": "6.11.0",
+    "qt_platform": "windows",
+    "coverage": false,
+    "plan": "tests/fixtures/plans/audit-2026-10-plan_500.ogp",
+    "load": {
+      "samples_ms": [
+        188.5035000013886,
+        161.9280000013532,
+        148.2296000031056
+      ],
+      "median_ms": 161.9280000013532,
+      "min_ms": 148.2296000031056,
+      "max_ms": 188.5035000013886
+    },
+    "save": {
+      "samples_ms": [
+        46.81670000718441,
+        45.40969998924993,
+        50.60470000898931
+      ],
+      "median_ms": 46.81670000718441,
+      "min_ms": 45.40969998924993,
+      "max_ms": 50.60470000898931
+    },
+    "png_300dpi_width42cm": {
+      "samples_ms": [
+        1590.2847999968799,
+        1540.2287000033539,
+        1491.1345000000438
+      ],
+      "median_ms": 1540.2287000033539,
+      "min_ms": 1491.1345000000438,
+      "max_ms": 1590.2847999968799,
+      "pixels": [
+        4960,
+        2976
+      ]
+    },
+    "fit_repaint": {
+      "samples_ms": [
+        18.564599988167174,
+        17.082000005757436,
+        16.015700006391853,
+        16.61009999224916,
+        18.07619999453891,
+        20.632200001273304,
+        20.356899985927157,
+        19.424100013566203,
+        16.128300005220808,
+        17.266199996811338,
+        15.985499994712882,
+        16.563599987421185,
+        15.974499998264946,
+        16.938100001425482,
+        15.584599997964688
+      ],
+      "median_ms": 16.938100001425482,
+      "min_ms": 15.584599997964688,
+      "max_ms": 20.632200001273304
+    },
+    "idle": {
+      "scene_changed": 0,
+      "minimap_renders": 0,
+      "seconds": 30.0,
+      "rss_before_bytes": 232513536,
+      "rss_after_bytes": 232505344
+    },
+    "multi_add_ms": {
+      "100-direct": 2.653700008522719,
+      "100-batch": 3.606199999921955,
+      "500-direct": 12.670699987211265,
+      "500-batch": 16.049199999542907
+    },
+    "pid": 3980
+  }
+}

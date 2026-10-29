@@ -882,10 +882,11 @@ DERIVING: dict[str, dict[str, str]] = {
         "_trim_polyline": "trim (clone_with_points)", "_trim_polygon": "trim", "_trim_rectangle": "trim",
     },
     "ui/canvas/items/polyline_item.py": {"clone_with_points": "clone_with_points"},
-    "ui/canvas/canvas_view.py": {
+    "ui/canvas/canvas_view.py": {"boolean_operation": "boolean merge"},
+    "ui/canvas/clipboard_operations.py": {
         "paste": "clipboard", "duplicate_selected": "duplicate", "create_linear_array": "arrays",
         "create_grid_array": "arrays", "create_circular_array": "arrays",
-        "create_array_along_path": "arrays", "boolean_operation": "boolean merge",
+        "create_array_along_path": "arrays",
     },
 }
 
@@ -974,6 +975,7 @@ def test_the_map_of_item_from_item_operations_is_current() -> None:
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _derives_an_item(node):
                     found.setdefault(relative, set()).add(node.name)
     # the loader, the wrapper that IS the primitive and the helper itself are not derivations
+    found.get("ui/canvas/clipboard_operations.py", set()).discard("_deserialize_item")
     found.get("ui/canvas/canvas_view.py", set()).discard("_deserialize_item")
     found.pop("core/project.py", None)
     found.pop("core/item_look.py", None)

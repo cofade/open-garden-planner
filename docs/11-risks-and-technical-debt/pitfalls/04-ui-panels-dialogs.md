@@ -237,10 +237,10 @@ Pinned by `tests/integration/test_toolbar_state_persistence.py::TestToolbarVisib
 - **Rule:** A live-verification harness hooks a dialog's accept or its `finished` signal, never a polling timer, because `QDialog.accept()` hides the window and can end the app before the next poll.
 - **Pinned by:** none — The body names no test; it records a lesson for live-verification harnesses rather than guarded product behaviour.
 - **Source:** #346
-- **Status:** pointer → [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (issue #346, fixed 2026-09-01)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01)
+- **Status:** pointer → [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (issue #346, fixed 2026-09-01)](../../../.claude/skills/debug-verbose/references/066-case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01)
 - **Legacy:** b1faaa9 README L426
 
-Held in [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (issue #346, fixed 2026-09-01)](../../../.claude/skills/debug-verbose/SKILL.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01). The entry keeps the rule and its pin; the account is in the link.
+Held in [debug-verbose: Case study: live capture harness saw "capture did not complete" while the feature worked (issue #346, fixed 2026-09-01)](../../../.claude/skills/debug-verbose/references/066-case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked.md#case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked-issue-346-fixed-2026-09-01). The entry keeps the rule and its pin; the account is in the link.
 
 ### PF-UI-21
 

@@ -51,7 +51,7 @@ def _active_language() -> str:
     Delegates to the one shared resolver so this module, the task generator and
     the companion-set finder cannot disagree about the current UI language.
     """
-    from open_garden_planner.app.settings import active_language
+    from open_garden_planner.config.settings import active_language
 
     return active_language()
 

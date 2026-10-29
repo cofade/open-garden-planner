@@ -277,10 +277,9 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
 
         menu.addSeparator()
 
-        duplicate_action = menu.addAction(_("EllipseItem", "Duplicate"))
-        linear_array_action = menu.addAction(_("EllipseItem", "Create Linear Array..."))
-        grid_array_action = menu.addAction(_("EllipseItem", "Create Grid Array..."))
-        circular_array_action = menu.addAction(_("EllipseItem", "Create Circular Array..."))
+        from .common_menu import build_repeat_actions
+
+        repeat_actions = build_repeat_actions(menu, "EllipseItem")
 
         # Boolean operations (union supports two or more closed shapes; the
         # other operations stay a two-shape relation)
@@ -330,30 +329,8 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
             scene = self.scene()
             for item in scene.selectedItems():
                 scene.removeItem(item)
-        elif action == duplicate_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views and hasattr(views[0], "duplicate_selected"):
-                    views[0].duplicate_selected()
-        elif action == linear_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views and hasattr(views[0], "create_linear_array"):
-                    views[0].create_linear_array()
-        elif action == grid_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views and hasattr(views[0], "create_grid_array"):
-                    views[0].create_grid_array()
-        elif action == circular_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views and hasattr(views[0], "create_circular_array"):
-                    views[0].create_circular_array()
+        elif repeat_actions.dispatch(action, self.scene()):
+            return
         elif action is not None and action in (
             boolean_union_action, boolean_intersect_action, boolean_subtract_action
         ):

@@ -12,7 +12,7 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsScene
 
-from open_garden_planner.app.settings import get_settings
+from open_garden_planner.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 

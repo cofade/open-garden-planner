@@ -33,7 +33,6 @@ from open_garden_planner.core.measure_snapper import (
     get_anchor_points,
 )
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
-from open_garden_planner.ui.canvas.items import GardenItemMixin
 
 _log = logging.getLogger(__name__)
 
@@ -189,6 +188,7 @@ class ConstraintTool(BaseTool):
 
     def _show_anchor_indicators(self, scene_pos: QPointF) -> None:
         """Show anchor indicators on objects near the mouse position."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -1168,6 +1168,7 @@ class AngleConstraintTool(BaseTool):
         self._anchor_indicators.clear()
 
     def _show_anchor_indicators(self, scene_pos: QPointF) -> None:
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -1545,6 +1546,7 @@ class SymmetryConstraintTool(BaseTool):
         self._anchor_indicators.clear()
 
     def _show_anchor_indicators(self, scene_pos: QPointF) -> None:
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -2563,6 +2565,7 @@ class EqualConstraintTool(BaseTool):
 
     def _show_edge_indicators(self, scene_pos: QPointF) -> None:
         from open_garden_planner.core.measure_snapper import AnchorType
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         scene = self._view.scene()
         if not scene:
@@ -3780,6 +3783,8 @@ class FixedConstraintTool(BaseTool):
 
     def _find_garden_item_at(self, scene_pos: QPointF):
         """Return the topmost GardenItemMixin under scene_pos, or None."""
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
         scene = self._view.scene()
         if scene is None:
             return None

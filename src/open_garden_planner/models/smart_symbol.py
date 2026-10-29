@@ -36,7 +36,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from open_garden_planner.core.parametric_eval import safe_eval
+from open_garden_planner.models.parametric_eval import safe_eval
 
 _PARAM_TYPES = {"number", "length", "choice"}
 _ELEMENT_KINDS = {"rect", "line", "polyline", "polygon", "circle"}

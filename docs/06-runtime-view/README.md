@@ -883,3 +883,32 @@ The viewer filters the daily series by range, then sums components into the sele
 calendar grain. A Pages failure leaves the pushed history intact. Report-only runs never
 contact the API or advance the observation time. See section 7.4 for UTC assignment,
 estimate labels and first-deployment setup; no runtime app dependency is involved.
+
+
+## Agent host and startup refresh after audit extraction (ADR-068)
+
+```mermaid
+sequenceDiagram
+    participant Client as MCP client
+    participant Server as Agent API
+    participant Host as Application compatibility methods / AgentHost
+    participant Bridge as MainThreadBridge
+    participant Commands as Canonical commands
+    Client->>Server: authorized operation
+    Server->>Host: production provider
+    Host->>Bridge: run_on_main
+    Bridge->>Host: validated main-thread body
+    Host->>Commands: one existing operation path
+    Commands-->>Host: document / history result
+    Host-->>Client: existing transport schema
+```
+
+On close, the application calls the adapter: abort queued main-thread hops first,
+then stop/join the server, then clear the server reference. A queued aborted
+callable must never run after shutdown. The adapter owns no mirrored document or
+server state. Compatibility methods keep call signatures and test injection seams.
+
+Normal startup applies the application stylesheet and palette before constructing
+the window. After show, `refresh_window_theme` updates native frames and opt-in
+palette/icon hooks without reapplying the stylesheet or notifying listeners a
+second time. A later user theme change still uses the complete `apply_theme` path.

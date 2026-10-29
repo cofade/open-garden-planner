@@ -200,6 +200,10 @@ For further details and source pattern requirements, see [docs/TRANSLATING.md](d
 
 ## Pull requests and review
 
+Review routing and owner-only recovery actions are in the
+[maintainer continuity runbook](docs/07-deployment-view/maintainer-continuity.md).
+CODEOWNERS does not grant release privileges.
+
 Open a **draft PR** with the problem, resulting behaviour, related issue, validation evidence, and manual review checklist.
 The project requires an independent senior-reviewer pass before opening the draft.
 Address all P0/P1 findings and repeat review after fixes.

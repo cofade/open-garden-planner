@@ -2325,7 +2325,7 @@ def build_server(
     @mcp.resource("garden://examples", mime_type="application/json")
     async def examples_resource() -> list[dict[str, Any]]:
         """Bundled offline examples; opening remains a GUI action."""
-        from open_garden_planner.app.settings import active_language
+        from open_garden_planner.config.settings import active_language
         from open_garden_planner.services.example_library import examples_resource as catalog
 
         return catalog(active_language())

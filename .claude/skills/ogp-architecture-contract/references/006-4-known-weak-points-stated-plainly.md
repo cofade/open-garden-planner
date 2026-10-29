@@ -1,0 +1,18 @@
+## 4. Known weak points — stated plainly
+
+Do not "discover" these; they are known, documented, and mostly deliberate.
+
+| Weak point | Status (2026-07-03) |
+|---|---|
+| **#206 rebuild-on-repaint firehose.** `scene.changed` fires on every repaint; several panels historically rebuilt themselves off it. Band-aids in place: properties panel does identity-keyed incremental refresh (#222/#223), plant-search list has a debounce + row-signature early-return (#212). The structural smell — chatty signal driving full scene re-queries — **remains**; any new panel wired to `scene.changed` must be debounced AND idempotent (diff before rebuild). | Open smell, band-aided |
+| **TD-007 `EDGE_*` anchor instability.** Polygon/polyline edge anchors classify by dominant axis (`EDGE_TOP/BOTTOM/LEFT/RIGHT`); moving a vertex far enough flips the classification and constraint indicators jump edges. Workaround: index-only match in `_resolve_anchor_position`. Real fix (stable `EDGE_MIDPOINT` + numeric index) not done. | Open, medium, workaround in place |
+| **TD-008 numerical Jacobian.** Newton refinement uses central differences (`constraint_solver_newton._JACOBIAN_H`), not analytic derivatives. Accepted: microseconds at ≤20 variables. Revisit only if large-scene solves bottleneck. (ADR-012.) | Accepted, low |
+| **Agent API reads are unauthenticated.** Loopback-only, on by default — any local process can read the open plan. **Writes are token-gated** since D2.0 (see invariant 12e), but the token travels in the connect **URL**, so it is visible in local request logs (accepted tradeoff, ADR-036). | Reads open by design; writes gated |
+| **Heavyweight calendar refresh (#210 trade-off).** `PlantingCalendarView.refresh()` is expensive; it is kept off the per-command hot path via debounced `schedule_refresh()` that skips while the tab is hidden (#225), and weather arrives via `_rebuild_dashboard()` (not full `refresh()`) to avoid a fetch loop. Don't wire it to anything chattier. | Mitigated trade-off |
+| **Two divergent item serializers** (found in ADR-026): `CanvasView`'s clipboard pair (has `text`, drops `layer_id`/`item_id`, no arc/bezier) vs `ProjectManager`'s save/load pair (has arc/bezier + ids, no `text` branch). Neither covers everything; Mirror deliberately bypassed both by rebuilding live items. If your feature needs "serialize any item", **do not trust either alone**. | Open, unconsolidated |
+| **DXF gaps:** Bezier curves rasterize to line segments (native cubic export deferred, ADR-022); smart-symbol INSERT rotation sign is a known nuance (unrotated exact); DXF blocks key on `(symbol_id, params)` so identical-param instances share the first one's colour (ADR-032). | Known limitations, logged |
+| **`is_bed_type` naming debt:** the name now means "soil-capable" (includes containers/wall planters), not literally "bed". A rename to `is_soil_container_type` was rejected as a ~30-site churn; documented trade-off (ADR-031). | Accepted readability debt |
+| **i18n gate blind spot:** `scripts/check_translations.py` covers wrapped source keys in all locales; a truly unwrapped English display f-string remains outside extraction. Review is the only defense. | Structural test gap |
+| **Smart-symbol `version` field is a strict geometry contract:** editing a bundled symbol's geometry without bumping its `version` silently re-renders already-saved plans (ADR-032). Sidebar panel currently hidden via one line: `fact:smart-symbol-panel-hidden` (exact source in `quality/skill-facts.json`). | Sharp edge + deferred UI |
+| **Agent diagnostics may lag a debounce tick** — `get_diagnostics` reports the last *computed* badge state, never recomputes (ADR-034). Fine for read-only inspection; don't build write logic on it. | By design |
+

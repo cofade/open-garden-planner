@@ -816,9 +816,9 @@ class TestTheLinkAloneNeverLifts:
             "ui/canvas/footprints.py",      # inside centre_is_inside
             "core/commands.py",             # auto-parenting: create, bulk create, paste
             "ui/canvas/canvas_view.py",     # the re-link after a drag
-            "app/application.py",           # the agent's re-link after move_object
+            "app/agent_host.py",            # the agent's re-link after move_object
         }
-        assert users["centre_is_inside"] == {"app/application.py"}  # set_parent_bed's link_is_geometric
+        assert users["centre_is_inside"] == {"app/agent_host.py"}  # set_parent_bed's link_is_geometric
         assert users["standing_point"] == {
             "ui/canvas/footprints.py",      # the LIFT's point
             "ui/canvas/canvas_scene.py",    # the stacking clamp asks the SAME point (#629)
