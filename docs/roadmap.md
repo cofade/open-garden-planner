@@ -3574,7 +3574,7 @@ had not moved). The phase is pinned against the canvas's own painter, not a form
 mesh's UVs (NCC 0.995; the opposite sign 0.759 / 0.866). ADR-037 addendum, FR-3D-BUILT-09,
 PF-L3D-17.
 
-### Agent move atomicity, plant holder sun exposure, shade mask memory, Windows power throttling opt-out, and Node 24 CI (#635, #621, #579, #616, #637)
+### Agent move atomicity, plant holder sun exposure, shade mask memory, Windows power throttling opt-out, and Node 24 CI (#635, #621, #579, #616, #637) — **shipped 2026-10-29 as v1.34.4, PR #639**
 
 Package of five targeted bug fixes and hardening improvements across agent editing, solar simulation, heatmap memory, test harness performance, and CI workflows:
 

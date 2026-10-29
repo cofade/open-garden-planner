@@ -272,12 +272,12 @@ window system, runs under xvfb.
 | `lint` | Lint | Linux | Ruff over source, tests and scripts |
 | `test` | Test | Linux | Source-derived translation gate for all registered locales, then full pytest suite with Qt offscreen |
 | `security` | Security | Linux | Bandit HIGH findings and tracked-secret scan |
-| `dependencies` | Dependencies (ubuntu-latest/windows-latest) | Matrix | Clean locked installation, freshness and export checks, and the lock-based `pip-audit` scan on **both** platforms (AUD-054: pip-audit evaluates markers for the running platform, so a Linux-only scan never sees the Windows-only `pywin32`) |
-| `types` | Types (ubuntu-latest/windows-latest) | Matrix | Strict mypy against per-file platform allowances |
+| `dependencies` | Dependencies (ubuntu-24.04/windows-latest) | Matrix | Clean locked installation, freshness and export checks, and the lock-based `pip-audit` scan on **both** platforms (AUD-054: pip-audit evaluates markers for the running platform, so a Linux-only scan never sees the Windows-only `pywin32`) |
+| `types` | Types (ubuntu-24.04/windows-latest) | Matrix | Strict mypy against per-file platform allowances |
 | `coverage` | Coverage partition (0/1) | Linux matrix | Two disjoint non-perf test-ID hash partitions, each with four xdist workers and branch tracing |
 | `coverage-perf` | Coverage performance | Linux | All perf-marked tests alone at `-n 0`, with branch tracing |
 | `coverage-floor` | Coverage | Linux | Require successful measurements, combine all three data files, emit XML and enforce unchanged package/file line floors |
-| `render3d` | Render 3D (ubuntu-latest/windows-latest) | Matrix | The 3D render tier (`OGP_RENDER3D=1`) of the engine package: Linux under xvfb with xcb and OpenGL on Mesa llvmpipe, Windows with Direct3D 11 on WARP. Frames, results and logs are uploaded. Not required by protection |
+| `render3d` | Render 3D (ubuntu-24.04/windows-latest) | Matrix | The 3D render tier (`OGP_RENDER3D=1`) of the engine package: Linux under xvfb with xcb and OpenGL on Mesa llvmpipe, Windows with Direct3D 11 on WARP. Frames, results and logs are uploaded. Not required by protection |
 
 The matrix jobs each emit two concrete check names. The reviewed protection payload requires
 the existing checks plus both dependency/type matrix results and an up-to-date PR. `Coverage`

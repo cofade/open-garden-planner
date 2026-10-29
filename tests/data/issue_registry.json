@@ -1086,7 +1086,7 @@
   },
   "579": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Heatmap: per-sample shade masks are allocated on every run, even when 3D never sweeps"
   },
   "580": {
@@ -1226,7 +1226,7 @@
   },
   "616": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Windows power throttling raises local perf-tier timings ~1.8x partway through a run"
   },
   "617": {
@@ -1251,7 +1251,7 @@
   },
   "621": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Per-plant sun: a plant inside a cold frame, planter pot or greenhouse reads 0 h (follow-up to #388)"
   },
   "623": {
@@ -1296,12 +1296,22 @@
   },
   "635": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "One agent move that reparents a plant records two undo steps, while the GUI now records one"
   },
   "637": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CI: Upgrade GitHub Actions to Node 24 runtime & pin runner image to ubuntu-24.04"
+  },
+  "639": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#635, #621, #579, #616, #637): agent move atomicity, plant holder sun exposure, shade mask memory, Windows power throttling opt-out, and Node 24 CI"
+  },
+  "641": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Sun exposure: plants elevated in raised beds/containers are evaluated at ground level (z = 0), receiving false shade warnings from fences/walls"
   }
 }
