@@ -3627,7 +3627,7 @@ Targeted bugfix package addressing four high-priority defects across solar expos
 Shipped in v1.34.6 (PR #645) after full owner manual testing, a clean senior-reviewer pass, and protected merge. The gravel correction in the same PR makes 3D relief follow the canonical rounded painted rim within its relief budget, including caps and holes.
 
 
-### 3D visual and engine hardening package (#535, #578, #576, #619, #589, #582, #615) — **in progress, PR #...**
+### 3D visual and engine hardening package (#535, #578, #576, #619, #589, #582, #615)
 
 Visual polish, engine hardening, and performance bounds for the Qt Quick 3D and solar simulation subsystems:
 
@@ -3640,3 +3640,5 @@ Visual polish, engine hardening, and performance bounds for the Qt Quick 3D and 
    - Generic area shapes (`GENERIC_RECTANGLE`, `GENERIC_POLYGON`, `GENERIC_CIRCLE`, `GENERIC_ELLIPSE`) lie on the ground under 2D shadow and hours-of-sun overlays when height is 0 or unset, matching beds and paths.
 5. **#582: Cutaway shader compilation pre-warming.** Declared `shaderWarmer` in `Garden.qml` to compile PSOs for `screen.vert`/`screen.frag`, `foliage_door.vert`/`foliage_door.frag`, `grass_door.vert`/`foliage_door.frag`, and `water_door.frag` on initial load (with `uOpacity: 0.0`), eliminating GUI thread freeze on first Cutaway/X-ray toggle.
 6. **#615: Ground-bake benchmark bound alignment.** Aligned `test_scene3d_ground_bake.py` G3 test comments and docstrings with the shipped 20 ms / 2 passes contract for 4-tile edits (`BAKE_BUDGET_S`).
+
+Shipped in v1.34.7 (PR #647) after full owner manual testing, a clean senior-reviewer pass, and protected merge.
