@@ -14,8 +14,9 @@ the missing handler, rather than an unconditional disable, was the defect.
 if not previously enabled, and in `finally` do not disable if `faulthandler` was already
 enabled or targeted to an external file. In `test_quick3d_selftest.py`, enable early `faulthandler`
 and print selftest log tails on assertion failures. Pinned by `tests/integration/test_quick3d_selftest.py`.
-**Lesson.** Context managers that manage global process-level hooks (like `faulthandler` or
-signal handlers) must restore previous state rather than unconditionally disabling them.
+**Lesson.** Preserve an existing process-wide handler. A newly installed handler
+pointing at the deliberately persistent crash-log descriptor stays enabled through
+teardown; only a temporary devnull target is disabled before its descriptor closes.
 
 **Review regression (PR #645).** Injecting a refused crash-log open printed
 `[WATCHDOG] observed=UnboundLocalError ...; armed=1`; the original exception

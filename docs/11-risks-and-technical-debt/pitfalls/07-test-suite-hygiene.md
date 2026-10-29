@@ -503,10 +503,8 @@ When running Qt Quick 3D child processes from source or during integration tests
 
 ### PF-TST-35
 
-- **Rule:** Finish queued repaint invalidation and its minimap debounce before
-  starting the audit driver's idle counters; fail explicitly if they never settle.
-- **Pinned by:** `tests/integration/test_audit_performance_driver.py` (ordinary
-  and queued-final-repaint cases).
+- **Rule:** Complete repaint and minimap events before measuring idle.
+- **Pinned by:** `tests/integration/test_audit_performance_driver.py`
 - **Source:** PR #645 Coverage partition 0 failure.
 - **Status:** standing
 - **Legacy:** none (new entry)
