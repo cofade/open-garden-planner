@@ -15,12 +15,15 @@ Prereleases are left out of the window table (not of the totals).
 
 ## Last 30 snapshots
 
-No values yet: the baseline was taken on 2026-10-28T17:19:46Z.
+| Snapshot (UTC) | Window (h) | Installer | SHA256SUMS.txt | Note |
+| --- | ---: | ---: | ---: | --- |
+| 2026-10-29 05:50 | 12.5 | 2 | 0 | window is not about a day; new release or asset |
 
-## Totals per release (counters at 2026-10-28T17:19:46Z)
+## Totals per release (counters at 2026-10-29T05:50:06Z)
 
 | Release | Installer | SHA256SUMS.txt |
 | --- | ---: | ---: |
+| v1.34.3 | 2 | 0 |
 | v1.34.2 | 0 | 0 |
 | v1.34.1 | 0 | 0 |
 | v1.34.0 | 4 | 2 |
@@ -220,4 +223,4 @@ No values yet: the baseline was taken on 2026-10-28T17:19:46Z.
 | v1.0.2 | 1 | 1 |
 | v1.0.1 | 4 | 1 |
 | v1.0.0 | 1 | 1 |
-| **All** | 678 | 93 |
+| **All** | 680 | 93 |

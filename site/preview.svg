@@ -786,8 +786,8 @@
 <rect x="1044.296" y="249.500" width="3.082" height="0.000" fill="#2da44e"><title>2026-10-27: 0 (Recorded increment)</title></rect>
 <rect x="1044.296" y="249.500" width="3.082" height="0.000" fill="#bf8700"><title>2026-10-27: 0 (Gap estimate)</title></rect>
 <rect x="1048.148" y="310.000" width="3.082" height="0.000" fill="#8b949e"><title>2026-10-28: 0 (Historical estimate)</title></rect>
-<rect x="1048.148" y="310.000" width="3.082" height="0.000" fill="#2da44e"><title>2026-10-28: 0 (Recorded increment)</title></rect>
-<rect x="1048.148" y="310.000" width="3.082" height="0.000" fill="#bf8700"><title>2026-10-28: 0 (Gap estimate)</title></rect>
+<rect x="1048.148" y="287.000" width="3.082" height="23.000" fill="#2da44e"><title>2026-10-28: 2 (Recorded increment)</title></rect>
+<rect x="1048.148" y="287.000" width="3.082" height="0.000" fill="#bf8700"><title>2026-10-28: 0 (Gap estimate)</title></rect>
 <text x="62" y="335">2026-02-14</text>
 <text x="1052" y="335" text-anchor="end">2026-10-28 (UTC)</text>
 <rect x="24" y="360" width="11" height="11" fill="#8b949e"/>
