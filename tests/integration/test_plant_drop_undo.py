@@ -7,6 +7,8 @@ commands it decides now run as one ``CompoundCommand``.
 
 from __future__ import annotations
 
+from typing import Any
+
 from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtTest import QTest
 
@@ -159,3 +161,137 @@ def test_a_bed_dragged_alone_carries_its_plant_and_undo_restores_both(qtbot) -> 
     assert bed.pos() == bed_start, "undo puts the bed back"
     assert plant.pos() == plant_start, "... and the child with it, to the centimetre"
     assert plant.parent_bed_id == bed.item_id
+
+
+
+def _discard_on_close(monkeypatch: Any) -> None:
+    from PyQt6.QtWidgets import QMessageBox
+
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        lambda *_a, **_k: QMessageBox.StandardButton.Discard,
+    )
+
+
+def test_agent_move_object_reparent_into_bed_undoes_as_one_step(qtbot: Any, monkeypatch: Any) -> None:
+    """Agent move_object reparenting a plant into a bed is ONE undo step (#635)."""
+    from open_garden_planner.app.application import GardenPlannerApp
+
+    _discard_on_close(monkeypatch)
+    window = GardenPlannerApp()
+    qtbot.addWidget(window)
+    try:
+        scene = window.canvas_scene
+        view = window.canvas_view
+
+        bed = RectangleItem(x=200, y=200, width=400, height=400,
+                            object_type=ObjectType.GARDEN_BED)
+        scene.addItem(bed)
+        plant = CircleItem(center_x=900, center_y=400, radius=20, object_type=ObjectType.TREE)
+        plant.metadata["plant_species"] = {"common_name": "Apple", "scientific_name": "Malus domestica"}
+        scene.addItem(plant)
+        assert plant.parent_bed_id is None
+        start_pos = QPointF(plant.pos())
+
+        before = len(view.command_manager._undo_stack)
+        # Move plant into the bed: dx = -500, dy = 0
+        res = window._do_agent_move_object(str(plant.item_id), -500.0, 0.0)
+        assert res["bed_membership_changed"] is True
+        assert res["new_parent_bed_id"] == str(bed.item_id)
+        assert plant.parent_bed_id == bed.item_id
+        assert len(view.command_manager._undo_stack) == before + 1, "exactly one undo step recorded (#635)"
+
+        view.command_manager.undo()
+        assert plant.parent_bed_id is None, "one undo restores None parent"
+        assert plant.pos() == start_pos, "... and restores original position"
+
+        view.command_manager.redo()
+        assert plant.parent_bed_id == bed.item_id, "one redo restores bed parent"
+        assert plant.pos() != start_pos, "... and restores moved position"
+    finally:
+        window._project_manager.mark_clean()
+        window._stop_agent_api()
+        window.close()
+
+
+def test_agent_move_object_reparent_out_of_bed_undoes_as_one_step(qtbot: Any, monkeypatch: Any) -> None:
+    """Agent move_object reparenting a plant out of a bed is ONE undo step (#635)."""
+    from open_garden_planner.app.application import GardenPlannerApp
+
+    _discard_on_close(monkeypatch)
+    window = GardenPlannerApp()
+    qtbot.addWidget(window)
+    try:
+        scene = window.canvas_scene
+        view = window.canvas_view
+
+        bed = RectangleItem(x=200, y=200, width=400, height=400,
+                            object_type=ObjectType.GARDEN_BED)
+        scene.addItem(bed)
+        plant = CircleItem(center_x=400, center_y=400, radius=20, object_type=ObjectType.TREE)
+        plant.metadata["plant_species"] = {"common_name": "Apple", "scientific_name": "Malus domestica"}
+        scene.addItem(plant)
+        plant.parent_bed_id = bed.item_id
+        bed.add_child_id(plant.item_id)
+        start_pos = QPointF(plant.pos())
+
+        before = len(view.command_manager._undo_stack)
+        # Move plant out of bed: dx = 500, dy = 0
+        res = window._do_agent_move_object(str(plant.item_id), 500.0, 0.0)
+        assert res["bed_membership_changed"] is True
+        assert res["new_parent_bed_id"] is None
+        assert plant.parent_bed_id is None
+        assert len(view.command_manager._undo_stack) == before + 1, "exactly one undo step recorded (#635)"
+
+        view.command_manager.undo()
+        assert plant.parent_bed_id == bed.item_id, "one undo restores bed parent"
+        assert plant.pos() == start_pos, "... and restores position inside bed"
+
+        view.command_manager.redo()
+        assert plant.parent_bed_id is None, "one redo detaches from bed"
+        assert plant.pos() != start_pos
+    finally:
+        window._project_manager.mark_clean()
+        window._stop_agent_api()
+        window.close()
+
+
+def test_agent_set_object_position_reparent_undoes_as_one_step(qtbot: Any, monkeypatch: Any) -> None:
+    """Agent set_object_position reparenting a plant is ONE undo step (#635)."""
+    from open_garden_planner.app.application import GardenPlannerApp
+
+    _discard_on_close(monkeypatch)
+    window = GardenPlannerApp()
+    qtbot.addWidget(window)
+    try:
+        scene = window.canvas_scene
+        view = window.canvas_view
+
+        bed = RectangleItem(x=200, y=200, width=400, height=400,
+                            object_type=ObjectType.GARDEN_BED)
+        scene.addItem(bed)
+        plant = CircleItem(center_x=900, center_y=400, radius=20, object_type=ObjectType.TREE)
+        plant.metadata["plant_species"] = {"common_name": "Apple", "scientific_name": "Malus domestica"}
+        scene.addItem(plant)
+        assert plant.parent_bed_id is None
+        start_pos = QPointF(plant.pos())
+
+        before = len(view.command_manager._undo_stack)
+        # Set position into bed (center at 400, 400)
+        res = window._do_agent_set_object_position(str(plant.item_id), 400.0, 400.0)
+        assert res["bed_membership_changed"] is True
+        assert res["new_parent_bed_id"] == str(bed.item_id)
+        assert plant.parent_bed_id == bed.item_id
+        assert len(view.command_manager._undo_stack) == before + 1, "exactly one undo step recorded (#635)"
+
+        view.command_manager.undo()
+        assert plant.parent_bed_id is None
+        assert plant.pos() == start_pos
+
+        view.command_manager.redo()
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.pos() != start_pos
+    finally:
+        window._project_manager.mark_clean()
+        window._stop_agent_api()
+        window.close()

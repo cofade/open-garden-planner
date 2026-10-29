@@ -181,6 +181,7 @@ class HeatmapWorker(QThread):
         grid: HeatmapGrid,
         parent: QObject | None = None,
         *, receivers: tuple[SunReceiver, ...] = (),
+        include_sample_masks: bool = False,
     ) -> None:
         super().__init__(parent)
         self._casters = casters
@@ -189,6 +190,7 @@ class HeatmapWorker(QThread):
         self._lon = lon_deg
         self._day = day
         self._grid = grid
+        self._include_sample_masks = include_sample_masks
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -203,6 +205,7 @@ class HeatmapWorker(QThread):
             self._day,
             self._grid,
             rasterize_polygons_qimage,
+            include_sample_masks=self._include_sample_masks,
             progress=lambda done, total: self.progress.emit(done, total),
             should_cancel=lambda: self._cancelled,
         )
@@ -239,6 +242,7 @@ class SunHeatmapController(QObject):
         super().__init__(parent)
         self._scene = scene
         self._location_provider = location_provider
+        self.include_sample_masks: bool = False
         self._overlay: SunHeatmapOverlayItem | None = None
         self._worker: HeatmapWorker | None = None
         self._grid: HeatmapGrid | None = None
@@ -338,7 +342,10 @@ class SunHeatmapController(QObject):
         x0, y0, w, h = snapshot.bounds
         receivers = tuple(receiver for receiver in snapshot.receivers
                           if x0 <= receiver.x_cm < x0 + w and y0 <= receiver.y_cm < y0 + h)
-        worker = HeatmapWorker(list(snapshot.casters), latitude, longitude, day, grid, self, receivers=receivers)
+        worker = HeatmapWorker(
+            list(snapshot.casters), latitude, longitude, day, grid, self,
+            receivers=receivers, include_sample_masks=self.include_sample_masks,
+        )
         worker.progress.connect(self.progress)
         worker.success.connect(self._on_success)
         worker.finished.connect(self._on_worker_finished)

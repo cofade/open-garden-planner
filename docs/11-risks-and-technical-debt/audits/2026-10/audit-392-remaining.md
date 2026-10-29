@@ -3,7 +3,8 @@
 Prepared on 29 October 2026 from `master` at `003c4bc4`. This is implementation
 evidence for a draft PR; it is not a release or owner acceptance. The dated
 original audit remains unchanged. GitHub showed exactly A4/A6/A7/A9/A12/A13
-open at intake. PR #639 is separate and none of its work is included here.
+open at intake. PR #639 was delivered separately; this branch now incorporates
+its shipped v1.34.4 changes and version sync from master (`eb0eda0f`).
 
 ## Review slices and acceptance mapping
 
@@ -167,3 +168,20 @@ checks actual unrounded coverage counts.
 The correction's fresh-worktree re-review has no P0/P1/P2 findings; the full
 regular suite was rerun (20,181 passed, 264 skipped). The follow-up reviewed tree
 is recorded separately from the original implementation review in the receipt.
+
+### Master synchronization after v1.34.4
+
+The branch incorporates master `eb0eda0f08691592469482ed880b4009bb2e573e`
+(PR #639 and version-sync PR #642). The atomic move/membership builder from #635
+now lives in the extracted `AgentHost`, with explicit application delegates;
+the move and link still execute as one compound command. The upstream
+move-in/move-out/absolute-position integration tests exercise this merged path.
+The holder sun, drape, power-throttling and Node 24 CI changes remain the
+upstream implementations. Regenerated catalogs retain every supported locale.
+
+The compact root context and shared smart-symbol fact references remain in
+place. Current architecture references now describe atomic agent reparenting;
+the migration manifest preserves original hashes and records this later
+semantic update separately. The latest validation and rebuilt-artifact results
+are reported on the synchronized PR head; earlier receipts above remain dated
+evidence for their original heads. Owner acceptance is still pending.

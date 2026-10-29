@@ -1,6 +1,6 @@
 {
   "baseline": "003c4bc4c1fba470a8159ce9078a2d3086bd66e4",
-  "note": "Each original newline-normalized body was reconstructed byte-for-byte immediately after splitting. Subsequent changes only relocate citations, links and one repeated fact to its shared exact-AST record. Original and current fragment hashes are retained.",
+  "note": "Each original newline-normalized body was reconstructed byte-for-byte immediately after splitting. Subsequent changes only relocate citations, links and one repeated fact to its shared exact-AST record. Original and current fragment hashes are retained. Post-migration semantic updates are recorded separately below; the original fragment hashes remain unchanged.",
   "skills": {
     ".agents/skills/debug-verbose/SKILL.md": {
       "original_sha256": "9cd918e76afc70a1a83e9feab5dbde8b870662aa75e6c2f6f30b08e5fc3c0622",
@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "c23fe8b9fa5b595714d33566b680d2c91de797bc845cc598c219f9d245d9b975"
+          "current_sha256": "9902d1c66e458a4833b0d4be610d57fbe997f634c42f55252fe480e01b41801d"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -1068,7 +1068,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/005-3-the-write-path-command-pattern-8-2-adr-004.md",
           "sha256": "7ca1576933bbbf288baf6b33a54bc1ca0568493e0d12adfc36597a2374983f46",
-          "current_sha256": "7ca1576933bbbf288baf6b33a54bc1ca0568493e0d12adfc36597a2374983f46"
+          "current_sha256": "5ebbfc728c2cca8ec0ae82d1729676382dc8150f8c04e17c03e3fbb38d230817"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/006-4-known-weak-points-stated-plainly.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "c23fe8b9fa5b595714d33566b680d2c91de797bc845cc598c219f9d245d9b975"
+          "current_sha256": "9902d1c66e458a4833b0d4be610d57fbe997f634c42f55252fe480e01b41801d"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -2468,7 +2468,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/005-3-the-write-path-command-pattern-8-2-adr-004.md",
           "sha256": "7ca1576933bbbf288baf6b33a54bc1ca0568493e0d12adfc36597a2374983f46",
-          "current_sha256": "7ca1576933bbbf288baf6b33a54bc1ca0568493e0d12adfc36597a2374983f46"
+          "current_sha256": "5ebbfc728c2cca8ec0ae82d1729676382dc8150f8c04e17c03e3fbb38d230817"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/006-4-known-weak-points-stated-plainly.md",
@@ -2884,5 +2884,15 @@
       "`application.py:5368` `set_panel_visible(\"smart_symbols\", False)`",
       "`application.py:2702` `set_panel_visible(\"smart_symbols\", False)`"
     ]
+  ],
+  "post_migration_updates": [
+    {
+      "master": "eb0eda0f08691592469482ed880b4009bb2e573e",
+      "reason": "PR #639 shipped atomic agent move/reparenting in v1.34.4; update current invariants and command-path references while preserving original hashes.",
+      "fragments": [
+        "003-1-invariants-the-heart-of-this-skill.md",
+        "005-3-the-write-path-command-pattern-8-2-adr-004.md"
+      ]
+    }
   ]
 }

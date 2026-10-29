@@ -22,8 +22,8 @@ push commands from interaction handlers.
   (`MirrorItemsCommand`, ADR-026), param-edit-as-`ChangePropertyCommand` with an
   apply_func (smart symbols, ADR-032).
 - **D2 agent writes inherit all of this** (invariant 13): one MCP write call →
-  one `run_on_main` hop → one command via `execute()`/`register_applied()` (the
-  documented move/set-position reparent case is the sole two-step exception).
+  one `run_on_main` hop → one command via `execute()`/`register_applied()`.
+  Move/set-position reparenting uses one compound command since #635 (v1.34.4).
   D2.6 vertex writes use the same canonical builders in
   `ui/canvas/geometry_apply.py` as the interactive polygon/polyline paths; never
   add a private callback in `application.py`.

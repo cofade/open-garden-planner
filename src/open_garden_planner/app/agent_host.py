@@ -705,8 +705,8 @@ class AgentHost:
         ``move_object`` and ``set_object_position`` differ only in how they
         derive ``delta``. Both therefore share child propagation, constraint
         preflight, command selection, and bed-membership reconciliation. A plant
-        crossing a bed boundary inherits ``move_object``'s documented second
-        undo step; every other move is one step.
+        crossing a bed boundary runs as one CompoundCommand (move + link);
+        every move is one undo step (issue #635).
         """
         host = self._host
         from open_garden_planner.core.commands import AlignItemsCommand, MoveItemsCommand
@@ -783,6 +783,10 @@ class AgentHost:
             ]
             delta = _QPointF(clamped_dx, clamped_dy)
 
+        reparented, new_parent_bed_id, link_cmd = (
+            host._agent_reconcile_bed_membership_command(item, delta=delta)
+        )
+
         if len(item_deltas) == 1:
             move_cmd: Command = MoveItemsCommand([item], delta)
         else:
@@ -791,14 +795,18 @@ class AgentHost:
             move_cmd = AlignItemsCommand(
                 item_deltas, QCoreApplication.translate("Commands", "Move item")
             )
-        host.canvas_view.command_manager.execute(move_cmd)
+        if link_cmd is not None:
+            from open_garden_planner.core.commands import CompoundCommand
 
-        reparented, new_parent_bed_id = host._agent_reconcile_bed_membership(item)
+            final_cmd: Command = CompoundCommand([move_cmd, link_cmd], move_cmd.description)
+        else:
+            final_cmd = move_cmd
+        host.canvas_view.command_manager.execute(final_cmd)
         cx, cy = host._agent_item_center(item)
         return {
             "item_id": item_id,
             "action": action,
-            "undo_description": move_cmd.description,
+            "undo_description": final_cmd.description,
             "x": cx,
             "y": cy,
             "children_moved": len(item_deltas) - 1,
@@ -827,20 +835,27 @@ class AgentHost:
         return item_deltas
 
 
-    def _agent_reconcile_bed_membership(self, item: Any) -> tuple[bool, str | None]:
-        """After moving a plant, re-evaluate its bed membership — the
-        release-time equivalent of ``CanvasView._update_plant_bed_relationships``.
-        Returns ``(changed, new_parent_bed_id)``; a non-plant item or an
-        unchanged membership returns ``(False, None)``."""
+    def _agent_reconcile_bed_membership_command(
+        self, item: Any, *, delta: Any | None = None
+    ) -> tuple[bool, str | None, Command | None]:
+        """Evaluate bed membership for a plant item, returning (changed, new_parent_id, command).
+
+        The command is NOT executed here. If delta is given, membership is evaluated
+        at the target position (item centre + delta); otherwise at the item's current position.
+        """
         host = self._host
         from open_garden_planner.core.commands import SetParentBedCommand
+        from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.footprints import bed_membership_point
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         if not isinstance(item, GardenItemMixin) or not is_plant_type(item.object_type):
-            return False, None
+            return False, None, None
 
         plant_center = bed_membership_point(item)
+        if delta is not None:
+            plant_center = plant_center + delta
+
         current_parent_id = item.parent_bed_id
         new_bed = host.canvas_scene.find_smallest_bed_containing(plant_center)
         new_parent_id = (
@@ -849,13 +864,21 @@ class AgentHost:
             else None
         )
         if new_parent_id == current_parent_id:
-            return False, None
+            return False, None, None
 
         cmd = SetParentBedCommand(
             host.canvas_scene, cast(Any, item), current_parent_id, new_parent_id
         )
-        host.canvas_view.command_manager.execute(cmd)
-        return True, str(new_parent_id) if new_parent_id is not None else None
+        return True, str(new_parent_id) if new_parent_id is not None else None, cmd
+
+
+    def _agent_reconcile_bed_membership(self, item: Any) -> tuple[bool, str | None]:
+        """Reconcile a plant's current membership through the shared command builder."""
+        host = self._host
+        changed, new_parent_id, cmd = host._agent_reconcile_bed_membership_command(item)
+        if cmd is not None:
+            host.canvas_view.command_manager.execute(cmd)
+        return changed, new_parent_id
 
 
     def _agent_item_center(self, item: Any) -> tuple[float, float]:

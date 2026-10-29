@@ -53,10 +53,11 @@ from .polygon import RegionTooLargeError, group_rings, triangulate_region
 _log = logging.getLogger(__name__)
 
 #: How far above the ground plane the drape lies (cm). The ground tiles and the endless
-#: meadow's frame lie at 0: at the workspace's near plane (5 cm) a 24-bit depth
-#: buffer resolves about 0.3 cm at 50 m and 1.2 cm at 100 m, so 1.5 cm keeps the drape
-#: off the ground's depth from every distance the orbit camera frames a garden at.
-DRAPE_LIFT_CM: Final = 1.5
+#: meadow's frame lie at 0; surface relief (terrace deck boards at 2.5 cm, kerbs at 3.0 cm)
+#: lies up to 3.0 cm. 3.5 cm keeps the drape visible above both ground tiles and surface
+#: relief (such as a terrace deck, #388 / #621) while remaining well below furniture and
+#: standing items.
+DRAPE_LIFT_CM: Final = 3.5
 #: What the shade layer multiplies the frame under a shadow with, linear RGB: below 1
 #: in every channel (a shadow only darkens) and ordered like the canvas's shadow
 #: colour (30, 41, 66) - blue kept most, red least. Measured 2026-10-24 (D3D11, the

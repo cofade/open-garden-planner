@@ -665,13 +665,11 @@ def test_move_plant_into_bed_reconciles_parent(qtbot: Any, monkeypatch: Any) -> 
         assert result["new_parent_bed_id"] == str(bed.item_id)
         assert plant.parent_bed_id == bed.item_id
         assert plant.item_id in bed.child_item_ids
-        # Two undo steps: the reparent (executed second) undoes first, then the move.
+        # Exactly one atomic undo step: undoes both the reparent and the move (#635).
         assert win.canvas_view.command_manager.can_undo
         win.canvas_view.command_manager.undo()
         assert plant.parent_bed_id is None
         assert plant.item_id not in bed.child_item_ids
-        assert win.canvas_view.command_manager.can_undo
-        win.canvas_view.command_manager.undo()
         assert win.canvas_view.command_manager.can_undo is False
     finally:
         win._stop_agent_api()
@@ -2573,8 +2571,7 @@ def test_set_object_position_shares_move_child_and_reparent_orchestration(
         assert outside["bed_membership_changed"] is True
         assert outside["new_parent_bed_id"] is None
         assert plant.parent_bed_id is None
-        assert len(win.canvas_view.command_manager._undo_stack) == 2
-        win.canvas_view.command_manager.undo()
+        assert len(win.canvas_view.command_manager._undo_stack) == 1
         win.canvas_view.command_manager.undo()
         assert plant.parent_bed_id == bed.item_id
         assert plant.scenePos() == plant_start

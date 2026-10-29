@@ -392,6 +392,11 @@ class GardenPlannerApp(QMainWindow):
     ) -> list[tuple[Any, Any]]:
         return self._agent_host._agent_move_item_deltas(item, delta)
 
+    def _agent_reconcile_bed_membership_command(
+        self, item: Any, *, delta: Any | None = None
+    ) -> tuple[bool, str | None, Any | None]:
+        return self._agent_host._agent_reconcile_bed_membership_command(item, delta=delta)
+
     def _agent_reconcile_bed_membership(self, item: Any) -> tuple[bool, str | None]:
         return self._agent_host._agent_reconcile_bed_membership(item)
 

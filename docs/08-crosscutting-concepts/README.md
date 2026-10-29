@@ -968,9 +968,9 @@ the run, and the run does not recover. G3's two-tile bench_large edit read 7.8 m
 and 4.3 ms with the test process opted out. The four-tile edit read 14.8 ms in two passes
 throttled and 8.4 ms in one pass opted out. A sudden per-move jump from about 8 to about
 15 ms, with passes going from 1 to 2, is the signal. During PR #613 it was misread as
-machine load, and a throttled master run as "master also needs two passes". Until #616
-adds the opt-out to the test process, a local timing is not evidence against a budget; CI
-is the gate. `scripts/measure_ground_edit.py` opts its own process out.
+machine load, and a throttled master run as "master also needs two passes". #616 adds the opt-out to the test process via `tests/conftest.py::pytest_configure`, so local timing runs are protected against EcoQoS throttling (pinned by `tests/unit/test_power_throttling.py`; PF-TST-33). `scripts/measure_ground_edit.py` opts its own process out.
+
+
 
 **Small targeted runs are slower than they were.** Worker start-up dominates when there
 is nothing to distribute: one 11-test file measured 2.85 s serially against 5.48 s under

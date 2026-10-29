@@ -59,7 +59,12 @@ from typing import Any
 from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QPainterPath
 
-from open_garden_planner.core.object_height import is_solid_soil_parent, standing_base_cm
+from open_garden_planner.core.object_height import (
+    _type_name,
+    effective_height_cm,
+    is_solid_soil_parent,
+    standing_base_cm,
+)
 from open_garden_planner.core.shadow_geometry import (
     Point,
     Polygon,
@@ -304,24 +309,39 @@ def item_base_cm(item: Any, lookup: ItemLookup, at_date: date | None = None) -> 
     )
 
 
-def holds_plants(item: Any, at_date: date | None = None) -> bool:
-    """Is this item a soil container a plant can stand in — the base rule's parent
-    half, without a link (``core.object_height.is_solid_soil_parent``: a bed, raised
-    bed, container or wall planter with a resolved, positive, finite height).
+#: Placeable structure kinds that hold plants but are not soil parents (which
+#: are covered by ``core.object_height.is_solid_soil_parent``, issue #621).
+_PLANT_HOLDER_TYPE_NAMES = frozenset({"COLD_FRAME", "PLANTER_POT", "GREENHOUSE"})
 
-    Asked by the one caster walk for the per-plant sun estimate (#481): the ground
-    point under a plant inside such a solid is inside its footprint all day, and the
-    solid is UNDER the plant, not between it and the sun, whether or not the plant
-    was ever linked to it. The estimate spares exactly the casters this answers True
-    for, so a kind the predicate learns about is spared without a second list
-    (the gap #621 found for cold frames and pots began as such a list).
+
+def holds_plants(item: Any, at_date: date | None = None) -> bool:
+    """Is this item a soil container or plant holder structure a plant can stand
+    in — either a soil-capable solid (``core.object_height.is_solid_soil_parent``:
+    a bed, raised bed, container or wall planter with a resolved, positive, finite
+    height) or a plant holder (``COLD_FRAME``, ``PLANTER_POT``, ``GREENHOUSE`` with
+    a resolved, positive, finite height).
+
+    Asked by the one caster walk for the per-plant sun estimate (#481, #621): the
+    ground point under a plant inside such a solid is inside its footprint all day,
+    and the solid is UNDER or AROUND the plant, not between it and the sun, whether
+    or not the plant was ever linked to it. The estimate spares exactly the casters
+    this answers True for, so a kind the predicate learns about is spared without
+    a second list (issue #621).
 
     The one home of the predicate on the item side: the drift guard in
     ``tests/integration/test_scene3d_base_stacking.py`` names every caller of
     ``is_solid_soil_parent`` and expects this module.
     """
-    return is_solid_soil_parent(
-        getattr(item, "object_type", None), getattr(item, "metadata", None), at_date)
+    object_type = getattr(item, "object_type", None)
+    metadata = getattr(item, "metadata", None)
+    if is_solid_soil_parent(object_type, metadata, at_date):
+        return True
+    if object_type is not None:
+        type_name = _type_name(object_type)
+        if type_name in _PLANT_HOLDER_TYPE_NAMES:
+            height = effective_height_cm(object_type, metadata, at_date=at_date)
+            return height is not None and math.isfinite(height) and height > 0.0
+    return False
 
 
 def standing_parent(item: Any, lookup: ItemLookup, at_date: date | None = None) -> Any | None:

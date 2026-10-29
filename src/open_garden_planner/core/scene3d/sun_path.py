@@ -110,7 +110,7 @@ CARDINAL_TICK_SHARE: Final = 0.08
 ARROW_SHARE: Final = 0.07
 LETTER_SHARE: Final = 0.12   # 0.065 left E and W about 6 px high from the default camera
 #: How far above the ground the compass lies (cm) — the drape's lift and a hair more.
-COMPASS_LIFT_CM: Final = 2.0
+COMPASS_LIFT_CM: Final = 4.0
 #: The compass's letters by bearing: N, E, S, W.
 CARDINAL_BEARINGS: Final = (0.0, 90.0, 180.0, 270.0)
 _TUBE_SIDES: Final = 6

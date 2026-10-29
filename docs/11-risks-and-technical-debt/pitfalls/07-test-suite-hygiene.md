@@ -479,3 +479,14 @@ Registry-built v0 silhouettes are not the workspace's forged plants. A paused no
 - **Legacy:** none (new entry)
 
 The failed Windows artifact alternates between approximately 661 MB and 693 MB: a fixed 20 ms pump samples different in-flight generations. After an explicit presentation boundary the local GPU/WARP curves read 0.000/0.030 MB per cycle, while retained textures still read 32.190/32.195. The 2.0 MB bound, 20 cycles and median statistic are unchanged. A silent display has a bounded wait and reports no presentation.
+
+
+### PF-TST-33
+
+- **Rule:** Opt the pytest runner out of Windows EcoQoS power throttling (`SetProcessInformation` with `ProcessPowerThrottling`, `ControlMask=EXECUTION_SPEED`, `StateMask=0`), so background thread classification does not inflate timings ~1.8× partway through local test runs.
+- **Pinned by:** `tests/unit/test_power_throttling.py`
+- **Source:** #616; §8.10.4
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+On Windows 11, power throttling can raise timings ~1.8× partway through a run without code changes when the OS classifies pytest worker/runner threads into efficiency/EcoQoS states. Tests in `tests/conftest.py::pytest_configure` automatically opt out via `disable_windows_power_throttling()`, restoring stable, unthrottled performance measurements on Windows dev environments.
