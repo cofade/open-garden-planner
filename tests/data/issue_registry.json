@@ -906,7 +906,7 @@
   },
   "605": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "2D paths: at an outer bend the fill and the border lines disagree (mitre vs chord, V spike)"
   },
   "607": {
@@ -956,7 +956,7 @@
   },
   "623": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Qt Quick 3D processes from source exit with 0xC000041D after finishing (twice in the local GPU render tier)"
   },
   "624": {
@@ -996,17 +996,17 @@
   },
   "641": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Sun exposure: plants elevated in raised beds/containers are evaluated at ground level (z = 0), receiving false shade warnings from fences/walls"
   },
   "643": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Missing preview icons for certain object types in properties panel dropdown"
   },
   "645": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(#641, #643, #623, #605): precision, UI, and diagnostic bugfixes"
   }
 }

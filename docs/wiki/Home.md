@@ -112,7 +112,10 @@ agent move atomicity and holder sun in
 [PR #639](https://github.com/cofade/open-garden-planner/pull/639); and audit packages
 A4/A6/A7/A9/A12/A13 (completing epic #392) in
 [v1.34.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.5) via
-[PR #640](https://github.com/cofade/open-garden-planner/pull/640).
+[PR #640](https://github.com/cofade/open-garden-planner/pull/640); and precision,
+UI and diagnostic bugfixes in
+[v1.34.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.6) via
+[PR #645](https://github.com/cofade/open-garden-planner/pull/645).
 
 ## Community
 

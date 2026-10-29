@@ -90,4 +90,6 @@ The remaining audit delivery introduces shared configuration/model leaves,
 composed canvas/property/agent adapters and measured performance workloads.
 See [ADR-068](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-068-audit-boundaries-responsibility-extraction-and-progressive-agent-context-392)
 and [per-finding evidence](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-392-remaining.md).
-Owner acceptance and protected merge remain pending while the PR is a draft.
+Owner acceptance and protected merge completed; the package shipped in
+[v1.34.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.5)
+via [PR #640](https://github.com/cofade/open-garden-planner/pull/640).
