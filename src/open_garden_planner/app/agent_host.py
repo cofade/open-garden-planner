@@ -2890,20 +2890,12 @@ class AgentHost:
                 host._agent_object_type_name(bed), bed_id
             )
             new_parent_id = bed.item_id
-            # Containment uses the same construct CanvasView's own reparent test
-            # does (boundingRect centre), so the agent's link and the GUI's
-            # auto-link agree on the boundary case. Note this is deliberately
-            # NOT _agent_item_center's rect-based centre: that one exists so a
-            # reported x/y matches the read tools, whereas this one exists to
-            # match the GUI's containment decision. The two differ by the
-            # antagonist badge's asymmetric overflow (~0.07 * radius).
-            #
-            # Whether the sun study and the 3D scene LIFT the plant onto the
-            # bed's soil (L1.6, footprints.item_base_cm) is the same predicate
-            # asked with the plant's stable geometric centre — where a solid
-            # stands must not follow a badge. So within that overflow of a
-            # bed's edge a link reported as not geometric here can still be
-            # lifted there, and the other way round.
+            # Containment asks the app's ONE link point (bed_membership_point =
+            # standing_point since #443), so this answer agrees with where the
+            # sun study and the 3D scene stand the plant: a badge, a highlight
+            # or a selection ring cannot move it. Note it is deliberately NOT
+            # _agent_item_center's serialised-geometry centre: that one exists so
+            # a reported x/y matches the read tools.
             link_is_geometric = centre_is_inside(plant, bed)
 
         if new_parent_id == old_parent_id:

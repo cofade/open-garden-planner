@@ -16,7 +16,7 @@ each edit path must apply it inside the SAME undo entry as the edit.
 from __future__ import annotations
 
 import pytest
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPointF, Qt
 
 from open_garden_planner.core.commands import (
     CreateItemCommand,
@@ -352,6 +352,15 @@ class TestCopiesAndExplicitLinks:
         assert restored.parent_bed_id == bed.item_id
         assert plant_id in bed.child_item_ids
 
+        # Redo: the replacement is outside again, and the bed must NOT still
+        # claim it (the round-1 undo healed the child id; a redo that only
+        # unlinks the item would leave a stale id behind).
+        canvas.command_manager.redo()
+        moved_again = canvas.scene().find_item_by_id(plant_id)
+        assert moved_again is not None
+        assert moved_again.parent_bed_id is None
+        assert plant_id not in bed.child_item_ids
+
     def test_the_link_point_is_the_standing_point_for_every_shape(
         self, canvas: CanvasView
     ) -> None:
@@ -434,6 +443,182 @@ def window(qtbot: object, monkeypatch: object, _reset_app_settings: object) -> o
     qtbot.addWidget(win)  # type: ignore[attr-defined]
     yield win
     win._stop_agent_api()
+
+
+class TestThenTheFixHoldsEverywhere:
+    """Paths the review round found: copies, EQUAL partners, combined moves, solver, click."""
+
+    def test_a_mirror_copy_does_not_inherit_a_non_geometric_link(
+        self, canvas: CanvasView, mouse_event: object
+    ) -> None:
+        """Copying a bed and an explicitly linked plant outside it: one-sided link."""
+        from open_garden_planner.core.tools import ToolType
+        from open_garden_planner.ui.canvas.items import CircleItem as _Circle
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 1000.0, 900.0)  # outside the bed
+        canvas.command_manager.execute(
+            SetParentBedCommand(canvas.scene(), plant, None, bed.item_id)
+        )
+        assert plant.parent_bed_id == bed.item_id
+        before_beds = {id(i) for i in canvas.scene().items() if isinstance(i, RectangleItem)}
+        before_plants = {id(i) for i in canvas.scene().items() if isinstance(i, _Circle)}
+
+        bed.setSelected(True)
+        plant.setSelected(True)
+        canvas.set_active_tool(ToolType.MIRROR)
+        tool = canvas.tool_manager.active_tool
+        tool._copy_mode = True
+        tool.mouse_press(mouse_event, QPointF(350.0, 100.0))
+        tool.mouse_press(mouse_event, QPointF(350.0, 700.0))
+
+        new_beds = [
+            i for i in canvas.scene().items()
+            if isinstance(i, RectangleItem) and id(i) not in before_beds
+        ]
+        new_plants = [
+            i for i in canvas.scene().items()
+            if isinstance(i, _Circle) and id(i) not in before_plants
+        ]
+        assert len(new_beds) == 1 and len(new_plants) == 1
+        copy_bed, copy_plant = new_beds[0], new_plants[0]
+        assert copy_plant.parent_bed_id is None
+        assert copy_plant.item_id not in copy_bed.child_item_ids
+
+    def test_an_equal_partner_bed_resize_unlinks_its_plant(
+        self, canvas: CanvasView
+    ) -> None:
+        """EQUAL resizes a partner bed in the SAME command — its plants follow."""
+        from open_garden_planner.core.commands import ResizeItemCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            build_rect_resize,
+        )
+
+        bed_a = _bed(canvas)
+        bed_b = RectangleItem(
+            1000.0, 300.0, 300.0, 200.0,
+            object_type=ObjectType.RAISED_BED,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), bed_b, "bed"))
+        plant = _plant(canvas, 1120.0, 400.0)
+        assert plant.parent_bed_id == bed_b.item_id
+
+        def apply_size(item: object, size: float) -> None:
+            _old, new = build_rect_resize(item, size, 200.0, keep_center=True)
+            apply_rect_like_geometry(item, new)
+
+        old_a, new_a = build_rect_resize(bed_a, 100.0, 100.0, keep_center=True)
+        canvas.command_manager.execute(
+            ResizeItemCommand(
+                bed_a,
+                old_a,
+                new_a,
+                apply_rect_like_geometry,
+                partner_resizes=[(bed_b, 300.0, 40.0, apply_size)],
+            )
+        )
+
+        assert bed_b.rect().width() == pytest.approx(40.0)
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed_b.child_item_ids
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id == bed_b.item_id
+        assert plant.item_id in bed_b.child_item_ids
+
+    def test_moving_a_plant_with_an_unrelated_bed_still_redecides_it(
+        self, canvas: CanvasView
+    ) -> None:
+        """A moved plant is re-decided even when an unrelated bed moves too."""
+        bed = _bed(canvas)
+        far_bed = _bed(canvas, x=1500.0, y=1200.0)
+        other_bed = _bed(canvas, x=2500.0, y=1500.0)
+        plant = _plant(canvas, 500.0, 400.0)
+        canvas.command_manager.execute(
+            SetParentBedCommand(canvas.scene(), plant, bed.item_id, far_bed.item_id)
+        )
+        assert plant.parent_bed_id == far_bed.item_id
+
+        # The plant leaves the bed it stands in; the bed it shares the move with
+        # is unrelated (the far bed it is linked to does not move).
+        canvas.command_manager.execute(
+            MoveItemsCommand([plant, other_bed], QPointF(3000.0, 0.0))
+        )
+
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in far_bed.child_item_ids
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id == far_bed.item_id
+
+    def test_a_constraint_that_moves_a_bed_carries_its_plant(
+        self, canvas: CanvasView
+    ) -> None:
+        """One-shot solver moves carry a moved bed's plants (#443 (vi))."""
+        from open_garden_planner.core.commands import AddConstraintCommand
+        from open_garden_planner.core.constraints import AnchorRef
+        from open_garden_planner.core.measure_snapper import AnchorType
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 500.0, 400.0)
+        other = RectangleItem(
+            1200.0, 300.0, 100.0, 100.0,
+            object_type=ObjectType.GENERIC_RECTANGLE,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), other, "other"))
+        plant_before = QPointF(plant.pos())
+        bed_before = QPointF(bed.pos())
+        graph = canvas._canvas_scene.constraint_graph
+        move = QPointF(300.0, 0.0)
+        command = AddConstraintCommand(
+            graph,
+            AnchorRef(bed.item_id, AnchorType.CENTER),
+            AnchorRef(other.item_id, AnchorType.CENTER),
+            100.0,
+            item_moves=[(bed, bed_before, bed_before + move)],
+        )
+        canvas.command_manager.execute(command)
+
+        assert bed.pos().x() == pytest.approx(bed_before.x() + 300.0)
+        assert plant.pos().x() == pytest.approx(plant_before.x() + 300.0)
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+
+        canvas.command_manager.undo()
+        assert bed.pos().x() == pytest.approx(bed_before.x())
+        assert plant.pos().x() == pytest.approx(plant_before.x())
+        assert plant.parent_bed_id == bed.item_id
+
+    def test_a_click_does_not_overrule_an_explicit_link(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """A press/release without movement is not a geometry edit (#443 review)."""
+        from PyQt6.QtTest import QTest
+
+        bed = _bed(canvas)
+        far_bed = _bed(canvas, x=1500.0, y=1200.0)
+        plant = _plant(canvas, 500.0, 400.0)
+        canvas.command_manager.execute(
+            SetParentBedCommand(canvas.scene(), plant, bed.item_id, far_bed.item_id)
+        )
+        assert plant.parent_bed_id == far_bed.item_id
+
+        canvas.resize(1000, 800)
+        canvas.show()
+        qtbot.waitExposed(canvas)  # type: ignore[attr-defined]
+        point = standing_point(plant)
+        assert point is not None
+        canvas.centerOn(point)
+        QTest.mouseClick(
+            canvas.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            canvas.mapFromScene(point),
+        )
+
+        assert plant.parent_bed_id == far_bed.item_id
+        assert plant.item_id in far_bed.child_item_ids
 
 
 class TestTheRealEditSurfaces:

@@ -2124,6 +2124,7 @@ class CanvasView(QGraphicsView):
                                 .has_interobject_rotation_constraint(parent.item_id)):
                         grabber.ungrabMouse()
                         self._active_drag_handle = None
+                        self._rotating_item = None
                     else:
                         self._rotating_item = parent
                         self._rotation_vertex_starts.clear()
@@ -3207,9 +3208,10 @@ class CanvasView(QGraphicsView):
 
                 command = CompoundCommand([command, *links], desc)
             self._command_manager.execute(command)
-        else:  # a click, not a drag: the old re-evaluation of what is selected
-            self._update_plant_bed_relationships()
-
+        # A click (not a drag) used to re-evaluate the selection's links here.
+        # Since #443 every command that moves/reshapes an item reconciles its own
+        # links, so doing it on a bare click would overrule an explicit Link
+        # action the user made on purpose (ADR-037 addendum decision 5).
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
         if hasattr(self, "_child_drag_origins"):

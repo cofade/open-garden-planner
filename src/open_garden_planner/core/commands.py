@@ -419,8 +419,7 @@ class BedMembershipChange:
     smallest plant-parent that contains its standing point — applied by the
     move/resize/rotate/vertex/copy commands themselves. ``before`` is captured
     when the tracker is built (links are never touched by a geometry change),
-    ``after`` when ``reconcile`` runs on already-applied geometry, so
-    ``restore`` replays recorded ids instead of re-solving.
+    so ``restore`` replays the recorded ids instead of re-solving.
 
     ``focus_parents`` scopes a BED edit: only plants that link to the edited
     parent, that are linked to it, or that are explicitly moved with it are
@@ -452,8 +451,6 @@ class BedMembershipChange:
             plant: plant.parent_bed_id
             for plant in self._plants
         }
-        self._after: dict[QGraphicsItem, UUID | None] | None = None
-        self._applied: dict[QGraphicsItem, UUID | None] = {}
         self.changed = False
 
     def _affects(self, plant: QGraphicsItem, target: UUID | None) -> bool:
@@ -468,18 +465,17 @@ class BedMembershipChange:
 
     def reconcile(self) -> bool:
         """Point the affected plants at the bed their CURRENT position asks for."""
-        self._after = {
+        targets = {
             plant: plant_membership_target(self._scene, plant)
             for plant in self._plants
         }
         moved = False
-        for plant, target in self._after.items():
+        for plant, target in targets.items():
             if not self._affects(plant, target):
                 continue
             if plant.scene() is not self._scene:
                 continue
             if set_parent_link(self._scene, plant, target, refresh_soil=False):
-                self._applied.setdefault(plant, self._before[plant])
                 moved = True
         if moved:
             trigger_soil_mismatch_refresh(self._scene)
@@ -489,10 +485,13 @@ class BedMembershipChange:
     def restore(self) -> None:
         """Restore every tracked plant's pre-change link (undo).
 
-        Deliberately not limited to ``_applied``: a Mirror-Move replaces the
-        plant OBJECT while reusing its id, so the object that carries the new
-        link is not the one restored here — the re-added original must get its
-        parent's child id back (and the heal path does exactly that).
+        This is safe because undo is strictly LIFO: every command's ``before``
+        is its own pre-execute state, so no other command's edit can be older
+        than it. Deliberately not limited to the plants ``reconcile`` changed: a
+        Mirror-Move replaces the plant OBJECT while reusing its id, so the
+        object that carries the new link is not the one restored here — the
+        re-added original must get its parent's child id back (and the heal path
+        does exactly that).
         """
         moved = False
         for plant, old_parent in self._before.items():
@@ -931,15 +930,19 @@ def _membership_change_for_move(
         for item in items
         if isinstance(item, GardenItemMixin) and is_plant_parent_type(item.object_type)
     ]
-    if parents:
-        return BedMembershipChange(
-            scene, focus_parents={item.item_id for item in parents}
-        )
     plants: list[QGraphicsItem] = [
         item
         for item in items
         if isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
     ]
+    if parents:
+        # The moved plants are ALWAYS re-decided (a moved plant's link follows
+        # it); the focus only widens the set to plants the moved beds can affect.
+        return BedMembershipChange(
+            scene,
+            plants,
+            focus_parents={item.item_id for item in parents},
+        )
     if not plants:
         return None
     return BedMembershipChange(scene, plants)
@@ -965,6 +968,13 @@ def _membership_for_added_items(
 
     plants: list[QGraphicsItem] = []
     adds_parent = False
+    # Copies are not in the scene yet, so a copied bed cannot be found through
+    # the scene when its plant's inherited link is dropped.
+    by_id = {
+        item.item_id: item
+        for item in items
+        if isinstance(item, GardenItemMixin)
+    }
     for item in items:
         if not isinstance(item, GardenItemMixin):
             continue
@@ -975,6 +985,9 @@ def _membership_for_added_items(
             # along. Non-plant children keep a deliberate remap (the mirror
             # tool re-parents a copied bed's children onto the copy).
             if clear_inherited and item.parent_bed_id is not None:
+                copied_parent = by_id.get(item.parent_bed_id)
+                if isinstance(copied_parent, GardenItemMixin):
+                    copied_parent.remove_child_id(item.item_id)
                 set_parent_link(scene, item, None, refresh_soil=False)
             plants.append(item)
     if adds_parent:
@@ -1375,7 +1388,14 @@ class ResizeItemCommand(Command):
         self._new_geometry = new_geometry
         self._apply_func = apply_func
         self._partner_resizes: list = partner_resizes or []
-        self._membership = _membership_change_for_geometry(item.scene(), item)
+        self._membership = _membership_change_for_geometry(
+            item.scene(),
+            item,
+            [
+                partner
+                for partner, _old_size, _new_size, _apply_fn in self._partner_resizes
+            ],
+        )
 
     @property
     def description(self) -> str:
@@ -1858,6 +1878,41 @@ class MultiVertexMoveCommand(Command):
                 item._move_vertex_to(idx, old)
 
 
+def _capture_bed_child_moves(
+    item_moves: "list[tuple[QGraphicsItem, QPointF, QPointF]]",
+) -> "list[tuple[QGraphicsItem, QPointF, QPointF]]":
+    """Children a one-shot solver move must carry, as ``(child, before, after)``.
+
+    ``AddConstraintCommand`` / ``EditConstraintDistanceCommand`` move items to
+    satisfy a new relation directly (not through ``MoveItemsCommand``); a bed
+    among them must take its plants along, or the next reconcile unlinks them
+    while the panel still calls them contained (#443 (vi)).
+    """
+    from open_garden_planner.core.object_types import is_plant_parent_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+    for item, old, new in item_moves:
+        scene = item.scene()
+        if scene is None:
+            continue
+        finder = getattr(scene, "find_item_by_id", None)
+        if not callable(finder):
+            continue
+        if not isinstance(item, GardenItemMixin):
+            continue
+        if not is_plant_parent_type(item.object_type):
+            continue
+        delta = new - old
+        for child_id in item.child_item_ids:
+            child = finder(child_id)
+            if child is None:
+                continue
+            current = child.pos()
+            moves.append((child, current, current + delta))
+    return moves
+
+
 class AddConstraintCommand(Command):
     """Command for adding a constraint (distance, alignment, or angle).
 
@@ -1893,6 +1948,14 @@ class AddConstraintCommand(Command):
         self._vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
         self._target_x = target_x
         self._target_y = target_y
+        self._child_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+        self._children_captured = False
+        scene = self._item_moves[0][0].scene() if self._item_moves else None
+        self._membership = _membership_change_for_move(
+            scene,
+            [item for item, _old, _new in self._item_moves]
+            + [item for item, _old_angle, _new_angle, _fn in self._item_rotations],
+        )
 
     @property
     def description(self) -> str:
@@ -1917,10 +1980,22 @@ class AddConstraintCommand(Command):
         for item, idx, _old_local, new_local in self._vertex_moves:
             if hasattr(item, '_move_vertex_to'):
                 item._move_vertex_to(idx, new_local)
+        if not self._children_captured:
+            self._children_captured = True
+            self._child_moves = _capture_bed_child_moves(self._item_moves)
+        for child, _old, new in self._child_moves:
+            child.setPos(new)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
         if self._constraint_id is not None:
             self._graph.remove_constraint(self._constraint_id)
+        if self._membership is not None:
+            self._membership.restore()
+        # Revert the carried children's positions first.
+        for child, old, _new in self._child_moves:
+            child.setPos(old)
         # Revert vertex moves first (reverse order)
         for item, idx, old_local, _new_local in reversed(self._vertex_moves):
             if hasattr(item, '_move_vertex_to'):
@@ -2200,6 +2275,10 @@ class MirrorItemsCommand(Command):
         if not self._copy:
             for item in self._originals:
                 if item.scene() is self._scene:
+                    # Detach BEFORE removing: the mirrored replacement reuses the
+                    # id, so the bed's child list must not keep the id unless the
+                    # replacement is linked again (redo/undo stay two-sided).
+                    _detach_from_parent(self._scene, item)
                     self._scene.removeItem(item)
         with _bulk_add_scope(self._scene):
             for item in self._mirrored:
@@ -2254,6 +2333,12 @@ class EditConstraintDistanceCommand(Command):
         self._new_distance = new_distance
         self._item_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = item_moves or []
         self._vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
+        self._child_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+        self._children_captured = False
+        scene = self._item_moves[0][0].scene() if self._item_moves else None
+        self._membership = _membership_change_for_move(
+            scene, [item for item, _old, _new in self._item_moves]
+        )
 
     @property
     def description(self) -> str:
@@ -2268,11 +2353,22 @@ class EditConstraintDistanceCommand(Command):
         for item, idx, _old_local, new_local in self._vertex_moves:
             if hasattr(item, '_move_vertex_to'):
                 item._move_vertex_to(idx, new_local)
+        if not self._children_captured:
+            self._children_captured = True
+            self._child_moves = _capture_bed_child_moves(self._item_moves)
+        for child, _old, new in self._child_moves:
+            child.setPos(new)
+        if self._membership is not None:
+            self._membership.reconcile()
 
     def undo(self) -> None:
         c = self._graph.constraints.get(self._constraint_id)
         if c:
             c.target_distance = self._old_distance
+        if self._membership is not None:
+            self._membership.restore()
+        for child, old, _new in self._child_moves:
+            child.setPos(old)
         for item, idx, old_local, _new_local in reversed(self._vertex_moves):
             if hasattr(item, '_move_vertex_to'):
                 item._move_vertex_to(idx, old_local)
