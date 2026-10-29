@@ -634,3 +634,99 @@ def _disable_welcome_dialog(_reset_app_settings):
 
     create_qsettings().setValue(AppSettings.KEY_SHOW_WELCOME, False)
     yield
+
+
+# ── Windows Power Throttling Opt-Out (#616) ──────────────────────────────────
+def disable_windows_power_throttling() -> bool:
+    """Opt the current process out of Windows EcoQoS power throttling (#616).
+
+    On Windows 11, power throttling can raise timings ~1.8x partway through
+    a test run when threads are classified as background/EcoQoS.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class PROCESS_POWER_THROTTLING_STATE(ctypes.Structure):
+            _fields_ = [
+                ("Version", wintypes.DWORD),
+                ("ControlMask", wintypes.ULONG),
+                ("StateMask", wintypes.ULONG),
+            ]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel32.SetProcessInformation.argtypes = [
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+        ]
+        kernel32.SetProcessInformation.restype = wintypes.BOOL
+
+        state = PROCESS_POWER_THROTTLING_STATE()
+        state.Version = 1  # PROCESS_POWER_THROTTLING_CURRENT_VERSION
+        state.ControlMask = 1  # PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+        state.StateMask = 0
+
+        res = kernel32.SetProcessInformation(
+            kernel32.GetCurrentProcess(),
+            4,  # ProcessPowerThrottling
+            ctypes.byref(state),
+            ctypes.sizeof(state),
+        )
+        return bool(res)
+    except Exception:
+        return False
+
+
+def get_windows_power_throttling_state() -> tuple[int, int] | None:
+    """Read current Windows power throttling (ControlMask, StateMask) or None."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class PROCESS_POWER_THROTTLING_STATE(ctypes.Structure):
+            _fields_ = [
+                ("Version", wintypes.DWORD),
+                ("ControlMask", wintypes.ULONG),
+                ("StateMask", wintypes.ULONG),
+            ]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel32.GetProcessInformation.argtypes = [
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+        ]
+        kernel32.GetProcessInformation.restype = wintypes.BOOL
+
+        state = PROCESS_POWER_THROTTLING_STATE()
+        state.Version = 1
+        res = kernel32.GetProcessInformation(
+            kernel32.GetCurrentProcess(),
+            4,
+            ctypes.byref(state),
+            ctypes.sizeof(state),
+        )
+        if res:
+            return state.ControlMask, state.StateMask
+        return None
+    except Exception:
+        return None
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Global test configuration hook.
+
+    Opts out of Windows power throttling (EcoQoS) on Windows when running tests,
+    preventing 1.8x timing drift on Windows dev machines (#616).
+    """
+    if sys.platform == "win32":
+        disable_windows_power_throttling()

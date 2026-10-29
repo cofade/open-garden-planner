@@ -199,8 +199,10 @@ class AgentProviders:
         move_object: **Write (D2).** Moves one object by a relative offset
             (dx, dy in scene cm; +x east, +y north — the canvas is Y-up, so a
             negative dy moves south). Takes ``(item_id, dx, dy)``; runs one
-            undoable move command on the main thread and returns a plain
-            ``WriteResult``-shaped dict. Raises if the id is unknown.
+            undoable move command on the main thread (combined with reparenting
+            into a ``CompoundCommand`` if crossing a bed boundary, #635) and
+            returns a plain ``WriteResult``-shaped dict. Raises if the id is
+            unknown.
         set_object_position: **Write (D2.6).** Sets one object's absolute scene
             centre. Uses the same move orchestration as ``move_object`` and
             inherits its child propagation and reparenting semantics.

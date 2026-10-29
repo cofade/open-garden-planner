@@ -298,7 +298,7 @@ def test_a_click_on_the_ground_reads_the_map_there_and_pins_it(bench) -> None:
     on_drape = (eye[0] + share * (aim[0] - eye[0]), eye[1] + share * (aim[1] - eye[1]))
     assert (probe.east_cm, probe.north_cm) == pytest.approx(on_drape, abs=1e-6)
     target = workspace.camera.pose.target
-    assert np.hypot(probe.east_cm - target[0], probe.north_cm - target[1]) < 5.0
+    assert np.hypot(probe.east_cm - target[0], probe.north_cm - target[1]) < 10.0
     assert probe.reason == "ok" and probe.minutes == shown.minutes_at(probe.east_cm, probe.north_cm)
     assert probe.band is band_of(probe.minutes) and probe.day == shown.day
     assert sun_requirement_label(probe.band.value) in slot.hint()

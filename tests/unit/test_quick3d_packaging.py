@@ -221,7 +221,7 @@ class TestFrozenSelftestWorkflow:
 
     def test_it_uses_no_action_that_ci_does_not_use(self) -> None:
         used = set(re.findall(r"uses: (\S+)", _code(FROZEN)))
-        assert used == {"actions/checkout@11d5960a326750d5838078e36cf38b85af677262", "./.github/actions/setup-locked-env"}
+        assert used == {"actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "./.github/actions/setup-locked-env"}
         assert used <= set(re.findall(r"uses: (\S+)", _code(CI)))
 
     def test_it_builds_with_the_release_recipe_not_a_copy_of_it(self) -> None:
@@ -246,7 +246,7 @@ class TestFrozenSelftestWorkflow:
         steps = re.findall(r"^      - (?:name|uses): (.+)$", code, re.MULTILINE)
         limits = [int(n) for n in re.findall(r"^        timeout-minutes: (\d+)$", code, re.MULTILINE)]
         job = int(re.search(r"^    timeout-minutes: (\d+)$", FROZEN, re.MULTILINE).group(1))  # type: ignore[union-attr]
-        assert len(steps) == 7 and steps[:3] == ["actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0",
+        assert len(steps) == 7 and steps[:3] == ["actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1",
                                                  "./.github/actions/setup-locked-env",
                                                  "Read the version this bundle will report"]
         assert limits == [5, 10, 1, 30, 5, 10, 2], "one limit per step, in the steps' order"
@@ -315,7 +315,7 @@ class TestRenderJob:
 
     def test_the_job_runs_on_both_platforms_with_the_tier_switched_on(self) -> None:
         job = _code(self._job())
-        assert "os: [ubuntu-latest, windows-latest]" in job
+        assert "os: [ubuntu-24.04, windows-latest]" in job
         assert 'OGP_RENDER3D: "1"' in job
         assert "fail-fast: false" in job and "timeout-minutes:" in job
         assert "- uses: ./.github/actions/setup-locked-env" in job

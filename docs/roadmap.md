@@ -3573,3 +3573,23 @@ had not moved). The phase is pinned against the canvas's own painter, not a form
 `tests/integration/test_scene3d_fill_phase.py` bakes a real rectangle and correlates the
 mesh's UVs (NCC 0.995; the opposite sign 0.759 / 0.866). ADR-037 addendum, FR-3D-BUILT-09,
 PF-L3D-17.
+
+### Agent move atomicity, plant holder sun exposure, shade mask memory, Windows power throttling opt-out, and Node 24 CI (#635, #621, #579, #616, #637)
+
+Package of five targeted bug fixes and hardening improvements across agent editing, solar simulation, heatmap memory, test harness performance, and CI workflows:
+
+1. **Agent reparent move atomicity (#635, FR-EDIT-21, ADR-034):**
+   When an agent moves an object across a bed boundary via `move_object` or `set_object_position`, the position update and the parent link change are combined into a single `CompoundCommand([move_cmd, link_cmd])`. Exactly one undo step is recorded on the undo stack (matching the GUI's `CompoundCommand` behavior from #627). One Ctrl+Z or `undo()` reverses both the link and the move in reverse order, restoring original parent and position atomically.
+
+2. **Per-plant sun exposure in plant holders (#621, FR-SUN-05, ADR-065 addendum):**
+   `ui.canvas.footprints.holds_plants` now marks standing plant holders (`COLD_FRAME`, `PLANTER_POT`, `GREENHOUSE`) with a resolved positive height as `holds_plants=True`. In `core.shade_aggregation._aggregate_day`, any plant receiver whose standing point is inside a caster's footprint with `holds_plants=True` is spared from being shaded by that caster's solid prism. Full-sun plants inside a cold frame, planter pot, or greenhouse receive open-ground sun (~16.5 h in Berlin summer solstice) without false `sun_mismatch` diagnostics, while plants outside on the shadow side remain properly shaded. A drift guard pins the exhaustive set of placeable object kinds with a default height that hold plants.
+
+3. **Heatmap shade mask opt-in allocation (#579):**
+   `compute_sun_exposure` and `_aggregate_day` default `include_sample_masks: bool = False`. Packed bit masks (`(total_samples, grid.rows, packed_cols)`) are only allocated when progressively sweeping 3D drape explicitly opts in (`include_sample_masks=True`), eliminating up to 64 MiB of transient allocations per run for all 2D heatmap evaluations, agent inspections, and test passes.
+
+4. **Windows EcoQoS power throttling opt-out (#616, PF-TST-33, §8.10.4):**
+   Local test runs on Windows 11 previously suffered ~1.8x execution time drift due to thread execution being assigned to Efficiency cores under background process power throttling (EcoQoS). A pytest hook in `tests/conftest.py` configures `SetProcessInformation` (`ProcessPowerThrottling`, `ControlMask=EXECUTION_SPEED`, `StateMask=0`), opting the test runner process and its xdist workers out of EcoQoS and stabilizing performance tiers.
+
+5. **CI Node 24 runtime upgrade and runner image pinning (#637):**
+   Upgraded GitHub Actions to Node 24 runtimes across `.github/workflows/ci.yml`, `.github/workflows/dependency-review.yml`, `.github/workflows/download-stats.yml`, and `.github/actions/setup-locked-env/action.yml`: `actions/checkout@v7.0.1`, `actions/setup-python@v7.1.0`, `actions/upload-artifact@v7.0.2`, `actions/download-artifact@v8.0.2`. Runner images pinned to `ubuntu-24.04` to prevent deprecation warnings and runner drift.
+

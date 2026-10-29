@@ -248,11 +248,12 @@ class TestProgressiveMap:
     lat, lon, day = 52.52, 13.40, date(2026, 6, 21)
     grid = HeatmapGrid(0.0, 0.0, 50.0, cols=8, rows=6)
 
-    def result(self):
+    def result(self, include_sample_masks: bool = True):
         caster = IdentifiedCaster("wall", ((
             (150.0, 100.0), (250.0, 100.0), (250.0, 120.0), (150.0, 120.0)),), 200.0)
         return compute_sun_exposure([caster], (), self.lat, self.lon, self.day, self.grid,
-                                    point_rasterizer_reference)
+                                    point_rasterizer_reference,
+                                    include_sample_masks=include_sample_masks)
 
     def sun_map(self) -> SunHoursMap:
         result = self.result()
@@ -291,7 +292,8 @@ class TestProgressiveMap:
         caster = IdentifiedCaster("wall", ((
             (150.0, 100.0), (250.0, 100.0), (250.0, 120.0), (150.0, 120.0)),), 200.0)
         result = compute_sun_exposure([caster], (), lat, lon, self.day, self.grid,
-                                      point_rasterizer_reference)
+                                      point_rasterizer_reference,
+                                      include_sample_masks=True)
         sun_map = SunHoursMap(self.day, self.grid, result.minutes, 600.0, samples=result.samples,
                               sample_shade=result.sample_shade)
         minutes = sun_map.sample_minutes_of_day(sydney)
@@ -299,6 +301,10 @@ class TestProgressiveMap:
         np.testing.assert_array_equal(sun_map.minutes_through(24 * 60 - 1, sydney), sun_map.minutes)
         morning = sun_map.minutes_through(12 * 60, sydney)
         assert morning.max() > 0.0 and np.all(morning <= sun_map.minutes)
+
+    def test_sample_masks_are_omitted_by_default(self) -> None:
+        result = self.result(include_sample_masks=False)
+        assert result.sample_shade is None
 
     def test_the_masks_are_dropped_beyond_their_bound(self, monkeypatch) -> None:
         from open_garden_planner.core import shade_aggregation
@@ -308,3 +314,119 @@ class TestProgressiveMap:
         assert result.sample_shade is None
         sun_map = SunHoursMap(self.day, self.grid, result.minutes, 900.0, samples=result.samples)
         assert not sun_map.progressive and sun_map.minutes_through(1439, self.BERLIN) is None
+
+
+class TestHeatmapMaskCoordination:
+    """AnalysisController coordinates sample masks for #579."""
+
+    def test_analysis_controller_toggles_heatmap_include_sample_masks(self) -> None:
+        from PyQt6.QtCore import QObject, pyqtSignal
+
+        from open_garden_planner.core.sim_clock import SimClock
+        from open_garden_planner.ui.view3d.analysis_controller import AnalysisController
+        from open_garden_planner.ui.view3d.analysis_modes import DrapeMode
+
+        class FakeHost:
+            def call(self, *_args: object, **_kwargs: object) -> bool:
+                return True
+
+        class FakeHeatmap(QObject):
+            computed = pyqtSignal(object)
+            exposure_changed = pyqtSignal()
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.include_sample_masks = False
+                self._shown: object = None
+
+            def result(self) -> object:
+                return self._shown
+
+        class FakeSunHours(QObject):
+            enabled_changed = pyqtSignal(bool)
+
+            def __init__(self) -> None:
+                super().__init__()
+                self.enabled = False
+                self.scheduled = False
+
+            def set_enabled(self, val: bool) -> None:
+                self.enabled = val
+
+            def schedule(self) -> None:
+                self.scheduled = True
+
+        clock = SimClock()
+        controller = AnalysisController(
+            FakeHost(),
+            clock,
+            lambda: {"latitude": 52.52, "longitude": 13.40},
+            lambda: (1000.0, 1000.0),
+        )
+        heatmap = FakeHeatmap()
+        sun_hours = FakeSunHours()
+        controller.connect_sources(heatmap=heatmap, sun_hours=sun_hours)
+
+        # Inactive (default): masks are not included
+        assert heatmap.include_sample_masks is False
+
+        # Active, but drape mode is OFF: masks still not included
+        controller.set_active(True)
+        assert heatmap.include_sample_masks is False
+
+        # Active and DrapeMode.SUN_HOURS: masks are requested (#579)
+        controller.set_drape_mode(DrapeMode.SUN_HOURS)
+        assert heatmap.include_sample_masks is True
+
+        # Switching drape mode to SHADOWS: masks opt out
+        controller.set_drape_mode(DrapeMode.SHADOWS)
+        assert heatmap.include_sample_masks is False
+
+        # Switching back to SUN_HOURS: masks opt in again
+        controller.set_drape_mode(DrapeMode.SUN_HOURS)
+        assert heatmap.include_sample_masks is True
+
+        # Hiding 3D pane (set_active(False)): masks opt out
+        controller.set_active(False)
+        assert heatmap.include_sample_masks is False
+
+        # If a non-progressive map was shown when becoming active in SUN_HOURS, it schedules recompute
+        grid = HeatmapGrid(0.0, 0.0, 10.0, cols=2, rows=2)
+        non_progressive_map = SunHoursMap(date(2026, 6, 21), grid, np.zeros((2, 2)), 600.0)
+        heatmap._shown = non_progressive_map
+        controller.set_active(True)
+        assert heatmap.include_sample_masks is True
+        assert sun_hours.scheduled is True
+
+
+def test_drape_lift_clears_ground_relief_and_terrace_deck_boards() -> None:
+    from open_garden_planner.core.scene3d.builders.surfaces import DECK_TOP_CM, KERB_CM
+    from open_garden_planner.core.scene3d.drape import DRAPE_LIFT_CM
+    from open_garden_planner.core.scene3d.sun_path import COMPASS_LIFT_CM
+
+    assert DRAPE_LIFT_CM > DECK_TOP_CM
+    assert DRAPE_LIFT_CM > KERB_CM
+    assert COMPASS_LIFT_CM > DRAPE_LIFT_CM
+
+
+def test_terrace_relief_does_not_occlude_sun_hours_drape() -> None:
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.core.scene3d.drape import DRAPE_LIFT_CM
+    from open_garden_planner.core.scene3d.record import Material, Params, Record, Transform
+
+    for pattern in ('WOOD', 'DECKING', 'STONE', None):
+        terrace = Record(
+            item_id='terrace_1',
+            kind='TERRACE_PATIO',
+            shape='rectangle',
+            footprints=(((-100.0, -100.0), (100.0, -100.0), (100.0, 100.0), (-100.0, 100.0)),),
+            transform=Transform(east_cm=200.0, north_cm=200.0),
+            material=Material('terrace_1', fill_rgba=(200, 170, 120, 255)),
+            height_cm=None,
+            params=Params({'surface_pattern': pattern, 'seed': 'terrace_1'} if pattern else {'seed': 'terrace_1'}),
+        )
+        parts = production_registry().build(terrace)
+        assert len(parts) > 0
+        for part in parts:
+            max_z = float(part.mesh.positions[:, 2].max())
+            assert max_z < DRAPE_LIFT_CM, f'part {part.name} (pattern {pattern}) max z {max_z} >= DRAPE_LIFT_CM {DRAPE_LIFT_CM}'

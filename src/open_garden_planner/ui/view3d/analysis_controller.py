@@ -225,9 +225,22 @@ class AnalysisController(QObject):
         self._shadows, self._heatmap, self._sun_hours = shadows, heatmap, sun_hours
         for source, signal, slot in self._source_slots():
             getattr(source, signal).connect(slot)
+        self._update_heatmap_mask_preference()
         if sun_hours is not None and sun_hours.enabled:
             # 3D opened with Hours of Sun already on: its map lies on the ground too
             self._on_sun_hours_switched(True)
+
+    def _update_heatmap_mask_preference(self) -> None:
+        """3D day sweep requires packed shade masks (#579); 2D and agent runs opt out."""
+        if self._heatmap is not None and hasattr(self._heatmap, "include_sample_masks"):
+            needs_masks = bool(self._active and self._drape_mode is DrapeMode.SUN_HOURS)
+            if self._heatmap.include_sample_masks != needs_masks:
+                self._heatmap.include_sample_masks = needs_masks
+                if needs_masks:
+                    shown = self._shown_map()
+                    if (shown is not None and not shown.progressive
+                            and self._sun_hours is not None and hasattr(self._sun_hours, "schedule")):
+                        self._sun_hours.schedule()
 
     def _source_slots(self) -> list[tuple[Any, str, Callable[..., None]]]:
         slots: list[tuple[Any, str, Callable[..., None]]] = []
@@ -295,6 +308,7 @@ class AnalysisController(QObject):
         if active == self._active:
             return
         self._active = active
+        self._update_heatmap_mask_preference()
         if not active:
             self.stop_sweep()
             return
@@ -321,6 +335,7 @@ class AnalysisController(QObject):
         if mode is DrapeMode.SUN_HOURS:
             self._drape_before_sun_hours = self._drape_mode
         self._drape_mode = mode
+        self._update_heatmap_mask_preference()
         if mode is not DrapeMode.SUN_HOURS:
             self.stop_sweep()
             self.clear_probe()   # the pin and its reading belong to the hours of sun

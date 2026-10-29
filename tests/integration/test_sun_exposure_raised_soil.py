@@ -29,9 +29,13 @@ from open_garden_planner.core.commands import (
     DeleteItemsCommand,
     SetParentBedCommand,
 )
-from open_garden_planner.core.object_height import METADATA_KEY, is_solid_soil_parent
+from open_garden_planner.core.object_height import (
+    METADATA_KEY,
+    effective_height_cm,
+)
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.shade_aggregation import SAMPLE_STEP_MINUTES
+from open_garden_planner.ui.canvas.footprints import holds_plants
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
@@ -253,7 +257,7 @@ def test_the_walk_marks_exactly_the_soil_solids_as_able_to_hold_plants(plot: Plo
     checked = 0
     for caster in snapshot.casters:
         item = by_id[caster.item_id]
-        expected = is_solid_soil_parent(item.object_type, item.metadata)
+        expected = holds_plants(item)
         assert caster.holds_plants is expected, item.object_type
         checked += 1
     assert checked >= 4
@@ -327,3 +331,61 @@ def test_an_edging_two_centimetres_high_lifts_nothing_and_is_spared_all_the_same
     assert caster.base_cm == 0.0 and plot.stands_on(plant) == str(bed.item_id)
     plot.compute()
     assert plot.hours(plant) == pytest.approx(16.5, abs=ONE_SAMPLE_H) and not plot.warned(plant)
+
+
+
+def test_cold_frame_spares_contained_plant_and_shades_exterior(plot: Plot) -> None:
+    """A plant inside a COLD_FRAME reads full-sun hours; outside on shadow side is shaded (#621)."""
+    cf = RectangleItem(1000.0, 400.0, 200.0, 120.0, object_type=ObjectType.COLD_FRAME,
+                       layer_id=plot.scene.active_layer.id)
+    plot.commands.execute(CreateItemCommand(plot.scene, cf, "cold frame"))
+    inside = plot.tomato("in cold frame", 1100.0, 460.0)
+    north = plot.tomato("north of cold frame", 1100.0, 535.0, radius=5.0)
+
+    plot.compute()
+    assert plot.hours(inside) == pytest.approx(16.5, abs=ONE_SAMPLE_H)
+    assert not plot.warned(inside), "full-sun plant inside cold frame has no sun mismatch (#621)"
+    assert plot.hours(north) is not None and plot.hours(north) < 16.5 - 4 * ONE_SAMPLE_H
+
+
+def test_planter_pot_and_greenhouse_spare_contained_plants(plot: Plot) -> None:
+    """Plants inside PLANTER_POT and GREENHOUSE get open-ground sun (#621)."""
+    pot = CircleItem(1600.0, 1800.0, 40.0, ObjectType.PLANTER_POT,
+                     layer_id=plot.scene.active_layer.id)
+    plot.commands.execute(CreateItemCommand(plot.scene, pot, "planter pot"))
+    in_pot = plot.tomato("in pot", 1600.0, 1800.0, radius=10.0)
+
+    gh = RectangleItem(400.0, 1000.0, 300.0, 200.0, object_type=ObjectType.GREENHOUSE,
+                       layer_id=plot.scene.active_layer.id)
+    plot.commands.execute(CreateItemCommand(plot.scene, gh, "greenhouse"))
+    in_gh = plot.tomato("in greenhouse", 550.0, 1100.0, radius=20.0)
+
+    plot.compute()
+    assert plot.hours(in_pot) == pytest.approx(16.5, abs=ONE_SAMPLE_H)
+    assert not plot.warned(in_pot)
+    assert plot.hours(in_gh) == pytest.approx(16.5, abs=ONE_SAMPLE_H)
+    assert not plot.warned(in_gh)
+
+
+def test_plant_holders_drift_guard() -> None:
+    """Every placeable object kind with a default height that holds plants is covered (#621)."""
+    class MockItem:
+        def __init__(self, object_type: ObjectType) -> None:
+            self.object_type = object_type
+            self.metadata: dict[str, Any] = {}
+
+    holders = {
+        ot for ot in ObjectType
+        if effective_height_cm(ot, {}) is not None
+        and effective_height_cm(ot, {}) > 0
+        and holds_plants(MockItem(ot))
+    }
+    assert holders == {
+        ObjectType.RAISED_BED,
+        ObjectType.CONTAINER,
+        ObjectType.CONTAINER_ROUND,
+        ObjectType.WALL_PLANTER,
+        ObjectType.COLD_FRAME,
+        ObjectType.PLANTER_POT,
+        ObjectType.GREENHOUSE,
+    }
