@@ -84,7 +84,7 @@ FRAME, REFUSED, EITHER, ANY = "frame", "refused", "either", "any"
 #: The three releases: legal on a closed host, where they do nothing.
 RELEASES = ("destroy_part", "release_fill", "clear", "close")
 #: Asked of a closed host they still answer (asserted where they are used).
-ANSWERS_WHEN_CLOSED = {"is_visible", "health"}
+ANSWERS_WHEN_CLOSED = {"is_visible", "health", "is_software_adapter"}
 
 # What a truthful host must answer — per order, per step (module docstring).
 TRUTH: dict[str, dict[str, str]] = {

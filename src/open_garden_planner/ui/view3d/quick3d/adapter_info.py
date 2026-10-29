@@ -10,6 +10,7 @@ software mode is activated accordingly.
 
 from __future__ import annotations
 
+import ctypes
 import logging
 import os
 import sys
@@ -27,46 +28,48 @@ SOFTWARE_ADAPTER_KEYWORDS: Final[tuple[str, ...]] = (
 # DXGI_ADAPTER_FLAG_SOFTWARE = 2 (bit 1)
 DXGI_ADAPTER_FLAG_SOFTWARE: Final[int] = 2
 
-if sys.platform == "win32":
-    import ctypes
+_WINFUNCTYPE = getattr(ctypes, "WINFUNCTYPE", ctypes.CFUNCTYPE)
 
-    class GUID(ctypes.Structure):
-        _fields_ = [
-            ("Data1", ctypes.c_ulong),
-            ("Data2", ctypes.c_ushort),
-            ("Data3", ctypes.c_ushort),
-            ("Data4", ctypes.c_ubyte * 8),
-        ]
 
-    class DXGI_ADAPTER_DESC1(ctypes.Structure):
-        _fields_ = [
-            ("Description", ctypes.c_wchar * 128),
-            ("VendorId", ctypes.c_uint),
-            ("DeviceId", ctypes.c_uint),
-            ("SubSysId", ctypes.c_uint),
-            ("Revision", ctypes.c_uint),
-            ("DedicatedVideoMemory", ctypes.c_size_t),
-            ("DedicatedSystemMemory", ctypes.c_size_t),
-            ("SharedSystemMemory", ctypes.c_size_t),
-            ("AdapterLuid_Low", ctypes.c_uint),
-            ("AdapterLuid_High", ctypes.c_int),
-            ("Flags", ctypes.c_uint),
-        ]
+class GUID(ctypes.Structure):
+    _fields_ = [
+        ("Data1", ctypes.c_ulong),
+        ("Data2", ctypes.c_ushort),
+        ("Data3", ctypes.c_ushort),
+        ("Data4", ctypes.c_ubyte * 8),
+    ]
 
-    IID_IDXGI_FACTORY1 = GUID(
-        0x770AAE78,
-        0xF26F,
-        0x4DBA,
-        (ctypes.c_ubyte * 8)(0xA8, 0x29, 0x25, 0x3C, 0x83, 0xD1, 0xB3, 0x87),
-    )
 
-    IUnknown_Release = ctypes.WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)
-    IDXGIFactory1_EnumAdapters1 = ctypes.WINFUNCTYPE(
-        ctypes.c_int, ctypes.c_void_p, ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p)
-    )
-    IDXGIAdapter1_GetDesc1 = ctypes.WINFUNCTYPE(
-        ctypes.c_int, ctypes.c_void_p, ctypes.POINTER(DXGI_ADAPTER_DESC1)
-    )
+class DXGI_ADAPTER_DESC1(ctypes.Structure):
+    _fields_ = [
+        ("Description", ctypes.c_wchar * 128),
+        ("VendorId", ctypes.c_uint),
+        ("DeviceId", ctypes.c_uint),
+        ("SubSysId", ctypes.c_uint),
+        ("Revision", ctypes.c_uint),
+        ("DedicatedVideoMemory", ctypes.c_size_t),
+        ("DedicatedSystemMemory", ctypes.c_size_t),
+        ("SharedSystemMemory", ctypes.c_size_t),
+        ("AdapterLuid_Low", ctypes.c_uint),
+        ("AdapterLuid_High", ctypes.c_int),
+        ("Flags", ctypes.c_uint),
+    ]
+
+
+IID_IDXGI_FACTORY1 = GUID(
+    0x770AAE78,
+    0xF26F,
+    0x4DBA,
+    (ctypes.c_ubyte * 8)(0xA8, 0x29, 0x25, 0x3C, 0x83, 0xD1, 0xB3, 0x87),
+)
+
+IUnknown_Release = _WINFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p)
+IDXGIFactory1_EnumAdapters1 = _WINFUNCTYPE(
+    ctypes.c_int, ctypes.c_void_p, ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p)
+)
+IDXGIAdapter1_GetDesc1 = _WINFUNCTYPE(
+    ctypes.c_int, ctypes.c_void_p, ctypes.POINTER(DXGI_ADAPTER_DESC1)
+)
 
 
 def _safe_release_com(ptr: Any, vtable_index: int = 2) -> None:

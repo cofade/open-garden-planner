@@ -28,7 +28,7 @@ what is drawn in front, never a second build.
 from __future__ import annotations
 
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, TypeAlias
 
 import numpy as np
@@ -69,7 +69,7 @@ class XrayScene:
     high: _F64
     rows: tuple[NDArray[np.int64], ...]
     flat: Mapping[str, tuple[Vector, ...]]
-    children: Mapping[str, tuple[str, ...]] = ()
+    children: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
     def index(self, item_id: str) -> int | None:
         try:
