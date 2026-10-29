@@ -169,3 +169,4 @@
 | Case study: an excluded observation completed an uncovered chart day (ADR-067) | [Read](171-case-study-an-excluded-observation-completed-an-uncovered-chart-day-adr-067.md) |
 
 | Factory isolation after extraction | [Read](audit-a4-isolation-after-extraction.md) |
+| Extracted package coverage registration | [Read](audit-config-coverage-registration.md) |

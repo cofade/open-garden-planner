@@ -126,7 +126,7 @@ manual acceptance and wiki publication remain pending until protected merge.
 
 ### Final local receipt (29 October 2026)
 
-[Machine-readable receipt](audit-392-validation.json): 20,180 regular tests
+[Machine-readable receipt](audit-392-validation.json): 20,181 regular tests
 passed / 264 skipped / 0 failed; serial performance 81 passed / 12 skipped /
 0 failed. The skips include opt-in render/platform cases; the complete opt-in
 3D board was not run locally because this package changes no 3D look. The rebuilt
@@ -152,3 +152,18 @@ negative scope-signature assertions; no semantic model routing is claimed.
 The reviewed source tree is recorded in the receipt. This appended receipt is a
 documentation delta; hosted CI and owner acceptance are reported separately in
 the PR. Wiki publication remains pending after approval and protected merge.
+
+### Hosted coverage registration correction
+
+The first hosted run passed tests, both render tiers and the frozen self-test,
+but its aggregate coverage gate correctly refused the new `config` package:
+`Missing package or floor entry`. It measured 449/471 statements (95.3%).
+Registering a 95% line floor preserves every existing package/file floor; no
+baseline is lowered. The source-package inventory regression was observed
+failing for the missing `config` entry before the correction. It now detects an
+unregistered package without requiring a full traced run. The hosted gate still
+checks actual unrounded coverage counts.
+
+The correction's fresh-worktree re-review has no P0/P1/P2 findings; the full
+regular suite was rerun (20,181 passed, 264 skipped). The follow-up reviewed tree
+is recorded separately from the original implementation review in the receipt.
