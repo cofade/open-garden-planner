@@ -250,13 +250,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
 - Epic #392: remaining audit packages A4/A6/A7/A9/A12/A13 (#456/#458/#459/#461/
-  #464/#465) shipped in v1.34.5 (PR #640, ADR-068). Bugfix package for #641
+  #464/#465) shipped in v1.34.5 (PR #640, ADR-068). The bugfix package for #641
   (elevated sun exposure), #643 (properties dropdown icons), #623 (selftest crash
-  diagnostics), and #605 (paved path corner joins and acute bend trimming) are in draft PR #645;
-  review fixes preserve exact soil elevations, sharp/duplicate path vertices and
-  watchdog cleanup. The owner-reported gravel outer bend now follows the same
-  rounded painted rim in 3D, including end caps. Owner manual testing and wiki
-  publication remain pending.
+  diagnostics), and #605 (paved path corner joins and acute bend trimming) shipped
+  in v1.34.6 (PR #645) after owner manual testing and a clean senior review; the
+  owner-reported gravel outer bend follows the rounded painted rim in 3D,
+  including end caps.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

@@ -3615,7 +3615,7 @@ The branch incorporates master through v1.34.4 (PR #639 and its version sync).
 | Deployment/security/contributing | Existing policy owner, verified aliases and honest continuity/recovery steps |
 | Wiki sources | Architecture and contribution pointers; publication pending after approval/merge |
 
-### Precision, UI, and diagnostic bugfixes (#641, #643, #623, #605)
+### Precision, UI, and diagnostic bugfixes (#641, #643, #623, #605) — **shipped 2026-10-29 as v1.34.6, PR #645**
 
 Targeted bugfix package addressing four high-priority defects across solar exposure, UI consistency, diagnostics, and 2D canvas path rendering:
 
@@ -3623,3 +3623,5 @@ Targeted bugfix package addressing four high-priority defects across solar expos
 2. **#643: Properties panel ObjectType dropdown preview icons.** Added missing icon resolutions for `CONTAINER`, `CONTAINER_ROUND`, `WALL_PLANTER`, `TRELLIS`, `GENERIC_ELLIPSE`, and `HEDGE_POLYGON`, guaranteeing non-null icon display across all `ObjectType` entries.
 3. **#623: Qt Quick 3D subprocess crash diagnostics.** Enabled `faulthandler` directly into the selftest log target, ensuring fatal Windows SEH callback exceptions (`0xC000041D`) dump tracebacks into the log. Integration test assertions now echo the selftest log tail upon failure.
 4. **#605: Paved path corners and inner bend clipping.** Base fill pen join aligned to `BevelJoin` to match border chords. `_offset_path` now detects acute inner bends ($offset \cdot (\vec{u}_1 \times \vec{u}_2) > 0$) and trims overlapping segment ends to their exact intersection point, eliminating self-intersecting V-spikes.
+
+Shipped in v1.34.6 (PR #645) after full owner manual testing, a clean senior-reviewer pass, and protected merge. The gravel correction in the same PR makes 3D relief follow the canonical rounded painted rim within its relief budget, including caps and holes.

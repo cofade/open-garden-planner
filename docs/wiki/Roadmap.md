@@ -139,3 +139,10 @@ height while keeping its 2D fill on top (a raised lawn keeps its blades, a raise
 water), and a plant dropped into a bed undoes in one step. The internal test-lifecycle and
 workspace work (#561, #515, #583, #580) shipped in v1.34.2 via
 [PR #632](https://github.com/cofade/open-garden-planner/pull/632).
+
+Elevated-plant sun exposure at the exact soil plane (#641), complete Properties
+dropdown icons (#643), self-test crash diagnostics that survive the fatal callback
+(#623), and corrected paved path corners, plus a gravel 3D rim that follows the
+rounded painted outline (#605), shipped in
+[v1.34.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.6)
+via [PR #645](https://github.com/cofade/open-garden-planner/pull/645).
