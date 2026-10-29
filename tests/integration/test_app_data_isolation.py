@@ -191,10 +191,16 @@ class TestTheRedirectionMechanismItself:
         """macOS reads no environment variable, so there the function itself is
         replaced. No Mac runs this suite; the replacement is exercised here by
         hand, on the modules that bound the name with ``from … import``."""
+        import sys
+
         from open_garden_planner.services import companion_planting_service, weather_service
 
-        modules = (library_module, companion_planting_service, weather_service)
         original = library_module.get_app_data_dir
+        assert companion_planting_service.get_app_data_dir is original
+        assert weather_service.get_app_data_dir is original
+        modules = tuple(module for module in list(sys.modules.values())
+                        if getattr(module, "__name__", "").startswith("open_garden_planner")
+                        and getattr(module, "get_app_data_dir", None) is original)
         for module in modules:  # registered with monkeypatch only so that it is undone afterwards
             assert module.get_app_data_dir is original
             monkeypatch.setattr(module, "get_app_data_dir", original)

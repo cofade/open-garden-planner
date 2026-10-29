@@ -340,7 +340,7 @@ def get_seed_inventory() -> SeedInventoryStore:
     """Return the application-wide seed inventory (loaded lazily)."""
     global _store
     if _store is None:
-        from open_garden_planner.services.plant_library import get_app_data_dir
+        from open_garden_planner.models.storage_paths import get_app_data_dir
 
         _store = SeedInventoryStore(get_app_data_dir() / SeedInventoryStore.FILENAME)
     return _store

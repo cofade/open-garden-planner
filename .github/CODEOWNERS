@@ -1,0 +1,5 @@
+# Review routing only; this file grants no repository or release privileges.
+* @cofade
+/SECURITY.md @cofade
+/.github/workflows/ @cofade
+/installer/ @cofade

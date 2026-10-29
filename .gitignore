@@ -62,6 +62,8 @@
 !.claude/skills/finalize-us/skill.md
 !.claude/skills/debug-verbose/
 .claude/skills/debug-verbose/*
+!.claude/skills/debug-verbose/references/
+!.claude/skills/debug-verbose/references/*.md
 !.claude/skills/debug-verbose/skill.md
 !.claude/skills/analyze-pr/
 .claude/skills/analyze-pr/*

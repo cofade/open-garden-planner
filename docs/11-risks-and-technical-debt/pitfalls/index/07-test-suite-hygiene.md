@@ -35,4 +35,3 @@
 | PF-TST-31 | A render measurement waits for ground, camera LOD and forge admission, judges the sink-held meshes at zero wind phase, and distinguishes document reloads from unchanged same-document passes. | standing | [07](../07-test-suite-hygiene.md#pf-tst-31) |  |
 | PF-TST-32 | Sample ground memory after two presented frames retire replaced uploads, preserve the leak bound and control, and never use a grab as a presentation. | standing | [07](../07-test-suite-hygiene.md#pf-tst-32) |  |
 | PF-TST-33 | Opt the pytest runner out of Windows EcoQoS power throttling (`SetProcessInformation` with `ProcessPowerThrottling`, `ControlMask=EXECUTION_SPEED`, `StateMask=0`), so background thread classification does not inflate timings ~1.8× partway through local test runs. | standing | [07](../07-test-suite-hygiene.md#pf-tst-33) |  |
-

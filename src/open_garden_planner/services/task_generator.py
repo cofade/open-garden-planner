@@ -891,7 +891,7 @@ def _bed_amendment_recs(
     record = soil_service.get_effective_record(bed_id)
     if record is None:
         return ()
-    from open_garden_planner.app.settings import active_language
+    from open_garden_planner.config.settings import active_language
     from open_garden_planner.core.measurements import (
         calculate_area_and_perimeter,
     )

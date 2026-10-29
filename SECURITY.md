@@ -1,5 +1,9 @@
 # Security Policy
 
+Policy owner: [@cofade](https://github.com/cofade).
+Ownership and recovery responsibilities are documented in the
+[maintainer continuity runbook](docs/07-deployment-view/maintainer-continuity.md).
+
 ## Supported versions
 
 Security fixes target the **latest stable release**.

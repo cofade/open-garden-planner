@@ -82,3 +82,12 @@ data. Two non-perf test-ID partitions and one serial performance measurement fee
 a required combine/floor check; the uninstrumented Test job remains separate.
 See the [investigation and evidence](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/ci-latency-601.md)
 and [deployment contract](https://github.com/cofade/open-garden-planner/blob/master/docs/07-deployment-view/README.md#74-cicd-pipeline-github-actions).
+
+
+## Audit responsibility boundaries
+
+The remaining audit delivery introduces shared configuration/model leaves,
+composed canvas/property/agent adapters and measured performance workloads.
+See [ADR-068](https://github.com/cofade/open-garden-planner/blob/master/docs/09-architecture-decisions/README.md#adr-068-audit-boundaries-responsibility-extraction-and-progressive-agent-context-392)
+and [per-finding evidence](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-392-remaining.md).
+Owner acceptance and protected merge remain pending while the PR is a draft.

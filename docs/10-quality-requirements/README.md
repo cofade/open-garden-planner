@@ -30,9 +30,9 @@ Quality
 | ID | Requirement | Target |
 |----|------------|--------|
 | NFR-PERF-01 | Smooth canvas interaction (pan/zoom) | 60 fps (repaint ≤ 16.7 ms median in a 1600×1000 viewport with up to 500 objects / 990 scene items; pinned in `tests/perf/test_nfr_budgets.py` on `tests/fixtures/plans/audit-2026-10-plan_500.ogp`) |
-| NFR-PERF-02 | File save/load time | < 2 seconds for typical projects |
-| NFR-PERF-03 | PNG export time | < 5 seconds for high-resolution output |
-| NFR-PERF-04 | Memory usage | < 500MB for typical projects; an idle plan (no input) must reach a **quiescent state** — 0 `scene.changed` emissions and 0 minimap renders per 2 s after a 1.5 s settle (issue #305, `tests/integration/test_idle_scene_quiescence.py`) |
+| NFR-PERF-02 | File save/load time | < 2 seconds for save and load of the committed 500-object audit reference plan |
+| NFR-PERF-03 | PNG export time | < 5 seconds for the reference plan PNG at 300 DPI and 42 cm width (4960 × 2976 px; its 5:3 canvas aspect is preserved) |
+| NFR-PERF-04 | Memory usage | < 500 MB RSS for the committed 500-object reference plan; an idle plan (no input) must reach a **quiescent state** — 0 `scene.changed` emissions and 0 minimap renders per 2 s after a 1.5 s settle (issue #305, `tests/integration/test_idle_scene_quiescence.py`) |
 | NFR-PERF-05 | Startup time | < 3 seconds on modern hardware |
 
 ## 10.3 Reliability Requirements
@@ -114,3 +114,27 @@ for administrators, with zero approving reviews. Master enforcement was activate
 independently verified before PR #422 merged for v1.29.6. The existing no-failed-CI finalization rule applies to Coverage as well. Frozen
 Windows build, eight-second smoke and subsystem self-test remain local merge gates and the
 release pipeline repeats its subsystem self-test after merge.
+
+### Reproducing the five performance workloads (A9, ADR-068)
+
+`scripts/benchmark_audit_performance.py --frozen
+<path-to-built-executable> --rounds 3 --idle-seconds 30
+--output build/audit-performance.json` measures startup on the real executable
+and the remaining workloads through the source application's production
+load/save/export/view surfaces. Run the command on one line. The reference is
+`tests/fixtures/plans/audit-2026-10-plan_500.ogp`; the source window is 1600×1000.
+The 42 cm PNG width is the landscape A3 paper width, not a promise of A3 sheet
+height: PNG preserves this plan's aspect ratio, yielding 4960×2976 pixels at 300
+DPI. Full A3 paper layout is a PDF/report concern. Raster output and encoding
+are both timed. Startup includes executable bootstrap through the first painted
+event-loop callback, with separate import/theme/window stages. Fresh processes
+do not establish a cold filesystem cache.
+
+The 30-second idle interval records before/after RSS and scene/minimap callback
+counts after a two-second settle. It complements the short deterministic idle
+regressions. The harness inventories direct versus suspended z-refresh insertion
+at 100 and 500 objects; #450 owns the delivered remediation and order/undo gates.
+No duplicate implementation is introduced for AUD-061. NFR-PERF-01 also retains
+its existing pan/zoom repaint scenarios. Native-window data is separate from
+offscreen or coverage-traced data; startup and RSS misses must be reported rather
+than hidden by changing the target or adding a flaky universal timing assertion.

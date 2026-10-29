@@ -295,4 +295,3 @@ def test_agent_set_object_position_reparent_undoes_as_one_step(qtbot: Any, monke
         window._project_manager.mark_clean()
         window._stop_agent_api()
         window.close()
-

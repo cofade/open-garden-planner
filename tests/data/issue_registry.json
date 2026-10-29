@@ -739,20 +739,45 @@
     "state": "CLOSED",
     "title": "Audit A2: Dependency maintenance, build reproducibility and distribution inventory (epic #392)"
   },
+  "456": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Audit A4: Import boundaries, package cycles and architecture enforcement (epic #392)"
+  },
   "457": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Audit A5: Constraint descriptors and stronger solver assertions (epic #392)"
+  },
+  "458": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Audit A6: Canvas interaction and properties-panel maintainability (epic #392)"
+  },
+  "459": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Audit A7: Application orchestration extraction (epic #392)"
   },
   "460": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Audit A8: Test precision, lifecycle hygiene and test-layer documentation (epic #392)"
   },
+  "461": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Audit A9: Performance contracts, representative benchmarks and bulk insertion (epic #392)"
+  },
   "463": {
     "is_pr": false,
     "state": "CLOSED",
     "title": "Audit A11: Release attribution, version consistency and release recovery (epic #392)"
+  },
+  "464": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Audit A12: Agent context, skill loading and change/review discipline (epic #392)"
   },
   "465": {
     "is_pr": false,

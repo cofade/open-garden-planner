@@ -226,7 +226,7 @@ def test_a_pan_inside_the_sampled_region_does_not_resample(view, monkeypatch, ki
     scene region the sampler actually tested (the viewport grown by
     ``DENSE_HANDLE_SPACING_PX``), and re-taken when it leaves.
     """
-    from open_garden_planner.ui.canvas.items import resize_handle
+    from open_garden_planner.ui.canvas.items import vertex_handles as resize_handle
 
     if kind == "polygon":
         item = _dense_polygon(16_384, radius=600.0)

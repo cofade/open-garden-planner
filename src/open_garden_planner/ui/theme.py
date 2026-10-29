@@ -8,22 +8,15 @@ import logging
 import os
 import tempfile
 from collections.abc import Callable
-from enum import Enum
 
 from PyQt6 import sip
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPainter, QPixmap
 from PyQt6.QtWidgets import QApplication, QWidget
 
+from open_garden_planner.models.theme import ThemeMode as ThemeMode
+
 logger = logging.getLogger(__name__)
-
-
-class ThemeMode(Enum):
-    """Available theme modes."""
-
-    LIGHT = "light"
-    DARK = "dark"
-    SYSTEM = "system"
 
 
 class ThemeColors:
@@ -1239,7 +1232,17 @@ def apply_theme(app: QApplication, mode: ThemeMode) -> None:
         except Exception:
             logger.exception("Theme listener failed")
 
-    # Apply dark title bar on Windows if using dark mode
+    refresh_window_theme(app, mode)
+
+
+def refresh_window_theme(app: QApplication, mode: ThemeMode) -> None:
+    """Theme newly constructed windows without re-polishing the whole application.
+
+    Startup applies the stylesheet before construction. After show(), only the
+    native title bars and opt-in palette/icon hooks need refreshing. Theme changes
+    continue through apply_theme(), which owns stylesheet and listener updates.
+    """
+    colors = ThemeColors.get_colors(mode)
     is_dark = colors is ThemeColors.DARK
 
     # Update all top-level windows

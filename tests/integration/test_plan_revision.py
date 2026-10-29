@@ -398,8 +398,9 @@ def test_every_handle_that_edits_a_geometry_announces_each_move() -> None:
     """Qt has no ``itemChange`` for a geometry. A handle drag changes one on every
     mouse move, so every handle's ``mouseMoveEvent`` in ``resize_handle.py`` says so —
     all but the rotation handle's, whose ``setRotation`` Qt announces itself."""
-    module = ITEMS / "resize_handle.py"
-    movers = {node.name: _method(node, "mouseMoveEvent") for node in _classes(module)}
+    modules = [ITEMS / "resize_handle.py", ITEMS / "vertex_handles.py"]
+    movers = {node.name: _method(node, "mouseMoveEvent")
+              for module in modules for node in _classes(module)}
     movers = {name: method for name, method in movers.items() if method is not None}
     assert sorted(movers) == ["CurveControlHandle", "RectCornerHandle", "ResizeHandle",
                               "RotationHandle", "VertexHandle"]

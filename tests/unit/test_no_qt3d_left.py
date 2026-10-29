@@ -52,6 +52,13 @@ HISTORY = frozenset({
     ".agents/skills/ogp-3d-sunshade-campaign/SKILL.md",
 })
 HISTORY_DIRS = (  # measured runs, kept; the verbatim archive of retired work (ADR-061)
+    # The same historical skill bodies after progressive disclosure (ADR-068).
+    ".claude/skills/debug-verbose/references/",
+    ".agents/skills/debug-verbose/references/",
+    ".claude/skills/ogp-failure-archaeology/references/",
+    ".agents/skills/ogp-failure-archaeology/references/",
+    ".claude/skills/ogp-3d-sunshade-campaign/references/",
+    ".agents/skills/ogp-3d-sunshade-campaign/references/",
     "docs/09-architecture-decisions/adr-048-evidence/",
     "docs/11-risks-and-technical-debt/archive/",
     "docs/11-risks-and-technical-debt/pitfalls/index/",

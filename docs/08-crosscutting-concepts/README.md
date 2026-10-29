@@ -2126,6 +2126,32 @@ use the available desktop geometry. Test-driver startup can retry STARTING
 refusals within one total deadline; do not extend the product host's idle wait.
 See [the measurement report](../11-risks-and-technical-debt/audits/2026-10/3d-hardening-611.md).
 
+### 8.10.15 Characterization and instruments after extraction (audit #392)
+
+Before moving an implementation, characterize the actual UI/command workflow.
+After moving it, keep the behavioral assertions and retarget AST censuses,
+mutation scripts, import hooks and private spies to the defining module. An
+export alias preserves object identity, not the global namespace a function uses.
+Snapshot every binding an isolation helper changes; a fixed list can leak a new
+shared resolver into the next test. A child settings hook intercepts
+`config.settings`, before any store is constructed (ADR-041/068).
+
+`test_audit_refactoring.py` drives all five real shape menus at 37/215 degrees,
+checks exactly one undo step and exact duplicate restoration, and holds a queued
+bridge call while shutdown verifies abort-before-join without pumping Qt.
+`test_property_dispatch_workflows.py` drives every generic property branch through
+its actual editor. Existing focus/debounce, line-preset, resize and gesture nets
+remain part of the full suite. `test_startup_theme_refresh.py` verifies one
+stylesheet write plus palette/native-frame refresh; it asserts work rather than
+a machine-dependent millisecond number.
+
+Run `benchmark_audit_performance.py` on a quiet runner for the representative
+workloads. Timing data and unit gates are separate evidence: coverage tracing,
+offscreen rasterization and other workers must be disclosed. The harness reports
+all samples and explicit output dimensions; the evidence never substitutes an
+old audit observation for a current result. See the quality requirements and
+audit evidence for the command, machine and measured limitations.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).

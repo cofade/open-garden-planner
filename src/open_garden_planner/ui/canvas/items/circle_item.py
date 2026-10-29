@@ -916,16 +916,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         menu.addSeparator()
 
         # Duplicate action
-        duplicate_action = menu.addAction(_("CircleItem", "Duplicate"))
+        from .common_menu import build_repeat_actions
 
-        # Linear array action
-        linear_array_action = menu.addAction(_("CircleItem", "Create Linear Array..."))
-
-        # Grid array action
-        grid_array_action = menu.addAction(_("CircleItem", "Create Grid Array..."))
-
-        # Circular array action
-        circular_array_action = menu.addAction(_("CircleItem", "Create Circular Array..."))
+        repeat_actions = build_repeat_actions(menu, "CircleItem")
 
         # Boolean operations (union supports two or more closed shapes; the
         # other operations stay a two-shape relation)
@@ -985,39 +978,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:
             self.scene().removeItem(self)
-        elif action == duplicate_action:
-            # Duplicate via canvas view
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "duplicate_selected"):
-                        view.duplicate_selected()
-        elif action == linear_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_linear_array"):
-                        view.create_linear_array()
-        elif action == grid_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_grid_array"):
-                        view.create_grid_array()
-        elif action == circular_array_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views:
-                    view = views[0]
-                    if hasattr(view, "create_circular_array"):
-                        view.create_circular_array()
+        elif repeat_actions.dispatch(action, self.scene()):
+            return
         elif action is not None and action in (
             boolean_union_action, boolean_intersect_action, boolean_subtract_action
         ):

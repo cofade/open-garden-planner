@@ -1,0 +1,2898 @@
+{
+  "baseline": "003c4bc4c1fba470a8159ce9078a2d3086bd66e4",
+  "note": "Each original newline-normalized body was reconstructed byte-for-byte immediately after splitting. Subsequent changes only relocate citations, links and one repeated fact to its shared exact-AST record. Original and current fragment hashes are retained. Post-migration semantic updates are recorded separately below; the original fragment hashes remain unchanged.",
+  "skills": {
+    ".agents/skills/debug-verbose/SKILL.md": {
+      "original_sha256": "9cd918e76afc70a1a83e9feab5dbde8b870662aa75e6c2f6f30b08e5fc3c0622",
+      "fragments": [
+        {
+          "path": ".agents/skills/debug-verbose/references/000-verbose-debug-instrumentation.md",
+          "sha256": "7c37d285d187fa4ddb80a39f81bb89e7f7c2635287b1642af503b99d3141dddd",
+          "current_sha256": "7c37d285d187fa4ddb80a39f81bb89e7f7c2635287b1642af503b99d3141dddd"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/001-case-study-green-renderer-gates-bypassed-plant-forge-pr-593.md",
+          "sha256": "e70931f39dad476776be4476ec8da62babb7e2ad836761699f50e543c5a78140",
+          "current_sha256": "e70931f39dad476776be4476ec8da62babb7e2ad836761699f50e543c5a78140"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/002-case-study-three-callback-observations-became-an-absolute-scheduling-promise-pr-597.md",
+          "sha256": "067944645bf6431ad8f95fe39b8d86fcc38fb507ff207be218c9c90564417be5",
+          "current_sha256": "067944645bf6431ad8f95fe39b8d86fcc38fb507ff207be218c9c90564417be5"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/003-case-study-the-startup-welcome-dialog-gone-a-probe-wrote-the-user-s-real-settings-pr-.md",
+          "sha256": "3211e53864e73ea398c0f2a05702207da44dd4c6208dcfc654e9c79473c6dd40",
+          "current_sha256": "3211e53864e73ea398c0f2a05702207da44dd4c6208dcfc654e9c79473c6dd40"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/004-case-study-a-constant-button-width-measured-on-a-font-engine-that-does-not-exist-pr-5.md",
+          "sha256": "217ca39bae8023f92c0f126acb026d7a655f827c519308e31ac0f2015aa00506",
+          "current_sha256": "217ca39bae8023f92c0f126acb026d7a655f827c519308e31ac0f2015aa00506"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/005-case-study-hours-of-sun-on-in-the-toolbar-nothing-on-the-3d-ground-shadows-under-a-la.md",
+          "sha256": "41c8ce7e82cc81b0a76d6d9c94a5aa91b61a79203004ba652db3cc4ce4e19e63",
+          "current_sha256": "41c8ce7e82cc81b0a76d6d9c94a5aa91b61a79203004ba652db3cc4ce4e19e63"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/006-case-study-panel-commit-boundaries-erased-redo-or-lost-notes-pr-566-2026-10-23.md",
+          "sha256": "01baf2bdae1325746166e79fa756fbe43156151ec8c0ce92f4642f2f79ef3e79",
+          "current_sha256": "01baf2bdae1325746166e79fa756fbe43156151ec8c0ce92f4642f2f79ef3e79"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/007-case-study-throttle-regression-depends-on-machine-uptime-542-pr-565.md",
+          "sha256": "3193e595579d8f75622795943d2dde6db10b2d308f2c60310baa6db38ca5b478",
+          "current_sha256": "3193e595579d8f75622795943d2dde6db10b2d308f2c60310baa6db38ca5b478"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/008-case-study-global-3d-actions-changed-a-hidden-workspace-539-pr-565.md",
+          "sha256": "fed4fe9aa555bec04f32d4d05a376faf59c46a5c93b6ead2bcc09de040ec4ba1",
+          "current_sha256": "fed4fe9aa555bec04f32d4d05a376faf59c46a5c93b6ead2bcc09de040ec4ba1"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/009-case-study-deferred-pdf-progress-still-force-shows-315.md",
+          "sha256": "6a4e6058765203311a76199a4eb4c7a7c6262dd18cb2a54033527d1bdd952b23",
+          "current_sha256": "6a4e6058765203311a76199a4eb4c7a7c6262dd18cb2a54033527d1bdd952b23"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/010-case-study-stale-row-semantics-do-not-mean-exact-search-selection-315.md",
+          "sha256": "bbadf5757f8914b097e3750026544316dba400781e5a11628db8d3ef19dd9ca0",
+          "current_sha256": "bbadf5757f8914b097e3750026544316dba400781e5a11628db8d3ef19dd9ca0"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/011-case-study-stale-search-row-crashes-before-its-python-guard-315.md",
+          "sha256": "3c9bde6d4c7eb7b218c60a6bfd8a7ca1ff4c1c59442abbf17015776b4b15a2e8",
+          "current_sha256": "3c9bde6d4c7eb7b218c60a6bfd8a7ca1ff4c1c59442abbf17015776b4b15a2e8"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/012-case-study-final-review-exposes-gaps-outside-the-accepted-strip-315.md",
+          "sha256": "5ce3639e88a4ac7031b7a9300273180c8e25e81f6dc6466ab704cee5079c9240",
+          "current_sha256": "5ce3639e88a4ac7031b7a9300273180c8e25e81f6dc6466ab704cee5079c9240"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/013-case-study-toolbar-containment-passed-while-the-themed-strip-was-misaligned-315.md",
+          "sha256": "93e0bfdc76e24731436bb58c144c114ddcbeb9f1bf6eac9b09d9b635c9a0212a",
+          "current_sha256": "93e0bfdc76e24731436bb58c144c114ddcbeb9f1bf6eac9b09d9b635c9a0212a"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/014-case-study-compiled-catalogs-passed-while-current-ui-keys-were-missing-496.md",
+          "sha256": "6c5f9ae925f9c21fbb45388b53a8e2e79248e0b60db2d8bb41091ffeb47fcaad",
+          "current_sha256": "6c5f9ae925f9c21fbb45388b53a8e2e79248e0b60db2d8bb41091ffeb47fcaad"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/015-case-study-qthread-destroyed-while-still-running-on-window-close-issues-480-483-2026-.md",
+          "sha256": "d0cf05238a1a32586fb06333517fc31cc82f1faa7080edf93cc1d951eb12812a",
+          "current_sha256": "d0cf05238a1a32586fb06333517fc31cc82f1faa7080edf93cc1d951eb12812a"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/016-case-study-a-fast-worker-fails-a-gui-heartbeat-count-pr-490-2026-10-14.md",
+          "sha256": "39eabf977578fbc7e37a66d3097a275973af2ae0792bb816da3e913cca6d1d78",
+          "current_sha256": "39eabf977578fbc7e37a66d3097a275973af2ae0792bb816da3e913cca6d1d78"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/017-case-study-frozen-code-absent-from-a-passing-sbom-454-2026-10-14.md",
+          "sha256": "9b6b197d8b2f1eeb9e88ce73dfc8de8817897f37e09505cef9b966bfcf915136",
+          "current_sha256": "9b6b197d8b2f1eeb9e88ce73dfc8de8817897f37e09505cef9b966bfcf915136"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/018-case-study-the-same-metadata-query-returned-5-distributions-under-pytest-and-48-in-th.md",
+          "sha256": "0b4d4293c499a875587819fa9057bc0c95c495e1193f3ca92e09ca1c72354ed6",
+          "current_sha256": "0b4d4293c499a875587819fa9057bc0c95c495e1193f3ca92e09ca1c72354ed6"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/019-case-study-sun-cache-test-fails-only-late-at-night-457-gate-run-2026-10-13.md",
+          "sha256": "2a3c65ecfa1e801423d1e4c87eb8c156ddb232ca8f13a1fd27d4538016b6085d",
+          "current_sha256": "2a3c65ecfa1e801423d1e4c87eb8c156ddb232ca8f13a1fd27d4538016b6085d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/020-case-study-english-unnamed-objects-in-german-constraint-rows-457-2026-10-13.md",
+          "sha256": "fbcf7990530c812d88b60d19eab04cb09abcc68f38b0cdb4271e86f730dc6422",
+          "current_sha256": "fbcf7990530c812d88b60d19eab04cb09abcc68f38b0cdb4271e86f730dc6422"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/021-case-study-metre-formatting-changes-after-descriptor-extraction-457-2026-10-13.md",
+          "sha256": "d86f9479c76974fe8b2a7c77eb399a59902f75723ac8cf8b51c09b74bdeba2e1",
+          "current_sha256": "d86f9479c76974fe8b2a7c77eb399a59902f75723ac8cf8b51c09b74bdeba2e1"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/022-case-study-all-pinned-constraints-reported-solved-457-2026-10-13.md",
+          "sha256": "66a138c2226e386a4f30c6b9f5589541ed16b7c828f79c744b32eba8be4174c2",
+          "current_sha256": "66a138c2226e386a4f30c6b9f5589541ed16b7c828f79c744b32eba8be4174c2"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/023-case-study-a-rectangle-edge-length-graph-row-without-a-resize-406-2026-10-12.md",
+          "sha256": "d21c3807abcdfbd54ac4517154e7c59ebdded082200dd046a01dbb5847005218",
+          "current_sha256": "d21c3807abcdfbd54ac4517154e7c59ebdded082200dd046a01dbb5847005218"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/024-case-study-guild-names-and-gallery-click-layer-assignment-pr-433-2026-10-11.md",
+          "sha256": "f674fde02b8699f46fc681f2c1b609cf292162b575b3fefa8011b78a1753e5cd",
+          "current_sha256": "f674fde02b8699f46fc681f2c1b609cf292162b575b3fefa8011b78a1753e5cd"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/025-when-to-apply-proactively-without-being-asked.md",
+          "sha256": "faded50dc8d973e7974052cbb529857fe0a172ddde425738bf4fbd48aa4401fc",
+          "current_sha256": "faded50dc8d973e7974052cbb529857fe0a172ddde425738bf4fbd48aa4401fc"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/026-how-to-instrument.md",
+          "sha256": "4694ba66c7635911a0da428c4b13493cab524387f32b5e5c004b87d633f44f07",
+          "current_sha256": "4694ba66c7635911a0da428c4b13493cab524387f32b5e5c004b87d633f44f07"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/027-template-event-driven-method-instrumentation.md",
+          "sha256": "e85554121e4768abe72bbfa4ec005c3ffa4ceab64006d05b5926b14de582bdab",
+          "current_sha256": "e85554121e4768abe72bbfa4ec005c3ffa4ceab64006d05b5926b14de582bdab"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/028-template-async-deferred-callback.md",
+          "sha256": "42531a6fb93d3a1dc11d2cac1842d0a10e86e716173ab409a7518861dc0ecafa",
+          "current_sha256": "42531a6fb93d3a1dc11d2cac1842d0a10e86e716173ab409a7518861dc0ecafa"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/029-case-study-label-editor-auto-closing-fixed-2026-04-22.md",
+          "sha256": "99eb199bc00c5501ac6e9a6002fb02844c616a1db48e0eb9e1fdff9eee0a0426",
+          "current_sha256": "99eb199bc00c5501ac6e9a6002fb02844c616a1db48e0eb9e1fdff9eee0a0426"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/030-case-study-calloutitem-re-editing-immediately-commits-fixed-2026-04-29.md",
+          "sha256": "5661942d3232cd2c74481b04720a8cdfc5c9c94cf048eb7803807294b1d0eaeb",
+          "current_sha256": "5661942d3232cd2c74481b04720a8cdfc5c9c94cf048eb7803807294b1d0eaeb"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/031-case-study-same-scene-reload-duplicates-and-false-success-deletes-fixed-2026-09-24.md",
+          "sha256": "eecdea8fcc0b9d864866c074bf12f207c702f1017ea74a21e66b342742047608",
+          "current_sha256": "eecdea8fcc0b9d864866c074bf12f207c702f1017ea74a21e66b342742047608"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/032-case-study-non-finite-mcp-numbers-become-valid-callout-defaults-fixed-2026-09-24.md",
+          "sha256": "7c904fa8f6028822ac5c8e78858380633a2f2bcb3f4232330c0896acc9f50ba5",
+          "current_sha256": "7c904fa8f6028822ac5c8e78858380633a2f2bcb3f4232330c0896acc9f50ba5"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/033-case-study-one-noisy-ci-benchmark-hides-the-real-distribution-fixed-2026-09-24.md",
+          "sha256": "662d0b4d513aa3cbcdca4ee4a3db2d9009153d5a45c7889fcb92246b9a81774d",
+          "current_sha256": "662d0b4d513aa3cbcdca4ee4a3db2d9009153d5a45c7889fcb92246b9a81774d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/034-how-this-skill-grows.md",
+          "sha256": "11cd922f4ce0ee1fd4f468cfaa06adb4012140ee963939a959f5d4c63e6004ca",
+          "current_sha256": "11cd922f4ce0ee1fd4f468cfaa06adb4012140ee963939a959f5d4c63e6004ca"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/035-case-study-png-svg-export-empty-after-y-flip-fix-fixed-2026-05-01.md",
+          "sha256": "952d7b7c1dc26229438941147d8c47265d8b82e6e202c06396456ed04dd70fb3",
+          "current_sha256": "952d7b7c1dc26229438941147d8c47265d8b82e6e202c06396456ed04dd70fb3"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/036-case-study-pdf-overview-rendered-as-narrow-left-edge-strip-fixed-2026-05-01.md",
+          "sha256": "1d82f73499be13a5a870291e4e0e06a1f1129656f95d7684ddb5902fbeda454d",
+          "current_sha256": "1d82f73499be13a5a870291e4e0e06a1f1129656f95d7684ddb5902fbeda454d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/037-case-study-svg-texture-fills-inverted-brownish-under-y-flip-fixed-2026-05-02.md",
+          "sha256": "ba649a4bcd9843e5815dd42b8456198d40ea267864a7a0f76c7cea6a050731c3",
+          "current_sha256": "ba649a4bcd9843e5815dd42b8456198d40ea267864a7a0f76c7cea6a050731c3"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/038-case-study-svg-brownish-overlay-across-satellite-background-fixed-2026-05-02.md",
+          "sha256": "1d4aceb53f067125f93d32c3c25494f276b4f353b92863eaff55e0753fdebfd7",
+          "current_sha256": "1d4aceb53f067125f93d32c3c25494f276b4f353b92863eaff55e0753fdebfd7"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/039-case-study-us-12-10d-plant-soil-mismatch-border-never-appears-fixed-2026-05-03.md",
+          "sha256": "ed9785ec8ced7fe7eccb3d8a67f104e3c750ff03f855cec865b9f0f0b4ad1c16",
+          "current_sha256": "ed9785ec8ced7fe7eccb3d8a67f104e3c750ff03f855cec865b9f0f0b4ad1c16"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/040-case-study-data-fields-exist-on-the-model-but-no-ui-to-set-them-us-12-10d-fixed-2026-.md",
+          "sha256": "ef5036722e2207df7d170d115eb249fb1be760fff1a9e757cf709a732b6c277a",
+          "current_sha256": "ef5036722e2207df7d170d115eb249fb1be760fff1a9e757cf709a732b6c277a"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
+          "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
+          "current_sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
+          "sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c",
+          "current_sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/043-case-study-outer-dialog-ok-appends-a-duplicate-after-sub-dialog-edit-us-12-10-f2-6c-f.md",
+          "sha256": "a1323cbdceec3739324e74d1a4c45689ff3958c689989f35ce9875d8c98b6345",
+          "current_sha256": "a1323cbdceec3739324e74d1a4c45689ff3958c689989f35ce9875d8c98b6345"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+          "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
+          "current_sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
+          "sha256": "9f85661088cb0dee2a2a426254eb264bf4cb4e0b5021cedc78eed901b423d842",
+          "current_sha256": "9f85661088cb0dee2a2a426254eb264bf4cb4e0b5021cedc78eed901b423d842"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/046-case-study-clipboard-format-that-looks-right-but-fails-on-paste-us-12-10-f10-fixed-20.md",
+          "sha256": "c8e0fc56b73753f519c03717df09d9632c37d916fcc2ac76c563b229f0355f47",
+          "current_sha256": "c8e0fc56b73753f519c03717df09d9632c37d916fcc2ac76c563b229f0355f47"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/047-case-study-max-ties-hide-newer-records-of-the-same-date-us-12-10-f2-10a-fixed-2026-05.md",
+          "sha256": "03a2f60c03d16a7a8e4a0371b71bfeecc6dbf1f27fdf0cd8473f84b09c96230b",
+          "current_sha256": "03a2f60c03d16a7a8e4a0371b71bfeecc6dbf1f27fdf0cd8473f84b09c96230b"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/048-notes-from-the-same-sweep-no-separate-case-study-warranted.md",
+          "sha256": "e0d9455689eaff6cef946846df4bd0c2227730e1ddee17fc6b558029f2128bab",
+          "current_sha256": "e0d9455689eaff6cef946846df4bd0c2227730e1ddee17fc6b558029f2128bab"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
+          "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
+          "current_sha256": "77f84ff300b13bf5c2fdc1a4938e0d787371e48405066e51debc1ac392a9eb70"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
+          "sha256": "bf1dda843c4c906623cad29ffa09e96979be4941cf54f1b90f9ddd43f6131b42",
+          "current_sha256": "bf1dda843c4c906623cad29ffa09e96979be4941cf54f1b90f9ddd43f6131b42"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/051-case-study-new-curve-edit-handles-appear-but-are-completely-inert-can-t-drag-issue-19.md",
+          "sha256": "8acfacc42c18a55818152fe445c1c5cc04633c1843c413fe2ba1df7e2ef501a9",
+          "current_sha256": "8acfacc42c18a55818152fe445c1c5cc04633c1843c413fe2ba1df7e2ef501a9"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/052-case-study-rotated-circle-drag-resize-collapses-drifts-ghosts-issue-218-follow-up-fix.md",
+          "sha256": "d9240c45488e8fc6c6a5bdcb0a156d11bc1cb4e02f6285b6abd6da4cb6857113",
+          "current_sha256": "d9240c45488e8fc6c6a5bdcb0a156d11bc1cb4e02f6285b6abd6da4cb6857113"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/053-case-study-export-dxf-works-in-dev-venv-but-errors-no-module-named-unittest-only-in-t.md",
+          "sha256": "3f2e4420c77c6a28a0e547bb222d3460a1e25821b012a94f2ed203722a28d2f6",
+          "current_sha256": "3f2e4420c77c6a28a0e547bb222d3460a1e25821b012a94f2ed203722a28d2f6"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/054-case-study-a-new-regression-test-failed-with-the-fix-applied-the-harness-was-the-vari.md",
+          "sha256": "a880c8371e79430e34c6397bf480cd595fbdbe9167a8fce24ce41b9318ef8b20",
+          "current_sha256": "a880c8371e79430e34c6397bf480cd595fbdbe9167a8fce24ce41b9318ef8b20"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/055-case-study-editing-current-spread-shrinks-the-shadow-but-not-the-plant-icon-issue-299.md",
+          "sha256": "04b2e46fae4f11989e086f7f60d4e22c1886bcde162be66021fd769a99934260",
+          "current_sha256": "04b2e46fae4f11989e086f7f60d4e22c1886bcde162be66021fd769a99934260"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/056-case-study-trefle-search-results-never-carried-sun-water-ph-foliage-data-dead-code-a-.md",
+          "sha256": "656e08d3f1f08c54c3c2950d4301d4b40e8d4423af60d3da57ba41d2e22ec2fe",
+          "current_sha256": "656e08d3f1f08c54c3c2950d4301d4b40e8d4423af60d3da57ba41d2e22ec2fe"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/057-case-study-probable-memory-leak-after-an-hour-idle-two-scene-changed-feedback-loops-n.md",
+          "sha256": "894a40daed49315e3fa6a7aeb176a269518f07014eba2d6ffa0c82d76b57b252",
+          "current_sha256": "894a40daed49315e3fa6a7aeb176a269518f07014eba2d6ffa0c82d76b57b252"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/058-case-study-full-test-battery-stalls-silently-settings-reads-return-their-defaults-rig.md",
+          "sha256": "c875103953025cbc797186545c198c1e75b3cf8e3d71d7dcee00204c5f38d8d8",
+          "current_sha256": "c875103953025cbc797186545c198c1e75b3cf8e3d71d7dcee00204c5f38d8d8"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/059-case-study-regenerated-wood-texture-fails-the-seam-gate-in-y-the-obvious-layout-theor.md",
+          "sha256": "9e00bd23dab418cb541ee7bc30515ebdf1c539cefa91fc3425949c1a2afceec2",
+          "current_sha256": "9e00bd23dab418cb541ee7bc30515ebdf1c539cefa91fc3425949c1a2afceec2"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/060-case-study-the-full-battery-aborts-with-heap-corruption-in-a-plant-sprite-test-an-unp.md",
+          "sha256": "f70da9074ca4d89789cdc29e5a6cd00b1979a12264e30651665b79fc06909541",
+          "current_sha256": "f70da9074ca4d89789cdc29e5a6cd00b1979a12264e30651665b79fc06909541"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/061-case-study-a-real-preferences-to-picker-integration-test-appeared-to-hang-after-the-f.md",
+          "sha256": "051ec713a6b7e65719b34ef63d03211e056f02b573dd2133f809f1b47533c0e1",
+          "current_sha256": "051ec713a6b7e65719b34ef63d03211e056f02b573dd2133f809f1b47533c0e1"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/062-case-study-the-corrected-satellite-import-integration-test-passed-but-never-completed.md",
+          "sha256": "95de2f07b6ede997d91dcef6e27abe62633727c45a7643fa6d076b62653becfc",
+          "current_sha256": "95de2f07b6ede997d91dcef6e27abe62633727c45a7643fa6d076b62653becfc"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/063-case-study-closing-the-satellite-picker-froze-the-gui-issue-342-pr-344-fixed-2026-08-.md",
+          "sha256": "72eac6229d5f00de1674f66f4d37f701600401741a3857c82da1c9db1932905f",
+          "current_sha256": "72eac6229d5f00de1674f66f4d37f701600401741a3857c82da1c9db1932905f"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/064-case-study-zero-delay-deferred-close-polling-busy-spun-the-gui-issue-342-pr-344-fixed.md",
+          "sha256": "3740ef78e5b7b606c0031ef707b4ee5a1f26a21ae768befaf483a68871cabaaa",
+          "current_sha256": "3740ef78e5b7b606c0031ef707b4ee5a1f26a21ae768befaf483a68871cabaaa"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/065-case-study-retrying-a-failed-satellite-fetch-could-call-a-deleted-qthread-wrapper-iss.md",
+          "sha256": "cc3dd69e2225d7e30453ea0249525af3a76f76344b1ed397507deb86a73b1a06",
+          "current_sha256": "cc3dd69e2225d7e30453ea0249525af3a76f76344b1ed397507deb86a73b1a06"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/066-case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked.md",
+          "sha256": "31cede92a9a22a685568fc00ae4431837130fb5a0655999d7ef66ed14e52cd9a",
+          "current_sha256": "31cede92a9a22a685568fc00ae4431837130fb5a0655999d7ef66ed14e52cd9a"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/067-case-study-spike-page-rendered-beige-with-tilesloaded-true-and-no-tiles-issue-346-fix.md",
+          "sha256": "5e6e66ed5e2bf20440156346de408246c9680f6a60bad17ea2907ae03f583890",
+          "current_sha256": "5e6e66ed5e2bf20440156346de408246c9680f6a60bad17ea2907ae03f583890"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/068-case-study-linux-offscreen-suite-segfaults-in-an-unrelated-minimap-test-ci-bisect-pin.md",
+          "sha256": "586910a62983c1c6384c474364d1d9d95f58ccf63b23d0608b482b9b2c693ed4",
+          "current_sha256": "586910a62983c1c6384c474364d1d9d95f58ccf63b23d0608b482b9b2c693ed4"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/069-case-study-js-side-number-vs-string-token-guard-silently-ate-every-capture-report-cap.md",
+          "sha256": "f261e900bb0260b7b5576facd829d5ba1efd8bcc2db15aa47fa83612ece48ebf",
+          "current_sha256": "f261e900bb0260b7b5576facd829d5ba1efd8bcc2db15aa47fa83612ece48ebf"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/070-case-study-frozen-self-test-kept-the-pre-layer-provider-contract-d2-4-d2-5-fixed-2026.md",
+          "sha256": "cdd0715ccd7acbcd5fba98d9baff5fcb024ddd14accace85c9ad5e7775f9ee4c",
+          "current_sha256": "cdd0715ccd7acbcd5fba98d9baff5fcb024ddd14accace85c9ad5e7775f9ee4c"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/071-case-study-layer-deletion-redo-bypassed-a-lock-added-after-undo-d2-4-fixed-2026-09-07.md",
+          "sha256": "a95190933ddea024f1e0e2bccdcee1faae16056b94e094a2384825a943ad29a4",
+          "current_sha256": "a95190933ddea024f1e0e2bccdcee1faae16056b94e094a2384825a943ad29a4"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/072-case-study-canonical-delete-vertex-builder-read-the-post-deletion-index-us-d2-6-fixed.md",
+          "sha256": "73b65bf691897447c23cccfa163107fd1409b829682df338f9adf78a042fd791",
+          "current_sha256": "73b65bf691897447c23cccfa163107fd1409b829682df338f9adf78a042fd791"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/073-case-study-the-roof-ridge-sync-was-a-membrane-not-a-recompute-issue-364-fixed-2026-09.md",
+          "sha256": "3170a312436d92417b554c561c8552650324be748d4a32e93b1c75ea3463a9f2",
+          "current_sha256": "3170a312436d92417b554c561c8552650324be748d4a32e93b1c75ea3463a9f2"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/074-case-study-the-roof-tiles-lapped-uphill-because-left-does-not-mean-downhill-issue-372.md",
+          "sha256": "54ef4f0c192d422ac73de7a176b10b0405b57df7d8f9dced72f8e22e785ef95e",
+          "current_sha256": "54ef4f0c192d422ac73de7a176b10b0405b57df7d8f9dced72f8e22e785ef95e"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/075-case-study-nine-tests-one-wrong-assumption-species-key-is-a-function-not-a-field-issu.md",
+          "sha256": "3267129aa03225fa9d441d7ca93bda4c8c7d06c664b72f15d6b009945bb7280d",
+          "current_sha256": "3267129aa03225fa9d441d7ca93bda4c8c7d06c664b72f15d6b009945bb7280d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/076-case-study-a-drag-preview-that-drew-behind-the-bed-issue-377-fixed-2026-10-02.md",
+          "sha256": "dd1753b724df3020b74beca3107a01c90146c9563695a574ab18f4199bd48b85",
+          "current_sha256": "dd1753b724df3020b74beca3107a01c90146c9563695a574ab18f4199bd48b85"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/077-case-study-10-second-shutdown-that-only-happened-with-a-client-attached-issue-373-fix.md",
+          "sha256": "1d43b45766d4feaf86a6c338b4ae329ee3c677eae5f047d1e96f6d23d0bc8886",
+          "current_sha256": "1d43b45766d4feaf86a6c338b4ae329ee3c677eae5f047d1e96f6d23d0bc8886"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/078-case-study-six-defects-where-a-plausible-value-was-not-the-value-the-engine-means-iss.md",
+          "sha256": "d42ba409a37068ee614d7efce4224f4d08f69796ae1275667f82d7d5d5a113aa",
+          "current_sha256": "d42ba409a37068ee614d7efce4224f4d08f69796ae1275667f82d7d5d5a113aa"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/079-case-study-d3-provider-tests-passed-while-public-soil-tools-failed-2026-10-04.md",
+          "sha256": "46fe5a2b03b0785fb76656247b45b35b4c806849367a3c103faec396727fe243",
+          "current_sha256": "46fe5a2b03b0785fb76656247b45b35b4c806849367a3c103faec396727fe243"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/080-case-study-three-i18n-leaks-the-zero-unfinished-gate-cannot-see-issues-393-408-410-fi.md",
+          "sha256": "8afe3a8b7f1e37a9e48013b65b8b1ec1238a8c2b6860f2398cc3da0d1afeb429",
+          "current_sha256": "8afe3a8b7f1e37a9e48013b65b8b1ec1238a8c2b6860f2398cc3da0d1afeb429"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/081-case-study-models-blank-and-unpickable-after-a-probe-swapped-them-out-and-back-adr-04.md",
+          "sha256": "00a1b91c607e6198f75a6d00517f681820f349efe060311ef0b5d87cf729f566",
+          "current_sha256": "00a1b91c607e6198f75a6d00517f681820f349efe060311ef0b5d87cf729f566"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/082-case-study-the-56-minute-hang-that-was-a-stopwatch-problem-adr-048-spike-fixed-2026-1.md",
+          "sha256": "60a09827ed3045f7bddc39bdb02022c0fea091345ae3b5694394cba3373895bc",
+          "current_sha256": "60a09827ed3045f7bddc39bdb02022c0fea091345ae3b5694394cba3373895bc"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/083-case-study-30-mb-per-project-reload-and-it-was-our-keep-alive-list-adr-048-spike-fixe.md",
+          "sha256": "85b47b2d2591c03c795d708b202bb2ed8532728a6fceefe339117f9c38bd6192",
+          "current_sha256": "85b47b2d2591c03c795d708b202bb2ed8532728a6fceefe339117f9c38bd6192"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/084-case-study-a-second-window-that-differed-by-9-8-luma-the-comparison-was-right-the-fir.md",
+          "sha256": "eb5ec0d88707047a0d28a68b6804b78cbdd463e5863e950d0da701a3ea017b75",
+          "current_sha256": "eb5ec0d88707047a0d28a68b6804b78cbdd463e5863e950d0da701a3ea017b75"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/085-case-study-source-version-changes-stale-a-locked-release-environment-404-399.md",
+          "sha256": "1fea8c0cfcbee34ed90bda6ee62e1d21a36fc810c4bc6ea2a49feb602ec51644",
+          "current_sha256": "1fea8c0cfcbee34ed90bda6ee62e1d21a36fc810c4bc6ea2a49feb602ec51644"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/086-case-study-clean-checkout-and-malformed-report-checks-expose-false-confidence-404-402.md",
+          "sha256": "f00693304baf38b910ca9981e4a028e90e216338782574f510cfeff0e82ebe71",
+          "current_sha256": "f00693304baf38b910ca9981e4a028e90e216338782574f510cfeff0e82ebe71"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/087-case-study-offline-version-sync-needs-no-universal-resolution-cache-399-404.md",
+          "sha256": "2b01e3d10e7abac1f80ac727e0e7b0840c172920eb3aa2c011308ccad66cb395",
+          "current_sha256": "2b01e3d10e7abac1f80ac727e0e7b0840c172920eb3aa2c011308ccad66cb395"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/088-case-study-hosted-dependency-updater-lags-the-pinned-tool-2026-10-09.md",
+          "sha256": "1f1cd4f211a5488e274a538f64e3ba5b40f5273c4eaff40463a94d3bcebe2a5b",
+          "current_sha256": "1f1cd4f211a5488e274a538f64e3ba5b40f5273c4eaff40463a94d3bcebe2a5b"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/089-case-study-unicode-wiki-diffs-fail-in-a-windows-pipe-fixed-2026-10-09-issue-417.md",
+          "sha256": "5d3ac23ef3ccda4d56e6ed14d5fc965d22e8a175474e1c8d5dd3247b313718d8",
+          "current_sha256": "5d3ac23ef3ccda4d56e6ed14d5fc965d22e8a175474e1c8d5dd3247b313718d8"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/090-case-study-a-plant-s-shadow-that-flipped-with-a-warning-badge-phase-17-l1-6-fixed-202.md",
+          "sha256": "218f70b491961dcdedcefe9f5ad85bd0c18e34483c7676caf934abf516b8cdd1",
+          "current_sha256": "218f70b491961dcdedcefe9f5ad85bd0c18e34483c7676caf934abf516b8cdd1"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/091-case-study-a-negative-control-that-only-ci-could-fail-the-overlay-s-own-echo-phase-17.md",
+          "sha256": "d8997ee47a97133338ef3147f2568b77b4114586084fe6b52d688921a2fffb0d",
+          "current_sha256": "d8997ee47a97133338ef3147f2568b77b4114586084fe6b52d688921a2fffb0d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/092-case-study-grouped-guild-navigation-test-picked-a-child-instead-of-the-group-f1-f2.md",
+          "sha256": "14d2f6c047379f23ff980fa1cf6337c6daa07b4c295f4414deb6feed9f28d220",
+          "current_sha256": "14d2f6c047379f23ff980fa1cf6337c6daa07b4c295f4414deb6feed9f28d220"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/093-case-study-guild-previews-and-deferred-navigation-outlive-a-document-f1-f2-2026-10-11.md",
+          "sha256": "d99cd33d989aa014468d39c7ecaae2b51d84c81ac935aa78c21ce6d43ed516e6",
+          "current_sha256": "d99cd33d989aa014468d39c7ecaae2b51d84c81ac935aa78c21ce6d43ed516e6"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/094-case-study-the-guild-coordinator-assumed-every-plant-was-a-circle-f1-f2-2026-10-11.md",
+          "sha256": "e001406c0e229df86119326f3a57d11115f57ae38d8f43f084ce824b71cabf70",
+          "current_sha256": "e001406c0e229df86119326f3a57d11115f57ae38d8f43f084ce824b71cabf70"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/095-case-study-sun-self-shadow-and-old-document-heatmaps-314-428-2026-10-12.md",
+          "sha256": "724b9000d539ab4e2b4f8bb76c49276efb0cbe20f15d29f3663a1626190c9bc6",
+          "current_sha256": "724b9000d539ab4e2b4f8bb76c49276efb0cbe20f15d29f3663a1626190c9bc6"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/096-case-study-sun-badge-footprint-malformed-species-and-collected-observers-f3-2026-10-1.md",
+          "sha256": "64efe10a3c0e3571755adf2a69c89d2fed79b367b65c6b9df89572a198f15e5d",
+          "current_sha256": "64efe10a3c0e3571755adf2a69c89d2fed79b367b65c6b9df89572a198f15e5d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/097-case-study-every-plant-in-a-raised-bed-had-too-little-sun-the-sample-point-was-inside.md",
+          "sha256": "8f65fa95ce623946a2068bdfe6f4c3e6a09c02d59d6d33155a9fcfe73f9715ee",
+          "current_sha256": "8f65fa95ce623946a2068bdfe6f4c3e6a09c02d59d6d33155a9fcfe73f9715ee"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/098-case-study-a-broken-shader-failed-the-render-and-the-run-s-own-summary-counted-0-qt-e.md",
+          "sha256": "ea047b61d2513d00070cdcdaec8356dbeae2f8e04af212a24f455b8f913d5d4d",
+          "current_sha256": "ea047b61d2513d00070cdcdaec8356dbeae2f8e04af212a24f455b8f913d5d4d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/099-case-study-a-grab-that-returned-a-perfect-image-and-a-process-that-was-dead-a-moment-.md",
+          "sha256": "10f6f371f8ad0261b430f7d2e5e55ff11013436ab380cd934dc93345116c242a",
+          "current_sha256": "10f6f371f8ad0261b430f7d2e5e55ff11013436ab380cd934dc93345116c242a"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/100-case-study-a-hide-that-never-returned-a-python-qt-message-handler-qt-s-render-thread-.md",
+          "sha256": "a001c8c0a92017dbe965c974d1683a62c490f31e6dd541afe2fbf00760d7903d",
+          "current_sha256": "a001c8c0a92017dbe965c974d1683a62c490f31e6dd541afe2fbf00760d7903d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/101-case-study-a-state-machine-that-was-right-on-windows-and-a-judge-that-asked-the-suspe.md",
+          "sha256": "e9d7081312d114242ae61f81ea759002edc57436f8b1467504650e763986b40c",
+          "current_sha256": "e9d7081312d114242ae61f81ea759002edc57436f8b1467504650e763986b40c"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/102-case-study-ready-and-the-next-grab-was-an-image-of-the-old-size-a-resize-that-arrives.md",
+          "sha256": "6df4f0bfb6f97d6b239123a2024cbef103c3b3614619897106a2290c6fc823d0",
+          "current_sha256": "6df4f0bfb6f97d6b239123a2024cbef103c3b3614619897106a2290c6fc823d0"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/103-case-study-a-healthy-block-was-terminated-four-seconds-in-and-another-block-s-log-sai.md",
+          "sha256": "f38a23226118829f6924cfb879c07f991f213cc57dbb52ee94a5a379fa6f4026",
+          "current_sha256": "f38a23226118829f6924cfb879c07f991f213cc57dbb52ee94a5a379fa6f4026"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/104-case-study-a-host-that-waited-for-a-message-that-never-came-red-on-the-ci-runner-s-sm.md",
+          "sha256": "4a59352befd2732cd460a28692fdf306708072b1aa8fb900110b05a6fc067c4a",
+          "current_sha256": "4a59352befd2732cd460a28692fdf306708072b1aa8fb900110b05a6fc067c4a"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/105-case-study-at-125-a-pane-got-its-neighbour-s-frame-and-the-judge-agreed-because-it-us.md",
+          "sha256": "0041aad1c230f384c67d841127a4d299e860d2e78b2c31813adc295356e7b60f",
+          "current_sha256": "0041aad1c230f384c67d841127a4d299e860d2e78b2c31813adc295356e7b60f"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/106-case-study-34-6-mb-per-reload-and-nothing-was-leaking-in-python-or-in-vram-two-retent.md",
+          "sha256": "9066f3db5b86aa524804e0321a500962b0a7ddcb0d04fc9e5ee1b0b616b6b45a",
+          "current_sha256": "9066f3db5b86aa524804e0321a500962b0a7ddcb0d04fc9e5ee1b0b616b6b45a"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/107-case-study-an-access-violation-in-a-test-that-had-nothing-to-do-with-the-change-a-pyt.md",
+          "sha256": "18094297ad74452ff9fcb33c1ec1b1ee427fd799423842c58ff4fa834e462de3",
+          "current_sha256": "18094297ad74452ff9fcb33c1ec1b1ee427fd799423842c58ff4fa834e462de3"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/108-case-study-a1-trust-boundaries-453-2026-10-13.md",
+          "sha256": "9c1e95e335c3962da6785d6ef8a6d387de9b7a485054d0b0ba59c1180c724180",
+          "current_sha256": "9c1e95e335c3962da6785d6ef8a6d387de9b7a485054d0b0ba59c1180c724180"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/109-case-study-host-icu-dll-contaminates-frozen-webengine-453-2026-10-13.md",
+          "sha256": "34422420da72c07bbc8cda23fd00925480d0599415f99dccab5bca5143624ee8",
+          "current_sha256": "34422420da72c07bbc8cda23fd00925480d0599415f99dccab5bca5143624ee8"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/110-case-study-finite-operands-overflow-after-qt-geometry-composition-453.md",
+          "sha256": "1143f7dd30b5a3fa461bf8038feea3e49c4840be7fb36f81e9a8548872563932",
+          "current_sha256": "1143f7dd30b5a3fa461bf8038feea3e49c4840be7fb36f81e9a8548872563932"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/111-case-study-an-empty-qt-bounding-rectangle-hides-an-infinite-line-span-453.md",
+          "sha256": "b5199c733e6f6bbfdcd5f703af7999dbfa7220fa64f3bd8de7eb5d7aa2a7d193",
+          "current_sha256": "b5199c733e6f6bbfdcd5f703af7999dbfa7220fa64f3bd8de7eb5d7aa2a7d193"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/112-case-study-a-complete-catalog-can-hide-the-wrong-source-inventory-496-review.md",
+          "sha256": "b51d784345ce6a642f937fd5a9db256821a1789f014ceffcda4552a3063192a3",
+          "current_sha256": "b51d784345ce6a642f937fd5a9db256821a1789f014ceffcda4552a3063192a3"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/113-case-study-a-fill-that-costs-minutes-and-the-frame-it-froze-472-2026-10-16.md",
+          "sha256": "429cdc33963343e5916e733e635b46140295e9a40df025e5ab1a4dc49ab08c1d",
+          "current_sha256": "429cdc33963343e5916e733e635b46140295e9a40df025e5ab1a4dc49ab08c1d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/114-case-study-a-copy-that-looked-right-until-the-next-save-470-2026-10-16.md",
+          "sha256": "8aefe9f9d88987c786f3fab00cbc90b916755ae9edd4732003c86e3819bad0f8",
+          "current_sha256": "8aefe9f9d88987c786f3fab00cbc90b916755ae9edd4732003c86e3819bad0f8"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/115-case-study-a-bound-that-was-never-reached-and-a-test-value-that-could-not-fail-472-50.md",
+          "sha256": "88af3b00aaed7e44be7ca16ef216b6a8366cbb0f97b3b5090afed96585fe4199",
+          "current_sha256": "88af3b00aaed7e44be7ca16ef216b6a8366cbb0f97b3b5090afed96585fe4199"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/116-case-study-a-dormant-optimisation-the-measurement-that-killed-it-and-a-fix-that-was-t.md",
+          "sha256": "d6f94ae74ed69c08ff9d46adf6a23444ebb593d288f4b10cc22a16f0e594b7cc",
+          "current_sha256": "d6f94ae74ed69c08ff9d46adf6a23444ebb593d288f4b10cc22a16f0e594b7cc"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/117-case-study-six-wrong-theories-five-of-them-instruments-that-did-not-reach-the-code-50.md",
+          "sha256": "96372076a068f9f8fe8f471ee681a610d73848bfd061b4fe46582e55fcaef337",
+          "current_sha256": "96372076a068f9f8fe8f471ee681a610d73848bfd061b4fe46582e55fcaef337"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/118-case-study-timeline-changes-3d-growth-but-the-2d-sprite-stays-at-today-315.md",
+          "sha256": "fd536f5cf83daf58883d7786583a35725b20abb3eb8d061dd700b2b4ff2a2d48",
+          "current_sha256": "fd536f5cf83daf58883d7786583a35725b20abb3eb8d061dd700b2b4ff2a2d48"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/119-case-study-timeline-state-missed-existing-consumers-and-command-paths-315.md",
+          "sha256": "40dc76eedd8d83495e5ec36f27db506b8363dcfcfb9356265a7d394f292f5ee1",
+          "current_sha256": "40dc76eedd8d83495e5ec36f27db506b8363dcfcfb9356265a7d394f292f5ee1"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/120-case-study-ground-tiles-that-turned-white-only-when-a-different-tile-was-re-baked-nex.md",
+          "sha256": "4c1e4f0a6f53d08ef6eb810d10323e1c58e6bead80c210513170fc5b8521a173",
+          "current_sha256": "4c1e4f0a6f53d08ef6eb810d10323e1c58e6bead80c210513170fc5b8521a173"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/121-case-study-a-leak-gate-that-measured-its-own-screenshot-phase-17-l1-5-fixed-2026-10-1.md",
+          "sha256": "eb2bc16b1fe3659c865bdaaf06bd047c8ee262f447a6291442e1413024269ad0",
+          "current_sha256": "eb2bc16b1fe3659c865bdaaf06bd047c8ee262f447a6291442e1413024269ad0"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/122-case-study-the-lawn-that-stayed-on-the-ground-only-while-it-was-the-plan-rectangle-ph.md",
+          "sha256": "6c571e7c56cc300e712450502013b8fa7e43c00c30721478751083b35ac3cc54",
+          "current_sha256": "6c571e7c56cc300e712450502013b8fa7e43c00c30721478751083b35ac3cc54"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/123-case-study-undo-raised-on-a-line-just-drawn-and-worked-once-the-plan-had-been-reopene.md",
+          "sha256": "860ec9b2fa898cf5d5cbbcd92f57de643879a4e7abe75c14105f97779056087e",
+          "current_sha256": "860ec9b2fa898cf5d5cbbcd92f57de643879a4e7abe75c14105f97779056087e"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/124-case-study-green-on-every-dev-run-red-on-the-linux-runner-a-fixed-wait-for-a-pass-the.md",
+          "sha256": "7a095001efac3480c90294c4bd9bc4edfee25c889ab17d46638d46d262d18c25",
+          "current_sha256": "7a095001efac3480c90294c4bd9bc4edfee25c889ab17d46638d46d262d18c25"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/125-case-study-a-surviving-mutant-that-was-the-product-s-behaviour-qt-s-empty-changed-pha.md",
+          "sha256": "e3f5cc52a5e7b7b0a875f5eda825ef62a3e7cca5e341fac87f3ee642bfba60e0",
+          "current_sha256": "e3f5cc52a5e7b7b0a875f5eda825ef62a3e7cca5e341fac87f3ee642bfba60e0"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/126-case-study-a-failed-open-starts-a-3d-pass-was-a-heat-map-repaint-arriving-late-phase-.md",
+          "sha256": "21040a2481794f1ddff8a1109ff7dbd3a1d5ce9a8487507c791b5aab6d4fa4dc",
+          "current_sha256": "21040a2481794f1ddff8a1109ff7dbd3a1d5ce9a8487507c791b5aab6d4fa4dc"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/127-case-study-readiness-must-protect-exports-even-without-a-sun-map-us-f4-combined-contr.md",
+          "sha256": "c8067579749d08faaa29ce17860b7d7638309c15e8a571304feb8a7fb11d6620",
+          "current_sha256": "c8067579749d08faaa29ce17860b7d7638309c15e8a571304feb8a7fb11d6620"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/128-case-study-timeline-presence-bypassed-quick-3d-date-throttle-us-f4-315.md",
+          "sha256": "6434a1661ca5d8ebbedb54864779e3a195e559dab60062b9c58df5f69ee48a1c",
+          "current_sha256": "6434a1661ca5d8ebbedb54864779e3a195e559dab60062b9c58df5f69ee48a1c"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/129-case-study-complete-toolbar-groups-still-wrapped-to-three-german-rows-us-f4.md",
+          "sha256": "7f188cb6737df4a43a0b3a906557d206ae4c03b1b74fde818d98cf0fa402e45a",
+          "current_sha256": "7f188cb6737df4a43a0b3a906557d206ae4c03b1b74fde818d98cf0fa402e45a"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/130-case-study-cancel-and-queued-api-export-abandonment-315.md",
+          "sha256": "a84365d984460135f4e6c1979517d6ef11c1bfd48524b840fb821dc87b99f7a7",
+          "current_sha256": "a84365d984460135f4e6c1979517d6ef11c1bfd48524b840fb821dc87b99f7a7"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/131-case-study-debounce-protected-workers-but-not-scene-collection-315.md",
+          "sha256": "698a88281e87baf9838137142edf7aa149b7aac47d99169c217228dbaaa27d6e",
+          "current_sha256": "698a88281e87baf9838137142edf7aa149b7aac47d99169c217228dbaaa27d6e"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/132-case-study-frozen-lighting-replay-differed-by-one-binary64-ulp-on-windows-315-merge.md",
+          "sha256": "be4487b0c56fb8ece9245847729d0a4d6ee1fdf06d8d297fb09221da2644c797",
+          "current_sha256": "be4487b0c56fb8ece9245847729d0a4d6ee1fdf06d8d297fb09221da2644c797"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/133-case-study-a-windows-only-toolbar-width-did-not-survive-linux-fonts-315.md",
+          "sha256": "fcf969a2390688a757fbdf15bb31018eab3fd8cc75cb2e431f2237d2f46cb032",
+          "current_sha256": "fcf969a2390688a757fbdf15bb31018eab3fd8cc75cb2e431f2237d2f46cb032"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/134-case-study-a-preset-name-is-not-an-appearance-snapshot-524-526-471.md",
+          "sha256": "b92a516db521b5d65c413bcfdd3f81f46d1dbf2c2336838165b1ac91ee9dbd16",
+          "current_sha256": "b92a516db521b5d65c413bcfdd3f81f46d1dbf2c2336838165b1ac91ee9dbd16"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/135-case-study-a-passing-frozen-smoke-was-a-startup-error-dialog-line-package-validation.md",
+          "sha256": "bad2a5a92c13fe7308ad02e7e9bfd8485a0fcc101ae03126f6fabc247526b7dc",
+          "current_sha256": "bad2a5a92c13fe7308ad02e7e9bfd8485a0fcc101ae03126f6fabc247526b7dc"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/136-case-study-historical-exposure-floats-differ-by-one-ulp-on-python-3-11.md",
+          "sha256": "3041030ad97edf9468f33694410b34d950fb3c5f83f581c4c77cf0ce1c70244e",
+          "current_sha256": "3041030ad97edf9468f33694410b34d950fb3c5f83f581c4c77cf0ce1c70244e"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/137-case-study-offline-search-inherited-another-test-s-custom-apple.md",
+          "sha256": "277c9551187f4534bbbfaf161b6598a780c3f92db76bbb1c262a6a11ea89fcda",
+          "current_sha256": "277c9551187f4534bbbfaf161b6598a780c3f92db76bbb1c262a6a11ea89fcda"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/138-case-study-a-substring-match-is-not-a-name-match-the-resolver-that-drew-a-melon-as-an.md",
+          "sha256": "48dd6544ed79e28d55b1e2018bcc70003bebd646fa564e646ee2c6647e844436",
+          "current_sha256": "48dd6544ed79e28d55b1e2018bcc70003bebd646fa564e646ee2c6647e844436"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/139-case-study-the-record-is-not-the-name-a-species-assigned-that-stayed-a-shrub-445.md",
+          "sha256": "7c3d0868820e6f04b266968e549a6df5814dceb0395bb16981ac2c1b0e563f6f",
+          "current_sha256": "7c3d0868820e6f04b266968e549a6df5814dceb0395bb16981ac2c1b0e563f6f"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/140-case-study-a-locked-item-is-not-selectable-and-itemat-answers-the-locked-one-522.md",
+          "sha256": "41fd871e86c55e5ddd3cdb9079e49844896e5951de06930b90003e87d04334c1",
+          "current_sha256": "41fd871e86c55e5ddd3cdb9079e49844896e5951de06930b90003e87d04334c1"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/141-case-study-selection-transparency-swallowed-editing-handles-pr-556-522.md",
+          "sha256": "a0fc274929e03c5acc4b246abc4449340060a2e5fad1376213e16b099011ab02",
+          "current_sha256": "a0fc274929e03c5acc4b246abc4449340060a2e5fad1376213e16b099011ab02"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/142-case-study-class-scoped-attributes-still-shared-a-bare-name-call-graph-528-pr-556.md",
+          "sha256": "8c36673d49e66ae5ff9a4beb882d6cd8085e238e43d842870e9e874a44bcdc8e",
+          "current_sha256": "8c36673d49e66ae5ff9a4beb882d6cd8085e238e43d842870e9e874a44bcdc8e"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/143-case-study-an-old-toolbar-row-swallowed-the-permanent-date-strip-pr-556-manual-pass.md",
+          "sha256": "14498ee6060c4d550acf41deee646fbd56c171c544d5a091efac68dc73465943",
+          "current_sha256": "14498ee6060c4d550acf41deee646fbd56c171c544d5a091efac68dc73465943"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/144-case-study-undo-cleared-species-data-but-kept-its-profile-identity-pr-556-manual-pass.md",
+          "sha256": "1563c801ffd544661fc055be0c26f41361ad706a67c95e0b01fa664fb08ee93d",
+          "current_sha256": "1563c801ffd544661fc055be0c26f41361ad706a67c95e0b01fa664fb08ee93d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/145-case-study-a-committed-control-kept-focus-and-escaped-undo-refresh-pr-556-manual-pass.md",
+          "sha256": "d056fa755918104f9211aa8e6cfca2a62ce85552abfe901e626a3bfa194b9f28",
+          "current_sha256": "d056fa755918104f9211aa8e6cfca2a62ce85552abfe901e626a3bfa194b9f28"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/146-case-study-field-limits-stopped-chronological-date-time-stepping-pr-565-manual-pass.md",
+          "sha256": "da730156c9d39e423940552e2329dc334dbd95cf1625be27a74a925c78c2ecb4",
+          "current_sha256": "da730156c9d39e423940552e2329dc334dbd95cf1625be27a74a925c78c2ecb4"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/147-case-study-duplicate-path-lock-and-missing-location-solar-preview-pr-566-manual-pass.md",
+          "sha256": "28deac5f475d88a62d900f61c0b456ccafc169a8922f9b9ff80ee1406f57e6b7",
+          "current_sha256": "28deac5f475d88a62d900f61c0b456ccafc169a8922f9b9ff80ee1406f57e6b7"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/148-case-study-the-shadow-drape-still-brightened-the-garden-at-night-386-review-round-1.md",
+          "sha256": "46c75337742f2059619f5ded69d9eb6dda982c81934b5770a2452af58cf5fd91",
+          "current_sha256": "46c75337742f2059619f5ded69d9eb6dda982c81934b5770a2452af58cf5fd91"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/149-case-study-a-translucent-shadow-drape-brightened-the-ground-386-l2.md",
+          "sha256": "b8b741594589d9b23efdd24710e76dc50e293b56007dd2b672a5169e5eb61dd9",
+          "current_sha256": "b8b741594589d9b23efdd24710e76dc50e293b56007dd2b672a5169e5eb61dd9"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/150-case-study-preferences-controls-squeezed-to-0-14-px-569.md",
+          "sha256": "9199bcce10e5814a2640ea7b7c18da3de3ac1048077821594060984a47ea815d",
+          "current_sha256": "9199bcce10e5814a2640ea7b7c18da3de3ac1048077821594060984a47ea815d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/151-case-study-a-19-km-styled-path-painted-475-001-elements-per-frame-450.md",
+          "sha256": "518da9d14bd284e5777f36e51b035b2f470d50de80edfc199181659c20209f39",
+          "current_sha256": "518da9d14bd284e5777f36e51b035b2f470d50de80edfc199181659c20209f39"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/152-case-study-the-plan-sun-layout-test-measured-a-box-font-engine-562-573.md",
+          "sha256": "f8fa3faff93a6942b1b65313224a980a6240d4257e5411afcfc635f6dd51576e",
+          "current_sha256": "f8fa3faff93a6942b1b65313224a980a6240d4257e5411afcfc635f6dd51576e"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/153-case-study-a-probe-isolated-its-settings-with-the-qapplication-name-587.md",
+          "sha256": "d17ae661bcf661e3dcfc6e9bff053ad4f130cebcabb8cc65af6c303b89f95964",
+          "current_sha256": "d17ae661bcf661e3dcfc6e9bff053ad4f130cebcabb8cc65af6c303b89f95964"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/154-case-study-one-item-per-command-stayed-quadratic-after-the-z-fix-592.md",
+          "sha256": "f33c9c786581675f076192ad3aaec722c919009f7aa1a3bf08441d4603c63f34",
+          "current_sha256": "f33c9c786581675f076192ad3aaec722c919009f7aa1a3bf08441d4603c63f34"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/155-case-study-a-selected-16-384-vertex-outline-re-sampled-on-every-scroll-594.md",
+          "sha256": "8feb809af857e13ea9df9d532db540988ad5fb5f0552b910a26da09932b835c5",
+          "current_sha256": "8feb809af857e13ea9df9d532db540988ad5fb5f0552b910a26da09932b835c5"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/156-case-study-about-said-1-2-0-while-the-manifest-said-1-31-1-596-manual-pass.md",
+          "sha256": "db0907e9b7b0ba3494b2b88893bbc43a349ab87855e566be6f4bc785f83ff4f3",
+          "current_sha256": "db0907e9b7b0ba3494b2b88893bbc43a349ab87855e566be6f4bc785f83ff4f3"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/157-case-study-coverage-became-the-delivery-bottleneck-601.md",
+          "sha256": "1dbee00cdbaa05afe9a4fc27b67c1ddadefc30f238003dd559155bce0c78f569",
+          "current_sha256": "1dbee00cdbaa05afe9a4fc27b67c1ddadefc30f238003dd559155bce0c78f569"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/158-case-study-a-product-frame-budget-measured-coverage-s-tracer-601.md",
+          "sha256": "bf534f6db49508238b4e12c43e8a3e7093f48a01b80189f6664394af5fb5d793",
+          "current_sha256": "bf534f6db49508238b4e12c43e8a3e7093f48a01b80189f6664394af5fb5d793"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/159-case-study-the-ground-drew-mirrored-north-south-under-the-detail-normal-material-388-.md",
+          "sha256": "a0500fb0b7417a7e393714d172f150002dc6e6113f4db0469409ed71e000c7a6",
+          "current_sha256": "a0500fb0b7417a7e393714d172f150002dc6e6113f4db0469409ed71e000c7a6"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/160-case-study-the-meadow-showed-through-the-plan-from-normal-cameras-388-3d-review-round.md",
+          "sha256": "248997b9379e67ed752ca3fd12cbbd64e7a15c81159aa93a6b13e3b5dfad6350",
+          "current_sha256": "248997b9379e67ed752ca3fd12cbbd64e7a15c81159aa93a6b13e3b5dfad6350"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/161-case-study-a-four-tile-ground-edit-failed-under-load-power-throttling-388-615-616.md",
+          "sha256": "c75d5335d86fee6663e639579d06e7f1c58e5dcb3411e8fb1608a2c90a1c9813",
+          "current_sha256": "c75d5335d86fee6663e639579d06e7f1c58e5dcb3411e8fb1608a2c90a1c9813"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/162-case-study-gravel-and-dirt-paths-exported-to-svg-as-black-bars-388-owner-pass-pf-can-.md",
+          "sha256": "a1b85fe1c577e2e9648da977723f0f95a64b82b8f08673edeb5870ad38f19a5e",
+          "current_sha256": "a1b85fe1c577e2e9648da977723f0f95a64b82b8f08673edeb5870ad38f19a5e"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/163-case-study-an-authored-template-linked-plants-but-hid-them-under-containers-316.md",
+          "sha256": "2d6e781333705fef115eefe36aab91ffa02b5504c48cc4a69e842118bd674d96",
+          "current_sha256": "2d6e781333705fef115eefe36aab91ffa02b5504c48cc4a69e842118bd674d96"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/164-case-study-a-generic-type-key-is-not-a-canvas-object-boundary-316-review.md",
+          "sha256": "08482c3f31a11661cac364a0f44c9a04b9484ccb5dc8a21b3cc4126462319471",
+          "current_sha256": "08482c3f31a11661cac364a0f44c9a04b9484ccb5dc8a21b3cc4126462319471"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/165-case-study-the-welcome-gallery-had-content-but-no-visible-card-316-review.md",
+          "sha256": "4db456ccdff9cee1bc944c27472dc9946eb8361116148592951c8f728a184d5c",
+          "current_sha256": "4db456ccdff9cee1bc944c27472dc9946eb8361116148592951c8f728a184d5c"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/166-case-study-a-portable-template-filter-erased-a-learning-example-s-sun-and-soil-316-ow.md",
+          "sha256": "be84504b3d72db118e64f1501706cf59cdc8509640bb7ccc416e777e642265da",
+          "current_sha256": "be84504b3d72db118e64f1501706cf59cdc8509640bb7ccc416e777e642265da"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/167-case-study-translucent-path-rims-and-render-measurements-after-l4-617-600-603-609-626.md",
+          "sha256": "3e4a6f4e8718f8a9595d32be31c1167fc50561ae3d5490003765e93887dc3336",
+          "current_sha256": "3e4a6f4e8718f8a9595d32be31c1167fc50561ae3d5490003765e93887dc3336"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/168-case-study-context-consumers-tiny-detail-and-lawn-masks-611-607.md",
+          "sha256": "d915f45f73ac11d5eb377505acbbc33adcd15ebbfc9487e473769ba2683bc67d",
+          "current_sha256": "d915f45f73ac11d5eb377505acbbc33adcd15ebbfc9487e473769ba2683bc67d"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/169-case-study-a-plant-vanished-behind-the-bed-drawn-around-it-629.md",
+          "sha256": "fa1c19c7277155b42a1c10a9fd7f440cb2219b6856e6747c083dc03570a12627",
+          "current_sha256": "fa1c19c7277155b42a1c10a9fd7f440cb2219b6856e6747c083dc03570a12627"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/170-case-study-re-promoting-a-release-counted-its-downloads-twice-adr-067-chart-review.md",
+          "sha256": "10facaf922ef1c551fca634f9810b8d303dc7594fa9262fa473e02abcdfd4e36",
+          "current_sha256": "10facaf922ef1c551fca634f9810b8d303dc7594fa9262fa473e02abcdfd4e36"
+        },
+        {
+          "path": ".agents/skills/debug-verbose/references/171-case-study-an-excluded-observation-completed-an-uncovered-chart-day-adr-067.md",
+          "sha256": "3b7ca876e07ec8162324625e6487072b2bc7ee9d86245ecaa03c1ce78bf87aff",
+          "current_sha256": "3b7ca876e07ec8162324625e6487072b2bc7ee9d86245ecaa03c1ce78bf87aff"
+        }
+      ]
+    },
+    ".agents/skills/ogp-3d-renderer/SKILL.md": {
+      "original_sha256": "2605066c2c96a1107914c51a21dd30a485f297f8a7e4b95192f666d017b3c1e3",
+      "fragments": [
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/000-qt-quick-3d-renderer-measured-facts-and-runbook.md",
+          "sha256": "76eb0d83c24a0e0243624760682a3d5b3bd99a79e3625981ca27c6bdc5f82870",
+          "current_sha256": "76eb0d83c24a0e0243624760682a3d5b3bd99a79e3625981ca27c6bdc5f82870"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/001-1-boundary-rules-pinned-by-tests.md",
+          "sha256": "0476d479060e6726aa44efb5bbebc88f985cce92a7501ede76675ccaf00e89cb",
+          "current_sha256": "0476d479060e6726aa44efb5bbebc88f985cce92a7501ede76675ccaf00e89cb"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/002-2-pyqt6-6-11-binding-facts.md",
+          "sha256": "406f11ce2a7bacfd0b018ded56b731d4cf0704353afb0c47077e7e343cd6f8dd",
+          "current_sha256": "406f11ce2a7bacfd0b018ded56b731d4cf0704353afb0c47077e7e343cd6f8dd"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/003-3-frame-and-geometry.md",
+          "sha256": "dceb7f9d794c325f80917a856edede165ac2c3974aded459990cbe0a32706116",
+          "current_sha256": "dceb7f9d794c325f80917a856edede165ac2c3974aded459990cbe0a32706116"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/004-4-light-sky-shadows.md",
+          "sha256": "d7e11176ed29b1cec1e124733e303662c1a4e1e35d45dc20c3e32cb3e2ed387d",
+          "current_sha256": "d7e11176ed29b1cec1e124733e303662c1a4e1e35d45dc20c3e32cb3e2ed387d"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
+          "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
+          "current_sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/006-6-hosts.md",
+          "sha256": "32bb0fb4de2af59e05cde8e56a13f9238f2df81fde59a04ce911b84c0cd37dde",
+          "current_sha256": "32bb0fb4de2af59e05cde8e56a13f9238f2df81fde59a04ce911b84c0cd37dde"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/007-7-picking.md",
+          "sha256": "6ce865ace42733512f140598b4eda6460ae3958ea3247ad19e1f2db2342b44c4",
+          "current_sha256": "6ce865ace42733512f140598b4eda6460ae3958ea3247ad19e1f2db2342b44c4"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/008-8-screenshots-and-ci-rendering.md",
+          "sha256": "6f8141c53b395d3e98c308cfe76a9afa1a5f757bb388b29e4d1b43a0323bc581",
+          "current_sha256": "6f8141c53b395d3e98c308cfe76a9afa1a5f757bb388b29e4d1b43a0323bc581"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/009-9-packaging-pyinstaller.md",
+          "sha256": "50d254c06cd5d4cbf8b76dd51d64ee363db364ed9b04a349f0642438503b7f5e",
+          "current_sha256": "50d254c06cd5d4cbf8b76dd51d64ee363db364ed9b04a349f0642438503b7f5e"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/010-10-cpu-side-baselines-not-engine.md",
+          "sha256": "3a7e2e53891f702bdb0e5c0b72b3ccc5c24aafd418057a3994b5d8f484541839",
+          "current_sha256": "3a7e2e53891f702bdb0e5c0b72b3ccc5c24aafd418057a3994b5d8f484541839"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/011-11-symptom-cause-spike-chronicle.md",
+          "sha256": "945272d3271ee9024b39affa6a8c4fb75a57be490694ff83c5a33f1512aa4a9f",
+          "current_sha256": "945272d3271ee9024b39affa6a8c4fb75a57be490694ff83c5a33f1512aa4a9f"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/012-12-the-production-package-ui-view3d-quick3d-l1-2.md",
+          "sha256": "3dafa924f75f526c0cef20088130b53b7d75a8c39c98ef173cb8f3ce583d573f",
+          "current_sha256": "3dafa924f75f526c0cef20088130b53b7d75a8c39c98ef173cb8f3ce583d573f"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md",
+          "sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0",
+          "current_sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
+          "sha256": "d76102f36d3b11b54bcb18a134c06b2bc4c31e58ad78092c0362e74d597162de",
+          "current_sha256": "d76102f36d3b11b54bcb18a134c06b2bc4c31e58ad78092c0362e74d597162de"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/015-15-selection-picking-in-perspective-walk-mode-l1-8.md",
+          "sha256": "7a6895a14d1186d79180f4167c6f83528842f26b1fe8b7c2c18c6d87f05c9aa0",
+          "current_sha256": "7a6895a14d1186d79180f4167c6f83528842f26b1fe8b7c2c18c6d87f05c9aa0"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/016-16-analyze-in-3d-on-the-engine-l2.md",
+          "sha256": "c0aeb4da38f583249c207960903ea7f5fa4818a9be22548cf0ba3f19b2025aab",
+          "current_sha256": "c0aeb4da38f583249c207960903ea7f5fa4818a9be22548cf0ba3f19b2025aab"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-renderer/references/017-17-the-built-world-complete-on-the-engine-l4.md",
+          "sha256": "e705eea75413200316f2064b386e0806cb593009b81e8664d6a2bb190fbf5205",
+          "current_sha256": "e705eea75413200316f2064b386e0806cb593009b81e8664d6a2bb190fbf5205"
+        }
+      ]
+    },
+    ".agents/skills/ogp-3d-sunshade-campaign/SKILL.md": {
+      "original_sha256": "40033e500fa94df735fcef8797a97bbb64c9c2236f99001e51bf18891fddeb6b",
+      "fragments": [
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/000-phase-14-campaign-3d-visualization-sun-shade.md",
+          "sha256": "f805f026beffeef47ee932cbad9fd9c5fba4c4c4628d57ed8ccf84a606b19e34",
+          "current_sha256": "f805f026beffeef47ee932cbad9fd9c5fba4c4c4628d57ed8ccf84a606b19e34"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+          "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
+          "current_sha256": "202e5f6be6230561e2ecd6b264f6dd5a48a83c7a979cf371a9664294f4b02fb8"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
+          "sha256": "deec86f8e6d7aa8bde5904850ad7d013f19272081a3606103770601e7e588e21",
+          "current_sha256": "deec86f8e6d7aa8bde5904850ad7d013f19272081a3606103770601e7e588e21"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/003-2-phase-0-prerequisites-scope-contract.md",
+          "sha256": "9a6474d94c6ec40a07dc3197a072317b6d8517c52d1371eff1a42811610746fc",
+          "current_sha256": "9a6474d94c6ec40a07dc3197a072317b6d8517c52d1371eff1a42811610746fc"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/004-3-phase-1-solar-position-engine-core-solar-py-to-build.md",
+          "sha256": "04def20cb21a0d4f6c4c9fb43660b36062b81fb2a70a21d2057ee260a8a8375e",
+          "current_sha256": "04def20cb21a0d4f6c4c9fb43660b36062b81fb2a70a21d2057ee260a8a8375e"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/005-4-phase-2-object-height-property-to-build.md",
+          "sha256": "23a696149a3e67e3ea96dcd10a12e948167853e54af17b712af336cd20e6f5f6",
+          "current_sha256": "23a696149a3e67e3ea96dcd10a12e948167853e54af17b712af336cd20e6f5f6"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/006-5-phase-3-2d-shadow-projection-mvp-to-build.md",
+          "sha256": "e4db5f37c658d35dcc43c2d2e1c1e8ab5d22198098832b3de2b4685560715e28",
+          "current_sha256": "e4db5f37c658d35dcc43c2d2e1c1e8ab5d22198098832b3de2b4685560715e28"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/007-6-phase-4-shade-aggregation-hours-of-sun-heatmap-to-build.md",
+          "sha256": "3aa344aaca283129932d1c4b123cf636c663cea7c024a84bfd6363af230ba872",
+          "current_sha256": "3aa344aaca283129932d1c4b123cf636c663cea7c024a84bfd6363af230ba872"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/008-7-phase-5-3d-view-decision-spike-go-no-go-to-build.md",
+          "sha256": "c33c0977f5d21744d85b76ef0d0f634bdbce96e2459b38dc7f9f8829983dedc5",
+          "current_sha256": "c33c0977f5d21744d85b76ef0d0f634bdbce96e2459b38dc7f9f8829983dedc5"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/009-8-phase-6-validation-promotion-per-slice.md",
+          "sha256": "c8e34501e3cd966de6c07f117e8ac45143ef0c01f21b4bc21c52a599c8a4028a",
+          "current_sha256": "c8e34501e3cd966de6c07f117e8ac45143ef0c01f21b4bc21c52a599c8a4028a"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/010-appendix-pinned-reference-numbers-generated-2026-07-04.md",
+          "sha256": "3cc75b5073a00c69920ba495a8ff4b3e37a30a645fc0204aae9adaac6ca9d536",
+          "current_sha256": "3cc75b5073a00c69920ba495a8ff4b3e37a30a645fc0204aae9adaac6ca9d536"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/011-provenance-and-maintenance.md",
+          "sha256": "04083922a474e53c489c359148e686be294a3a025d8f3b98515863b9a18326b1",
+          "current_sha256": "04083922a474e53c489c359148e686be294a3a025d8f3b98515863b9a18326b1"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/012-f3-maintenance-receiver-estimates-and-document-ownership-adr-056.md",
+          "sha256": "7a0d0e8b38da210af8a95b6aa2d38629a89c1db64ba8a2be95eb48344cbbfdc0",
+          "current_sha256": "7a0d0e8b38da210af8a95b6aa2d38629a89c1db64ba8a2be95eb48344cbbfdc0"
+        },
+        {
+          "path": ".agents/skills/ogp-3d-sunshade-campaign/references/013-f4-maintenance-plant-lifetime-on-the-shared-date-adr-062.md",
+          "sha256": "b5eb46e433bf159097ef855d04f1225d6318de90a4a8650af273a07bd71b9899",
+          "current_sha256": "b5eb46e433bf159097ef855d04f1225d6318de90a4a8650af273a07bd71b9899"
+        }
+      ]
+    },
+    ".agents/skills/ogp-architecture-contract/SKILL.md": {
+      "original_sha256": "6c59863b3f171d2bbeae3c60e02f77583d820d4c675ae482e0df49c351c64dca",
+      "fragments": [
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/000-ogp-architecture-contract.md",
+          "sha256": "e56ef75398dbcbfd0b0668576a7fd164ddc58acf517ca9f8f368bcccd9967dc9",
+          "current_sha256": "e56ef75398dbcbfd0b0668576a7fd164ddc58acf517ca9f8f368bcccd9967dc9"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/001-current-translation-gate-496.md",
+          "sha256": "4e51c9b8f68f34e8ca3c3cddb707c17bf693c2bedb73e38388ac8e7d666ca980",
+          "current_sha256": "4e51c9b8f68f34e8ca3c3cddb707c17bf693c2bedb73e38388ac8e7d666ca980"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/002-when-not-to-use-this-skill.md",
+          "sha256": "d4ae5abc291a6bea4959a9d63a5dff6344b0853709d66c6ed71562cb3fa57411",
+          "current_sha256": "d4ae5abc291a6bea4959a9d63a5dff6344b0853709d66c6ed71562cb3fa57411"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
+          "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
+          "current_sha256": "9902d1c66e458a4833b0d4be610d57fbe997f634c42f55252fe480e01b41801d"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
+          "sha256": "db836621325ff482efe113f4f310a75f414ab0ae4f5642d94bbf4408702e7781",
+          "current_sha256": "db836621325ff482efe113f4f310a75f414ab0ae4f5642d94bbf4408702e7781"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/005-3-the-write-path-command-pattern-8-2-adr-004.md",
+          "sha256": "7ca1576933bbbf288baf6b33a54bc1ca0568493e0d12adfc36597a2374983f46",
+          "current_sha256": "5ebbfc728c2cca8ec0ae82d1729676382dc8150f8c04e17c03e3fbb38d230817"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/006-4-known-weak-points-stated-plainly.md",
+          "sha256": "a69007a81234be0dfe30f92b9cc7b5bdb2cf82475c8138731b64f9acdcd9a08e",
+          "current_sha256": "0e29afb66e47f73243dc9b897d4d037e39b095d168d09e8817b526640ce4b185"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/007-5-before-you-design-anything-checklist.md",
+          "sha256": "a39fde3718cbd2736ad0ef473de74d3c62a3d2715e6d2c8d53f95a576fded068",
+          "current_sha256": "a39fde3718cbd2736ad0ef473de74d3c62a3d2715e6d2c8d53f95a576fded068"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/008-provenance-and-maintenance.md",
+          "sha256": "987e09bcffdfc6d506588d142db45ee385c16c3c84c6f59deff395ac8ac596e3",
+          "current_sha256": "987e09bcffdfc6d506588d142db45ee385c16c3c84c6f59deff395ac8ac596e3"
+        },
+        {
+          "path": ".agents/skills/ogp-architecture-contract/references/009-package-f1-f2-seams-adr-054-055.md",
+          "sha256": "8c48be9330d9a59e620252a5cbde181f864c31c8f1615450f119e8df293d8b28",
+          "current_sha256": "8c48be9330d9a59e620252a5cbde181f864c31c8f1615450f119e8df293d8b28"
+        }
+      ]
+    },
+    ".agents/skills/ogp-debugging-playbook/SKILL.md": {
+      "original_sha256": "fd8bd0c09a3a83208b46a9b0c8d42d17e4ca131cd7f70f7fe83d95611824db3b",
+      "fragments": [
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/000-ogp-debugging-playbook.md",
+          "sha256": "de845d14bbe9fd40a8ec8eac609b79dc5a1726e9e268cb41b2655063d89d97be",
+          "current_sha256": "de845d14bbe9fd40a8ec8eac609b79dc5a1726e9e268cb41b2655063d89d97be"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/001-when-not-to-use-this-skill.md",
+          "sha256": "a36866bcabe71da37f69dd8e601feed3d55113338bab15250946e144229e33c7",
+          "current_sha256": "a36866bcabe71da37f69dd8e601feed3d55113338bab15250946e144229e33c7"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/002-triage-protocol.md",
+          "sha256": "13f4f0d19695a7506b9352d818cf44a23aface72f863fbb22c9139012395b4b0",
+          "current_sha256": "13f4f0d19695a7506b9352d818cf44a23aface72f863fbb22c9139012395b4b0"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/003-triage-table-a-canvas-geometry-interaction.md",
+          "sha256": "9d76ad3ae17f9bc7e0b8978350994e8a3b4ea431a1797cd315faee140783d957",
+          "current_sha256": "9d76ad3ae17f9bc7e0b8978350994e8a3b4ea431a1797cd315faee140783d957"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/004-triage-table-b-export-png-svg-pdf.md",
+          "sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3",
+          "current_sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/005-triage-table-c-tests-ci-teardown.md",
+          "sha256": "0015b8d33158cffc648faae2ddc991937fa8f88a053d56961d331b995b6fe61c",
+          "current_sha256": "0015b8d33158cffc648faae2ddc991937fa8f88a053d56961d331b995b6fe61c"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/006-triage-table-d-panels-signals-staleness.md",
+          "sha256": "85201030b909da352081e0bf363fc9bc9c51bbe648e39d9d6659076d5eab9f85",
+          "current_sha256": "85201030b909da352081e0bf363fc9bc9c51bbe648e39d9d6659076d5eab9f85"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/007-triage-table-e-i18n-encoding-data-display.md",
+          "sha256": "0a1f1eb1a777ae3c338273c178b25a07fdef0a2aea134b74271cf60ffe1a7721",
+          "current_sha256": "0a1f1eb1a777ae3c338273c178b25a07fdef0a2aea134b74271cf60ffe1a7721"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/008-triage-table-f-packaging-frozen-exe.md",
+          "sha256": "c687f25455b33eb29df6f88b40a85dac695d3c32b1e1fdf9bbfcec56572e8652",
+          "current_sha256": "c687f25455b33eb29df6f88b40a85dac695d3c32b1e1fdf9bbfcec56572e8652"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/009-qt-debugging-facts-you-probably-don-t-know.md",
+          "sha256": "748c3decae8d263080e2bcab648d78799cd01581221ae8a4bd74cd0bbe6846f1",
+          "current_sha256": "748c3decae8d263080e2bcab648d78799cd01581221ae8a4bd74cd0bbe6846f1"
+        },
+        {
+          "path": ".agents/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
+          "sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc",
+          "current_sha256": "a36c921e03ce98d9c5b12771271e4eb25428d4e383834f788851ee56c07cccbc"
+        }
+      ]
+    },
+    ".agents/skills/ogp-failure-archaeology/SKILL.md": {
+      "original_sha256": "cdb4b64d7b4bac61e5664a667377a2697b0f4e4b206f3eb05e9869703bfe799a",
+      "fragments": [
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/000-ogp-failure-archaeology.md",
+          "sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd",
+          "current_sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/001-index-scan-this-first.md",
+          "sha256": "7469db4b12bdda1400e227d5f80d26bffc6efdca93ad9a8a316fbf313f627ffe",
+          "current_sha256": "7469db4b12bdda1400e227d5f80d26bffc6efdca93ad9a8a316fbf313f627ffe"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/002-1-the-rotated-geometry-saga-213-219-218-221.md",
+          "sha256": "e8622be8b6c07401c481c0c24bb5519598ed24d122147da0b4947e927f38d684",
+          "current_sha256": "e8622be8b6c07401c481c0c24bb5519598ed24d122147da0b4947e927f38d684"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/003-2-the-panel-rebuild-saga-200-206-222-223-225.md",
+          "sha256": "1a5d7d8d2a6ee2438fabc70b156b46fcdf0e567eadee60d5c2ac75a7cfa7b0d0",
+          "current_sha256": "1a5d7d8d2a6ee2438fabc70b156b46fcdf0e567eadee60d5c2ac75a7cfa7b0d0"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/004-3-undo-redo-data-loss-the-two-chokepoint-invariant-209-211.md",
+          "sha256": "b30bff7b86438fe369beda984e6e97011d7f9a6a1a74074a9760106abcdeda23",
+          "current_sha256": "b30bff7b86438fe369beda984e6e97011d7f9a6a1a74074a9760106abcdeda23"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/005-4-free-text-commit-granularity-debounce-plus-flush-210-214.md",
+          "sha256": "21fd3703594e254018bd63c9b59c0dc8aa981482eea153d6a41d3398e7a9ff09",
+          "current_sha256": "21fd3703594e254018bd63c9b59c0dc8aa981482eea153d6a41d3398e7a9ff09"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/006-5-task-dual-store-convergence-227-228.md",
+          "sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3",
+          "current_sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/007-6-find-plants-selection-flakiness-two-rounds-212-215.md",
+          "sha256": "c291aaa3acaae96737f5cabd8ae294edfba59544581edeaef7299b299484296d",
+          "current_sha256": "c291aaa3acaae96737f5cabd8ae294edfba59544581edeaef7299b299484296d"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/008-7-smart-symbol-exception-family-enumeration-the-losing-game-pr-236.md",
+          "sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7",
+          "current_sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/009-8-release-workflow-races-chore-race-229-date-matching.md",
+          "sha256": "01358321d0fb47ef5520a3a582ebd6e613d44b6d44058ee60e32f6b092c6f78f",
+          "current_sha256": "01358321d0fb47ef5520a3a582ebd6e613d44b6d44058ee60e32f6b092c6f78f"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/010-9-data-loss-on-update-the-installer-wiped-user-plans-199-204-adr-027.md",
+          "sha256": "20c98a54a34ee3aae225daf94bfef072a42613639273ab2b4f757a2ce87c545f",
+          "current_sha256": "20c98a54a34ee3aae225daf94bfef072a42613639273ab2b4f757a2ce87c545f"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/011-10-i18n-incidents-hardcoded-strings-and-mojibake.md",
+          "sha256": "4bbac122d35645875d8fd8ce220fc2ac721234c7acb329256ff6d4214eebaf26",
+          "current_sha256": "4bbac122d35645875d8fd8ce220fc2ac721234c7acb329256ff6d4214eebaf26"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/012-11-ci-only-teardown-crashes-230-pr-235.md",
+          "sha256": "a15c5663891f5fc59db47a5414ff6aa73a293195e9bbc5d3593f5a90d906e933",
+          "current_sha256": "a15c5663891f5fc59db47a5414ff6aa73a293195e9bbc5d3593f5a90d906e933"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/013-12-agent-api-render-tool-d1-3-pr-242-layers-fix-two-empirical-mcp-facts.md",
+          "sha256": "f9f8ec1406ac3b83d200afd66b9450a54ef09e554427f631cc3be06435418713",
+          "current_sha256": "f9f8ec1406ac3b83d200afd66b9450a54ef09e554427f631cc3be06435418713"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
+          "sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849",
+          "current_sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
+          "sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b",
+          "current_sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/016-15-tangent-constraint-degeneracy-pr-198-adr-024-fixed-2026-06-07.md",
+          "sha256": "84cdb5538f2bfb71a54981c38af4308b7ddfe44704a8b5752cb1fa52bf4e4c88",
+          "current_sha256": "84cdb5538f2bfb71a54981c38af4308b7ddfe44704a8b5752cb1fa52bf4e4c88"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/017-16-inert-curve-handles-the-itemignorestransformations-grab-drop-193.md",
+          "sha256": "9d33d82a879b85625ac80f347589fdac7c9f8797b0bfbd1cc3f4b11d684bc2e7",
+          "current_sha256": "9d33d82a879b85625ac80f347589fdac7c9f8797b0bfbd1cc3f4b11d684bc2e7"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/018-17-label-editor-auto-closing-the-minimap-culprit-fixed-2026-04-22.md",
+          "sha256": "d78e80e7442ea6027be4cedeb6272255a758ead124f1768cb5f28f27bc4ad64f",
+          "current_sha256": "d78e80e7442ea6027be4cedeb6272255a758ead124f1768cb5f28f27bc4ad64f"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/019-18-qsettings-global-static-poison-passes-alone-fails-together-ci-green.md",
+          "sha256": "951b6983cabd5214393e3df0c3a432e9791413eea6d5f6cd98123d7594865ba0",
+          "current_sha256": "951b6983cabd5214393e3df0c3a432e9791413eea6d5f6cd98123d7594865ba0"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/020-19-the-stale-trigger-family-173-175.md",
+          "sha256": "376c5d8080696eb37eb7ad198b1f701ffe4f74ec0cb2d2813c384ddee44de038",
+          "current_sha256": "376c5d8080696eb37eb7ad198b1f701ffe4f74ec0cb2d2813c384ddee44de038"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/021-20-the-ghost-field-family-us-12-10d-fixed-2026-05-03.md",
+          "sha256": "a11d0189363324098a06b8927670f8e611011b306a29f11e5b5ebc43bc63951b",
+          "current_sha256": "a11d0189363324098a06b8927670f8e611011b306a29f11e5b5ebc43bc63951b"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/022-21-unknown-enum-display-corruption-231-232.md",
+          "sha256": "aa1b44479a008ee7a05a7b4de15a4b04498da718d6b977fdaec8533831bb8ddd",
+          "current_sha256": "aa1b44479a008ee7a05a7b4de15a4b04498da718d6b977fdaec8533831bb8ddd"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
+          "sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a",
+          "current_sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
+          "sha256": "84b0fd9b1bfd7bcf0eb6c14d181a153b29a701fc1f8d8b373b75fe723f6e1c2d",
+          "current_sha256": "84b0fd9b1bfd7bcf0eb6c14d181a153b29a701fc1f8d8b373b75fe723f6e1c2d"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/025-when-not-to-use-this-skill.md",
+          "sha256": "a53f4f61c3b020b0a0e660f743a243ac77f898eb42db3d59550978232548a3c8",
+          "current_sha256": "a53f4f61c3b020b0a0e660f743a243ac77f898eb42db3d59550978232548a3c8"
+        },
+        {
+          "path": ".agents/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
+          "sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19",
+          "current_sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19"
+        }
+      ]
+    },
+    ".agents/skills/ogp-lush-cinematic/SKILL.md": {
+      "original_sha256": "039f145f4f94ee42152599afdff219f3d504f15edb8f730e7205c66de17d14b4",
+      "fragments": [
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/000-lush-cinematic-the-3d-art-direction-contract.md",
+          "sha256": "a11aabdba88982c53b1ab5a144a04dcccfdd49e95d516b0e9243c755d46da727",
+          "current_sha256": "a11aabdba88982c53b1ab5a144a04dcccfdd49e95d516b0e9243c755d46da727"
+        },
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/001-1-truth-before-beauty-non-negotiable.md",
+          "sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158",
+          "current_sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158"
+        },
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/002-2-style-table.md",
+          "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
+          "current_sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856"
+        },
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
+          "sha256": "09e5e41baec005ddedec9cf0d3cf9043a1339365ecc7960092036165ca6d0477",
+          "current_sha256": "09e5e41baec005ddedec9cf0d3cf9043a1339365ecc7960092036165ca6d0477"
+        },
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/004-4-material-value-ranges-pbr-roughness-0-1.md",
+          "sha256": "12a16337b065976b9e28a26e9812998a1d23a19f2cb6c155bc5ae93ce6a2351e",
+          "current_sha256": "12a16337b065976b9e28a26e9812998a1d23a19f2cb6c155bc5ae93ce6a2351e"
+        },
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
+          "sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66",
+          "current_sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66"
+        },
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/006-6-review-rubric-the-reviewer-agent-s-checklist.md",
+          "sha256": "fd4274cda07d6c440ca51e6007c3a510797bc337b4b8204b7940ddba905cce4d",
+          "current_sha256": "fd4274cda07d6c440ca51e6007c3a510797bc337b4b8204b7940ddba905cce4d"
+        },
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
+          "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
+          "current_sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25"
+        },
+        {
+          "path": ".agents/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
+          "sha256": "6b0f9a4a55034eeafcbc45749e56d6af8dec1ba995187fe06036c525c0c7e3cb",
+          "current_sha256": "6b0f9a4a55034eeafcbc45749e56d6af8dec1ba995187fe06036c525c0c7e3cb"
+        }
+      ]
+    },
+    ".agents/skills/ogp-qt-cad-reference/SKILL.md": {
+      "original_sha256": "3226349a18f1a63b647db2a28fb56fee896fe31033f63e6d043524a6d9d4e3d5",
+      "fragments": [
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/000-ogp-qt-cad-reference.md",
+          "sha256": "08adab6db22c09506aa2c3bdf25e86a7a9c59108ae466ce654c9fb498c280cd0",
+          "current_sha256": "08adab6db22c09506aa2c3bdf25e86a7a9c59108ae466ce654c9fb498c280cd0"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/001-when-not-to-use-this-skill.md",
+          "sha256": "54e6f147f5232b759c7954bf3376bee9fe1371994013cb8dd3d193b09addda9a",
+          "current_sha256": "54e6f147f5232b759c7954bf3376bee9fe1371994013cb8dd3d193b09addda9a"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/002-quick-glossary-qt-terms-defined-once.md",
+          "sha256": "a8e09d32c1bf698f9c2457a8d672eabff55883591691db20fce7c34b6be967ec",
+          "current_sha256": "a8e09d32c1bf698f9c2457a8d672eabff55883591691db20fce7c34b6be967ec"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
+          "sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91",
+          "current_sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/004-2-the-qgraphicsitem-geometry-contract.md",
+          "sha256": "cc78fb7ceebd06c6b9d1e3f7086dd8131a032aff52e81458d2e094a59f4b3000",
+          "current_sha256": "cc78fb7ceebd06c6b9d1e3f7086dd8131a032aff52e81458d2e094a59f4b3000"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md",
+          "sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c",
+          "current_sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/006-4-signals-slots-and-lifecycle-safety.md",
+          "sha256": "f4c292351d5cf015c09f3aa7b8e89dea5b507130beacbfb0ce9efba06a58cb22",
+          "current_sha256": "f4c292351d5cf015c09f3aa7b8e89dea5b507130beacbfb0ce9efba06a58cb22"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/007-5-snap-engine-constraint-solver-theory.md",
+          "sha256": "557241469fd10f667c05266ec21719cd32e5cd4a7731b20047eb3ccad87bc23b",
+          "current_sha256": "557241469fd10f667c05266ec21719cd32e5cd4a7731b20047eb3ccad87bc23b"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/008-6-curves-and-arcs-adr-022-025-core-cad-geometry-py.md",
+          "sha256": "41efc1e84a9a469208ecc47ca7776cdb084e0133e20f0ec5b083cf6ee722d015",
+          "current_sha256": "41efc1e84a9a469208ecc47ca7776cdb084e0133e20f0ec5b083cf6ee722d015"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
+          "sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5",
+          "current_sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5"
+        },
+        {
+          "path": ".agents/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",
+          "sha256": "dda1b8120128243d4cbd1832478be20cbd1def06d699161d65a9ef1ffb4f2d63",
+          "current_sha256": "dda1b8120128243d4cbd1832478be20cbd1def06d699161d65a9ef1ffb4f2d63"
+        }
+      ]
+    },
+    ".claude/skills/debug-verbose/SKILL.md": {
+      "original_sha256": "9cd918e76afc70a1a83e9feab5dbde8b870662aa75e6c2f6f30b08e5fc3c0622",
+      "fragments": [
+        {
+          "path": ".claude/skills/debug-verbose/references/000-verbose-debug-instrumentation.md",
+          "sha256": "7c37d285d187fa4ddb80a39f81bb89e7f7c2635287b1642af503b99d3141dddd",
+          "current_sha256": "7c37d285d187fa4ddb80a39f81bb89e7f7c2635287b1642af503b99d3141dddd"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/001-case-study-green-renderer-gates-bypassed-plant-forge-pr-593.md",
+          "sha256": "e70931f39dad476776be4476ec8da62babb7e2ad836761699f50e543c5a78140",
+          "current_sha256": "e70931f39dad476776be4476ec8da62babb7e2ad836761699f50e543c5a78140"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/002-case-study-three-callback-observations-became-an-absolute-scheduling-promise-pr-597.md",
+          "sha256": "067944645bf6431ad8f95fe39b8d86fcc38fb507ff207be218c9c90564417be5",
+          "current_sha256": "067944645bf6431ad8f95fe39b8d86fcc38fb507ff207be218c9c90564417be5"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/003-case-study-the-startup-welcome-dialog-gone-a-probe-wrote-the-user-s-real-settings-pr-.md",
+          "sha256": "3211e53864e73ea398c0f2a05702207da44dd4c6208dcfc654e9c79473c6dd40",
+          "current_sha256": "3211e53864e73ea398c0f2a05702207da44dd4c6208dcfc654e9c79473c6dd40"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/004-case-study-a-constant-button-width-measured-on-a-font-engine-that-does-not-exist-pr-5.md",
+          "sha256": "217ca39bae8023f92c0f126acb026d7a655f827c519308e31ac0f2015aa00506",
+          "current_sha256": "217ca39bae8023f92c0f126acb026d7a655f827c519308e31ac0f2015aa00506"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/005-case-study-hours-of-sun-on-in-the-toolbar-nothing-on-the-3d-ground-shadows-under-a-la.md",
+          "sha256": "41c8ce7e82cc81b0a76d6d9c94a5aa91b61a79203004ba652db3cc4ce4e19e63",
+          "current_sha256": "41c8ce7e82cc81b0a76d6d9c94a5aa91b61a79203004ba652db3cc4ce4e19e63"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/006-case-study-panel-commit-boundaries-erased-redo-or-lost-notes-pr-566-2026-10-23.md",
+          "sha256": "01baf2bdae1325746166e79fa756fbe43156151ec8c0ce92f4642f2f79ef3e79",
+          "current_sha256": "01baf2bdae1325746166e79fa756fbe43156151ec8c0ce92f4642f2f79ef3e79"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/007-case-study-throttle-regression-depends-on-machine-uptime-542-pr-565.md",
+          "sha256": "3193e595579d8f75622795943d2dde6db10b2d308f2c60310baa6db38ca5b478",
+          "current_sha256": "3193e595579d8f75622795943d2dde6db10b2d308f2c60310baa6db38ca5b478"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/008-case-study-global-3d-actions-changed-a-hidden-workspace-539-pr-565.md",
+          "sha256": "fed4fe9aa555bec04f32d4d05a376faf59c46a5c93b6ead2bcc09de040ec4ba1",
+          "current_sha256": "fed4fe9aa555bec04f32d4d05a376faf59c46a5c93b6ead2bcc09de040ec4ba1"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/009-case-study-deferred-pdf-progress-still-force-shows-315.md",
+          "sha256": "6a4e6058765203311a76199a4eb4c7a7c6262dd18cb2a54033527d1bdd952b23",
+          "current_sha256": "6a4e6058765203311a76199a4eb4c7a7c6262dd18cb2a54033527d1bdd952b23"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/010-case-study-stale-row-semantics-do-not-mean-exact-search-selection-315.md",
+          "sha256": "bbadf5757f8914b097e3750026544316dba400781e5a11628db8d3ef19dd9ca0",
+          "current_sha256": "bbadf5757f8914b097e3750026544316dba400781e5a11628db8d3ef19dd9ca0"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/011-case-study-stale-search-row-crashes-before-its-python-guard-315.md",
+          "sha256": "3c9bde6d4c7eb7b218c60a6bfd8a7ca1ff4c1c59442abbf17015776b4b15a2e8",
+          "current_sha256": "3c9bde6d4c7eb7b218c60a6bfd8a7ca1ff4c1c59442abbf17015776b4b15a2e8"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/012-case-study-final-review-exposes-gaps-outside-the-accepted-strip-315.md",
+          "sha256": "5ce3639e88a4ac7031b7a9300273180c8e25e81f6dc6466ab704cee5079c9240",
+          "current_sha256": "5ce3639e88a4ac7031b7a9300273180c8e25e81f6dc6466ab704cee5079c9240"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/013-case-study-toolbar-containment-passed-while-the-themed-strip-was-misaligned-315.md",
+          "sha256": "93e0bfdc76e24731436bb58c144c114ddcbeb9f1bf6eac9b09d9b635c9a0212a",
+          "current_sha256": "93e0bfdc76e24731436bb58c144c114ddcbeb9f1bf6eac9b09d9b635c9a0212a"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/014-case-study-compiled-catalogs-passed-while-current-ui-keys-were-missing-496.md",
+          "sha256": "6c5f9ae925f9c21fbb45388b53a8e2e79248e0b60db2d8bb41091ffeb47fcaad",
+          "current_sha256": "6c5f9ae925f9c21fbb45388b53a8e2e79248e0b60db2d8bb41091ffeb47fcaad"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/015-case-study-qthread-destroyed-while-still-running-on-window-close-issues-480-483-2026-.md",
+          "sha256": "d0cf05238a1a32586fb06333517fc31cc82f1faa7080edf93cc1d951eb12812a",
+          "current_sha256": "d0cf05238a1a32586fb06333517fc31cc82f1faa7080edf93cc1d951eb12812a"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/016-case-study-a-fast-worker-fails-a-gui-heartbeat-count-pr-490-2026-10-14.md",
+          "sha256": "39eabf977578fbc7e37a66d3097a275973af2ae0792bb816da3e913cca6d1d78",
+          "current_sha256": "39eabf977578fbc7e37a66d3097a275973af2ae0792bb816da3e913cca6d1d78"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/017-case-study-frozen-code-absent-from-a-passing-sbom-454-2026-10-14.md",
+          "sha256": "9b6b197d8b2f1eeb9e88ce73dfc8de8817897f37e09505cef9b966bfcf915136",
+          "current_sha256": "9b6b197d8b2f1eeb9e88ce73dfc8de8817897f37e09505cef9b966bfcf915136"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/018-case-study-the-same-metadata-query-returned-5-distributions-under-pytest-and-48-in-th.md",
+          "sha256": "0b4d4293c499a875587819fa9057bc0c95c495e1193f3ca92e09ca1c72354ed6",
+          "current_sha256": "0b4d4293c499a875587819fa9057bc0c95c495e1193f3ca92e09ca1c72354ed6"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/019-case-study-sun-cache-test-fails-only-late-at-night-457-gate-run-2026-10-13.md",
+          "sha256": "2a3c65ecfa1e801423d1e4c87eb8c156ddb232ca8f13a1fd27d4538016b6085d",
+          "current_sha256": "2a3c65ecfa1e801423d1e4c87eb8c156ddb232ca8f13a1fd27d4538016b6085d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/020-case-study-english-unnamed-objects-in-german-constraint-rows-457-2026-10-13.md",
+          "sha256": "fbcf7990530c812d88b60d19eab04cb09abcc68f38b0cdb4271e86f730dc6422",
+          "current_sha256": "fbcf7990530c812d88b60d19eab04cb09abcc68f38b0cdb4271e86f730dc6422"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/021-case-study-metre-formatting-changes-after-descriptor-extraction-457-2026-10-13.md",
+          "sha256": "d86f9479c76974fe8b2a7c77eb399a59902f75723ac8cf8b51c09b74bdeba2e1",
+          "current_sha256": "d86f9479c76974fe8b2a7c77eb399a59902f75723ac8cf8b51c09b74bdeba2e1"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/022-case-study-all-pinned-constraints-reported-solved-457-2026-10-13.md",
+          "sha256": "66a138c2226e386a4f30c6b9f5589541ed16b7c828f79c744b32eba8be4174c2",
+          "current_sha256": "66a138c2226e386a4f30c6b9f5589541ed16b7c828f79c744b32eba8be4174c2"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/023-case-study-a-rectangle-edge-length-graph-row-without-a-resize-406-2026-10-12.md",
+          "sha256": "d21c3807abcdfbd54ac4517154e7c59ebdded082200dd046a01dbb5847005218",
+          "current_sha256": "d21c3807abcdfbd54ac4517154e7c59ebdded082200dd046a01dbb5847005218"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/024-case-study-guild-names-and-gallery-click-layer-assignment-pr-433-2026-10-11.md",
+          "sha256": "f674fde02b8699f46fc681f2c1b609cf292162b575b3fefa8011b78a1753e5cd",
+          "current_sha256": "f674fde02b8699f46fc681f2c1b609cf292162b575b3fefa8011b78a1753e5cd"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/025-when-to-apply-proactively-without-being-asked.md",
+          "sha256": "faded50dc8d973e7974052cbb529857fe0a172ddde425738bf4fbd48aa4401fc",
+          "current_sha256": "faded50dc8d973e7974052cbb529857fe0a172ddde425738bf4fbd48aa4401fc"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/026-how-to-instrument.md",
+          "sha256": "4694ba66c7635911a0da428c4b13493cab524387f32b5e5c004b87d633f44f07",
+          "current_sha256": "4694ba66c7635911a0da428c4b13493cab524387f32b5e5c004b87d633f44f07"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/027-template-event-driven-method-instrumentation.md",
+          "sha256": "e85554121e4768abe72bbfa4ec005c3ffa4ceab64006d05b5926b14de582bdab",
+          "current_sha256": "e85554121e4768abe72bbfa4ec005c3ffa4ceab64006d05b5926b14de582bdab"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/028-template-async-deferred-callback.md",
+          "sha256": "42531a6fb93d3a1dc11d2cac1842d0a10e86e716173ab409a7518861dc0ecafa",
+          "current_sha256": "42531a6fb93d3a1dc11d2cac1842d0a10e86e716173ab409a7518861dc0ecafa"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/029-case-study-label-editor-auto-closing-fixed-2026-04-22.md",
+          "sha256": "99eb199bc00c5501ac6e9a6002fb02844c616a1db48e0eb9e1fdff9eee0a0426",
+          "current_sha256": "99eb199bc00c5501ac6e9a6002fb02844c616a1db48e0eb9e1fdff9eee0a0426"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/030-case-study-calloutitem-re-editing-immediately-commits-fixed-2026-04-29.md",
+          "sha256": "5661942d3232cd2c74481b04720a8cdfc5c9c94cf048eb7803807294b1d0eaeb",
+          "current_sha256": "5661942d3232cd2c74481b04720a8cdfc5c9c94cf048eb7803807294b1d0eaeb"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/031-case-study-same-scene-reload-duplicates-and-false-success-deletes-fixed-2026-09-24.md",
+          "sha256": "eecdea8fcc0b9d864866c074bf12f207c702f1017ea74a21e66b342742047608",
+          "current_sha256": "eecdea8fcc0b9d864866c074bf12f207c702f1017ea74a21e66b342742047608"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/032-case-study-non-finite-mcp-numbers-become-valid-callout-defaults-fixed-2026-09-24.md",
+          "sha256": "7c904fa8f6028822ac5c8e78858380633a2f2bcb3f4232330c0896acc9f50ba5",
+          "current_sha256": "7c904fa8f6028822ac5c8e78858380633a2f2bcb3f4232330c0896acc9f50ba5"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/033-case-study-one-noisy-ci-benchmark-hides-the-real-distribution-fixed-2026-09-24.md",
+          "sha256": "662d0b4d513aa3cbcdca4ee4a3db2d9009153d5a45c7889fcb92246b9a81774d",
+          "current_sha256": "662d0b4d513aa3cbcdca4ee4a3db2d9009153d5a45c7889fcb92246b9a81774d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/034-how-this-skill-grows.md",
+          "sha256": "11cd922f4ce0ee1fd4f468cfaa06adb4012140ee963939a959f5d4c63e6004ca",
+          "current_sha256": "11cd922f4ce0ee1fd4f468cfaa06adb4012140ee963939a959f5d4c63e6004ca"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/035-case-study-png-svg-export-empty-after-y-flip-fix-fixed-2026-05-01.md",
+          "sha256": "952d7b7c1dc26229438941147d8c47265d8b82e6e202c06396456ed04dd70fb3",
+          "current_sha256": "952d7b7c1dc26229438941147d8c47265d8b82e6e202c06396456ed04dd70fb3"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/036-case-study-pdf-overview-rendered-as-narrow-left-edge-strip-fixed-2026-05-01.md",
+          "sha256": "1d82f73499be13a5a870291e4e0e06a1f1129656f95d7684ddb5902fbeda454d",
+          "current_sha256": "1d82f73499be13a5a870291e4e0e06a1f1129656f95d7684ddb5902fbeda454d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/037-case-study-svg-texture-fills-inverted-brownish-under-y-flip-fixed-2026-05-02.md",
+          "sha256": "ba649a4bcd9843e5815dd42b8456198d40ea267864a7a0f76c7cea6a050731c3",
+          "current_sha256": "ba649a4bcd9843e5815dd42b8456198d40ea267864a7a0f76c7cea6a050731c3"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/038-case-study-svg-brownish-overlay-across-satellite-background-fixed-2026-05-02.md",
+          "sha256": "1d4aceb53f067125f93d32c3c25494f276b4f353b92863eaff55e0753fdebfd7",
+          "current_sha256": "1d4aceb53f067125f93d32c3c25494f276b4f353b92863eaff55e0753fdebfd7"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/039-case-study-us-12-10d-plant-soil-mismatch-border-never-appears-fixed-2026-05-03.md",
+          "sha256": "ed9785ec8ced7fe7eccb3d8a67f104e3c750ff03f855cec865b9f0f0b4ad1c16",
+          "current_sha256": "ed9785ec8ced7fe7eccb3d8a67f104e3c750ff03f855cec865b9f0f0b4ad1c16"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/040-case-study-data-fields-exist-on-the-model-but-no-ui-to-set-them-us-12-10d-fixed-2026-.md",
+          "sha256": "ef5036722e2207df7d170d115eb249fb1be760fff1a9e757cf709a732b6c277a",
+          "current_sha256": "ef5036722e2207df7d170d115eb249fb1be760fff1a9e757cf709a732b6c277a"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
+          "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
+          "current_sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
+          "sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c",
+          "current_sha256": "aa0af451300d7c02f6267e1439be0c036f39510104adfa9729fe84b7efc4956c"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/043-case-study-outer-dialog-ok-appends-a-duplicate-after-sub-dialog-edit-us-12-10-f2-6c-f.md",
+          "sha256": "a1323cbdceec3739324e74d1a4c45689ff3958c689989f35ce9875d8c98b6345",
+          "current_sha256": "a1323cbdceec3739324e74d1a4c45689ff3958c689989f35ce9875d8c98b6345"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/044-case-study-same-zvalue-items-reverse-stacking-after-ogp-save-load-us-12-10-f2-7-fixed.md",
+          "sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835",
+          "current_sha256": "fffa21f98a69873aa60e1d06ae01d337bec38c9b9662ee81055a0685102c2835"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md",
+          "sha256": "9f85661088cb0dee2a2a426254eb264bf4cb4e0b5021cedc78eed901b423d842",
+          "current_sha256": "9f85661088cb0dee2a2a426254eb264bf4cb4e0b5021cedc78eed901b423d842"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/046-case-study-clipboard-format-that-looks-right-but-fails-on-paste-us-12-10-f10-fixed-20.md",
+          "sha256": "c8e0fc56b73753f519c03717df09d9632c37d916fcc2ac76c563b229f0355f47",
+          "current_sha256": "c8e0fc56b73753f519c03717df09d9632c37d916fcc2ac76c563b229f0355f47"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/047-case-study-max-ties-hide-newer-records-of-the-same-date-us-12-10-f2-10a-fixed-2026-05.md",
+          "sha256": "03a2f60c03d16a7a8e4a0371b71bfeecc6dbf1f27fdf0cd8473f84b09c96230b",
+          "current_sha256": "03a2f60c03d16a7a8e4a0371b71bfeecc6dbf1f27fdf0cd8473f84b09c96230b"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/048-notes-from-the-same-sweep-no-separate-case-study-warranted.md",
+          "sha256": "e0d9455689eaff6cef946846df4bd0c2227730e1ddee17fc6b558029f2128bab",
+          "current_sha256": "e0d9455689eaff6cef946846df4bd0c2227730e1ddee17fc6b558029f2128bab"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
+          "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
+          "current_sha256": "77f84ff300b13bf5c2fdc1a4938e0d787371e48405066e51debc1ac392a9eb70"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
+          "sha256": "bf1dda843c4c906623cad29ffa09e96979be4941cf54f1b90f9ddd43f6131b42",
+          "current_sha256": "bf1dda843c4c906623cad29ffa09e96979be4941cf54f1b90f9ddd43f6131b42"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/051-case-study-new-curve-edit-handles-appear-but-are-completely-inert-can-t-drag-issue-19.md",
+          "sha256": "8acfacc42c18a55818152fe445c1c5cc04633c1843c413fe2ba1df7e2ef501a9",
+          "current_sha256": "8acfacc42c18a55818152fe445c1c5cc04633c1843c413fe2ba1df7e2ef501a9"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/052-case-study-rotated-circle-drag-resize-collapses-drifts-ghosts-issue-218-follow-up-fix.md",
+          "sha256": "d9240c45488e8fc6c6a5bdcb0a156d11bc1cb4e02f6285b6abd6da4cb6857113",
+          "current_sha256": "d9240c45488e8fc6c6a5bdcb0a156d11bc1cb4e02f6285b6abd6da4cb6857113"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/053-case-study-export-dxf-works-in-dev-venv-but-errors-no-module-named-unittest-only-in-t.md",
+          "sha256": "3f2e4420c77c6a28a0e547bb222d3460a1e25821b012a94f2ed203722a28d2f6",
+          "current_sha256": "3f2e4420c77c6a28a0e547bb222d3460a1e25821b012a94f2ed203722a28d2f6"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/054-case-study-a-new-regression-test-failed-with-the-fix-applied-the-harness-was-the-vari.md",
+          "sha256": "a880c8371e79430e34c6397bf480cd595fbdbe9167a8fce24ce41b9318ef8b20",
+          "current_sha256": "a880c8371e79430e34c6397bf480cd595fbdbe9167a8fce24ce41b9318ef8b20"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/055-case-study-editing-current-spread-shrinks-the-shadow-but-not-the-plant-icon-issue-299.md",
+          "sha256": "04b2e46fae4f11989e086f7f60d4e22c1886bcde162be66021fd769a99934260",
+          "current_sha256": "04b2e46fae4f11989e086f7f60d4e22c1886bcde162be66021fd769a99934260"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/056-case-study-trefle-search-results-never-carried-sun-water-ph-foliage-data-dead-code-a-.md",
+          "sha256": "656e08d3f1f08c54c3c2950d4301d4b40e8d4423af60d3da57ba41d2e22ec2fe",
+          "current_sha256": "656e08d3f1f08c54c3c2950d4301d4b40e8d4423af60d3da57ba41d2e22ec2fe"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/057-case-study-probable-memory-leak-after-an-hour-idle-two-scene-changed-feedback-loops-n.md",
+          "sha256": "894a40daed49315e3fa6a7aeb176a269518f07014eba2d6ffa0c82d76b57b252",
+          "current_sha256": "894a40daed49315e3fa6a7aeb176a269518f07014eba2d6ffa0c82d76b57b252"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/058-case-study-full-test-battery-stalls-silently-settings-reads-return-their-defaults-rig.md",
+          "sha256": "c875103953025cbc797186545c198c1e75b3cf8e3d71d7dcee00204c5f38d8d8",
+          "current_sha256": "c875103953025cbc797186545c198c1e75b3cf8e3d71d7dcee00204c5f38d8d8"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/059-case-study-regenerated-wood-texture-fails-the-seam-gate-in-y-the-obvious-layout-theor.md",
+          "sha256": "9e00bd23dab418cb541ee7bc30515ebdf1c539cefa91fc3425949c1a2afceec2",
+          "current_sha256": "9e00bd23dab418cb541ee7bc30515ebdf1c539cefa91fc3425949c1a2afceec2"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/060-case-study-the-full-battery-aborts-with-heap-corruption-in-a-plant-sprite-test-an-unp.md",
+          "sha256": "f70da9074ca4d89789cdc29e5a6cd00b1979a12264e30651665b79fc06909541",
+          "current_sha256": "f70da9074ca4d89789cdc29e5a6cd00b1979a12264e30651665b79fc06909541"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/061-case-study-a-real-preferences-to-picker-integration-test-appeared-to-hang-after-the-f.md",
+          "sha256": "051ec713a6b7e65719b34ef63d03211e056f02b573dd2133f809f1b47533c0e1",
+          "current_sha256": "051ec713a6b7e65719b34ef63d03211e056f02b573dd2133f809f1b47533c0e1"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/062-case-study-the-corrected-satellite-import-integration-test-passed-but-never-completed.md",
+          "sha256": "95de2f07b6ede997d91dcef6e27abe62633727c45a7643fa6d076b62653becfc",
+          "current_sha256": "95de2f07b6ede997d91dcef6e27abe62633727c45a7643fa6d076b62653becfc"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/063-case-study-closing-the-satellite-picker-froze-the-gui-issue-342-pr-344-fixed-2026-08-.md",
+          "sha256": "72eac6229d5f00de1674f66f4d37f701600401741a3857c82da1c9db1932905f",
+          "current_sha256": "72eac6229d5f00de1674f66f4d37f701600401741a3857c82da1c9db1932905f"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/064-case-study-zero-delay-deferred-close-polling-busy-spun-the-gui-issue-342-pr-344-fixed.md",
+          "sha256": "3740ef78e5b7b606c0031ef707b4ee5a1f26a21ae768befaf483a68871cabaaa",
+          "current_sha256": "3740ef78e5b7b606c0031ef707b4ee5a1f26a21ae768befaf483a68871cabaaa"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/065-case-study-retrying-a-failed-satellite-fetch-could-call-a-deleted-qthread-wrapper-iss.md",
+          "sha256": "cc3dd69e2225d7e30453ea0249525af3a76f76344b1ed397507deb86a73b1a06",
+          "current_sha256": "cc3dd69e2225d7e30453ea0249525af3a76f76344b1ed397507deb86a73b1a06"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/066-case-study-live-capture-harness-saw-capture-did-not-complete-while-the-feature-worked.md",
+          "sha256": "31cede92a9a22a685568fc00ae4431837130fb5a0655999d7ef66ed14e52cd9a",
+          "current_sha256": "31cede92a9a22a685568fc00ae4431837130fb5a0655999d7ef66ed14e52cd9a"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/067-case-study-spike-page-rendered-beige-with-tilesloaded-true-and-no-tiles-issue-346-fix.md",
+          "sha256": "5e6e66ed5e2bf20440156346de408246c9680f6a60bad17ea2907ae03f583890",
+          "current_sha256": "5e6e66ed5e2bf20440156346de408246c9680f6a60bad17ea2907ae03f583890"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/068-case-study-linux-offscreen-suite-segfaults-in-an-unrelated-minimap-test-ci-bisect-pin.md",
+          "sha256": "586910a62983c1c6384c474364d1d9d95f58ccf63b23d0608b482b9b2c693ed4",
+          "current_sha256": "586910a62983c1c6384c474364d1d9d95f58ccf63b23d0608b482b9b2c693ed4"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/069-case-study-js-side-number-vs-string-token-guard-silently-ate-every-capture-report-cap.md",
+          "sha256": "f261e900bb0260b7b5576facd829d5ba1efd8bcc2db15aa47fa83612ece48ebf",
+          "current_sha256": "f261e900bb0260b7b5576facd829d5ba1efd8bcc2db15aa47fa83612ece48ebf"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/070-case-study-frozen-self-test-kept-the-pre-layer-provider-contract-d2-4-d2-5-fixed-2026.md",
+          "sha256": "cdd0715ccd7acbcd5fba98d9baff5fcb024ddd14accace85c9ad5e7775f9ee4c",
+          "current_sha256": "cdd0715ccd7acbcd5fba98d9baff5fcb024ddd14accace85c9ad5e7775f9ee4c"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/071-case-study-layer-deletion-redo-bypassed-a-lock-added-after-undo-d2-4-fixed-2026-09-07.md",
+          "sha256": "a95190933ddea024f1e0e2bccdcee1faae16056b94e094a2384825a943ad29a4",
+          "current_sha256": "a95190933ddea024f1e0e2bccdcee1faae16056b94e094a2384825a943ad29a4"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/072-case-study-canonical-delete-vertex-builder-read-the-post-deletion-index-us-d2-6-fixed.md",
+          "sha256": "73b65bf691897447c23cccfa163107fd1409b829682df338f9adf78a042fd791",
+          "current_sha256": "73b65bf691897447c23cccfa163107fd1409b829682df338f9adf78a042fd791"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/073-case-study-the-roof-ridge-sync-was-a-membrane-not-a-recompute-issue-364-fixed-2026-09.md",
+          "sha256": "3170a312436d92417b554c561c8552650324be748d4a32e93b1c75ea3463a9f2",
+          "current_sha256": "3170a312436d92417b554c561c8552650324be748d4a32e93b1c75ea3463a9f2"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/074-case-study-the-roof-tiles-lapped-uphill-because-left-does-not-mean-downhill-issue-372.md",
+          "sha256": "54ef4f0c192d422ac73de7a176b10b0405b57df7d8f9dced72f8e22e785ef95e",
+          "current_sha256": "54ef4f0c192d422ac73de7a176b10b0405b57df7d8f9dced72f8e22e785ef95e"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/075-case-study-nine-tests-one-wrong-assumption-species-key-is-a-function-not-a-field-issu.md",
+          "sha256": "3267129aa03225fa9d441d7ca93bda4c8c7d06c664b72f15d6b009945bb7280d",
+          "current_sha256": "3267129aa03225fa9d441d7ca93bda4c8c7d06c664b72f15d6b009945bb7280d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/076-case-study-a-drag-preview-that-drew-behind-the-bed-issue-377-fixed-2026-10-02.md",
+          "sha256": "dd1753b724df3020b74beca3107a01c90146c9563695a574ab18f4199bd48b85",
+          "current_sha256": "dd1753b724df3020b74beca3107a01c90146c9563695a574ab18f4199bd48b85"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/077-case-study-10-second-shutdown-that-only-happened-with-a-client-attached-issue-373-fix.md",
+          "sha256": "1d43b45766d4feaf86a6c338b4ae329ee3c677eae5f047d1e96f6d23d0bc8886",
+          "current_sha256": "1d43b45766d4feaf86a6c338b4ae329ee3c677eae5f047d1e96f6d23d0bc8886"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/078-case-study-six-defects-where-a-plausible-value-was-not-the-value-the-engine-means-iss.md",
+          "sha256": "d42ba409a37068ee614d7efce4224f4d08f69796ae1275667f82d7d5d5a113aa",
+          "current_sha256": "d42ba409a37068ee614d7efce4224f4d08f69796ae1275667f82d7d5d5a113aa"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/079-case-study-d3-provider-tests-passed-while-public-soil-tools-failed-2026-10-04.md",
+          "sha256": "46fe5a2b03b0785fb76656247b45b35b4c806849367a3c103faec396727fe243",
+          "current_sha256": "46fe5a2b03b0785fb76656247b45b35b4c806849367a3c103faec396727fe243"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/080-case-study-three-i18n-leaks-the-zero-unfinished-gate-cannot-see-issues-393-408-410-fi.md",
+          "sha256": "8afe3a8b7f1e37a9e48013b65b8b1ec1238a8c2b6860f2398cc3da0d1afeb429",
+          "current_sha256": "8afe3a8b7f1e37a9e48013b65b8b1ec1238a8c2b6860f2398cc3da0d1afeb429"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/081-case-study-models-blank-and-unpickable-after-a-probe-swapped-them-out-and-back-adr-04.md",
+          "sha256": "00a1b91c607e6198f75a6d00517f681820f349efe060311ef0b5d87cf729f566",
+          "current_sha256": "00a1b91c607e6198f75a6d00517f681820f349efe060311ef0b5d87cf729f566"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/082-case-study-the-56-minute-hang-that-was-a-stopwatch-problem-adr-048-spike-fixed-2026-1.md",
+          "sha256": "60a09827ed3045f7bddc39bdb02022c0fea091345ae3b5694394cba3373895bc",
+          "current_sha256": "60a09827ed3045f7bddc39bdb02022c0fea091345ae3b5694394cba3373895bc"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/083-case-study-30-mb-per-project-reload-and-it-was-our-keep-alive-list-adr-048-spike-fixe.md",
+          "sha256": "85b47b2d2591c03c795d708b202bb2ed8532728a6fceefe339117f9c38bd6192",
+          "current_sha256": "85b47b2d2591c03c795d708b202bb2ed8532728a6fceefe339117f9c38bd6192"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/084-case-study-a-second-window-that-differed-by-9-8-luma-the-comparison-was-right-the-fir.md",
+          "sha256": "eb5ec0d88707047a0d28a68b6804b78cbdd463e5863e950d0da701a3ea017b75",
+          "current_sha256": "eb5ec0d88707047a0d28a68b6804b78cbdd463e5863e950d0da701a3ea017b75"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/085-case-study-source-version-changes-stale-a-locked-release-environment-404-399.md",
+          "sha256": "1fea8c0cfcbee34ed90bda6ee62e1d21a36fc810c4bc6ea2a49feb602ec51644",
+          "current_sha256": "1fea8c0cfcbee34ed90bda6ee62e1d21a36fc810c4bc6ea2a49feb602ec51644"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/086-case-study-clean-checkout-and-malformed-report-checks-expose-false-confidence-404-402.md",
+          "sha256": "f00693304baf38b910ca9981e4a028e90e216338782574f510cfeff0e82ebe71",
+          "current_sha256": "f00693304baf38b910ca9981e4a028e90e216338782574f510cfeff0e82ebe71"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/087-case-study-offline-version-sync-needs-no-universal-resolution-cache-399-404.md",
+          "sha256": "2b01e3d10e7abac1f80ac727e0e7b0840c172920eb3aa2c011308ccad66cb395",
+          "current_sha256": "2b01e3d10e7abac1f80ac727e0e7b0840c172920eb3aa2c011308ccad66cb395"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/088-case-study-hosted-dependency-updater-lags-the-pinned-tool-2026-10-09.md",
+          "sha256": "1f1cd4f211a5488e274a538f64e3ba5b40f5273c4eaff40463a94d3bcebe2a5b",
+          "current_sha256": "1f1cd4f211a5488e274a538f64e3ba5b40f5273c4eaff40463a94d3bcebe2a5b"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/089-case-study-unicode-wiki-diffs-fail-in-a-windows-pipe-fixed-2026-10-09-issue-417.md",
+          "sha256": "5d3ac23ef3ccda4d56e6ed14d5fc965d22e8a175474e1c8d5dd3247b313718d8",
+          "current_sha256": "5d3ac23ef3ccda4d56e6ed14d5fc965d22e8a175474e1c8d5dd3247b313718d8"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/090-case-study-a-plant-s-shadow-that-flipped-with-a-warning-badge-phase-17-l1-6-fixed-202.md",
+          "sha256": "218f70b491961dcdedcefe9f5ad85bd0c18e34483c7676caf934abf516b8cdd1",
+          "current_sha256": "218f70b491961dcdedcefe9f5ad85bd0c18e34483c7676caf934abf516b8cdd1"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/091-case-study-a-negative-control-that-only-ci-could-fail-the-overlay-s-own-echo-phase-17.md",
+          "sha256": "d8997ee47a97133338ef3147f2568b77b4114586084fe6b52d688921a2fffb0d",
+          "current_sha256": "d8997ee47a97133338ef3147f2568b77b4114586084fe6b52d688921a2fffb0d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/092-case-study-grouped-guild-navigation-test-picked-a-child-instead-of-the-group-f1-f2.md",
+          "sha256": "14d2f6c047379f23ff980fa1cf6337c6daa07b4c295f4414deb6feed9f28d220",
+          "current_sha256": "14d2f6c047379f23ff980fa1cf6337c6daa07b4c295f4414deb6feed9f28d220"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/093-case-study-guild-previews-and-deferred-navigation-outlive-a-document-f1-f2-2026-10-11.md",
+          "sha256": "d99cd33d989aa014468d39c7ecaae2b51d84c81ac935aa78c21ce6d43ed516e6",
+          "current_sha256": "d99cd33d989aa014468d39c7ecaae2b51d84c81ac935aa78c21ce6d43ed516e6"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/094-case-study-the-guild-coordinator-assumed-every-plant-was-a-circle-f1-f2-2026-10-11.md",
+          "sha256": "e001406c0e229df86119326f3a57d11115f57ae38d8f43f084ce824b71cabf70",
+          "current_sha256": "e001406c0e229df86119326f3a57d11115f57ae38d8f43f084ce824b71cabf70"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/095-case-study-sun-self-shadow-and-old-document-heatmaps-314-428-2026-10-12.md",
+          "sha256": "724b9000d539ab4e2b4f8bb76c49276efb0cbe20f15d29f3663a1626190c9bc6",
+          "current_sha256": "724b9000d539ab4e2b4f8bb76c49276efb0cbe20f15d29f3663a1626190c9bc6"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/096-case-study-sun-badge-footprint-malformed-species-and-collected-observers-f3-2026-10-1.md",
+          "sha256": "64efe10a3c0e3571755adf2a69c89d2fed79b367b65c6b9df89572a198f15e5d",
+          "current_sha256": "64efe10a3c0e3571755adf2a69c89d2fed79b367b65c6b9df89572a198f15e5d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/097-case-study-every-plant-in-a-raised-bed-had-too-little-sun-the-sample-point-was-inside.md",
+          "sha256": "8f65fa95ce623946a2068bdfe6f4c3e6a09c02d59d6d33155a9fcfe73f9715ee",
+          "current_sha256": "8f65fa95ce623946a2068bdfe6f4c3e6a09c02d59d6d33155a9fcfe73f9715ee"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/098-case-study-a-broken-shader-failed-the-render-and-the-run-s-own-summary-counted-0-qt-e.md",
+          "sha256": "ea047b61d2513d00070cdcdaec8356dbeae2f8e04af212a24f455b8f913d5d4d",
+          "current_sha256": "ea047b61d2513d00070cdcdaec8356dbeae2f8e04af212a24f455b8f913d5d4d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/099-case-study-a-grab-that-returned-a-perfect-image-and-a-process-that-was-dead-a-moment-.md",
+          "sha256": "10f6f371f8ad0261b430f7d2e5e55ff11013436ab380cd934dc93345116c242a",
+          "current_sha256": "10f6f371f8ad0261b430f7d2e5e55ff11013436ab380cd934dc93345116c242a"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/100-case-study-a-hide-that-never-returned-a-python-qt-message-handler-qt-s-render-thread-.md",
+          "sha256": "a001c8c0a92017dbe965c974d1683a62c490f31e6dd541afe2fbf00760d7903d",
+          "current_sha256": "a001c8c0a92017dbe965c974d1683a62c490f31e6dd541afe2fbf00760d7903d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/101-case-study-a-state-machine-that-was-right-on-windows-and-a-judge-that-asked-the-suspe.md",
+          "sha256": "e9d7081312d114242ae61f81ea759002edc57436f8b1467504650e763986b40c",
+          "current_sha256": "e9d7081312d114242ae61f81ea759002edc57436f8b1467504650e763986b40c"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/102-case-study-ready-and-the-next-grab-was-an-image-of-the-old-size-a-resize-that-arrives.md",
+          "sha256": "6df4f0bfb6f97d6b239123a2024cbef103c3b3614619897106a2290c6fc823d0",
+          "current_sha256": "6df4f0bfb6f97d6b239123a2024cbef103c3b3614619897106a2290c6fc823d0"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/103-case-study-a-healthy-block-was-terminated-four-seconds-in-and-another-block-s-log-sai.md",
+          "sha256": "f38a23226118829f6924cfb879c07f991f213cc57dbb52ee94a5a379fa6f4026",
+          "current_sha256": "f38a23226118829f6924cfb879c07f991f213cc57dbb52ee94a5a379fa6f4026"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/104-case-study-a-host-that-waited-for-a-message-that-never-came-red-on-the-ci-runner-s-sm.md",
+          "sha256": "4a59352befd2732cd460a28692fdf306708072b1aa8fb900110b05a6fc067c4a",
+          "current_sha256": "4a59352befd2732cd460a28692fdf306708072b1aa8fb900110b05a6fc067c4a"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/105-case-study-at-125-a-pane-got-its-neighbour-s-frame-and-the-judge-agreed-because-it-us.md",
+          "sha256": "0041aad1c230f384c67d841127a4d299e860d2e78b2c31813adc295356e7b60f",
+          "current_sha256": "0041aad1c230f384c67d841127a4d299e860d2e78b2c31813adc295356e7b60f"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/106-case-study-34-6-mb-per-reload-and-nothing-was-leaking-in-python-or-in-vram-two-retent.md",
+          "sha256": "9066f3db5b86aa524804e0321a500962b0a7ddcb0d04fc9e5ee1b0b616b6b45a",
+          "current_sha256": "9066f3db5b86aa524804e0321a500962b0a7ddcb0d04fc9e5ee1b0b616b6b45a"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/107-case-study-an-access-violation-in-a-test-that-had-nothing-to-do-with-the-change-a-pyt.md",
+          "sha256": "18094297ad74452ff9fcb33c1ec1b1ee427fd799423842c58ff4fa834e462de3",
+          "current_sha256": "18094297ad74452ff9fcb33c1ec1b1ee427fd799423842c58ff4fa834e462de3"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/108-case-study-a1-trust-boundaries-453-2026-10-13.md",
+          "sha256": "9c1e95e335c3962da6785d6ef8a6d387de9b7a485054d0b0ba59c1180c724180",
+          "current_sha256": "9c1e95e335c3962da6785d6ef8a6d387de9b7a485054d0b0ba59c1180c724180"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/109-case-study-host-icu-dll-contaminates-frozen-webengine-453-2026-10-13.md",
+          "sha256": "34422420da72c07bbc8cda23fd00925480d0599415f99dccab5bca5143624ee8",
+          "current_sha256": "34422420da72c07bbc8cda23fd00925480d0599415f99dccab5bca5143624ee8"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/110-case-study-finite-operands-overflow-after-qt-geometry-composition-453.md",
+          "sha256": "1143f7dd30b5a3fa461bf8038feea3e49c4840be7fb36f81e9a8548872563932",
+          "current_sha256": "1143f7dd30b5a3fa461bf8038feea3e49c4840be7fb36f81e9a8548872563932"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/111-case-study-an-empty-qt-bounding-rectangle-hides-an-infinite-line-span-453.md",
+          "sha256": "b5199c733e6f6bbfdcd5f703af7999dbfa7220fa64f3bd8de7eb5d7aa2a7d193",
+          "current_sha256": "b5199c733e6f6bbfdcd5f703af7999dbfa7220fa64f3bd8de7eb5d7aa2a7d193"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/112-case-study-a-complete-catalog-can-hide-the-wrong-source-inventory-496-review.md",
+          "sha256": "b51d784345ce6a642f937fd5a9db256821a1789f014ceffcda4552a3063192a3",
+          "current_sha256": "b51d784345ce6a642f937fd5a9db256821a1789f014ceffcda4552a3063192a3"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/113-case-study-a-fill-that-costs-minutes-and-the-frame-it-froze-472-2026-10-16.md",
+          "sha256": "429cdc33963343e5916e733e635b46140295e9a40df025e5ab1a4dc49ab08c1d",
+          "current_sha256": "429cdc33963343e5916e733e635b46140295e9a40df025e5ab1a4dc49ab08c1d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/114-case-study-a-copy-that-looked-right-until-the-next-save-470-2026-10-16.md",
+          "sha256": "8aefe9f9d88987c786f3fab00cbc90b916755ae9edd4732003c86e3819bad0f8",
+          "current_sha256": "8aefe9f9d88987c786f3fab00cbc90b916755ae9edd4732003c86e3819bad0f8"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/115-case-study-a-bound-that-was-never-reached-and-a-test-value-that-could-not-fail-472-50.md",
+          "sha256": "88af3b00aaed7e44be7ca16ef216b6a8366cbb0f97b3b5090afed96585fe4199",
+          "current_sha256": "88af3b00aaed7e44be7ca16ef216b6a8366cbb0f97b3b5090afed96585fe4199"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/116-case-study-a-dormant-optimisation-the-measurement-that-killed-it-and-a-fix-that-was-t.md",
+          "sha256": "d6f94ae74ed69c08ff9d46adf6a23444ebb593d288f4b10cc22a16f0e594b7cc",
+          "current_sha256": "d6f94ae74ed69c08ff9d46adf6a23444ebb593d288f4b10cc22a16f0e594b7cc"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/117-case-study-six-wrong-theories-five-of-them-instruments-that-did-not-reach-the-code-50.md",
+          "sha256": "96372076a068f9f8fe8f471ee681a610d73848bfd061b4fe46582e55fcaef337",
+          "current_sha256": "96372076a068f9f8fe8f471ee681a610d73848bfd061b4fe46582e55fcaef337"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/118-case-study-timeline-changes-3d-growth-but-the-2d-sprite-stays-at-today-315.md",
+          "sha256": "fd536f5cf83daf58883d7786583a35725b20abb3eb8d061dd700b2b4ff2a2d48",
+          "current_sha256": "fd536f5cf83daf58883d7786583a35725b20abb3eb8d061dd700b2b4ff2a2d48"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/119-case-study-timeline-state-missed-existing-consumers-and-command-paths-315.md",
+          "sha256": "40dc76eedd8d83495e5ec36f27db506b8363dcfcfb9356265a7d394f292f5ee1",
+          "current_sha256": "40dc76eedd8d83495e5ec36f27db506b8363dcfcfb9356265a7d394f292f5ee1"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/120-case-study-ground-tiles-that-turned-white-only-when-a-different-tile-was-re-baked-nex.md",
+          "sha256": "4c1e4f0a6f53d08ef6eb810d10323e1c58e6bead80c210513170fc5b8521a173",
+          "current_sha256": "4c1e4f0a6f53d08ef6eb810d10323e1c58e6bead80c210513170fc5b8521a173"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/121-case-study-a-leak-gate-that-measured-its-own-screenshot-phase-17-l1-5-fixed-2026-10-1.md",
+          "sha256": "eb2bc16b1fe3659c865bdaaf06bd047c8ee262f447a6291442e1413024269ad0",
+          "current_sha256": "eb2bc16b1fe3659c865bdaaf06bd047c8ee262f447a6291442e1413024269ad0"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/122-case-study-the-lawn-that-stayed-on-the-ground-only-while-it-was-the-plan-rectangle-ph.md",
+          "sha256": "6c571e7c56cc300e712450502013b8fa7e43c00c30721478751083b35ac3cc54",
+          "current_sha256": "6c571e7c56cc300e712450502013b8fa7e43c00c30721478751083b35ac3cc54"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/123-case-study-undo-raised-on-a-line-just-drawn-and-worked-once-the-plan-had-been-reopene.md",
+          "sha256": "860ec9b2fa898cf5d5cbbcd92f57de643879a4e7abe75c14105f97779056087e",
+          "current_sha256": "860ec9b2fa898cf5d5cbbcd92f57de643879a4e7abe75c14105f97779056087e"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/124-case-study-green-on-every-dev-run-red-on-the-linux-runner-a-fixed-wait-for-a-pass-the.md",
+          "sha256": "7a095001efac3480c90294c4bd9bc4edfee25c889ab17d46638d46d262d18c25",
+          "current_sha256": "7a095001efac3480c90294c4bd9bc4edfee25c889ab17d46638d46d262d18c25"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/125-case-study-a-surviving-mutant-that-was-the-product-s-behaviour-qt-s-empty-changed-pha.md",
+          "sha256": "e3f5cc52a5e7b7b0a875f5eda825ef62a3e7cca5e341fac87f3ee642bfba60e0",
+          "current_sha256": "e3f5cc52a5e7b7b0a875f5eda825ef62a3e7cca5e341fac87f3ee642bfba60e0"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/126-case-study-a-failed-open-starts-a-3d-pass-was-a-heat-map-repaint-arriving-late-phase-.md",
+          "sha256": "21040a2481794f1ddff8a1109ff7dbd3a1d5ce9a8487507c791b5aab6d4fa4dc",
+          "current_sha256": "21040a2481794f1ddff8a1109ff7dbd3a1d5ce9a8487507c791b5aab6d4fa4dc"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/127-case-study-readiness-must-protect-exports-even-without-a-sun-map-us-f4-combined-contr.md",
+          "sha256": "c8067579749d08faaa29ce17860b7d7638309c15e8a571304feb8a7fb11d6620",
+          "current_sha256": "c8067579749d08faaa29ce17860b7d7638309c15e8a571304feb8a7fb11d6620"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/128-case-study-timeline-presence-bypassed-quick-3d-date-throttle-us-f4-315.md",
+          "sha256": "6434a1661ca5d8ebbedb54864779e3a195e559dab60062b9c58df5f69ee48a1c",
+          "current_sha256": "6434a1661ca5d8ebbedb54864779e3a195e559dab60062b9c58df5f69ee48a1c"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/129-case-study-complete-toolbar-groups-still-wrapped-to-three-german-rows-us-f4.md",
+          "sha256": "7f188cb6737df4a43a0b3a906557d206ae4c03b1b74fde818d98cf0fa402e45a",
+          "current_sha256": "7f188cb6737df4a43a0b3a906557d206ae4c03b1b74fde818d98cf0fa402e45a"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/130-case-study-cancel-and-queued-api-export-abandonment-315.md",
+          "sha256": "a84365d984460135f4e6c1979517d6ef11c1bfd48524b840fb821dc87b99f7a7",
+          "current_sha256": "a84365d984460135f4e6c1979517d6ef11c1bfd48524b840fb821dc87b99f7a7"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/131-case-study-debounce-protected-workers-but-not-scene-collection-315.md",
+          "sha256": "698a88281e87baf9838137142edf7aa149b7aac47d99169c217228dbaaa27d6e",
+          "current_sha256": "698a88281e87baf9838137142edf7aa149b7aac47d99169c217228dbaaa27d6e"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/132-case-study-frozen-lighting-replay-differed-by-one-binary64-ulp-on-windows-315-merge.md",
+          "sha256": "be4487b0c56fb8ece9245847729d0a4d6ee1fdf06d8d297fb09221da2644c797",
+          "current_sha256": "be4487b0c56fb8ece9245847729d0a4d6ee1fdf06d8d297fb09221da2644c797"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/133-case-study-a-windows-only-toolbar-width-did-not-survive-linux-fonts-315.md",
+          "sha256": "fcf969a2390688a757fbdf15bb31018eab3fd8cc75cb2e431f2237d2f46cb032",
+          "current_sha256": "fcf969a2390688a757fbdf15bb31018eab3fd8cc75cb2e431f2237d2f46cb032"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/134-case-study-a-preset-name-is-not-an-appearance-snapshot-524-526-471.md",
+          "sha256": "b92a516db521b5d65c413bcfdd3f81f46d1dbf2c2336838165b1ac91ee9dbd16",
+          "current_sha256": "b92a516db521b5d65c413bcfdd3f81f46d1dbf2c2336838165b1ac91ee9dbd16"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/135-case-study-a-passing-frozen-smoke-was-a-startup-error-dialog-line-package-validation.md",
+          "sha256": "bad2a5a92c13fe7308ad02e7e9bfd8485a0fcc101ae03126f6fabc247526b7dc",
+          "current_sha256": "bad2a5a92c13fe7308ad02e7e9bfd8485a0fcc101ae03126f6fabc247526b7dc"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/136-case-study-historical-exposure-floats-differ-by-one-ulp-on-python-3-11.md",
+          "sha256": "3041030ad97edf9468f33694410b34d950fb3c5f83f581c4c77cf0ce1c70244e",
+          "current_sha256": "3041030ad97edf9468f33694410b34d950fb3c5f83f581c4c77cf0ce1c70244e"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/137-case-study-offline-search-inherited-another-test-s-custom-apple.md",
+          "sha256": "277c9551187f4534bbbfaf161b6598a780c3f92db76bbb1c262a6a11ea89fcda",
+          "current_sha256": "277c9551187f4534bbbfaf161b6598a780c3f92db76bbb1c262a6a11ea89fcda"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/138-case-study-a-substring-match-is-not-a-name-match-the-resolver-that-drew-a-melon-as-an.md",
+          "sha256": "48dd6544ed79e28d55b1e2018bcc70003bebd646fa564e646ee2c6647e844436",
+          "current_sha256": "48dd6544ed79e28d55b1e2018bcc70003bebd646fa564e646ee2c6647e844436"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/139-case-study-the-record-is-not-the-name-a-species-assigned-that-stayed-a-shrub-445.md",
+          "sha256": "7c3d0868820e6f04b266968e549a6df5814dceb0395bb16981ac2c1b0e563f6f",
+          "current_sha256": "7c3d0868820e6f04b266968e549a6df5814dceb0395bb16981ac2c1b0e563f6f"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/140-case-study-a-locked-item-is-not-selectable-and-itemat-answers-the-locked-one-522.md",
+          "sha256": "41fd871e86c55e5ddd3cdb9079e49844896e5951de06930b90003e87d04334c1",
+          "current_sha256": "41fd871e86c55e5ddd3cdb9079e49844896e5951de06930b90003e87d04334c1"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/141-case-study-selection-transparency-swallowed-editing-handles-pr-556-522.md",
+          "sha256": "a0fc274929e03c5acc4b246abc4449340060a2e5fad1376213e16b099011ab02",
+          "current_sha256": "a0fc274929e03c5acc4b246abc4449340060a2e5fad1376213e16b099011ab02"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/142-case-study-class-scoped-attributes-still-shared-a-bare-name-call-graph-528-pr-556.md",
+          "sha256": "8c36673d49e66ae5ff9a4beb882d6cd8085e238e43d842870e9e874a44bcdc8e",
+          "current_sha256": "8c36673d49e66ae5ff9a4beb882d6cd8085e238e43d842870e9e874a44bcdc8e"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/143-case-study-an-old-toolbar-row-swallowed-the-permanent-date-strip-pr-556-manual-pass.md",
+          "sha256": "14498ee6060c4d550acf41deee646fbd56c171c544d5a091efac68dc73465943",
+          "current_sha256": "14498ee6060c4d550acf41deee646fbd56c171c544d5a091efac68dc73465943"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/144-case-study-undo-cleared-species-data-but-kept-its-profile-identity-pr-556-manual-pass.md",
+          "sha256": "1563c801ffd544661fc055be0c26f41361ad706a67c95e0b01fa664fb08ee93d",
+          "current_sha256": "1563c801ffd544661fc055be0c26f41361ad706a67c95e0b01fa664fb08ee93d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/145-case-study-a-committed-control-kept-focus-and-escaped-undo-refresh-pr-556-manual-pass.md",
+          "sha256": "d056fa755918104f9211aa8e6cfca2a62ce85552abfe901e626a3bfa194b9f28",
+          "current_sha256": "d056fa755918104f9211aa8e6cfca2a62ce85552abfe901e626a3bfa194b9f28"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/146-case-study-field-limits-stopped-chronological-date-time-stepping-pr-565-manual-pass.md",
+          "sha256": "da730156c9d39e423940552e2329dc334dbd95cf1625be27a74a925c78c2ecb4",
+          "current_sha256": "da730156c9d39e423940552e2329dc334dbd95cf1625be27a74a925c78c2ecb4"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/147-case-study-duplicate-path-lock-and-missing-location-solar-preview-pr-566-manual-pass.md",
+          "sha256": "28deac5f475d88a62d900f61c0b456ccafc169a8922f9b9ff80ee1406f57e6b7",
+          "current_sha256": "28deac5f475d88a62d900f61c0b456ccafc169a8922f9b9ff80ee1406f57e6b7"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/148-case-study-the-shadow-drape-still-brightened-the-garden-at-night-386-review-round-1.md",
+          "sha256": "46c75337742f2059619f5ded69d9eb6dda982c81934b5770a2452af58cf5fd91",
+          "current_sha256": "46c75337742f2059619f5ded69d9eb6dda982c81934b5770a2452af58cf5fd91"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/149-case-study-a-translucent-shadow-drape-brightened-the-ground-386-l2.md",
+          "sha256": "b8b741594589d9b23efdd24710e76dc50e293b56007dd2b672a5169e5eb61dd9",
+          "current_sha256": "b8b741594589d9b23efdd24710e76dc50e293b56007dd2b672a5169e5eb61dd9"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/150-case-study-preferences-controls-squeezed-to-0-14-px-569.md",
+          "sha256": "9199bcce10e5814a2640ea7b7c18da3de3ac1048077821594060984a47ea815d",
+          "current_sha256": "9199bcce10e5814a2640ea7b7c18da3de3ac1048077821594060984a47ea815d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/151-case-study-a-19-km-styled-path-painted-475-001-elements-per-frame-450.md",
+          "sha256": "518da9d14bd284e5777f36e51b035b2f470d50de80edfc199181659c20209f39",
+          "current_sha256": "518da9d14bd284e5777f36e51b035b2f470d50de80edfc199181659c20209f39"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/152-case-study-the-plan-sun-layout-test-measured-a-box-font-engine-562-573.md",
+          "sha256": "f8fa3faff93a6942b1b65313224a980a6240d4257e5411afcfc635f6dd51576e",
+          "current_sha256": "f8fa3faff93a6942b1b65313224a980a6240d4257e5411afcfc635f6dd51576e"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/153-case-study-a-probe-isolated-its-settings-with-the-qapplication-name-587.md",
+          "sha256": "d17ae661bcf661e3dcfc6e9bff053ad4f130cebcabb8cc65af6c303b89f95964",
+          "current_sha256": "d17ae661bcf661e3dcfc6e9bff053ad4f130cebcabb8cc65af6c303b89f95964"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/154-case-study-one-item-per-command-stayed-quadratic-after-the-z-fix-592.md",
+          "sha256": "f33c9c786581675f076192ad3aaec722c919009f7aa1a3bf08441d4603c63f34",
+          "current_sha256": "f33c9c786581675f076192ad3aaec722c919009f7aa1a3bf08441d4603c63f34"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/155-case-study-a-selected-16-384-vertex-outline-re-sampled-on-every-scroll-594.md",
+          "sha256": "8feb809af857e13ea9df9d532db540988ad5fb5f0552b910a26da09932b835c5",
+          "current_sha256": "8feb809af857e13ea9df9d532db540988ad5fb5f0552b910a26da09932b835c5"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/156-case-study-about-said-1-2-0-while-the-manifest-said-1-31-1-596-manual-pass.md",
+          "sha256": "db0907e9b7b0ba3494b2b88893bbc43a349ab87855e566be6f4bc785f83ff4f3",
+          "current_sha256": "db0907e9b7b0ba3494b2b88893bbc43a349ab87855e566be6f4bc785f83ff4f3"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/157-case-study-coverage-became-the-delivery-bottleneck-601.md",
+          "sha256": "1dbee00cdbaa05afe9a4fc27b67c1ddadefc30f238003dd559155bce0c78f569",
+          "current_sha256": "1dbee00cdbaa05afe9a4fc27b67c1ddadefc30f238003dd559155bce0c78f569"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/158-case-study-a-product-frame-budget-measured-coverage-s-tracer-601.md",
+          "sha256": "bf534f6db49508238b4e12c43e8a3e7093f48a01b80189f6664394af5fb5d793",
+          "current_sha256": "bf534f6db49508238b4e12c43e8a3e7093f48a01b80189f6664394af5fb5d793"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/159-case-study-the-ground-drew-mirrored-north-south-under-the-detail-normal-material-388-.md",
+          "sha256": "a0500fb0b7417a7e393714d172f150002dc6e6113f4db0469409ed71e000c7a6",
+          "current_sha256": "a0500fb0b7417a7e393714d172f150002dc6e6113f4db0469409ed71e000c7a6"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/160-case-study-the-meadow-showed-through-the-plan-from-normal-cameras-388-3d-review-round.md",
+          "sha256": "248997b9379e67ed752ca3fd12cbbd64e7a15c81159aa93a6b13e3b5dfad6350",
+          "current_sha256": "248997b9379e67ed752ca3fd12cbbd64e7a15c81159aa93a6b13e3b5dfad6350"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/161-case-study-a-four-tile-ground-edit-failed-under-load-power-throttling-388-615-616.md",
+          "sha256": "c75d5335d86fee6663e639579d06e7f1c58e5dcb3411e8fb1608a2c90a1c9813",
+          "current_sha256": "c75d5335d86fee6663e639579d06e7f1c58e5dcb3411e8fb1608a2c90a1c9813"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/162-case-study-gravel-and-dirt-paths-exported-to-svg-as-black-bars-388-owner-pass-pf-can-.md",
+          "sha256": "a1b85fe1c577e2e9648da977723f0f95a64b82b8f08673edeb5870ad38f19a5e",
+          "current_sha256": "a1b85fe1c577e2e9648da977723f0f95a64b82b8f08673edeb5870ad38f19a5e"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/163-case-study-an-authored-template-linked-plants-but-hid-them-under-containers-316.md",
+          "sha256": "2d6e781333705fef115eefe36aab91ffa02b5504c48cc4a69e842118bd674d96",
+          "current_sha256": "2d6e781333705fef115eefe36aab91ffa02b5504c48cc4a69e842118bd674d96"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/164-case-study-a-generic-type-key-is-not-a-canvas-object-boundary-316-review.md",
+          "sha256": "08482c3f31a11661cac364a0f44c9a04b9484ccb5dc8a21b3cc4126462319471",
+          "current_sha256": "08482c3f31a11661cac364a0f44c9a04b9484ccb5dc8a21b3cc4126462319471"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/165-case-study-the-welcome-gallery-had-content-but-no-visible-card-316-review.md",
+          "sha256": "4db456ccdff9cee1bc944c27472dc9946eb8361116148592951c8f728a184d5c",
+          "current_sha256": "4db456ccdff9cee1bc944c27472dc9946eb8361116148592951c8f728a184d5c"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/166-case-study-a-portable-template-filter-erased-a-learning-example-s-sun-and-soil-316-ow.md",
+          "sha256": "be84504b3d72db118e64f1501706cf59cdc8509640bb7ccc416e777e642265da",
+          "current_sha256": "be84504b3d72db118e64f1501706cf59cdc8509640bb7ccc416e777e642265da"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/167-case-study-translucent-path-rims-and-render-measurements-after-l4-617-600-603-609-626.md",
+          "sha256": "3e4a6f4e8718f8a9595d32be31c1167fc50561ae3d5490003765e93887dc3336",
+          "current_sha256": "3e4a6f4e8718f8a9595d32be31c1167fc50561ae3d5490003765e93887dc3336"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/168-case-study-context-consumers-tiny-detail-and-lawn-masks-611-607.md",
+          "sha256": "d915f45f73ac11d5eb377505acbbc33adcd15ebbfc9487e473769ba2683bc67d",
+          "current_sha256": "d915f45f73ac11d5eb377505acbbc33adcd15ebbfc9487e473769ba2683bc67d"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/169-case-study-a-plant-vanished-behind-the-bed-drawn-around-it-629.md",
+          "sha256": "fa1c19c7277155b42a1c10a9fd7f440cb2219b6856e6747c083dc03570a12627",
+          "current_sha256": "fa1c19c7277155b42a1c10a9fd7f440cb2219b6856e6747c083dc03570a12627"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/170-case-study-re-promoting-a-release-counted-its-downloads-twice-adr-067-chart-review.md",
+          "sha256": "10facaf922ef1c551fca634f9810b8d303dc7594fa9262fa473e02abcdfd4e36",
+          "current_sha256": "10facaf922ef1c551fca634f9810b8d303dc7594fa9262fa473e02abcdfd4e36"
+        },
+        {
+          "path": ".claude/skills/debug-verbose/references/171-case-study-an-excluded-observation-completed-an-uncovered-chart-day-adr-067.md",
+          "sha256": "3b7ca876e07ec8162324625e6487072b2bc7ee9d86245ecaa03c1ce78bf87aff",
+          "current_sha256": "3b7ca876e07ec8162324625e6487072b2bc7ee9d86245ecaa03c1ce78bf87aff"
+        }
+      ]
+    },
+    ".claude/skills/ogp-3d-renderer/SKILL.md": {
+      "original_sha256": "2605066c2c96a1107914c51a21dd30a485f297f8a7e4b95192f666d017b3c1e3",
+      "fragments": [
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/000-qt-quick-3d-renderer-measured-facts-and-runbook.md",
+          "sha256": "76eb0d83c24a0e0243624760682a3d5b3bd99a79e3625981ca27c6bdc5f82870",
+          "current_sha256": "76eb0d83c24a0e0243624760682a3d5b3bd99a79e3625981ca27c6bdc5f82870"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/001-1-boundary-rules-pinned-by-tests.md",
+          "sha256": "0476d479060e6726aa44efb5bbebc88f985cce92a7501ede76675ccaf00e89cb",
+          "current_sha256": "0476d479060e6726aa44efb5bbebc88f985cce92a7501ede76675ccaf00e89cb"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/002-2-pyqt6-6-11-binding-facts.md",
+          "sha256": "406f11ce2a7bacfd0b018ded56b731d4cf0704353afb0c47077e7e343cd6f8dd",
+          "current_sha256": "406f11ce2a7bacfd0b018ded56b731d4cf0704353afb0c47077e7e343cd6f8dd"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/003-3-frame-and-geometry.md",
+          "sha256": "dceb7f9d794c325f80917a856edede165ac2c3974aded459990cbe0a32706116",
+          "current_sha256": "dceb7f9d794c325f80917a856edede165ac2c3974aded459990cbe0a32706116"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/004-4-light-sky-shadows.md",
+          "sha256": "d7e11176ed29b1cec1e124733e303662c1a4e1e35d45dc20c3e32cb3e2ed387d",
+          "current_sha256": "d7e11176ed29b1cec1e124733e303662c1a4e1e35d45dc20c3e32cb3e2ed387d"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/005-5-ground-texture.md",
+          "sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040",
+          "current_sha256": "3def0764e4d835760575810cae7e2c419e223f329fe1d7c23a021fe9e4af3040"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/006-6-hosts.md",
+          "sha256": "32bb0fb4de2af59e05cde8e56a13f9238f2df81fde59a04ce911b84c0cd37dde",
+          "current_sha256": "32bb0fb4de2af59e05cde8e56a13f9238f2df81fde59a04ce911b84c0cd37dde"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/007-7-picking.md",
+          "sha256": "6ce865ace42733512f140598b4eda6460ae3958ea3247ad19e1f2db2342b44c4",
+          "current_sha256": "6ce865ace42733512f140598b4eda6460ae3958ea3247ad19e1f2db2342b44c4"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/008-8-screenshots-and-ci-rendering.md",
+          "sha256": "6f8141c53b395d3e98c308cfe76a9afa1a5f757bb388b29e4d1b43a0323bc581",
+          "current_sha256": "6f8141c53b395d3e98c308cfe76a9afa1a5f757bb388b29e4d1b43a0323bc581"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/009-9-packaging-pyinstaller.md",
+          "sha256": "50d254c06cd5d4cbf8b76dd51d64ee363db364ed9b04a349f0642438503b7f5e",
+          "current_sha256": "50d254c06cd5d4cbf8b76dd51d64ee363db364ed9b04a349f0642438503b7f5e"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/010-10-cpu-side-baselines-not-engine.md",
+          "sha256": "3a7e2e53891f702bdb0e5c0b72b3ccc5c24aafd418057a3994b5d8f484541839",
+          "current_sha256": "3a7e2e53891f702bdb0e5c0b72b3ccc5c24aafd418057a3994b5d8f484541839"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/011-11-symptom-cause-spike-chronicle.md",
+          "sha256": "945272d3271ee9024b39affa6a8c4fb75a57be490694ff83c5a33f1512aa4a9f",
+          "current_sha256": "945272d3271ee9024b39affa6a8c4fb75a57be490694ff83c5a33f1512aa4a9f"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/012-12-the-production-package-ui-view3d-quick3d-l1-2.md",
+          "sha256": "3dafa924f75f526c0cef20088130b53b7d75a8c39c98ef173cb8f3ce583d573f",
+          "current_sha256": "3dafa924f75f526c0cef20088130b53b7d75a8c39c98ef173cb8f3ce583d573f"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md",
+          "sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0",
+          "current_sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
+          "sha256": "d76102f36d3b11b54bcb18a134c06b2bc4c31e58ad78092c0362e74d597162de",
+          "current_sha256": "d76102f36d3b11b54bcb18a134c06b2bc4c31e58ad78092c0362e74d597162de"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/015-15-selection-picking-in-perspective-walk-mode-l1-8.md",
+          "sha256": "7a6895a14d1186d79180f4167c6f83528842f26b1fe8b7c2c18c6d87f05c9aa0",
+          "current_sha256": "7a6895a14d1186d79180f4167c6f83528842f26b1fe8b7c2c18c6d87f05c9aa0"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/016-16-analyze-in-3d-on-the-engine-l2.md",
+          "sha256": "c0aeb4da38f583249c207960903ea7f5fa4818a9be22548cf0ba3f19b2025aab",
+          "current_sha256": "c0aeb4da38f583249c207960903ea7f5fa4818a9be22548cf0ba3f19b2025aab"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-renderer/references/017-17-the-built-world-complete-on-the-engine-l4.md",
+          "sha256": "e705eea75413200316f2064b386e0806cb593009b81e8664d6a2bb190fbf5205",
+          "current_sha256": "e705eea75413200316f2064b386e0806cb593009b81e8664d6a2bb190fbf5205"
+        }
+      ]
+    },
+    ".claude/skills/ogp-3d-sunshade-campaign/SKILL.md": {
+      "original_sha256": "2981b4a27a35011aa1498cb06e4812965f8280ca6fcf98e721dcf08c946b25fc",
+      "fragments": [
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/000-phase-14-campaign-3d-visualization-sun-shade.md",
+          "sha256": "d99896285cf0481177259734954ee96b3d129a623666084ae85dccd7e552ff30",
+          "current_sha256": "d99896285cf0481177259734954ee96b3d129a623666084ae85dccd7e552ff30"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+          "sha256": "bccdfc1c8fa9cb4a64fceb81aac824e43b603ee48ec64919b4a13e0c201b5896",
+          "current_sha256": "202e5f6be6230561e2ecd6b264f6dd5a48a83c7a979cf371a9664294f4b02fb8"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/002-1-campaign-map-scope-slices-and-the-solution-menu.md",
+          "sha256": "deec86f8e6d7aa8bde5904850ad7d013f19272081a3606103770601e7e588e21",
+          "current_sha256": "deec86f8e6d7aa8bde5904850ad7d013f19272081a3606103770601e7e588e21"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/003-2-phase-0-prerequisites-scope-contract.md",
+          "sha256": "02fe0af3503cd454609a31e861d503bad8616e1a1c04ed9c006bdf16b5d5c226",
+          "current_sha256": "02fe0af3503cd454609a31e861d503bad8616e1a1c04ed9c006bdf16b5d5c226"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/004-3-phase-1-solar-position-engine-core-solar-py-to-build.md",
+          "sha256": "74a8b07c989c2725b06a8334f6e8d111bdeaafc416e26fcc3a64e7c2bbfc742b",
+          "current_sha256": "74a8b07c989c2725b06a8334f6e8d111bdeaafc416e26fcc3a64e7c2bbfc742b"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/005-4-phase-2-object-height-property-to-build.md",
+          "sha256": "73e3d54cca975a87f8e6294eb72c9c7ff08baae5db55b114389f6a55ccb63ef2",
+          "current_sha256": "73e3d54cca975a87f8e6294eb72c9c7ff08baae5db55b114389f6a55ccb63ef2"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/006-5-phase-3-2d-shadow-projection-mvp-to-build.md",
+          "sha256": "274258de2f32cf8ed76de1375f13c00401f2df4c28d83dc8c99bfb3b637a2012",
+          "current_sha256": "274258de2f32cf8ed76de1375f13c00401f2df4c28d83dc8c99bfb3b637a2012"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/007-6-phase-4-shade-aggregation-hours-of-sun-heatmap-to-build.md",
+          "sha256": "55b7da2c2ea5223fdec9b6be33d9d460e067723242f82295ddc534321d25db5e",
+          "current_sha256": "55b7da2c2ea5223fdec9b6be33d9d460e067723242f82295ddc534321d25db5e"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/008-7-phase-5-3d-view-decision-spike-go-no-go-to-build.md",
+          "sha256": "c33c0977f5d21744d85b76ef0d0f634bdbce96e2459b38dc7f9f8829983dedc5",
+          "current_sha256": "c33c0977f5d21744d85b76ef0d0f634bdbce96e2459b38dc7f9f8829983dedc5"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/009-8-phase-6-validation-promotion-per-slice.md",
+          "sha256": "dee597459964139be74b309e1855a15ee3fbc733a7269bab86058b21c002c9cf",
+          "current_sha256": "dee597459964139be74b309e1855a15ee3fbc733a7269bab86058b21c002c9cf"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/010-appendix-pinned-reference-numbers-generated-2026-07-04.md",
+          "sha256": "234dd4e092d4f0c42e4b32322673e58c258ffd77ed2c7b246ee9c3d00877fefa",
+          "current_sha256": "234dd4e092d4f0c42e4b32322673e58c258ffd77ed2c7b246ee9c3d00877fefa"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/011-provenance-and-maintenance.md",
+          "sha256": "a75ba20199b6bb58d898ce4048786e4db2863281db66dbe00e9db3255c0223bb",
+          "current_sha256": "a75ba20199b6bb58d898ce4048786e4db2863281db66dbe00e9db3255c0223bb"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/012-f3-maintenance-receiver-estimates-and-document-ownership-adr-056.md",
+          "sha256": "7a0d0e8b38da210af8a95b6aa2d38629a89c1db64ba8a2be95eb48344cbbfdc0",
+          "current_sha256": "7a0d0e8b38da210af8a95b6aa2d38629a89c1db64ba8a2be95eb48344cbbfdc0"
+        },
+        {
+          "path": ".claude/skills/ogp-3d-sunshade-campaign/references/013-f4-maintenance-plant-lifetime-on-the-shared-date-adr-062.md",
+          "sha256": "b5eb46e433bf159097ef855d04f1225d6318de90a4a8650af273a07bd71b9899",
+          "current_sha256": "b5eb46e433bf159097ef855d04f1225d6318de90a4a8650af273a07bd71b9899"
+        }
+      ]
+    },
+    ".claude/skills/ogp-architecture-contract/SKILL.md": {
+      "original_sha256": "6c59863b3f171d2bbeae3c60e02f77583d820d4c675ae482e0df49c351c64dca",
+      "fragments": [
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/000-ogp-architecture-contract.md",
+          "sha256": "e56ef75398dbcbfd0b0668576a7fd164ddc58acf517ca9f8f368bcccd9967dc9",
+          "current_sha256": "e56ef75398dbcbfd0b0668576a7fd164ddc58acf517ca9f8f368bcccd9967dc9"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/001-current-translation-gate-496.md",
+          "sha256": "4e51c9b8f68f34e8ca3c3cddb707c17bf693c2bedb73e38388ac8e7d666ca980",
+          "current_sha256": "4e51c9b8f68f34e8ca3c3cddb707c17bf693c2bedb73e38388ac8e7d666ca980"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/002-when-not-to-use-this-skill.md",
+          "sha256": "d4ae5abc291a6bea4959a9d63a5dff6344b0853709d66c6ed71562cb3fa57411",
+          "current_sha256": "d4ae5abc291a6bea4959a9d63a5dff6344b0853709d66c6ed71562cb3fa57411"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
+          "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
+          "current_sha256": "9902d1c66e458a4833b0d4be610d57fbe997f634c42f55252fe480e01b41801d"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
+          "sha256": "db836621325ff482efe113f4f310a75f414ab0ae4f5642d94bbf4408702e7781",
+          "current_sha256": "db836621325ff482efe113f4f310a75f414ab0ae4f5642d94bbf4408702e7781"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/005-3-the-write-path-command-pattern-8-2-adr-004.md",
+          "sha256": "7ca1576933bbbf288baf6b33a54bc1ca0568493e0d12adfc36597a2374983f46",
+          "current_sha256": "5ebbfc728c2cca8ec0ae82d1729676382dc8150f8c04e17c03e3fbb38d230817"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/006-4-known-weak-points-stated-plainly.md",
+          "sha256": "a69007a81234be0dfe30f92b9cc7b5bdb2cf82475c8138731b64f9acdcd9a08e",
+          "current_sha256": "0e29afb66e47f73243dc9b897d4d037e39b095d168d09e8817b526640ce4b185"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/007-5-before-you-design-anything-checklist.md",
+          "sha256": "a39fde3718cbd2736ad0ef473de74d3c62a3d2715e6d2c8d53f95a576fded068",
+          "current_sha256": "a39fde3718cbd2736ad0ef473de74d3c62a3d2715e6d2c8d53f95a576fded068"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/008-provenance-and-maintenance.md",
+          "sha256": "987e09bcffdfc6d506588d142db45ee385c16c3c84c6f59deff395ac8ac596e3",
+          "current_sha256": "987e09bcffdfc6d506588d142db45ee385c16c3c84c6f59deff395ac8ac596e3"
+        },
+        {
+          "path": ".claude/skills/ogp-architecture-contract/references/009-package-f1-f2-seams-adr-054-055.md",
+          "sha256": "8c48be9330d9a59e620252a5cbde181f864c31c8f1615450f119e8df293d8b28",
+          "current_sha256": "8c48be9330d9a59e620252a5cbde181f864c31c8f1615450f119e8df293d8b28"
+        }
+      ]
+    },
+    ".claude/skills/ogp-debugging-playbook/SKILL.md": {
+      "original_sha256": "e7b8df3e20f487ebf2b6ca51ec5c69d073beef8a4e27866ad17443b715cfe697",
+      "fragments": [
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/000-ogp-debugging-playbook.md",
+          "sha256": "6cf9c54272f9de611d351e700e2d75450f97ab7c92d6a9fda86a76c234c332df",
+          "current_sha256": "6cf9c54272f9de611d351e700e2d75450f97ab7c92d6a9fda86a76c234c332df"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/001-when-not-to-use-this-skill.md",
+          "sha256": "a36866bcabe71da37f69dd8e601feed3d55113338bab15250946e144229e33c7",
+          "current_sha256": "a36866bcabe71da37f69dd8e601feed3d55113338bab15250946e144229e33c7"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/002-triage-protocol.md",
+          "sha256": "c0ca777c2a66231fc04dc2dc2b93cb86e6371a92b3b6f87b2bbf8cd90ab6235f",
+          "current_sha256": "c0ca777c2a66231fc04dc2dc2b93cb86e6371a92b3b6f87b2bbf8cd90ab6235f"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/003-triage-table-a-canvas-geometry-interaction.md",
+          "sha256": "9d76ad3ae17f9bc7e0b8978350994e8a3b4ea431a1797cd315faee140783d957",
+          "current_sha256": "9d76ad3ae17f9bc7e0b8978350994e8a3b4ea431a1797cd315faee140783d957"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/004-triage-table-b-export-png-svg-pdf.md",
+          "sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3",
+          "current_sha256": "96d9a87b86d751ca842c183e3aa7487c4ab2442f66ef9067a67ccf9c9ccd02b3"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/005-triage-table-c-tests-ci-teardown.md",
+          "sha256": "0015b8d33158cffc648faae2ddc991937fa8f88a053d56961d331b995b6fe61c",
+          "current_sha256": "0015b8d33158cffc648faae2ddc991937fa8f88a053d56961d331b995b6fe61c"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/006-triage-table-d-panels-signals-staleness.md",
+          "sha256": "e575fbc9d7d7b7acc19183bb8802bf28a763e83de7f750b106a6bde0fa791b14",
+          "current_sha256": "e575fbc9d7d7b7acc19183bb8802bf28a763e83de7f750b106a6bde0fa791b14"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/007-triage-table-e-i18n-encoding-data-display.md",
+          "sha256": "0a1f1eb1a777ae3c338273c178b25a07fdef0a2aea134b74271cf60ffe1a7721",
+          "current_sha256": "0a1f1eb1a777ae3c338273c178b25a07fdef0a2aea134b74271cf60ffe1a7721"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/008-triage-table-f-packaging-frozen-exe.md",
+          "sha256": "7c5a68355c099e62c72f88ba3ecd5bf4ea328e6b2fac981d5e314aa137c4fb16",
+          "current_sha256": "7c5a68355c099e62c72f88ba3ecd5bf4ea328e6b2fac981d5e314aa137c4fb16"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/009-qt-debugging-facts-you-probably-don-t-know.md",
+          "sha256": "b1ec8a4ce1e0c1f2e1536bfe06fad125644f6a92164424dd88b7ad7d1909ec3b",
+          "current_sha256": "b1ec8a4ce1e0c1f2e1536bfe06fad125644f6a92164424dd88b7ad7d1909ec3b"
+        },
+        {
+          "path": ".claude/skills/ogp-debugging-playbook/references/010-provenance-and-maintenance.md",
+          "sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13",
+          "current_sha256": "3c225b50e2ea897a9109ce9e7252326b8bd347b85fe71e0304f593b6824cbf13"
+        }
+      ]
+    },
+    ".claude/skills/ogp-failure-archaeology/SKILL.md": {
+      "original_sha256": "cdb4b64d7b4bac61e5664a667377a2697b0f4e4b206f3eb05e9869703bfe799a",
+      "fragments": [
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/000-ogp-failure-archaeology.md",
+          "sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd",
+          "current_sha256": "6d1065d3200d34a64cec8c2c3e779730f4d4b0b708495993158d5253d17715bd"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/001-index-scan-this-first.md",
+          "sha256": "7469db4b12bdda1400e227d5f80d26bffc6efdca93ad9a8a316fbf313f627ffe",
+          "current_sha256": "7469db4b12bdda1400e227d5f80d26bffc6efdca93ad9a8a316fbf313f627ffe"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/002-1-the-rotated-geometry-saga-213-219-218-221.md",
+          "sha256": "e8622be8b6c07401c481c0c24bb5519598ed24d122147da0b4947e927f38d684",
+          "current_sha256": "e8622be8b6c07401c481c0c24bb5519598ed24d122147da0b4947e927f38d684"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/003-2-the-panel-rebuild-saga-200-206-222-223-225.md",
+          "sha256": "1a5d7d8d2a6ee2438fabc70b156b46fcdf0e567eadee60d5c2ac75a7cfa7b0d0",
+          "current_sha256": "1a5d7d8d2a6ee2438fabc70b156b46fcdf0e567eadee60d5c2ac75a7cfa7b0d0"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/004-3-undo-redo-data-loss-the-two-chokepoint-invariant-209-211.md",
+          "sha256": "b30bff7b86438fe369beda984e6e97011d7f9a6a1a74074a9760106abcdeda23",
+          "current_sha256": "b30bff7b86438fe369beda984e6e97011d7f9a6a1a74074a9760106abcdeda23"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/005-4-free-text-commit-granularity-debounce-plus-flush-210-214.md",
+          "sha256": "21fd3703594e254018bd63c9b59c0dc8aa981482eea153d6a41d3398e7a9ff09",
+          "current_sha256": "21fd3703594e254018bd63c9b59c0dc8aa981482eea153d6a41d3398e7a9ff09"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/006-5-task-dual-store-convergence-227-228.md",
+          "sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3",
+          "current_sha256": "5cbbd548a9331105a857558d7c72640936fa598a5bb610e9accd2c1a3e9989b3"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/007-6-find-plants-selection-flakiness-two-rounds-212-215.md",
+          "sha256": "c291aaa3acaae96737f5cabd8ae294edfba59544581edeaef7299b299484296d",
+          "current_sha256": "c291aaa3acaae96737f5cabd8ae294edfba59544581edeaef7299b299484296d"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/008-7-smart-symbol-exception-family-enumeration-the-losing-game-pr-236.md",
+          "sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7",
+          "current_sha256": "f1c55001c69c76c28576d67a90e68699a72d8ac7da3fab780347f2b440f4fdb7"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/009-8-release-workflow-races-chore-race-229-date-matching.md",
+          "sha256": "01358321d0fb47ef5520a3a582ebd6e613d44b6d44058ee60e32f6b092c6f78f",
+          "current_sha256": "01358321d0fb47ef5520a3a582ebd6e613d44b6d44058ee60e32f6b092c6f78f"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/010-9-data-loss-on-update-the-installer-wiped-user-plans-199-204-adr-027.md",
+          "sha256": "20c98a54a34ee3aae225daf94bfef072a42613639273ab2b4f757a2ce87c545f",
+          "current_sha256": "20c98a54a34ee3aae225daf94bfef072a42613639273ab2b4f757a2ce87c545f"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/011-10-i18n-incidents-hardcoded-strings-and-mojibake.md",
+          "sha256": "4bbac122d35645875d8fd8ce220fc2ac721234c7acb329256ff6d4214eebaf26",
+          "current_sha256": "4bbac122d35645875d8fd8ce220fc2ac721234c7acb329256ff6d4214eebaf26"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/012-11-ci-only-teardown-crashes-230-pr-235.md",
+          "sha256": "a15c5663891f5fc59db47a5414ff6aa73a293195e9bbc5d3593f5a90d906e933",
+          "current_sha256": "a15c5663891f5fc59db47a5414ff6aa73a293195e9bbc5d3593f5a90d906e933"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/013-12-agent-api-render-tool-d1-3-pr-242-layers-fix-two-empirical-mcp-facts.md",
+          "sha256": "f9f8ec1406ac3b83d200afd66b9450a54ef09e554427f631cc3be06435418713",
+          "current_sha256": "f9f8ec1406ac3b83d200afd66b9450a54ef09e554427f631cc3be06435418713"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/014-13-retired-feature-us-b7-paper-space-dropped-in-pr-191-review.md",
+          "sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849",
+          "current_sha256": "d398dde3fe36e113f724b5d4d8aa5f151b6577d7965263e57a5d9ed2e2aff849"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/015-14-the-export-y-flip-saga-png-pdf-svg-2026-05.md",
+          "sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b",
+          "current_sha256": "804ccfd49183b359f58ac7665db9da7cbc01b6108945e7df98014974cc91f59b"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/016-15-tangent-constraint-degeneracy-pr-198-adr-024-fixed-2026-06-07.md",
+          "sha256": "84cdb5538f2bfb71a54981c38af4308b7ddfe44704a8b5752cb1fa52bf4e4c88",
+          "current_sha256": "84cdb5538f2bfb71a54981c38af4308b7ddfe44704a8b5752cb1fa52bf4e4c88"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/017-16-inert-curve-handles-the-itemignorestransformations-grab-drop-193.md",
+          "sha256": "9d33d82a879b85625ac80f347589fdac7c9f8797b0bfbd1cc3f4b11d684bc2e7",
+          "current_sha256": "9d33d82a879b85625ac80f347589fdac7c9f8797b0bfbd1cc3f4b11d684bc2e7"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/018-17-label-editor-auto-closing-the-minimap-culprit-fixed-2026-04-22.md",
+          "sha256": "d78e80e7442ea6027be4cedeb6272255a758ead124f1768cb5f28f27bc4ad64f",
+          "current_sha256": "d78e80e7442ea6027be4cedeb6272255a758ead124f1768cb5f28f27bc4ad64f"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/019-18-qsettings-global-static-poison-passes-alone-fails-together-ci-green.md",
+          "sha256": "951b6983cabd5214393e3df0c3a432e9791413eea6d5f6cd98123d7594865ba0",
+          "current_sha256": "951b6983cabd5214393e3df0c3a432e9791413eea6d5f6cd98123d7594865ba0"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/020-19-the-stale-trigger-family-173-175.md",
+          "sha256": "376c5d8080696eb37eb7ad198b1f701ffe4f74ec0cb2d2813c384ddee44de038",
+          "current_sha256": "376c5d8080696eb37eb7ad198b1f701ffe4f74ec0cb2d2813c384ddee44de038"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/021-20-the-ghost-field-family-us-12-10d-fixed-2026-05-03.md",
+          "sha256": "a11d0189363324098a06b8927670f8e611011b306a29f11e5b5ebc43bc63951b",
+          "current_sha256": "a11d0189363324098a06b8927670f8e611011b306a29f11e5b5ebc43bc63951b"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/022-21-unknown-enum-display-corruption-231-232.md",
+          "sha256": "aa1b44479a008ee7a05a7b4de15a4b04498da718d6b977fdaec8533831bb8ddd",
+          "current_sha256": "aa1b44479a008ee7a05a7b4de15a4b04498da718d6b977fdaec8533831bb8ddd"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/023-22-25-short-entries.md",
+          "sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a",
+          "current_sha256": "ae611431963ab34c7ac2204d0578eb2622e40b6f437548d306cd27e26dc2285a"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/024-still-open-unsettled-as-of-2026-07-03.md",
+          "sha256": "84b0fd9b1bfd7bcf0eb6c14d181a153b29a701fc1f8d8b373b75fe723f6e1c2d",
+          "current_sha256": "84b0fd9b1bfd7bcf0eb6c14d181a153b29a701fc1f8d8b373b75fe723f6e1c2d"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/025-when-not-to-use-this-skill.md",
+          "sha256": "a53f4f61c3b020b0a0e660f743a243ac77f898eb42db3d59550978232548a3c8",
+          "current_sha256": "a53f4f61c3b020b0a0e660f743a243ac77f898eb42db3d59550978232548a3c8"
+        },
+        {
+          "path": ".claude/skills/ogp-failure-archaeology/references/026-provenance-and-maintenance.md",
+          "sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19",
+          "current_sha256": "3fa44fedef6d0ebc40f721cdb3c642ea13e844d825681eb04db72fa711701a19"
+        }
+      ]
+    },
+    ".claude/skills/ogp-lush-cinematic/SKILL.md": {
+      "original_sha256": "039f145f4f94ee42152599afdff219f3d504f15edb8f730e7205c66de17d14b4",
+      "fragments": [
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/000-lush-cinematic-the-3d-art-direction-contract.md",
+          "sha256": "a11aabdba88982c53b1ab5a144a04dcccfdd49e95d516b0e9243c755d46da727",
+          "current_sha256": "a11aabdba88982c53b1ab5a144a04dcccfdd49e95d516b0e9243c755d46da727"
+        },
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/001-1-truth-before-beauty-non-negotiable.md",
+          "sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158",
+          "current_sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158"
+        },
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/002-2-style-table.md",
+          "sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856",
+          "current_sha256": "d9a28b3d7541a1191f4df7f9568f446b63e6b04a0e15670224085017fff6c856"
+        },
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/003-3-light-rigs-per-mood-spike-values-look-for-sun-light-sun-state-of-the-spike-s-runner.md",
+          "sha256": "09e5e41baec005ddedec9cf0d3cf9043a1339365ecc7960092036165ca6d0477",
+          "current_sha256": "09e5e41baec005ddedec9cf0d3cf9043a1339365ecc7960092036165ca6d0477"
+        },
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/004-4-material-value-ranges-pbr-roughness-0-1.md",
+          "sha256": "12a16337b065976b9e28a26e9812998a1d23a19f2cb6c155bc5ae93ce6a2351e",
+          "current_sha256": "12a16337b065976b9e28a26e9812998a1d23a19f2cb6c155bc5ae93ce6a2351e"
+        },
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/005-5-beauty-board-procedure.md",
+          "sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66",
+          "current_sha256": "a0ebb9f22cb5cdc9247b55d1868d836e19b2f55777931367330b41e6e665ea66"
+        },
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/006-6-review-rubric-the-reviewer-agent-s-checklist.md",
+          "sha256": "fd4274cda07d6c440ca51e6007c3a510797bc337b4b8204b7940ddba905cce4d",
+          "current_sha256": "fd4274cda07d6c440ca51e6007c3a510797bc337b4b8204b7940ddba905cce4d"
+        },
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/007-7-spike-artifact-fix-log-keep-growing.md",
+          "sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25",
+          "current_sha256": "54c49d2e037bd36ba606b8f2abd7c42045bc88a97ae9806a5545d39cbdda0e25"
+        },
+        {
+          "path": ".claude/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
+          "sha256": "6b0f9a4a55034eeafcbc45749e56d6af8dec1ba995187fe06036c525c0c7e3cb",
+          "current_sha256": "6b0f9a4a55034eeafcbc45749e56d6af8dec1ba995187fe06036c525c0c7e3cb"
+        }
+      ]
+    },
+    ".claude/skills/ogp-qt-cad-reference/SKILL.md": {
+      "original_sha256": "228e8c8cd52623b071bf8b7ea3cfdd0da23ffc34650aa81406cc84b891a332c0",
+      "fragments": [
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/000-ogp-qt-cad-reference.md",
+          "sha256": "08adab6db22c09506aa2c3bdf25e86a7a9c59108ae466ce654c9fb498c280cd0",
+          "current_sha256": "08adab6db22c09506aa2c3bdf25e86a7a9c59108ae466ce654c9fb498c280cd0"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/001-when-not-to-use-this-skill.md",
+          "sha256": "54e6f147f5232b759c7954bf3376bee9fe1371994013cb8dd3d193b09addda9a",
+          "current_sha256": "54e6f147f5232b759c7954bf3376bee9fe1371994013cb8dd3d193b09addda9a"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/002-quick-glossary-qt-terms-defined-once.md",
+          "sha256": "53b27ceecadd1377bacb109cfc6b330640428a90fd84a3f6ced715541c272fd5",
+          "current_sha256": "53b27ceecadd1377bacb109cfc6b330640428a90fd84a3f6ced715541c272fd5"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/003-1-coordinate-systems-the-one-mental-model.md",
+          "sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91",
+          "current_sha256": "5661fb1f80bcc0cfac0b64b570fed2d05ff8c6248bd25d50ffc28d4241aace91"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/004-2-the-qgraphicsitem-geometry-contract.md",
+          "sha256": "cc78fb7ceebd06c6b9d1e3f7086dd8131a032aff52e81458d2e094a59f4b3000",
+          "current_sha256": "cc78fb7ceebd06c6b9d1e3f7086dd8131a032aff52e81458d2e094a59f4b3000"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/005-3-itemignorestransformations-what-it-buys-and-its-two-traps.md",
+          "sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c",
+          "current_sha256": "d0e29f1f7f04354a566b75c3434011c1fae3fed26dbc858b17666d715726761c"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/006-4-signals-slots-and-lifecycle-safety.md",
+          "sha256": "f4c292351d5cf015c09f3aa7b8e89dea5b507130beacbfb0ce9efba06a58cb22",
+          "current_sha256": "f4c292351d5cf015c09f3aa7b8e89dea5b507130beacbfb0ce9efba06a58cb22"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/007-5-snap-engine-constraint-solver-theory.md",
+          "sha256": "557241469fd10f667c05266ec21719cd32e5cd4a7731b20047eb3ccad87bc23b",
+          "current_sha256": "557241469fd10f667c05266ec21719cd32e5cd4a7731b20047eb3ccad87bc23b"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/008-6-curves-and-arcs-adr-022-025-core-cad-geometry-py.md",
+          "sha256": "41efc1e84a9a469208ecc47ca7776cdb084e0133e20f0ec5b083cf6ee722d015",
+          "current_sha256": "41efc1e84a9a469208ecc47ca7776cdb084e0133e20f0ec5b083cf6ee722d015"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
+          "sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5",
+          "current_sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5"
+        },
+        {
+          "path": ".claude/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",
+          "sha256": "dda1b8120128243d4cbd1832478be20cbd1def06d699161d65a9ef1ffb4f2d63",
+          "current_sha256": "dda1b8120128243d4cbd1832478be20cbd1def06d699161d65a9ef1ffb4f2d63"
+        }
+      ]
+    }
+  },
+  "citation_relocations": [
+    [
+      ".agents\\skills\\debug-verbose\\references\\049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
+      "`ui/canvas/canvas_view.py:936` `_on_scene_changed_for_soil`",
+      "`ui/canvas/canvas_view.py:899` `_on_scene_changed_for_soil`"
+    ],
+    [
+      ".agents\\skills\\ogp-3d-sunshade-campaign\\references\\001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+      "`app/settings.py:206` `KEY_SHOW_SHADOWS`",
+      "`config/settings.py:199` `KEY_SHOW_SHADOWS`"
+    ],
+    [
+      ".agents\\skills\\ogp-architecture-contract\\references\\003-1-invariants-the-heart-of-this-skill.md",
+      "`ui/canvas/canvas_view.py:694` `transform.scale(self._zoom_factor, -self._zoom_factor)`",
+      "`ui/canvas/canvas_view.py:727` `transform.scale(self._zoom_factor, -self._zoom_factor)`"
+    ],
+    [
+      ".agents\\skills\\ogp-architecture-contract\\references\\006-4-known-weak-points-stated-plainly.md",
+      "`application.py:5368` `set_panel_visible(\"smart_symbols\", False)`",
+      "`application.py:2702` `set_panel_visible(\"smart_symbols\", False)`"
+    ],
+    [
+      ".agents\\skills\\ogp-build-and-run\\SKILL.md",
+      "`app/settings.py:26` `create_qsettings`",
+      "`config/settings.py:22` `create_qsettings`"
+    ],
+    [
+      ".agents\\skills\\ogp-config-and-flags\\SKILL.md",
+      "`application.py:5368` `set_panel_visible(\"smart_symbols\", False)`",
+      "`application.py:2702` `set_panel_visible(\"smart_symbols\", False)`"
+    ],
+    [
+      ".agents\\skills\\ogp-config-and-flags\\SKILL.md",
+      "`application.py:7934` `_update_satellite_menu_state`",
+      "`application.py:5311` `_update_satellite_menu_state`"
+    ],
+    [
+      ".agents\\skills\\ogp-research-frontier\\SKILL.md",
+      "`application.py:5368` `set_panel_visible(\"smart_symbols\", False)`",
+      "`application.py:2702` `set_panel_visible(\"smart_symbols\", False)`"
+    ],
+    [
+      ".claude\\skills\\debug-verbose\\references\\049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
+      "`ui/canvas/canvas_view.py:936` `_on_scene_changed_for_soil`",
+      "`ui/canvas/canvas_view.py:899` `_on_scene_changed_for_soil`"
+    ],
+    [
+      ".claude\\skills\\ogp-3d-sunshade-campaign\\references\\001-0-verified-foundation-inventory-exists-all-verified-2026-07-04.md",
+      "`app/settings.py:206` `KEY_SHOW_SHADOWS`",
+      "`config/settings.py:199` `KEY_SHOW_SHADOWS`"
+    ],
+    [
+      ".claude\\skills\\ogp-architecture-contract\\references\\003-1-invariants-the-heart-of-this-skill.md",
+      "`ui/canvas/canvas_view.py:694` `transform.scale(self._zoom_factor, -self._zoom_factor)`",
+      "`ui/canvas/canvas_view.py:727` `transform.scale(self._zoom_factor, -self._zoom_factor)`"
+    ],
+    [
+      ".claude\\skills\\ogp-architecture-contract\\references\\006-4-known-weak-points-stated-plainly.md",
+      "`application.py:5368` `set_panel_visible(\"smart_symbols\", False)`",
+      "`application.py:2702` `set_panel_visible(\"smart_symbols\", False)`"
+    ],
+    [
+      ".claude\\skills\\ogp-build-and-run\\SKILL.md",
+      "`app/settings.py:26` `create_qsettings`",
+      "`config/settings.py:22` `create_qsettings`"
+    ],
+    [
+      ".claude\\skills\\ogp-config-and-flags\\SKILL.md",
+      "`application.py:5368` `set_panel_visible(\"smart_symbols\", False)`",
+      "`application.py:2702` `set_panel_visible(\"smart_symbols\", False)`"
+    ],
+    [
+      ".claude\\skills\\ogp-config-and-flags\\SKILL.md",
+      "`application.py:7934` `_update_satellite_menu_state`",
+      "`application.py:5311` `_update_satellite_menu_state`"
+    ],
+    [
+      ".claude\\skills\\ogp-research-frontier\\SKILL.md",
+      "`application.py:5368` `set_panel_visible(\"smart_symbols\", False)`",
+      "`application.py:2702` `set_panel_visible(\"smart_symbols\", False)`"
+    ]
+  ],
+  "post_migration_updates": [
+    {
+      "master": "eb0eda0f08691592469482ed880b4009bb2e573e",
+      "reason": "PR #639 shipped atomic agent move/reparenting in v1.34.4; update current invariants and command-path references while preserving original hashes.",
+      "fragments": [
+        "003-1-invariants-the-heart-of-this-skill.md",
+        "005-3-the-write-path-command-pattern-8-2-adr-004.md"
+      ]
+    }
+  ]
+}

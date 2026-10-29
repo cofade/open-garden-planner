@@ -58,7 +58,7 @@ SRC_ROOT = Path(settings_module.__file__).resolve().parents[1]
 REPO_ROOT = SRC_ROOT.parents[1]
 TESTS_ROOT = REPO_ROOT / "tests"
 SCRIPTS_ROOT = REPO_ROOT / "scripts"
-CHOKEPOINT = SRC_ROOT / "app" / "settings.py"
+CHOKEPOINT = SRC_ROOT / "config" / "settings.py"
 CONFTEST = TESTS_ROOT / "conftest.py"
 
 STORE_CLASS = "QSettings"

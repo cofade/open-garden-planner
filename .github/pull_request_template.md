@@ -12,6 +12,19 @@ For wiki publication work, reference the issue and close it after publication. -
 <!-- Record checks actually run, results, and any unmet gates.
 Include independent review results. Use "not applicable" with a reason where appropriate. -->
 
+<!-- For each review round: round number, reviewed SHA, P0/P1/P2 findings,
+verified fixes/refutations, and the clean re-review SHA. Record design review separately.
+For a multi-issue PR, give evidence against each issue's acceptance items. -->
+
+## Scope and review units
+
+<!-- If >30 production files, >1000 non-generated changed lines, new public APIs,
+or multiple subsystems: obtain design-stage review before implementation; identify
+semantic review slices and dependency order. These are review prompts, not approval
+thresholds. Separate generated assets/catalogs from behavioral patches when practical.
+Split independent changes into PRs based on master. Do not stack on a disposable base.
+When dependencies require a combined PR, explain why and list per-slice evidence. -->
+
 ## Documentation and translations
 
 <!-- For wrapped UI or locale changes, run scripts/update_translations.py, complete every registered target locale, compile, and pass scripts/check_translations.py. Equal counts alone do not prove coverage. -->

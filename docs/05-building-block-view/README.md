@@ -810,3 +810,22 @@ Models. Scene recovery invalidates remembered upgrades. See ADR-064.
 
 
 `resources/examples/PROVENANCE.md` owns content attribution and regeneration.
+
+
+## Audit responsibility boundaries (A4/A6/A7, ADR-068)
+
+| Module | Responsibility and dependencies |
+|---|---|
+| `config/settings.py`, `config/paths.py` | Shared QtCore configuration/factory and safe dialog paths; no application/UI imports. `app` compatibility paths alias these exact modules. |
+| `models/theme.py`, `models/parametric_eval.py`, `models/storage_paths.py` | Theme values, bounded arithmetic evaluation and per-user data path; Qt-free leaves. Old evaluator and service imports remain compatible. |
+| `ui/canvas/clipboard_operations.py` | Clipboard, duplicate and array orchestration using the existing loader, guild-copy and command paths; the view retains state. |
+| `ui/canvas/drag_constraints.py` | Drag/vertex constraint propagation and solve preparation using the existing graph and geometry seams; the view retains interaction state. |
+| `ui/canvas/items/common_menu.py` | Common repeat-action identities and view dispatch; each shape owns its capabilities and bed/Boolean/edit actions. |
+| `ui/canvas/items/handle_geometry.py`, `vertex_handles.py` | Shared anchored geometry and live-edit notification; vertex/midpoint/curve editing. `resize_handle.py` retains resize/rotation and exact compatibility exports. |
+| `ui/panels/property_edits.py` | Named appearance/property command handlers; the panel retains widgets, focus and debounce state. |
+| `app/agent_host.py` | MCP-to-document host adapter with an explicit application reference. The application retains lifecycle/state and compatibility methods. |
+| `core/startup_probe.py` | Opt-in isolated startup measurement; normal startup does not activate it. |
+
+`scripts/check_import_boundaries.py` enforces eager layer edges with no exceptions;
+the graph and scoped line/import measurements are in the audit evidence. These
+are responsibility extractions, not new domain or persistence implementations.

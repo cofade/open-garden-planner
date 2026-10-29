@@ -19,7 +19,7 @@ from PyQt6.QtCore import QObject, QPointF, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
 
-from open_garden_planner.app.settings import get_settings
+from open_garden_planner.config.settings import get_settings
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.item_look import (
     adopt_pen,

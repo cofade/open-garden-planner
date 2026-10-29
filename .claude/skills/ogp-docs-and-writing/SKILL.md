@@ -71,9 +71,9 @@ single `README.md` — there are no per-ADR or per-chapter sub-files.
 | FR register | `docs/functional-requirements.md` | Numbered FR-* requirements, the specification of user-visible capability |
 | Translation guide | `docs/TRANSLATING.md` | How to add a new language (`.ts`/`.qm` pipeline) |
 | AGENTS.md | `AGENTS.md` (repo root) | Quick reference commands, workflow, phase progress tables. **A maintained doc** — its own "Maintaining this file" note requires updating the progress table when US status changes and keeping commands current |
-| Debug case-study log | `.agents/skills/debug-verbose/SKILL.md` | Growing list of `## Case study:` entries — one per non-trivial bug fixed |
+| Debug case-study log | `.claude/skills/debug-verbose/SKILL.md` | Growing list of `## Case study:` entries — one per non-trivial bug fixed |
 | GitHub wiki | `docs/wiki/README.md` | Six repository-owned source pages. Canonical roadmap inclusions render through `scripts/sync_wiki.py`. Validate offline before delivery. Publish to the separate sibling wiki checkout after owner approval and protected merge. If absent, report publication pending. Do not silently clone or edit the published pages as a second tracker (ADR-051). |
-| This skill library | `.agents/skills/<name>/SKILL.md` | Operational knowledge for agents — see §7 below |
+| This skill library | `.claude/skills/<name>/SKILL.md` | Operational knowledge for agents — see §7 below |
 
 ## 2. The mandatory-update tables (from AGENTS.md — binding)
 
@@ -110,7 +110,7 @@ sources validated and publication prepared (or flagged pending — see §1), roa
 table written, AGENTS.md progress table current, new keyboard shortcuts in glossary.
 
 Additional targets observed in practice (beyond the AGENTS.md tables):
-- Every non-trivial bug fix → **Case study** in `.agents/skills/debug-verbose/SKILL.md`
+- Every non-trivial bug fix → **Case study** in `.claude/skills/debug-verbose/SKILL.md`
   (the skill's own "How this skill grows" section mandates it).
 - New/changed UI strings → source inventory and every registered target catalog (see §6).
 - Known-but-deferred debt → a `TD-*` row in §11.3 (with Status and Issue, ADR-047), or a filed follow-up issue referenced
@@ -283,7 +283,7 @@ pin). Cross-refs: FR-*, §8.x, PF-*.>
 | `docs/12-glossary/` | <new terms / shortcuts> |
 ```
 
-### Debug-verbose case study (append to `.agents/skills/debug-verbose/SKILL.md`)
+### Debug-verbose case study (add a mirrored reference and update its case index)
 
 ```markdown
 ## Case study: <short symptom title> (fixed YYYY-MM-DD)
@@ -318,7 +318,7 @@ pin). Cross-refs: FR-*, §8.x, PF-*.>
 | "New module exists; here's its responsibility" | docs/05 black box |
 | "The startup/save/render sequence changed" | docs/06 sequence diagrams |
 | "Known debt, deliberately deferred" | §11.3 TD-* row or filed issue, referenced from roadmap note |
-| "Operational knowledge an agent needs" | the relevant `.agents/skills/*/SKILL.md` |
+| "Operational knowledge an agent needs" | the relevant `.claude/skills/*/SKILL.md` |
 | "US finished / phase status changed" | roadmap table + AGENTS.md progress table (both) |
 
 One fact, one home; everywhere else links to it. The roadmap note *cites* ADR/FR/§8; it
@@ -353,7 +353,7 @@ does not restate them.
 
 ## 7. This skill library is itself a doc of record
 
-- Skills live at `.agents/skills/<name>/SKILL.md` with YAML frontmatter (`name`,
+- Skills live at `.claude/skills/<name>/SKILL.md` with YAML frontmatter (`name`,
   trigger-rich `description`) — same shape as `ogp-change-control` and this file.
 - Each ends with a **Provenance and maintenance** section: one-line commands that
   re-verify the skill's load-bearing claims. House rule (quoted from
@@ -362,7 +362,7 @@ does not restate them.
 - **When a code change invalidates a skill claim, updating the skill is part of the
   change** — same spirit as the AGENTS.md mandatory-update tables. Grep the library
   before merging anything that renames a file, command, or invariant a skill cites:
-  `grep -rl "<old name>" .agents/skills/`.
+  `grep -rl "<old name>" .claude/skills/`.
 - The pre-existing skills follow the same growth contract: `debug-verbose` grows a case
   study per bug; `finalize-us` and `analyze-pr` encode process that must track reality.
 - Siblings in this 16-skill library: `ogp-change-control` (process gates),
@@ -379,8 +379,8 @@ Derived 2026-07-04 from: AGENTS.md (mandatory-update tables reproduced verbatim)
 US-C4 read as anatomy exemplars); `docs/09-architecture-decisions/README.md` (ADR-001,
 ADR-028, ADR-029 + addenda); `docs/functional-requirements.md` (FR-1, FR-23 heading,
 FR-AGENT-09); `docs/roadmap.md` (Package B follow-ups + US-C1/C2 sections);
-`.agents/skills/debug-verbose/SKILL.md` (case-study format + growth contract);
-`.agents/skills/ogp-change-control/SKILL.md` (skill house style). Wiki sibling repo
+`.claude/skills/debug-verbose/SKILL.md` (case-study format + growth contract);
+`.claude/skills/ogp-change-control/SKILL.md` (skill house style). Wiki sibling repo
 verified ABSENT in this checkout.
 
 Re-verify:
@@ -395,7 +395,7 @@ grep -n "^## 11.4" docs/11-risks-and-technical-debt/README.md; grep -c "^### PF-
 # AGENTS.md mandatory tables unchanged
 grep -n "Update Target\|Document In" AGENTS.md
 # Debug-verbose case-study count (grows over time)
-grep -c "^## Case study" .agents/skills/debug-verbose/SKILL.md
+grep -c "^## Case study" .claude/skills/debug-verbose/SKILL.md
 # Wiki sibling present in THIS checkout?
 ls ../open-garden-planner.wiki/Roadmap.md 2>/dev/null || echo "wiki absent — flag sync as pending"
 ```

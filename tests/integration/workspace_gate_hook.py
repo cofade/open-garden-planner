@@ -63,7 +63,7 @@ from types import ModuleType
 from typing import Any
 
 SPEC_VARIABLE = "OGP_WORKSPACE_GATE"
-SETTINGS_MODULE = "open_garden_planner.app.settings"
+SETTINGS_MODULE = "open_garden_planner.config.settings"
 APPLICATION_MODULE = "open_garden_planner.app.application"
 TEST_ORGANIZATION = "cofade_test"  # the organisation tests/conftest.py uses
 #: The exit code of a process that was about to build a store on another organisation.

@@ -139,8 +139,8 @@ Beyond that, four habits that repeatedly find real defects here:
   scene *and the undo stack* untouched when it refuses. A tool that half-applies and then errors
   passes a happy-path test perfectly.
 - **Assert the undo-step count, not just that undo works.** "Exactly one undo step per agent
-  operation" is a contract, and `move_object`'s two-step reparent case is the documented
-  exception that proves nobody verifies this by accident.
+  operation" is a contract. `move_object`'s former two-step reparent case was fixed
+  by #635 (v1.34.4); move, membership and their undo must now stay atomic.
 - **Parametrise over the parameter a defect scales with.** A bug proportional to rotation is
   exactly 0 at rotation 0, so coverage of the default value proves nothing (#213 / PR #217 is
   the recorded case).

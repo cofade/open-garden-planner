@@ -345,7 +345,7 @@ class AgentProviders:
     find_sets_for_bed: Callable[..., dict[str, Any]]
     check_placement: Callable[..., dict[str, Any]]
     get_succession_plan: Callable[..., dict[str, Any]]
-    find_succession_gaps: Callable[..., dict[str, Any]]
+    find_succession_gaps: Callable[..., list[dict[str, Any]]]
     suggest_succession: Callable[..., list[dict[str, Any]]]
     set_succession_plan: SetSuccessionPlanProvider
     get_tasks: Callable[..., dict[str, Any]]

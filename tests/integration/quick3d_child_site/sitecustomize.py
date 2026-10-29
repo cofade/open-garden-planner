@@ -36,7 +36,7 @@ from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Any
 
-SETTINGS_MODULE = "open_garden_planner.app.settings"
+SETTINGS_MODULE = "open_garden_planner.config.settings"
 TEST_ORGANIZATION = "cofade_test"  # the organisation tests/conftest.py uses
 REPORT_VARIABLE = "OGP_TEST_CHILD_STORES"
 

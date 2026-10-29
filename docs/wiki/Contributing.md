@@ -27,3 +27,9 @@ Private vulnerability reports use the separate GitHub security form and go to re
 
 
 For UI or locale changes, use the [contributor translation guide](https://github.com/cofade/open-garden-planner/blob/master/CONTRIBUTING.md#contributing-translations-and-adding-languages) and [translation workflow](https://github.com/cofade/open-garden-planner/blob/master/docs/TRANSLATING.md). Shipped languages include English, German, and Spanish. Every supported target locale must cover all live source keys. New languages and new UI strings both require complete translations and passing required CI; the English template is generated from source rather than copied as an authority.
+
+
+Review routing names the existing owner only. The
+[maintainer continuity runbook](https://github.com/cofade/open-garden-planner/blob/master/docs/07-deployment-view/maintainer-continuity.md)
+describes verified identity mapping, security ownership, recovery steps and
+uncompleted owner-only actions. It grants no release privileges.

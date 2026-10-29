@@ -113,6 +113,20 @@ def test_coverage_compares_exact_counts_and_names_every_package() -> None:
                                 {"core": 80}) == []
 
 
+def test_every_source_package_has_a_coverage_floor() -> None:
+    """Package extraction must register its floor before the hosted coverage run."""
+    root = Path(__file__).resolve().parents[2]
+    source = root / "src/open_garden_planner"
+    packages = set()
+    for path in source.rglob("*.py"):
+        parts = path.relative_to(source).parts
+        packages.add(parts[0] if len(parts) > 1 else "(root)")
+    floors = validate_floors(json.loads(
+        (root / "quality/coverage-floors.json").read_text(encoding="utf-8")
+    ))
+    assert set(floors) == packages
+
+
 @pytest.mark.parametrize("floor", [-1, 101, True, 80.1, "80"])
 def test_coverage_floor_metadata_is_strict(floor: object) -> None:
     with pytest.raises(ValueError):
