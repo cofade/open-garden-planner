@@ -33,6 +33,6 @@ def test_disable_windows_power_throttling_non_windows_mocked() -> None:
 
 def test_disable_windows_power_throttling_handles_exceptions() -> None:
     """Unexpected ctypes/Windows API error returns False rather than crashing."""
-    with patch("sys.platform", "win32"), patch("ctypes.WinDLL", side_effect=OSError("API unavailable")):
+    with patch("sys.platform", "win32"), patch("ctypes.WinDLL", side_effect=OSError("API unavailable"), create=True):
         assert disable_windows_power_throttling() is False
         assert get_windows_power_throttling_state() is None
