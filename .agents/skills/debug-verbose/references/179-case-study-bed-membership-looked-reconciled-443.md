@@ -48,3 +48,20 @@ commands*, not a list of call sites that happened to remember. Put the rule in
 the command, next to the geometry it depends on, so undo replays both. And
 when two surfaces ask the same geometric question, make them ask the same
 point — a tolerance between them is a bug with a comment.
+
+**Review round (independent senior review, 2026-10-29).** Six P1s, all real, all
+fixed. The lesson repeated itself one level up: the first pass had wired the
+COMMAND paths and the live drag-release paths, but three other real entry points
+were missed — the Properties panel's typed width/height (it registered a resize
+without `notify_applied`, so a bed unlinked on redo but not on the original
+action), the agent's `set_vertex`/`add_vertex`/`delete_vertex` (they execute the
+vertex command directly, with no drag-release handler), and a ROTATED item's
+constraint-corrected partners (a partner plant or bed moved by the solver was
+never re-decided). The second review also caught the opposite failure: a
+scene-wide "recompute every plant" tracker on a bed edit silently overruled a
+plant's explicit link to a FAR-AWAY bed. The fix scopes a bed edit to plants
+whose target or current parent is that bed (plus the plants the edit actually
+moves), and the test now pins the unrelated-bed case. And the mirror-MOVE undo
+lost the bed's child id because the mirrored replacement reuses the plant's id
+while being a different object — `restore` now replays every tracked plant's
+pre-edit link and the heal path restores the child list.

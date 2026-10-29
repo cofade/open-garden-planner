@@ -470,8 +470,8 @@ class WriteResult(BaseModel):
     ] = Field(description="The mutation performed.")
     undo_description: str = Field(
         description="Human-readable label of the primary undo step this created "
-        "(the user can reverse it with Ctrl+Z; see bed_membership_changed for "
-        "whether a second step was also created). set_active_layer is the one "
+        "(the user can reverse it with Ctrl+Z; a reparent caused by move/"
+        "set_position rides in that SAME step). set_active_layer is the one "
         "action with no undo step — the active layer is session state, not a "
         "document change — and says so here."
     )
@@ -499,15 +499,17 @@ class WriteResult(BaseModel):
     )
     bed_membership_changed: bool = Field(
         default=False,
-        description="True if this call changed which bed the plant belongs to. "
-        "For move/set_position, that reparenting happened inside the SAME undo "
-        "step as the move (the move command reconciles membership). For "
-        "set_parent_bed it is always true and is the whole point of the call — "
-        "still ONE undo step, since changing the link is the operation rather "
-        "than a side "
-        "effect of it. Always false for create (a new plant's link is "
-        "established inside the single create step — see new_parent_bed_id) and "
-        "for resize/rotate/set_species, none of which reparent.",
+        description="True if this call changed which bed the addressed PLANT "
+        "belongs to. For move/set_position, that reparenting happened inside the "
+        "SAME undo step as the move (the move command reconciles membership). "
+        "For set_parent_bed it is always true and is the whole point of the "
+        "call — still ONE undo step, since changing the link is the operation "
+        "rather than a side effect of it. Always false for create (a new "
+        "plant's link is established inside the single create step — see "
+        "new_parent_bed_id), for resize/rotate of a plant, and for "
+        "set_species. A resize or rotate of a BED can unlink or relink that "
+        "bed's plants (issue #443) — that is reported by those plants' own "
+        "state, never as this field on the bed's response.",
     )
     new_parent_bed_id: str | None = Field(
         default=None,
@@ -588,10 +590,13 @@ class WriteResult(BaseModel):
         "own Link action does the same), but worth telling the user about. It is "
         "the app's own link test, and since issue #443 it asks the SAME standing "
         "point the sun study and the 3D view use: the plant's stable geometric "
-        "centre, which no warning badge, selection or spacing ring can move. So "
-        "this answer and where the plant stands always agree — a true here means "
-        "the plant is lifted onto the bed's soil. Null for a detach and for "
-        "every other action.",
+        "centre, which no warning badge, selection or spacing ring can move, so "
+        "this answer and the containment half of the lift always agree. True "
+        "does NOT by itself mean the plant is lifted: the parent must also be a "
+        "visible soil container with a resolved height (a trellis, an in-ground "
+        "bed, a hidden parent or a container without a height stands the plant "
+        "on the ground even when this is true). Null for a detach and for every "
+        "other action.",
     )
     # --- issue #338: arrange (stacking order) -------------------------------
     stack_index: int | None = Field(

@@ -130,6 +130,42 @@ class TestBedEditsReconcileMembership:
         canvas.command_manager.redo()
         assert plant.parent_bed_id is None
 
+    def test_a_live_applied_bed_resize_is_one_undo_step_and_no_extra_move(
+        self, canvas: CanvasView
+    ) -> None:
+        """The drag-release path: geometry applied live, registered once.
+
+        `_finalize_drag_move` must recognise the resize THROUGH the membership
+        compound, or it adds a second position entry for the same gesture.
+        """
+        from open_garden_planner.core.commands import ResizeItemCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            build_rect_resize,
+        )
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 500.0, 400.0)
+        assert plant.parent_bed_id == bed.item_id
+        undo_before = canvas.command_manager.undo_depth
+        start_pos = QPointF(bed.pos())
+        old, new = build_rect_resize(bed, 60.0, 200.0)
+        apply_rect_like_geometry(bed, new)  # what the handle does live
+        register_applied_with_membership(
+            canvas.scene(),
+            canvas.command_manager,
+            ResizeItemCommand(bed, old, new, apply_rect_like_geometry),
+            bed,
+        )
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        assert plant.parent_bed_id is None
+        # A resize may move the item's pos (anchored resize); the release must
+        # not record that as a second move step.
+        canvas._drag_start_positions = {bed: start_pos}
+        canvas._finalize_drag_move()
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        assert not canvas._drag_start_positions
+
     def test_a_bed_vertex_drag_relinks_in_the_same_undo_step(
         self, canvas: CanvasView
     ) -> None:
@@ -240,8 +276,30 @@ class TestCopiesAndExplicitLinks:
         assert inside.item_id in bed.child_item_ids
         assert outside.item_id not in bed.child_item_ids
 
-    def test_an_explicit_link_survives_until_the_plant_moves(
+    def test_an_explicit_link_to_another_bed_is_not_overruled_by_a_bed_edit(
         self, canvas: CanvasView
+    ) -> None:
+        """A bed edit only re-decides the plants that bed can affect (#443 review).
+
+        The plant is explicitly linked to a far-away bed; creating another bed
+        elsewhere must leave that link alone (ADR-037 addendum decision 5).
+        """
+        _bed(canvas)  # the bed the plant physically stands in
+        far_bed = _bed(canvas, x=1500.0, y=1200.0)
+        plant = _plant(canvas, 500.0, 400.0)
+        canvas.command_manager.execute(
+            SetParentBedCommand(
+                canvas.scene(), plant, plant.parent_bed_id, far_bed.item_id
+            )
+        )
+        assert plant.parent_bed_id == far_bed.item_id
+
+        _bed(canvas, x=2500.0, y=1500.0)  # unrelated, nowhere near the plant
+
+        assert plant.parent_bed_id == far_bed.item_id
+        assert plant.item_id in far_bed.child_item_ids
+
+    def test_an_explicit_link_survives_until_the_plant_moves(        self, canvas: CanvasView
     ) -> None:
         """The panel/agent Link action may link a plant that is not in the bed
         (``link_is_geometric: false``) — that is a user decision, not a stale link.
@@ -262,6 +320,37 @@ class TestCopiesAndExplicitLinks:
         assert loner.item_id not in bed.child_item_ids
         canvas.command_manager.undo()
         assert loner.parent_bed_id == bed.item_id
+
+    def test_a_mirror_move_out_of_a_bed_undoes_its_child_link(
+        self, canvas: CanvasView, mouse_event: object
+    ) -> None:
+        """Mirror-Move reuses the plant's id; undo must restore the bed's link."""
+        from open_garden_planner.core.tools import ToolType
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 500.0, 400.0)
+        plant_id = plant.item_id
+        assert plant.item_id in bed.child_item_ids
+
+        canvas.set_active_tool(ToolType.MIRROR)
+        tool = canvas.tool_manager.active_tool
+        tool._copy_mode = False  # a Move: the original id survives on the replacement
+        plant.setSelected(True)
+        tool.mouse_press(mouse_event, QPointF(350.0, 100.0))
+        tool.mouse_press(mouse_event, QPointF(350.0, 700.0))
+
+        moved = canvas.scene().find_item_by_id(plant_id)
+        assert moved is not None
+        point = standing_point(moved)
+        assert point is not None and point.x() == pytest.approx(200.0, abs=1.0)
+        assert moved.parent_bed_id is None
+        assert plant_id not in bed.child_item_ids
+
+        canvas.command_manager.undo()
+        restored = canvas.scene().find_item_by_id(plant_id)
+        assert restored is not None
+        assert restored.parent_bed_id == bed.item_id
+        assert plant_id in bed.child_item_ids
 
     def test_the_link_point_is_the_standing_point_for_every_shape(
         self, canvas: CanvasView
@@ -327,4 +416,91 @@ class TestTheReconciledPlanRoundTrips:
         assert loaded_inside.parent_bed_id == bed_id  # type: ignore[attr-defined]
         assert inside_id in loaded_bed.child_item_ids  # type: ignore[attr-defined]
         assert FILE_VERSION == "1.4"  # additive key only: no format bump
+
+
+@pytest.fixture
+def window(qtbot: object, monkeypatch: object, _reset_app_settings: object) -> object:
+    """The real application window: the panel's and the agent's own edit paths."""
+    from PyQt6.QtWidgets import QMessageBox
+
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.app.settings import get_settings
+
+    get_settings().show_welcome_on_startup = False
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Discard
+    )
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)  # type: ignore[attr-defined]
+    yield win
+    win._stop_agent_api()
+
+
+class TestTheRealEditSurfaces:
+    """The panel and the agent apply the same rule, in one undo entry each."""
+
+    def test_a_panel_resize_reconciles_and_redo_keeps_the_truth(
+        self, window: object
+    ) -> None:
+        """The typed width/height path: live geometry, then the command — #443 (i).
+
+        Before the fix it registered a resize whose undo restored links that had
+        never been changed, and whose redo then unlinked the plant: undo/redo
+        asymmetry in the exact path the issue names.
+        """
+        from PyQt6.QtWidgets import QDoubleSpinBox
+
+        canvas = window.canvas_view  # type: ignore[attr-defined]
+        bed = _bed(canvas)
+        plant = _plant(canvas, 500.0, 400.0)
+        assert plant.parent_bed_id == bed.item_id
+        panel = window.properties_panel  # type: ignore[attr-defined]
+        width = QDoubleSpinBox()
+        width.setValue(60.0)
+        height = QDoubleSpinBox()
+        height.setValue(200.0)
+        undo_before = canvas.command_manager.undo_depth
+
+        panel._on_dimension_changed(
+            bed, "rect_size", width_spin=width, height_spin=height
+        )
+
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+        canvas.command_manager.redo()
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+
+    def test_an_agent_vertex_write_relinks_a_bed_in_one_step(
+        self, window: object
+    ) -> None:
+        """Agent set_vertex reshapes a bed with no drag-release handler — #443 (i)."""
+        canvas = window.canvas_view  # type: ignore[attr-defined]
+        scene = window.canvas_scene  # type: ignore[attr-defined]
+        bed = PolygonItem(
+            [QPointF(0.0, 0.0), QPointF(300.0, 0.0), QPointF(300.0, 200.0), QPointF(0.0, 200.0)],
+            object_type=ObjectType.RAISED_BED,
+            layer_id=scene.active_layer.id,
+        )
+        bed.setPos(400.0, 300.0)
+        canvas.command_manager.execute(CreateItemCommand(scene, bed, "bed"))
+        plant = _plant(canvas, 690.0, 310.0)  # 10 cm inside the east edge
+        assert plant.parent_bed_id == bed.item_id
+        undo_before = canvas.command_manager.undo_depth
+
+        # Move the top-right corner down-left, leaving the plant outside the outline.
+        window._do_agent_set_vertex(str(bed.item_id), 1, 600.0, 400.0)  # type: ignore[attr-defined]
+
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+
 

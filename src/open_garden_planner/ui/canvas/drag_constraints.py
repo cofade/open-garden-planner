@@ -461,12 +461,39 @@ class DragConstraints:
         )
 
         # Apply deltas (skip construction items — always pinned)
+        moved_parents: list[QGraphicsItem] = []
         for uid, (dx, dy) in result.item_deltas.items():
             if uid in construction_ids:
                 continue
             gitem = item_map.get(uid)
             if gitem is not None:
                 gitem.moveBy(dx, dy)
+                moved_parents.append(gitem)
+
+        # A plant-parent the solver moved takes its plants along (#443 (vi)).
+        # Positions are recomputed from each tracked start so a reverted parent
+        # cannot make a child drift by the accumulated frame deltas.
+        if moved_parents:
+            from open_garden_planner.core.object_types import (
+                is_plant_parent_type,
+            )
+
+            for parent in moved_parents:
+                if not isinstance(parent, GardenItemMixin):
+                    continue
+                if not is_plant_parent_type(parent.object_type):
+                    continue
+                parent_start = host._constraint_propagated_starts.get(parent)
+                if parent_start is None:
+                    continue
+                delta = parent.pos() - parent_start
+                for child_id in parent.child_item_ids:
+                    child = host._canvas_scene.find_item_by_id(child_id)
+                    if child is None or child in host._drag_start_positions:
+                        continue
+                    if child not in host._constraint_propagated_starts:
+                        host._constraint_propagated_starts[child] = child.pos()
+                    child.setPos(host._constraint_propagated_starts[child] + delta)
 
         # Apply vertex deltas for deformable items
         for (uid, vi), (vdx, vdy) in result.vertex_deltas.items():
@@ -478,6 +505,12 @@ class DragConstraints:
             old_local = host._get_vertex_local(gitem, vi)
             if old_local is None:
                 continue
+            # A vertex correction during a ROTATION must be part of the rotation's
+            # one undo entry: record the pre-gesture local position once (#485).
+            if rotating is not None:
+                host._rotation_vertex_starts.setdefault(
+                    (id(gitem), vi), (gitem, vi, QPointF(old_local))
+                )
             old_scene = gitem.mapToScene(old_local)
             new_scene = QPointF(old_scene.x() + vdx, old_scene.y() + vdy)
             new_local = gitem.mapFromScene(new_scene)

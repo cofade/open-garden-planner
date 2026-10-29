@@ -1363,7 +1363,13 @@ def test_geometry_frames_and_vertex_commands_have_exact_undo_semantics(
     assert body.geometry["vertex_editable"] is True  # type: ignore[attr-defined]
     assert manager._serialize_item(polygon) == baseline
     assert len(view.command_manager._undo_stack) == 4
-    assert [type(command).__name__ for command in view.command_manager._undo_stack] == [
+    # Since #443 a vertex write on a plant-parent (this GARDEN_BED) is one
+    # CompoundCommand whose first step is the vertex command: the membership
+    # corrections ride in the SAME undo entry. The primary step is unchanged.
+    def _primary(command: Any) -> Any:
+        return command.commands[0] if hasattr(command, "commands") else command
+
+    assert [type(_primary(command)).__name__ for command in view.command_manager._undo_stack] == [
         "MoveVertexCommand",
         "MoveVertexCommand",
         "AddVertexCommand",
@@ -1384,17 +1390,17 @@ def test_geometry_frames_and_vertex_commands_have_exact_undo_semantics(
     for _ in range(2):
         view.command_manager.redo()
     assert all(
-        type(command).__name__ == "MoveVertexCommand"
+        type(_primary(command)).__name__ == "MoveVertexCommand"
         for command in view.command_manager._undo_stack
     )
     view.command_manager.redo()
-    assert type(view.command_manager._undo_stack[-1]).__name__ == "AddVertexCommand"
+    assert type(_primary(view.command_manager._undo_stack[-1])).__name__ == "AddVertexCommand"
     assert polygon._get_vertex_count() == 5
     inserted = polygon.mapToScene(polygon._get_vertex_position(1))
     assert inserted.x() == pytest.approx(500.0, abs=1e-9)
     assert inserted.y() == pytest.approx(500.0, abs=1e-9)
     view.command_manager.redo()
-    assert type(view.command_manager._undo_stack[-1]).__name__ == "DeleteVertexCommand"
+    assert type(_primary(view.command_manager._undo_stack[-1])).__name__ == "DeleteVertexCommand"
     assert polygon._get_vertex_count() == 4
 
     for _ in range(4):

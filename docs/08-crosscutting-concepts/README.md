@@ -884,6 +884,28 @@ saved setting and next-window startup translation for every registered locale.
 and a new source key missing from some or all catalogs. Equal-size wrong-key catalogs,
 invalid values/placeholders, stale binaries and stale source declarations fail.
 
+### Constrained gestures and cross-surface invariants (#485, #443)
+
+A gesture that the solver must follow is tested through the real viewport, not by calling
+the release handler: `tests/integration/test_constrained_rotation.py` presses the green
+rotation handle with `QTest`, moves it and asserts the partner moved **while the button is
+still down**, the relation at scene-space anchors (45°, 215°, a wrap-around angle), exactly
+one undo entry, and undo/redo restoring angle **and** partner. A no-op rotation adds no
+entry; a FIXED partner stays pinned and the relation reads red; an inter-object
+PARALLEL/PERPENDICULAR still refuses the rotation. Partner-plant and partner-bed cases pin
+that a correction which moves a partner also re-decides its membership / carries its
+plants, and a full-application variant saves and reloads the completed geometry.
+
+A cross-surface invariant is tested on **every edit path that can break it**, through that
+path's real entry point: `tests/integration/test_bed_membership_reconciliation.py` covers a
+bed's resize/turn/vertex edit (tested service AND the live-applied drag registration), a
+plant moved in/out by the move command, a bed moved over / with its plants, array and mirror
+copies, the Properties panel's typed width/height, and the agent's `set_vertex`. Each asserts
+both sides of the link (`parent_bed_id` and `child_item_ids`), exactly one undo entry, and
+undo/redo symmetry. Re-running the command a production caller builds is not a test of that
+caller — the panel and the agent failures #443's review found both passed every direct-command
+test.
+
 ### 8.10.4 The inner loop, and which run is the gate (#509)
 
 **Current scheduling (#601, 26 October 2026).** Coverage measures two disjoint
@@ -1275,7 +1297,7 @@ Added by the senior review's first round (the same story):
 - **A mutation check for each fix — committed, or it is a number nobody can check.** Each rule
   of the review rounds is switched off in the source (the link alone lifts; a 3-tuple is a
   caster; no bevel; an unknown style is a picket fence; a container's soil 2 cm low; a block on
-  the first ring only; the lift asks the bounding rect's centre; the parent's shape is its
+  the first ring only; the link point is the bounding rect's centre again; the parent's shape is its
   bounding box …) and the tests that should notice are run:
   `scripts/mutation_check_built_world.py`, next to the scene contract's
   `mutation_check_scene3d.py`. A mutant counts as KILLED only when pytest exits with code 1 and
@@ -3141,8 +3163,10 @@ See ADR-036 (and its URL-delivery addendum); §8.11 for the security note.
 **Editing existing objects (US-D2.2/D2.3).** Four more tools sit inside the same
 `if writes_active:` block and share `_resolve_agent_item`: `resize_object`,
 `rotate_object`, `set_species`, `set_parent_bed`. Each applies exactly one
-undoable command; none reparents, so none produces the second undo step
-`move_object` can. Three points are load-bearing for anyone extending them:
+undoable command, and since #443 each reconciles bed membership inside that
+same step (a bed resize or rotate can unlink its plants); `move_object`'s
+reparent is likewise part of its own step, not a second one. Three points are
+load-bearing for anyone extending them:
 
 * **One geometry-apply path per geometry model.** `ResizeItemCommand` /
   `RotateItemCommand` take a caller-supplied `apply_func`, and before D2.2 every
@@ -6203,14 +6227,14 @@ when BOTH hold:
    circle's centre, the origin of its record) tested with `footprints.shape_contains`, the
    app's one point-in-bed predicate.
 
-Otherwise 0, as before L1.6. The second condition is there because the link is bookkeeping: it is
-evaluated when a plant is created (one by one, in bulk, or pasted — `_auto_parent_plant`), when a
-selected plant is dropped after a drag, and when the agent moves a plant (`move_object` and
-`set_object_position`, one re-link); nothing that changes a BED evaluates it, so a bed resized
-away from its plant keeps the link. Nor does any other way of moving or copying a plant: the
-arrow keys, a typed coordinate, align / distribute, an array, a mirror copy (the table below).
-**Where a linked plant stands follows its centre all the same** — the second condition is asked
-on every walk, whatever moved the plant (38 → 0 → 38 with the link untouched).
+Otherwise 0, as before L1.6. The first condition stays the honest half: an explicit link that
+geometry does not support (`set_parent_bed` with `link_is_geometric: false`, or a plan written
+before #443) never lifts. Since #443 every edit path keeps the link in step with that same stable
+centre — creation, moves (arrow keys, typed coordinates, align/distribute, constraint
+propagation), a bed's create/resize/turn/vertex edits, paste/duplicate/array/mirror, the panel
+and the agent — inside the SAME undo entry as the edit (ADR-037 addendum "bed membership is
+reconciled by geometry"). **Where a linked plant stands follows its centre all the same** — the
+second condition is asked on every walk, whatever moved the plant.
 
 **A parent the 3D scene does not hold lifts nothing — settled in the snapshot.** Whether a
 parent HAS a record is known in one place, `snapshot_records`, once every record is built: a
@@ -6223,16 +6247,13 @@ plant casts from the ground there too (the height bound above). Both axes are pi
 (`TestTheOneRule::test_a_parent_the_scene_cannot_hold_is_not_there`,
 `::test_a_parent_without_a_record_lifts_nothing`).
 
-**One predicate, two points.** Every link decision and the lift ask `shape_contains`. The link
-decisions ask it with `bed_membership_point` — the centre of `boundingRect()`, kept exactly as
-shipped; the lift asks it with `standing_point`. They are the same point until the antagonist
-badge shows: the badge grows the bounding rect towards +x / +y and moves its centre by up to
-1.8 cm along each axis (2.55 cm in all — the margin against an edge at 45°). So a plant's base does not change when a warning badge appears (it did after round 1:
-38 ↔ 0 for a plant 1 cm inside its bed's edge), and within that margin of an edge a link decision
-and the lift can differ — pinned decision by decision in
-`tests/integration/test_scene3d_base_stacking.py::TestWhichPointEachDecisionAsks`. A new caller
-that asks "where does it stand" takes `standing_point`; one that asks "which bed is it linked
-to" takes `bed_membership_point`; neither writes its own containment test (a guard counts them).
+**One predicate, one point.** Every link decision and the lift ask `shape_contains` with the SAME
+point: `bed_membership_point` returns `standing_point` since issue #443 (iii), so a badge, a
+highlight or a selection ring cannot change which bed holds a plant or where it stands. There is
+no margin and no disagreement left to pin: `TestLinkAndLiftAskTheSamePoint` asserts the two
+functions return the same scene point under a badge, and that the link and the lift agree. A new
+caller that asks either question takes `standing_point`; neither writes its own containment test
+(a guard counts them).
 
 `item_base_cm` is asked by `snapshot_records` (→ `transform.base_cm`) and by
 `collect_identified_casters` (→ `IdentifiedCaster.base_cm` and, flattened, `ShadowCaster.base_cm`,
@@ -6265,22 +6286,22 @@ the app's point-in-bed test — and `core/commands.py` imports the last one from
 inside the function, as it already imported `GardenItemMixin`). The predicate belongs somewhere
 both layers may import without that arrow; it is not restructured in L1.6.
 
-**Known limits of base stacking** — a plant can be IN a raised bed and not ON it, because the
-app does not reconcile links when a bed is created or changed (ADR-037 addendum; a follow-up
-issue, which also takes the link decisions' dependence on the antagonist badge). Each is pinned
-in `tests/integration/test_scene3d_base_stacking.py::TestTheLinkAloneNeverLifts`:
+**Remaining limits of base stacking.** The nesting decisions are unchanged: a plant links to the
+SMALLEST plant-parent containing it, and parents do not nest. Pinned in
+`tests/integration/test_scene3d_base_stacking.py::TestMembershipIsReconciledAndTheLinkAloneNeverLifts`:
 
 | State | What the plan holds | Result |
 |---|---|---|
-| a raised bed drawn around an existing plant | no link | the plant stays at ground level: in 2D it casts from the ground, in 3D it is drawn inside the box |
 | a climber on a trellis that stands in a raised bed | linked to the trellis (the smallest parent) | the climber at 0, its neighbour in the bed at 38 |
 | a pot standing on a raised bed | the pot has no parent (only plants do) | the pot on the ground, its plant at the pot's soil (30), not at 68 |
 | a bed whose outline is not one plain outline (several rings, a hole, or a self-crossing drawing: `outline_resolved`) | built as the plain block, top at the rim | its plants stand 2 cm INSIDE the block: "on its soil by construction" holds for the bed builders only |
-| a plant mirror-copied into its source's raised bed, without the bed | the copy has no link (the mirror tool evaluates nothing) | the copy on the ground, its source beside it at 38 |
-| an array copy (linear, grid, circular, along a path) of a linked plant | the source's link, copied as it is; the copy is not in the bed's child list | inside the bed: on the soil (38) — outside it: on the ground, with a stale link |
-| a bed moved by a coordinate typed into the Properties panel, or by align / distribute | the plants stay where they were, still linked (a mouse drag, the arrow keys and an agent move take them along) | the plants on the ground until the bed is back under them |
+| an explicit Link action on a plant outside the bed | linked, `link_is_geometric: false` | on the ground until the plant's next move re-decides it |
 
-The last three are pinned in `::TestCopiesAndMovesThatDoNotEvaluateTheLink`.
+The states that used to be known limits — a bed drawn around a plant, an array copy carrying its
+source's link, a plant mirror-copied without its bed, a bed moved by a typed coordinate or
+align/distribute — no longer exist: #443 reconciles all of them in the same undo entry, pinned in
+`::TestMembershipIsReconciledAndTheLinkAloneNeverLifts` (a, b) and
+`::TestCopiesAndMovesFollowTheLink`.
 
 **3D shadows against the 2D model.** The truth gate "Shadows" (`ogp-lush-cinematic` §1,
 IoU ≥ 0.85) is defined on a solid box caster. The built world is not a set of boxes, and the

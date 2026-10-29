@@ -3541,7 +3541,7 @@ gone and the FR-id uniqueness gate now covers **every** FR id instead of only FR
 (it found four pre-existing collisions — FR-SNAP-04/05, FR-PLANT-19, FR-LAYER-09 — which are
 renumbered here: FR-SNAP-11/12, FR-PLANT-24, FR-LAYER-10).
 
-### Bed membership follows geometry, and a rotation keeps its constraint (#443, #485) — **shipped 2026-10-29, PR #NNN**
+### Bed membership follows geometry, and a rotation keeps its constraint (#443, #485) — **in review, PR #NNN**
 
 Two canvas defects that both came from a write path that did not mirror the
 whole gesture.
@@ -3578,9 +3578,13 @@ cannot reverse; the owner's skipped-undo report itself was not reproduced and
 its root cause is not claimed. ADR-037 addendum, §11.4.
 
 **Validation.** New suites `tests/integration/test_bed_membership_reconciliation.py`
-(10 tests) and `tests/integration/test_constrained_rotation.py` (10), and the
-knowingly updated pinned suite `test_scene3d_base_stacking.py`; the full suite,
-ruff, bandit, the i18n gate and both frozen-exe checks ran before the draft PR.
+(16 tests, including the Properties-panel resize, the agent `set_vertex` path,
+the mirror-Move undo and the unrelated-bed scoping) and
+`tests/integration/test_constrained_rotation.py` (14, including the
+full-application rotate → save → reload workflow, partner plants/beds and a real
+swallowed release), and the knowingly updated pinned suite
+`test_scene3d_base_stacking.py`; the full suite, ruff, bandit, the i18n gate and
+both frozen-exe checks ran before the draft PR.
 
 ### Every item with a footprint can be given a height (#628) — **shipped 2026-10-28 as v1.34.3, PR #627**
 

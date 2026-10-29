@@ -305,6 +305,12 @@ class CanvasView(QGraphicsView):
         # mid-drag), the view still turns the gesture into one undo entry
         # rather than leaving a rotation no Ctrl+Z can reverse (#485).
         self._rotation_initial_angle: float = 0.0
+        # Vertex-level solver corrections applied to a deformable partner during
+        # a rotation, recorded once per vertex: (id(item), index) -> (item,
+        # index, local_before). Their final local position is read at release.
+        self._rotation_vertex_starts: dict[
+            tuple[int, int], tuple[QGraphicsItem, int, QPointF]
+        ] = {}
 
         # Clipboard for copy/paste
         self._clipboard: list[dict] = []
@@ -2120,6 +2126,7 @@ class CanvasView(QGraphicsView):
                         self._active_drag_handle = None
                     else:
                         self._rotating_item = parent
+                        self._rotation_vertex_starts.clear()
                         if parent is not None:
                             self._rotation_initial_angle = float(
                                 parent.rotation_angle
@@ -2233,9 +2240,14 @@ class CanvasView(QGraphicsView):
         # Clamp POINT_ON_EDGE-constrained items to their edge line during drag
         self._enforce_point_on_edge_positions()
 
-        # Apply object snapping and canvas boundary clamping during drag
-        self._apply_object_snap_during_drag()
-        self._clamp_dragged_items_to_canvas()
+        # Apply object snapping and canvas boundary clamping during drag.
+        # A rotation is not a translation: snapping/clamping the selection would
+        # move the turned item's pivot and record no undo for it (#485 review).
+        if self._rotating_item is None:
+            self._apply_object_snap_during_drag()
+            self._clamp_dragged_items_to_canvas()
+        else:
+            self._snap_guides = []
 
         # Propagate constraints to connected items during drag AND rotation.
         # A rotation moves an item's anchor points (a corner swings), so the
@@ -2387,6 +2399,29 @@ class CanvasView(QGraphicsView):
             moves.append((item, QPointF(before), QPointF(after)))
         return moves
 
+    def _rotation_partner_vertex_moves(
+        self,
+    ) -> list[tuple[QGraphicsItem, int, QPointF, QPointF]]:
+        """Vertex-level solver corrections a rotation applied to a deformable partner.
+
+        A polygon with two or more constrained vertices is deformable, so the
+        solver can move individual vertices instead of translating it. Those
+        corrections are recorded per vertex during the gesture and replayed by
+        ``RotateItemCommand`` with the angle (#485).
+        """
+        moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
+        for item, index, before in self._rotation_vertex_starts.values():
+            if not hasattr(item, "_get_vertex_position"):
+                continue
+            after = item._get_vertex_position(index)  # type: ignore[attr-defined]
+            if (
+                abs(after.x() - before.x()) <= 1e-9
+                and abs(after.y() - before.y()) <= 1e-9
+            ):
+                continue
+            moves.append((item, index, QPointF(before), QPointF(after)))
+        return moves
+
     def _ensure_rotation_undo(
         self,
         rotating_item: QGraphicsItem | None,
@@ -2492,11 +2527,14 @@ class CanvasView(QGraphicsView):
             if tool.mouse_release(event, scene_pos):
                 self.refresh_input_anchor()
                 event.accept()
-                self._drag_start_positions.clear()
-                self._constraint_propagated_starts.clear()
+                # Register BEFORE the tracking is cleared: a rotation that the
+                # handle never saw still needs its partner corrections (#485).
                 self._ensure_rotation_undo(
                     rotating_item, rotation_initial_angle, undo_depth_before
                 )
+                self._drag_start_positions.clear()
+                self._constraint_propagated_starts.clear()
+                self._rotation_vertex_starts.clear()
                 if was_vertex_drag:
                     self._deferring_vertex_undo = False
                 return
@@ -2505,6 +2543,7 @@ class CanvasView(QGraphicsView):
         self._ensure_rotation_undo(
             rotating_item, rotation_initial_angle, undo_depth_before
         )
+        self._rotation_vertex_starts.clear()
 
         if was_vertex_drag:
             self._deferring_vertex_undo = False

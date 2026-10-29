@@ -2620,10 +2620,22 @@ class PropertiesPanel(QWidget):
         apply_rect_like_geometry(item, new_geometry)
 
         if self._command_manager:
+            from open_garden_planner.core.commands import (
+                register_applied_with_membership,
+            )
+
             cmd = ResizeItemCommand(
                 item, old_geometry, new_geometry, apply_rect_like_geometry
             )
-            self._command_manager.register_applied(cmd)
+            # A bed resized from the panel re-decides its plants too, in this
+            # ONE undo step (the live geometry is already applied) — #443.
+            scene_for_links = item.scene()
+            if scene_for_links is not None:
+                register_applied_with_membership(
+                    scene_for_links, self._command_manager, cmd, item
+                )
+            else:
+                self._command_manager.register_applied(cmd)
 
         # Update scene and run constraint solver
         scene = item.scene()

@@ -23,8 +23,9 @@ from PyQt6.QtTest import QTest
 from open_garden_planner.core.commands import AddConstraintCommand
 from open_garden_planner.core.constraints import AnchorRef, ConstraintType
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+from open_garden_planner.ui.canvas import footprints
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
-from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
+from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.canvas.items.resize_handle import RotationHandle
 
 
@@ -96,6 +97,36 @@ def _show(canvas: CanvasView, qtbot: object) -> None:
     canvas.resize(1000, 800)
     canvas.show()
     qtbot.waitExposed(canvas)  # type: ignore[attr-defined]
+
+
+def _bedded_plant(
+    canvas: CanvasView, bed_x: float, plant_x: float
+) -> tuple[RectangleItem, CircleItem]:
+    """A raised bed with a linked perennial inside it (base 38)."""
+    from open_garden_planner.core.commands import CreateItemCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import CircleItem
+
+    bed = RectangleItem(
+        bed_x, 300.0, 300.0, 200.0,
+        object_type=ObjectType.RAISED_BED,
+        layer_id=canvas.scene().active_layer.id,
+    )
+    canvas.command_manager.execute(CreateItemCommand(canvas.scene(), bed, "bed"))
+    plant = CircleItem(
+        plant_x, 400.0, 15.0,
+        object_type=ObjectType.PERENNIAL,
+        layer_id=canvas.scene().active_layer.id,
+    )
+    canvas.command_manager.execute(CreateItemCommand(canvas.scene(), plant, "plant"))
+    assert plant.parent_bed_id == bed.item_id
+    return bed, plant
+
+
+def _base(canvas: CanvasView, plant: CircleItem) -> float:
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+    return snapshot_records(canvas.scene())[str(plant.item_id)].transform.base_cm
 
 
 class TestConstrainedRotationFollows:
@@ -197,6 +228,105 @@ class TestConstrainedRotationFollows:
                 Qt.KeyboardModifier.NoModifier,
                 release_point,
             )
+
+    def test_a_partner_plant_moved_out_of_its_bed_is_unlinked(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """A rotation correction that moves a partner plant re-decides ITS link.
+
+        The rotated rectangle pushes the plant east of its raised bed's edge.
+        Before the fix only the rotated item was tracked, so the plant kept a
+        link to a bed it no longer stood in (#443/#485 review).
+        """
+        bed, plant = _bedded_plant(canvas, bed_x=400.0, plant_x=698.0)
+        rect_a = RectangleItem(0.0, 0.0, 100.0, 100.0)
+        rect_a.setPos(1200.0, 400.0)  # east of the bed
+        canvas.scene().addItem(rect_a)
+
+        anchor = _anchor(rect_a, AnchorType.CORNER, 1)
+        target = math.hypot(
+            anchor.x() - _anchor(plant, AnchorType.CENTER).x(),
+            anchor.y() - _anchor(plant, AnchorType.CENTER).y(),
+        )
+        graph = canvas._canvas_scene.constraint_graph
+        canvas._execute_constraint_with_solve(
+            AddConstraintCommand(
+                graph,
+                AnchorRef(rect_a.item_id, AnchorType.CORNER, 1),
+                AnchorRef(plant.item_id, AnchorType.CENTER),
+                target,
+                constraint_type=ConstraintType.DISTANCE,
+            )
+        )
+        _show(canvas, qtbot)
+        canvas.centerOn(rect_a.mapToScene(rect_a.rect().center()))
+        rect_a.setSelected(True)
+        qtbot.wait(20)  # type: ignore[attr-defined]
+        assert plant.parent_bed_id == bed.item_id
+
+        undo_before = canvas.command_manager.undo_depth
+        _rotate(canvas, rect_a, 90.0, qtbot)
+
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        assert not footprints.shape_contains(
+            bed, footprints.standing_point(plant)
+        )
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+        assert _base(canvas, plant) == 0.0
+
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+        assert _base(canvas, plant) == 38.0
+
+    def test_a_partner_bed_moved_by_the_solver_takes_its_plants(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """A bed the solver moves carries its plants, as any other move does.
+
+        Before the fix the bed was corrected and its plant stayed behind —
+        linked, but standing outside it (#443 (vi) applied to the solver path).
+        """
+        bed, plant = _bedded_plant(canvas, bed_x=800.0, plant_x=900.0)
+        rect_a = RectangleItem(0.0, 0.0, 100.0, 100.0)
+        rect_a.setPos(300.0, 300.0)
+        canvas.scene().addItem(rect_a)
+
+        target = _distance(rect_a, 1, bed, 0)
+        graph = canvas._canvas_scene.constraint_graph
+        canvas._execute_constraint_with_solve(
+            AddConstraintCommand(
+                graph,
+                AnchorRef(rect_a.item_id, AnchorType.CORNER, 1),
+                AnchorRef(bed.item_id, AnchorType.CORNER, 0),
+                target,
+                constraint_type=ConstraintType.DISTANCE,
+            )
+        )
+        _show(canvas, qtbot)
+        canvas.centerOn(rect_a.mapToScene(rect_a.rect().center()))
+        rect_a.setSelected(True)
+        qtbot.wait(20)  # type: ignore[attr-defined]
+
+        bed_before = QPointF(bed.pos())
+        plant_before = QPointF(plant.pos())
+        _rotate(canvas, rect_a, 45.0, qtbot)
+
+        bed_delta = bed.pos() - bed_before
+        plant_delta = plant.pos() - plant_before
+        assert bed_delta.x() != 0.0 or bed_delta.y() != 0.0
+        assert plant_delta.x() == pytest.approx(bed_delta.x(), abs=0.01)
+        assert plant_delta.y() == pytest.approx(bed_delta.y(), abs=0.01)
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+        assert _base(canvas, plant) == 38.0
+
+        canvas.command_manager.undo()
+        assert plant.pos().x() == pytest.approx(plant_before.x(), abs=0.01)
+        assert plant.pos().y() == pytest.approx(plant_before.y(), abs=0.01)
+        assert bed.pos().x() == pytest.approx(bed_before.x(), abs=0.01)
+        assert plant.parent_bed_id == bed.item_id
 
     def test_triangle_to_rectangle_corner_distance(
         self, canvas: CanvasView, qtbot: object
@@ -378,6 +508,69 @@ class TestRotationUndoDiscipline:
         assert rect.rotation() == pytest.approx(0.0)
         assert canvas.command_manager.undo_depth == undo_before
 
+    def test_a_release_a_tool_swallows_still_records_the_rotation(
+        self, canvas: CanvasView, qtbot: object, monkeypatch: object
+    ) -> None:
+        """The view's safety net, on the real swallowed-release path, with a partner.
+
+        Before the ordering fix the start tracking was cleared first, so the
+        safety-net command lost its partner corrections.
+        """
+        class _SwallowRelease:
+            def mouse_press(self, *_args: object) -> bool:
+                return False
+
+            def mouse_move(self, *_args: object) -> bool:
+                return False
+
+            def mouse_release(self, *_args: object) -> bool:
+                return True
+
+        rect_a = RectangleItem(0.0, 0.0, 100.0, 100.0)
+        rect_a.setPos(300.0, 300.0)
+        rect_b = RectangleItem(0.0, 0.0, 100.0, 100.0)
+        rect_b.setPos(800.0, 300.0)
+        canvas.scene().addItem(rect_a)
+        canvas.scene().addItem(rect_b)
+        target = _distance(rect_a, 1, rect_b, 0)
+        graph = canvas._canvas_scene.constraint_graph
+        canvas._execute_constraint_with_solve(
+            AddConstraintCommand(
+                graph,
+                AnchorRef(rect_a.item_id, AnchorType.CORNER, 1),
+                AnchorRef(rect_b.item_id, AnchorType.CORNER, 0),
+                target,
+                constraint_type=ConstraintType.DISTANCE,
+            )
+        )
+        _show(canvas, qtbot)
+        canvas.centerOn(rect_a.mapToScene(rect_a.rect().center()))
+        rect_a.setSelected(True)
+        qtbot.wait(20)  # type: ignore[attr-defined]
+
+        partner_before = QPointF(rect_b.pos())
+        undo_before = canvas.command_manager.undo_depth
+        point = _rotate(canvas, rect_a, 45.0, qtbot, release=False)
+        # A tool consumes the release before the handle can see it.
+        monkeypatch.setattr(  # type: ignore[attr-defined]
+            canvas._tool_manager, "_active_tool", _SwallowRelease()
+        )
+        QTest.mouseRelease(
+            canvas.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            point,
+        )
+
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        assert rect_a.rotation() == pytest.approx(45.0, abs=2.0)
+        assert _distance(rect_a, 1, rect_b, 0) == pytest.approx(target, abs=1.0)
+        assert rect_b.pos() != partner_before
+        canvas.command_manager.undo()
+        assert rect_a.rotation() == pytest.approx(0.0, abs=0.01)
+        assert rect_b.pos().x() == pytest.approx(partner_before.x(), abs=0.01)
+        assert rect_b.pos().y() == pytest.approx(partner_before.y(), abs=0.01)
+
     def test_lost_release_still_yields_one_undo_entry(
         self, canvas: CanvasView, qtbot: object
     ) -> None:
@@ -484,3 +677,74 @@ class TestRotationPoliciesPreserved:
         canvas.command_manager.undo()
         assert rect_a.rotation() == pytest.approx(0.0)
         assert _distance(rect_a, 1, rect_b, 0) == pytest.approx(target, abs=1.0)
+
+
+@pytest.fixture
+def window(qtbot: object, monkeypatch: object, _reset_app_settings: object) -> object:
+    """The real application window: #485's workflow through the app's own stack."""
+    from PyQt6.QtWidgets import QMessageBox
+
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.app.settings import get_settings
+
+    get_settings().show_welcome_on_startup = False
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Discard
+    )
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)  # type: ignore[attr-defined]
+    yield win
+    win._stop_agent_api()
+
+
+class TestFullApplicationRotationWorkflow:
+    """#485's full-application workflow, including save/reload of the result."""
+
+    def test_rotate_then_save_and_reload_keeps_the_relation(
+        self, window: object, qtbot: object, tmp_path: object
+    ) -> None:
+        from open_garden_planner.core import ProjectManager
+
+        canvas = window.canvas_view  # type: ignore[attr-defined]
+        scene = window.canvas_scene  # type: ignore[attr-defined]
+        rect_a = RectangleItem(0.0, 0.0, 100.0, 100.0)
+        rect_a.setPos(300.0, 300.0)
+        rect_b = RectangleItem(0.0, 0.0, 100.0, 100.0)
+        rect_b.setPos(800.0, 300.0)
+        scene.addItem(rect_a)
+        scene.addItem(rect_b)
+        a_id, b_id = rect_a.item_id, rect_b.item_id
+
+        target = _distance(rect_a, 1, rect_b, 0)
+        graph = scene.constraint_graph
+        canvas._execute_constraint_with_solve(
+            AddConstraintCommand(
+                graph,
+                AnchorRef(rect_a.item_id, AnchorType.CORNER, 1),
+                AnchorRef(rect_b.item_id, AnchorType.CORNER, 0),
+                target,
+                constraint_type=ConstraintType.DISTANCE,
+            )
+        )
+        _show(canvas, qtbot)
+        canvas.centerOn(rect_a.mapToScene(rect_a.rect().center()))
+        rect_a.setSelected(True)
+        qtbot.wait(20)  # type: ignore[attr-defined]
+
+        _rotate(canvas, rect_a, 60.0, qtbot)
+        assert _distance(rect_a, 1, rect_b, 0) == pytest.approx(target, abs=1.0)
+
+        path = tmp_path / "rotated.ogp"  # type: ignore[operator]
+        manager = ProjectManager()
+        manager.save(scene, path)
+        # load() clears/replaces the scene itself; a manual scene.clear() here
+        # would delete the dimension-line items the manager still clears through.
+        manager.load(scene, path)
+
+        loaded_a = scene.find_item_by_id(a_id)
+        loaded_b = scene.find_item_by_id(b_id)
+        assert loaded_a is not None and loaded_b is not None
+        assert loaded_a.rotation() == pytest.approx(60.0, abs=2.0)
+        assert len(scene.constraint_graph.constraints) == 1
+        assert _distance(loaded_a, 1, loaded_b, 0) == pytest.approx(target, abs=1.0)
+

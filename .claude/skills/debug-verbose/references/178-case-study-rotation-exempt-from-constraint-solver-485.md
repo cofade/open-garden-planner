@@ -61,3 +61,16 @@ decision, not an optimisation — and if it is wrong, the bug hides until an
 unrelated action makes the state look correct. Ask what the gesture changes
 (anchor positions), not what the handler is called (rotate), and record the
 corrections in the command that owns the gesture.
+
+**Review round (independent senior review, 2026-10-29).** The first pass missed
+three things a reader of the gesture would not: (1) a rotation's partner can be a
+PLANT (the solver moves it out of its bed — its link must be re-decided) or a BED
+(its plants must travel with it, live, not at release); (2) object snapping and
+canvas clamping still ran during rotation and could translate the selected
+partner from the second mouse-move, moving the pivot with no undo entry; (3) the
+view's swallowed-release safety net cleared the propagation tracking before it
+registered the rotation, losing the partner corrections it exists to preserve.
+All three are fixed and pinned: partner-plant and partner-bed cases in
+`test_constrained_rotation.py`, a real swallowed-release test with a partner, and
+snap/clamp skipped while `_rotating_item` is set. Vertex-level solver corrections
+to a deformable partner are now recorded in the same command too.

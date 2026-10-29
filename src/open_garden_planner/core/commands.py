@@ -361,11 +361,14 @@ def set_parent_link(
 ) -> bool:
     """Set *item*'s parent bed, keeping BOTH sides of the link in step.
 
-    The ONE mutator for the plant→bed relationship (issue #443). Every path
-    that decides a link — creation, a move, a bed edit, a copy, the panel's
-    Link action, the agent — comes through here, so ``parent_bed_id`` and the
-    parent's ``child_item_ids`` cannot drift apart. Returns whether anything
-    changed.
+    The ONE geometry-driven mutator for the plant→bed relationship (issue #443):
+    every edit path — creation, a move, a bed edit, a copy, the panel's Link
+    action, the agent — calls it, so ``parent_bed_id`` and the parent's
+    ``child_item_ids`` cannot drift apart. (A few deliberate writers remain
+    outside it and set the id directly: the loader's
+    ``_relink_parent_child_relationships``, delete snapshots/restores,
+    paste/duplicate's remap and the mirror tool's copy remap.) Returns whether
+    anything changed.
     """
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
@@ -417,48 +420,86 @@ class BedMembershipChange:
     move/resize/rotate/vertex/copy commands themselves. ``before`` is captured
     when the tracker is built (links are never touched by a geometry change),
     ``after`` when ``reconcile`` runs on already-applied geometry, so
-    ``restore``/``reapply`` replay recorded ids instead of re-solving.
+    ``restore`` replays recorded ids instead of re-solving.
+
+    ``focus_parents`` scopes a BED edit: only plants that link to the edited
+    parent, that are linked to it, or that are explicitly moved with it are
+    re-decided. A bed edit elsewhere must not overrule a plant's deliberate
+    link to a different bed (ADR-037 addendum decision 5).
     """
 
     def __init__(
         self,
         scene: QGraphicsScene,
-        plants: list[QGraphicsItem] | None = None,
+        plants: "Sequence[Any] | None" = None,
+        *,
+        focus_parents: "set[UUID] | None" = None,
     ) -> None:
         self._scene = scene
-        self._plants = list(plants) if plants is not None else scene_plants(scene)
-        self._before: dict[QGraphicsItem, UUID | None] = {
-            plant: plant.parent_bed_id  # type: ignore[attr-defined]
+        self._focus: set[UUID] = set(focus_parents or ())
+        self._always: set[QGraphicsItem] = set(plants or ())
+        if plants is not None:
+            self._plants = list(plants)
+        else:
+            self._plants = scene_plants(scene)
+        if self._focus:
+            # A focus edit also has to see plants it does not move yet.
+            known = {id(plant) for plant in self._plants}
+            self._plants.extend(
+                plant for plant in scene_plants(scene) if id(plant) not in known
+            )
+        self._before: dict[Any, UUID | None] = {
+            plant: plant.parent_bed_id
             for plant in self._plants
         }
         self._after: dict[QGraphicsItem, UUID | None] | None = None
+        self._applied: dict[QGraphicsItem, UUID | None] = {}
         self.changed = False
 
+    def _affects(self, plant: QGraphicsItem, target: UUID | None) -> bool:
+        """Whether this edit may re-decide *plant*'s link (#443 (a)/(b))."""
+        if not self._focus:
+            return True
+        return (
+            plant in self._always
+            or target in self._focus
+            or self._before.get(plant) in self._focus
+        )
+
     def reconcile(self) -> bool:
-        """Point every tracked plant at the bed its CURRENT position asks for."""
+        """Point the affected plants at the bed their CURRENT position asks for."""
         self._after = {
             plant: plant_membership_target(self._scene, plant)
             for plant in self._plants
         }
         moved = False
         for plant, target in self._after.items():
-            if plant.scene() is self._scene:
-                moved |= set_parent_link(
-                    self._scene, plant, target, refresh_soil=False
-                )
+            if not self._affects(plant, target):
+                continue
+            if plant.scene() is not self._scene:
+                continue
+            if set_parent_link(self._scene, plant, target, refresh_soil=False):
+                self._applied.setdefault(plant, self._before[plant])
+                moved = True
         if moved:
             trigger_soil_mismatch_refresh(self._scene)
         self.changed = self.changed or moved
         return moved
 
     def restore(self) -> None:
-        """Put every tracked plant back on the link it had before the change."""
+        """Restore every tracked plant's pre-change link (undo).
+
+        Deliberately not limited to ``_applied``: a Mirror-Move replaces the
+        plant OBJECT while reusing its id, so the object that carries the new
+        link is not the one restored here — the re-added original must get its
+        parent's child id back (and the heal path does exactly that).
+        """
         moved = False
         for plant, old_parent in self._before.items():
-            if plant.scene() is self._scene:
-                moved |= set_parent_link(
-                    self._scene, plant, old_parent, refresh_soil=False
-                )
+            if plant.scene() is self._scene and set_parent_link(
+                self._scene, plant, old_parent, refresh_soil=False
+            ):
+                moved = True
         if moved:
             trigger_soil_mismatch_refresh(self._scene)
 
@@ -474,9 +515,13 @@ class ReconcileBedMembershipCommand(Command):
     def __init__(
         self,
         scene: QGraphicsScene,
-        plants: list[QGraphicsItem] | None = None,
+        plants: "Sequence[Any] | None" = None,
+        *,
+        focus_parents: "set[UUID] | None" = None,
     ) -> None:
-        self._change = BedMembershipChange(scene, plants)
+        self._change = BedMembershipChange(
+            scene, plants, focus_parents=focus_parents
+        )
 
     @property
     def description(self) -> str:
@@ -557,7 +602,12 @@ def register_applied_with_membership(
         command_manager.register_applied(command)
         return
 
-    reconcile = ReconcileBedMembershipCommand(scene)
+    if is_plant_parent_type(item.object_type):
+        reconcile = ReconcileBedMembershipCommand(
+            scene, focus_parents={item.item_id}
+        )
+    else:
+        reconcile = ReconcileBedMembershipCommand(scene, [item])
     reconcile.execute()
     if reconcile.changed:
         command_manager.register_applied(CompoundCommand([command, reconcile]))
@@ -604,7 +654,10 @@ class CreateItemCommand(Command):
         if not isinstance(self._item, GardenItemMixin):
             return None
         if is_plant_parent_type(self._item.object_type):
-            return BedMembershipChange(self._scene)
+            return BedMembershipChange(
+                self._scene,
+                focus_parents={self._item.item_id},
+            )
         if is_plant_type(self._item.object_type):
             return BedMembershipChange(self._scene, [self._item])
         return None
@@ -668,8 +721,16 @@ class CreateItemsCommand(Command):
             for item in self._items
         )
         if creates_parent:
+            parents = {
+                item.item_id
+                for item in self._items
+                if isinstance(item, GardenItemMixin)
+                and is_plant_parent_type(item.object_type)
+            }
             return BedMembershipChange(
-                self._scene, scene_plants(self._scene) + created_plants
+                self._scene,
+                created_plants,
+                focus_parents=parents,
             )
         if created_plants:
             return BedMembershipChange(self._scene, created_plants)
@@ -871,7 +932,9 @@ def _membership_change_for_move(
         if isinstance(item, GardenItemMixin) and is_plant_parent_type(item.object_type)
     ]
     if parents:
-        return BedMembershipChange(scene)
+        return BedMembershipChange(
+            scene, focus_parents={item.item_id for item in parents}
+        )
     plants: list[QGraphicsItem] = [
         item
         for item in items
@@ -915,8 +978,17 @@ def _membership_for_added_items(
                 set_parent_link(scene, item, None, refresh_soil=False)
             plants.append(item)
     if adds_parent:
-        # A new bed can change the link of plants that did not move.
-        return BedMembershipChange(scene, scene_plants(scene) + plants)
+        # A new bed can change the link of plants that did not move — but only
+        # the plants that link to it, not a deliberate link to another bed.
+        parents = [
+            item.item_id
+            for item in items
+            if isinstance(item, GardenItemMixin)
+            and is_plant_parent_type(item.object_type)
+        ]
+        return BedMembershipChange(
+            scene, plants, focus_parents=set(parents)
+        )
     if plants:
         return BedMembershipChange(scene, plants)
     return None
@@ -925,14 +997,17 @@ def _membership_for_added_items(
 def _membership_change_for_geometry(
     scene: QGraphicsScene | None,
     item: QGraphicsItem,
+    partner_items: "list[QGraphicsItem] | tuple[QGraphicsItem, ...]" = (),
 ) -> BedMembershipChange | None:
-    """Link tracker for a resize/rotate of *item*, or None when it cannot move one.
+    """Link tracker for a resize/rotate of *item* (and any partner it corrects).
 
-    A bed's boundary edit can change which plants it holds, so every plant is
-    tracked; a plant's own geometry change can only move its own link (and
-    usually does not even do that — its centre is invariant). Any other shape
-    leaves membership alone, so explicitly linked plants are never overruled by
-    an unrelated edit.
+    A bed's boundary edit re-decides only the plants that link to it (see
+    ``BedMembershipChange.focus_parents``); a plant's own geometry change can
+    only move its own link (and usually does not even do that — its centre is
+    invariant). ``partner_items`` are the constraint-corrected items a rotation
+    moved: a partner PLANT may enter or leave a bed, and a partner BED takes its
+    own plants with it, so both are tracked. Any other shape leaves membership
+    alone, so explicitly linked plants are never overruled by an unrelated edit.
     """
     if scene is None:
         return None
@@ -940,12 +1015,29 @@ def _membership_change_for_geometry(
     from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
-    if not isinstance(item, GardenItemMixin):
-        return None
-    if is_plant_parent_type(item.object_type):
-        return BedMembershipChange(scene)
-    if is_plant_type(item.object_type):
-        return BedMembershipChange(scene, [item])
+    candidates = [item, *partner_items]
+    parents = [
+        candidate
+        for candidate in candidates
+        if isinstance(candidate, GardenItemMixin)
+        and is_plant_parent_type(candidate.object_type)
+    ]
+    plants = [
+        candidate
+        for candidate in candidates
+        if isinstance(candidate, GardenItemMixin)
+        and is_plant_type(candidate.object_type)
+    ]
+    if parents:
+        return BedMembershipChange(
+            scene,
+            plants,
+            focus_parents={
+                parent.item_id for parent in parents
+            },
+        )
+    if plants:
+        return BedMembershipChange(scene, plants)
     return None
 
 
@@ -1331,6 +1423,7 @@ class RotateItemCommand(Command):
         new_angle: float,
         apply_func: Callable[[QGraphicsItem, float], None],
         partner_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] | None = None,
+        partner_vertex_moves: "list[tuple[QGraphicsItem, int, QPointF, QPointF]] | None" = None,
     ) -> None:
         """Initialize the rotate command.
 
@@ -1342,6 +1435,9 @@ class RotateItemCommand(Command):
             partner_moves: Items the solver corrected, as
                 ``(item, position_before, position_after)`` — recorded, not
                 recomputed, so undo restores the exact pre-gesture geometry.
+            partner_vertex_moves: Deformable partners' corrected vertices, as
+                ``(item, vertex_index, local_before, local_after)`` — the solver's
+                vertex-level corrections, recorded the same way.
         """
         self._item = item
         self._old_angle = old_angle
@@ -1351,7 +1447,17 @@ class RotateItemCommand(Command):
             (moved_item, QPointF(before), QPointF(after))
             for moved_item, before, after in (partner_moves or [])
         ]
-        self._membership = _membership_change_for_geometry(item.scene(), item)
+        self._partner_vertex_moves: list[
+            tuple[QGraphicsItem, int, QPointF, QPointF]
+        ] = [
+            (moved_item, index, QPointF(before), QPointF(after))
+            for moved_item, index, before, after in (partner_vertex_moves or [])
+        ]
+        self._membership = _membership_change_for_geometry(
+            item.scene(),
+            item,
+            [moved_item for moved_item, _before, _after in self._partner_moves],
+        )
 
     @property
     def description(self) -> str:
@@ -1368,6 +1474,9 @@ class RotateItemCommand(Command):
         self._apply_func(self._item, self._new_angle)
         for moved_item, _before, after in self._partner_moves:
             moved_item.setPos(after)
+        for moved_item, index, _before, after in self._partner_vertex_moves:
+            if hasattr(moved_item, "_move_vertex_to"):
+                moved_item._move_vertex_to(index, after)
         if self._membership is not None:
             self._membership.reconcile()
 
@@ -1375,6 +1484,9 @@ class RotateItemCommand(Command):
         """Restore the old rotation, every partner's pre-gesture position and links."""
         if self._membership is not None:
             self._membership.restore()
+        for moved_item, index, before, _after in reversed(self._partner_vertex_moves):
+            if hasattr(moved_item, "_move_vertex_to"):
+                moved_item._move_vertex_to(index, before)
         for moved_item, before, _after in reversed(self._partner_moves):
             moved_item.setPos(before)
         self._apply_func(self._item, self._old_angle)
@@ -2076,8 +2188,14 @@ class MirrorItemsCommand(Command):
 
     def execute(self) -> None:
         if self._membership is None:
+            # In Move mode the originals are removed while their ids live on in
+            # the mirrored items; tracking them too lets undo heal the parent's
+            # child list for the re-added original object (#443 review).
+            tracked = list(self._mirrored)
+            if not self._copy:
+                tracked.extend(self._originals)
             self._membership = _membership_for_added_items(
-                self._scene, self._mirrored, clear_inherited=self._copy
+                self._scene, tracked, clear_inherited=self._copy
             )
         if not self._copy:
             for item in self._originals:

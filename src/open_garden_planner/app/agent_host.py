@@ -2567,7 +2567,7 @@ class AgentHost:
                 f"({target_x:g}, {target_y:g}); nothing to change."
             )
         command = build_move_vertex_command(item, index, old_local, new_local)
-        host.canvas_view.command_manager.execute(command)
+        command = self._agent_execute_vertex_command(item, command)
         actual = item.mapToScene(item._get_vertex_position(index))
         return host._agent_vertex_result(
             item,
@@ -2578,6 +2578,37 @@ class AgentHost:
             actual=actual,
         )
 
+
+    def _agent_execute_vertex_command(
+        self, item: Any, command: Command
+    ) -> Command:
+        """Execute one agent vertex write, membership corrections in the same step.
+
+        Agent ``set_vertex`` / ``add_vertex`` / ``delete_vertex`` reshape a bed
+        or trellis directly (no drag-release handler), so the membership the
+        geometry decides must ride in the SAME undo entry (#443 (i)). The
+        returned command is what the response reports.
+        """
+        host = self._host
+        from open_garden_planner.core.commands import (
+            CompoundCommand,
+            ReconcileBedMembershipCommand,
+        )
+        from open_garden_planner.core.object_types import is_plant_parent_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        manager = host.canvas_view.command_manager
+        if isinstance(item, GardenItemMixin) and is_plant_parent_type(item.object_type):
+            reconcile = ReconcileBedMembershipCommand(
+                host.canvas_scene, focus_parents={item.item_id}
+            )
+            final: Command = CompoundCommand(
+                [command, reconcile], command.description
+            )
+            manager.execute(final)
+            return final
+        manager.execute(command)
+        return command
 
     def _agent_add_vertex(
         self, item_id: str, index: int, x: float, y: float
@@ -2606,7 +2637,7 @@ class AgentHost:
         target_x, target_y = host._agent_validate_vertex_point(x, y)
         local = item.mapFromScene(QPointF(target_x, target_y))
         command = build_add_vertex_command(item, index, local)
-        host.canvas_view.command_manager.execute(command)
+        command = self._agent_execute_vertex_command(item, command)
         actual = item.mapToScene(item._get_vertex_position(index))
         return host._agent_vertex_result(
             item,
@@ -2643,7 +2674,7 @@ class AgentHost:
         )
         deleted = item.mapToScene(item._get_vertex_position(index))
         command = build_delete_vertex_command(item, index)
-        host.canvas_view.command_manager.execute(command)
+        command = self._agent_execute_vertex_command(item, command)
         return host._agent_vertex_result(
             item,
             item_id,
@@ -2835,12 +2866,12 @@ class AgentHost:
         for. ``link_is_geometric`` in the result says whether the link and the
         geometry agree, so an agent can notice and tell the user.
 
-        ``SetParentBedCommand`` handles the rest of the contract itself: it
-        removes the child id from the old bed, adds it to the new one, raises
-        the plant above its parent, snapshots ``zValue`` so undo restores the
-        user's original elevation rather than a recomputed one, and calls
-        ``trigger_soil_mismatch_refresh`` because parent-link mutations do not
-        fire ``QGraphicsScene.changed`` (#173).
+        ``SetParentBedCommand`` handles the rest of the contract itself: its
+        ``set_parent_link`` mutator removes the child id from the old bed and
+        adds it to the new one, and it calls ``trigger_soil_mismatch_refresh``
+        because parent-link mutations do not fire ``QGraphicsScene.changed``
+        (#173). z is derived from the normalized stacking order (issue #338), so
+        no explicit elevation or z snapshot is taken or restored.
         """
         host = self._host
 

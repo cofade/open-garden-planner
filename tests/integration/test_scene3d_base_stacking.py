@@ -1276,7 +1276,7 @@ class TestCopiesAndMovesFollowTheLink:
         assert _base_pair(garden, garden.plant) == (38.0, 38.0)
 
         garden.commands.undo()
-        assert not garden.bed.child_item_ids or list(garden.bed.child_item_ids) == [garden.plant.item_id]
+        assert list(garden.bed.child_item_ids) == [garden.plant.item_id]
 
     def test_moves_re_evaluate_the_link_in_both_directions(
         self, canvas: CanvasView

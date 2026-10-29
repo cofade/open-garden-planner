@@ -339,7 +339,7 @@ and exclusion from the texture interior against Qt's independent round stroke.
 
 ### PF-CAN-32
 
-- **Rule:** A relationship other surfaces read must be reconciled by EVERY edit path that can invalidate it, through one mutator and one geometric rule. Recompute membership inside the move/resize/rotate/vertex/copy command, so undo restores it in the same step — never at one call site.
+- **Rule:** A relationship other surfaces read must be reconciled by EVERY edit path that can invalidate it, through one mutator and one geometric rule. Recompute membership inside the move/resize/rotate/vertex/copy command, so undo restores it in the same step — never at one call site; and scope a bed edit to the plants that bed can affect, or it will overrule a plant's deliberate link to another bed.
 - **Pinned by:** `tests/integration/test_bed_membership_reconciliation.py`; `tests/integration/test_scene3d_base_stacking.py`
 - **Source:** #443, PR #NNN
 - **Status:** standing
@@ -354,3 +354,11 @@ and the diagnostics followed it. The tell was that the lift and the link asked
 different points, so an antagonist badge could make them disagree about one
 plant. Ask one point (`standing_point`), apply the rule in the commands
 themselves, and make a copy drop the link it was serialised with.
+
+The review round added the paths a command-level test cannot see: the
+Properties panel's typed resize registered the command without its
+`notify_applied` hook (undo/redo asymmetry), and the agent's vertex tools
+execute a command with no drag-release handler at all. Test the real entry
+point, not the command a caller builds. It also proved the scoping rule: a
+scene-wide recompute on a bed edit unlinked a plant from a far-away bed it had
+been deliberately linked to.

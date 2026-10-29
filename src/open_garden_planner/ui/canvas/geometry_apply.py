@@ -294,11 +294,15 @@ def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool
         return False
 
     partner_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+    partner_vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
     views = scene.views()
     if views:
         collect = getattr(views[0], "_rotation_partner_moves", None)
         if callable(collect):
             partner_moves = collect(item)
+        collect_vertices = getattr(views[0], "_rotation_partner_vertex_moves", None)
+        if callable(collect_vertices):
+            partner_vertex_moves = collect_vertices()
 
     rotate_command = RotateItemCommand(
         item,
@@ -306,6 +310,7 @@ def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool
         current_angle,
         apply_rotation,
         partner_moves=partner_moves or None,
+        partner_vertex_moves=partner_vertex_moves or None,
     )
     # Turning a BED turns its boundary: the plants it holds must be re-decided
     # in the same undo step (#443). The command carries that tracker itself;
