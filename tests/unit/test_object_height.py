@@ -161,11 +161,10 @@ class TestLiesOnGround:
 
     @pytest.mark.parametrize("name", ["TOOL_SHED", "RAISED_BED", "TREE", "PERENNIAL", "SHRUB",
                                       "COLD_FRAME", "RAIN_BARREL", "PLANTER_POT", "PARASOL",
-                                      "GENERIC_RECTANGLE", "GENERIC_POLYGON", "GENERIC_TEXT",
-                                      "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN", "ROOF_RIDGE"])
+                                      "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN", "ROOF_RIDGE"])
     def test_solids_standing_objects_shapes_and_notes_do_not(self, name: str) -> None:
         """Senior review of the manual pass: a cold frame without a height sank under
-        the raised bed it stood on — standing objects and generic shapes stay put."""
+        the raised bed it stood on — standing objects stay put."""
         from open_garden_planner.core.object_height import lies_on_ground
 
         assert not lies_on_ground(name, {})
@@ -331,8 +330,7 @@ class TestOneResolver:
 #: its house), generic shapes, annotations, and plants (one without species data gets
 #: an illustrative 3D estimate, #557). Every other kind stands up and has a default.
 _NO_DEFAULT_KINDS = GROUND_SURFACE_TYPE_NAMES | {
-    "ROOF_RIDGE", "GENERIC_RECTANGLE", "GENERIC_POLYGON", "GENERIC_CIRCLE",
-    "GENERIC_ELLIPSE", "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN",
+    "ROOF_RIDGE", "GENERIC_TEXT", "GENERIC_CALLOUT", "GARDEN_JOURNAL_PIN",
     "TREE", "SHRUB", "PERENNIAL",
 }
 

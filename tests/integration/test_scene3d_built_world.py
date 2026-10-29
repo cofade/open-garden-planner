@@ -247,8 +247,8 @@ def test_kinds_builders_heights_and_bases(garden: Garden) -> None:
     def names(item: Any) -> list[str]:
         return [part.name for part in pipeline.sink.item(Garden.id(item)).parts]
 
-    assert names(garden.house) == ["walls", "roof", "facade"]  # L4.1: windows and a door
-    assert names(garden.shed) == ["walls", "roof", "facade"]
+    assert names(garden.house) == ["walls", "roof", "facade", "floor"]  # L4.1: windows and a door
+    assert names(garden.shed) == ["walls", "roof", "facade", "floor"]
     assert names(garden.bed) == ["bed"]
     assert names(garden.pot) == ["walls", "soil"]
     assert names(garden.hedge) == names(garden.hedge_polygon) == ["hedge"]
@@ -682,7 +682,7 @@ class TestAResolvedOutlineGetsNoRoof:
         assert [part.name for part in registry.build(with_ridge)] == ["prism"]
         unflagged = dataclasses.replace(with_ridge, params=Params(
             {key: value for key, value in with_ridge.params.items() if key != "outline_resolved"}))
-        assert [part.name for part in registry.build(unflagged)] == ["walls", "roof", "facade"]
+        assert [part.name for part in registry.build(unflagged)] == ["walls", "roof", "facade", "floor"]
 
         sink = RecordingSink()
         sync = SceneSync(sink, registry, validate=True)
@@ -761,7 +761,7 @@ class TestTheEdgeCasePlan:
         assert float(parts[0].mesh.positions[:, 2].max()) == 450.0 == crossed.height_cm
         beyond_cm2, _cover = plan_overreach(parts, crossed.regions, 0.0)
         assert beyond_cm2 == 0.0
-        assert [part.name for part in registry.build(house)] == ["walls", "roof", "facade"]  # the other one
+        assert [part.name for part in registry.build(house)] == ["walls", "roof", "facade", "floor"]  # the other one
 
     def test_the_ladder_and_the_gap(self, edge_plan) -> None:
         """Two more fences of the contract's second round: a stroke with FOUR holes
@@ -836,7 +836,7 @@ class TestTheEdgeCasePlan:
         sink = RecordingSink()
         SceneSync(sink, production_registry(), validate=True).apply(records)
         held = sink.item(house_record.item_id)
-        assert [part.name for part in held.parts] == ["walls", "roof", "facade"]
+        assert [part.name for part in held.parts] == ["walls", "roof", "facade", "floor"]
         line = _ridge_in_scene(held, float(house_record.height_cm or 0.0))
         expected = _expected_live_ridge(house, ridge, buildings.HOUSE_ROOF.overhang_cm)
         worst = max(float(np.linalg.norm(line - point, axis=1).min()) for point in expected)

@@ -13,6 +13,7 @@ only the engine modules do:
 module          engine  what it is
 ==============  ======  =====================================================
 ``adapter``     no      ``Quick3DSink`` + the ``EngineScene`` boundary it drives
+``adapter_info`` no     graphics adapter inspection and software detection (#535)
 ``materials``   no      material kinds → QML part components; tint rule
 ``look``        no      a ``core.scene3d.look.LookSpec`` as the scene's properties (L1.4)
 ``shots``       no      camera placements as plain data; the top-down projection

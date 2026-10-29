@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from open_garden_planner.core.commands import CreateItemCommand, MoveToLayerCommand
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.models.layer import Layer
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -24,7 +25,7 @@ def _spy_derivations(scene: CanvasScene) -> list:
 def test_two_thousand_single_adds_derive_z_once(qtbot) -> None:
     scene = CanvasScene(5000, 3000)
     calls = _spy_derivations(scene)
-    items = [RectangleItem(index * 2, 0, 1, 1) for index in range(2000)]
+    items = [RectangleItem(index * 2, 0, 1, 1, object_type=ObjectType.GARAGE_SHED) for index in range(2000)]
     for item in items:
         scene.addItem(item)
 
@@ -60,7 +61,7 @@ def test_a_command_that_adds_one_solid_derives_once_and_leaves_a_final_z(
 
     items = []
     for index in range(200):
-        item = RectangleItem(index * 2, 0, 1, 1, layer_id=layer_id)
+        item = RectangleItem(index * 2, 0, 1, 1, layer_id=layer_id, object_type=ObjectType.GARAGE_SHED)
         items.append(item)
         view.command_manager.execute(CreateItemCommand(scene, item, "rectangle"))
 
@@ -85,13 +86,13 @@ def test_an_append_after_a_removal_matches_the_derivation(qtbot) -> None:
     derivation then shifts (an invisible repaint, caught in review round 2).
     """
     scene = CanvasScene(5000, 3000)
-    items = [RectangleItem(index, 0, 1, 1) for index in range(5)]
+    items = [RectangleItem(index, 0, 1, 1, object_type=ObjectType.GARAGE_SHED) for index in range(5)]
     for item in items:
         scene.addItem(item)
     for item in items[-2:]:
         scene.removeItem(item)
 
-    newest = RectangleItem(10, 0, 1, 1)
+    newest = RectangleItem(10, 0, 1, 1, object_type=ObjectType.GARAGE_SHED)
     scene.addItem(newest)
     values = [item.zValue() for item in (*items[:3], newest)]
 
@@ -121,8 +122,8 @@ def test_a_bed_with_existing_plants_still_refreshes_synchronously(qtbot) -> None
 
 def test_clear_drops_the_provisional_and_rank_caches(qtbot) -> None:
     scene = CanvasScene(5000, 3000)
-    scene.addItem(RectangleItem(0, 0, 10, 10))
-    scene.addItem(RectangleItem(20, 0, 10, 10))
+    scene.addItem(RectangleItem(0, 0, 10, 10, object_type=ObjectType.GARAGE_SHED))
+    scene.addItem(RectangleItem(20, 0, 10, 10, object_type=ObjectType.GARAGE_SHED))
     assert scene._provisional_z
     assert scene._next_rank_cache
 
@@ -138,14 +139,14 @@ def test_a_rank_writer_invalidates_the_next_rank_cache(qtbot) -> None:
     qtbot.addWidget(view)
     target = Layer(name="Target", z_order=0)
     scene.add_layer(target)
-    originals = [RectangleItem(index * 20, 0, 10, 10) for index in range(3)]
+    originals = [RectangleItem(index * 20, 0, 10, 10, object_type=ObjectType.GARAGE_SHED) for index in range(3)]
     for item in originals:
         scene.addItem(item)
 
     view.command_manager.execute(
         MoveToLayerCommand(originals, target.id, scene, target.name)
     )
-    newest = RectangleItem(200, 0, 10, 10)
+    newest = RectangleItem(200, 0, 10, 10, object_type=ObjectType.GARAGE_SHED)
     newest.layer_id = target.id
     scene.addItem(newest)
 
@@ -157,13 +158,13 @@ def test_a_rank_writer_invalidates_the_next_rank_cache(qtbot) -> None:
 def test_a_layer_reorder_invalidates_a_stale_provisional_z(qtbot) -> None:
     scene = CanvasScene(5000, 3000)
     layer = scene.active_layer
-    first = RectangleItem(0, 0, 10, 10, layer_id=layer.id)
+    first = RectangleItem(0, 0, 10, 10, layer_id=layer.id, object_type=ObjectType.GARAGE_SHED)
     scene.addItem(first)
     assert 0.0 <= first.zValue() < 100.0
 
     layer.z_order = 1
     scene._update_items_z_order()
-    second = RectangleItem(20, 0, 10, 10, layer_id=layer.id)
+    second = RectangleItem(20, 0, 10, 10, layer_id=layer.id, object_type=ObjectType.GARAGE_SHED)
     scene.addItem(second)
 
     assert second.zValue() >= 100.0
@@ -200,7 +201,7 @@ def test_a_ground_surface_takes_its_band_at_once_and_seeds_from_it(qtbot) -> Non
     assert path.zValue() > lawn.zValue()
 
     # The next solid is seeded from the band-space top, never a negative z.
-    solid = RectangleItem(700, 0, 10, 10, layer_id=layer_id)
+    solid = RectangleItem(700, 0, 10, 10, layer_id=layer_id, object_type=ObjectType.GARAGE_SHED)
     scene.addItem(solid)
     assert 0.0 <= solid.zValue() < 100.0, solid.zValue()
     assert solid.zValue() > lawn.zValue()
@@ -208,13 +209,13 @@ def test_a_ground_surface_takes_its_band_at_once_and_seeds_from_it(qtbot) -> Non
 
 def test_a_large_existing_layer_still_batches_its_adds(qtbot) -> None:
     scene = CanvasScene(5000, 3000)
-    items = [RectangleItem(index, 0, 1, 1) for index in range(1000)]
+    items = [RectangleItem(index, 0, 1, 1, object_type=ObjectType.GARAGE_SHED) for index in range(1000)]
     for item in items:
         scene.addItem(item)
 
     calls = _spy_derivations(scene)
     for index in range(500):
-        scene.addItem(RectangleItem(2000 + index, 0, 1, 1))
+        scene.addItem(RectangleItem(2000 + index, 0, 1, 1, object_type=ObjectType.GARAGE_SHED))
 
     assert calls == [], calls
     assert all(0.0 <= item.zValue() < 100.0 for item in scene.items())

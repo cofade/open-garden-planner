@@ -208,9 +208,10 @@ def test_the_engine_free_modules_load_without_the_engine(tmp_path: Path) -> None
     loads Qt Quick."""
     proc = _child(
         "import sys\n"
-        "from open_garden_planner.ui.view3d.quick3d import (adapter, lifecycle, look, materials,\n"
+        "from open_garden_planner.ui.view3d.quick3d import (adapter, adapter_info, lifecycle, look, materials,\n"
         "                                                    qt_messages, runlog, selftest, shots)\n"
         "assert selftest.judge_frame is not None and adapter.Quick3DSink is not None\n"
+        "assert adapter_info.detect_is_software is not None\n"
         "assert lifecycle.state_of(None) is lifecycle.HostState.CLOSED\n"
         "print(sorted(m for m in sys.modules if m.startswith(('PyQt6.QtQuick', 'PyQt6.QtQml'))))\n",
         tmp_path)

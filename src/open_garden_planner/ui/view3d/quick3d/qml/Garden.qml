@@ -960,6 +960,9 @@ Item {
             receivesShadows: false
             materials: CustomMaterial {
                 property real uExposure: 1.0
+                property vector3d uDomeCenter: root.groundCenter
+                property real uArcPerDepth: 0.0
+                property real uArcFlat: 0.0
                 shadingMode: CustomMaterial.Unshaded
                 cullMode: Material.NoCulling
                 depthDrawMode: Material.NeverDepthDraw
@@ -995,6 +998,9 @@ Item {
                 sourceAlphaBlend: CustomMaterial.Zero
                 destinationAlphaBlend: CustomMaterial.One
                 property real uExposure: root.topDown ? 1.0 : root.exposure
+                property vector3d uDomeCenter: root.groundCenter
+                property real uArcPerDepth: 0.0
+                property real uArcFlat: 0.0
                 vertexShader: "overlay.vert"
                 fragmentShader: "overlay.frag"
             }
@@ -1007,10 +1013,101 @@ Item {
             receivesShadows: false
             materials: CustomMaterial {
                 property real uExposure: root.topDown ? 1.0 : root.exposure
+                property vector3d uDomeCenter: root.groundCenter
+                property real uArcPerDepth: root.topDown ? 0.0
+                    : 2.5 * 2.0 * Math.tan(root.camFov * Math.PI / 360.0)
+                      / Math.max(view.height, 1.0)
+                property real uArcFlat: root.topDown ? 2.5 / root.topDownScale : 0.0
                 shadingMode: CustomMaterial.Unshaded
                 cullMode: Material.NoCulling
+                depthDrawMode: Material.NeverDepthDraw
+                sourceBlend: CustomMaterial.SrcAlpha
+                destinationBlend: CustomMaterial.OneMinusSrcAlpha
+                sourceAlphaBlend: CustomMaterial.Zero
+                destinationAlphaBlend: CustomMaterial.One
                 vertexShader: "overlay.vert"
                 fragmentShader: "overlay.frag"
+            }
+        }
+
+        // Pre-warm screen-door shader pipelines (Issue #582): compile PSOs on
+        // initial load so the first Cutaway / X-ray toggle does not freeze the GUI thread.
+        // uOpacity: 0.0 discards all fragments, casting and receiving no shadows,
+        // producing 0 visual pixels, while ensuring the GPU pipeline is compiled.
+        Node {
+            id: shaderWarmer
+            position: root.groundCenter
+            scale: Qt.vector3d(0.0001, 0.0001, 0.0001)
+
+            Model {
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTint: Qt.vector3d(1, 1, 1)
+                    property real uOpacity: 0.0
+                    property real uRough: 0.78
+                    property real uSpecular: 0.35
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "screen.vert"
+                    fragmentShader: "screen.frag"
+                }
+            }
+            Model {
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTint: Qt.vector3d(1, 1, 1)
+                    property real uLeafDensity: 1.0
+                    property real uSnow: 0.0
+                    property real uTime: 0.0
+                    property real uWind: 0.0
+                    property real uOpacity: 0.0
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "foliage_door.vert"
+                    fragmentShader: "foliage_door.frag"
+                }
+            }
+            Model {
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property vector3d uTint: Qt.vector3d(1, 1, 1)
+                    property real uLeafDensity: 1.0
+                    property real uSnow: 0.0
+                    property real uTime: 0.0
+                    property real uWind: 0.0
+                    property real uOpacity: 0.0
+                    shadingMode: CustomMaterial.Shaded
+                    cullMode: Material.NoCulling
+                    vertexShader: "grass_door.vert"
+                    fragmentShader: "foliage_door.frag"
+                }
+            }
+            Model {
+                source: "#Rectangle"
+                pickable: false
+                castsShadows: false
+                receivesShadows: false
+                materials: CustomMaterial {
+                    property TextureInput uFill: TextureInput { texture: null }
+                    property real uHasFill: 0.0
+                    property vector3d uTint: Qt.vector3d(1, 1, 1)
+                    property real uBody: 0.5
+                    property real uReflect: 0.15
+                    property real uRough: 0.02
+                    property real uOpacity: 0.0
+                    shadingMode: CustomMaterial.Shaded
+                    vertexShader: "screen.vert"
+                    fragmentShader: "water_door.frag"
+                }
             }
         }
     }

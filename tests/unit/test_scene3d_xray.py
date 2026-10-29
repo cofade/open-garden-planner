@@ -65,6 +65,19 @@ class TestOccluders:
                     box("hedge", 0.0, 0.0, 600.0, 30.0, 40.0))
         assert occluders(low, EYE, {"shed"}) == frozenset()
 
+    def test_plants_in_selected_bed_never_fade(self) -> None:
+        """Plants belonging to a selected bed stay solid in Cutaway mode (#589)."""
+        bed = Record(item_id="bed", kind="RAISED_BED", shape="rectangle",
+                     footprints=(rect(400.0, 400.0),), transform=Transform(0.0, 1000.0, 0.0, 0.0),
+                     material=Material("BED"), height_cm=40.0, params=Params({"seed": "bed"}))
+        plant = Record(item_id="plant", kind="SHRUB", shape="circle",
+                       footprints=(rect(100.0, 100.0),), transform=Transform(0.0, 900.0, 38.0, 0.0),
+                       material=Material("PLANT"), height_cm=120.0, parent_id="bed",
+                       params=Params({"seed": "plant"}))
+        wall = box("wall", 0.0, 0.0, 600.0, 30.0, 400.0)
+        world = scene(bed, plant, wall)
+        assert occluders(world, EYE, {"bed"}) == {"wall"}
+
     def test_the_selection_never_fades_itself_nor_a_selected_neighbour(self) -> None:
         world = scene(box("shed", 0.0, 1000.0, 200.0, 200.0, 220.0),
                       box("wall", 0.0, 0.0, 600.0, 30.0, 400.0))

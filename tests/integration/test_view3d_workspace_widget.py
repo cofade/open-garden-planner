@@ -127,6 +127,9 @@ class FakeHost:
     def rest_wind(self) -> None:
         self.wind.append("rest")
 
+    def is_software_adapter(self) -> bool:
+        return bool(self.prefer_software)
+
     def release_cached_resources(self) -> None:
         self.releases += 1
         if self.release_error is not None:

@@ -767,11 +767,11 @@ class TestOneSmallEdit:
                               "edit_passes"),
                              [("bench_small.ogp", 20, 9, None, 2, 10.0, 1),
                               ("bench_large.ogp", 60, 25, "border", 2, 10.0, 1),
-                              # PROVISIONAL (#615): a four-tile edit can run over the
+                              # Decided (#615): a four-tile edit can run over the
                               # budget by its last tile, and the last tile can fall into a
                               # second pass: CI's coverage run 40426416434 took 2 passes
-                              # in the median (14.57 ms). A third pass would need 20 ms of
-                              # bake, which edit_ms rejects.
+                              # in the median (14.57 ms). The 20.0 ms / 2-pass bound
+                              # reflects BAKE_BUDGET_S (budget + ONE tile).
                               ("bench_large.ogp", 60, 25, "corner", 4, 20.0, 2)])
     def test_a_small_move_repaints_few_tiles_within_its_bound(
             self, qtbot: Any, capsys: pytest.CaptureFixture[str], plan: str, tiles: int,
@@ -783,8 +783,8 @@ class TestOneSmallEdit:
         was. A two-tile edit's bake is ONE pass in the median (an edit that fits the gate
         is not spread over frames) and takes at most 10 ms in the median. A four-tile
         edit can run over the budget by its last tile, or finish in a second pass (on CI
-        up to 12.15 ms uninstrumented, 14.57 ms in 2 passes under coverage). Its bound is
-        provisional until #615."""
+        up to 12.15 ms uninstrumented, 14.57 ms in 2 passes under coverage: bound 20 ms,
+        2 passes per #615)."""
         scene = _loaded(plan)
         baker = TimedBaker()
         bake = Bake(scene, registry=production_registry(), baker=baker)

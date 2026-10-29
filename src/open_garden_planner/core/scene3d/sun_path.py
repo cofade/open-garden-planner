@@ -251,26 +251,32 @@ class _Builder:
     normals: list[_F64]
     colors: list[_F64]
     triangles: list[NDArray[np.int64]]
+    uvs: list[_F64]
     count: int = 0
 
     @classmethod
     def new(cls) -> _Builder:
-        return cls([], [], [], [])
+        return cls([], [], [], [], [])
 
-    def add(self, positions: _F64, normals: _F64, rgba: Rgba, triangles: NDArray[np.int64]) -> None:
+    def add(self, positions: _F64, normals: _F64, rgba: Rgba, triangles: NDArray[np.int64],
+            uvs: _F64 | None = None) -> None:
         if not len(triangles):
             return
         self.positions.append(positions)
         self.normals.append(normals)
         self.colors.append(np.tile(np.asarray(srgb8_to_linear(rgba)), (len(positions), 1)))
         self.triangles.append(np.asarray(triangles, dtype=np.int64) + self.count)
+        if uvs is not None:
+            self.uvs.append(uvs)
+        else:
+            self.uvs.append(np.zeros((len(positions), 2), dtype=np.float64))
         self.count += len(positions)
 
     def mesh(self) -> Mesh:
         if not self.count:
             return Mesh.empty()
         return Mesh.from_arrays(np.concatenate(self.positions), np.concatenate(self.normals),
-                                np.concatenate(self.colors), np.zeros((self.count, 2)),
+                                np.concatenate(self.colors), np.concatenate(self.uvs),
                                 np.concatenate(self.triangles))
 
 
@@ -279,7 +285,7 @@ def _unit(vector: _F64) -> _F64:
     return vector / length if length > 1e-12 else vector
 
 
-def _tube(builder: _Builder, points: _F64, radius: float, rgba: Rgba) -> None:
+def _tube(builder: _Builder, points: _F64, radius: float, rgba: Rgba, is_arc: bool = True) -> None:
     """A tube of ``_TUBE_SIDES`` sides along a polyline — the ring at each point in the
     plane across the path, carried along by parallel transport (no twist where the
     path turns towards the vertical: an arc rises straight up at the equator)."""
@@ -308,7 +314,11 @@ def _tube(builder: _Builder, points: _F64, radius: float, rgba: Rgba) -> None:
             c, d = a + n, b + n
             triangles.append((a, b, d))
             triangles.append((a, d, c))
-    builder.add(positions, normals, rgba, np.asarray(triangles, dtype=np.int64))
+    uvs = np.zeros((len(positions), 2), dtype=np.float64)
+    if is_arc:
+        uvs[:, 0] = 1.0  # marks arc tube for vertex shader (#578 near fade, #576 screen width)
+    uvs[:, 1] = float(radius)
+    builder.add(positions, normals, rgba, np.asarray(triangles, dtype=np.int64), uvs=uvs)
 
 
 def _ball(builder: _Builder, center: Sequence[float], radius: float, rgba: Rgba,
@@ -494,6 +504,6 @@ def probe_pin_mesh(point: tuple[float, float], radius_cm: float) -> Mesh:
     builder = _Builder.new()
     height = max(0.03 * radius_cm, 30.0)
     stem = np.array([[point[0], point[1], 0.0], [point[0], point[1], height]])
-    _tube(builder, stem, max(TUBE_SHARE * radius_cm * 0.6, 1.0), PIN_RGBA)
+    _tube(builder, stem, max(TUBE_SHARE * radius_cm * 0.6, 1.0), PIN_RGBA, is_arc=False)
     _ball(builder, (point[0], point[1], height), max(BEAD_SHARE * radius_cm * 1.4, 4.0), PIN_RGBA)
     return builder.mesh()

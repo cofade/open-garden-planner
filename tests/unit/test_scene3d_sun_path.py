@@ -250,3 +250,4 @@ class TestTheMeshes:
         assert mesh.positions[:, 2].max() >= 30.0
         assert abs(np.median(mesh.positions[:, 0]) - 300.0) < 20.0
         assert abs(np.median(mesh.positions[:, 1]) - 400.0) < 20.0
+        assert np.all(mesh.uvs[:, 0] == 0.0), "probe pin must not be flagged as an arc in uvs"
