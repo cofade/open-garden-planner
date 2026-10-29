@@ -13,7 +13,7 @@ import math
 from typing import Any
 
 import pytest
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen
 
 from open_garden_planner.core.object_types import PathFenceStyle
@@ -233,3 +233,84 @@ class TestSegmentInside:
             self, start: tuple[float, float], direction: tuple[float, float], length: float,
             expected: tuple[float, float] | None) -> None:
         assert segment_inside(*start, *direction, length, (10.0, 0.0, 20.0, 10.0)) == expected
+
+
+class TestOffsetPathCorners:
+    """Tests for path corner joins and inner bend spike elimination (#605)."""
+
+    def test_inner_bend_trims_crossing_segments_without_v_spike(self) -> None:
+        """At an inner bend, offset lines intersect cleanly without a reverse spike."""
+        from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+
+        # L-turn from (0,0) -> (100,0) -> (100, 100) (left turn, so +10 is inner bend)
+        pts = [QPointF(0.0, 0.0), QPointF(100.0, 0.0), QPointF(100.0, 100.0)]
+        painter_helper = PathStylePaint(pts, QPen(Qt.GlobalColor.black, 20.0))
+        inner_path = painter_helper._offset_path(10.0)
+        assert inner_path is not None
+        # Inner path should have exactly 3 points (start, trimmed corner, end)
+        assert inner_path.elementCount() == 3
+        p0 = inner_path.elementAt(0)
+        p1 = inner_path.elementAt(1)
+        p2 = inner_path.elementAt(2)
+        assert (p0.x, p0.y) == (0.0, 10.0)
+        assert (p1.x, p1.y) == (90.0, 10.0)  # Cleanly trimmed intersection, not a spike at (100, 10)
+        assert (p2.x, p2.y) == (90.0, 100.0)
+
+    def test_outer_bend_chords_to_agree_with_bevel(self) -> None:
+        """At an outer bend, offset path forms a chord agreeing with BevelJoin."""
+        from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+
+        # Outer bend for offset -10: chords from (100, -10) to (110, 0)
+        pts = [QPointF(0.0, 0.0), QPointF(100.0, 0.0), QPointF(100.0, 100.0)]
+        painter_helper = PathStylePaint(pts, QPen(Qt.GlobalColor.black, 20.0))
+        outer_path = painter_helper._offset_path(-10.0)
+        assert outer_path is not None
+        assert outer_path.elementCount() == 4
+        p0 = outer_path.elementAt(0)
+        p1 = outer_path.elementAt(1)
+        p2 = outer_path.elementAt(2)
+        p3 = outer_path.elementAt(3)
+        assert (p0.x, p0.y) == (0.0, -10.0)
+        assert (p1.x, p1.y) == (100.0, -10.0)
+        assert (p2.x, p2.y) == (110.0, 0.0)
+        assert (p3.x, p3.y) == (110.0, 100.0)
+
+    @pytest.mark.parametrize("angle_deg", [30.0, 45.0, 60.0, 120.0])
+    def test_acute_and_obtuse_inner_bends_trim_cleanly(self, angle_deg: float) -> None:
+        """Acute and obtuse inner bends trim cleanly to one intersection without spikes."""
+        from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+
+        rad = math.radians(angle_deg)
+        corner = QPointF(200.0, 200.0)
+        # First leg: (0, 200) -> (200, 200)
+        p0 = QPointF(0.0, 200.0)
+        # Second leg turning left by angle_deg: dx = 200*cos(rad), dy = 200*sin(rad)
+        p2 = QPointF(corner.x() + 200.0 * math.cos(rad), corner.y() + 200.0 * math.sin(rad))
+        pts = [p0, corner, p2]
+
+        painter_helper = PathStylePaint(pts, QPen(Qt.GlobalColor.black, 20.0))
+        # Positive offset is to the left (inner bend)
+        inner_path = painter_helper._offset_path(10.0)
+        assert inner_path is not None
+        # With trimming, should be start -> intersection -> end (3 points)
+        assert inner_path.elementCount() == 3
+        mid = inner_path.elementAt(1)
+        assert math.isfinite(mid.x) and math.isfinite(mid.y)
+
+    def test_short_segment_shorter_than_projection_falls_back_gracefully(self) -> None:
+        """When segment length is shorter than corner projection, fallback connects cleanly."""
+        from open_garden_planner.ui.canvas.items.path_style_paint import PathStylePaint
+
+        # Very sharp 30 deg corner with a tiny 5 cm segment and large 20 cm offset
+        p0 = QPointF(0.0, 0.0)
+        p1 = QPointF(5.0, 0.0)
+        rad = math.radians(150.0)
+        p2 = QPointF(5.0 + 5.0 * math.cos(rad), 5.0 * math.sin(rad))
+        pts = [p0, p1, p2]
+
+        painter_helper = PathStylePaint(pts, QPen(Qt.GlobalColor.black, 40.0))
+        offset_path = painter_helper._offset_path(20.0)
+        assert offset_path is not None
+        for i in range(offset_path.elementCount()):
+            pt = offset_path.elementAt(i)
+            assert math.isfinite(pt.x) and math.isfinite(pt.y)

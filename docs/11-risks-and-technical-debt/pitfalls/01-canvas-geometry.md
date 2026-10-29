@@ -301,3 +301,18 @@ with the pass's shape cache, 8 ms at 6 vertices). That rebuild is why the pin is
 **counted**, not timed: five concave beds over twenty plants in the notch must build five
 paths, and a per-pair rebuild fails at 100 - a wall-clock budget on small beds cannot see
 the difference, and a budget that cannot fail is not a pin.
+
+### PF-CAN-30
+
+- **Rule:** Offset path inner bends intersect before the corner and create self-intersecting loops if segment endpoints are connected naively; trim overlapping segments to the intersection at acute inner bends ($offset \cdot (\vec{u}_1 \times \vec{u}_2) > 0$). In paved path rendering, base fill pen join must match border chord (`BevelJoin`) to eliminate miter spikes.
+- **Pinned by:** `tests/unit/test_path_style_paint.py`
+- **Source:** #605
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Polyline offset generation computes parallel segments for each segment of a polyline.
+At acute inner bends, parallel segments intersect before the corner vertex; connecting
+endpoints directly creates a reverse loop and crossing spikes across the interior of
+the path. Trimming inner segments to their geometric intersection produces clean bends.
+For paved paths with decorative borders, the fill pen must also use `BevelJoin` to
+harmonize with the border chord join.

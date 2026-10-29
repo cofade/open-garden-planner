@@ -1176,7 +1176,7 @@ class TestTheTipOfAHairpin:
         legs = [QPointF(corner.x() - reach * math.cos(math.radians(15.0)),
                         corner.y() + sign * reach * math.sin(math.radians(15.0))) for sign in (1.0, -1.0)]
         item = PolylineItem([legs[0], corner, legs[1]], object_type=ObjectType.PATH,
-                            path_fence_style=PathFenceStyle.PAVED_PATH)
+                            path_fence_style=PathFenceStyle.STONE_WALL)
         pen = item.pen()
         pen.setWidthF(45.0)
         adopt_pen(item, pen)

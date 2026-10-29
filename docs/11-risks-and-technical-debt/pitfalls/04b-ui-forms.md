@@ -20,3 +20,17 @@ The Properties panel's "Object height" row was gated on `object_height.has_heigh
 The fix splits the question in two: `has_height_semantics` stays the type-level answer, and the panel asks the new `shows_height_field(..., has_footprint=item_has_footprint(item))` — the yes/no form of `item_outline`, so answering it does not build a 16 000-vertex outline — every item with a footprint gets the row, "Auto" (0) is no height, so nothing changes until the user types one. `lies_on_ground` already yields the moment a height is set, which is what makes "a terrace with a height is a platform" coherent rather than a special case.
 
 The class is general: any "only way in" control (a height, a parent link, a style) gated on the state it produces is unreachable, and the suite will not notice because every test that exercises it starts from an object that already has the state.
+
+### PF-UI-30
+
+- **Rule:** Properties panel type dropdown items must resolve a valid icon across all ObjectType enum values; missing SVG category/tool icon mappings leave blank rows in the selector dropdown.
+- **Pinned by:** `tests/ui/test_properties_panel.py`
+- **Source:** #643
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The object type combo box in the Properties panel visualizes each type with an icon.
+Omitting mappings in `_get_object_type_icon()` for newly added or specialized types
+(such as `CONTAINER`, `CONTAINER_ROUND`, `WALL_PLANTER`, `TRELLIS`, `GENERIC_ELLIPSE`,
+and `HEDGE_POLYGON`) resulted in null icons and missing visual cues. All enum values
+must map to appropriate category or tool icons.

@@ -202,3 +202,60 @@ def test_a_raised_neighbour_s_shadow_starts_beyond_its_base_offset() -> None:
     ys = [y for polygon in grouped[1][0] for _x, y in polygon]
     assert min(ys) == pytest.approx(100.0 - 2.0 + 38.0, abs=0.01)
     assert max(ys) == pytest.approx(100.0 + 2.0 + 138.0, abs=0.01)
+
+
+
+# ── elevated receivers (#641) ───────────────────────────────────────────────
+
+
+def test_obstacle_below_receiver_elevation_casts_zero_shade() -> None:
+    """An obstacle strictly lower than the receiver's soil elevation cannot shade it (#641)."""
+    edging = IdentifiedCaster("edging", (((50.0, 90.0), (350.0, 90.0), (350.0, 100.0), (50.0, 100.0)),), 30.0)
+    bed = IdentifiedCaster("bed", (BED,), 40.0)
+    tomato = IdentifiedCaster("tomato", (circle(200, 110, 10),), 100.0, base_cm=38.0)
+
+    # At ground level (elevation_cm=0.0): edging shades the ground point
+    ground_rx = SunReceiver("tomato", 200, 110, stands_on="bed", elevation_cm=0.0)
+    res_ground = minutes([edging, bed, tomato], [ground_rx])["tomato"]
+
+    # Elevated on the bed's soil (elevation_cm=38.0): edging top (30 cm) <= receiver elevation (38 cm)
+    elevated_rx = SunReceiver("tomato", 200, 110, stands_on="bed", elevation_cm=38.0)
+    res_elevated = minutes([edging, bed, tomato], [elevated_rx])["tomato"]
+
+    # Without the edging
+    alone = minutes([bed, tomato], [elevated_rx])["tomato"]
+
+    assert res_elevated == alone == 990.0, "obstacle below receiver elevation casts zero shade"
+    assert res_ground < alone - 120.0, "ground-level receiver is falsely shaded by the low edging"
+
+
+def test_elevated_receiver_clears_fence_shadow_faster_than_ground() -> None:
+    """An elevated plant clears a fence's shadow earlier in the day and gets more sun (#641)."""
+    # Fence of height 120 cm located south at y in [70, 80]
+    fence = IdentifiedCaster("fence", (((50.0, 70.0), (350.0, 70.0), (350.0, 80.0), (50.0, 80.0)),), 120.0)
+    bed = IdentifiedCaster("bed", (BED,), 50.0)
+    thyme = IdentifiedCaster("thyme", (circle(200, 115, 10),), 20.0, base_cm=48.0)
+
+    ground_rx = SunReceiver("thyme", 200, 115, stands_on="bed", elevation_cm=0.0)
+    elevated_rx = SunReceiver("thyme", 200, 115, stands_on="bed", elevation_cm=48.0)
+
+    ground_sun = minutes([fence, bed, thyme], [ground_rx])["thyme"]
+    elevated_sun = minutes([fence, bed, thyme], [elevated_rx])["thyme"]
+
+    # Elevated receiver clears shadow hours earlier because effective fence height is only 120 - 48 = 72 cm
+    assert elevated_sun >= ground_sun + 120.0, (
+        f"elevated plant ({elevated_sun} min) must receive significantly more sun than ground ({ground_sun} min)"
+    )
+
+def test_non_finite_receiver_elevation_is_excluded() -> None:
+    """Non-finite receiver elevations (NaN, Inf) must be rejected and not receive daylight."""
+    # One valid receiver, one NaN elevation receiver, one Inf elevation receiver
+    r_valid = SunReceiver(item_id="valid", x_cm=250.0, y_cm=250.0, elevation_cm=0.0)
+    r_nan = SunReceiver(item_id="nan", x_cm=250.0, y_cm=250.0, elevation_cm=float("nan"))
+    r_inf = SunReceiver(item_id="inf", x_cm=250.0, y_cm=250.0, elevation_cm=float("inf"))
+
+    res = minutes([], [r_valid, r_nan, r_inf])
+    # Only the valid receiver should have exposure minutes calculated
+    assert "valid" in res
+    assert "nan" not in res
+    assert "inf" not in res

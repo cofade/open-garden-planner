@@ -26,10 +26,17 @@ pytestmark = render_tier
 
 # Run the package's own self-test in a child and turn its verdict into an exit code.
 _RUN = (
+    "import faulthandler\n"
     "import sys\n"
     "from pathlib import Path\n"
+    "log_file = Path(sys.argv[1])\n"
+    "try:\n"
+    "    _crash = log_file.open('a', encoding='utf-8')\n"
+    "    faulthandler.enable(file=_crash, all_threads=True)\n"
+    "except Exception:\n"
+    "    pass\n"
     "from open_garden_planner.ui.view3d.quick3d.selftest import run_selftest\n"
-    "result = run_selftest(Path(sys.argv[1]), qml_dir=Path(sys.argv[2]) if len(sys.argv) > 2 else None)\n"
+    "result = run_selftest(log_file, qml_dir=Path(sys.argv[2]) if len(sys.argv) > 2 else None)\n"
     "print('\\n'.join(result.lines))\n"
     "sys.exit(0 if result.ok else 1)\n"
 )
@@ -51,7 +58,8 @@ def _selftest(tmp_path: Path, *args: str, **env: str) -> tuple[subprocess.Comple
 
 def test_the_3d_selftest_passes_on_the_default_adapter(tmp_path: Path) -> None:
     proc, log = _selftest(tmp_path)
-    assert proc.returncode == 0, proc.stdout + proc.stderr[-2000:] + log
+    ran = log[-4000:] if log else "(no self-test log)"
+    assert proc.returncode == 0, proc.stdout + proc.stderr[-2000:] + "\n--- self-test log ---\n" + ran
     lines = proc.stdout.splitlines()
     assert [line for line in lines if "import" in line] == [
         "  OK   import PyQt6.QtQml", "  OK   import PyQt6.QtQuick", "  OK   import PyQt6.QtQuick3D"]
@@ -72,7 +80,8 @@ def test_the_3d_selftest_passes_without_a_gpu(tmp_path: Path) -> None:
     """The release runner's condition: Direct3D 11 on WARP. Forced here with
     ``QSG_RHI_PREFER_SOFTWARE_RENDERER=1``; the log proves which adapter rendered."""
     proc, log = _selftest(tmp_path, QSG_RHI_PREFER_SOFTWARE_RENDERER="1")
-    assert proc.returncode == 0, proc.stdout + proc.stderr[-2000:] + log
+    ran = log[-4000:] if log else "(no self-test log)"
+    assert proc.returncode == 0, proc.stdout + proc.stderr[-2000:] + "\n--- self-test log ---\n" + ran
     assert "adapter=Microsoft Basic Render Driver" in log
     assert "Microsoft Basic Render Driver" in proc.stdout
 
@@ -130,7 +139,7 @@ def test_the_3d_selftest_fails_on_a_shader_that_does_not_compile(tmp_path: Path)
     shader.write_text(text.replace("waterLuma(LIGHT_COLOR)", "waterLumaRenamed(LIGHT_COLOR)"),
                       encoding="utf-8")
     proc, log = _selftest(tmp_path, str(qml))
-    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:]
+    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:] + "\n--- self-test log ---\n" + log
     (failure,) = [line for line in proc.stdout.splitlines() if "FAIL" in line]
     assert "Qt Quick 3D render -> RenderError" in failure and "shader" in failure.lower()
     assert "result=FAIL" in log
@@ -162,7 +171,7 @@ def test_the_3d_selftest_fails_on_a_ring_shader_that_does_not_compile(
     assert old in text
     shader.write_text(text.replace(old, new), encoding="utf-8")
     proc, log = _selftest(tmp_path, str(qml))
-    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:]
+    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:] + "\n--- self-test log ---\n" + log
     (failure,) = [line for line in proc.stdout.splitlines() if "FAIL" in line]
     assert "Qt Quick 3D render -> RenderError" in failure and "shader" in failure.lower()
     assert "result=FAIL" in log
@@ -180,7 +189,7 @@ def test_the_3d_selftest_fails_when_the_ring_is_drawn_behind_its_item(tmp_path: 
                                    "world.xyz -= outward * (UV0.x * width * 4.0);"),
                       encoding="utf-8")
     proc, log = _selftest(tmp_path, str(qml))
-    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:]
+    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:] + "\n--- self-test log ---\n" + log
     failures = [line for line in proc.stdout.splitlines() if "FAIL" in line]
     assert any("the selection ring did not draw round the roof swatch" in line for line in failures)
     assert "result=FAIL" in log
@@ -192,7 +201,7 @@ def test_the_3d_selftest_fails_where_nothing_renders(tmp_path: Path) -> None:
     names the backend — the self-test cannot pass by accident, and its message
     says what is wrong with the machine rather than "the box is not there"."""
     proc, log = _selftest(tmp_path, QT_QPA_PLATFORM="offscreen")
-    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:]
+    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:] + "\n--- self-test log ---\n" + log
     (failure,) = [line for line in proc.stdout.splitlines() if "FAIL" in line]
     assert "Qt Quick 3D render -> RenderError" in failure
     assert "Software backend" in failure and "no 3D frame can be rendered" in failure

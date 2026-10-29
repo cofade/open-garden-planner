@@ -44,7 +44,6 @@
 | Case study: model has display_name(lang) but call sites use .name (US-12.10/F4, fixed 2026-05-03) | [Read](045-case-study-model-has-display-name-lang-but-call-sites-use-name-us-12-10-f4-fixed-2026.md) |
 | Case study: clipboard format that LOOKS right but fails on paste (US-12.10/F10, fixed 2026-05-03) | [Read](046-case-study-clipboard-format-that-looks-right-but-fails-on-paste-us-12-10-f10-fixed-20.md) |
 | Case study: max() ties hide newer records of the same date (US-12.10/F2.10a, fixed 2026-05-04) | [Read](047-case-study-max-ties-hide-newer-records-of-the-same-date-us-12-10-f2-10a-fixed-2026-05.md) |
-| Case study: soil-mismatch warning goes stale on plant move/reparent (issue #173, fixed 2026-05-07) | [Read](049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md) |
 | Case study: tangent constraint flips to the opposite side of the circle on drag (PR "make snap-constraints real", fixed 2026-06-07) | [Read](050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md) |
 | Case study: new curve edit-handles appear but are completely inert / can't drag (issue #193, fixed 2026-06-08) | [Read](051-case-study-new-curve-edit-handles-appear-but-are-completely-inert-can-t-drag-issue-19.md) |
 | Case study: rotated circle drag-resize collapses / drifts / ghosts (issue #218 follow-up, fixed 2026-06-17) | [Read](052-case-study-rotated-circle-drag-resize-collapses-drifts-ghosts-issue-218-follow-up-fix.md) |
@@ -167,6 +166,10 @@
 | Case study: a plant vanished behind the bed drawn around it (#629) | [Read](169-case-study-a-plant-vanished-behind-the-bed-drawn-around-it-629.md) |
 | Case study: re-promoting a release counted its downloads twice (ADR-067 chart review) | [Read](170-case-study-re-promoting-a-release-counted-its-downloads-twice-adr-067-chart-review.md) |
 | Case study: an excluded observation completed an uncovered chart day (ADR-067) | [Read](171-case-study-an-excluded-observation-completed-an-uncovered-chart-day-adr-067.md) |
+| Case study: elevated plant sun exposure evaluated at ground level (#641) | [Read](172-case-study-elevated-plant-sun-exposure-evaluated-at-ground-641.md) |
+| Case study: Properties panel missing icons for certain object types (#643) | [Read](173-case-study-properties-panel-missing-type-dropdown-icons-643.md) |
+| Case study: Qt Quick 3D crash diagnostics lost on SEH exception (#623) | [Read](174-case-study-quick3d-crash-diagnostics-lost-on-seh-exception-623.md) |
+| Case study: Paved path outer bend miter spikes and inner bend self-intersections (#605) | [Read](175-case-study-paved-path-miter-spike-and-inner-bend-self-intersection-605.md) |
 
 | Factory isolation after extraction | [Read](audit-a4-isolation-after-extraction.md) |
 | Extracted package coverage registration | [Read](audit-config-coverage-registration.md) |

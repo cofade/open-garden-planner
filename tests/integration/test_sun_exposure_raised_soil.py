@@ -108,16 +108,24 @@ class Plot:
         (receiver,) = [r for r in snapshot.receivers if r.item_id == str(item.item_id)]
         return receiver.stands_on
 
+    def elevation(self, item: Any) -> float:
+        snapshot = collect_exposure_snapshot(self.scene, dict(BERLIN), DAY)
+        (receiver,) = [r for r in snapshot.receivers if r.item_id == str(item.item_id)]
+        return receiver.elevation_cm
+
 
 @pytest.fixture()
 def plot(qtbot, monkeypatch: pytest.MonkeyPatch) -> Any:
     previous = ThemeMode.DARK if is_dark_theme() else ThemeMode.LIGHT
+    prev_stylesheet = QApplication.instance().styleSheet() if QApplication.instance() else ""
     window = GardenPlannerApp()
     qtbot.addWidget(window)
     monkeypatch.setattr(window, "_confirm_discard_changes", lambda: True)
     yield Plot(window, qtbot)
     window._sun_heatmap.shutdown()
     apply_theme(QApplication.instance(), previous)
+    if not prev_stylesheet and QApplication.instance():
+        QApplication.instance().setStyleSheet("")
 
 
 def test_a_tomato_on_a_raised_bed_gets_the_sun_of_a_tomato_on_open_ground(plot: Plot) -> None:
@@ -151,7 +159,11 @@ def test_the_bed_is_spared_and_nothing_else_is(plot: Plot) -> None:
     plot.qtbot.waitUntil(lambda: plot.window._sun_heatmap.exposure_reason == "stale", timeout=2000)
     assert plot.stands_on(on_bed) is None
     plot.compute()
-    assert plot.hours(on_bed) == shaded, "the wall's share is the same with and without the bed"
+    on_ground_hours = plot.hours(on_bed)
+    assert on_ground_hours is not None
+    assert on_ground_hours < shaded, "on ground without bed the plant gets less sun than when elevated (#641)"
+    assert on_ground_hours == pytest.approx(11.5, abs=ONE_SAMPLE_H)
+    assert shaded == pytest.approx(12.0, abs=ONE_SAMPLE_H)
 
 
 def test_a_plant_on_the_ground_next_to_the_bed_is_still_shaded_by_the_bed(plot: Plot) -> None:
@@ -389,3 +401,29 @@ def test_plant_holders_drift_guard() -> None:
         ObjectType.PLANTER_POT,
         ObjectType.GREENHOUSE,
     }
+
+
+
+def test_elevated_plant_clears_fence_shadow_and_receives_sun(plot: Plot) -> None:
+    """A plant elevated in a raised bed clears a fence's shadow and gets more sun (#641)."""
+    # Fence 120 cm high at y = 400
+    _fence = plot.wall(100.0, 900.0, 400.0, height=120.0)
+
+    # Raised bed 50 cm high at (200, 430), plant inside at (300, 445)
+    # Soil elevation is 50 - 2 = 48 cm
+    bed = plot.bed(200.0, 430.0, height=50.0)
+    in_bed = plot.tomato("in bed", 300.0, 445.0, radius=10.0)
+
+    # Control plant on open ground at identical y distance (445.0) from the fence
+    on_ground = plot.tomato("on ground", 600.0, 445.0, radius=10.0)
+
+    assert plot.stands_on(in_bed) == str(bed.item_id)
+    assert plot.elevation(in_bed) == 48.0
+    assert plot.stands_on(on_ground) is None
+    assert plot.elevation(on_ground) == 0.0
+
+    plot.compute()
+    elevated_h = plot.hours(in_bed)
+    ground_h = plot.hours(on_ground)
+    assert elevated_h is not None and ground_h is not None
+    assert elevated_h >= ground_h + 1.0, f"elevated ({elevated_h}h) must exceed ground ({ground_h}h) by >= 1h"

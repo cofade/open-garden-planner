@@ -3614,3 +3614,12 @@ The branch incorporates master through v1.34.4 (PR #639 and its version sync).
 | Agent instructions and skills | Concise mirrored context, exact preserved reference fragments and recursive gates |
 | Deployment/security/contributing | Existing policy owner, verified aliases and honest continuity/recovery steps |
 | Wiki sources | Architecture and contribution pointers; publication pending after approval/merge |
+
+### Precision, UI, and diagnostic bugfixes (#641, #643, #623, #605)
+
+Targeted bugfix package addressing four high-priority defects across solar exposure, UI consistency, diagnostics, and 2D canvas path rendering:
+
+1. **#641: Elevated plant sun exposure calculation.** Plants standing in raised beds, containers, or wall planters ($z > 0$) were evaluated against ground-level obstacle shadows ($z = 0$), generating false shade warnings from low surrounding obstacles (e.g. 50 cm fences). `SunReceiver` now carries `elevation_cm`; `_aggregate_day` groups receivers by elevation and projects shadows on the receiver's elevated plane, slicing obstacle casters ($h' = z_{\text{top}} - \max(b, e)$, $b' = \max(0, b - e)$) and ignoring obstacles with $z_{\text{top}} \le e$.
+2. **#643: Properties panel ObjectType dropdown preview icons.** Added missing icon resolutions for `CONTAINER`, `CONTAINER_ROUND`, `WALL_PLANTER`, `TRELLIS`, `GENERIC_ELLIPSE`, and `HEDGE_POLYGON`, guaranteeing non-null icon display across all `ObjectType` entries.
+3. **#623: Qt Quick 3D subprocess crash diagnostics.** Enabled `faulthandler` directly into the selftest log target, ensuring fatal Windows SEH callback exceptions (`0xC000041D`) dump tracebacks into the log. Integration test assertions now echo the selftest log tail upon failure.
+4. **#605: Paved path corners and inner bend clipping.** Base fill pen join aligned to `BevelJoin` to match border chords. `_offset_path` now detects acute inner bends ($offset \cdot (\vec{u}_1 \times \vec{u}_2) > 0$) and trims overlapping segment ends to their exact intersection point, eliminating self-intersecting V-spikes.

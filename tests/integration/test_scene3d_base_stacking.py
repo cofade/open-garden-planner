@@ -1784,6 +1784,7 @@ class TestOneCasterWalk:
         }
         assert calls["item_base_cm"] == {
             "ui/canvas/sun_shadow_controller.py",   # 2D: the caster walk
+            "ui/canvas/sun_exposure_snapshot.py",   # 2D: the receiver walk (#641)
             "ui/view3d/snapshot.py",                # 3D: the record walk
         }
         assert calls["standing_parent"] == {
