@@ -251,6 +251,24 @@ class PreferencesDialog(QDialog):
 
         layout.addWidget(tasks_group)
 
+        # --- Canvas (#321): touch gestures ---
+        canvas_group = QGroupBox(self.tr("Canvas"))
+        canvas_layout = QFormLayout(canvas_group)
+
+        self._touch_gestures_check = QCheckBox(
+            self.tr("Enable touch gestures (pinch to zoom, two-finger pan)")
+        )
+        self._touch_gestures_check.setToolTip(
+            self.tr(
+                "On a touch screen, pinch with two fingers to zoom the plan and "
+                "drag two fingers to move it. A single finger still selects and "
+                "moves objects as a mouse does."
+            )
+        )
+        canvas_layout.addRow(self._touch_gestures_check)
+
+        layout.addWidget(canvas_group)
+
         # --- Agent API (US-D1.1) ---
         from open_garden_planner.app.settings import AppSettings
 
@@ -434,6 +452,7 @@ class PreferencesDialog(QDialog):
         self._frost_orange_spin.setValue(settings.frost_warning_orange_c)
         self._frost_red_spin.setValue(settings.frost_warning_red_c)
         self._notify_overdue_check.setChecked(settings.notify_overdue_tasks_on_startup)
+        self._touch_gestures_check.setChecked(settings.touch_gestures_enabled)
         self._agent_api_check.setChecked(settings.agent_api_enabled)
         self._agent_api_port_spin.setValue(settings.agent_api_port)
         self._agent_api_writes_check.setChecked(settings.agent_api_writes_enabled)
@@ -554,6 +573,7 @@ class PreferencesDialog(QDialog):
         settings.frost_warning_orange_c = self._frost_orange_spin.value()
         settings.frost_warning_red_c = self._frost_red_spin.value()
         settings.notify_overdue_tasks_on_startup = self._notify_overdue_check.isChecked()
+        settings.touch_gestures_enabled = self._touch_gestures_check.isChecked()
         settings.agent_api_enabled = self._agent_api_check.isChecked()
         settings.agent_api_port = self._agent_api_port_spin.value()
         settings.agent_api_writes_enabled = self._agent_api_writes_check.isChecked()

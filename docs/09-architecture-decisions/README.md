@@ -4832,10 +4832,14 @@ it stands after that round.
      every family it knows — and, since fix round 5, FAILS when a row costs more than 12 times
      its price: a union as a tree stood at 14 to 76). A family nobody has drawn yet can be
      dearer than its price — the simplicity test was, by a factor of a hundred, for a ring
-     whose every pair of edges lies close, until its near pairs were priced; and one family in
-     the table still is: a ring whose holes touch its outer ring costs 3.6 to 8.1 times its
-     price in the cut's bridge search (110 such holes: refused after 0.6 to 1.5 s), known and
-     not re-priced. *Rejected:* a time-out (the verdict would depend on
+     whose every pair of edges lies close, until its near pairs were priced; and a second family
+     was, until #451 re-priced it: a ring whose holes touch its outer ring stood at 3.6 to 8.1
+     in the cut's bridge search (110 such holes: refused after 0.6 to 1.5 s). A block of bridge
+     candidates now costs 600 units per edge, the dearest row of the table is 1.3 to 1.5, and 110
+     such holes are refused in about 0.07 s - at the price of capacity (a slab of 49 touching
+     holes now fits, 89 before; triangular 117, 146 before; square 88, 105 before; and an
+     outlined region with many holes has a higher pre-cut floor: a crafted 25 x 25 line grid
+     is now refused from its size, a 22 x 22 one still resolves). *Rejected:* a time-out (the verdict would depend on
      the machine and the moment, and Python cannot interrupt the clipper); a cap on vertices
      alone (it admits the scribble and refuses the long honest fence); a budget across the whole
      plan (a record would depend on what else is on the plan).

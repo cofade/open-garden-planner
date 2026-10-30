@@ -253,7 +253,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "77f84ff300b13bf5c2fdc1a4938e0d787371e48405066e51debc1ac392a9eb70"
+          "current_sha256": "0521bd2cd4b9186f80d7cfb2aba35878825dc9d03081b6025ecfacd211878501"
         },
         {
           "path": ".agents/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "9902d1c66e458a4833b0d4be610d57fbe997f634c42f55252fe480e01b41801d"
+          "current_sha256": "f1a2d594af230e24fbcfc68992c4dba31ed06eb323c78a3b7fb9ba6ffe4ec696"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -1393,7 +1393,7 @@
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
           "sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5",
-          "current_sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5"
+          "current_sha256": "e80f759bba93784e682a3318591da16e89b6cd01e95e036599843c08fe327ad7"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",
@@ -1653,7 +1653,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "77f84ff300b13bf5c2fdc1a4938e0d787371e48405066e51debc1ac392a9eb70"
+          "current_sha256": "0521bd2cd4b9186f80d7cfb2aba35878825dc9d03081b6025ecfacd211878501"
         },
         {
           "path": ".claude/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "9902d1c66e458a4833b0d4be610d57fbe997f634c42f55252fe480e01b41801d"
+          "current_sha256": "f1a2d594af230e24fbcfc68992c4dba31ed06eb323c78a3b7fb9ba6ffe4ec696"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -2793,7 +2793,7 @@
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
           "sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5",
-          "current_sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5"
+          "current_sha256": "e80f759bba93784e682a3318591da16e89b6cd01e95e036599843c08fe327ad7"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",

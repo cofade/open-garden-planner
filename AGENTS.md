@@ -259,6 +259,13 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   arc 25% near-half fade & constant width, ground slope clamp 0.22, interior wood
   floor & solid bed plants & generic ground shapes under Cutaway, Cutaway shader
   pre-warming (`shaderWarmer`), and ground-bake benchmark contract alignment.
+- Current package (draft PR): #321 canvas pinch/two-finger pan behind
+  `canvas/touch_gestures_enabled` (single finger stays the mouse path), #451 the
+  bridge search re-priced (`_BRIDGE_UNITS` 600; the work table's dearest row
+  8.1 → 1.3 to 1.5, 110 touching holes refused in ~0.07 s), #540 the `render3d` CI job
+  now runs the workspace's G5 close + G6 compatibility rows (soaks carry the new
+  `soak` marker and stay local). Manual tests: touch on a real device, and an
+  ordinary 2D plan after the region re-price.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

@@ -38,6 +38,28 @@ RENDER_TESTS = ("tests/integration/test_quick3d_render.py",
                 "tests/integration/test_quick3d_selftest.py",
                 "tests/integration/test_quick3d_lifecycle.py",
                 "tests/integration/test_scene3d_ground_render.py")  # the baked ground (L1.5)
+#: The default workspace's real-host gates (#540) — close and compatibility only in CI.
+WORKSPACE_RENDER = "tests/integration/test_view3d_workspace_render.py"
+#: The subset: G5's close rows (with the frozen-exe variants, which skip without the exe)
+#: and G6's crash-marker / compatibility / try-hardware rows. Everything else in that file
+#: is a budget, a soak, the camera rule, WebEngine or shortcut-focus work.
+WORKSPACE_K = (
+    '-k "closes_clean or start_that_died or compatibility_mode or try_hardware"'
+)
+#: The G7 memory soaks, by name: the exact set the `soak` marker must cover (#540).
+SOAK_TESTS = {
+    "test_twenty_rebuilds_of_the_engine_scene_stay_under_the_leak_bound",
+    "test_the_workspace_released_the_engines_caches_after_every_rebuild",
+    "test_dedicated_gpu_memory_does_not_grow_with_the_rebuilds",
+    "test_without_532_dedicated_gpu_memory_would_stay_under_the_plain_leak_bound",
+    "test_the_same_rebuilds_stay_under_the_bound_in_a_view_that_presents_nothing",
+    "test_identical_reloads_re_admit_only_forged_plants_and_stay_flat",
+    "test_the_positive_control_fails_on_exactly_that_gate",
+    "test_what_the_soak_reads_without_the_release_is_reported",
+    "test_a_release_inside_the_pass_holds_on_a_real_device_too",
+    "test_model_churn_alone_stays_under_the_plain_leak_bound",
+    "test_what_a_readback_per_rebuild_costs_a_view_that_presents_nothing_is_reported",
+}
 
 
 def _code(text: str) -> str:
@@ -329,15 +351,27 @@ class TestRenderJob:
         for package in ("xvfb", "libegl1", "libxcb-cursor0", "libgl1-mesa-dri"):
             assert f" {package}" in packages, package
 
-    def test_both_platforms_run_the_same_existing_opt_in_files(self) -> None:
+    def test_both_platforms_run_the_same_opt_in_files_and_the_workspace_gates(self) -> None:
         job = _code(self._job())
         runs = [line for line in job.splitlines() if "python -m pytest" in line]
         budget_runs = [line for line in runs if "::test_real_engine_scrubs_300_models_within_frame_budget" in line]
         scene_runs = [line for line in runs if line not in budget_runs]
-        assert len(scene_runs) == len(budget_runs) == 2
-        for line in scene_runs:
-            assert all(name in line for name in RENDER_TESTS), line
+        assert len(budget_runs) == 2
+        assert len(scene_runs) == 4, "two engine runs AND two workspace runs, per OS"
+        engine_runs = [line for line in scene_runs if any(name in line for name in RENDER_TESTS)]
+        workspace_runs = [line for line in scene_runs if WORKSPACE_RENDER in line]
+        assert len(engine_runs) == len(workspace_runs) == 2, (engine_runs, workspace_runs)
+        for line in engine_runs:
+            # -k is a SESSION filter: on the engine command it would deselect the engine
+            # files (#540's first review found exactly that).
+            assert " -k " not in line, line
+            assert WORKSPACE_RENDER not in line, line
             assert "tests/integration/test_plant_forge_workspace.py" in line
+        for line in workspace_runs:
+            # #540: the default workspace's close/compat gates now run on a real host,
+            # with the wall-clock bounds and the multi-process soaks kept local.
+            assert '-m "not perf and not soak"' in line, line
+            assert WORKSPACE_K in line, line
         for line in budget_runs:
             assert "-m perf -n 0" in line
         assert sum("xvfb-run" in line for line in budget_runs) == 1
@@ -347,6 +381,30 @@ class TestRenderJob:
         assert "QT_QPA_PLATFORM" not in job, (
             "the pytest process stays offscreen; the test helper gives the DRIVER a real "
             "platform (quick3d_render_support.render_env)")
+
+    def test_every_workspace_filter_term_still_names_a_test(self) -> None:
+        """A renamed test would make `-k` select nothing and CI would stay green."""
+        source = (REPO / WORKSPACE_RENDER).read_text(encoding="utf-8")
+        names = set(re.findall(r"^def (test_\w+)", source, flags=re.MULTILINE))
+        terms = re.findall(r"(\w+)", WORKSPACE_K.split('"')[1])
+        assert len(terms) == 7 and "or" in terms  # four terms, three "or"s
+        for term in (t for t in terms if t != "or"):
+            assert any(term in name for name in names), f"-k term {term!r} matches no test"
+
+    def test_the_soaks_are_marked_and_the_workspace_file_is_render_tier(self) -> None:
+        """#540: an unmarked soak would be pulled into the CI job by the file name.
+
+        The list is exact, not a count: adding a test to this module must force a
+        decision here rather than silently joining (or leaving) the CI selection.
+        """
+        source = (REPO / WORKSPACE_RENDER).read_text(encoding="utf-8")
+        assert "pytestmark = render_tier" in source
+        marked = set(re.findall(r"^@pytest\.mark\.soak$\ndef (test_\w+)", source, flags=re.MULTILINE))
+        assert marked == SOAK_TESTS, marked ^ SOAK_TESTS
+        job = _code(self._job())
+        assert '-m "not perf and not soak"' in job
+        settings = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+        assert '"soak: ' in settings, "the marker must be registered"
 
     def test_the_job_is_not_a_required_check(self) -> None:
         protection = json.loads((REPO / "quality" / "master-protection.json").read_text(encoding="utf-8"))

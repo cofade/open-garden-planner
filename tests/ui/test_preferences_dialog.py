@@ -70,6 +70,28 @@ class TestPreferencesDialog:
         assert dlg._google_maps_key.text() == ""
         assert "OGP_GOOGLE_MAPS_KEY" in dlg._google_maps_key._line_edit.placeholderText()
 
+    def test_touch_gestures_preference_round_trips(self, qtbot) -> None:
+        """#321: the Canvas checkbox shows the saved value and saves a change."""
+        from open_garden_planner.app.settings import get_settings
+
+        settings = get_settings()
+        original = settings.touch_gestures_enabled
+        try:
+            settings.touch_gestures_enabled = False
+            dlg = PreferencesDialog()
+            qtbot.addWidget(dlg)
+            assert dlg._touch_gestures_check.isChecked() is False
+
+            dlg._touch_gestures_check.setChecked(True)
+            dlg._save_and_accept()
+            assert get_settings().touch_gestures_enabled is True
+
+            restored = PreferencesDialog()
+            qtbot.addWidget(restored)
+            assert restored._touch_gestures_check.isChecked() is True
+        finally:
+            settings.touch_gestures_enabled = original
+
 
 class _FakeParentWindow:
     """Stands in for GardenPlannerApp: agent_api_running_url()/agent_api_write_token()."""

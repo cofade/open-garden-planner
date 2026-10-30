@@ -423,12 +423,23 @@ def _scenario_never(window: Any, _args: dict[str, Any]) -> Iterator[Any]:
     yield 700
 
 
+#: How long "visible" waits for the host's first frame after the workspace reports
+#: running. A software rasteriser (CI's WARP/llvmpipe) can need ~13 s (#535); the wait
+#: costs nothing when the frame is already there (the host returns at once).
+VISIBLE_WAIT_S = 30.0
+
+
 def _scenario_visible(window: Any, args: dict[str, Any]) -> Iterator[Any]:
     _enter(window, str(args.get("mode", "3d")))
     step("entered", **workspace_facts(window))
     yield _running(window)
     yield _settled(window)
     yield 400
+    host = window._workspace.host
+    if host is not None:
+        # "visible" is a live view, not a deadline: wait for the first frame so a
+        # slow software adapter reports `live` rather than `starting` (#540).
+        host.wait_ready(VISIBLE_WAIT_S)
     step("visible", **workspace_facts(window))
 
 

@@ -634,6 +634,11 @@
     "state": "CLOSED",
     "title": "The 2D canvas has two unbounded costs a large or crafted plan can hit: path-style painting along the whole line and a z-order refresh per added item"
   },
+  "451": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a polygon whose holes touch its outer ring can hold the GUI thread for 0.6–1.5 s before it is refused"
+  },
   "453": {
     "is_pr": false,
     "state": "CLOSED",
@@ -788,6 +793,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "3D View and Alt+1/2/3 do nothing visible from any tab other than Garden Plan"
+  },
+  "540": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "CI never runs the default 3D workspace on a real host; local WARP failures in the workspace/selection/default render files"
   },
   "542": {
     "is_pr": false,

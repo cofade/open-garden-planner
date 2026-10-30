@@ -28,6 +28,16 @@ docstring's); the BOUNDS are here. A bound that only a hardware adapter can meet
 
 The frozen gate exe runs the three G5 scenarios when ``OGP_WORKSPACE_GATE_EXE``
 names it (the build is not this test's job: ``installer/workspace_gate.spec``).
+
+**What CI runs (#540).** The ``render3d`` job runs this file with
+``-m "not perf and not soak" -k "closes_clean or start_that_died or compatibility_mode or
+try_hardware"``: the G5 close gates and the G6 compatibility starts on a real host, which
+no other workflow ever did. The G7 soaks are marked ``soak`` and stay local — twenty app
+child processes per test, minutes each on a software rasteriser. The full file on a
+developer machine is still ``-m "perf or not perf"``. The startup invariant "no engine
+before 3D is asked for" is already covered by G5's *never opened* row (line ~118), which is
+in the CI subset; the budget version in ``test_view3d_default_render.py`` stays local with
+the other wall-clock bounds.
 """
 
 from __future__ import annotations
@@ -50,6 +60,8 @@ pytestmark = render_tier
 #: G2 and G11 read the wall clock: they carry ``perf`` as well (ADR-058) and run only
 #: when it is asked for — the whole file on the GPU is
 #: ``OGP_RENDER3D=1 pytest tests/integration/test_view3d_workspace_render.py -m "perf or not perf" -n 0``.
+#: ``soak`` marks the G7 memory soaks (#540): twenty app children each, local only; the
+#: render3d CI job selects ``not perf and not soak``.
 
 #: ADR-048, criterion 10, fixed before run v9 was read: the Theil–Sen slope of committed
 #: memory over the second half of 20 reloads stays below this many MB per reload.
@@ -130,7 +142,12 @@ def test_the_app_closes_clean_with_3d_visible(visible: GateRun) -> None:
     assert shown["qml_warnings"] == [] and shown["scene_graph_error"] is None
     assert shown["off_gui_thread"] == 0, "no Python ran on Qt's render thread"
     assert shown["guard_mode"] == "hardware" and shown["guard_files"] == []
-    assert shown["compat"] == "" and shown["message"] == "" and shown["status"] == ""
+    if _software(visible.qt["adapter"]):
+        # #535/#540: a software-only adapter (CI's WARP on Windows, llvmpipe on Linux) is
+        # DETECTED and the workspace says so — the "no notice" half is hardware-only.
+        assert "compatibility mode" in shown["compat"], shown
+    else:
+        assert shown["compat"] == "" and shown["message"] == "" and shown["status"] == ""
     assert shown["recoveries"] == 0 and shown["last_error"] is None
     assert "PyQt6.QtQuick3D" in shown["quick_modules"]
     entered = visible.step("entered")
@@ -246,7 +263,13 @@ def test_try_hardware_takes_effect_with_the_next_start(compat: dict[str, GateRun
     assert "next time" in during["compat"] and during["guard_files"] == []
     back = _clean(compat["back"]).step("visible")
     assert back["guard_mode"] == "hardware" and back["prefers_software"] is False
-    assert back["compat"] == "" and back["guard_files"] == [] and back["state"] == "running"
+    if _software(compat["back"].qt["adapter"]):
+        # On a software-only machine "try hardware" cannot find one: the guard is back in
+        # hardware mode, the adapter detection says compatibility and the notice stays.
+        assert "compatibility mode" in back["compat"], back
+    else:
+        assert back["compat"] == ""
+    assert back["guard_files"] == [] and back["state"] == "running"
     MEASURED.setdefault("G6", {})["adapter_after_try_hardware"] = compat["back"].qt["adapter"]
 
 
@@ -407,6 +430,7 @@ def soak_rebuild_on(scratch: Path) -> dict[str, Any]:
     return _soak(scratch, "rebuild_on", ground="on")
 
 
+@pytest.mark.soak
 def test_twenty_rebuilds_of_the_engine_scene_stay_under_the_leak_bound(
         soak_rebuild_on: dict[str, Any]) -> None:
     """ADR-048 criterion 10's leak half, in the production host, the view PRESENTING, the
@@ -421,6 +445,7 @@ def test_twenty_rebuilds_of_the_engine_scene_stay_under_the_leak_bound(
         soak, "curve_mb")
 
 
+@pytest.mark.soak
 def test_the_workspace_released_the_engines_caches_after_every_rebuild(
         soak_rebuild_on: dict[str, Any]) -> None:
     soak = soak_rebuild_on
@@ -428,6 +453,7 @@ def test_the_workspace_released_the_engines_caches_after_every_rebuild(
     assert soak["same_image_at_the_end"] is True, "twenty releases changed a pixel"
 
 
+@pytest.mark.soak
 def test_dedicated_gpu_memory_does_not_grow_with_the_rebuilds(soak_rebuild_on: dict[str, Any]) -> None:
     """What private bytes cannot see (ADR-048: "on a discrete GPU the gate is blind to
     VRAM leaks"): DXGI's own figure for THIS process on the adapter's local segment."""
@@ -444,6 +470,7 @@ def test_dedicated_gpu_memory_does_not_grow_with_the_rebuilds(soak_rebuild_on: d
     "buffer manager's maps) stops the leak - NOT strict: on bench_small the leak reads 9.3 to "
     "11.4 MB per rebuild on the RTX 4070 (eight runs, 2026-10-19; seven under 10), against the "
     "plain bound of 10, so a pass does not tell a fix from noise (review 3, P1-2; L1.5 report)"))
+@pytest.mark.soak
 def test_without_532_dedicated_gpu_memory_would_stay_under_the_plain_leak_bound(
         soak_rebuild_on: dict[str, Any]) -> None:
     """The TRIPWIRE: the product's GPU slope against the plain ``LEAK_BOUND_MB_PER_RELOAD``
@@ -456,6 +483,7 @@ def test_without_532_dedicated_gpu_memory_would_stay_under_the_plain_leak_bound(
     assert soak["gpu_slope_second_half_mb_per_reload"] < LEAK_BOUND_MB_PER_RELOAD, soak["gpu_curve_mb"]
 
 
+@pytest.mark.soak
 def test_the_same_rebuilds_stay_under_the_bound_in_a_view_that_presents_nothing(
         scratch: Path) -> None:
     """The second slope of the gate: the same twenty rebuilds while the view presents no
@@ -474,6 +502,7 @@ def test_the_same_rebuilds_stay_under_the_bound_in_a_view_that_presents_nothing(
     assert soak["presented_again"] is True
 
 
+@pytest.mark.soak
 def test_identical_reloads_re_admit_only_forged_plants_and_stay_flat(scratch: Path) -> None:
     soak = _soak(scratch, "rebuild_off")
     _took_no_frame(soak)
@@ -484,6 +513,7 @@ def test_identical_reloads_re_admit_only_forged_plants_and_stay_flat(scratch: Pa
         soak, "curve_mb")
 
 
+@pytest.mark.soak
 def test_the_positive_control_fails_on_exactly_that_gate(
         scratch: Path, soak_rebuild_on: dict[str, Any]) -> None:
     """25 MB kept alive per reload BEYOND what the gate allows for #532, on the same
@@ -500,6 +530,7 @@ def test_the_positive_control_fails_on_exactly_that_gate(
         soak, "curve_mb")
 
 
+@pytest.mark.soak
 def test_what_the_soak_reads_without_the_release_is_reported(scratch: Path) -> None:
     """The A of the A/B, never judged: the same soak — presenting, no readback — with
     the workspace's release out of reach. On Direct3D 11 with a hardware adapter it
@@ -511,6 +542,7 @@ def test_what_the_soak_reads_without_the_release_is_reported(scratch: Path) -> N
     assert soak["in_the_loop"]["frames_read_back"] == 0
 
 
+@pytest.mark.soak
 def test_a_release_inside_the_pass_holds_on_a_real_device_too(scratch: Path) -> None:
     """The "at once" rule — what an animated date runs into — releases from INSIDE the
     pipeline's pass, right after Models were destroyed and created. Here every
@@ -525,6 +557,7 @@ def test_a_release_inside_the_pass_holds_on_a_real_device_too(scratch: Path) -> 
 
 
 @pytest.mark.parametrize("release", ["product", "flood"])
+@pytest.mark.soak
 def test_model_churn_alone_stays_under_the_plain_leak_bound(scratch: Path, release: str) -> None:
     """The ADDITIONAL variant: the same rebuilds with the ground bake OFF (a plain plan
     rectangle) — what a destroyed MODEL leaves behind, alone, as ADR-060 decision 15 first
@@ -548,6 +581,7 @@ def test_model_churn_alone_stays_under_the_plain_leak_bound(scratch: Path, relea
         assert gpu < LEAK_BOUND_MB_PER_RELOAD, soak["gpu_curve_mb"]
 
 
+@pytest.mark.soak
 def test_what_a_readback_per_rebuild_costs_a_view_that_presents_nothing_is_reported(
         scratch: Path) -> None:
     """Why nothing takes a frame from the live view, as a number in the report and never
