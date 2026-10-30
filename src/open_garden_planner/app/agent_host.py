@@ -818,21 +818,15 @@ class AgentHost:
     def _agent_move_item_deltas(
         self, item: Any, delta: Any
     ) -> list[tuple[Any, Any]]:
-        """``(item, delta)`` pairs for one move: the item plus every contained
-        plant, uniformly offset — the release-time equivalent of
+        """``(item, delta)`` pairs for one move: the item plus unconstrained
+        contained plants, uniformly offset — the release-time equivalent of
         ``CanvasView._propagate_bed_children_during_drag``. A plain plant/shape
         with no children returns just itself."""
         host = self._host
-        from open_garden_planner.core.object_types import is_plant_parent_type
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.core.commands import expand_with_bed_children
 
-        item_deltas: list[tuple[Any, Any]] = [(item, delta)]
-        if isinstance(item, GardenItemMixin) and is_plant_parent_type(item.object_type):
-            for child_id in item.child_item_ids:
-                child = host.canvas_scene.find_item_by_id(child_id)
-                if child is not None:
-                    item_deltas.append((child, delta))
-        return item_deltas
+        return expand_with_bed_children(host.canvas_scene, [(item, delta)])
+
 
 
     def _agent_reconcile_bed_membership_command(

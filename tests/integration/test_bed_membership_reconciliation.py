@@ -888,3 +888,60 @@ class TestTheRealEditSurfaces:
         canvas.command_manager.undo()
         assert plant.parent_bed_id == bed.item_id
         assert plant.item_id in bed.child_item_ids
+
+
+@pytest.mark.parametrize("path", ["nudge", "drag", "agent"])
+@pytest.mark.parametrize("child_constraint", ["fixed", "distance"])
+def test_implicit_bed_move_preserves_constrained_child(
+    window: object, path: str, child_constraint: str,
+) -> None:
+    """Real entry paths must not pre-expand a constrained child as an explicit move."""
+    from PyQt6.QtGui import QKeyEvent
+
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    canvas = window.canvas_view
+    bed = _bed(canvas)
+    plant = _plant(canvas, 500.0, 400.0)
+    plant_before = QPointF(plant.pos())
+    bed_before = QPointF(bed.pos())
+    ref = AnchorRef(plant.item_id, AnchorType.CENTER)
+    graph = canvas._canvas_scene.constraint_graph
+    if child_constraint == "fixed":
+        graph.add_constraint(
+            ref, ref, 0.0, constraint_type=ConstraintType.FIXED,
+            target_x=plant_before.x(), target_y=plant_before.y(),
+        )
+    else:
+        other = RectangleItem(1200.0, 350.0, 100.0, 100.0)
+        canvas.scene().addItem(other)
+        graph.add_constraint(
+            ref, AnchorRef(other.item_id, AnchorType.CENTER), 750.0,
+            constraint_type=ConstraintType.DISTANCE,
+        )
+    depth_before = canvas.command_manager.undo_depth
+    if path == "nudge":
+        bed.setSelected(True)
+        event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Right, Qt.KeyboardModifier.ShiftModifier)
+        canvas._move_selected_items(event)
+    elif path == "agent":
+        result = window._agent_move_object(str(bed.item_id), 700.0, 0.0)
+        assert result["children_moved"] == 0
+    else:
+        canvas._drag_start_positions = {bed: QPointF(bed.pos())}
+        bed.moveBy(700.0, 0.0)
+        canvas._propagate_bed_children_during_drag()
+        assert plant.pos() == plant_before
+        canvas._finalize_drag_move()
+    assert plant.pos() == plant_before
+    assert bed.pos() != bed_before
+    assert canvas.command_manager.undo_depth == depth_before + 1
+    after = QPointF(bed.pos())
+    canvas.command_manager.undo()
+    assert bed.pos() == bed_before
+    assert plant.pos() == plant_before
+    assert plant.parent_bed_id == bed.item_id
+    canvas.command_manager.redo()
+    assert bed.pos() == after
+    assert plant.pos() == plant_before

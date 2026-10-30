@@ -49,6 +49,7 @@ from open_garden_planner.core.alignment import (
     align_items,
     distribute_items,
 )
+from open_garden_planner.core.commands import bed_child_has_constraints
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
 from open_garden_planner.core.object_types import (
     ObjectType,
@@ -3039,10 +3040,7 @@ class CanvasView(QGraphicsView):
                     if (
                         child is not None
                         and id(child) not in selected_set
-                        and not (
-                            isinstance(child, GardenItemMixin)
-                            and child.item_id in fixed_ids
-                        )
+                        and not bed_child_has_constraints(self._canvas_scene, child_id)
                     ):
                         extra_children.append(child)
                         selected_set.add(id(child))
@@ -3158,7 +3156,7 @@ class CanvasView(QGraphicsView):
                 continue
             for child_id in item.child_item_ids:
                 child = self._canvas_scene.find_item_by_id(child_id)
-                if child is None:
+                if child is None or bed_child_has_constraints(self._canvas_scene, child_id):
                     continue
                 # Skip if child is already being dragged independently
                 if child in self._drag_start_positions:
@@ -3234,7 +3232,11 @@ class CanvasView(QGraphicsView):
                 continue
             for child_id in item.child_item_ids:
                 child = self._canvas_scene.find_item_by_id(child_id)
-                if child is None or child in self._drag_start_positions:
+                if (
+                    child is None
+                    or child in self._drag_start_positions
+                    or bed_child_has_constraints(self._canvas_scene, child_id)
+                ):
                     continue
                 # Track the child's original position only once. On the first sighting
                 # it has NOT moved yet, so its position IS that origin - subtracting

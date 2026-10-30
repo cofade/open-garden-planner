@@ -3579,7 +3579,7 @@ cannot reverse; the owner's skipped-undo report itself was not reproduced and
 its root cause is not claimed. ADR-037 addendum, §11.4.
 
 **Validation.** New suites `tests/integration/test_bed_membership_reconciliation.py`
-(27 tests, including the Properties-panel resize, the agent `set_vertex` path,
+(33 tests, including the Properties-panel resize, the agent `set_vertex` path,
 mirror-Move undo/redo, EQUAL-partner resizes, the real constraint-tool path
 with move/rotation/vertex payloads, one-shot solver moves, the click path and
 unrelated-bed scoping) and

@@ -1303,7 +1303,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/001-1-truth-before-beauty-non-negotiable.md",
           "sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158",
-          "current_sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158"
+          "current_sha256": "082f5b68cbc66941e95e7f2a781439956d8297c57d011d93a21b66b8e82fac6e"
         },
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/002-2-style-table.md",
@@ -2703,7 +2703,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/001-1-truth-before-beauty-non-negotiable.md",
           "sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158",
-          "current_sha256": "5590c1d8449ae4e95350615c7b813848f1a07fdeb1d0b07f068734de8b74c158"
+          "current_sha256": "082f5b68cbc66941e95e7f2a781439956d8297c57d011d93a21b66b8e82fac6e"
         },
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/002-2-style-table.md",
@@ -2892,6 +2892,14 @@
       "fragments": [
         "003-1-invariants-the-heart-of-this-skill.md",
         "005-3-the-write-path-command-pattern-8-2-adr-004.md"
+      ]
+    },
+    {
+      "pr": 649,
+      "reason": "Issue #443 reconciles membership when a bed is created around an existing plant. Correct the obsolete Base truth-gate limit in both libraries; retain original migration hashes.",
+      "fragments": [
+        ".agents\\skills\\ogp-lush-cinematic\\references\\001-1-truth-before-beauty-non-negotiable.md",
+        ".claude\\skills\\ogp-lush-cinematic\\references\\001-1-truth-before-beauty-non-negotiable.md"
       ]
     }
   ]
