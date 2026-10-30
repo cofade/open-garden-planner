@@ -386,7 +386,7 @@
   },
   "321": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Touch input: pinch-to-zoom + two-finger pan on the canvas (standalone, low priority)"
   },
   "324": {
@@ -636,7 +636,7 @@
   },
   "451": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: a polygon whose holes touch its outer ring can hold the GUI thread for 0.6–1.5 s before it is refused"
   },
   "453": {
@@ -796,7 +796,7 @@
   },
   "540": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "CI never runs the default 3D workspace on a real host; local WARP failures in the workspace/selection/default render files"
   },
   "542": {
@@ -1048,5 +1048,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(3D): Visual polish and engine hardening package (#535, #578, #576, #619, #589, #582, #615)"
+  },
+  "650": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#321, #451, #540): canvas touch gestures, bridge-search pricing, and the render tier's workspace gates"
   }
 }

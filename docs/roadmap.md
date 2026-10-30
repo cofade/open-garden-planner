@@ -142,7 +142,7 @@ Adds full Spanish localization (`es`, "Español") matching the completeness of E
 | Status | ID   | Description            | Notes                                                         |
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
-| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453), A2 (#454) and A5 (#457) shipped in PRs #487, #490 and #489** — see the delivery-state sections in the reconciliation; epic #392 remains open |
+| ✅     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453), A2 (#454) and A5 (#457) shipped in PRs #487, #490 and #489; the remaining A4/A6/A7/A9/A12/A13 completed in v1.34.5 (PR #640)** — epic #392 closed |
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
 | ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
@@ -3627,7 +3627,7 @@ Targeted bugfix package addressing four high-priority defects across solar expos
 Shipped in v1.34.6 (PR #645) after full owner manual testing, a clean senior-reviewer pass, and protected merge. The gravel correction in the same PR makes 3D relief follow the canonical rounded painted rim within its relief budget, including caps and holes.
 
 
-### 3D visual and engine hardening package (#535, #578, #576, #619, #589, #582, #615)
+### 3D visual and engine hardening package (#535, #578, #576, #619, #589, #582, #615) — **shipped 2026-10-29 as v1.34.7, PR #647**
 
 Visual polish, engine hardening, and performance bounds for the Qt Quick 3D and solar simulation subsystems:
 
@@ -3644,7 +3644,7 @@ Visual polish, engine hardening, and performance bounds for the Qt Quick 3D and 
 Shipped in v1.34.7 (PR #647) after full owner manual testing, a clean senior-reviewer pass, and protected merge.
 
 
-### Touch gestures, region-work pricing, and the render tier's missing workspace gates (#321, #451, #540)
+### Touch gestures, region-work pricing, and the render tier's missing workspace gates (#321, #451, #540) — **shipped 2026-10-30 as v1.34.8, PR #650**
 
 Three independent gaps in what the application promises, closed together on one branch.
 
@@ -3702,5 +3702,7 @@ Three independent gaps in what the application promises, closed together on one 
    without pulling the budget file in. The CI job's text pin in `test_quick3d_packaging.py`
    grew the file, the filter and the marker registration.
 
-Delivered as a draft PR; the owner's manual tests are touch on a real device and an ordinary
-2D/3D plan after the region re-price.
+Shipped in **v1.34.8** (PR #650) after owner acceptance. The owner accepted the touch
+path on the automated evidence (15 integration tests + review) because no physical touch
+device was available; the hardware checklist is recorded in the PR. #451's ordinary-plan
+check and #540's CI rows passed.

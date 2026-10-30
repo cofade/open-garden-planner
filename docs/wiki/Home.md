@@ -42,8 +42,8 @@ Worker lifecycle safety, bounded caches, and test hygiene (#480, #483, #482, #47
 [PR #498](https://github.com/cofade/open-garden-planner/pull/498) after owner acceptance:
 clean worker shutdown on application exit, bounded furniture rendering cache, FR ID deduplication, and Ctrl+F/Ctrl+H shortcut resolution.
 
-[#392](https://github.com/cofade/open-garden-planner/issues/392) remains open for
-packages A3–A4 and A6–A13.
+[#392](https://github.com/cofade/open-garden-planner/issues/392) is complete: the
+remaining audit packages A4/A6/A7/A9/A12/A13 shipped in v1.34.5 (PR #640).
 
 Phase 17's L0 investigation is complete with a **GO** decision, and L1 is complete: one shared simulation date and time for the sun, shadow, heatmap and 3D tools shipped in v1.29.10 ([PR #429](https://github.com/cofade/open-garden-planner/pull/429)), and the new 3D view shipped in [v1.30.14](https://github.com/cofade/open-garden-planner/releases/tag/v1.30.14) via [PR #484](https://github.com/cofade/open-garden-planner/pull/484) after owner acceptance.
 The 3D view is now a Qt Quick 3D workspace beside the plan (Plan / 3D / Split), and the separate Qt 3D window is removed.
@@ -112,10 +112,16 @@ agent move atomicity and holder sun in
 [PR #639](https://github.com/cofade/open-garden-planner/pull/639); and audit packages
 A4/A6/A7/A9/A12/A13 (completing epic #392) in
 [v1.34.5](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.5) via
-[PR #640](https://github.com/cofade/open-garden-planner/pull/640); and precision,
+[PR #640](https://github.com/cofade/open-garden-planner/pull/640); precision,
 UI and diagnostic bugfixes in
 [v1.34.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.6) via
-[PR #645](https://github.com/cofade/open-garden-planner/pull/645).
+[PR #645](https://github.com/cofade/open-garden-planner/pull/645); 3D visual and
+engine hardening in
+[v1.34.7](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.7) via
+[PR #647](https://github.com/cofade/open-garden-planner/pull/647); and canvas
+touch gestures, region-work pricing and the render tier's workspace rows in
+[v1.34.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.8) via
+[PR #650](https://github.com/cofade/open-garden-planner/pull/650).
 
 ## Community
 
