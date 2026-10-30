@@ -6128,7 +6128,10 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     (tile Models are not counted), but EVERY release the workspace makes leaks (ADR-060): at
     64 items that lost their Models and half a second of quiet, or at once at 512 — a delete
     or a regrow of that many, a document change, and a DATE change on a planted plan (every
-    dated plant regrows: an animated date releases each time 512 Models have piled up). Each
+    dated plant regrows: an animated date releases each time 512 Models have piled up). Qt can
+    also release on its own (read in the source, not tested): `~QQuick3DWindowAttachment()`
+    queues `QQuickWindow::releaseResources()` when its pending cleanup queue is not empty
+    (`qquick3dscenemanager.cpp`, v6.11.0 line 596). Each
     release keeps about half of the ground's same-size tiles. The largest ground is about
     4096² px (limit 5: larger plans are baked coarser) — ~85 MB with its mip chain, so up to
     ~42 MB per release; bench_small's ground (2400 × 1600 px in 20 tiles, 19.5 MiB with mips)
@@ -6146,18 +6149,30 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     as Model churn alone, against the plain bound. *A fix:* upstream Qt, or a tile path outside
     the buffer manager's maps that passes G7. *Upstream:* filed on 2026-10-30 as
     [QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940) (component Quick: 3D,
-    affects 6.11.0 and 6.12.0), with a single-file QML reproducer that does not use this
-    project and the owner's safeguards of #532. Read on 2026-10-30, the loop is unchanged in
+    affects 6.11.0 and 6.12.0). Its reproducer is committed as
+    `docs/09-architecture-decisions/adr-048-evidence/qtbug-151940/texturedata_release_leak.qml`;
+    that folder's README says how to run it. Read on 2026-10-30, the loop is unchanged in
     qtquick3d v6.11.3, v6.12.0 and `dev` (eaf90eeb8c32), and the reproducer leaks the same on
-    6.12.0 as on 6.11.0 — a Qt bump alone does not fix it. How much leaks depends on the
-    process's `QHash` seed: 6 to 8 of 16 same-size 512² textures per release (`QT_HASH_SEED=0`:
-    6 in every run), 26 to 32 of 64 — below the gate's 0.6 share. *Re-check* (this entry and
-    TD-040 replace #532 as the tracker): on every Qt pin bump in `pyproject.toml`, look at
-    QTBUG-151940. When its fix version is at or below the new pin, run the G7 soak with the bake
-    on, read the tripwire (it passes once the leak is gone), drop or re-derive the allowance
-    (`KNOWN_532_SHARE` in `tests/integration/test_view3d_workspace_render.py`) and update this
-    entry. If Qt closes the report without a fix, record the reason here and in TD-040 and mark
-    the limitation permanent.
+    6.12.0 as on 6.11.0 — a bump to 6.11.3 or 6.12.0 does not fix it. How much leaks depends on
+    the process's `QHash` seed: 6 to 8 of 16 same-size 512² textures per release
+    (`QT_HASH_SEED=0`: 6 in every run), 26 to 32 of 64 same-size 256² textures — below the
+    gate's 0.6 share.
+    *Re-check* (this entry and TD-040 replace #532 as the tracker). Triggers: every Qt pin bump
+    in `pyproject.toml`, and every change of QTBUG-151940 (the owner reported it from their
+    account, which watches it; a "Need More Info" there is answered from that account). Steps:
+    (1) Read `QSSGBufferManager::clear()` at the new pin's qtquick3d tag. If the
+    `customTextureMap` loop still iterates while `releaseTextureData()` erases, only the
+    versions named here and in TD-040 move. (2) If it changed, run the reproducer under the new
+    runtime (WARP presents with the display asleep): the leak is gone when `registeredTextures`
+    stays at 16 in all 10 cycles while `framesRendered` rises. (3) Then run G7 several times on
+    a hardware adapter with the display awake
+    (`OGP_RENDER3D=1 venv/Scripts/python.exe -m pytest tests/integration/test_view3d_workspace_render.py -m soak -n 0`):
+    the bake-on GPU slope must fall into the bake-off range (0.0 to +0.8 MB per rebuild). The
+    tripwire alone proves nothing: it passes with the leak in most runs (§8.10.9). (4) Remove
+    `KNOWN_532_SHARE`, the allowance and the tripwire, and update §8.10.9, ADR-048 criterion 10,
+    TD-040 (`fixed`), reference 13 of the `ogp-3d-renderer` skill and the comment at the Qt pin
+    in `pyproject.toml`. If Qt closes the report without a fix, record the reason here and in
+    TD-040 and mark the limitation permanent.
     *The first measurements, as taken* (before the cause was known — their "re-baked tiles
     only" reading is superseded above): the workspace calls `QQuickWindow.releaseResources()`
     when items lost their Models (ADR-060). When ground tiles were RE-BAKED before such a

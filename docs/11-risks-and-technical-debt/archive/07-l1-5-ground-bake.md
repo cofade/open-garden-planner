@@ -298,10 +298,8 @@ from the soak's OWN ground (0.6 × tile-texture bytes per release × releases pe
 run stays as Model churn alone. Whether 3D may become the default view while #532 is open was
 the owner's decision (put to them with the measured exposure), not a roadmap blocker; they
 shipped it at the L1 pull request (2026-10-19, ADR-060 addendum D5). The fix
-is upstream Qt's (a report draft for the owner; filed on 2026-10-30 as
-[QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940), see §8.29.5 known limit 11
-and TD-040) or a tile path outside the buffer manager's maps that also passes G7. The probe is
-in the story's scratch (`probe_release_driver.diff`).
+is upstream Qt's (a report draft for the owner) or a tile path outside the buffer manager's
+maps that also passes G7. The probe is in the story's scratch (`probe_release_driver.diff`).
 *Lesson:* a soak that passes alone (G6: re-bakes, no release) and one that passes alone (G7:
 releases, no textures replaced) can both be green while their combination leaks — run the
 product's own policy against the new kind of resource. And gate what ships: an allowance for a

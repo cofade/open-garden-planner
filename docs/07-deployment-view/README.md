@@ -522,7 +522,8 @@ The runbook for acting on the monthly issue:
 2. Keep the Qt pair (`PyQt6`, `PyQt6-Qt6`) on one micro (two wheels since Phase 17 L1.10
    removed the old 3D view's pair; `tests/unit/test_qt_runtime_pins.py`)
    and keep `PyQt6-WebEngine` below 6.11 and `mcp` on v1; `tests/unit/test_dependency_governance.py`
-   pins those caps.
+   pins those caps. A new Qt micro also triggers the QTBUG-151940 re-check (TD-040, §8.29.5 known
+   limit 11).
 3. `python scripts/check_dependency_lock.py` (lock/export agreement) and the full gates,
    including the frozen-exe smoke and `--selftest` — a dependency change is exactly what
    those checks exist for.
