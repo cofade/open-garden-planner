@@ -142,7 +142,7 @@ Adds full Spanish localization (`es`, "Español") matching the completeness of E
 | Status | ID   | Description            | Notes                                                         |
 |--------|------|------------------------|---------------------------------------------------------------|
 | ✅     | DI-1 | SAST pipeline (Bandit) | HIGH-severity scan in CI; `bandit>=1.7.0` added as dev dep   |
-| 🔄     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453), A2 (#454) and A5 (#457) shipped in PRs #487, #490 and #489** — see the delivery-state sections in the reconciliation; epic #392 remains open |
+| ✅     | DI-2 | Repository audit 2026-10 | Historical snapshot preserved; [current reconciliation and packages A1–A13](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md) account for 73 P2/P3 findings; all 15 original standalone P0/P1 remediations are complete after #406 in v1.30.2 (PR #477); **A1 (#453), A2 (#454) and A5 (#457) shipped in PRs #487, #490 and #489; the remaining A4/A6/A7/A9/A12/A13 completed in v1.34.5 (PR #640)** — epic #392 closed |
 | ✅     | DI-3 | i18n blind-spot hardening | Unique `TRANSLATIONS` keys + shared `active_language()` + full-tree ruff; issues #393/#408/#410; v1.29.2 (PR #411); §11.4, ADR-045 addendum |
 | ✅     | DI-4 | Serialization & Data Integrity Hardening | Free-text annotations (`TextItem`) in `.ogp` + roundtrip matrix tests (#394), clipboard serializer unification (#400), background image placeholder & UUID deduplication (#397), atomic two-phase plan loading & autosave safety (#403); v1.29.4 (PR #412); §11.3, §11.4 |
 | ✅     | DI-5 | CI and release hardening | Locked dependencies, platform type budgets, package coverage floors, and administrator-enforced checks; issues #404/#401/#402/#399; v1.29.6 (PR #422); ADR-050 |
@@ -3583,7 +3583,7 @@ its root cause is not claimed. ADR-037 addendum, §11.4.
 mirror-Move undo/redo, EQUAL-partner resizes, the real constraint-tool path
 with move/rotation/vertex payloads, one-shot solver moves, the click path and
 unrelated-bed scoping) and
-`tests/integration/test_constrained_rotation.py` (19, including the
+`tests/integration/test_constrained_rotation.py` (21, including the
 full-application rotate → save → reload workflow, partner plants/beds/vertices, a live deformable-partner recording
 a real swallowed release, FIXED/independently solved children, and a returned-to-start
 angle with partner corrections), and the knowingly updated pinned suite
@@ -3600,6 +3600,9 @@ Step 5 requires owner re-test on the rebuilt artifact; the other confirmations
 remain recorded. The suspected parallel geometry was not reproduced, but
 its indicator was attached to the wrong rectangle edge; edge-type matching
 now fixes that display error and the tests assert the connector endpoints.
+Integration with the newly merged PR #650 also preserves the partner snapshots
+when a pinch takes over a live rotation handle; started/adopted gesture paths
+now commit angle and partner in one undo step.
 
 ### Every item with a footprint can be given a height (#628) — **shipped 2026-10-28 as v1.34.3, PR #627**
 
@@ -3687,7 +3690,7 @@ Targeted bugfix package addressing four high-priority defects across solar expos
 Shipped in v1.34.6 (PR #645) after full owner manual testing, a clean senior-reviewer pass, and protected merge. The gravel correction in the same PR makes 3D relief follow the canonical rounded painted rim within its relief budget, including caps and holes.
 
 
-### 3D visual and engine hardening package (#535, #578, #576, #619, #589, #582, #615)
+### 3D visual and engine hardening package (#535, #578, #576, #619, #589, #582, #615) — **shipped 2026-10-29 as v1.34.7, PR #647**
 
 Visual polish, engine hardening, and performance bounds for the Qt Quick 3D and solar simulation subsystems:
 
@@ -3702,3 +3705,67 @@ Visual polish, engine hardening, and performance bounds for the Qt Quick 3D and 
 6. **#615: Ground-bake benchmark bound alignment.** Aligned `test_scene3d_ground_bake.py` G3 test comments and docstrings with the shipped 20 ms / 2 passes contract for 4-tile edits (`BAKE_BUDGET_S`).
 
 Shipped in v1.34.7 (PR #647) after full owner manual testing, a clean senior-reviewer pass, and protected merge.
+
+
+### Touch gestures, region-work pricing, and the render tier's missing workspace gates (#321, #451, #540) — **shipped 2026-10-30 as v1.34.8, PR #650**
+
+Three independent gaps in what the application promises, closed together on one branch.
+
+1. **#321 — pinch-to-zoom and two-finger pan on the canvas.** The viewport grabs Qt's
+   **`QPinchGesture`** recognizer, which starts only when a second finger is down: a
+   single-finger tap or drag is never claimed and keeps arriving as the synthesised mouse
+   event the tools already handle. A pinch zooms about the gesture centre through **the
+   wheel's own `_zoom_at` helper**, and two fingers dragged pan through **the middle mouse
+   button's own `_pan_by` helper**, so clamping, the 1-pixel anchor compensation,
+   `zoom_changed`, the minimap and the rulers cannot drift between the two input paths. The
+   order is pan first, then zoom about the new centre (the other order drifts by
+   `(1 - ratio) × delta` when a pinch also moves), and the centre Qt reports is a
+   screen point, mapped to the viewport once. Qt synthesises a mouse press for the
+   first finger before the second lands; a pinch puts back a move that press began
+   (no undo step), discards a half-made shape, restores a selection cleared on
+   empty canvas, and releases the press at the point it was made — so a pinch never
+   drags the object under that finger (it may select it, as a tap does). A
+   resize/rotate/vertex handle being dragged is the stated exception: its normal
+   release finalizes that edit as one undo step. A trackpad pinch arrives as
+   `QNativeGestureEvent` and takes the same zoom path. The behaviour is the new
+   **Preferences → Canvas → "Enable touch gestures"** setting
+   (`canvas/touch_gestures_enabled`, default on); with it off no gesture is grabbed
+   at all. Tests drive the real `eventFilter` with synthetic
+   `QPinchGesture`/`QGestureEvent`s (PyQt6 constructs both), one moves the window
+   off the origin so the global-to-viewport mapping is exercised, and three pin the
+   outcome (a dragged item is back with no undo step; a cleared selection returns;
+   a handle drag keeps its anchored corner and one resize step);
+   real touchscreen delivery is the manual test on hardware (the issue's sovereign
+   test). A window-level test covers the startup and Preferences apply paths,
+   because that wiring is one line a future refactor can delete. See FR-CANVAS-04
+   and §8.9.12.
+
+2. **#451 — the work bound's bridge search is priced at what it costs.** The touching-holes
+   family was the one row of `scripts/measure_region_work.py` far above its price (3.6–8.1):
+   a block of bridge candidates was charged 60 units per edge, while a hole touching the wall
+   hides its nearest boundary vertices and takes block after block — 110 such holes held the
+   GUI thread for 0.6–1.5 s before the 3D snapshot refused them. `_BRIDGE_UNITS` is **600**:
+   the dearest row of the table is now **1.3 to 1.5**, 110 touching holes are refused in about
+   **0.07 s** (200 in 0.01 s, refused from their size before one bridge is searched). The
+   price is also the pre-cut size floor, so the refusal itself got cheap. Capacity moved
+   where the work really is: a slab of 49 touching holes now fits (89 before), square holes
+   88 (105), triangular 117 (146); frames and every non-bridging family are unchanged, and
+   the higher floor also refuses a crafted 25 × 25 line grid from its size where a 22 × 22 one
+   still resolves. Pinned by a bridge-call count (≤ 40 for 110 holes, 0 for 200), not a clock;
+   the script remains the timing gate. See §8.29.1, ADR-059 and the `debug-verbose` case study.
+
+3. **#540 — the default 3D workspace now runs in CI.** The `render3d` job used to exercise
+   only the engine package; no workflow ever started the workspace every user sees. It now
+   runs `test_view3d_workspace_render.py` filtered to the **G5 close gates and the G6
+   compatibility starts** (`-k "closes_clean or start_that_died or compatibility_mode or
+   try_hardware"`) on both OSes. The G7 memory soaks carry a new **`soak`** marker and stay
+   local (twenty app child processes each, minutes on a software rasteriser); the wall-clock
+   bounds already carried `perf`. G5's *never opened* row is also the real-host proof that
+   no Qt Quick module is imported before 3D is asked for, so the startup invariant is covered
+   without pulling the budget file in. The CI job's text pin in `test_quick3d_packaging.py`
+   grew the file, the filter and the marker registration.
+
+Shipped in **v1.34.8** (PR #650) after owner acceptance. The owner accepted the touch
+path on the automated evidence (15 integration tests + review) because no physical touch
+device was available; the hardware checklist is recorded in the PR. #451's ordinary-plan
+check and #540's CI rows passed.

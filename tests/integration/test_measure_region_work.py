@@ -57,8 +57,9 @@ def test_a_row_above_the_bound_fails_the_table_and_is_named(script: Any, capsys:
 
 
 def test_the_bound_is_the_stated_one_and_main_returns_the_verdict(script: Any) -> None:
-    """12: above the dearest family measured (holes that touch their wall, 3.6 to
-    8.1) and below the smallest of the two defects it exists for (14)."""
+    """12: above the dearest family measured (before #451 re-priced its bridge
+    search, holes that touch their wall stood at 3.6 to 8.1; the dearest row is
+    1.3 to 1.5 now) and below the smallest of the two defects it exists for (14)."""
     assert script.MAX_COST_TO_PRICE == 12.0
     (main,) = [node for node in ast.parse(SCRIPT.read_text(encoding="utf-8")).body
                if isinstance(node, ast.FunctionDef) and node.name == "main"]

@@ -338,7 +338,20 @@ a GitHub job.
 offscreen platform Qt Quick uses the software scene graph. The `render3d` job runs
 `tests/integration/test_quick3d_render.py`, `test_quick3d_engine.py`,
 `test_quick3d_selftest.py`, `test_quick3d_lifecycle.py` and — the baked ground, L1.5 —
-`test_scene3d_ground_render.py` with a driver process on a real Qt platform (§8.10.8, §8.10.10). Both runners are GPU-less, so the job proves correctness on software
+`test_scene3d_ground_render.py` with a driver process on a real Qt platform (§8.10.8, §8.10.10).
+Since **#540** it also runs the **default workspace's** real-host lifecycle gates —
+`test_view3d_workspace_render.py` in a **separate pytest invocation** (a `-k` filter applies
+to the whole session, so it must not sit on the engine command), filtered to the G5 close rows
+and the G6 crash-marker / compatibility / try-hardware rows (`-k "closes_clean or
+start_that_died or compatibility_mode or try_hardware"`; 12 tests). Before that, no workflow
+ever started the workspace every user sees; only the engine package ran. The G7 memory soaks
+are marked `soak` and stay local (twenty app child processes per test, minutes on a software
+rasteriser), and the wall-clock bounds carry `perf`.
+On a software-only adapter the workspace detects the device (#535) and shows the compatibility
+notice, so the G5/G6 rows accept the notice where a hardware machine expects none — the run
+that proved the CI selection on 2026-10-30 used `QSG_RHI_PREFER_SOFTWARE_RENDERER=1` (WARP):
+9 passed, 3 skipped (the frozen-exe variants, which need `OGP_WORKSPACE_GATE_EXE`). Both
+runners are GPU-less, so the job proves correctness on software
 rasterisers — small frames, no sky light probe, timing budgets skipped — and it is deliberately
 not a required check. Measured locally (2026-10-11): the tier passes on an RTX 4070 and on
 WARP. **First run on GitHub's runners (commit af9300d, the first three files):** windows-latest

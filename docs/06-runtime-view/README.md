@@ -964,3 +964,9 @@ orientation component for FIXED members and for the reference object. It
 returns a free group's co-rotations, or refuses before any graph write.
 AddConstraintCommand applies a successful plan and its membership changes in
 one undo entry. Undo/redo replay the recorded payload; no fresh solve is needed.
+
+When a pinch takes over a live rotation handle (#649/#650 integration), the
+pointer cleanup discards ordinary move bookkeeping but retains the rotation's
+partner snapshots until the synthetic release commits the rotation command.
+Only after that release are the partner snapshots cleared. A normal item drag
+still rolls back before the pinch; resize/vertex handle behavior is unchanged.

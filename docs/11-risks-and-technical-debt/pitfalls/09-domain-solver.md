@@ -422,3 +422,9 @@ resolved EDGE_LEFT/0 to EDGE_TOP/0. Restrict that fallback to vertex-backed
 shapes. The orientation suite asserts the dashed connector's real endpoints
 against the selected edge midpoints, including undo/redo, and pins dynamic
 polygon/polyline edge reclassification.
+
+Touch takeover (#650 integration) is another release caller: clearing partner
+snapshots before its synthetic handle release loses the rotation's atomic undo.
+Retain them through release, then clear them. The started and adopted pinch
+regressions in `test_constrained_rotation.py` were observed failing first and
+assert both corrected geometry and one-step history.

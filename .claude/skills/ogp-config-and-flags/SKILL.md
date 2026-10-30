@@ -93,6 +93,7 @@ All rows **production** unless noted.
 | `canvas/perpendicular_snap_enabled` | `perpendicular_snap_enabled` | **`False`** | production, default-OFF opt-in precision aid (US-B5) |
 | `canvas/tangent_snap_enabled` | `tangent_snap_enabled` | **`False`** | production, default-OFF opt-in precision aid (US-B6) |
 | `canvas/dynamic_input_enabled` | `dynamic_input_enabled` | `True` | production (US-A4 cursor overlay + typed coordinates) |
+| `canvas/touch_gestures_enabled` | `touch_gestures_enabled` | `True` | production (#321 pinch zoom + two-finger pan; Preferences → Canvas; off leaves touch to Qt's synthesised mouse path) |
 
 All read by `ui/canvas/canvas_view.py` / the snap pipeline; toggled from the
 View menu. If a snap "doesn't work", check nearest/perpendicular/tangent first —

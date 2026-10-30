@@ -10,7 +10,7 @@ import contextlib
 import json
 import logging
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from open_garden_planner.core.commands import Command
@@ -18,7 +18,17 @@ if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.items import CircleItem
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
-from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import (
+    QCoreApplication,
+    QEvent,
+    QObject,
+    QPoint,
+    QPointF,
+    QRectF,
+    Qt,
+    QTimer,
+    pyqtSignal,
+)
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -26,13 +36,23 @@ from PyQt6.QtGui import (
     QFont,
     QKeyEvent,
     QMouseEvent,
+    QNativeGestureEvent,
     QPainter,
     QPaintEvent,
     QPen,
     QTransform,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QInputDialog, QLineEdit, QMenu
+from PyQt6.QtWidgets import (
+    QApplication,
+    QGestureEvent,
+    QGraphicsItem,
+    QGraphicsView,
+    QInputDialog,
+    QLineEdit,
+    QMenu,
+    QPinchGesture,
+)
 
 from open_garden_planner.core import (
     AddConstraintCommand,
@@ -238,6 +258,20 @@ class CanvasView(QGraphicsView):
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
+        # Touch gestures (#321): enabled by default, a sitting of the view; the app
+        # applies the saved preference after construction, as for the scale bar.
+        # ``_pinch_scale`` / ``_pinch_center`` carry the last values of Qt's own
+        # pinch gesture (cumulative scale, viewport centre) while it is active.
+        self._touch_gestures_enabled = True
+        self._pinch_scale: float | None = None
+        self._pinch_center: QPointF | None = None
+        #: The press Qt synthesised from the first finger (viewport point, button),
+        #: so a pinch that starts on an item can release it instead of dragging it.
+        self._touch_mouse_press: tuple[QPointF, Qt.MouseButton] | None = None
+        #: What was selected before that press, and whether it landed on an item:
+        #: a pinch over empty canvas restores the selection the press cleared.
+        self._touch_press_selection: list[QGraphicsItem] = []
+        self._touch_press_on_item = False
 
         # Drag-time bounding-box snapping engine and visual guides
         self._object_snapper = ObjectSnapper(threshold=10.0)
@@ -639,6 +673,11 @@ class CanvasView(QGraphicsView):
         # Accept drops from gallery panel
         self.setAcceptDrops(True)
 
+        # Pinch-to-zoom and two-finger pan (#321): the viewport is the widget the
+        # touch points land on, so it is where touch events are accepted and where
+        # the gesture filter sits. Off means Qt keeps synthesising mouse events.
+        self.set_touch_gestures_enabled(self._touch_gestures_enabled)
+
     def apply_theme_colors(self, colors: dict[str, str]) -> None:
         """Update overlay colors from the theme palette.
 
@@ -860,6 +899,259 @@ class CanvasView(QGraphicsView):
             factor: Zoom divisor (default 1.1 for smooth zooming)
         """
         self.set_zoom(self._zoom_factor / factor)
+
+    def _zoom_at(self, anchor: QPointF, factor: float) -> None:
+        """Zoom by ``factor``, keeping the scene point under ``anchor`` fixed.
+
+        THE one anchored-zoom path: the mouse wheel and the pinch gesture both
+        call it, so anchoring, clamping and the ``zoom_changed`` signal stay
+        identical (issue #321). ``anchor`` is in viewport pixels.
+
+        The body is the wheel's, with two differences stated here: a zoom that a
+        limit did not change returns early (nothing to re-apply or re-emit), and
+        the scrollbar compensation rounds rather than truncates its integer step.
+        """
+        new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
+        if new_zoom == self._zoom_factor:
+            return
+        old_scene_pos = self.mapToScene(anchor.toPoint())
+        self._zoom_factor = new_zoom
+        self._apply_transform()
+        self.zoom_changed.emit(self.zoom_percent)
+        # Scroll so the point under the anchor stays in the same screen position.
+        new_scene_pos = self.mapToScene(anchor.toPoint())
+        scroll_delta = old_scene_pos - new_scene_pos
+        self.horizontalScrollBar().setValue(
+            self.horizontalScrollBar().value()
+            + round(scroll_delta.x() * self._zoom_factor)
+        )
+        self.verticalScrollBar().setValue(
+            self.verticalScrollBar().value()
+            - round(scroll_delta.y() * self._zoom_factor)
+        )
+
+    def _pan_by(self, delta: QPointF) -> None:
+        """Scroll the plan by a drag of ``delta`` viewport pixels.
+
+        THE one pan path: the middle mouse button and the two-finger gesture both
+        call it, so scrollbars (and the minimap that listens to them) move alike
+        (issue #321). Map two points to scene so any transform — zoom, Y-flip —
+        is handled, and move opposite the finger.
+        """
+        center = self.viewport().rect().center()
+        scene_before = self.mapToScene(center)
+        scene_after = self.mapToScene(
+            QPoint(round(center.x() + delta.x()), round(center.y() + delta.y()))
+        )
+        scene_delta = scene_before - scene_after
+        self.centerOn(self.mapToScene(center) + scene_delta)
+
+    # Touch gestures (issue #321)
+
+    def set_touch_gestures_enabled(self, enabled: bool) -> None:
+        """Accept pinch-to-zoom and two-finger pan on the canvas viewport.
+
+        Qt's **own pinch recognizer** does the arbitration a hand-written state
+        machine gets wrong: it starts only when a second finger arrives, so a
+        single-finger tap or drag is never claimed and keeps arriving as a
+        synthesised mouse event — the tools' own path. With the preference off
+        nothing is grabbed and the viewport is exactly as it was before #321.
+        """
+        self._touch_gestures_enabled = enabled
+        viewport = self.viewport()
+        if enabled:
+            viewport.grabGesture(Qt.GestureType.PinchGesture)
+            viewport.installEventFilter(self)
+        else:
+            viewport.ungrabGesture(Qt.GestureType.PinchGesture)
+            viewport.removeEventFilter(self)
+            self._end_pinch()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Route pinch gestures and native trackpad gestures to the handlers."""
+        if watched is self.viewport() and self._touch_gestures_enabled:
+            kind = event.type()
+            if kind == QEvent.Type.MouseButtonPress:
+                # The first finger of a pinch is Qt's synthesised mouse press; remember
+                # where it landed and what it is about to change, so the pinch can
+                # release it (and put back a move) instead of dragging. PyQt6 has no
+                # source() accessor, so a real mouse press is tracked too: a mouse
+                # button held while a pinch starts is an interaction the gesture owns.
+                mouse = cast(QMouseEvent, event)
+                self._touch_mouse_press = (mouse.position(), mouse.button())
+                scene = self.scene()
+                self._touch_press_selection = list(scene.selectedItems()) if scene else []
+                # The selection is cleared only when no SELECTABLE item is under the
+                # press (the SelectTool rule); labels, badges and locked items do not
+                # count, or a pinch over one would fail to restore the selection.
+                self._touch_press_on_item = bool(scene) and any(
+                    item.isVisible()
+                    and item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+                    for item in scene.items(self.mapToScene(mouse.position().toPoint()))
+                )
+                return False
+            if kind == QEvent.Type.MouseButtonRelease:
+                self._touch_mouse_press = None
+                return False
+            if kind == QEvent.Type.Gesture:
+                return self._gesture(cast(QGestureEvent, event))
+            if kind == QEvent.Type.NativeGesture:
+                return self._native_gesture(cast(QNativeGestureEvent, event))
+        return super().eventFilter(watched, event)
+
+    def _gesture(self, event: QGestureEvent) -> bool:
+        """Apply an active pinch: pan by the fingers' movement, then zoom about them.
+
+        ``totalScaleFactor`` is cumulative over the gesture, so the factor applied
+        per step is the ratio to the last one; the fingers' centre moves with a
+        plain two-finger drag, which is the pan. Pan first (the content follows
+        the fingers), then zoom about their new centre — the other order leaves
+        a ``(1 - ratio) * delta`` drift on a pinch that also moves.
+
+        Qt reports the centre in **global** coordinates (its recognizer averages
+        ``globalPosition``), so it is mapped to the viewport here, once, before
+        anything treats it as a viewport point.
+        """
+        handled = False
+        for gesture in event.gestures():
+            if gesture.gestureType() != Qt.GestureType.PinchGesture:
+                continue
+            if not isinstance(gesture, QPinchGesture):
+                # A garbage-collected synthetic Python gesture can come back as a
+                # bare QGesture; treating it as a pinch would abort the process.
+                event.accept(gesture)
+                handled = True
+                continue
+            pinch = gesture
+            state = pinch.state()
+            if state == Qt.GestureState.GestureStarted:
+                # A pinch must not drag what the first finger touched: release the
+                # press Qt synthesised for it, at the point it was made.
+                self._cancel_touch_press()
+                self._pinch_scale = pinch.totalScaleFactor()
+                self._pinch_center = self._viewport_point(pinch)
+            elif state in (
+                Qt.GestureState.GestureFinished,
+                Qt.GestureState.GestureCanceled,
+            ):
+                self._end_pinch()
+            else:
+                self._apply_pinch(pinch)
+            event.accept(pinch)
+            handled = True
+        return handled
+
+    def _apply_pinch(self, pinch: QPinchGesture) -> None:
+        """One update of an active pinch (or the first one seen after enabling)."""
+        center = self._viewport_point(pinch)
+        total = pinch.totalScaleFactor()
+        if self._pinch_scale is None or self._pinch_center is None:
+            # Enabled while the fingers were already down (or a GestureStarted was
+            # missed): adopt them, move nothing — but still cancel the first finger.
+            self._cancel_touch_press()
+            self._pinch_scale, self._pinch_center = total, center
+            return
+        delta = center - self._pinch_center
+        if not delta.isNull():
+            self._pan_by(delta)
+        if self._pinch_scale > 0.0 and total > 0.0:
+            factor = total / self._pinch_scale
+            if factor != 1.0:
+                self._zoom_at(center, factor)
+            self._pinch_scale = total
+        self._pinch_center = center
+
+    def _viewport_point(self, pinch: QPinchGesture) -> QPointF:
+        """The gesture's centre in viewport pixels (Qt reports it in global ones)."""
+        return QPointF(self.viewport().mapFromGlobal(pinch.centerPoint().toPoint()))
+
+    def _cancel_touch_press(self) -> None:
+        """Release the synthesised press of the first finger, at its own press point.
+
+        Qt synthesises a mouse press for the first touch point before a second
+        finger can start a pinch. Without this the whole pinch drags (or draws
+        with) whatever the first finger landed on. The live half is undone
+        first — a moved item is put back and its pending undo step never exists —
+        then the tool's own ``cancel()`` discards a half-made shape, and the
+        release ends the interaction where it began. A resize/rotate/vertex handle is
+        the one thing not reverted: its normal release finalizes the edit as one
+        undo step (§8.9.12).
+        """
+        press = self._touch_mouse_press
+        self._touch_mouse_press = None
+        if press is None:
+            return
+        self._cancel_pointer_interaction()
+        tool = self._tool_manager.active_tool
+        if tool is not None:
+            tool.cancel()
+        position, button = press
+        if button != Qt.MouseButton.NoButton:
+            QApplication.sendEvent(
+                self.viewport(),
+                QMouseEvent(
+                    QEvent.Type.MouseButtonRelease,
+                    position,
+                    QPointF(self.viewport().mapToGlobal(position.toPoint())),
+                    button,
+                    Qt.MouseButton.NoButton,
+                    Qt.KeyboardModifier.NoModifier,
+                ),
+            )
+        # A rotation handle's release has now recorded its partner corrections.
+        self._constraint_propagated_starts.clear()
+        scene = self.scene()
+        if not self._touch_press_on_item and scene is not None:
+            for item in self._touch_press_selection:
+                if item.scene() is scene:
+                    item.setSelected(True)
+        self._touch_press_selection = []
+        self._touch_press_on_item = False
+
+    def _cancel_pointer_interaction(self) -> None:
+        """Undo the live part of a drag the first finger began, before its release.
+
+        Items are put back where the drag started; the dictionaries are cleared so
+        the release's ``_finalize_drag_move`` sees no delta and pushes no undo step.
+        Constraint-propagated partners and plants moved with a parent are restored
+        too. A **handle** drag is the exception: its live edit (which may move the
+        parent's ``pos`` while resizing about the opposite corner) must keep the
+        geometry the handle applied, so only the move bookkeeping is cleared and
+        the handle's own release commits the anchored edit as one step.
+        """
+        if self._active_drag_handle is None:
+            for moved in (
+                self._drag_start_positions,
+                self._constraint_propagated_starts,
+                self._child_drag_origins,
+            ):
+                for item, start in moved.items():
+                    if item.scene() is not None:
+                        item.setPos(start)
+        self._drag_start_positions.clear()
+        # Rotation history collects these snapshots on the synthetic release.
+        # Keep them until the handle has committed angle and partners together.
+        if self._rotating_item is None:
+            self._constraint_propagated_starts.clear()
+        self._child_drag_origins.clear()
+
+    def _end_pinch(self) -> None:
+        """Forget the active pinch's last values (finished, cancelled or disabled)."""
+        self._pinch_scale = None
+        self._pinch_center = None
+        self._touch_mouse_press = None
+        self._touch_press_selection = []
+        self._touch_press_on_item = False
+
+    def _native_gesture(self, event: QNativeGestureEvent) -> bool:
+        """A trackpad pinch arrives as Qt's native zoom gesture, not as touch."""
+        if event.gestureType() == Qt.NativeGestureType.ZoomNativeGesture:
+            factor = 1.0 + event.value()
+            if factor > 0.0:
+                self._zoom_at(event.position(), factor)
+            event.accept()
+            return True
+        return False
 
     def reset_zoom(self) -> None:
         """Reset zoom to 100%."""
@@ -1997,30 +2289,10 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
-        # Remember scene position under the mouse before zoom
-        old_scene_pos = self.mapToScene(event.position().toPoint())
-
-        # Apply immediate zoom: 1.15x per standard wheel notch (120 units)
-        zoom_per_notch = 1.15
-        notches = delta / 120.0
-        factor = zoom_per_notch**notches
-
-        new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
-        self._zoom_factor = new_zoom
-        self._apply_transform()
-        self.zoom_changed.emit(self.zoom_percent)
-
-        # Scroll so the point under the mouse stays in the same screen position
-        new_scene_pos = self.mapToScene(event.position().toPoint())
-        scroll_delta = old_scene_pos - new_scene_pos
-        self.horizontalScrollBar().setValue(
-            self.horizontalScrollBar().value()
-            + int(scroll_delta.x() * self._zoom_factor)
-        )
-        self.verticalScrollBar().setValue(
-            self.verticalScrollBar().value() - int(scroll_delta.y() * self._zoom_factor)
-        )
-
+        # Apply immediate zoom: 1.15x per standard wheel notch (120 units). The
+        # anchor and clamp live in ``_zoom_at``, shared with the pinch gesture.
+        factor = 1.15 ** (delta / 120.0)
+        self._zoom_at(event.position(), factor)
         event.accept()
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
@@ -2194,22 +2466,11 @@ class CanvasView(QGraphicsView):
                 self.viewport().update()
 
         if self._panning:
-            # Pan the view by translating
+            # Pan the view by translating (the one pan path, shared with #321's
+            # two-finger gesture).
             delta = event.position() - self._pan_start
             self._pan_start = event.position()
-
-            # Map two points to scene to get proper delta in scene coordinates
-            # This correctly handles any transform (zoom, Y-flip, etc.)
-            center = self.viewport().rect().center()
-            scene_before = self.mapToScene(center)
-            scene_after = self.mapToScene(
-                center.x() + int(delta.x()), center.y() + int(delta.y())
-            )
-
-            # Move in opposite direction of mouse drag
-            scene_delta = scene_before - scene_after
-            new_center = self.mapToScene(center) + scene_delta
-            self.centerOn(new_center)
+            self._pan_by(delta)
             event.accept()
             return
 

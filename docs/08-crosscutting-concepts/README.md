@@ -495,6 +495,75 @@ reused; the pin is a call count on `_dense_overlay_indices`, not a timer.
 `_remember_dense_sample` / `_dense_sample_covers_view` in
 `ui/canvas/items/resize_handle.py`.
 
+### 8.9.12 Touch gestures — pinch zoom and two-finger pan (#321)
+
+The canvas is a `QGraphicsView`, so gestures belong to its **viewport**: with the
+preference on, `CanvasView.set_touch_gestures_enabled` calls
+`viewport().grabGesture(Qt.GestureType.PinchGesture)` and installs the view as the
+viewport's event filter; off ungrabs it and removes the filter.
+
+**Use Qt's recognizer, not a hand-written touch state machine.** The first cut read
+`QTouchEvent`s itself and needed two points in `TouchBegin` — which Qt never sends:
+the first finger is one `TouchBegin`, the second arrives in a `TouchUpdate`, so the
+gesture could not start. `QPinchGesture`'s recognizer owns exactly that arbitration:
+it starts only when a second finger is down, so a single-finger tap or drag is
+never claimed and keeps arriving as the synthesised mouse event every tool already
+handles. It also reports the fingers' **centre** and a **cumulative**
+`totalScaleFactor` for the whole gesture.
+
+`eventFilter` routes `QEvent.Type.Gesture` to `_gesture`, which keeps the last
+cumulative scale and centre and, per update, applies the ratio to `_zoom_at` and
+the centre's movement to `_pan_by`. **Pan first, then zoom about the new centre** —
+the other order leaves a `(1 − ratio) × delta` drift when a pinch also moves. The
+gesture's `Finished`/`Canceled` state (and disabling the setting) forgets the pair,
+so the next gesture starts from its own values.
+
+**The gesture centre is global; map it once.** Qt's recognizer averages the two
+touches' `globalPosition` (`qstandardgestures.cpp`), so `QPinchGesture.centerPoint`
+is a *screen* point, not a viewport one. `_viewport_point` is the one conversion
+(`viewport().mapFromGlobal(...)`), used by both the started and updated branches.
+Tests feed `viewport().mapToGlobal(local)` and one of them moves the window off the
+origin: with the window at (0, 0) the two are equal and the bug is invisible.
+
+**A pinch must not drag what the first finger touched.** Qt synthesises a mouse
+press for the first touch point before the second finger can start the gesture,
+and nothing in the recognizer stops that press's stream. `eventFilter` remembers
+that press; on `GestureStarted` `_cancel_touch_press` puts back a move the press
+had begun (item, constraint-propagated and child positions) so its release pushes
+no undo step, calls the active tool's own `cancel()` (a half-made shape or a
+selection box is discarded), sends the press's release **at the point it was made**,
+and restores a selection the press had cleared on empty canvas. The item under the
+first finger may still be selected, as a tap selects it. One exception is stated
+rather than hidden: a **resize/rotate/vertex handle** being dragged is finalized by
+that release as a normal one-step edit; a pinch does not un-resize it.
+
+**Never duplicate the transform math.** The wheel and the pinch both call
+`_zoom_at(anchor, factor)`, and the middle mouse button and the two-finger pan both
+call `_pan_by(delta)`. `_zoom_at` is the old wheel body (clamp, `_apply_transform`,
+`zoom_changed`, then compensate the scrollbars so the scene point under the anchor
+stays within a pixel) with two stated differences: a zoom a limit did not change
+returns before re-applying or re-emitting, and the integer scrollbar step rounds
+rather than truncates. `_pan_by` is the old middle-mouse body (`centerOn` from two
+`mapToScene` points, so the Y-flip and any zoom are handled and the minimap, which
+listens to the scrollbars, follows), its second point rounded rather than truncated.
+A second copy of either would drift the moment one of them gains a clamp or a
+signal — the #326 rule.
+
+Trackpad pinch is not a touch gesture: it arrives as
+`QEvent.Type.NativeGesture` (`Qt.NativeGestureType.ZoomNativeGesture`), also
+delivered to the viewport, and `_native_gesture` maps `1 + event.value()` onto
+the same `_zoom_at`.
+
+**Testing.** PyQt6 can construct `QPinchGesture` and `QGestureEvent`, and a
+`QPinchGesture` subclass can override the read-only `state()`, so
+`tests/integration/test_touch_gestures.py` drives the real `eventFilter` with
+synthetic started/updated/finished gestures (zoom ×2 anchored within 1 px, both
+clamps, pure pan, a combined pan+pinch within 2 px, the press released at its own
+point, a dragged item put back with no undo step, a selection restored, a handle
+drag keeping its anchored corner and exactly one resize step, finishing and
+re-adopting, and the setting off). A real touchscreen's **delivery** is still the
+owner's manual test; a headless process cannot produce one.
+
 ## 8.10 Integration Test Policy
 
 **Worker responsiveness.** Control an in-flight interval instead of counting timer
@@ -1380,6 +1449,19 @@ the frame comes back white). So tests that need pixels form an opt-in tier.
 
 The scene definitions are plain engine-free functions in the driver module that both halves
 import, so the test predicts from the same records the driver rendered.
+
+**Which files the CI job runs (#540).** The `render3d` job (`.github/workflows/ci.yml`) runs the
+engine-package files above, then — as a **separate pytest invocation**, because `-k` filters the
+whole session — **`test_view3d_workspace_render.py`**, filtered to the default workspace's G5
+close rows and its G6 crash-marker / compatibility / try-hardware rows
+(`-m "not perf and not soak" -k "closes_clean or start_that_died or compatibility_mode or
+try_hardware"`; 12 tests). This is the only workflow that starts the workspace every user sees;
+before #540 CI exercised the engine package and nothing of the default view. Its **G7 memory
+soaks** carry the `soak` marker and stay local (twenty app child processes each), and its
+wall-clock rows carry `perf`; G5's *never opened* row is also the real-host proof that no Qt
+Quick module is imported before 3D is asked for. A software-only adapter (the CI runners'
+WARP/llvmpipe) is detected and the workspace shows its compatibility notice, so those rows
+accept the notice where a hardware machine asserts none.
 
 A fourth file has another shape for another failure. `test_quick3d_lifecycle.py` runs ONE call
 order of the host per child process (`quick3d_lifecycle_child.py`) and judges what that process
@@ -4651,14 +4733,26 @@ its tables, what a unit CHARGED took in units of the reference — cost to price
 clipper's sweep stayed at 0.7 or below; a ring with hundreds of bridged holes, refused, at 1.4
 to 1.5; the outlines that are accepted between 1.0 and 2.0 (the dearest: a ring with bridged
 holes, sheared, and an outline that crosses itself); in the table of single cuts, a region
-that hides its bridges at 2.1. **One family is far above that: a ring whose holes TOUCH its
-outer ring, 3.6 to 8.1.**
-The bridge search of the cut (`polygon._bridge_position`) is priced too low for holes that
-touch: 89 of them are built in 0.65 to 0.8 s, and 110 — 444 vertices — are refused after 0.6
-to 1.5 s. Known, a row of the table, and not re-priced. So "one item costs at most the bound"
-holds in units; in seconds it is 0.05 to 0.35, measured up to 0.39 beside other test runs,
-up to 0.7 where a busy machine meets the dearest ordinary family — and about 1.5 s for holes
-that touch.
+that hides its bridges at 2.1. **One family stood far above that: a ring whose holes TOUCH its
+outer ring, 3.6 to 8.1** — the bridge search of the cut (`polygon._bridge_position`) charged a
+block of candidates 60 units per edge, while a hole that touches the wall hides its nearest
+boundary vertices and takes block after block: 89 such holes were built in 0.65 to 0.8 s, and
+110 — 444 vertices — were refused after 0.6 to 1.5 s.
+
+**Re-priced for issue #451 (2026-10-30): a block of bridge candidates costs 600 units per
+edge.** The touching-holes family now stands at 0.8 to 1.5 — the dearest row of the whole
+table is 1.3 to 1.5 across runs — and 110 such holes are refused in about 0.07 s (200 in
+0.01 s, from their size
+alone, before one bridge is searched). What it costs in capacity: a slab with 49 such holes
+now fits (89 before), a row of 88 square holes (105) and a slab of 117 triangular ones (146).
+The higher block price also raises the **pre-cut floor** for an outlined region with many
+holes, and that is a stated loss: a crafted 25 × 25 line grid (625 crossings, resolving into
+regions with hundreds of holes) is now refused from its size where it used to resolve; a
+22 × 22 grid still resolves (286 regions, 25.6 M units). Real plans are far from this — a
+closed fence's one hole costs about 1 M units.
+So "one item costs at most the bound" holds in units and in seconds: 0.05 to 0.35 s, measured
+up to 0.39 beside other test runs, up to 0.7 where a busy machine meets the dearest ordinary
+family.
 
 **The table fails above a ratio of 12** (`MAX_COST_TO_PRICE`; exit code 1, the rows named). A
 price list fitted to families is only as good as the families: both times a step ran for
@@ -4687,10 +4781,10 @@ holes, 2026-10-12; the units are exact):
 | … a traced pond | 3,538 vertices (the review's freehand pond: 3,497) | 148.4 M |
 | … a drawn outline that crosses itself | 1,513 vertices | 149.5 M |
 | … a two-level zigzag (every tooth crosses the others) | 80 vertices | 146.0 M |
-| … ONE ring with holes bridged to its wall (a polygon with holes, exported as one ring): a slab with triangular holes, level or sheared | 146 holes, 880 vertices (148 before fix round 4) | 149.1 M / 149.3 M |
-| … a row of square holes, each bridged to the edge | 105 holes, 844 vertices (106 before fix round 4) | 149.3 M |
-| … a row of frames — diamonds touching corner to corner, a bridged hole in each | 112 frames, 1,120 vertices (118 before fix round 4) | 148.7 M |
-| … a slab whose holes TOUCH its wall (read off a band: the holes open into notches) | 89 holes, 360 vertices (90 before fix round 4) | 148.2 M — in 0.65 to 0.8 s: 3.6 to 4.4 times its price |
+| … ONE ring with holes bridged to its wall (a polygon with holes, exported as one ring): a slab with triangular holes, level or sheared | 117 holes, 706 vertices (146 before #451 re-priced the bridge search) | 149.8 M / 149.9 M |
+| … a row of square holes, each bridged to the edge | 88 holes, 708 vertices (105 before #451) | 147.6 M |
+| … a row of frames — diamonds touching corner to corner, a bridged hole in each | 112 frames, 1,120 vertices (118 before fix round 4) | 149.2 M |
+| … a slab whose holes TOUCH its wall (read off a band: the holes open into notches) | 49 holes, 200 vertices (89 before #451) | 144.6 M — about 0.11 s: 0.8 times its price |
 | **what a large plan needs:** a closed fence along 400 traced points | | 24.3 M — 16 % of the bound |
 | … a line of 2 km (2 points) | | 31,200 units — 0.02 % |
 | … a straight line of 2 km with a post every 5 m | 401 points | 1.5 M — 1 % |
@@ -4712,7 +4806,10 @@ Outlines that built are refused since fix round 4 — few, and stated: it pays f
 strict union's rings out of the item's budget (holes × outer rings), where a tree's hierarchy
 had come unpriced. ONE ring with many bridged holes lost one to five per cent of what fits:
 a row of square holes 106 → 105, a row of frames 118 → 112, a slab with triangular holes
-148 → 146, holes that touch their wall 90 → 89. No other family of the table moved.
+148 → 146, holes that touch their wall 90 → 89. No other family of the table moved. **The
+re-price of #451 moved the bridge families on purpose:** a slab with triangular holes 146 →
+117, a row of square holes 105 → 88, holes that touch their wall 89 → 49; the frames and every
+family that does not bridge stayed where they were.
 
 | What is refused | What saying no took | What the clipper alone would have taken |
 | ---- | ---- | ---- |
@@ -4723,7 +4820,7 @@ a row of square holes 106 → 105, a row of frames 118 → 112, a slab with tria
 | a two-level zigzag of 200 / 340 / 800 vertices | 43 ms / 27 ms / 34 ms | (as a tree: 1.1 s / 3.6 s) |
 | ONE ring with 580 / 720 bridged holes (3,484 / 4,324 vertices) | 0.19 s / 0.25 s — the bridges of a region with 720 holes are beyond the budget | its plain union as a tree: 3.2 s / 7.1 s |
 | … the 720, sheared | 0.27 s | 6.7 s |
-| a slab with 110 / 200 holes that touch its wall (444 / 804 vertices) | 0.6 to 1.5 s / 0.5 to 1.2 s — the dearest refusal there is, 3 to 8 times its price | — |
+| a slab with 50 / 110 / 200 holes that touch its wall | 0.10 s / 0.07 s / 0.01 s (refused from the size of the 200 before one bridge) — the price stops the search (#451) | — |
 | a plain outline of 10,000 vertices | 2 ms (two linear passes; its size is known from its length) | — |
 | an item of more than 16,384 vertices | one comparison; not one vertex is read | — |
 

@@ -911,3 +911,44 @@ class TestFullApplicationRotationWorkflow:
         assert loaded_a.rotation() == pytest.approx(60.0, abs=2.0)
         assert len(scene.constraint_graph.constraints) == 1
         assert _distance(loaded_a, 1, loaded_b, 0) == pytest.approx(target, abs=1.0)
+
+
+@pytest.mark.parametrize("gesture_state", [Qt.GestureState.GestureStarted, Qt.GestureState.GestureUpdated])
+def test_touch_takeover_commits_rotation_and_partner_as_one_step(canvas, qtbot, gesture_state):
+    """#649/#650 integration: a pinch commits a handle without losing its partner."""
+    from tests.integration.test_touch_gestures import _send
+
+    rect_a = RectangleItem(0, 0, 100, 100)
+    rect_a.setPos(300, 300)
+    rect_b = RectangleItem(0, 0, 100, 100)
+    rect_b.setPos(800, 300)
+    canvas.scene().addItem(rect_a)
+    canvas.scene().addItem(rect_b)
+    graph = canvas.scene().constraint_graph
+    target = _distance(rect_a, 1, rect_b, 0)
+    canvas._execute_constraint_with_solve(AddConstraintCommand(
+        graph, AnchorRef(rect_a.item_id, AnchorType.CORNER, 1),
+        AnchorRef(rect_b.item_id, AnchorType.CORNER, 0), target,
+        constraint_type=ConstraintType.DISTANCE,
+    ))
+    _show(canvas, qtbot)
+    canvas.set_touch_gestures_enabled(True)
+    canvas.centerOn(rect_a.mapToScene(rect_a.rect().center()))
+    rect_a.setSelected(True)
+    qtbot.wait(20)
+    before = QPointF(rect_b.pos())
+    depth = canvas.command_manager.undo_depth
+    _rotate(canvas, rect_a, 45, qtbot, release=False)
+    after = QPointF(rect_b.pos())
+    assert after != before
+    center = QPointF(canvas.viewport().rect().center())
+    assert _send(canvas, gesture_state, 1, center)
+    assert _send(canvas, Qt.GestureState.GestureFinished, 1, center)
+    assert canvas.command_manager.undo_depth == depth + 1
+    assert canvas._constraint_propagated_starts == {}
+    assert canvas._rotating_item is None
+    canvas.command_manager.undo()
+    assert rect_a.rotation() == pytest.approx(0)
+    assert rect_b.pos() == before
+    canvas.command_manager.redo()
+    assert rect_b.pos() == after

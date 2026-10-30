@@ -107,3 +107,12 @@ was removed. The full-application regression parametrises nudge/drag/agent
 over FIXED and independent DISTANCE child constraints. It checks GUI
 one-step undo/redo and verifies that agent refusal changes neither geometry
 nor history.
+
+**Integration with merged PR #650.** The touch recognizer finalizes an active
+handle when a second finger starts a pinch. Its ordinary-drag cleanup cleared
+`_constraint_propagated_starts` before that release: tagged trace
+`[TOUCH-ROT] tracked=1 -> 0`, then undo left the partner at
+`(817.279739,297.722090)` instead of `(800,300)`. Preserve rotation partner
+snapshots until the synthetic release records them, then clear them. The
+regression drives both GestureStarted and adoption after a lost start through
+the real event filter, and pins one-step undo/redo and cleared gesture state.

@@ -318,6 +318,14 @@ jobs:
   # The 3D render tier (Phase 17 L1.2, ADR-048): the engine package
   # ui/view3d/quick3d/ on a real renderer.
   #
+  # #540: the DEFAULT WORKSPACE's close (G5) and compatibility (G6) gates run here too —
+  # tests/integration/test_view3d_workspace_render.py, in a SEPARATE pytest invocation
+  # (a -k filter is session-wide; on the engine command it would deselect the engine files),
+  # filtered to "not perf and not soak". Before #540 no workflow started the real 3D
+  # workspace at all: the engine package was exercised, the view every user sees was not.
+  # The G7 memory soaks stay local (twenty app children per test) and the wall-clock bounds
+  # carry `perf`.
+  #
   # The `Test` job runs QT_QPA_PLATFORM=offscreen, where Qt Quick falls back to
   # the software scene graph, which draws no 3D at all -- so every render test
   # skips there (OGP_RENDER3D unset). Here they run: each test module starts a
@@ -364,6 +372,15 @@ jobs:
       - name: Render tier (Windows -- Direct3D 11 on WARP)
         if: runner.os == 'Windows'
         run: python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py tests/integration/test_plant_forge_workspace.py -v -n 0
+      - name: Default workspace lifecycle (Linux -- G5 close, G6 compatibility)
+        if: runner.os == 'Linux'
+        env:
+          QSG_RHI_BACKEND: opengl
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_view3d_workspace_render.py -m "not perf and not soak" -k "closes_clean or start_that_died or compatibility_mode or try_hardware" -v -n 0
+      - name: Default workspace lifecycle (Windows -- G5 close, G6 compatibility)
+        if: runner.os == 'Windows'
+        run: python -m pytest tests/integration/test_view3d_workspace_render.py -m "not perf and not soak" -k "closes_clean or start_that_died or compatibility_mode or try_hardware" -v -n 0
       - name: Plant seasonal update budget (Linux)
         if: runner.os == 'Linux'
         env:

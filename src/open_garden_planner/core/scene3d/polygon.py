@@ -724,21 +724,24 @@ def _inside_corner(points: Sequence[Point], loop: Sequence[int], at: int, target
 #: west or north–south (4,514 at 30 degrees, where its outline keeps a vertex
 #: per post); a ladder of 168 rungs or a mesh of 15 x 15 openings drawn as one
 #: stroke; a drawn outline of 1,513 vertices that crosses itself; ONE ring with
-#: holes bridged to its edge — 146 triangular ones in a slab, 105 square ones
-#: in a row, 112 frames (148, 106 and 118 before the strict union's rings were
-#: sorted out of the item's budget). What a large plan needs is far inside it —
-#: a closed fence along 400 traced points 16 % of the bound, a line of 2 km
-#: 0.02 %, a rectangle 10,200 units.
+#: holes bridged to its edge — 117 triangular ones in a slab, 88 square ones
+#: in a row, 112 frames (146, 105 and 112 before the bridge search was
+#: re-priced, #451). What a large plan needs is far inside it — a closed fence
+#: along 400 traced points 16 % of the bound, a line of 2 km 0.02 %, a
+#: rectangle 10,200 units.
 #:
 #: In TIME the bound is a measurement, not a promise. A unit of the reference (a
 #: plain traced outline) took 0.35 to 1.15 ns on the development box when it was
 #: quiet and 0.7 to 2.3 ns beside other test runs, and a unit CHARGED for
-#: something else took 0.1 to 2.1 times that in every row of the script's tables
-#: but one family: a ring whose holes TOUCH its outer ring, 3.6 to 8.1 times —
-#: the bridge search (``_bridge_position``) is priced too low for them, and 110
-#: such holes, 444 vertices, are refused after 0.7 to 1.5 s (review of fix
-#: round 4; known, not re-priced). So one item costs at most 0.05 to 0.35 s of
-#: the reference — measured up to 0.39 s beside other test runs for everything
+#: something else took 0.1 to 2.1 times that in every row of the script's tables.
+#: The one family that stood at 3.6 to 8.1 — a ring whose holes TOUCH its outer
+#: ring, whose bridge search (``_bridge_position``) was priced too low — was
+#: re-priced for #451: the dearest row of the table then stood at 1.3 to 1.5, and the
+#: family's own dearest refusal (110 such holes, 444 vertices) takes about 0.07 s
+#: instead of 0.6 to 1.5 s. What it costs in capacity: a slab with 49 such holes
+#: now fits (89 before), a row of 88 square holes (105) and a slab of 117
+#: triangular ones (146). So one item costs at most 0.05 to 0.35 s of the
+#: reference — measured up to 0.39 s beside other test runs for everything
 #: else, up to 0.7 s where both factors meet. The script FAILS above 12 times:
 #: a union asked for a tree stood at 14 to 76 and ran for seconds inside this
 #: bound, twice.
@@ -757,7 +760,13 @@ _INSIDE_VERTEX_UNITS: Final = 700  # … and the point inside a hole: per vertex
 _HOLE_UNITS: Final = 140_000  # a bridge: setting the search up, per hole …
 _HOLE_VERTEX_UNITS: Final = 100  # … per boundary vertex (sorted by distance) …
 _HOLE_EDGE_UNITS: Final = 60  # … and per edge of the boundary and the holes still waiting
-_BRIDGE_UNITS: Final = 60  # a block of candidates: per edge it is tested against
+#: A block of candidates, per edge it is tested against. 60 until #451, when the
+#: touching-holes family showed what a block really costs: 600 makes the block
+#: that finds nothing (the usual one for a hole touching the wall) pay for the
+#: six candidates it tests against every edge. Measured by the script: that
+#: family's cost to price fell from 3.6-8.1 to 0.8-1.5, and 110 such holes are
+#: refused in 0.07 s instead of 0.6-1.5 s.
+_BRIDGE_UNITS: Final = 600
 _EAR_STEP_UNITS: Final = 300  # the ear clipper: per corner looked at
 _EAR_TEST_UNITS: Final = 6_000  # per corner TESTED against the loop …
 _EAR_VERTEX_UNITS: Final = 3  # … per vertex of the loop (which of them are near?) …

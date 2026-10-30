@@ -3216,6 +3216,25 @@ for _ctx, _strings in _L14_LOOK_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 
+# ── Canvas touch gestures (#321) ─────────────────────────────────────────────
+_TOUCH_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "PreferencesDialog": {
+        "Canvas": "Zeichenfläche",
+        "Enable touch gestures (pinch to zoom, two-finger pan)":
+            "Touch-Gesten aktivieren (zum Zoomen zusammenziehen, mit zwei Fingern verschieben)",
+        "On a touch screen, pinch with two fingers to zoom the plan and "
+        "drag two fingers to move it. A single finger still selects and "
+        "moves objects as a mouse does.":
+            "Auf einem Touchscreen mit zwei Fingern zusammenziehen, um den Plan zu "
+            "zoomen, und mit zwei Fingern ziehen, um ihn zu verschieben. Ein einzelner "
+            "Finger wählt und bewegt Objekte weiterhin wie eine Maus.",
+    },
+}
+
+for _ctx, _strings in _TOUCH_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
 # ── Phase 17 L1.3: the Plan / 3D / Split workspace (#385, ADR-060) ──
 _L13_WORKSPACE_TRANSLATIONS: dict[str, dict[str, str]] = {
     "Workspace": {

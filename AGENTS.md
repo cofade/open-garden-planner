@@ -266,6 +266,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   angle. Child constraints outrank implicit bed carrying. Both stay open until the owner's
   manual pass. Owner steps 1-4 and 6-8 passed; step 5 awaits re-test of
   FIXED-aware Parallel/Perpendicular creation.
+- Touch/region/CI package (#321, #451, #540) shipped in v1.34.8 (PR #650): pinch and
+  two-finger pan behind `canvas/touch_gestures_enabled`, the bridge search re-priced
+  (`_BRIDGE_UNITS` 600; 110 touching holes refused in ~0.07 s, dearest work row 1.3–1.5),
+  and the `render3d` job's G5 close + G6 compatibility workspace rows. The owner accepted
+  the touch evidence without a physical device; the hardware checklist stays in PR #650.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
