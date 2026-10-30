@@ -231,13 +231,33 @@ class TestMovesReconcileMembership:
         assert loner.parent_bed_id is None
         assert loner.item_id not in bed.child_item_ids
 
+    @pytest.mark.parametrize("fixed_child", [False, True])
     def test_moving_a_bed_carries_its_plants_and_keeps_the_link(
-        self, canvas: CanvasView
+        self, canvas: CanvasView, fixed_child: bool
     ) -> None:
         bed = _bed(canvas)
         plant = _plant(canvas, 500.0, 400.0)
         before = QPointF(plant.pos())
+        if fixed_child:
+            from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+            from open_garden_planner.core.measure_snapper import AnchorType
+
+            ref = AnchorRef(plant.item_id, AnchorType.CENTER)
+            canvas._canvas_scene.constraint_graph.add_constraint(
+                ref, ref, 0.0, constraint_type=ConstraintType.FIXED,
+                target_x=before.x(), target_y=before.y(),
+            )
         canvas.command_manager.execute(MoveItemsCommand([bed], QPointF(700.0, 100.0)))
+        if fixed_child:
+            assert plant.pos() == before
+            assert plant.parent_bed_id is None
+            canvas.command_manager.undo()
+            assert plant.pos() == before
+            assert plant.parent_bed_id == bed.item_id
+            canvas.command_manager.redo()
+            assert plant.pos() == before
+            assert plant.parent_bed_id is None
+            return
         assert plant.parent_bed_id == bed.item_id
         assert plant.pos().x() == pytest.approx(before.x() + 700.0)
         assert plant.pos().y() == pytest.approx(before.y() + 100.0)
@@ -552,8 +572,9 @@ class TestThenTheFixHoldsEverywhere:
         canvas.command_manager.undo()
         assert plant.parent_bed_id == far_bed.item_id
 
+    @pytest.mark.parametrize("fixed_child", [False, True])
     def test_a_constraint_that_moves_a_bed_carries_its_plant(
-        self, canvas: CanvasView
+        self, canvas: CanvasView, fixed_child: bool
     ) -> None:
         """The REAL constraint-tool path carries a moved bed's plants.
 
@@ -577,6 +598,12 @@ class TestThenTheFixHoldsEverywhere:
         bed_before = QPointF(bed.pos())
         undo_before = canvas.command_manager.undo_depth
         graph = canvas._canvas_scene.constraint_graph
+        if fixed_child:
+            ref = AnchorRef(plant.item_id, AnchorType.CENTER)
+            graph.add_constraint(
+                ref, ref, 0.0, constraint_type=ConstraintType.FIXED,
+                target_x=plant_before.x(), target_y=plant_before.y(),
+            )
         canvas._execute_constraint_with_solve(
             AddConstraintCommand(
                 graph,
@@ -589,9 +616,10 @@ class TestThenTheFixHoldsEverywhere:
 
         assert canvas.command_manager.undo_depth == undo_before + 1
         assert bed.pos().x() == pytest.approx(bed_before.x() + 300.0, abs=1.0)
-        assert plant.pos().x() == pytest.approx(plant_before.x() + 300.0, abs=1.0)
-        assert plant.parent_bed_id == bed.item_id
-        assert plant.item_id in bed.child_item_ids
+        expected_x = plant_before.x() if fixed_child else plant_before.x() + 300.0
+        assert plant.pos().x() == pytest.approx(expected_x, abs=1.0)
+        assert plant.parent_bed_id == (None if fixed_child else bed.item_id)
+        assert (plant.item_id in bed.child_item_ids) is not fixed_child
 
         canvas.command_manager.undo()
         assert bed.pos().x() == pytest.approx(bed_before.x())

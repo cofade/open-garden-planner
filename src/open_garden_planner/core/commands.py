@@ -1056,6 +1056,17 @@ def _membership_change_for_geometry(
     return None
 
 
+def bed_child_has_constraints(scene: QGraphicsScene, child_id: UUID) -> bool:
+    """Whether a linked plant has its own placement constraints.
+
+    Automatic bed carrying applies only to unconstrained children. A plant's
+    FIXED or other constraint must take priority over this implicit movement;
+    solver-controlled children keep their solver result, including zero delta.
+    """
+    graph = getattr(scene, "constraint_graph", None)
+    return graph is not None and bool(graph.get_item_constraints(child_id))
+
+
 def expand_with_bed_children(
     scene: QGraphicsScene,
     item_deltas: list[tuple[QGraphicsItem, QPointF]],
@@ -1081,7 +1092,7 @@ def expand_with_bed_children(
             continue
         for child_id in item.child_item_ids:
             child = finder(child_id)
-            if child is None or child in moved:
+            if child is None or child in moved or bed_child_has_constraints(scene, child_id):
                 continue
             moved.add(child)
             result.append((child, QPointF(delta)))
@@ -1913,7 +1924,11 @@ def _capture_bed_child_moves(
         delta = new - old
         for child_id in item.child_item_ids:
             child = finder(child_id)
-            if child is None or id(child) in moved_ids:
+            if (
+                child is None
+                or id(child) in moved_ids
+                or bed_child_has_constraints(scene, child_id)
+            ):
                 # The solver already gave this child its own absolute move;
                 # adding the bed's delta would move it twice (review round 3).
                 continue

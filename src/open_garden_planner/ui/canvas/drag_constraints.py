@@ -474,6 +474,7 @@ class DragConstraints:
         # Positions are recomputed from each tracked start so a reverted parent
         # cannot make a child drift by the accumulated frame deltas.
         if moved_parents:
+            from open_garden_planner.core.commands import bed_child_has_constraints
             from open_garden_planner.core.object_types import (
                 is_plant_parent_type,
             )
@@ -489,7 +490,11 @@ class DragConstraints:
                 delta = parent.pos() - parent_start
                 for child_id in parent.child_item_ids:
                     child = host._canvas_scene.find_item_by_id(child_id)
-                    if child is None or child in host._drag_start_positions:
+                    if (
+                        child is None
+                        or child in host._drag_start_positions
+                        or bed_child_has_constraints(host._canvas_scene, child_id)
+                    ):
                         continue
                     if child not in host._constraint_propagated_starts:
                         host._constraint_propagated_starts[child] = child.pos()

@@ -1244,6 +1244,18 @@ badge moves by up to 1.8 cm per axis, so it could disagree with the lift.
    the link ask the same predicate, so they agree; changing the definition
    would move every plan's soil line and is not part of this fix.
 
+8. **Explicit constraints outrank implicit bed carrying (#649 review, 2026-10-30).**
+   A child with its own constraints keeps its solver-controlled position, or
+   stays where it is when outside the solve component. Only unconstrained
+   children inherit the parent's translation. This includes FIXED and zero-delta
+   solver results. The shared `bed_child_has_constraints` predicate applies to
+   live propagation, move/align expansion and one-shot constraint commands.
+   Membership is reconciled against the resulting geometry.
+9. **No-op means the complete gesture is unchanged.** Returning a rotation to
+   its initial angle can leave partner translations or vertex corrections.
+   Such changes still produce one undo entry; a click without any geometry
+   change produces none.
+
 **Consequences.** ``.ogp`` unchanged (``parent_bed_id`` already serialised; the
 loader's ``_relink_parent_child_relationships`` remains the file-level heal).
 One gesture is still one undo entry. Cost: a plant move tracks only that plant

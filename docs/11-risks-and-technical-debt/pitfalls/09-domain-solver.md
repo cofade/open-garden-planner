@@ -396,3 +396,11 @@ restored the violation. Pin only the turned item, record
 `(item, before, after)` for each correction, and let the command replay
 angle + corrections atomically. FIXED keeps its meaning: when the partner
 cannot follow, the relation reads red rather than being "corrected".
+
+PR #649 review also pinned two post-solve traps: implicit bed carrying must
+never overwrite a child's own constraint result (including FIXED or zero delta),
+and a returned-to-start angle is not a no-op if partner geometry changed.
+`test_constrained_rotation.py` covers both through viewport events;
+`test_bed_membership_reconciliation.py` pins FIXED children in move and
+one-shot constraint commands. The shared carry guard checks the constraint
+graph before applying any inherited translation.

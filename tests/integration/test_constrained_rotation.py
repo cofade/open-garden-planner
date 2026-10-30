@@ -296,8 +296,9 @@ class TestConstrainedRotationFollows:
         assert plant.item_id in bed.child_item_ids
         assert _base(canvas, plant) == 38.0
 
+    @pytest.mark.parametrize("child_constraint", ["none", "fixed", "distance"])
     def test_a_partner_bed_moved_by_the_solver_takes_its_plants(
-        self, canvas: CanvasView, qtbot: object
+        self, canvas: CanvasView, qtbot: object, child_constraint: str
     ) -> None:
         """A bed the solver moves carries its plants, as any other move does.
 
@@ -327,13 +328,38 @@ class TestConstrainedRotationFollows:
 
         bed_before = QPointF(bed.pos())
         plant_before = QPointF(plant.pos())
+        if child_constraint == "fixed":
+            ref = AnchorRef(plant.item_id, AnchorType.CENTER)
+            graph.add_constraint(
+                ref, ref, 0.0, constraint_type=ConstraintType.FIXED,
+                target_x=plant.pos().x(), target_y=plant.pos().y(),
+            )
+        child_target = _distance_between_points(
+            _anchor(rect_a, AnchorType.CORNER, 0), _anchor(plant, AnchorType.CENTER),
+        )
+        if child_constraint == "distance":
+            graph.add_constraint(
+                AnchorRef(rect_a.item_id, AnchorType.CORNER, 0),
+                AnchorRef(plant.item_id, AnchorType.CENTER), child_target,
+                constraint_type=ConstraintType.DISTANCE,
+            )
+        depth_before = canvas.command_manager.undo_depth
         _rotate(canvas, rect_a, 45.0, qtbot)
+        assert canvas.command_manager.undo_depth == depth_before + 1
 
+        bed_after = QPointF(bed.pos())
+        plant_after = QPointF(plant.pos())
         bed_delta = bed.pos() - bed_before
         plant_delta = plant.pos() - plant_before
         assert bed_delta.x() != 0.0 or bed_delta.y() != 0.0
-        assert plant_delta.x() == pytest.approx(bed_delta.x(), abs=0.01)
-        assert plant_delta.y() == pytest.approx(bed_delta.y(), abs=0.01)
+        if child_constraint == "distance":
+            assert _distance_between_points(
+                _anchor(rect_a, AnchorType.CORNER, 0), _anchor(plant, AnchorType.CENTER),
+            ) == pytest.approx(child_target, abs=1.0)
+        else:
+            expected_delta = QPointF() if child_constraint == "fixed" else bed_delta
+            assert plant_delta.x() == pytest.approx(expected_delta.x(), abs=0.01)
+            assert plant_delta.y() == pytest.approx(expected_delta.y(), abs=0.01)
         assert plant.parent_bed_id == bed.item_id
         assert plant.item_id in bed.child_item_ids
         assert _base(canvas, plant) == 38.0
@@ -343,9 +369,14 @@ class TestConstrainedRotationFollows:
         assert plant.pos().y() == pytest.approx(plant_before.y(), abs=0.01)
         assert bed.pos().x() == pytest.approx(bed_before.x(), abs=0.01)
         assert plant.parent_bed_id == bed.item_id
+        canvas.command_manager.redo()
+        assert bed.pos() == bed_after
+        assert plant.pos() == plant_after
+        assert canvas.command_manager.undo_depth == depth_before + 1
 
+    @pytest.mark.parametrize("round_trip", [False, True])
     def test_a_live_rotation_records_a_deformable_partner_s_vertex_corrections(
-        self, canvas: CanvasView, qtbot: object
+        self, canvas: CanvasView, qtbot: object, round_trip: bool
     ) -> None:
         """The real gesture path records the solver's vertex corrections (#485)."""
         bed = PolygonItem(
@@ -392,7 +423,16 @@ class TestConstrainedRotationFollows:
         qtbot.wait(20)  # type: ignore[attr-defined]
         vertices_before = [QPointF(p) for p in _all_vertices(bed)]
 
-        _rotate(canvas, rect, 40.0, qtbot)
+        depth_before = canvas.command_manager.undo_depth
+        start = canvas.mapFromScene(_rotation_handle(rect).scenePos())
+        _rotate(canvas, rect, 60.0 if round_trip else 40.0, qtbot, release=not round_trip)
+        if round_trip:
+            QTest.mouseMove(canvas.viewport(), start)
+            QTest.mouseRelease(canvas.viewport(), Qt.MouseButton.LeftButton, pos=start)
+            assert rect.rotation() == pytest.approx(0.0)
+        assert canvas.command_manager.undo_depth == depth_before + 1
+        vertices_after = _all_vertices(bed)
+        assert vertices_after != vertices_before
 
         last = canvas.command_manager._undo_stack[-1]
         recorded = {
@@ -404,6 +444,8 @@ class TestConstrainedRotationFollows:
         assert all(item is bed for item, *_rest in last._partner_vertex_moves)
         canvas.command_manager.undo()
         assert _all_vertices(bed) == vertices_before
+        canvas.command_manager.redo()
+        assert _all_vertices(bed) == vertices_after
 
     def test_a_rotation_that_deforms_a_partner_bed_redecides_its_plants(
         self, canvas: CanvasView

@@ -3557,7 +3557,8 @@ commands (arrow keys, typed coordinates, align/distribute, constraint
 propagation), resize/rotate/vertex commands (in the same undo entry as the
 geometry, through one tracker), create/paste/duplicate/array/mirror (a copy no
 longer inherits its source's link), and the two bed moves that used to leave
-plants behind now carry them. One mutator keeps both sides in step; a stale id
+plants behind now carry unconstrained children. A child's own constraints
+outrank this implicit movement. One mutator keeps both sides in step; a stale id
 whose child list never got it self-heals. Nesting is unchanged (smallest parent
 wins, no sum) and "inside" keeps Qt's shape semantics (stroke included) — both
 recorded as decisions. ADR-037 addendum "bed membership is reconciled by
@@ -3578,13 +3579,14 @@ cannot reverse; the owner's skipped-undo report itself was not reproduced and
 its root cause is not claimed. ADR-037 addendum, §11.4.
 
 **Validation.** New suites `tests/integration/test_bed_membership_reconciliation.py`
-(25 tests, including the Properties-panel resize, the agent `set_vertex` path,
+(27 tests, including the Properties-panel resize, the agent `set_vertex` path,
 mirror-Move undo/redo, EQUAL-partner resizes, the real constraint-tool path
 with move/rotation/vertex payloads, one-shot solver moves, the click path and
 unrelated-bed scoping) and
-`tests/integration/test_constrained_rotation.py` (15, including the
+`tests/integration/test_constrained_rotation.py` (19, including the
 full-application rotate → save → reload workflow, partner plants/beds/vertices, a live deformable-partner recording
-and a real swallowed release), and the knowingly updated pinned suite
+a real swallowed release, FIXED/independently solved children, and a returned-to-start
+angle with partner corrections), and the knowingly updated pinned suite
 `test_scene3d_base_stacking.py`; the full suite, ruff, bandit, the i18n gate and
 both frozen-exe checks ran before the draft PR.
 

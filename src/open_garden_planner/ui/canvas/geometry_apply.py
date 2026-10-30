@@ -273,8 +273,10 @@ def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool
     "rotate one end of a DISTANCE constraint" one atomic undo step (#485):
     replaying only the angle would leave the partner where the gesture put it.
 
-    Returns ``True`` when a command was registered. A no-op rotation (angle
-    unchanged within 0.01°) registers nothing and leaves the stack untouched.
+    Returns ``True`` when a command was registered. A no-op rotation has
+    neither an angle change nor partner changes and leaves history untouched.
+    A returned-to-start angle can still leave solver corrections; those need
+    the same undo entry as any other completed gesture.
     """
     from open_garden_planner.core.commands import RotateItemCommand
 
@@ -290,9 +292,6 @@ def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool
         if hasattr(item, "rotation_angle")
         else item.rotation()
     )
-    if abs(initial_angle - current_angle) < 0.01:
-        return False
-
     partner_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
     partner_vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
     views = scene.views()
@@ -303,6 +302,13 @@ def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool
         collect_vertices = getattr(views[0], "_rotation_partner_vertex_moves", None)
         if callable(collect_vertices):
             partner_vertex_moves = collect_vertices()
+
+    if (
+        abs(initial_angle - current_angle) < 0.01
+        and not partner_moves
+        and not partner_vertex_moves
+    ):
+        return False
 
     rotate_command = RotateItemCommand(
         item,

@@ -74,3 +74,23 @@ All three are fixed and pinned: partner-plant and partner-bed cases in
 `test_constrained_rotation.py`, a real swallowed-release test with a partner, and
 snap/clamp skipped while `_rotating_item` is set. Vertex-level solver corrections
 to a deformable partner are now recorded in the same command too.
+
+**Review round 4 (2026-10-30).** Tagged viewport probes found two more omissions.
+`[CARRY] plant after FIXED=(0,0), after carry=(17.279739,-2.277910)`
+with a caller stack at `drag_constraints` showed that post-solve bed carrying
+undid FIXED enforcement. An independently solved plant needed delta
+`(44.135146,9.686515)`, but was overwritten by the same bed delta, leaving
+its 608.276253 cm relation at 579.510675 cm. The solver was not the cause:
+the later implicit carry was. The shared `bed_child_has_constraints` guard
+now preserves constrained children in the live and command carry paths.
+Membership still follows the resulting geometry.
+
+A second trace showed `[ROTATE] initial=0 current=0 vertices_changed=True
+registered=False`: a 0 ? 60 ? 0 degree drag left polygon vertices displaced
+by 3.19 cm but the angle-only early return skipped history. Registration now
+collects partner changes before deciding whether the gesture is a no-op.
+Partner-only changes have one undo entry; a click with no changes has none.
+Both regressions failed before the fix in `test_constrained_rotation.py`;
+FIXED command-carry cases also cover `test_bed_membership_reconciliation.py`.
+The lesson is to inspect the complete gesture payload both before declaring
+it unchanged and before adding implicit movement after a constraint solve.

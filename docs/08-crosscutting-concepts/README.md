@@ -890,7 +890,7 @@ A gesture that the solver must follow is tested through the real viewport, not b
 the release handler: `tests/integration/test_constrained_rotation.py` presses the green
 rotation handle with `QTest`, moves it and asserts the partner moved **while the button is
 still down**, the relation at scene-space anchors (45°, 215°, a wrap-around angle), exactly
-one undo entry, and undo/redo restoring angle **and** partner. A no-op rotation adds no
+one undo entry, and undo/redo restoring angle **and** partner. An angle returned to its start still records partner edits. A no-op with no geometry changes adds no
 entry; a FIXED partner stays pinned and the relation reads red; an inter-object
 PARALLEL/PERPENDICULAR still refuses the rotation. Partner-plant and partner-bed cases pin
 that a correction which moves a partner also re-decides its membership / carries its
