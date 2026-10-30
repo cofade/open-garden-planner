@@ -8746,8 +8746,10 @@ had only moved the failing views.
     - Four tiles: a median of at most 20 ms and two passes. The last tile can fall into a
       second pass: CI's coverage run 40426416434 took 2 passes in the median (14.57 ms),
       after a commit that had briefly asserted one. A third pass would need 20 ms first.
-    - That bound is **provisional** until the owner decides #615: should a four-tile pass
-      hold 10 ms on CI?
+    - **Owner decision (2026-10-29, #615):** a four-tile pass does not have to hold 10 ms
+      on CI. The 20 ms / two-pass bound is final: it is the `BAKE_BUDGET_S` contract ("costs
+      at most the budget plus ONE tile") measured on CI, 7.29–12.15 ms uninstrumented and
+      10.57–14.57 ms under coverage. Two-tile edits keep 10 ms in one pass.
     - The test is renamed `test_a_small_move_repaints_few_tiles_within_its_bound`, because
       the old name promised four tiles in 10 ms. FR-3D-GROUND-03 now states this gate.
 - The roof hint stays a tooltip (on the row labels and the spin boxes, and as the

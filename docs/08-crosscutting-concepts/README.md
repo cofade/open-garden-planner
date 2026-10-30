@@ -1973,7 +1973,7 @@ tier: `tests/integration/test_scene3d_ground_render.py`):
   again. The workspace's own handling of a ground pass is pinned with a test clock that jumps
   10 s after the edit's pass: no ground pass hands the look a sun, and the release is due.
 - **The wall-clock gates run on the quiet runner.** G3 — a two-tile edit's bake in at most
-  10 ms in the median, a four-tile edit's in a provisional 20 ms (#615) — carries
+  10 ms in the median, a four-tile edit's in 20 ms and two passes (#615, decided) — carries
   `@pytest.mark.perf` (ADR-058, §8.10.4): beside eight workers it read 11.58 ms. So does its
   render-tier twin, whose median is taken in the driver process
   (`test_scene3d_ground_render.py::test_one_small_edit_re_bakes_within_the_time_budget`; the
@@ -5850,7 +5850,11 @@ an edit of two tiles. An edit where four tiles meet can run over the budget by i
 on CI it read ≤ 10 ms in one uninstrumented run and 12.15 ms in the next (run 40407192860),
 and 13.29 ms under coverage (run 40405246734). No gate placed an item on a tile corner before
 L4 (#388); the readings and the comparison with master are in ADR-065. G3 holds such an edit
-to a provisional median of 20 ms until the owner decides #615. Measured with the real clock
+to a median of 20 ms in at most two passes. The owner decided #615 on 2026-10-29: the four-tile
+bound is not forced down to 10 ms across CI hardware, it follows the `BAKE_BUDGET_S` contract
+("the budget plus ONE tile"), i.e. one 10 ms pass plus its last tile. Measured on CI (PR #613,
+median per move): 7.29–12.15 ms uninstrumented in one pass, 10.57–14.57 ms under coverage in one
+or two passes; two-tile edits keep 10 ms in one pass. Measured with the real clock
 at L1.5: bench_small opens in 2 passes (longest 11.6 ms), bench_large in 8 (longest 13.4 ms).
 What the budget does NOT bound is one tile: a pass costs the budget plus the tile it is in — and
 one tile more when it brings an edit while older tiles are still pending (below). The
