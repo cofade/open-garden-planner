@@ -938,46 +938,25 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             apply_geometry,
         )
 
-        # Add to undo stack without executing (geometry already applied)
-        command_manager.register_applied(command)
+        # Add to undo stack without executing (geometry already applied). A bed
+        # resize also re-decides which plants it holds, in the SAME undo step (#443).
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        register_applied_with_membership(scene, command_manager, command, self)
 
         # Clear stored initial polygon
         self._resize_initial_polygon = None
 
     def _on_rotation_end(self, initial_angle: float) -> None:
         """Called when rotation operation completes. Registers undo command."""
-        scene = self.scene()
-        if scene is None or not hasattr(scene, 'get_command_manager'):
-            return
-
-        command_manager = scene.get_command_manager()
-        if command_manager is None:
-            return
-
-        # Get current angle
-        current_angle = self.rotation_angle
-
-        # Only register command if angle actually changed
-        if abs(initial_angle - current_angle) < 0.01:
-            return
-
-        from open_garden_planner.core.commands import RotateItemCommand
-
-        # US-D2.2: the canonical rotate apply path (ui.canvas.geometry_apply),
-        # shared with the Agent API's rotate_object. Every item class had an
-        # identical private copy of this one-liner; a shared name means the
-        # agent and the drag handles provably rotate the same way.
-        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
-
-        command = RotateItemCommand(
-            self,
-            initial_angle,
-            current_angle,
-            apply_rotation,
+        # One implementation for every item type (issue #485): the command also
+        # carries the partner corrections the live solver applied during the
+        # gesture, so undo/redo move the angle and the partner together.
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            register_rotation_command,
         )
 
-        # Add to undo stack without executing (rotation already applied)
-        command_manager.register_applied(command)
+        register_rotation_command(self, initial_angle)
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         """Handle double-click to enter vertex edit mode and start label edit."""

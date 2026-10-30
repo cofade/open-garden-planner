@@ -69,6 +69,7 @@ from open_garden_planner.core.alignment import (
     align_items,
     distribute_items,
 )
+from open_garden_planner.core.commands import bed_child_has_constraints
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
 from open_garden_planner.core.object_types import (
     ObjectType,
@@ -329,6 +330,22 @@ class CanvasView(QGraphicsView):
         self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
         # Active handle being dragged — used to re-grab if Qt silently drops it
         self._active_drag_handle: QGraphicsItem | None = None
+        # The item a rotation gesture is turning (issue #485). During rotation
+        # only THIS item is pinned in the constraint solver; every other item —
+        # selected or not — may be moved by a constraint correction.
+        self._rotating_item: QGraphicsItem | None = None
+        # Angle the rotating item had when the gesture started. Kept here as a
+        # safety net: if a release never reaches the handle's own
+        # ``_on_rotation_end`` (a swallowed release, a handle destroyed
+        # mid-drag), the view still turns the gesture into one undo entry
+        # rather than leaving a rotation no Ctrl+Z can reverse (#485).
+        self._rotation_initial_angle: float = 0.0
+        # Vertex-level solver corrections applied to a deformable partner during
+        # a rotation, recorded once per vertex: (id(item), index) -> (item,
+        # index, local_before). Their final local position is read at release.
+        self._rotation_vertex_starts: dict[
+            tuple[int, int], tuple[QGraphicsItem, int, QPointF]
+        ] = {}
 
         # Clipboard for copy/paste
         self._clipboard: list[dict] = []
@@ -1081,6 +1098,8 @@ class CanvasView(QGraphicsView):
                     Qt.KeyboardModifier.NoModifier,
                 ),
             )
+        # A rotation handle's release has now recorded its partner corrections.
+        self._constraint_propagated_starts.clear()
         scene = self.scene()
         if not self._touch_press_on_item and scene is not None:
             for item in self._touch_press_selection:
@@ -1110,7 +1129,10 @@ class CanvasView(QGraphicsView):
                     if item.scene() is not None:
                         item.setPos(start)
         self._drag_start_positions.clear()
-        self._constraint_propagated_starts.clear()
+        # Rotation history collects these snapshots on the synthetic release.
+        # Keep them until the handle has committed angle and partners together.
+        if self._rotating_item is None:
+            self._constraint_propagated_starts.clear()
         self._child_drag_origins.clear()
 
     def _end_pinch(self) -> None:
@@ -2375,8 +2397,21 @@ class CanvasView(QGraphicsView):
                                 .has_interobject_rotation_constraint(parent.item_id)):
                         grabber.ungrabMouse()
                         self._active_drag_handle = None
+                        self._rotating_item = None
+                    else:
+                        self._rotating_item = parent
+                        self._rotation_vertex_starts.clear()
+                        if parent is not None:
+                            self._rotation_initial_angle = float(
+                                parent.rotation_angle
+                                if hasattr(parent, "rotation_angle")
+                                else parent.rotation()
+                            )
+                else:
+                    self._rotating_item = None
             else:
                 self._active_drag_handle = None
+                self._rotating_item = None
 
         # Store positions of selected items for drag undo tracking
         # Must be AFTER super() so item selection is updated
@@ -2468,14 +2503,22 @@ class CanvasView(QGraphicsView):
         # Clamp POINT_ON_EDGE-constrained items to their edge line during drag
         self._enforce_point_on_edge_positions()
 
-        # Apply object snapping and canvas boundary clamping during drag
-        self._apply_object_snap_during_drag()
-        self._clamp_dragged_items_to_canvas()
+        # Apply object snapping and canvas boundary clamping during drag.
+        # A rotation is not a translation: snapping/clamping the selection would
+        # move the turned item's pivot and record no undo for it (#485 review).
+        if self._rotating_item is None:
+            self._apply_object_snap_during_drag()
+            self._clamp_dragged_items_to_canvas()
+        else:
+            self._snap_guides = []
 
-        # Propagate constraints to connected items during drag.
-        # Skip during rotation — constraint solving doesn't apply while rotating.
-        if not isinstance(self._active_drag_handle, RotationHandle):
-            self._propagate_constraints_during_drag()
+        # Propagate constraints to connected items during drag AND rotation.
+        # A rotation moves an item's anchor points (a corner swings), so the
+        # partner of a DISTANCE constraint must follow the gesture — otherwise
+        # the relation stays red until some later move happens to solve it
+        # (#485). During rotation only the rotating item is pinned; see
+        # DragConstraints._propagate_constraints_during_drag.
+        self._propagate_constraints_during_drag()
 
         # Update dimension lines in real-time during drag
         if self._drag_start_positions:
@@ -2598,8 +2641,87 @@ class CanvasView(QGraphicsView):
     def _propagate_constraints_during_drag(self) -> None:
         return self._drag_constraints._propagate_constraints_during_drag()
 
+    def _rotation_partner_moves(
+        self, rotated_item: QGraphicsItem
+    ) -> list[tuple[QGraphicsItem, QPointF, QPointF]]:
+        """Partner corrections a rotation gesture applied, as ``(item, before, after)``.
+
+        ``_propagate_constraints_during_drag`` records every constraint-corrected
+        item's pre-gesture position the first time it moves it. A finished
+        rotation hands those records to ``RotateItemCommand`` so one Ctrl+Z
+        reverses the angle AND the corrections (#485). Items the solver left
+        where they started are omitted — they need no command entry.
+        """
+        moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+        for item, before in self._constraint_propagated_starts.items():
+            if item is rotated_item:
+                continue
+            after = item.pos()
+            if after.x() == before.x() and after.y() == before.y():
+                continue
+            moves.append((item, QPointF(before), QPointF(after)))
+        return moves
+
+    def _rotation_partner_vertex_moves(
+        self,
+    ) -> list[tuple[QGraphicsItem, int, QPointF, QPointF]]:
+        """Vertex-level solver corrections a rotation applied to a deformable partner.
+
+        A polygon with two or more constrained vertices is deformable, so the
+        solver can move individual vertices instead of translating it. Those
+        corrections are recorded per vertex during the gesture and replayed by
+        ``RotateItemCommand`` with the angle (#485).
+        """
+        moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
+        for item, index, before in self._rotation_vertex_starts.values():
+            if not hasattr(item, "_get_vertex_position"):
+                continue
+            after = item._get_vertex_position(index)  # type: ignore[attr-defined]
+            if (
+                abs(after.x() - before.x()) <= 1e-9
+                and abs(after.y() - before.y()) <= 1e-9
+            ):
+                continue
+            moves.append((item, index, QPointF(before), QPointF(after)))
+        return moves
+
+    def _ensure_rotation_undo(
+        self,
+        rotating_item: QGraphicsItem | None,
+        initial_angle: float,
+        undo_depth_before: int,
+    ) -> None:
+        """Guarantee a finished rotation gesture produced its one undo entry.
+
+        The item's own ``_on_rotation_end`` normally registers the command while
+        the handle handles the release. This safety net covers the paths where
+        that cannot happen — a tool consumes the release before Qt dispatches
+        it, or the handle was destroyed mid-drag — so the scene can never be
+        left with an angle change the undo stack does not know about (the
+        shape of the owner's skipped-undo report on #485). It registers only
+        when the stack did NOT grow during the release, so an ordinary rotation
+        still has exactly one entry.
+        """
+        if rotating_item is None:
+            return
+        if self._command_manager.undo_depth != undo_depth_before:
+            return
+
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            register_rotation_command,
+        )
+
+        register_rotation_command(rotating_item, initial_angle)
+
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Handle mouse release to stop panning and finish tool operations."""
+        # Capture the rotation state before any path below can clear it (#485):
+        # a release that never reaches the handle must still become one undo
+        # entry, or a rotation would be left that no Ctrl+Z can reverse.
+        rotating_item = self._rotating_item
+        rotation_initial_angle = self._rotation_initial_angle
+        undo_depth_before = self._command_manager.undo_depth
+
         # Clear snap guides
         if self._snap_guides:
             self._snap_guides = []
@@ -2658,6 +2780,7 @@ class CanvasView(QGraphicsView):
 
         # Clear the handle tracking regardless of what handles the release
         self._active_drag_handle = None
+        self._rotating_item = None
 
         # Delegate to active tool
         tool = self._tool_manager.active_tool
@@ -2667,13 +2790,23 @@ class CanvasView(QGraphicsView):
             if tool.mouse_release(event, scene_pos):
                 self.refresh_input_anchor()
                 event.accept()
+                # Register BEFORE the tracking is cleared: a rotation that the
+                # handle never saw still needs its partner corrections (#485).
+                self._ensure_rotation_undo(
+                    rotating_item, rotation_initial_angle, undo_depth_before
+                )
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
+                self._rotation_vertex_starts.clear()
                 if was_vertex_drag:
                     self._deferring_vertex_undo = False
                 return
 
         super().mouseReleaseEvent(event)
+        self._ensure_rotation_undo(
+            rotating_item, rotation_initial_angle, undo_depth_before
+        )
+        self._rotation_vertex_starts.clear()
 
         if was_vertex_drag:
             self._deferring_vertex_undo = False
@@ -3168,10 +3301,7 @@ class CanvasView(QGraphicsView):
                     if (
                         child is not None
                         and id(child) not in selected_set
-                        and not (
-                            isinstance(child, GardenItemMixin)
-                            and child.item_id in fixed_ids
-                        )
+                        and not bed_child_has_constraints(self._canvas_scene, child_id)
                     ):
                         extra_children.append(child)
                         selected_set.add(id(child))
@@ -3238,12 +3368,18 @@ class CanvasView(QGraphicsView):
         # If a resize or rotate command was just pushed to the undo stack, the
         # position/angle change is already captured by that command. Creating a
         # separate MoveItemsCommand would duplicate the delta and cause undo to
-        # only revert the position without restoring the size/angle.
-        from open_garden_planner.core.commands import ResizeItemCommand, RotateItemCommand
+        # only revert the position without restoring the size/angle. The check
+        # looks through a CompoundCommand: a bed edit that also re-linked plants
+        # is one compound whose first step is still the resize/rotate (#443).
+        from open_garden_planner.core.commands import (
+            ResizeItemCommand,
+            RotateItemCommand,
+            command_is,
+        )
 
         if self._command_manager.can_undo:
             last_cmd = self._command_manager._undo_stack[-1]
-            if isinstance(last_cmd, (ResizeItemCommand, RotateItemCommand)):
+            if command_is(last_cmd, (ResizeItemCommand, RotateItemCommand)):
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
                 return
@@ -3281,7 +3417,7 @@ class CanvasView(QGraphicsView):
                 continue
             for child_id in item.child_item_ids:
                 child = self._canvas_scene.find_item_by_id(child_id)
-                if child is None:
+                if child is None or bed_child_has_constraints(self._canvas_scene, child_id):
                     continue
                 # Skip if child is already being dragged independently
                 if child in self._drag_start_positions:
@@ -3331,9 +3467,10 @@ class CanvasView(QGraphicsView):
 
                 command = CompoundCommand([command, *links], desc)
             self._command_manager.execute(command)
-        else:  # a click, not a drag: the old re-evaluation of what is selected
-            self._update_plant_bed_relationships()
-
+        # A click (not a drag) used to re-evaluate the selection's links here.
+        # Since #443 every command that moves/reshapes an item reconciles its own
+        # links, so doing it on a bare click would overrule an explicit Link
+        # action the user made on purpose (ADR-037 addendum decision 5).
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
         if hasattr(self, "_child_drag_origins"):
@@ -3356,7 +3493,11 @@ class CanvasView(QGraphicsView):
                 continue
             for child_id in item.child_item_ids:
                 child = self._canvas_scene.find_item_by_id(child_id)
-                if child is None or child in self._drag_start_positions:
+                if (
+                    child is None
+                    or child in self._drag_start_positions
+                    or bed_child_has_constraints(self._canvas_scene, child_id)
+                ):
                     continue
                 # Track the child's original position only once. On the first sighting
                 # it has NOT moved yet, so its position IS that origin - subtracting
@@ -3368,11 +3509,11 @@ class CanvasView(QGraphicsView):
 
     def _update_plant_bed_relationships(self) -> None:
         """Re-evaluate parent-child links for all selected plants at their CURRENT
-        positions (no drag in flight).
+        positions — an EXPLICIT re-evaluation helper (used by tests).
 
-        Each change is its own undo step here; a finished drag wraps the same
-        commands together with its move (``_plant_bed_link_commands`` +
-        ``CompoundCommand``), so one Ctrl+Z undoes both (#627).
+        Production edit paths now reconcile membership inside their own command
+        (issue #443), so a bare click no longer calls this: doing so would
+        overrule an explicit Link action the user made on purpose.
         """
         for command in self._plant_bed_link_commands():
             self._command_manager.execute(command)

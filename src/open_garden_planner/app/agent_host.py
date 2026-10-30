@@ -821,7 +821,12 @@ class AgentHost:
         """``(item, delta)`` pairs for one move: the item plus every contained
         plant, uniformly offset — the release-time equivalent of
         ``CanvasView._propagate_bed_children_during_drag``. A plain plant/shape
-        with no children returns just itself."""
+        with no children returns just itself.
+
+        Keep constrained children in this proposed payload: preflight must
+        refuse the whole agent operation if any child has a constraint.
+        Filtering before preflight would silently relax that safety contract.
+        """
         host = self._host
         from open_garden_planner.core.object_types import is_plant_parent_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
@@ -870,15 +875,6 @@ class AgentHost:
             host.canvas_scene, cast(Any, item), current_parent_id, new_parent_id
         )
         return True, str(new_parent_id) if new_parent_id is not None else None, cmd
-
-
-    def _agent_reconcile_bed_membership(self, item: Any) -> tuple[bool, str | None]:
-        """Reconcile a plant's current membership through the shared command builder."""
-        host = self._host
-        changed, new_parent_id, cmd = host._agent_reconcile_bed_membership_command(item)
-        if cmd is not None:
-            host.canvas_view.command_manager.execute(cmd)
-        return changed, new_parent_id
 
 
     def _agent_item_center(self, item: Any) -> tuple[float, float]:
@@ -2567,7 +2563,7 @@ class AgentHost:
                 f"({target_x:g}, {target_y:g}); nothing to change."
             )
         command = build_move_vertex_command(item, index, old_local, new_local)
-        host.canvas_view.command_manager.execute(command)
+        command = self._agent_execute_vertex_command(item, command)
         actual = item.mapToScene(item._get_vertex_position(index))
         return host._agent_vertex_result(
             item,
@@ -2578,6 +2574,37 @@ class AgentHost:
             actual=actual,
         )
 
+
+    def _agent_execute_vertex_command(
+        self, item: Any, command: Command
+    ) -> Command:
+        """Execute one agent vertex write, membership corrections in the same step.
+
+        Agent ``set_vertex`` / ``add_vertex`` / ``delete_vertex`` reshape a bed
+        or trellis directly (no drag-release handler), so the membership the
+        geometry decides must ride in the SAME undo entry (#443 (i)). The
+        returned command is what the response reports.
+        """
+        host = self._host
+        from open_garden_planner.core.commands import (
+            CompoundCommand,
+            ReconcileBedMembershipCommand,
+        )
+        from open_garden_planner.core.object_types import is_plant_parent_type
+        from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+        manager = host.canvas_view.command_manager
+        if isinstance(item, GardenItemMixin) and is_plant_parent_type(item.object_type):
+            reconcile = ReconcileBedMembershipCommand(
+                host.canvas_scene, focus_parents={item.item_id}
+            )
+            final: Command = CompoundCommand(
+                [command, reconcile], command.description
+            )
+            manager.execute(final)
+            return final
+        manager.execute(command)
+        return command
 
     def _agent_add_vertex(
         self, item_id: str, index: int, x: float, y: float
@@ -2606,7 +2633,7 @@ class AgentHost:
         target_x, target_y = host._agent_validate_vertex_point(x, y)
         local = item.mapFromScene(QPointF(target_x, target_y))
         command = build_add_vertex_command(item, index, local)
-        host.canvas_view.command_manager.execute(command)
+        command = self._agent_execute_vertex_command(item, command)
         actual = item.mapToScene(item._get_vertex_position(index))
         return host._agent_vertex_result(
             item,
@@ -2643,7 +2670,7 @@ class AgentHost:
         )
         deleted = item.mapToScene(item._get_vertex_position(index))
         command = build_delete_vertex_command(item, index)
-        host.canvas_view.command_manager.execute(command)
+        command = self._agent_execute_vertex_command(item, command)
         return host._agent_vertex_result(
             item,
             item_id,
@@ -2835,12 +2862,12 @@ class AgentHost:
         for. ``link_is_geometric`` in the result says whether the link and the
         geometry agree, so an agent can notice and tell the user.
 
-        ``SetParentBedCommand`` handles the rest of the contract itself: it
-        removes the child id from the old bed, adds it to the new one, raises
-        the plant above its parent, snapshots ``zValue`` so undo restores the
-        user's original elevation rather than a recomputed one, and calls
-        ``trigger_soil_mismatch_refresh`` because parent-link mutations do not
-        fire ``QGraphicsScene.changed`` (#173).
+        ``SetParentBedCommand`` handles the rest of the contract itself: its
+        ``set_parent_link`` mutator removes the child id from the old bed and
+        adds it to the new one, and it calls ``trigger_soil_mismatch_refresh``
+        because parent-link mutations do not fire ``QGraphicsScene.changed``
+        (#173). z is derived from the normalized stacking order (issue #338), so
+        no explicit elevation or z snapshot is taken or restored.
         """
         host = self._host
 
@@ -2859,20 +2886,12 @@ class AgentHost:
                 host._agent_object_type_name(bed), bed_id
             )
             new_parent_id = bed.item_id
-            # Containment uses the same construct CanvasView's own reparent test
-            # does (boundingRect centre), so the agent's link and the GUI's
-            # auto-link agree on the boundary case. Note this is deliberately
-            # NOT _agent_item_center's rect-based centre: that one exists so a
-            # reported x/y matches the read tools, whereas this one exists to
-            # match the GUI's containment decision. The two differ by the
-            # antagonist badge's asymmetric overflow (~0.07 * radius).
-            #
-            # Whether the sun study and the 3D scene LIFT the plant onto the
-            # bed's soil (L1.6, footprints.item_base_cm) is the same predicate
-            # asked with the plant's stable geometric centre — where a solid
-            # stands must not follow a badge. So within that overflow of a
-            # bed's edge a link reported as not geometric here can still be
-            # lifted there, and the other way round.
+            # Containment asks the app's ONE link point (bed_membership_point =
+            # standing_point since #443), so this answer agrees with where the
+            # sun study and the 3D scene stand the plant: a badge, a highlight
+            # or a selection ring cannot move it. Note it is deliberately NOT
+            # _agent_item_center's serialised-geometry centre: that one exists so
+            # a reported x/y matches the read tools.
             link_is_geometric = centre_is_inside(plant, bed)
 
         if new_parent_id == old_parent_id:

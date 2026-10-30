@@ -419,11 +419,10 @@ class PlanLifecycleResult(BaseModel):
 # (ADR-033/ADR-036) and runs on the Qt main thread via the same commands the GUI
 # itself uses. WriteResult is
 # the curated confirmation returned to the agent — decoupled from the .ogp
-# serializer. move_object/set_object_position are ONE undo step for a lone item
-# and for a bed whose children travel in the same command, but — mirroring
-# CanvasView's own drag-release behaviour — TWO when placement also crosses a bed
-# boundary and reparents a plant; children_moved/bed_membership_changed/
-# new_parent_bed_id surface that.
+# serializer. Every write is ONE undo step, including a move/placement that
+# crosses a bed boundary and reparents a plant (the move command reconciles
+# membership in the same step since #443); children_moved/
+# bed_membership_changed/new_parent_bed_id surface what it did.
 
 
 class WriteResult(BaseModel):
@@ -470,8 +469,8 @@ class WriteResult(BaseModel):
     ] = Field(description="The mutation performed.")
     undo_description: str = Field(
         description="Human-readable label of the primary undo step this created "
-        "(the user can reverse it with Ctrl+Z; see bed_membership_changed for "
-        "whether a second step was also created). set_active_layer is the one "
+        "(the user can reverse it with Ctrl+Z; a reparent caused by move/"
+        "set_position rides in that SAME step). set_active_layer is the one "
         "action with no undo step — the active layer is session state, not a "
         "document change — and says so here."
     )
@@ -493,20 +492,23 @@ class WriteResult(BaseModel):
         description="Contained plants moved along with this object, e.g. moving "
         "or absolutely positioning a bed carries its plants. Move/set_position "
         "only — always 0 for every other action. Note resize does NOT move a "
-        "bed's plants: shrinking a bed leaves its linked plants where they are, "
-        "so a plant can end up linked to a bed it no longer sits inside (the "
-        "app's own resize behaves the same way).",
+        "bed's plants: they stay where they are, but the bed's new geometry "
+        "re-decides which plants it holds (a plant the bed no longer contains is "
+        "unlinked in the same undo step, and its sun/3D base follows).",
     )
     bed_membership_changed: bool = Field(
         default=False,
-        description="True if this call changed which bed the plant belongs to. "
-        "For move/set_position, that reparenting was a SECOND undo step. For "
-        "set_parent_bed it is always true and is the whole point of the call — "
-        "still ONE undo step, since changing the link is the operation rather "
-        "than a side "
-        "effect of it. Always false for create (a new plant's link is "
-        "established inside the single create step — see new_parent_bed_id) and "
-        "for resize/rotate/set_species, none of which reparent.",
+        description="True if this call changed which bed the addressed PLANT "
+        "belongs to. For move/set_position, that reparenting happened inside the "
+        "SAME undo step as the move (the move command reconciles membership). "
+        "For set_parent_bed it is always true and is the whole point of the "
+        "call — still ONE undo step, since changing the link is the operation "
+        "rather than a side effect of it. Always false for create (a new "
+        "plant's link is established inside the single create step — see "
+        "new_parent_bed_id), for resize/rotate of a plant, and for "
+        "set_species. A resize or rotate of a BED can unlink or relink that "
+        "bed's plants (issue #443) — that is reported by those plants' own "
+        "state, never as this field on the bed's response.",
     )
     new_parent_bed_id: str | None = Field(
         default=None,
@@ -585,14 +587,15 @@ class WriteResult(BaseModel):
         "inside the bed it was linked to. False means the link is valid but the "
         "plant sits outside the bed's outline — deliberately allowed (the app's "
         "own Link action does the same), but worth telling the user about. It is "
-        "the app's own link test — the centre of the plant's bounding box against "
-        "the bed's outline — and a warning badge on the plant moves that point by "
-        "1.8 cm along each axis (about 2.5 cm diagonally). So within that margin "
-        "of a bed's edge it can be false for a plant "
-        "that the sun study and the 3D view do stand on the bed's soil (they test "
-        "the centre of the plant itself), and true for one they leave on the "
-        "ground; do not report a mismatch to the user on that margin alone. Null "
-        "for a detach and for every other action.",
+        "the app's own link test, and since issue #443 it asks the SAME standing "
+        "point the sun study and the 3D view use: the plant's stable geometric "
+        "centre, which no warning badge, selection or spacing ring can move, so "
+        "this answer and the containment half of the lift always agree. True "
+        "does NOT by itself mean the plant is lifted: the parent must also be a "
+        "visible soil container with a resolved height (a trellis, an in-ground "
+        "bed, a hidden parent or a container without a height stands the plant "
+        "on the ground even when this is true). Null for a detach and for every "
+        "other action.",
     )
     # --- issue #338: arrange (stacking order) -------------------------------
     stack_index: int | None = Field(

@@ -281,7 +281,8 @@ class DragConstraints:
         items to satisfy distance constraints.
         """
         host = self._host
-        if not host._drag_start_positions:
+        rotating = getattr(host, "_rotating_item", None)
+        if not host._drag_start_positions and rotating is None:
             return
 
         graph = host._canvas_scene.constraint_graph
@@ -295,13 +296,19 @@ class DragConstraints:
             ConstructionLineItem,
         )
 
-        selected = cast("CanvasScene", host.scene()).selectedItems()
-        if not selected:
-            return
+        # A rotation turns ONE item: it is the only pinned participant, and
+        # every other item — selected or not — may be corrected (#485). A
+        # normal drag pins everything selected.
+        if rotating is not None:
+            candidates: list[QGraphicsItem] = [rotating]
+        else:
+            candidates = list(cast("CanvasScene", host.scene()).selectedItems())
+            if not candidates:
+                return
 
         # Collect item IDs of dragged items (garden + construction)
         dragged_ids: set[Any] = set()
-        for item in selected:
+        for item in candidates:
             if isinstance(
                 item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
             ):
@@ -339,22 +346,28 @@ class DragConstraints:
         # hard pin). This makes constraints bidirectional and lets items orbit around
         # fixed partners.
         soft_dragged: set[Any] = set()
-        for uid in dragged_ids:
-            if uid in scene_construction_ids:
-                continue  # Construction items are always hard-pinned
-            item_constraints = graph.get_item_constraints(uid)
-            if not item_constraints:
-                continue
-            if all(
-                (
-                    c.anchor_a.item_id
-                    if c.anchor_b.item_id == uid
-                    else c.anchor_b.item_id
-                )
-                in pinned_reference_ids
-                for c in item_constraints
-            ):
-                soft_dragged.add(uid)
+        if rotating is None:
+            for uid in dragged_ids:
+                if uid in scene_construction_ids:
+                    continue  # Construction items are always hard-pinned
+                item_constraints = graph.get_item_constraints(uid)
+                if not item_constraints:
+                    continue
+                if all(
+                    (
+                        c.anchor_a.item_id
+                        if c.anchor_b.item_id == uid
+                        else c.anchor_b.item_id
+                    )
+                    in pinned_reference_ids
+                    for c in item_constraints
+                ):
+                    soft_dragged.add(uid)
+
+        # During a rotation the turned item stays hard-pinned: translating it
+        # to chase a FIXED partner would make it jump under the cursor. A
+        # relation that only a fixed anchor could satisfy is reported red —
+        # FIXED keeps its established meaning.
 
         # truly_dragged: follow the cursor and pull their constraint partners
         truly_dragged = dragged_ids - soft_dragged
@@ -448,12 +461,44 @@ class DragConstraints:
         )
 
         # Apply deltas (skip construction items — always pinned)
+        moved_parents: list[QGraphicsItem] = []
         for uid, (dx, dy) in result.item_deltas.items():
             if uid in construction_ids:
                 continue
             gitem = item_map.get(uid)
             if gitem is not None:
                 gitem.moveBy(dx, dy)
+                moved_parents.append(gitem)
+
+        # A plant-parent the solver moved takes its plants along (#443 (vi)).
+        # Positions are recomputed from each tracked start so a reverted parent
+        # cannot make a child drift by the accumulated frame deltas.
+        if moved_parents:
+            from open_garden_planner.core.commands import bed_child_has_constraints
+            from open_garden_planner.core.object_types import (
+                is_plant_parent_type,
+            )
+
+            for parent in moved_parents:
+                if not isinstance(parent, GardenItemMixin):
+                    continue
+                if not is_plant_parent_type(parent.object_type):
+                    continue
+                parent_start = host._constraint_propagated_starts.get(parent)
+                if parent_start is None:
+                    continue
+                delta = parent.pos() - parent_start
+                for child_id in parent.child_item_ids:
+                    child = host._canvas_scene.find_item_by_id(child_id)
+                    if (
+                        child is None
+                        or child in host._drag_start_positions
+                        or bed_child_has_constraints(host._canvas_scene, child_id)
+                    ):
+                        continue
+                    if child not in host._constraint_propagated_starts:
+                        host._constraint_propagated_starts[child] = child.pos()
+                    child.setPos(host._constraint_propagated_starts[child] + delta)
 
         # Apply vertex deltas for deformable items
         for (uid, vi), (vdx, vdy) in result.vertex_deltas.items():
@@ -465,6 +510,12 @@ class DragConstraints:
             old_local = host._get_vertex_local(gitem, vi)
             if old_local is None:
                 continue
+            # A vertex correction during a ROTATION must be part of the rotation's
+            # one undo entry: record the pre-gesture local position once (#485).
+            if rotating is not None:
+                host._rotation_vertex_starts.setdefault(
+                    (id(gitem), vi), (gitem, vi, QPointF(old_local))
+                )
             old_scene = gitem.mapToScene(old_local)
             new_scene = QPointF(old_scene.x() + vdx, old_scene.y() + vdy)
             new_local = gitem.mapFromScene(new_scene)
@@ -522,7 +573,13 @@ class DragConstraints:
                 all_moves.append((item, i, old_v, QPointF(new_v)))
 
         cmd = MultiVertexMoveCommand(all_moves)
-        host.command_manager.register_applied(cmd)
+        from open_garden_planner.core.commands import register_applied_with_membership
+
+        # A bed vertex drag can move its boundary away from / over plants: the
+        # link corrections belong to the same undo step (#443).
+        register_applied_with_membership(
+            host._canvas_scene, host.command_manager, cmd, item
+        )
 
         host._canvas_scene.update_dimension_lines()
 

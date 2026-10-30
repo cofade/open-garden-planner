@@ -379,3 +379,52 @@ PR #645 review pins exact-plane vertical translation for sub-centimetre and
 bed-height receivers in `test_receiver_elevation_matches_exact_vertical_translation`.
 Do not round the receiver height: a 39 cm obstacle remains above 38 cm soil.
 The map stays at ground level; only the per-plant estimate changes its plane.
+
+### PF-DOM-30
+
+- **Rule:** A gesture that changes an item's anchor positions (rotation) must run the live solver during the gesture and record every partner correction in the SAME command as the gesture's own change. "Skip the solver while rotating" is a decision, not an optimisation — it leaves a violated relation that the next unrelated move hides.
+- **Pinned by:** `tests/integration/test_constrained_rotation.py`
+- **Source:** #485, PR #649
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The solver was deliberately skipped for `RotationHandle` drags; the release
+registered a `RotateItemCommand` holding only the angle, and
+`_finalize_drag_move` treated that as the finished step. A corner-to-corner
+DISTANCE stayed red until a nudge happened to solve it, and undoing the nudge
+restored the violation. Pin only the turned item, record
+`(item, before, after)` for each correction, and let the command replay
+angle + corrections atomically. FIXED keeps its meaning: when the partner
+cannot follow, the relation reads red rather than being "corrected".
+
+PR #649 review also pinned two post-solve traps: implicit bed carrying must
+never overwrite a child's own constraint result (including FIXED or zero delta),
+and a returned-to-start angle is not a no-op if partner geometry changed.
+`test_constrained_rotation.py` covers both through viewport events;
+`test_bed_membership_reconciliation.py` pins FIXED children in move and
+one-shot constraint commands. The shared carry guard checks the constraint
+graph before applying any inherited translation.
+
+
+**PR #649 owner pass: creating orientation constraints also needs a lock gate.**
+The direct rotation-only branch never enters the position solver. A FIXED
+rectangle rotated 0 -> -41.309932 degrees when clicked second for a
+Perpendicular constraint. `has_rotation_constraint` only checks existing
+orientation relations, not FIXED. Both tools now plan their whole co-rotation
+group before execution, try the other free group, or refuse atomically.
+Pinned by `tests/integration/test_orientation_constraint_locks.py` (including
+real toolbar/viewport clicks). Independent endpoint vectors, not item angles,
+verify the requested parallel/perpendicular relation.
+
+The same owner pass exposed a display error: all rectangle edge anchors have
+index 0, so applying the polygon/polyline index-only fallback to a rectangle
+resolved EDGE_LEFT/0 to EDGE_TOP/0. Restrict that fallback to vertex-backed
+shapes. The orientation suite asserts the dashed connector's real endpoints
+against the selected edge midpoints, including undo/redo, and pins dynamic
+polygon/polyline edge reclassification.
+
+Touch takeover (#650 integration) is another release caller: clearing partner
+snapshots before its synthetic handle release loses the rotation's atomic undo.
+Retain them through release, then clear them. The started and adopted pinch
+regressions in `test_constrained_rotation.py` were observed failing first and
+assert both corrected geometry and one-step history.

@@ -643,24 +643,29 @@ def lookups_constructed(tree: ast.AST) -> list[tuple[str, str]]:
     return found
 
 
-class TestTheLinkAloneNeverLifts:
-    """Review round 1, P1-1. ``parent_bed_id`` is bookkeeping, not geometry: the app
-    evaluates it when a plant is created (one by one, in bulk, pasted), dropped or
-    moved by the agent — never when a BED changes — and ``set_parent_bed`` sets it on
-    purpose without containment. A solid is lifted only when the link holds AND its
-    centre is inside the parent's shape.
+class TestMembershipIsReconciledAndTheLinkAloneNeverLifts:
+    """Review round 1, P1-1 / issue #443. ``parent_bed_id`` is bookkeeping, and
+    since #443 every geometry edit reconciles it: creating, resizing, turning or
+    vertex-editing a BED, moving a plant, copying it (paste, duplicate, array,
+    mirror) and the agent all re-ask the same question. A solid is still lifted
+    only when the link holds AND its centre is inside the parent's shape — an
+    explicit ``set_parent_bed`` link that geometry does not support lifts
+    nothing.
 
-    (a) is the case that was new wrong output; (b)–(d) are the limits that remain
-    — pinned so that reconciling bed membership (a follow-up issue) changes them
-    knowingly."""
+    (a) used to pin the stale link after a bed resize; it now pins the reconciled
+    one. (c)-(d) are the nesting limits that remain: parents do not nest, so the
+    smallest parent wins and the base is that parent's soil, not a sum.
 
-    def test_a_shrinking_the_bed_away_from_its_plant_puts_the_plant_on_the_ground(
+    (a) and (b) changed KNOWINGLY with the #443 fix."""
+
+    def test_a_shrinking_the_bed_away_from_its_plant_unlinks_it(
         self, canvas: CanvasView
     ) -> None:
-        """Expected base 0. WHY: the resize does not touch the link, so the plant
-        keeps ``parent_bed_id`` — but it now stands on the lawn, 40 cm from a bed
-        it is no longer in. Lifting it would start its shadow ``38 / tan α`` away
-        from it (141.8 cm at 15°) with lit ground in between."""
+        """Expected base 0 and NO link. WHY: the resize command reconciles the
+        membership (#443 (i)), so a plant the bed no longer contains is unlinked —
+        not left pointing at a bed it stands outside. The base is 0 either way
+        (the lift also requires containment), but the panel, the soil-mismatch
+        and the companion logic now read the truth. Undo restores link + base."""
         garden = Garden(canvas)  # bed x 400 … 700, plant centre at x = 500
         before = garden.records()
         assert _bases(garden, garden.plant) == (38.0, 38.0)
@@ -668,7 +673,8 @@ class TestTheLinkAloneNeverLifts:
         old, new = build_rect_resize(garden.bed, 60.0, 200.0)  # the panel's and the agent's path
         garden.commands.execute(ResizeItemCommand(garden.bed, old, new, apply_rect_like_geometry))
         assert garden.bed.mapRectToScene(garden.bed.rect()).right() == 460.0
-        assert garden.plant.parent_bed_id == garden.bed.item_id  # the link survives: bookkeeping
+        assert garden.plant.parent_bed_id is None  # reconciled: it is not in the bed
+        assert garden.plant.item_id not in garden.bed.child_item_ids
         assert not footprints.centre_is_inside(garden.plant, garden.bed)
         assert _bases(garden, garden.plant) == (0.0, 0.0)
         after = garden.records()
@@ -687,18 +693,15 @@ class TestTheLinkAloneNeverLifts:
         assert near < footprint_far  # round 0: near - footprint_far == 111.8 cm of lit ground
 
         garden.commands.undo()  # the bed is 3 m wide again: the plant is back on its soil
+        assert garden.plant.parent_bed_id == garden.bed.item_id
         assert _bases(garden, garden.plant) == (38.0, 38.0)
         assert garden.records() == before
 
-    def test_b_a_bed_drawn_around_a_plant_does_not_lift_it(self, canvas: CanvasView) -> None:
-        """Expected base 0 — a KNOWN LIMIT, not the wanted end state. WHY: membership
-        is decided from geometry in three places only — when a PLANT is created (one by
-        one, in bulk, or pasted without its bed), when a selected plant is dropped after
-        a mouse drag, and when the agent moves a plant; creating a bed links nothing,
-        so the plant has no parent, and without the link there is no base. The
-        same-looking plan drawn bed-first gives 38. Fixing it means reconciling
-        membership when a bed is created or resized (follow-up issue), not guessing
-        a parent from geometry here."""
+    def test_b_a_bed_drawn_around_a_plant_lifts_it(self, canvas: CanvasView) -> None:
+        """Expected base 38 and a link. WHY: creating a bed now reconciles every
+        plant's membership (#443 (i)), so a plant that geometrically stands inside
+        the new bed is linked — the plan no longer depends on whether the bed or
+        the plant was drawn first."""
         scene = canvas.scene()
         layer = scene.active_layer.id
         plant = CircleItem(500.0, 400.0, 15.0, object_type=ObjectType.PERENNIAL, layer_id=layer)
@@ -707,10 +710,16 @@ class TestTheLinkAloneNeverLifts:
         bed = RectangleItem(400.0, 300.0, 300.0, 200.0, object_type=ObjectType.RAISED_BED,
                             layer_id=layer)
         canvas.command_manager.execute(CreateItemCommand(scene, bed, "bed"))
-        assert footprints.centre_is_inside(plant, bed)  # geometrically it IS in the bed
-        assert plant.parent_bed_id is None               # … but nothing linked it
+        assert footprints.centre_is_inside(plant, bed)
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+        assert snapshot_records(scene)[str(plant.item_id)].transform.base_cm == 38.0
+        assert [c.base_cm for c in collect_shadow_casters(scene) if c.height_cm == 60.0] == [38.0]
+
+        # Undo removes the bed AND restores the plant to the ground, in one step.
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id is None
         assert snapshot_records(scene)[str(plant.item_id)].transform.base_cm == 0.0
-        assert [c.base_cm for c in collect_shadow_casters(scene) if c.height_cm == 60.0] == [0.0]
 
     def test_c_a_climber_on_a_trellis_inside_a_raised_bed_stays_on_the_ground(
         self, canvas: CanvasView
@@ -854,15 +863,15 @@ BADGE_SHIFT_CM = 1.8   # 0.3 * min(0.45 * 30, 12) / 2: what the badge moves the 
 
 
 class TestWhereAPlantStandsDoesNotDependOnABadge:
-    """Review round 2, P2-1. The antagonist badge grows a plant's ``boundingRect()``
-    towards +x / +y, so the rect's centre — the point the LINK decisions ask — moves
-    by up to 1.8 cm along EACH axis while the badge shows (2.55 cm in all: the margin
-    against an edge at 45°, pinned below). Round 1 asked the lift with that point: a
-    linked plant 1 cm inside its bed's east edge dropped from 38 to 0, in the 3D
-    record and in the 2D caster, whenever the badge appeared.
+    """Review round 2, P2-1 / issue #443 (iii). The antagonist badge grows a
+    plant's ``boundingRect()`` towards +x / +y. Until #443 the LINK decisions
+    asked that rect's centre (up to 1.8 cm off along each axis) while the LIFT
+    asked ``standing_point``; a linked plant 1 cm inside its bed's east edge
+    could therefore drop from 38 to 0 whenever the badge appeared, in the 3D
+    record and in the 2D caster.
 
-    The lift asks ``standing_point`` — the plant's stable geometric centre — and the
-    link decisions keep their point exactly as shipped."""
+    Both questions are now asked at ``standing_point``, so painting a warning
+    over a plant cannot move it — or re-decide which bed holds it."""
 
     def test_a_badge_does_not_move_a_plant_off_its_soil(self, canvas: CanvasView) -> None:
         garden = Garden(canvas)
@@ -883,15 +892,16 @@ class TestWhereAPlantStandsDoesNotDependOnABadge:
         shadow, count = painted(), controller.recompute_count
 
         edge.set_antagonist_warning(True)
-        # the link decisions' point left the bed …
+        # The link point and the standing point are the same point — the badge
+        # changes neither, and the plant stays linked and lifted.
         link_point = footprints.bed_membership_point(edge)
-        assert (link_point.x(), link_point.y()) == pytest.approx(
-            (EAST_EDGE_CM - 1.0 + BADGE_SHIFT_CM, 400.0 + BADGE_SHIFT_CM), abs=1e-9)
-        assert not footprints.centre_is_inside(edge, garden.bed)
-        # … the plant did not move
         standing = footprints.standing_point(edge)
-        assert standing is not None and (standing.x(), standing.y()) == (EAST_EDGE_CM - 1.0, 400.0)
-        assert _bases(garden, edge) == (38.0, 38.0)      # round 1: (0.0, 0.0)
+        assert standing is not None
+        assert (link_point.x(), link_point.y()) == (standing.x(), standing.y())
+        assert (standing.x(), standing.y()) == (EAST_EDGE_CM - 1.0, 400.0)
+        assert footprints.centre_is_inside(edge, garden.bed)
+        assert edge.parent_bed_id == garden.bed.item_id
+        assert _bases(garden, edge) == (38.0, 38.0)      # round 1 (badge at the link point): (0.0, 0.0)
         assert garden.records() == before                 # the 3D records: nothing at all
         controller.recompute_now()
         assert controller.recompute_count == count        # the overlay's key (it carries the base) held
@@ -903,14 +913,14 @@ class TestWhereAPlantStandsDoesNotDependOnABadge:
         assert controller.recompute_count == count and painted() == shadow
         controller.set_enabled(False)
 
-    def test_against_an_edge_at_45_degrees_the_margin_is_the_badge_s_diagonal(
+    def test_against_an_edge_at_45_degrees_the_badge_changes_nothing(
         self, canvas: CanvasView
     ) -> None:
-        """The last pass, P2-b: "1.8 cm" is not an upper bound of the margin. The badge
-        moves the link point by 1.8 cm in x AND in y — 2.55 cm in all — and against a
-        bed edge that faces (+x, +y) the whole length counts: a linked plant 2.2 cm
-        inside such an edge is OUTSIDE for the link decisions while the badge shows, and
-        stands on the soil all the same. At 2.6 cm inside, both say inside."""
+        """The old margin: the badge moved the link point by 1.8 cm in x AND y —
+        2.55 cm in all — so a linked plant 2.2 cm inside a (+x, +y)-facing edge
+        was "outside" for the link decisions and stood on the soil all the same.
+        Both decisions now use the same point: a plant 2.2 cm inside is inside,
+        with or without the badge, and stays linked."""
         garden = Garden(canvas)
         apply_rotation(garden.bed, 45.0)
         centre = garden.bed.mapToScene(garden.bed.rect().center())
@@ -920,14 +930,14 @@ class TestWhereAPlantStandsDoesNotDependOnABadge:
         # the turned bed's long axis runs along (+x, +y): its short edges, 150 cm from the
         # centre, face (+x, +y) and (-x, -y)
         assert (axis.x(), axis.y()) == pytest.approx((along, along))
-        assert math.sqrt(2.0) * BADGE_SHIFT_CM == pytest.approx(2.546, abs=1e-3)
-        for index, (inside_by, link_point_is_inside) in enumerate(((2.2, False), (2.6, True))):
+        for index, inside_by in enumerate((2.2, 2.6)):
             reach = 150.0 - inside_by
             plant = _add(garden, _perennial(garden, 550.0 + reach * along, 400.0 + reach * along,
                                             61.0 + index, radius=30.0), f"{inside_by} cm inside")
-            assert plant.parent_bed_id == garden.bed.item_id  # created without a badge: linked
+            assert plant.parent_bed_id == garden.bed.item_id
             plant.set_antagonist_warning(True)
-            assert footprints.centre_is_inside(plant, garden.bed) is link_point_is_inside
+            assert footprints.centre_is_inside(plant, garden.bed)
+            assert plant.parent_bed_id == garden.bed.item_id
             assert _bases(garden, plant) == (38.0, 38.0)      # where it stands: its own centre
 
     @pytest.mark.parametrize("painted", ["antagonist badge", "companion highlight"])
@@ -1003,16 +1013,15 @@ def window(qtbot: Any, monkeypatch: Any, _reset_app_settings: Any) -> Any:  # no
     win._stop_agent_api()
 
 
-class TestWhichPointEachDecisionAsks:
-    """Review round 2, P2-1: ONE test per decision that pins its point. Round 1's
-    refactor moved five inline expressions into shared functions, and a swap of the
-    link point for the geometric centre passed every parenting, agent-write,
-    container, trellis and base-stacking test — "identical behaviour" held by reading
-    only.
-
-    The probe: a plant showing its antagonist badge, its geometric centre 1 cm INSIDE
-    a raised bed's east edge — so the centre of its bounding rect is 0.8 cm OUTSIDE.
-    Every LINK decision must answer "outside" (the shipped point); the LIFT "inside"."""
+class TestLinkAndLiftAskTheSamePoint:
+    """Review round 2, P2-1 / issue #443 (iii): ONE test per decision, now pinning
+    that every LINK decision and the LIFT ask the SAME point. Round 1's refactor
+    moved five inline expressions into shared functions, and a swap of the link
+    point for the geometric centre passed every parenting, agent-write,
+    container, trellis and base-stacking test — "identical behaviour" held by
+    reading only. Since #443 the point is ``standing_point`` everywhere, so the
+    probe (a badged plant whose centre is 1 cm inside a bed's east edge) is linked
+    by every path and lifted; a plant whose centre is outside is neither."""
 
     @staticmethod
     def _bed(win: Any) -> RectangleItem:
@@ -1030,78 +1039,77 @@ class TestWhichPointEachDecisionAsks:
             plant.set_antagonist_warning(True)
         return plant
 
-    def test_the_two_points_disagree_on_the_probe(self, window: Any) -> None:
+    def test_the_link_point_is_the_standing_point(self, window: Any) -> None:
         bed, plant = self._bed(window), self._probe(window, badge=True)
         window.canvas_scene.addItem(plant)
         link, stand = footprints.bed_membership_point(plant), footprints.standing_point(plant)
         assert stand is not None
-        assert not footprints.shape_contains(bed, link) and footprints.shape_contains(bed, stand)
+        assert (link.x(), link.y()) == (stand.x(), stand.y())
+        assert footprints.shape_contains(bed, link) and footprints.shape_contains(bed, stand)
 
-    def test_create_asks_the_link_point(self, window: Any) -> None:
+    def test_create_links_a_badged_plant_whose_centre_is_inside(self, window: Any) -> None:
         bed, plant = self._bed(window), self._probe(window, badge=True)
         window.canvas_view.command_manager.execute(
             CreateItemCommand(window.canvas_scene, plant, "plant"))
-        assert plant.parent_bed_id is None and plant.item_id not in bed.child_item_ids
+        assert plant.parent_bed_id == bed.item_id and plant.item_id in bed.child_item_ids
 
-    def test_bulk_create_and_paste_ask_the_link_point(self, window: Any) -> None:
+    def test_bulk_create_and_paste_link_by_the_same_point(self, window: Any) -> None:
         from open_garden_planner.core.commands import CreateItemsCommand
 
         bed, plant = self._bed(window), self._probe(window, badge=True)
         window.canvas_view.command_manager.execute(
             CreateItemsCommand(window.canvas_scene, [plant], "pasted objects"))
-        assert plant.parent_bed_id is None and plant.item_id not in bed.child_item_ids
+        assert plant.parent_bed_id == bed.item_id and plant.item_id in bed.child_item_ids
 
-    def test_the_drop_after_a_drag_asks_the_link_point(self, window: Any) -> None:
+    def test_the_drop_after_a_drag_asks_the_same_point(self, window: Any) -> None:
         bed, plant = self._bed(window), self._probe(window, badge=False)
         window.canvas_view.command_manager.execute(
             CreateItemCommand(window.canvas_scene, plant, "plant"))
-        assert plant.parent_bed_id == bed.item_id  # no badge: both points are the centre
+        assert plant.parent_bed_id == bed.item_id
         plant.setSelected(True)
         # after selecting: the window's companion check answers a selection change by
         # clearing the badge of a plant that has no antagonist near it
         plant.set_antagonist_warning(True)
-        window.canvas_view._update_plant_bed_relationships()
+        # The real drag-release helper (the click path no longer re-evaluates).
+        for command in window.canvas_view._plant_bed_link_commands():
+            window.canvas_view.command_manager.execute(command)
         assert plant.antagonist_warning
-        assert plant.parent_bed_id is None  # the drop-time decision follows the badge
+        assert plant.parent_bed_id == bed.item_id  # the badge no longer re-decides the link
 
-    def test_the_agent_s_move_re_link_asks_the_link_point(self, window: Any) -> None:
+    def test_the_agent_s_move_re_link_asks_the_same_point(self, window: Any) -> None:
         bed, plant = self._bed(window), self._probe(window, badge=False)
         window.canvas_view.command_manager.execute(
             CreateItemCommand(window.canvas_scene, plant, "plant"))
         assert plant.parent_bed_id == bed.item_id
         plant.set_antagonist_warning(True)
-        assert window._agent_reconcile_bed_membership(plant) == (True, None)
-        assert plant.parent_bed_id is None
+        # The prediction the agent's move uses to report the link outcome.
+        changed, new_parent, command = window._agent_reconcile_bed_membership_command(plant)
+        assert (changed, new_parent, command) == (False, None, None)
+        assert plant.parent_bed_id == bed.item_id
 
-    def test_link_is_geometric_asks_the_link_point_and_the_lift_the_standing_point(
-        self, window: Any
-    ) -> None:
-        """The two answers side by side, on one plant: ``set_parent_bed`` reports the
-        link as not geometric (the bounding rect's centre is outside), and the plant —
-        linked, its centre inside — stands on the soil."""
+    def test_link_is_geometric_and_the_lift_agree(self, window: Any) -> None:
+        """``set_parent_bed`` on a plant whose centre is inside reports geometric
+        truth, and the plant stands on the soil — one point answers both."""
         bed, plant = self._bed(window), self._probe(window, badge=True)
         window.canvas_scene.addItem(plant)
         assert plant.parent_bed_id is None
         result = window._do_agent_set_parent_bed(str(plant.item_id), str(bed.item_id))
-        assert result["link_is_geometric"] is False
+        assert result["link_is_geometric"] is True
         assert plant.parent_bed_id == bed.item_id
         record = snapshot_records(window.canvas_scene)[str(plant.item_id)]
         (caster,) = [c for c in collect_shadow_casters(window.canvas_scene) if c.height_cm == 61.0]
         assert (record.transform.base_cm, caster.base_cm) == (38.0, 38.0)
-        # … and the text an AGENT reads about that field says so (review round 3, P2-1):
-        # until then it said that false means "the plant sits outside the bed's outline"
+        # … and the text an AGENT reads about that field says the same predicate
+        # answers both questions (rewritten for #443 (iii)).
         from open_garden_planner.agent_api.schema import WriteResult
 
         told = " ".join((WriteResult.model_fields["link_is_geometric"].description or "").split())
-        for words in ("bounding box", "warning badge",
-                      "1.8 cm along each axis (about 2.5 cm diagonally)",  # not "up to 2 cm"
-                      "sun study", "3D view", "do not report a mismatch"):
+        for words in ("standing point", "sun study", "3D view", "always agree"):
             assert words in told, words
-        assert "up to" not in told  # the margin is stated, not bounded by a round number
 
-    def test_the_mirror_case_a_link_made_under_a_badge_does_not_lift(self, window: Any) -> None:
-        """At the WEST edge the badge pulls the link point INTO the bed: a plant whose
-        centre is 1 cm outside is linked on creation, and stays on the ground."""
+    def test_a_plant_whose_centre_is_outside_is_not_linked(self, window: Any) -> None:
+        """At the WEST edge the old badge-margin case: the plant's centre is 1 cm
+        OUTSIDE the bed, so the one point says outside — no link, base 0."""
         bed = self._bed(window)
         plant = CircleItem(400.0 - 1.0, 400.0, 30.0, object_type=ObjectType.PERENNIAL,
                            layer_id=window.canvas_scene.active_layer.id)
@@ -1109,7 +1117,8 @@ class TestWhichPointEachDecisionAsks:
         plant.set_antagonist_warning(True)
         window.canvas_view.command_manager.execute(
             CreateItemCommand(window.canvas_scene, plant, "plant"))
-        assert plant.parent_bed_id == bed.item_id
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
         record = snapshot_records(window.canvas_scene)[str(plant.item_id)]
         (caster,) = [c for c in collect_shadow_casters(window.canvas_scene) if c.height_cm == 61.0]
         assert (record.transform.base_cm, caster.base_cm) == (0.0, 0.0)
@@ -1175,32 +1184,34 @@ ARRAY_CASES = [
 ]
 
 
-class TestCopiesAndMovesThatDoNotEvaluateTheLink:
-    """The last pass (the review of round 3, P2-a). More ways a link comes about, or
-    stays, without anyone asking the geometry — shipped behaviour, each pinned with its
-    expected values so that the bed-membership follow-up changes it knowingly:
+class TestCopiesAndMovesFollowTheLink:
+    """The last pass (the review of round 3, P2-a) / issue #443 (iv)-(vi). One rule
+    now decides a plant's link — the smallest plant-parent containing its standing
+    point — and every edit path applies it:
 
-    - an ARRAY copy of a linked plant takes its source's link as it is, and the bed's
-      child list is not told;
-    - a plant MIRROR-COPIED without its bed gets no link, wherever the copy lands;
-    - a linked plant MOVED by anything but a mouse drop or an agent move keeps its link;
-    - a BED moved by a typed coordinate or by align / distribute leaves its plants.
+    - an ARRAY copy is a NEW item: it does not inherit its source's link, and the
+      copy that lands in a bed is linked (the bed's child list too);
+    - a plant MIRROR-COPIED without its bed is linked when the copy lands in one;
+    - a plant MOVED by the arrow keys, a typed coordinate or align/distribute
+      re-evaluates its link;
+    - a BED moved by a typed coordinate or by align / distribute takes its plants
+      along, as the drag, the arrow keys and the agent already did.
 
-    Where a plant STANDS is right in every one of them where a link exists: it follows
-    the plant's centre (FR-SUN-11). Where no link exists, the plant is on the ground."""
+    Where a plant STANDS follows the plant's centre in every one of them (FR-SUN-11).
+
+    Every expectation in this class changed KNOWINGLY with the #443 fix."""
 
     @pytest.mark.parametrize(("action", "module", "dialog", "settings", "lands"), ARRAY_CASES,
                              ids=[case[0] for case in ARRAY_CASES])
-    def test_an_array_copy_takes_its_source_s_link_as_it_is(
+    def test_an_array_copy_is_linked_by_where_it_lands(
         self, canvas: CanvasView, monkeypatch: Any, action: str, module: str, dialog: str,
         settings: dict[str, Any], lands: list[tuple[float, float]],
     ) -> None:
-        """Expected: both copies linked to the source's bed, neither in the bed's child
-        list; the one inside the bed at base 38, the one outside at 0 — with a link to a
-        bed it is not in. WHY: all four array actions build a copy from the source's
-        serialised form (``_strip_item_ids`` drops ``item_id`` and nothing else, so
-        ``parent_bed_id`` is restored by ``_deserialize_item``), and the array commands
-        only add the items: no evaluator runs, ``add_child_id`` is not called."""
+        """Expected: the copy inside the bed is linked to it (and held by its child
+        list), the copy outside is unlinked — 38 and 0. WHY: all four array actions
+        build a copy from the source's serialised form; the commands now drop the
+        inherited ``parent_bed_id`` and reconcile membership from geometry, as
+        ``CreateItemsCommand`` does for a pasted plant (#443 (v))."""
         garden = Garden(canvas)  # bed x 400 … 700, y 300 … 500; the plant at (500, 400), linked
         _accept(monkeypatch, module, dialog, **settings)
         _select_only(garden, garden.plant)
@@ -1227,27 +1238,29 @@ class TestCopiesAndMovesThatDoNotEvaluateTheLink:
         (outside,) = [copy for copy in copies if copy is not inside[0]]
         for copy in copies:
             assert copy.item_id != garden.plant.item_id               # a new item …
-            assert copy.parent_bed_id == garden.bed.item_id           # … with its source's link, as it is
             assert copy.metadata[METADATA_KEY] == 60.0
-        assert list(garden.bed.child_item_ids) == [garden.plant.item_id]  # the bed was not told
-        assert not footprints.centre_is_inside(outside, garden.bed)   # a link to a bed it is not in
-        # where each one STANDS follows its centre
+        # … whose link is decided by where IT stands, not by its source's
+        assert inside[0].parent_bed_id == garden.bed.item_id
+        assert inside[0].item_id in garden.bed.child_item_ids
+        assert outside.parent_bed_id is None
+        assert outside.item_id not in garden.bed.child_item_ids
+        assert not footprints.centre_is_inside(outside, garden.bed)
         assert _base_pair(garden, inside[0]) == (38.0, 38.0)
         assert _base_pair(garden, outside) == (0.0, 0.0)
-        assert garden.records()[str(outside.item_id)].parent_id == garden.bed_id
+        assert garden.records()[str(outside.item_id)].parent_id is None
         assert _base_pair(garden, garden.plant) == (38.0, 38.0)
 
         garden.commands.undo()  # one step
         assert _new_plants(garden, before) == [] and garden.records() == before_records
+        assert list(garden.bed.child_item_ids) == [garden.plant.item_id]
 
-    def test_a_plant_mirror_copied_without_its_bed_gets_no_link(
+    def test_a_plant_mirror_copied_without_its_bed_is_linked_where_it_lands(
         self, canvas: CanvasView, mouse_event: Any
     ) -> None:
         """Expected: the copy at (600, 400) — inside the raised bed its source stands
-        in — has NO link and base 0; its source, 1 m to the west, 38. WHY:
-        ``mirror_geometry._mirror_circle`` builds a new, unlinked ``CircleItem``;
-        ``MirrorTool._remap_parent_links`` only links a copy whose parent is mirrored
-        with it; and ``MirrorItemsCommand`` adds the items without evaluating anything."""
+        in — IS linked and stands at 38; its source, 1 m to the west, also 38. WHY:
+        ``MirrorItemsCommand`` now reconciles the copies it adds (#443 (v)), so the
+        unlinked item ``mirror_geometry`` builds is linked by its geometry."""
         garden = Garden(canvas)
         _select_only(garden, garden.plant)
         before = {id(item) for item in garden.scene.items()}
@@ -1260,62 +1273,71 @@ class TestCopiesAndMovesThatDoNotEvaluateTheLink:
         (copy,) = _new_plants(garden, before)
         point = footprints.standing_point(copy)
         assert point is not None and (point.x(), point.y()) == pytest.approx((600.0, 400.0), abs=1e-6)
-        assert footprints.centre_is_inside(copy, garden.bed)   # it IS in the bed …
-        assert copy.parent_bed_id is None                       # … and nothing linked it
-        assert list(garden.bed.child_item_ids) == [garden.plant.item_id]
-        assert _base_pair(garden, copy) == (0.0, 0.0)
+        assert footprints.centre_is_inside(copy, garden.bed)
+        assert copy.parent_bed_id == garden.bed.item_id
+        assert copy.item_id in garden.bed.child_item_ids
+        assert _base_pair(garden, copy) == (38.0, 38.0)
         assert _base_pair(garden, garden.plant) == (38.0, 38.0)
 
-    def test_where_a_linked_plant_stands_follows_its_centre_whatever_moved_it(
+        garden.commands.undo()
+        assert list(garden.bed.child_item_ids) == [garden.plant.item_id]
+
+    def test_moves_re_evaluate_the_link_in_both_directions(
         self, canvas: CanvasView
     ) -> None:
-        """FR-SUN-11's invariant. ``MoveItemsCommand`` alone is what the arrow keys and
-        a coordinate typed into the Properties panel execute (``properties_panel.py``,
-        ``_on_position_changed``): no evaluator runs, so the link stays — and the base
-        follows the plant's centre all the same: 38 → 0 → 38. The other direction is the
-        limit: such a move does not GIVE a link, so a plant that never had one stays on
-        the ground inside the bed."""
+        """FR-SUN-11's invariant / #443 (iv). ``MoveItemsCommand`` backs the arrow
+        keys and a coordinate typed into the Properties panel: the link follows the
+        plant both ways — out of the bed (unlinked, 0) and back in (linked, 38). A
+        plant moved INTO a bed is linked for the first time."""
         garden = Garden(canvas)
         garden.commands.execute(MoveItemsCommand([garden.plant], QPointF(300.0, 0.0)))  # to (800, 400)
-        assert garden.plant.parent_bed_id == garden.bed.item_id   # nothing evaluated the link …
+        assert garden.plant.parent_bed_id is None                 # re-evaluated: outside
+        assert garden.plant.item_id not in garden.bed.child_item_ids
         assert not footprints.centre_is_inside(garden.plant, garden.bed)
-        assert _bases(garden, garden.plant) == (0.0, 0.0)         # … and the plant is on the ground
+        assert _bases(garden, garden.plant) == (0.0, 0.0)
+        garden.commands.undo()                                     # back where it was
+        assert garden.plant.parent_bed_id == garden.bed.item_id and _bases(garden, garden.plant) == (38.0, 38.0)
+        garden.commands.execute(MoveItemsCommand([garden.plant], QPointF(300.0, 0.0)))
         garden.commands.execute(MoveItemsCommand([garden.plant], QPointF(-300.0, 0.0)))
         assert garden.plant.parent_bed_id == garden.bed.item_id
-        assert _bases(garden, garden.plant) == (38.0, 38.0)       # back in: on the soil again
+        assert _bases(garden, garden.plant) == (38.0, 38.0)        # back in: on the soil again
 
         loner = _add(garden, _perennial(garden, 900.0, 400.0, 61.0), "loner")
         assert loner.parent_bed_id is None
-        garden.commands.execute(MoveItemsCommand([loner], QPointF(-300.0, 0.0)))        # to (600, 400)
-        assert footprints.centre_is_inside(loner, garden.bed) and loner.parent_bed_id is None
-        assert _bases(garden, loner) == (0.0, 0.0)
+        garden.commands.execute(MoveItemsCommand([loner], QPointF(-300.0, 0.0)))       # to (600, 400)
+        assert footprints.centre_is_inside(loner, garden.bed)
+        assert loner.parent_bed_id == garden.bed.item_id           # moved IN: now linked
+        assert loner.item_id in garden.bed.child_item_ids
+        assert _bases(garden, loner) == (38.0, 38.0)
 
-    def test_a_bed_moved_by_align_or_a_typed_coordinate_leaves_its_plants(
+    def test_a_bed_moved_by_align_or_a_typed_coordinate_takes_its_plants(
         self, canvas: CanvasView
     ) -> None:
-        """Expected: the plant stays at (500, 400), keeps its link, and stands on the
-        ground — the bed is no longer under it. WHY: a mouse drag, the arrow keys and an
-        agent move take a bed's children along; ``CanvasView.align_selected`` /
-        ``distribute_selected`` and the Properties panel's typed coordinate
-        (``MoveItemsCommand([item], delta)``) move the selected items and nothing else."""
+        """Expected: the plant travels WITH the bed, keeps its link, and stays on the
+        soil — one undo restores both. WHY: ``MoveItemsCommand``/``AlignItemsCommand``
+        now expand a moved plant-parent with its children, the same rule the drag,
+        the arrow keys and the agent already followed (#443 (vi))."""
         garden = Garden(canvas)
         post = _add(garden, RectangleItem(100.0, 800.0, 20.0, 20.0, object_type=ObjectType.TOOL_SHED,
                                           layer_id=garden.scene.active_layer.id), "post")
         _select_only(garden, garden.bed, post)
         canvas.align_selected(AlignMode.LEFT)  # the real action: the bed's left edge to x = 100
         assert garden.bed.mapRectToScene(garden.bed.rect()).left() == pytest.approx(100.0, abs=5.0)
-        assert not footprints.centre_is_inside(garden.plant, garden.bed)
         point = footprints.standing_point(garden.plant)
-        assert point is not None and (point.x(), point.y()) == (500.0, 400.0)  # the plant stayed
-        assert garden.plant.parent_bed_id == garden.bed.item_id                 # still linked
-        assert _bases(garden, garden.plant) == (0.0, 0.0)
+        assert point is not None and (point.x(), point.y()) == pytest.approx((200.0, 400.0), abs=5.0)
+        assert footprints.centre_is_inside(garden.plant, garden.bed)  # it went with the bed
+        assert garden.plant.parent_bed_id == garden.bed.item_id
+        assert _bases(garden, garden.plant) == (38.0, 38.0)
         garden.commands.undo()
         assert _bases(garden, garden.plant) == (38.0, 38.0)
+        back = footprints.standing_point(garden.plant)
+        assert back is not None and (back.x(), back.y()) == pytest.approx((500.0, 400.0), abs=5.0)
 
         # the typed coordinate: the command the panel executes for the one item
         garden.commands.execute(MoveItemsCommand([garden.bed], QPointF(400.0, 0.0)))
         assert garden.plant.parent_bed_id == garden.bed.item_id
-        assert _bases(garden, garden.plant) == (0.0, 0.0)
+        assert footprints.centre_is_inside(garden.plant, garden.bed)
+        assert _bases(garden, garden.plant) == (38.0, 38.0)
         garden.commands.undo()
         assert _bases(garden, garden.plant) == (38.0, 38.0)
 
@@ -1386,18 +1408,26 @@ class TestTheParentShapeIsBuiltOncePerWalk:
     def test_a_lookup_kept_across_an_edit_would_answer_from_the_old_shape(
         self, canvas: CanvasView
     ) -> None:
-        """Why the next test exists. ``ItemLookup`` holds each parent's shape for ONE
-        walk. Kept across an edit it is stale: the bed is shrunk away from its plant,
-        a fresh lookup says 0, the kept one still says 38."""
+        """Why the next test exists. ``ItemLookup`` holds each parent's shape (and the
+        items) for ONE walk. Kept across an edit it is stale: a bed drawn around a
+        plant that stood outside, after the lookup was built, links and lifts it —
+        a fresh lookup says 38, the kept one, which never saw that bed, still says 0."""
+        from open_garden_planner.ui.canvas.items import RectangleItem as _Rect
+
         garden = Garden(canvas)
+        loner = _add(garden, _perennial(garden, 1500.0, 1200.0, 61.0), "loner")
+        assert loner.parent_bed_id is None
         kept = footprints.ItemLookup(garden.scene.items())
-        assert footprints.item_base_cm(garden.plant, kept) == 38.0  # the shape is cached now
-        old, new = build_rect_resize(garden.bed, 60.0, 200.0)
-        garden.commands.execute(ResizeItemCommand(garden.bed, old, new, apply_rect_like_geometry))
+        assert footprints.item_base_cm(loner, kept) == 0.0            # nothing around it yet
+        around = _Rect(1400.0, 1100.0, 200.0, 200.0,
+                       object_type=ObjectType.RAISED_BED,
+                       layer_id=garden.scene.active_layer.id)
+        garden.commands.execute(CreateItemCommand(garden.scene, around, "bed"))
+        assert loner.parent_bed_id == around.item_id                  # #443: the bed linked it
         fresh = footprints.ItemLookup(garden.scene.items())
-        assert footprints.item_base_cm(garden.plant, fresh) == 0.0   # the truth
-        assert footprints.item_base_cm(garden.plant, kept) == 38.0   # a lookup that outlived its walk
-        assert _bases(garden, garden.plant) == (0.0, 0.0)            # both walks make their own
+        assert footprints.item_base_cm(loner, fresh) == 38.0          # the truth
+        assert footprints.item_base_cm(loner, kept) == 0.0            # a lookup that outlived its walk
+        assert _bases(garden, loner) == (38.0, 38.0)                  # both walks make their own
 
     def test_a_lookup_lives_for_one_walk_and_is_never_kept(self) -> None:
         """Review round 3, P2-8, strengthened in the last pass. The only thing between

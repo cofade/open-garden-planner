@@ -714,6 +714,11 @@
     "state": "MERGED",
     "title": "feat(#385): Phase 17 L1 - Qt Quick 3D replaces Qt 3D: the Plan / 3D / Split workspace with ground, looks, selection and walk"
   },
+  "485": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Rotating constrained objects leaves distance broken until the next move; investigate skipped rotation undo"
+  },
   "490": {
     "is_pr": true,
     "state": "MERGED",
@@ -1048,6 +1053,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(3D): Visual polish and engine hardening package (#535, #578, #576, #619, #589, #582, #615)"
+  },
+  "649": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#443, #485): reconcile bed membership on every edit path and keep constrained rotations atomic"
   },
   "650": {
     "is_pr": true,

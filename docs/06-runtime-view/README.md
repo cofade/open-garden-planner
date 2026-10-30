@@ -930,3 +930,43 @@ checks its subdivision/vertex budget, then sweeps the low bevelled rim inward
 around its boundaries. SceneSync publishes one unpickable, non-shadowing
 `ground_detail` part; the ground remains painted beneath it. Budget refusal
 publishes no raised rim and preserves the ground picture.
+
+## Bed membership and constrained rotation (#443, #485, PR #649)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant View as CanvasView
+    participant Solver as Constraint graph
+    participant Command as RotateItemCommand
+    participant Links as BedMembershipChange
+    User->>View: drag rotation handle
+    View->>Solver: solve with rotated item pinned
+    Solver-->>View: partner translations and vertex corrections
+    View->>View: carry only unconstrained bed children
+    User->>View: release
+    View->>Command: register angle and all partner corrections
+    Command->>Links: reconcile affected plant links
+    User->>Command: undo
+    Command->>Command: restore all recorded geometry
+    Command->>Links: restore recorded links
+```
+
+A returned-to-start angle still records partner changes. A gesture with no
+angle or partner changes adds no history entry. Explicit child constraints
+outrank automatic bed carrying; containment is evaluated after geometry settles.
+
+### Creating an orientation constraint beside a locked object
+
+The Parallel and Perpendicular tools resolve the clicked edges, then ask the
+shared rotation planner for a payload. The planner first checks the entire
+orientation component for FIXED members and for the reference object. It
+returns a free group's co-rotations, or refuses before any graph write.
+AddConstraintCommand applies a successful plan and its membership changes in
+one undo entry. Undo/redo replay the recorded payload; no fresh solve is needed.
+
+When a pinch takes over a live rotation handle (#649/#650 integration), the
+pointer cleanup discards ordinary move bookkeeping but retains the rotation's
+partner snapshots until the synthetic release commits the rotation command.
+Only after that release are the partner snapshots cleared. A normal item drag
+still rolls back before the pinch; resize/vertex handle behavior is unchanged.

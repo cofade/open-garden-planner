@@ -45,6 +45,10 @@ resize:
 
 :func:`apply_rotation` has **exactly one** definition in the codebase, used by
 every ``RotateItemCommand`` call site, for every item type. Drift-guarded.
+:func:`register_rotation_command` is the one place a finished rotation gesture
+turns into an undo entry (issue #485); the five per-class ``_on_rotation_end``
+implementations all call it, so the partner corrections the live solver applied
+ride in the same command as the angle.
 
 The vertex builders — :func:`build_move_vertex_command`,
 :func:`build_add_vertex_command`, and :func:`build_delete_vertex_command` —
@@ -132,6 +136,7 @@ __all__ = [
     "is_round_like",
     "is_vertex_editable",
     "local_vertex_for_scene",
+    "register_rotation_command",
     "scene_vertex_positions",
 ]
 
@@ -255,6 +260,70 @@ def apply_rotation(item: QGraphicsItem, angle: float) -> None:
     function instead of a closure each.
     """
     item._apply_rotation(angle)  # type: ignore[attr-defined]
+
+
+def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool:
+    """Register the ONE ``RotateItemCommand`` a finished rotation gesture produced.
+
+    Called by every item class's ``_on_rotation_end`` (all five had an identical
+    private copy of this block). Beyond the angle, the command records the
+    partner corrections the live constraint solver applied during the gesture
+    — collected from the owning ``CanvasView`` (``_rotation_partner_moves``),
+    which keeps each corrected item's pre-gesture position. That is what makes
+    "rotate one end of a DISTANCE constraint" one atomic undo step (#485):
+    replaying only the angle would leave the partner where the gesture put it.
+
+    Returns ``True`` when a command was registered. A no-op rotation has
+    neither an angle change nor partner changes and leaves history untouched.
+    A returned-to-start angle can still leave solver corrections; those need
+    the same undo entry as any other completed gesture.
+    """
+    from open_garden_planner.core.commands import RotateItemCommand
+
+    scene = item.scene()
+    if scene is None or not hasattr(scene, "get_command_manager"):
+        return False
+    command_manager = scene.get_command_manager()
+    if command_manager is None:
+        return False
+
+    current_angle = (
+        item.rotation_angle
+        if hasattr(item, "rotation_angle")
+        else item.rotation()
+    )
+    partner_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+    partner_vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
+    views = scene.views()
+    if views:
+        collect = getattr(views[0], "_rotation_partner_moves", None)
+        if callable(collect):
+            partner_moves = collect(item)
+        collect_vertices = getattr(views[0], "_rotation_partner_vertex_moves", None)
+        if callable(collect_vertices):
+            partner_vertex_moves = collect_vertices()
+
+    if (
+        abs(initial_angle - current_angle) < 0.01
+        and not partner_moves
+        and not partner_vertex_moves
+    ):
+        return False
+
+    rotate_command = RotateItemCommand(
+        item,
+        initial_angle,
+        current_angle,
+        apply_rotation,
+        partner_moves=partner_moves or None,
+        partner_vertex_moves=partner_vertex_moves or None,
+    )
+    # Turning a BED turns its boundary: the plants it holds must be re-decided
+    # in the same undo step (#443). The command carries that tracker itself;
+    # notify_applied() is the "geometry was already applied live" hook.
+    rotate_command.notify_applied()
+    command_manager.register_applied(rotate_command)
+    return True
 
 
 def is_vertex_editable(item: QGraphicsItem) -> bool:
