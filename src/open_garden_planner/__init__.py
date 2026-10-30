@@ -6,5 +6,5 @@
 # and the frozen app falls back to this value.
 # Run: git fetch --tags && git describe --tags --abbrev=0
 # then set this to the new tag (without the leading "v").
-__version__ = "1.34.7"
+__version__ = "1.34.8"
 __author__ = "cofade"

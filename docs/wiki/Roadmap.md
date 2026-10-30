@@ -14,7 +14,8 @@ These improvements apply across the project.
 
 <!-- ogp:include roadmap-infrastructure -->
 
-The repository audit remains open under [#392](https://github.com/cofade/open-garden-planner/issues/392).
+The repository audit is complete: the remaining packages A4/A6/A7/A9/A12/A13
+shipped in v1.34.5 (PR #640).
 The [living debt register](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/README.md)
 records individual outcomes. The dated audit snapshot preserves the original findings.
 The [current reconciliation and package map](https://github.com/cofade/open-garden-planner/blob/master/docs/11-risks-and-technical-debt/audits/2026-10/audit-2026-10-reconciliation.md)
@@ -146,3 +147,17 @@ dropdown icons (#643), self-test crash diagnostics that survive the fatal callba
 rounded painted outline (#605), shipped in
 [v1.34.6](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.6)
 via [PR #645](https://github.com/cofade/open-garden-planner/pull/645).
+
+The 3D visual and engine hardening package (#535, #576, #578, #582, #589, #615, #619)
+shipped in v1.34.7 via [PR #647](https://github.com/cofade/open-garden-planner/pull/647):
+software-adapter detection, screen-constant sun-path arcs with the near-half fade,
+the lower ground slope clamp, the interior floor and bed plants under Cutaway, and the
+Cutaway shader pre-warm.
+
+Canvas pinch-to-zoom and two-finger pan (#321), the bridge search priced at what it
+costs (#451), and the default 3D workspace's close/compatibility rows in the render
+tier (#540) shipped in
+[v1.34.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.8)
+via [PR #650](https://github.com/cofade/open-garden-planner/pull/650). The touch path
+was accepted on its automated evidence (no physical touch device was available); the
+hardware checklist is in the PR.
