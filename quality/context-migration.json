@@ -938,7 +938,7 @@
         {
           "path": ".agents/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md",
           "sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0",
-          "current_sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0"
+          "current_sha256": "5a916f5b84d52beb103068f775101a63db80445f6f9b809774a5dbdfba5d1036"
         },
         {
           "path": ".agents/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
@@ -2338,7 +2338,7 @@
         {
           "path": ".claude/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md",
           "sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0",
-          "current_sha256": "a46c5bc6719e779608f6f725c9eeee4e8e9f35c0ceb8eb552b30ec5100296da0"
+          "current_sha256": "5a916f5b84d52beb103068f775101a63db80445f6f9b809774a5dbdfba5d1036"
         },
         {
           "path": ".claude/skills/ogp-3d-renderer/references/014-14-looks-sky-and-wind-on-the-engine-l1-4.md",
@@ -2908,6 +2908,14 @@
       "fragments": [
         ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
         ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md"
+      ]
+    },
+    {
+      "pr": 654,
+      "reason": "Issue #532 was filed upstream as QTBUG-151940. Record its upstream status and the re-check pointer in reference 13 of both libraries; the probe facts went to the new reference 18 (not a migrated fragment). Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md",
+        ".claude/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md"
       ]
     }
   ]

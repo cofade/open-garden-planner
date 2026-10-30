@@ -345,7 +345,8 @@ def test_no_edit_moves_the_real_cameras_and_a_new_document_does_once(scratch: Pa
 # soak's OWN ground (``known_532_allowance_mb``). Model churn alone — the bake off — is an
 # additional variant against the plain bound; a tripwire watches for the day #532 is gone.
 
-#: #532, a Qt Quick 3D 6.11.0 bug: every cache release keeps about half of the same-size
+#: #532, a Qt Quick 3D bug (6.11.0 to 6.12.0; upstream QTBUG-151940, TD-040, docs §8.29.5
+#: known limit 11 for the re-check): every cache release keeps about half of the same-size
 #: tile textures it finds cached. ``QSSGBufferManager::clear()``
 #: (``qssgrenderbuffermanager.cpp`` ~2049-2052) iterates ``customTextureMap`` with ``++it``
 #: while ``releaseTextureData(it.key())`` erases through its own lookup (~1516); Qt 6's
@@ -355,7 +356,8 @@ def test_no_edit_moves_the_real_cameras_and_a_new_document_does_once(scratch: Pa
 #: so every same-size tile collides. The allowance is this share of the ground's tile
 #: textures per release: about half leak; 0.6 is the room for how the collision runs fall.
 KNOWN_532_SHARE = 0.6
-KNOWN_532 = ("#532 (Qt Quick 3D 6.11.0): QSSGBufferManager::clear(), qssgrenderbuffermanager.cpp "
+KNOWN_532 = ("#532 / QTBUG-151940 (Qt Quick 3D 6.11.0 to 6.12.0; TD-040, §8.29.5 known limit 11): "
+             "QSSGBufferManager::clear(), qssgrenderbuffermanager.cpp (v6.11.0 lines) "
              "~2049-2052, skips the QHash entries it erases while iterating customTextureMap "
              "(releaseTextureData ~1516); same-size tile textures collide (key hash ~2290, "
              "qssgrendertexturedata_p.h 74-77): about half of them leak per release")
@@ -466,7 +468,7 @@ def test_dedicated_gpu_memory_does_not_grow_with_the_rebuilds(soak_rebuild_on: d
 
 
 @pytest.mark.xfail(strict=False, reason=(
-    "#532 is open: " + KNOWN_532 + ". A tripwire for the day Qt (or a tile path outside the "
+    "QTBUG-151940 is unfixed: " + KNOWN_532 + ". A tripwire for the day Qt (or a tile path outside the "
     "buffer manager's maps) stops the leak - NOT strict: on bench_small the leak reads 9.3 to "
     "11.4 MB per rebuild on the RTX 4070 (eight runs, 2026-10-19; seven under 10), against the "
     "plain bound of 10, so a pass does not tell a fix from noise (review 3, P1-2; L1.5 report)"))

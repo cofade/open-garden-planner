@@ -34,6 +34,8 @@ dependencies = [
     # ADR-038; that wheel pair left with Qt 3D in Phase 17 L1.10).
     # tests/unit/test_qt_runtime_pins.py fails CI if the two drift apart, if the
     # lock disagrees, or if Qt Quick 3D is not in what they pin.
+    # When bumping these two pins: re-check QTBUG-151940 (TD-040) as
+    # docs/08-crosscutting-concepts/README.md §8.29.5 known limit 11 says.
     "PyQt6==6.11.0",
     "PyQt6-Qt6==6.11.0",
     "PyQt6-WebEngine>=6.10.0,<6.11",

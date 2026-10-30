@@ -31,5 +31,6 @@ from dated measurements. New lessons belong in a new reference and index row.
 | 15. Selection, picking in perspective, walk mode (L1.8) | [Read](references/015-15-selection-picking-in-perspective-walk-mode-l1-8.md) |
 | 16. Analyze in 3D on the engine (L2) | [Read](references/016-16-analyze-in-3d-on-the-engine-l2.md) |
 | 17. The built world complete on the engine (L4) | [Read](references/017-17-the-built-world-complete-on-the-engine-l4.md) |
+| 18. Counting engine textures without GPU memory (QTBUG-151940) | [Read](references/018-18-counting-engine-textures-without-gpu-memory-qtbug-151940.md) |
 
 The host state contract is owned by `ui/view3d/quick3d/lifecycle.py`.

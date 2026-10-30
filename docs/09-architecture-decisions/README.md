@@ -3548,6 +3548,8 @@ in both; after L1.10 with L1.5 merged: 2.12–2.14 s in three runs, 0 engine mod
 **What it leaves open.** The residual per destroyed Model (above) is still Qt's; L1.9 bounded the
 one path that destroyed many Models per second (date playback, ADR-060 addendum D3). #532 stays
 open: the owner shipped the default with it at the L1 pull request (ADR-060 addendum D5).
+(#532 is closed as a tracker by PR #654; the leak remains: QTBUG-151940, TD-040, §8.29.5
+known limit 11.)
 
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 

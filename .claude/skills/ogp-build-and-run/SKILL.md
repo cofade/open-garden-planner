@@ -185,7 +185,8 @@ a crash — that view was imported lazily, so startup and the 8 s smoke both pas
 poisoned providers, asserting `is_running`, and runs the A1 checks. (Until Phase 17
 L1.10 it also imported the six Qt 3D bindings and compared the runtime with their
 wheel's micro; that view and its two wheels are gone, and the two remaining Qt pins
-are guarded by `tests/unit/test_qt_runtime_pins.py`.)
+are guarded by `tests/unit/test_qt_runtime_pins.py`. When bumping them, run the
+QTBUG-151940 re-check in docs §8.29.5 known limit 11 (TD-040).)
 
 Since Phase 17 L1.2 it **renders**: the Qt Quick 3D engine package
 (`ui/view3d/quick3d/`) is lazily loaded too, and its scene is QML and shader
