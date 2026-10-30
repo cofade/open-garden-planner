@@ -6111,7 +6111,7 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     rectangle — the bars of a 30 cm metal fence reach 37.5 cm from the line, the rectangle 17 cm.
     Exports paint without the cache and show them whole; so does the ground.
 11. **OPEN upstream ([QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940);
-    TD-040; #532 closed) — every cache release leaves about half of the ground's same-size tile
+    TD-040; #532 closed by PR #654) — every cache release leaves about half of the ground's same-size tile
     textures behind, re-baked or not.** *Cause:* a Qt Quick 3D 6.11.0 bug, read in its source
     and proven by measurement (#532): `QSSGBufferManager::clear()`
     (`qssgrenderbuffermanager.cpp` ~2049–2052) walks `customTextureMap` with `++it` while
