@@ -1,18 +1,18 @@
 """Pinch-to-zoom and two-finger pan on the canvas (issue #321).
 
 Qt's own ``QPinchGesture`` recognizer decides when a gesture starts — it needs a
-second finger, so a single-finger tap or drag is never claimed and stays on the
-synthesised mouse path the tools already handle. The tests drive the real
-``CanvasView.eventFilter`` with a synthetic ``QGestureEvent`` (PyQt6 exposes
-``QPinchGesture`` and its setters), so the state machine and the wiring are both
-covered. A real touchscreen's *delivery* is still the owner's manual test; it
-cannot be synthesised from a headless process.
+second finger, so a single-finger tap or drag is never claimed by the gesture
+path. The tests drive the real ``CanvasView.eventFilter`` with a synthetic
+``QGestureEvent`` (PyQt6 exposes ``QPinchGesture`` and its setters); the gesture
+centre is passed the way Qt reports it, in **global** coordinates, so the
+viewport conversion is covered. A real touchscreen's *delivery* is still the
+owner's manual test; it cannot be synthesised from a headless process.
 """
 
 from __future__ import annotations
 
 import pytest
-from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
+from PyQt6.QtCore import QEvent, QObject, QPoint, QPointF, Qt
 from PyQt6.QtWidgets import QApplication, QDialog, QGestureEvent, QPinchGesture
 
 from open_garden_planner.app.settings import get_settings
@@ -38,18 +38,24 @@ def view(qtbot: object) -> CanvasView:
 class _Pinch(QPinchGesture):
     """A pinch gesture whose state a test can set (QGesture.state is read-only)."""
 
-    def __init__(self, state: Qt.GestureState, total: float, center: QPointF) -> None:
+    def __init__(self, state: Qt.GestureState, total: float, global_center: QPointF) -> None:
         super().__init__()
         self._state = state
         self.setTotalScaleFactor(total)
-        self.setCenterPoint(center)
+        self.setCenterPoint(global_center)
 
     def state(self) -> Qt.GestureState:
         return self._state
 
 
-def _send(view: CanvasView, gesture: _Pinch) -> bool:
-    """Deliver one gesture event to the viewport; True when the view handled it."""
+def _global(view: CanvasView, local: QPointF) -> QPointF:
+    """The global position Qt's recognizer would report for a viewport point."""
+    return QPointF(view.viewport().mapToGlobal(local.toPoint()))
+
+
+def _send(view: CanvasView, state: Qt.GestureState, total: float, local: QPointF) -> bool:
+    """Deliver one gesture event for a viewport-local centre; True when handled."""
+    gesture = _Pinch(state, total, _global(view, local))
     return QApplication.sendEvent(view.viewport(), QGestureEvent([gesture]))
 
 
@@ -62,14 +68,19 @@ def _assert_point_stays(
     assert abs(now.y() - screen.y()) <= tolerance
 
 
-def test_a_pinch_at_the_view_centre_doubles_the_zoom_and_keeps_the_point(view: CanvasView) -> None:
+def test_a_pinch_at_the_view_centre_doubles_the_zoom_and_keeps_the_point(
+    view: CanvasView, qtbot: object
+) -> None:
     """Synthetic pinch scale 2.0 at the viewport centre (acceptance criterion 1)."""
+    # The gesture centre is global, so the conversion is only proved off the origin.
+    view.move(700, 300)
+    QApplication.processEvents()
     anchor = QPointF(view.viewport().rect().center())
     before = view.mapToScene(anchor.toPoint())
     assert view.zoom_factor == pytest.approx(1.0)
 
-    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
-    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 2.0, anchor)) is True
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+    assert _send(view, Qt.GestureState.GestureUpdated, 2.0, anchor) is True
 
     assert view.zoom_factor == pytest.approx(2.0)
     _assert_point_stays(view, before, anchor)
@@ -81,8 +92,8 @@ def test_a_pinch_clamps_at_the_maximum_zoom(view: CanvasView) -> None:
     anchor = QPointF(view.viewport().rect().center())
     before = view.mapToScene(anchor.toPoint())
 
-    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
-    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 8.0, anchor)) is True
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+    assert _send(view, Qt.GestureState.GestureUpdated, 8.0, anchor) is True
 
     assert view.zoom_factor == pytest.approx(view.max_zoom)
     _assert_point_stays(view, before, anchor)
@@ -91,8 +102,8 @@ def test_a_pinch_clamps_at_the_maximum_zoom(view: CanvasView) -> None:
 def test_a_pinch_below_the_minimum_stops_at_it(view: CanvasView) -> None:
     view.set_zoom(view.min_zoom * 4.0)
     anchor = QPointF(view.viewport().rect().center())
-    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 8.0, anchor)) is True
-    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 1.0, anchor)) is True
+    assert _send(view, Qt.GestureState.GestureStarted, 8.0, anchor) is True
+    assert _send(view, Qt.GestureState.GestureUpdated, 1.0, anchor) is True
     assert view.zoom_factor == pytest.approx(view.min_zoom)
 
 
@@ -102,8 +113,8 @@ def test_two_fingers_move_the_view_and_the_content_follows_them(view: CanvasView
     before = view.mapToScene(anchor.toPoint())
     zoom = view.zoom_factor
 
-    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
-    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 1.0, anchor + QPointF(60.0, 0.0))) is True
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+    assert _send(view, Qt.GestureState.GestureUpdated, 1.0, anchor + QPointF(60.0, 0.0)) is True
 
     assert view.zoom_factor == pytest.approx(zoom)  # a pure pan never zooms
     # the scene point that was under the centre is now 60 px to the right of it
@@ -118,8 +129,8 @@ def test_a_pinch_that_also_moves_keeps_the_point_under_the_new_centre(view: Canv
     moved = anchor + QPointF(70.0, 0.0)
     before = view.mapToScene(anchor.toPoint())
 
-    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
-    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 2.0, moved)) is True
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+    assert _send(view, Qt.GestureState.GestureUpdated, 2.0, moved) is True
 
     assert view.zoom_factor == pytest.approx(2.0)
     # 2 px, not 1: the scrollbar's unit is a scene centimetre, so at zoom 2 its
@@ -127,16 +138,67 @@ def test_a_pinch_that_also_moves_keeps_the_point_under_the_new_centre(view: Canv
     _assert_point_stays(view, before, moved, tolerance=2.0)
 
 
+def test_starting_a_pinch_releases_the_first_fingers_mouse_press(
+    view: CanvasView, qtbot: object
+) -> None:
+    """Qt synthesises a press for the first finger before the second lands. A pinch
+    that starts on an item must release it where it was pressed, not drag it."""
+    anchor = QPointF(view.viewport().rect().center())
+    releases: list[QPointF] = []
+
+    class Watch(QObject):
+        def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+            if event.type() == QEvent.Type.MouseButtonRelease:
+                release = event
+                releases.append(QPointF(release.position()))  # type: ignore[attr-defined]
+            return False
+
+    watcher = Watch()
+    view.viewport().installEventFilter(watcher)
+    try:
+        QApplication.sendEvent(
+            view.viewport(),
+            _mouse(view, anchor.toPoint(), Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton),
+        )
+        assert view._touch_mouse_press is not None
+        assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+        assert view._touch_mouse_press is None
+        assert releases == [anchor]
+    finally:
+        view.viewport().removeEventFilter(watcher)
+
+
+def test_a_native_trackpad_pinch_zooms_at_its_position(view: CanvasView) -> None:
+    """The trackpad path: `ZoomNativeGesture` maps `1 + value` onto `_zoom_at`."""
+    from PyQt6.QtGui import QNativeGestureEvent, QPointingDevice
+
+    anchor = QPointF(view.viewport().rect().center())
+    before = view.mapToScene(anchor.toPoint())
+    event = QNativeGestureEvent(
+        Qt.NativeGestureType.ZoomNativeGesture,
+        QPointingDevice.primaryPointingDevice(),
+        2,
+        anchor,
+        anchor,
+        QPointF(view.viewport().mapToGlobal(anchor.toPoint())),
+        1.0,  # a doubling
+        QPointF(0.0, 0.0),
+    )
+    assert QApplication.sendEvent(view.viewport(), event) is True
+    assert view.zoom_factor == pytest.approx(2.0)
+    _assert_point_stays(view, before, anchor)
+
+
 def test_the_gesture_is_adopted_and_finished_cleanly(view: CanvasView) -> None:
     """Enabled mid-gesture: the first update adopts; a finish forgets the values."""
     anchor = QPointF(view.viewport().rect().center())
     view._pinch_scale = None
     view._pinch_center = None
-    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 3.0, anchor)) is True
+    assert _send(view, Qt.GestureState.GestureUpdated, 3.0, anchor) is True
     assert view.zoom_factor == pytest.approx(1.0)  # adopted, not applied
     assert view._pinch_scale == pytest.approx(3.0)
 
-    assert _send(view, _Pinch(Qt.GestureState.GestureFinished, 3.0, anchor)) is True
+    assert _send(view, Qt.GestureState.GestureFinished, 3.0, anchor) is True
     assert view._pinch_scale is None and view._pinch_center is None
 
 
@@ -144,13 +206,13 @@ def test_the_setting_off_ignores_gesture_events(view: CanvasView) -> None:
     """Off: the filter is gone and a gesture moves nothing."""
     view.set_touch_gestures_enabled(False)
     anchor = QPointF(view.viewport().rect().center())
-    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is False
-    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 2.0, anchor)) is False
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is False
+    assert _send(view, Qt.GestureState.GestureUpdated, 2.0, anchor) is False
     assert view.zoom_factor == pytest.approx(1.0)
 
     view.set_touch_gestures_enabled(True)
-    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
-    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 2.0, anchor)) is True
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+    assert _send(view, Qt.GestureState.GestureUpdated, 2.0, anchor) is True
     assert view.zoom_factor == pytest.approx(2.0)
 
 

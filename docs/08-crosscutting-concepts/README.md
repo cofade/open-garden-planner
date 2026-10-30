@@ -518,6 +518,22 @@ the other order leaves a `(1 − ratio) × delta` drift when a pinch also moves.
 gesture's `Finished`/`Canceled` state (and disabling the setting) forgets the pair,
 so the next gesture starts from its own values.
 
+**The gesture centre is global; map it once.** Qt's recognizer averages the two
+touches' `globalPosition` (`qstandardgestures.cpp`), so `QPinchGesture.centerPoint`
+is a *screen* point, not a viewport one. `_viewport_point` is the one conversion
+(`viewport().mapFromGlobal(...)`), used by both the started and updated branches.
+Tests feed `viewport().mapToGlobal(local)` and one of them moves the window off the
+origin: with the window at (0, 0) the two are equal and the bug is invisible.
+
+**A pinch must not drag what the first finger touched.** Qt synthesises a mouse
+press for the first touch point before the second finger can start the gesture,
+and nothing in the recognizer stops that press's stream. `eventFilter` remembers
+that press; on `GestureStarted` `_cancel_touch_press` calls the active tool's own
+`cancel()` (a half-made shape is discarded, a selection box removed) and sends the
+press's release **at the point it was made**, so the interaction ends where it
+began (the item may still be selected, as a tap selects it) and the rest of the
+pinch only zooms and pans.
+
 **Never duplicate the transform math.** The wheel and the pinch both call
 `_zoom_at(anchor, factor)`, and the middle mouse button and the two-finger pan both
 call `_pan_by(delta)`. `_zoom_at` is the old wheel body (clamp, `_apply_transform`,

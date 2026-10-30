@@ -253,7 +253,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "8c282a71887db3bf38d2884cdcf330f1ce65adc1019d6b15fda496f18db5b1ed"
+          "current_sha256": "6e0c2966a5e079fa83b705eba2dd7aae1f408a7421194614637c4a3a10dc9835"
         },
         {
           "path": ".agents/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -1393,7 +1393,7 @@
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
           "sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5",
-          "current_sha256": "b7b88d5293c78b011c54f5ca90a4f99c76376c00496aa3a54985bf3bc2748db3"
+          "current_sha256": "d08cb9e98de4345c969a577921e3c412424eada936cd8ea172320bb5ea8e2623"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",
@@ -1653,7 +1653,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "8c282a71887db3bf38d2884cdcf330f1ce65adc1019d6b15fda496f18db5b1ed"
+          "current_sha256": "6e0c2966a5e079fa83b705eba2dd7aae1f408a7421194614637c4a3a10dc9835"
         },
         {
           "path": ".claude/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -2793,7 +2793,7 @@
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
           "sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5",
-          "current_sha256": "b7b88d5293c78b011c54f5ca90a4f99c76376c00496aa3a54985bf3bc2748db3"
+          "current_sha256": "d08cb9e98de4345c969a577921e3c412424eada936cd8ea172320bb5ea8e2623"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",

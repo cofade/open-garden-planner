@@ -40,7 +40,7 @@ re-price also raises the least a region with many holes can cost: a crafted 25 x
 (625 crossings) is now refused from its size where it used to resolve; a 22 x 22 grid still
 resolves (286 regions, 25.6 M units), and a closed fence's one hole costs about 1 M. That is
 stated in section 8.29.1 and ADR-059 rather than hidden, and pinned by
-\	est_a_625_crossing_grid_is_refused_from_its_size_after_the_reprice\.
+`test_a_625_crossing_grid_is_refused_from_its_size_after_the_reprice`.
 
 **Fix.** `_BRIDGE_UNITS = 600`, plus the measured capacities in the comments, §8.29.1,
 ADR-059 and the script's docstring. The regression pin counts `_bridge_position`

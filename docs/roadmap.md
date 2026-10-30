@@ -3656,15 +3656,19 @@ Three independent gaps in what the application promises, closed together on one 
    button's own `_pan_by` helper**, so clamping, the 1-pixel anchor compensation,
    `zoom_changed`, the minimap and the rulers cannot drift between the two input paths. The
    order is pan first, then zoom about the new centre (the other order drifts by
-   `(1 - ratio) × delta` when a pinch also moves). A trackpad pinch arrives as
-   `QNativeGestureEvent` and takes the same zoom path. The behaviour is the new
-   **Preferences → Canvas → "Enable touch gestures"** setting
-   (`canvas/touch_gestures_enabled`, default on); with it off no gesture is grabbed at all.
-   Tests drive the real `eventFilter` with synthetic `QPinchGesture`/`QGestureEvent`s
-   (PyQt6 constructs both); real touchscreen delivery is the manual test on hardware (the
-   issue's sovereign test). A window-level test covers the startup and Preferences apply
-   paths, because that wiring is one line a future refactor can delete. See FR-CANVAS-04
-   and §8.9.12.
+   `(1 - ratio) × delta` when a pinch also moves), and the centre Qt reports is a
+   screen point, mapped to the viewport once. Qt synthesises a mouse press for the
+   first finger before the second lands; a pinch releases it at the point it was
+   made, so a pinch never drags the object under that finger (it may select it, as
+   a tap does). A trackpad pinch arrives as `QNativeGestureEvent` and takes the same
+   zoom path. The behaviour is the new **Preferences → Canvas → "Enable touch
+   gestures"** setting (`canvas/touch_gestures_enabled`, default on); with it off no
+   gesture is grabbed at all. Tests drive the real `eventFilter` with synthetic
+   `QPinchGesture`/`QGestureEvent`s (PyQt6 constructs both) and one moves the window
+   off the origin so the global-to-viewport mapping is exercised; real touchscreen
+   delivery is the manual test on hardware (the issue's sovereign test). A
+   window-level test covers the startup and Preferences apply paths, because that
+   wiring is one line a future refactor can delete. See FR-CANVAS-04 and §8.9.12.
 
 2. **#451 — the work bound's bridge search is priced at what it costs.** The touching-holes
    family was the one row of `scripts/measure_region_work.py` far above its price (3.6–8.1):

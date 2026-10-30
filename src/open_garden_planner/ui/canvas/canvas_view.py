@@ -44,6 +44,7 @@ from PyQt6.QtGui import (
     QWheelEvent,
 )
 from PyQt6.QtWidgets import (
+    QApplication,
     QGestureEvent,
     QGraphicsItem,
     QGraphicsView,
@@ -263,6 +264,9 @@ class CanvasView(QGraphicsView):
         self._touch_gestures_enabled = True
         self._pinch_scale: float | None = None
         self._pinch_center: QPointF | None = None
+        #: The press Qt synthesised from the first finger (viewport point, button),
+        #: so a pinch that starts on an item can release it instead of dragging it.
+        self._touch_mouse_press: tuple[QPointF, Qt.MouseButton] | None = None
 
         # Drag-time bounding-box snapping engine and visual guides
         self._object_snapper = ObjectSnapper(threshold=10.0)
@@ -945,9 +949,19 @@ class CanvasView(QGraphicsView):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         """Route pinch gestures and native trackpad gestures to the handlers."""
         if watched is self.viewport() and self._touch_gestures_enabled:
-            if event.type() == QEvent.Type.Gesture:
+            kind = event.type()
+            if kind == QEvent.Type.MouseButtonPress:
+                # The first finger of a pinch is Qt's synthesised mouse press; remember
+                # where it landed so the pinch can release it instead of dragging.
+                mouse = cast(QMouseEvent, event)
+                self._touch_mouse_press = (mouse.position(), mouse.button())
+                return False
+            if kind == QEvent.Type.MouseButtonRelease:
+                self._touch_mouse_press = None
+                return False
+            if kind == QEvent.Type.Gesture:
                 return self._gesture(cast(QGestureEvent, event))
-            if event.type() == QEvent.Type.NativeGesture:
+            if kind == QEvent.Type.NativeGesture:
                 return self._native_gesture(cast(QNativeGestureEvent, event))
         return super().eventFilter(watched, event)
 
@@ -959,6 +973,10 @@ class CanvasView(QGraphicsView):
         plain two-finger drag, which is the pan. Pan first (the content follows
         the fingers), then zoom about their new centre — the other order leaves
         a ``(1 - ratio) * delta`` drift on a pinch that also moves.
+
+        Qt reports the centre in **global** coordinates (its recognizer averages
+        ``globalPosition``), so it is mapped to the viewport here, once, before
+        anything treats it as a viewport point.
         """
         handled = False
         for gesture in event.gestures():
@@ -967,8 +985,11 @@ class CanvasView(QGraphicsView):
             pinch = cast(QPinchGesture, gesture)
             state = pinch.state()
             if state == Qt.GestureState.GestureStarted:
+                # A pinch must not drag what the first finger touched: release the
+                # press Qt synthesised for it, at the point it was made.
+                self._cancel_touch_press()
                 self._pinch_scale = pinch.totalScaleFactor()
-                self._pinch_center = pinch.centerPoint()
+                self._pinch_center = self._viewport_point(pinch)
             elif state in (
                 Qt.GestureState.GestureFinished,
                 Qt.GestureState.GestureCanceled,
@@ -982,7 +1003,7 @@ class CanvasView(QGraphicsView):
 
     def _apply_pinch(self, pinch: QPinchGesture) -> None:
         """One update of an active pinch (or the first one seen after enabling)."""
-        center = pinch.centerPoint()
+        center = self._viewport_point(pinch)
         total = pinch.totalScaleFactor()
         if self._pinch_scale is None or self._pinch_center is None:
             # Enabled while the fingers were already down: adopt them, move nothing.
@@ -998,10 +1019,48 @@ class CanvasView(QGraphicsView):
             self._pinch_scale = total
         self._pinch_center = center
 
+    def _viewport_point(self, pinch: QPinchGesture) -> QPointF:
+        """The gesture's centre in viewport pixels (Qt reports it in global ones)."""
+        return QPointF(self.viewport().mapFromGlobal(pinch.centerPoint().toPoint()))
+
+    def _cancel_touch_press(self) -> None:
+        """Release the synthesised press of the first finger, at its own press point.
+
+        Qt synthesises a mouse press for the first touch point before a second
+        finger can start a pinch. Without this the whole pinch drags (or draws
+        with) whatever the first finger landed on; releasing at the press point
+        ends that interaction where it began, so the pinch only zooms and pans
+        (it may still select the item under the first finger, like a tap).
+        """
+        press = self._touch_mouse_press
+        self._touch_mouse_press = None
+        if press is None:
+            return
+        # A drawing tool's half-made shape is discarded through its own Escape path;
+        # a select-tool box likewise. (An item drag is ended by the release below.)
+        tool = self._tool_manager.active_tool
+        if tool is not None:
+            tool.cancel()
+        position, button = press
+        if button == Qt.MouseButton.NoButton:
+            return
+        QApplication.sendEvent(
+            self.viewport(),
+            QMouseEvent(
+                QEvent.Type.MouseButtonRelease,
+                position,
+                QPointF(self.viewport().mapToGlobal(position.toPoint())),
+                button,
+                Qt.MouseButton.NoButton,
+                Qt.KeyboardModifier.NoModifier,
+            ),
+        )
+
     def _end_pinch(self) -> None:
         """Forget the active pinch's last values (finished, cancelled or disabled)."""
         self._pinch_scale = None
         self._pinch_center = None
+        self._touch_mouse_press = None
 
     def _native_gesture(self, event: QNativeGestureEvent) -> bool:
         """A trackpad pinch arrives as Qt's native zoom gesture, not as touch."""
@@ -1009,6 +1068,7 @@ class CanvasView(QGraphicsView):
             factor = 1.0 + event.value()
             if factor > 0.0:
                 self._zoom_at(event.position(), factor)
+            event.accept()
             return True
         return False
 

@@ -46,6 +46,20 @@ WORKSPACE_RENDER = "tests/integration/test_view3d_workspace_render.py"
 WORKSPACE_K = (
     '-k "closes_clean or start_that_died or compatibility_mode or try_hardware"'
 )
+#: The G7 memory soaks, by name: the exact set the `soak` marker must cover (#540).
+SOAK_TESTS = {
+    "test_twenty_rebuilds_of_the_engine_scene_stay_under_the_leak_bound",
+    "test_the_workspace_released_the_engines_caches_after_every_rebuild",
+    "test_dedicated_gpu_memory_does_not_grow_with_the_rebuilds",
+    "test_without_532_dedicated_gpu_memory_would_stay_under_the_plain_leak_bound",
+    "test_the_same_rebuilds_stay_under_the_bound_in_a_view_that_presents_nothing",
+    "test_identical_reloads_re_admit_only_forged_plants_and_stay_flat",
+    "test_the_positive_control_fails_on_exactly_that_gate",
+    "test_what_the_soak_reads_without_the_release_is_reported",
+    "test_a_release_inside_the_pass_holds_on_a_real_device_too",
+    "test_model_churn_alone_stays_under_the_plain_leak_bound",
+    "test_what_a_readback_per_rebuild_costs_a_view_that_presents_nothing_is_reported",
+}
 
 
 def _code(text: str) -> str:
@@ -378,10 +392,15 @@ class TestRenderJob:
             assert any(term in name for name in names), f"-k term {term!r} matches no test"
 
     def test_the_soaks_are_marked_and_the_workspace_file_is_render_tier(self) -> None:
-        """#540: an unmarked soak would be pulled into the CI job by the file name."""
+        """#540: an unmarked soak would be pulled into the CI job by the file name.
+
+        The list is exact, not a count: adding a test to this module must force a
+        decision here rather than silently joining (or leaving) the CI selection.
+        """
         source = (REPO / WORKSPACE_RENDER).read_text(encoding="utf-8")
         assert "pytestmark = render_tier" in source
-        assert source.count("@pytest.mark.soak") >= 10
+        marked = set(re.findall(r"@pytest\.mark\.soak\ndef (test_\w+)", source))
+        assert marked == SOAK_TESTS, marked ^ SOAK_TESTS
         job = _code(self._job())
         assert '-m "not perf and not soak"' in job
         settings = (REPO / "pyproject.toml").read_text(encoding="utf-8")

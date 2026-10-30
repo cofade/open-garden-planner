@@ -41,7 +41,13 @@ synthesised mouse path. PyQt6 *does* expose `QPinchGesture`, its setters and
 `QGestureEvent`, and a `QPinchGesture` subclass can override the read-only
 `state()`, so the real `eventFilter` can be driven with synthetic
 started/updated/finished gestures; only a real touchscreen's delivery stays
-manual. Pan first, then zoom about the new centre. A native trackpad pinch is a
+manual. Qt reports the pinch centre in GLOBAL coordinates (its recognizer averages
+the points' `globalPosition`), so map it through the viewport once — a test with
+the window at the origin cannot see the difference. Pan first, then zoom about the
+new centre. Qt also synthesises a mouse press for the first finger before the
+second lands: release it at its press point when the gesture starts, or the whole
+pinch drags (or draws with) whatever the first finger touched. A native trackpad
+pinch is a
 `QNativeGestureEvent`, not a touch event; that path is `_native_gesture`. The
 canvas's wheel and pinch share `_zoom_at`, and the middle-mouse pan and
 two-finger pan share `_pan_by` - never duplicate either formula in a test helper
