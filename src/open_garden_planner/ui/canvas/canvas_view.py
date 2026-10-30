@@ -10,7 +10,7 @@ import contextlib
 import json
 import logging
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from open_garden_planner.core.commands import Command
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.items import CircleItem
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
-from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -26,9 +26,11 @@ from PyQt6.QtGui import (
     QFont,
     QKeyEvent,
     QMouseEvent,
+    QNativeGestureEvent,
     QPainter,
     QPaintEvent,
     QPen,
+    QTouchEvent,
     QTransform,
     QWheelEvent,
 )
@@ -237,6 +239,11 @@ class CanvasView(QGraphicsView):
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
+        # Touch gestures (#321): enabled by default, a sitting of the view; the
+        # app applies the saved preference after construction, as for the scale
+        # bar. ``_touch_anchor`` is (centroid, mean radius) of the fingers.
+        self._touch_gestures_enabled = True
+        self._touch_anchor: tuple[QPointF, float] | None = None
 
         # Drag-time bounding-box snapping engine and visual guides
         self._object_snapper = ObjectSnapper(threshold=10.0)
@@ -622,6 +629,11 @@ class CanvasView(QGraphicsView):
         # Accept drops from gallery panel
         self.setAcceptDrops(True)
 
+        # Pinch-to-zoom and two-finger pan (#321): the viewport is the widget the
+        # touch points land on, so it is where touch events are accepted and where
+        # the gesture filter sits. Off means Qt keeps synthesising mouse events.
+        self.set_touch_gestures_enabled(self._touch_gestures_enabled)
+
     def apply_theme_colors(self, colors: dict[str, str]) -> None:
         """Update overlay colors from the theme palette.
 
@@ -843,6 +855,149 @@ class CanvasView(QGraphicsView):
             factor: Zoom divisor (default 1.1 for smooth zooming)
         """
         self.set_zoom(self._zoom_factor / factor)
+
+    def _zoom_at(self, anchor: QPointF, factor: float) -> None:
+        """Zoom by ``factor``, keeping the scene point under ``anchor`` fixed.
+
+        THE one anchored-zoom path: the mouse wheel and the pinch gesture both
+        call it, so anchoring, clamping and the ``zoom_changed`` signal stay
+        identical (issue #321). ``anchor`` is in viewport pixels.
+        """
+        new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
+        if new_zoom == self._zoom_factor:
+            return
+        old_scene_pos = self.mapToScene(anchor.toPoint())
+        self._zoom_factor = new_zoom
+        self._apply_transform()
+        self.zoom_changed.emit(self.zoom_percent)
+        # Scroll so the point under the anchor stays in the same screen position.
+        new_scene_pos = self.mapToScene(anchor.toPoint())
+        scroll_delta = old_scene_pos - new_scene_pos
+        self.horizontalScrollBar().setValue(
+            self.horizontalScrollBar().value()
+            + int(scroll_delta.x() * self._zoom_factor)
+        )
+        self.verticalScrollBar().setValue(
+            self.verticalScrollBar().value()
+            - int(scroll_delta.y() * self._zoom_factor)
+        )
+
+    def _pan_by(self, delta: QPointF) -> None:
+        """Scroll the plan by a drag of ``delta`` viewport pixels.
+
+        THE one pan path: the middle mouse button and the two-finger gesture both
+        call it, so scrollbars (and the minimap that listens to them) move alike
+        (issue #321). Map two points to scene so any transform — zoom, Y-flip —
+        is handled, and move opposite the finger.
+        """
+        center = self.viewport().rect().center()
+        scene_before = self.mapToScene(center)
+        scene_after = self.mapToScene(
+            center.x() + int(delta.x()), center.y() + int(delta.y())
+        )
+        scene_delta = scene_before - scene_after
+        self.centerOn(self.mapToScene(center) + scene_delta)
+
+    # Touch gestures (issue #321)
+
+    def set_touch_gestures_enabled(self, enabled: bool) -> None:
+        """Accept pinch-to-zoom and two-finger pan on the canvas viewport.
+
+        ``WA_AcceptTouchEvents`` is what stops Qt from turning every touch point
+        into a synthesised mouse event; the filter is where the gesture state
+        machine sees them. With the preference off the widget is exactly as it
+        was before #321: single-finger touches keep arriving as mouse events,
+        which the tools already handle.
+        """
+        self._touch_gestures_enabled = enabled
+        viewport = self.viewport()
+        viewport.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, enabled)
+        if enabled:
+            viewport.installEventFilter(self)
+        else:
+            viewport.removeEventFilter(self)
+            self._touch_finished()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Route touch and native trackpad gestures to the gesture handler."""
+        if watched is self.viewport() and self._touch_gestures_enabled:
+            kind = event.type()
+            if kind in (
+                QEvent.Type.TouchBegin,
+                QEvent.Type.TouchUpdate,
+                QEvent.Type.TouchEnd,
+                QEvent.Type.TouchCancel,
+            ):
+                points = [point.position() for point in cast(QTouchEvent, event).points()]
+                if kind == QEvent.Type.TouchBegin:
+                    handled = self._touch_started(points)
+                elif kind == QEvent.Type.TouchUpdate:
+                    handled = self._touch_moved(points)
+                else:
+                    handled = self._touch_finished()
+                if handled:
+                    event.accept()
+                    return True
+                return False
+            if kind == QEvent.Type.NativeGesture:
+                return self._native_gesture(cast(QNativeGestureEvent, event))
+        return super().eventFilter(watched, event)
+
+    def _touch_started(self, points: list[QPointF]) -> bool:
+        """Begin a gesture from touch positions; False leaves a tap to the mouse path."""
+        if not self._touch_gestures_enabled or len(points) < 2:
+            self._touch_anchor = None
+            return False
+        self._touch_anchor = (self._touch_centroid(points), self._touch_spread(points))
+        return True
+
+    def _touch_moved(self, points: list[QPointF]) -> bool:
+        """Zoom about the fingers' centre and pan by its movement; True if handled."""
+        if not self._touch_gestures_enabled or self._touch_anchor is None or len(points) < 2:
+            return False
+        center = self._touch_centroid(points)
+        spread = self._touch_spread(points)
+        center_before, spread_before = self._touch_anchor
+        if spread_before > 0.0 and spread > 0.0:
+            self._zoom_at(center, spread / spread_before)
+        delta = center - center_before
+        if not delta.isNull():
+            self._pan_by(delta)
+        self._touch_anchor = (center, spread)
+        return True
+
+    def _touch_finished(self) -> bool:
+        """End a gesture; True when one was active (so the end is consumed)."""
+        active = self._touch_anchor is not None
+        self._touch_anchor = None
+        return active
+
+    @staticmethod
+    def _touch_centroid(points: list[QPointF]) -> QPointF:
+        """The mean of the touch positions, in viewport pixels."""
+        count = float(len(points))
+        return QPointF(
+            sum(point.x() for point in points) / count,
+            sum(point.y() for point in points) / count,
+        )
+
+    @classmethod
+    def _touch_spread(cls, points: list[QPointF]) -> float:
+        """The fingers' mean distance from their centroid — the pinch scale's basis."""
+        center = cls._touch_centroid(points)
+        return sum(
+            ((point.x() - center.x()) ** 2 + (point.y() - center.y()) ** 2) ** 0.5
+            for point in points
+        ) / float(len(points))
+
+    def _native_gesture(self, event: QNativeGestureEvent) -> bool:
+        """A trackpad pinch arrives as Qt's native zoom gesture, not as touch."""
+        if event.gestureType() == Qt.NativeGestureType.ZoomNativeGesture:
+            factor = 1.0 + event.value()
+            if factor > 0.0:
+                self._zoom_at(event.position(), factor)
+            return True
+        return False
 
     def reset_zoom(self) -> None:
         """Reset zoom to 100%."""
@@ -1980,30 +2135,10 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
-        # Remember scene position under the mouse before zoom
-        old_scene_pos = self.mapToScene(event.position().toPoint())
-
-        # Apply immediate zoom: 1.15x per standard wheel notch (120 units)
-        zoom_per_notch = 1.15
-        notches = delta / 120.0
-        factor = zoom_per_notch**notches
-
-        new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
-        self._zoom_factor = new_zoom
-        self._apply_transform()
-        self.zoom_changed.emit(self.zoom_percent)
-
-        # Scroll so the point under the mouse stays in the same screen position
-        new_scene_pos = self.mapToScene(event.position().toPoint())
-        scroll_delta = old_scene_pos - new_scene_pos
-        self.horizontalScrollBar().setValue(
-            self.horizontalScrollBar().value()
-            + int(scroll_delta.x() * self._zoom_factor)
-        )
-        self.verticalScrollBar().setValue(
-            self.verticalScrollBar().value() - int(scroll_delta.y() * self._zoom_factor)
-        )
-
+        # Apply immediate zoom: 1.15x per standard wheel notch (120 units). The
+        # anchor and clamp live in ``_zoom_at``, shared with the pinch gesture.
+        factor = 1.15 ** (delta / 120.0)
+        self._zoom_at(event.position(), factor)
         event.accept()
 
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
@@ -2164,22 +2299,11 @@ class CanvasView(QGraphicsView):
                 self.viewport().update()
 
         if self._panning:
-            # Pan the view by translating
+            # Pan the view by translating (the one pan path, shared with #321's
+            # two-finger gesture).
             delta = event.position() - self._pan_start
             self._pan_start = event.position()
-
-            # Map two points to scene to get proper delta in scene coordinates
-            # This correctly handles any transform (zoom, Y-flip, etc.)
-            center = self.viewport().rect().center()
-            scene_before = self.mapToScene(center)
-            scene_after = self.mapToScene(
-                center.x() + int(delta.x()), center.y() + int(delta.y())
-            )
-
-            # Move in opposite direction of mouse drag
-            scene_delta = scene_before - scene_after
-            new_center = self.mapToScene(center) + scene_delta
-            self.centerOn(new_center)
+            self._pan_by(delta)
             event.accept()
             return
 

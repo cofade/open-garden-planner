@@ -2461,6 +2461,7 @@ class GardenPlannerApp(QMainWindow):
         QTimer.singleShot(0, self._init_constraints_from_settings)
         QTimer.singleShot(0, self._init_object_snap_from_settings)
         QTimer.singleShot(0, self._init_spacing_circles_from_settings)
+        QTimer.singleShot(0, self._init_touch_gestures_from_settings)
 
     def _show_status_message(self, message: str, duration_ms: int = 0) -> None:
         """Show ``message`` in the window's status bar (CanvasView's route).
@@ -4095,6 +4096,14 @@ class GardenPlannerApp(QMainWindow):
         self._scale_bar_action.setChecked(enabled)
         self.canvas_view.set_scale_bar_visible(enabled)
 
+    def _init_touch_gestures_from_settings(self) -> None:
+        """Apply the saved touch-gesture preference to the canvas (#321)."""
+        from open_garden_planner.app.settings import get_settings
+
+        self.canvas_view.set_touch_gestures_enabled(
+            get_settings().touch_gestures_enabled
+        )
+
     def _on_toggle_scale_bar(self, checked: bool) -> None:
         """Handle toggle scale bar action."""
         from open_garden_planner.app.settings import get_settings
@@ -5316,6 +5325,8 @@ class GardenPlannerApp(QMainWindow):
         if dialog.exec():
             self._update_satellite_menu_state()
             self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4)
+            # Canvas (#321): touch gestures take effect at once, like the look settings.
+            self.canvas_view.set_touch_gestures_enabled(settings.touch_gestures_enabled)
             after = _agent_api_state()
             if before != after:
                 # Restart so a toggle, port, writes or token change takes effect.

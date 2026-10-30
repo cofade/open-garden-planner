@@ -2262,6 +2262,10 @@ class TestTheInputIsBoundedBeforeTheWork:
 
         with monkeypatch.context() as patch:
             patch.setattr(snapshot_module, "_quantized", watching)
+            # Capacities are not this test's subject (it is the ORDER of the charges);
+            # the size floor of a region is raised out of the way so the 25 x 25 grid
+            # still resolves after #451 re-priced a bridge block.
+            patch.setattr(polygon_module, "MAX_REGION_WORK", 10**12)
             regions, resolved = snapshot_module._outline_regions(outline, whole)
         assert resolved and not isinstance(regions, snapshot_module._Refused) and len(regions) >= 20
         assert reached and reached[0] > 600 * 3_100  # the crossings alone, before the first reading
@@ -3374,13 +3378,13 @@ class TestOneRingWithManyHoles:
 
         questions = _watch_pyclipper(monkeypatch)
         asked = _watch_clipper(monkeypatch)
-        house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(60)], object_type=ObjectType.HOUSE)
+        house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(40)], object_type=ObjectType.HOUSE)
         canvas.scene().addItem(house)
         snapshot, skipped = snapshot_with_report(canvas.scene())
         assert skipped == [] and asked == ["plain", "strict", "band"]
         record = snapshot[str(house.item_id)]
         assert len(record.footprints) == 1 and record.holes == () and record.params["outline_resolved"] is True
-        assert record.plan_area_cm2 == pytest.approx(60.0 * 1800.0 - 60 * 0.5 * 12.0 * 12.0, rel=1e-3)
+        assert record.plan_area_cm2 == pytest.approx(60.0 * 1200.0 - 40 * 0.5 * 12.0 * 12.0, rel=1e-3)
         assert questions == [("list", pyclipper.CT_UNION, False), ("list", pyclipper.CT_UNION, True),
                              ("tree", pyclipper.CT_DIFFERENCE, False)]
 
@@ -3388,14 +3392,49 @@ class TestOneRingWithManyHoles:
         self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
     ) -> None:
         """110 of them, 444 vertices: the bridge search for the strict reading's
-        region runs the budget out (it is the dearest family there is — three to
-        seven times its price, stated in section 8.29.1). Refused; no band, no tree."""
+        region runs the budget out. Since #451 re-priced a block of candidates
+        (``polygon._BRIDGE_UNITS``) the budget stops the search after a few dozen
+        holes instead of every one of them. Refused; no band, no tree."""
         asked = _watch_clipper(monkeypatch)
         house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(110)], object_type=ObjectType.HOUSE)
         canvas.scene().addItem(house)
         snapshot, skipped = snapshot_with_report(canvas.scene())
         assert snapshot == {} and [s.reason for s in skipped] == [SkipReason.OUTLINE_TOO_LARGE]
         assert asked == ["plain", "strict"]
+
+    def test_the_bridge_search_is_priced_at_what_it_costs(
+        self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
+    ) -> None:
+        """#451: the touching-holes family was the one row of the work table above
+        its price (3.6 to 8.1), because a block of bridge candidates was charged
+        60 units per edge. At 600 a block that finds nothing — the usual one for a
+        hole touching the wall — is paid for, and the budget stops the search
+        early: measured 30 calls for 110 holes (110 at the old price, when the
+        item held the GUI thread for up to 1.5 s). No clock is read here; the
+        script measures the time."""
+        import open_garden_planner.core.scene3d.polygon as polygon_module
+
+        calls = 0
+        original = polygon_module._bridge_position
+
+        def counted(*args: object, **kwargs: object) -> int:
+            nonlocal calls
+            calls += 1
+            return original(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(polygon_module, "_bridge_position", counted)
+        house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(110)], object_type=ObjectType.HOUSE)
+        canvas.scene().addItem(house)
+        snapshot_with_report(canvas.scene())
+        assert 0 < calls <= 40  # 30 measured; one per hole for a search that runs to the end
+
+        calls = 0
+        canvas.scene().removeItem(house)
+        huge = PolygonItem([QPointF(x, y) for x, y in _touching_holes(200)], object_type=ObjectType.HOUSE)
+        canvas.scene().addItem(huge)
+        snapshot, skipped = snapshot_with_report(canvas.scene())
+        assert snapshot == {} and [s.reason for s in skipped] == [SkipReason.OUTLINE_TOO_LARGE]
+        assert calls == 0  # refused from its size alone: not one bridge is searched
 
 
 class TestTheOrderOfARecordsRegions:

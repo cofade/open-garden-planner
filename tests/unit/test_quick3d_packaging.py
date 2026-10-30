@@ -38,6 +38,14 @@ RENDER_TESTS = ("tests/integration/test_quick3d_render.py",
                 "tests/integration/test_quick3d_selftest.py",
                 "tests/integration/test_quick3d_lifecycle.py",
                 "tests/integration/test_scene3d_ground_render.py")  # the baked ground (L1.5)
+#: The default workspace's real-host gates (#540) — close and compatibility only in CI.
+WORKSPACE_RENDER = "tests/integration/test_view3d_workspace_render.py"
+#: The subset: G5's close rows (with the frozen-exe variants, which skip without the exe)
+#: and G6's crash-marker / compatibility / try-hardware rows. Everything else in that file
+#: is a budget, a soak, the camera rule, WebEngine or shortcut-focus work.
+WORKSPACE_K = (
+    '-k "closes_clean or start_that_died or compatibility_mode or try_hardware"'
+)
 
 
 def _code(text: str) -> str:
@@ -329,7 +337,7 @@ class TestRenderJob:
         for package in ("xvfb", "libegl1", "libxcb-cursor0", "libgl1-mesa-dri"):
             assert f" {package}" in packages, package
 
-    def test_both_platforms_run_the_same_existing_opt_in_files(self) -> None:
+    def test_both_platforms_run_the_same_opt_in_files_and_the_workspace_gates(self) -> None:
         job = _code(self._job())
         runs = [line for line in job.splitlines() if "python -m pytest" in line]
         budget_runs = [line for line in runs if "::test_real_engine_scrubs_300_models_within_frame_budget" in line]
@@ -338,6 +346,11 @@ class TestRenderJob:
         for line in scene_runs:
             assert all(name in line for name in RENDER_TESTS), line
             assert "tests/integration/test_plant_forge_workspace.py" in line
+            # #540: the default workspace's close/compat gates now run on a real host,
+            # with the wall-clock bounds and the multi-process soaks kept local.
+            assert WORKSPACE_RENDER in line, line
+            assert '-m "not perf and not soak"' in line, line
+            assert WORKSPACE_K in line, line
         for line in budget_runs:
             assert "-m perf -n 0" in line
         assert sum("xvfb-run" in line for line in budget_runs) == 1
@@ -347,6 +360,16 @@ class TestRenderJob:
         assert "QT_QPA_PLATFORM" not in job, (
             "the pytest process stays offscreen; the test helper gives the DRIVER a real "
             "platform (quick3d_render_support.render_env)")
+
+    def test_the_soaks_are_marked_and_the_workspace_file_is_render_tier(self) -> None:
+        """#540: an unmarked soak would be pulled into the CI job by the file name."""
+        source = (REPO / WORKSPACE_RENDER).read_text(encoding="utf-8")
+        assert "pytestmark = render_tier" in source
+        assert source.count("@pytest.mark.soak") >= 10
+        job = _code(self._job())
+        assert '-m "not perf and not soak"' in job
+        settings = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+        assert '"soak: ' in settings, "the marker must be registered"
 
     def test_the_job_is_not_a_required_check(self) -> None:
         protection = json.loads((REPO / "quality" / "master-protection.json").read_text(encoding="utf-8"))

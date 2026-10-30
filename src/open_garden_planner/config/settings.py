@@ -208,6 +208,8 @@ class AppSettings:
     KEY_PERPENDICULAR_SNAP = "canvas/perpendicular_snap_enabled"
     KEY_TANGENT_SNAP = "canvas/tangent_snap_enabled"
     KEY_DYNAMIC_INPUT = "canvas/dynamic_input_enabled"
+    # Touch gestures (#321): pinch-to-zoom and two-finger pan on the canvas.
+    KEY_TOUCH_GESTURES = "canvas/touch_gestures_enabled"
     KEY_LANGUAGE = "appearance/language"
     KEY_SHOW_SPACING_CIRCLES = "appearance/show_spacing_circles"
     KEY_SKIPPED_VERSION = "updates/skipped_version"
@@ -269,6 +271,9 @@ class AppSettings:
     # anchor onto circles / arcs, defaults off (opt-in CAD precision aid).
     DEFAULT_TANGENT_SNAP = False
     DEFAULT_DYNAMIC_INPUT = True
+    # Touch gestures (#321): pinch and two-finger pan are additive; a mouse-only
+    # user sees no difference, so they ship on.
+    DEFAULT_TOUCH_GESTURES = True
     DEFAULT_LANGUAGE = "en"
     DEFAULT_AUTOSAVE_INTERVAL_MINUTES = 5
     MIN_AUTOSAVE_INTERVAL_MINUTES = 1
@@ -597,6 +602,19 @@ class AppSettings:
     @dynamic_input_enabled.setter
     def dynamic_input_enabled(self, enabled: bool) -> None:
         self._settings.setValue(self.KEY_DYNAMIC_INPUT, enabled)
+
+    @property
+    def touch_gestures_enabled(self) -> bool:
+        """Whether pinch-to-zoom and two-finger pan are accepted on the canvas."""
+        return cast(bool, self._settings.value(
+            self.KEY_TOUCH_GESTURES,
+            self.DEFAULT_TOUCH_GESTURES,
+            type=bool,
+        ))
+
+    @touch_gestures_enabled.setter
+    def touch_gestures_enabled(self, enabled: bool) -> None:
+        self._settings.setValue(self.KEY_TOUCH_GESTURES, enabled)
 
     @property
     def language(self) -> str:

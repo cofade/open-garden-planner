@@ -3642,3 +3642,50 @@ Visual polish, engine hardening, and performance bounds for the Qt Quick 3D and 
 6. **#615: Ground-bake benchmark bound alignment.** Aligned `test_scene3d_ground_bake.py` G3 test comments and docstrings with the shipped 20 ms / 2 passes contract for 4-tile edits (`BAKE_BUDGET_S`).
 
 Shipped in v1.34.7 (PR #647) after full owner manual testing, a clean senior-reviewer pass, and protected merge.
+
+
+### Touch gestures, region-work pricing, and the render tier's missing workspace gates (#321, #451, #540)
+
+Three independent gaps in what the application promises, closed together on one branch.
+
+1. **#321 — pinch-to-zoom and two-finger pan on the canvas.** The `QGraphicsView` now
+   accepts touch events on its viewport and forwards them to a small gesture state machine
+   (centroid + mean radius). A pinch zooms about the gesture centre through **the wheel's own
+   `_zoom_at` helper**, and two fingers dragged pan through **the middle mouse button's own
+   `_pan_by` helper**, so clamping, the 1-pixel anchor compensation, `zoom_changed`, the
+   minimap and the rulers cannot drift between the two input paths. A **single** finger is
+   deliberately left unhandled (the event filter returns false for it), which is what keeps
+   Qt's synthesised mouse path — tap to select, drag to move — exactly as it was. A trackpad
+   pinch arrives as `QNativeGestureEvent` and takes the same zoom path. The behaviour is the
+   new **Preferences → Canvas → "Enable touch gestures"** setting
+   (`canvas/touch_gestures_enabled`, default on); with it off the viewport accepts no touch
+   events at all. Tests drive the state machine with plain positions because PyQt6 does not
+   expose `QTouchEvent.TouchPoint`; the event delivery itself is the manual test on real
+   touch hardware (the issue's sovereign test). See FR-CANVAS-04 and §8.9.12.
+
+2. **#451 — the work bound's bridge search is priced at what it costs.** The touching-holes
+   family was the one row of `scripts/measure_region_work.py` far above its price (3.6–8.1):
+   a block of bridge candidates was charged 60 units per edge, while a hole touching the wall
+   hides its nearest boundary vertices and takes block after block — 110 such holes held the
+   GUI thread for 0.6–1.5 s before the 3D snapshot refused them. `_BRIDGE_UNITS` is **600**:
+   the dearest row of the table is now **1.51**, 110 touching holes are refused in about
+   **0.07 s** (200 in 0.01 s, refused from their size before one bridge is searched). The
+   price is also the pre-cut size floor, so the refusal itself got cheap. Capacity moved
+   where the work really is: a slab of 49 touching holes now fits (89 before), square holes
+   88 (105), triangular 117 (146); frames and every non-bridging family are unchanged.
+   Pinned by a bridge-call count (≤ 40 for 110 holes, 0 for 200), not a clock; the script
+   remains the timing gate. See §8.29.1, ADR-059 and the `debug-verbose` case study.
+
+3. **#540 — the default 3D workspace now runs in CI.** The `render3d` job used to exercise
+   only the engine package; no workflow ever started the workspace every user sees. It now
+   runs `test_view3d_workspace_render.py` filtered to the **G5 close gates and the G6
+   compatibility starts** (`-k "closes_clean or start_that_died or compatibility_mode or
+   try_hardware"`) on both OSes. The G7 memory soaks carry a new **`soak`** marker and stay
+   local (twenty app child processes each, minutes on a software rasteriser); the wall-clock
+   bounds already carried `perf`. G5's *never opened* row is also the real-host proof that
+   no Qt Quick module is imported before 3D is asked for, so the startup invariant is covered
+   without pulling the budget file in. The CI job's text pin in `test_quick3d_packaging.py`
+   grew the file, the filter and the marker registration.
+
+Delivered as a draft PR; the owner's manual tests are touch on a real device and an ordinary
+2D/3D plan after the region re-price.

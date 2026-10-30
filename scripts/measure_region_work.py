@@ -82,10 +82,11 @@ Path2 = tuple[tuple[float, float], ...]
 #: The most a unit CHARGED may take, in units of the reference, in any row of tables 2
 #: and 3 — above it the script fails. Set from what is measured (2026-10-12, the
 #: development box, beside other test runs): every row but one family stands at 2.0 or
-#: below; a slab whose holes TOUCH its wall stands at 3.6 to 8.1 (the bridge search of
-#: the cut, ``_bridge_position``, is priced too low for holes that touch — known, stated
-#: in section 8.29.1, and not re-priced here). The two defects this gate exists for —
-#: a union asked for a tree, strict and plain — stood at 14 to 76.
+#: below; a slab whose holes TOUCH its wall stood at 3.6 to 8.1 because the bridge
+#: search of the cut (``_bridge_position``) was priced too low for holes that touch.
+#: That bridge was re-priced for #451 (2026-10-30): the dearest row of the table then
+#: stood at 1.3 to 1.5. The two defects this gate exists for — a union asked for a tree,
+#: strict and plain — stood at 14 to 76.
 MAX_COST_TO_PRICE = 12.0
 
 
@@ -265,8 +266,9 @@ def bridged_holes(holes: int, shear: float = 0.0) -> Path2:
 
 def touching_holes(holes: int) -> Path2:
     """The same slab with holes that TOUCH the wall they hang on: a triangle out
-    of the wall and straight back, no bridge. (The cut's bridge search takes 3
-    to 7 times its price here — the dearest family in the table.)"""
+    of the wall and straight back, no bridge. It was the dearest family in the
+    table — the cut's bridge search took 3 to 7 times its price — until #451
+    re-priced a block of candidates (``polygon._BRIDGE_UNITS``)."""
     ring = [(0.0, 0.0), (60.0, 0.0), (60.0, holes * 30.0), (0.0, holes * 30.0)]
     for k in reversed(range(holes)):
         y = k * 30.0 + 15.0
