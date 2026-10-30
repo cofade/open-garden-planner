@@ -32,3 +32,4 @@
 | PF-UI-28 | A form taller than the screen scrolls in a `QScrollArea`; Save/Cancel stay outside it and the dialog opens at content height capped to the screen. | standing | [04b](../04b-ui-forms.md#pf-ui-28) |  |
 | PF-UI-29 | A control that is the only way to SET a value must never be gated on that value already existing. Ask "can this object carry the property?" (does it have a footprint?), not "does it carry one already?". | standing | [04b](../04b-ui-forms.md#pf-ui-29) |  |
 | PF-UI-30 | Properties panel type dropdown items must resolve a valid icon across all ObjectType enum values; missing SVG category/tool icon mappings leave blank rows in the selector dropdown. | standing | [04b](../04b-ui-forms.md#pf-ui-30) |  |
+| PF-UI-31 | A re-entrant form rebuild detaches its widgets and `deleteLater()`s them; never call `QFormLayout.removeRow()` from a handler that can run inside one of those widgets' own signals. | standing | [04b](../04b-ui-forms.md#pf-ui-31) |  |

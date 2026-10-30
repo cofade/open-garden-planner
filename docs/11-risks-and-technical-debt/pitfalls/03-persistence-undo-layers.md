@@ -196,3 +196,45 @@ Real rendering caught what successful JSON loading did not. Box glyphs in the
 first preview separately required the existing `minimal:enable_fonts` recipe.
 Ground-level forest beds may span semantic layers. Raised parents need plants on
 the same or a higher layer; reciprocal parent/child IDs alone do not ensure this.
+
+
+### PF-PER-20
+
+- **Rule:** A shape is serialized in its **parent's** frame - the local geometry translated by `mapToParent(shape centre) - shape centre` - not by `item.pos()`, because `QGraphicsItemGroup.addToGroup()` folds the old rotation pivot into `pos()`.
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_rotated_grouped_shape_round_trips`
+- **Source:** #661
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A 30-degree rectangle grouped with a circle saved `x=186.44, y=37.42`
+(`item.pos() + rect.x()`), but the child's frame had already been normalized by
+`addToGroup()`: for a rotated child Qt rewrites `pos` to the parent position of
+the item's local `(0, 0)` and rotates about the item origin, so `pos + local`
+double-counts the compensation. Reload then rotated the shape about a different
+rect centre and its visible scene centre moved from `(160, 130)` to
+`(246.44, 67.42)` - a silently different plan, baked into the file at save time
+and not fixed by moving the group afterwards. `mapToParent(centre)` is invariant
+because `_apply_rotation` always pivots on the shape's own centre, so every
+shape branch (rectangle, ellipse, circle, polygon, polyline) translates by that
+offset. The matrix covers four shape types x four rotations, a group move before
+the save, and a second save/reload that must not drift again.
+
+### PF-PER-21
+
+- **Rule:** A command that replaces a shape with a rebuilt one gives the replacement the source's UUID and garden bookkeeping (name, metadata copy, parent/child links, layer, label flags, transform). A constructor's fresh UUID silently orphans everything keyed by the old one.
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_corner_edit_keeps_the_bed_identity`; `tests/unit/test_geometry_identity.py::test_trim_keeps_the_bed_identity`
+- **Source:** #668
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Chamfer and fillet rebuilt a named bed as a fresh `PolygonItem`, copying only the
+visual style: new UUID, empty name and metadata, plants still pointing at the
+old id, soil/pest/harvest records keyed to a UUID no live item owned, and every
+constraint anchored to the old id dangling. Undo restored the original, so the
+loss only surfaced on redo or the next save - and a `.ogp` written afterwards
+kept the orphans forever. `inherit_item_identity()` in `core/item_look.py` is
+the single rule now used by the corner tools and both trim tools; `object_type`
+stays the caller's decision (a trimmed rectangle becomes a fence polyline), so
+keeping the UUID keeps the surviving object's records attached rather than
+orphaning them. Identity is a property of what the user edited, not of the
+Python object a rebuild happened to construct.

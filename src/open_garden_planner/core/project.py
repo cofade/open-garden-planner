@@ -1494,6 +1494,26 @@ class ProjectManager(QObject):
         return data
 
     @staticmethod
+    def _stored_shape_offset(item: QGraphicsItem, local_centre: QPointF) -> QPointF:
+        """Where the item's local origin sits in its parent's frame (#661).
+
+        A shape is saved by writing its geometry in the *parent* frame, because
+        the loader recreates the item in that frame. ``item.pos()`` is not that
+        frame once the item is a rotated child of a ``GroupItem``:
+        ``QGraphicsItemGroup.addToGroup()`` normalises the child's rotation to
+        rotate about the item origin and folds the old pivot into ``pos()`` (a
+        30-degree rectangle's ``pos`` becomes the scene position of its local
+        ``(0, 0)``), so ``pos() + local`` double-counts the compensation and the
+        shape jumps on reload.
+
+        ``mapToParent(local_centre)`` is unaffected, because ``_apply_rotation``
+        always pivots on the shape's own centre — that centre maps to itself.
+        Returning the difference lets every shape branch translate its local
+        geometry into the parent frame with the pivot preserved.
+        """
+        return item.mapToParent(local_centre) - local_centre
+
+    @staticmethod
     def _stored_fill_color(item: Any) -> QColor:
         """The fill colour to persist for ``item`` (issues #438/#469).
 
@@ -1548,11 +1568,12 @@ class ProjectManager(QObject):
             return item.to_dict()
         elif isinstance(item, RectangleItem):
             rect = item.rect()
+            offset = ProjectManager._stored_shape_offset(item, rect.center())
             data = {
                 "type": "rectangle",
                 "item_id": str(item.item_id),
-                "x": item.pos().x() + rect.x(),
-                "y": item.pos().y() + rect.y(),
+                "x": offset.x() + rect.x(),
+                "y": offset.y() + rect.y(),
                 "width": rect.width(),
                 "height": rect.height(),
             }
@@ -1586,13 +1607,12 @@ class ProjectManager(QObject):
             return data
         elif isinstance(item, EllipseItem):
             rect = item.rect()
-            cx = item.pos().x() + rect.center().x()
-            cy = item.pos().y() + rect.center().y()
+            centre = item.mapToParent(rect.center())
             data = {
                 "type": "ellipse",
                 "item_id": str(item.item_id),
-                "center_x": cx,
-                "center_y": cy,
+                "center_x": centre.x(),
+                "center_y": centre.y(),
                 "semi_x": rect.width() / 2,
                 "semi_y": rect.height() / 2,
             }
@@ -1619,11 +1639,12 @@ class ProjectManager(QObject):
                 data["area_label_visible"] = True
             return data
         elif isinstance(item, CircleItem):
+            centre = item.mapToParent(item.center)
             data = {
                 "type": "circle",
                 "item_id": str(item.item_id),
-                "center_x": item.pos().x() + item.center.x(),
-                "center_y": item.pos().y() + item.center.y(),
+                "center_x": centre.x(),
+                "center_y": centre.y(),
                 "radius": item.radius,
             }
             if hasattr(item, "object_type") and item.object_type:
@@ -1666,10 +1687,14 @@ class ProjectManager(QObject):
                 data["area_label_visible"] = True
             return data
         elif isinstance(item, PolylineItem):
+            offset = ProjectManager._stored_shape_offset(item, item.boundingRect().center())
             data = {
                 "type": "polyline",
                 "item_id": str(item.item_id),
-                "points": [{"x": item.pos().x() + p.x(), "y": item.pos().y() + p.y()} for p in item.points],
+                "points": [
+                    {"x": offset.x() + p.x(), "y": offset.y() + p.y()}
+                    for p in item.points
+                ],
             }
             if hasattr(item, "object_type") and item.object_type:
                 data["object_type"] = item.object_type.name
@@ -1700,12 +1725,13 @@ class ProjectManager(QObject):
             return data
         elif isinstance(item, PolygonItem):
             polygon = item.polygon()
+            offset = ProjectManager._stored_shape_offset(item, item.boundingRect().center())
             points = []
             for i in range(polygon.count()):
                 pt = polygon.at(i)
                 points.append({
-                    "x": item.pos().x() + pt.x(),
-                    "y": item.pos().y() + pt.y(),
+                    "x": offset.x() + pt.x(),
+                    "y": offset.y() + pt.y(),
                 })
             data = {
                 "type": "polygon",
@@ -2064,6 +2090,26 @@ class ProjectManager(QObject):
 
         # Load constraints if present
         if parsed_constraints is not None and hasattr(scene, "constraint_graph"):
+            # #655: a FIXED lock saved before the round-trip fix carries no
+            # pinned coordinates.  Repair them from the loaded items BEFORE the
+            # graph becomes live, so the first drag cannot move a locked object
+            # and the next save writes the lock back.
+            loaded_positions: dict[UUID, tuple[float, float]] = {}
+
+            def _collect_positions(item_list: list[QGraphicsItem]) -> None:
+                for loaded in item_list:
+                    item_id = getattr(loaded, "item_id", None)
+                    if isinstance(item_id, UUID):
+                        position = loaded.pos()
+                        loaded_positions[item_id] = (
+                            position.x(),
+                            position.y(),
+                        )
+                    if loaded.childItems():
+                        _collect_positions(list(loaded.childItems()))
+
+            _collect_positions(deserialized_items)
+            parsed_constraints.repair_missing_fixed_targets(loaded_positions)
             scene.constraint_graph = parsed_constraints
             # The FIXED-lock padlock badge is derived from the graph: re-derive
             # it for every loaded item so a saved lock is visible without

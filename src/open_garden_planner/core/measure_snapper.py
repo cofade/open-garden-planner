@@ -35,6 +35,101 @@ class AnchorPoint:
     anchor_index: int = 0  # Distinguishes same-type anchors (e.g. vertex 0 vs 2)
 
 
+#: The four edge-anchor kinds.  Polygon / polyline edges are re-classified by
+#: their current dominant axis every time anchors are computed, so a stored
+#: reference of one of these types can stop identifying its edge (#670).
+EDGE_ANCHOR_TYPES = frozenset(
+    {
+        AnchorType.EDGE_TOP,
+        AnchorType.EDGE_BOTTOM,
+        AnchorType.EDGE_LEFT,
+        AnchorType.EDGE_RIGHT,
+    }
+)
+
+
+def _has_indexed_edges(item: QGraphicsItem) -> bool:
+    """True for items whose edges are numbered, so the index alone names one."""
+    from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+
+    return isinstance(item, (PolygonItem, PolylineItem))
+
+
+def resolve_anchor_point(
+    item: QGraphicsItem,
+    anchor_type: AnchorType,
+    anchor_index: int = 0,
+    *,
+    fallback_to_center: bool = False,
+) -> QPointF | None:
+    """The scene position of one anchor, robust to a dynamic edge classification.
+
+    Polygon and polyline edge anchors are typed by the edge's CURRENT dominant
+    axis (``measure_snapper._polygon_anchors``), so a stored ``EDGE_RIGHT``
+    reference either finds nothing or finds a *different* edge once that edge
+    turns horizontal.  For those items the index alone identifies the edge, so
+    an edge-typed lookup matches on the index (#670 cause 6).  Everything else
+    is matched by the stored type and index, then by type alone for the unique
+    anchor kinds.
+
+    This is the single resolver the dimension lines, the drag enforcement and
+    the panel share — a second copy is how they drifted apart.
+    """
+    anchors = get_anchor_points(item)
+    if anchor_type in EDGE_ANCHOR_TYPES and _has_indexed_edges(item):
+        for anchor in anchors:
+            if (
+                anchor.anchor_type in EDGE_ANCHOR_TYPES
+                and anchor.anchor_index == anchor_index
+            ):
+                return anchor.point
+    for anchor in anchors:
+        if (
+            anchor.anchor_type == anchor_type
+            and anchor.anchor_index == anchor_index
+        ):
+            return anchor.point
+    for anchor in anchors:
+        if anchor.anchor_type == anchor_type:
+            return anchor.point
+    if fallback_to_center:
+        # Display-only leniency: a dimension line for a reference whose anchor
+        # kind no longer exists (a converted shape) still draws at the centre.
+        # Enforcement paths must NOT use this — projecting an anchor onto the
+        # item's origin is a silent, wrong correction.
+        for anchor in anchors:
+            if anchor.anchor_type == AnchorType.CENTER:
+                return anchor.point
+    return None
+
+
+def anchor_offset_table(
+    item: QGraphicsItem,
+) -> dict[tuple[AnchorType, int], tuple[float, float]]:
+    """Anchor offsets relative to ``item.pos()``, keyed as a *stored* ref looks up.
+
+    ``ConstraintGraph.solve_anchored`` reads one offset per
+    ``(item_id, anchor_type, anchor_index)``.  A stored polygon / polyline edge
+    reference keeps its old axis type after the edge turns, so its key would be
+    missing and the solver would silently treat the anchor as the item's
+    origin.  For those items every edge type is registered for the same index —
+    the index is what identifies the edge (#670 cause 6).
+    """
+    position = item.pos()
+    table: dict[tuple[AnchorType, int], tuple[float, float]] = {}
+    indexed_edges = _has_indexed_edges(item)
+    for anchor in get_anchor_points(item):
+        offset = (
+            anchor.point.x() - position.x(),
+            anchor.point.y() - position.y(),
+        )
+        table[(anchor.anchor_type, anchor.anchor_index)] = offset
+        if indexed_edges and anchor.anchor_type in EDGE_ANCHOR_TYPES:
+            for edge_type in EDGE_ANCHOR_TYPES:
+                table[(edge_type, anchor.anchor_index)] = offset
+    return table
+
+
 def get_anchor_points(item: QGraphicsItem) -> list[AnchorPoint]:
     """Compute all anchor points for a garden item in scene coordinates.
 

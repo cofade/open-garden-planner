@@ -58,6 +58,81 @@ class ConstraintStatus(Enum):
     OVER_CONSTRAINED = auto()
 
 
+#: The precision the Constraints panel reports a satisfied relation at, in cm
+#: (1 mm).  A constraint accepted by the application path must reach this, or
+#: the panel immediately shows the row red (#670 cause 4).
+DISPLAY_TOLERANCE_CM = 0.1
+
+#: What a *committed* solve aims for, in cm.  Comfortably inside
+#: ``DISPLAY_TOLERANCE_CM`` so rounding cannot flip a satisfied row to violated.
+#: Live drags keep the coarser cm-scale tolerance: they run per mouse frame and
+#: a sub-millimetre chase is invisible while the cursor is moving.
+APPLY_TOLERANCE_CM = 0.05
+
+#: Incidence constraints are those whose residual is a distance from a line,
+#: a circle, or a tangency condition rather than a plain anchor-to-anchor gap.
+INCIDENCE_TYPES = frozenset(
+    {
+        ConstraintType.POINT_ON_EDGE,
+        ConstraintType.POINT_ON_CIRCLE,
+        ConstraintType.TANGENT,
+    }
+)
+
+
+def incidence_error(
+    constraint_type: ConstraintType,
+    point_a: tuple[float, float],
+    point_b: tuple[float, float],
+    point_c: tuple[float, float] | None,
+    target_distance: float,
+) -> float | None:
+    """Residual of an incidence constraint in cm; 0.0 means satisfied.
+
+    One implementation for the solver, the conflict scan and the Constraints
+    panel (#669 / #670).  The panel used to fall through to a plain
+    anchor-to-anchor distance for these types, so a correctly placed
+    ``POINT_ON_EDGE`` compared the point with the edge's *first endpoint* and
+    was painted red.
+
+    Returns ``None`` when the type is not an incidence type, or when the
+    geometry it needs (``point_c`` for the line-based types) is missing.
+
+    The definitions match what ``solve_anchored`` enforces:
+
+    * POINT_ON_EDGE — perpendicular distance from A to the infinite line B→C;
+    * POINT_ON_CIRCLE — ``|dist(A, B) - radius|`` (``target_distance`` is the radius);
+    * TANGENT — the radius B−A projected onto the unit edge direction A→C.
+    """
+    if constraint_type == ConstraintType.POINT_ON_CIRCLE:
+        ax, ay = point_a
+        bx, by = point_b
+        distance = math.hypot(ax - bx, ay - by)
+        return abs(distance - target_distance)
+    if point_c is None:
+        return None
+    if constraint_type == ConstraintType.POINT_ON_EDGE:
+        ax, ay = point_a
+        bx, by = point_b
+        cx, cy = point_c
+        edge_x, edge_y = cx - bx, cy - by
+        line_length = math.hypot(edge_x, edge_y)
+        if line_length < 1e-9:
+            return None
+        # Perpendicular distance: 2 * triangle area / base length.
+        return abs(edge_x * (ay - by) - edge_y * (ax - bx)) / line_length
+    if constraint_type == ConstraintType.TANGENT:
+        ax, ay = point_a
+        bx, by = point_b
+        cx, cy = point_c
+        edge_x, edge_y = cx - ax, cy - ay
+        edge_length = math.hypot(edge_x, edge_y)
+        if edge_length < 1e-9:
+            return None
+        return abs(((bx - ax) * edge_x + (by - ay) * edge_y) / edge_length)
+    return None
+
+
 @dataclass
 class AnchorRef:
     """Reference to an anchor point on a specific item.
@@ -675,6 +750,12 @@ class ConstraintGraph:
                 constraint_id=c.constraint_id,
                 constraint_type=c.constraint_type,
                 anchor_c=c.anchor_c,
+                # #655: a FIXED lock's pinned scene position is part of the
+                # constraint, not a derived value.  Dropping it here turned a
+                # reloaded lock into a badge that could still be dragged, and
+                # the next save then wrote the loss into the file for good.
+                target_x=c.target_x,
+                target_y=c.target_y,
             )
         return graph
 
@@ -726,15 +807,17 @@ class ConstraintGraph:
         # Pre-pass: FIXED constraints pin items at their stored target positions.
         # Add them to pinned_items and override item_positions so the solver
         # sees the correct target position regardless of how Qt moved the item.
+        # A FIXED constraint without stored targets (a legacy file before #655,
+        # or a record built by hand) still means "do not move": pin it where
+        # the caller says it is instead of skipping it, which made a locked
+        # object solve as if it were free.
         pinned_items = set(pinned_items)  # make a mutable copy
         for c in self._constraints.values():
-            if (
-                c.constraint_type == ConstraintType.FIXED
-                and c.target_x is not None
-                and c.target_y is not None
-            ):
-                fixed_id = c.anchor_a.item_id
-                pinned_items.add(fixed_id)
+            if c.constraint_type != ConstraintType.FIXED:
+                continue
+            fixed_id = c.anchor_a.item_id
+            pinned_items.add(fixed_id)
+            if c.target_x is not None and c.target_y is not None:
                 item_positions = dict(item_positions)
                 item_positions[fixed_id] = (c.target_x, c.target_y)
 
@@ -1140,8 +1223,11 @@ class ConstraintGraph:
                         constraint.anchor_c.anchor_index,
                     )
                     off_c = anchor_offsets.get(key_c, (0.0, 0.0))
-                    cx = positions[id_c][0] + off_c[0]
-                    cy = positions[id_c][1] + off_c[1]
+                    # #670 cause 5: C may be a deformable vertex that an earlier
+                    # constraint in this same solve just moved.  Reading its
+                    # pre-solve ``pos + offset`` projected the point onto the
+                    # old edge; the vertex-aware helper follows the deformation.
+                    cx, cy = _anchor_pos(id_c, constraint.anchor_c, off_c)
 
                     edx, edy = cx - bx, cy - by
                     line_len_sq = edx * edx + edy * edy
@@ -1151,7 +1237,18 @@ class ConstraintGraph:
                     proj_x = bx + t * edx
                     proj_y = by + t * edy
 
-                    error = math.sqrt((ax - proj_x) ** 2 + (ay - proj_y) ** 2)
+                    projected_error = incidence_error(
+                        constraint.constraint_type,
+                        (ax, ay),
+                        (bx, by),
+                        (cx, cy),
+                        constraint.target_distance,
+                    )
+                    error = (
+                        math.hypot(ax - proj_x, ay - proj_y)
+                        if projected_error is None
+                        else projected_error
+                    )
                     max_error = max(max_error, error)
                     if error < 1e-9:
                         continue
@@ -1171,7 +1268,18 @@ class ConstraintGraph:
                     else:
                         proj_x = bx + (dx / dist) * radius
                         proj_y = by + (dy / dist) * radius
-                    error = math.sqrt((ax - proj_x) ** 2 + (ay - proj_y) ** 2)
+                    measured_error = incidence_error(
+                        constraint.constraint_type,
+                        (ax, ay),
+                        (bx, by),
+                        None,
+                        constraint.target_distance,
+                    )
+                    error = (
+                        math.hypot(ax - proj_x, ay - proj_y)
+                        if measured_error is None
+                        else measured_error
+                    )
                     max_error = max(max_error, error)
                     if error < 1e-9:
                         continue
@@ -1202,8 +1310,18 @@ class ConstraintGraph:
                     if edge_len < 1e-9:
                         continue
                     ex, ey = edx / edge_len, edy / edge_len  # unit edge
-                    error = (bx - ax) * ex + (by - ay) * ey  # radius·ê (→ 0)
-                    max_error = max(max_error, abs(error))
+                    residual = incidence_error(
+                        constraint.constraint_type,
+                        (ax, ay),
+                        (bx, by),
+                        (cx, cy),
+                        constraint.target_distance,
+                    )
+                    # Keep the signed version for the correction below.
+                    error = (bx - ax) * ex + (by - ay) * ey
+                    if residual is None:
+                        residual = abs(error)
+                    max_error = max(max_error, residual)
                     if abs(error) < 1e-9:
                         continue
                     # Closed-form correction (error is linear in a rigid shift):
@@ -1330,10 +1448,11 @@ class ConstraintGraph:
         item_positions: dict[UUID, tuple[float, float]],
         anchor_offsets: dict[tuple[UUID, AnchorType, int], tuple[float, float]],
         max_iterations: int = 50,
-        tolerance: float = 1.0,
+        tolerance: float = APPLY_TOLERANCE_CM,
         anchor_c: AnchorRef | None = None,
         deformable_items: set[UUID] | None = None,
         deformable_vertices: dict[UUID, list[tuple[float, float]]] | None = None,
+        pinned_items: set[UUID] | None = None,
     ) -> bool:
         """Test if adding a constraint would conflict with existing constraints.
 
@@ -1350,11 +1469,17 @@ class ConstraintGraph:
             anchor_offsets: Pre-computed anchor offsets keyed by
                 (item_id, anchor_type, anchor_index).
             max_iterations: Solver iterations for the feasibility check.
-            tolerance: Convergence tolerance in cm.
+            tolerance: Convergence tolerance in cm.  Defaults to the precision a
+                committed application must reach, so the trial answers the same
+                question the application will (#670 cause 4).
             anchor_c: Optional third anchor for ANGLE constraints.
             deformable_items: Item IDs that support per-vertex deformation.
             deformable_vertices: Scene-space vertex positions for deformable
                 items.
+            pinned_items: Items the application will hold still (construction
+                geometry, a FIXED item, and the reference side of the CAD "A
+                moves, B stays" rule).  The trial must pin the same ones or it
+                answers a different question (#670 cause 2).
 
         Returns:
             True  — constraint is compatible with the existing system.
@@ -1368,14 +1493,36 @@ class ConstraintGraph:
             anchor_c=anchor_c,
         )
         try:
+            # #670 cause 1: only the connected component this link joins can be
+            # affected by it.  Solving the whole graph let a knowingly violated
+            # constraint in an unrelated component reject a compatible link.
+            component = self.get_connected_component(anchor_a.item_id)
+            scoped_positions = {
+                uid: position
+                for uid, position in item_positions.items()
+                if uid in component
+            }
+            scoped_offsets = {
+                key: offset
+                for key, offset in anchor_offsets.items()
+                if key[0] in component
+            }
+            scoped_deformable = {
+                uid for uid in (deformable_items or set()) if uid in component
+            }
+            scoped_vertices = {
+                uid: vertices
+                for uid, vertices in (deformable_vertices or {}).items()
+                if uid in component
+            }
             result = self.solve_anchored(
-                item_positions=item_positions,
-                anchor_offsets=anchor_offsets,
-                pinned_items=set(),
+                item_positions=scoped_positions,
+                anchor_offsets=scoped_offsets,
+                pinned_items=set(pinned_items or set()) & component,
                 max_iterations=max_iterations,
                 tolerance=tolerance,
-                deformable_items=deformable_items,
-                deformable_vertices=deformable_vertices,
+                deformable_items=scoped_deformable,
+                deformable_vertices=scoped_vertices,
             )
             return result.converged
         finally:
@@ -1511,18 +1658,23 @@ class ConstraintGraph:
             for uid, verts in deformable_vertices.items():
                 for vi, (vx, vy) in enumerate(verts):
                     resolved_vertex_pos[(uid, vi)] = (vx, vy)
-        for vk, (dx, dy) in result.vertex_deltas.items():
-            base = resolved_vertex_pos.get(vk)
-            if base is None:
-                continue
-            # Deltas returned by solve_anchored are vertex deformation, i.e.
-            # they exclude any whole-item translation.  Add the item delta back
-            # to get the absolute vertex position.
-            item_dx, item_dy = result.item_deltas.get(vk[0], (0.0, 0.0))
-            resolved_vertex_pos[vk] = (
-                base[0] + dx + item_dx,
-                base[1] + dy + item_dy,
-            )
+        if resolved_vertex_pos:
+            # #670 cause 3: rebuild EVERY vertex from its resolved item position
+            # plus its pure vertex delta.  The old loop only touched vertices
+            # that had a vertex delta, so a polygon that translated rigidly (no
+            # deformation at all) was evaluated at its pre-solve position and its
+            # satisfied constraints looked violated.
+            for uid, vi in resolved_vertex_pos:
+                item_dx, item_dy = result.item_deltas.get(uid, (0.0, 0.0))
+                vx, vy = resolved_vertex_pos[(uid, vi)]
+                resolved_vertex_pos[(uid, vi)] = (
+                    vx + item_dx,
+                    vy + item_dy,
+                )
+            for vk, (dx, dy) in result.vertex_deltas.items():
+                if vk in resolved_vertex_pos:
+                    vx, vy = resolved_vertex_pos[vk]
+                    resolved_vertex_pos[vk] = (vx + dx, vy + dy)
 
         def anchor_pos(anchor: AnchorRef) -> tuple[float, float]:
             if (
@@ -1552,10 +1704,22 @@ class ConstraintGraph:
                 continue
             ax, ay = anchor_pos(c.anchor_a)
             bx, by = anchor_pos(c.anchor_b)
-            if c.constraint_type in (
+            if c.constraint_type in INCIDENCE_TYPES:
+                cx, cy = (0.0, 0.0)
+                if c.anchor_c is not None:
+                    cx, cy = anchor_pos(c.anchor_c)
+                err = incidence_error(
+                    c.constraint_type,
+                    (ax, ay),
+                    (bx, by),
+                    (cx, cy) if c.anchor_c is not None else None,
+                    c.target_distance,
+                )
+                if err is None:
+                    continue
+            elif c.constraint_type in (
                 ConstraintType.DISTANCE,
                 ConstraintType.EDGE_LENGTH,
-                ConstraintType.POINT_ON_CIRCLE,
             ):
                 err = abs(
                     math.sqrt((ax - bx) ** 2 + (ay - by) ** 2) - c.target_distance
@@ -1575,6 +1739,31 @@ class ConstraintGraph:
             if err > tolerance:
                 conflicting.append(cid)
         return conflicting
+
+    def repair_missing_fixed_targets(
+        self, item_positions: dict[UUID, tuple[float, float]]
+    ) -> int:
+        """Fill in ``target_x``/``target_y`` for FIXED constraints that lack them.
+
+        Issue #655: files written before the round-trip fix carry a ``FIXED``
+        record with no pinned coordinates.  The loaded item's own position is
+        the only trustworthy source — a rectangle/polygon folds the Qt
+        translation into its shape coordinates on save, so reusing any
+        pre-save value would make the first drag jump.  Returns the number of
+        constraints repaired.
+        """
+        repaired = 0
+        for constraint in self._constraints.values():
+            if constraint.constraint_type != ConstraintType.FIXED:
+                continue
+            if constraint.target_x is not None and constraint.target_y is not None:
+                continue
+            position = item_positions.get(constraint.anchor_a.item_id)
+            if position is None:
+                continue
+            constraint.target_x, constraint.target_y = position
+            repaired += 1
+        return repaired
 
     def clear(self) -> None:
         """Remove all constraints."""

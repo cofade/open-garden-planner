@@ -182,6 +182,45 @@ pinned anchors are not a solved system. The fresh eight-mutant sample and its te
 selection are recorded in `audits/2026-10/audit-2026-10-a5-evidence.md`; historical mutmut counts
 are not a current full-suite measurement.
 
+**Addendum (CAD-precision package, #669/#670, 2026-10-31).** The incidence path had
+drifted into three answers to one question, and the trial answered a different question
+than the application. Six decisions, each pinned:
+
+1. **One residual.** `constraints.incidence_error(type, a, b, c, target)` is the single
+   definition of the `POINT_ON_EDGE` / `POINT_ON_CIRCLE` / `TANGENT` residual. The
+   Gauss-Seidel pass, `find_conflicting_constraints` and `ConstraintsPanel._is_satisfied`
+   call it; the panel previously fell through to an anchor-to-anchor distance and painted
+   satisfied constraints red (#669).
+2. **One tolerance pair.** `DISPLAY_TOLERANCE_CM = 0.1` is what the panel reports;
+   `APPLY_TOLERANCE_CM = 0.05` is what a *committed* application solve targets
+   (`validate_constraint` and `_compute_constraint_solve_moves`). Live drags keep the
+   cm-scale tolerance: they run per mouse frame and a sub-millimetre chase is invisible
+   while the cursor moves. A constraint the user adds therefore meets the precision the
+   panel then displays (#670 cause 4).
+3. **A trial joins a component, it does not re-solve the plan.** `validate_constraint`
+   restricts positions, offsets, deformable items and pins to the connected component the
+   trial link creates. A knowingly violated constraint in an unrelated component is not a
+   reason to refuse a satisfiable one (#670 cause 1).
+4. **The trial pins what the application pins.** One rule,
+   `CanvasView._constraint_reference_pins`: B stays still (A moves to B) unless A already
+   carries `FIXED` or both anchors share an item. It feeds both the feasibility trial and
+   the application, so they cannot answer different questions (#670 cause 2).
+5. **Reconstruct resolved state from deltas, symmetrically.** `find_conflicting_constraints`
+   rebuilds every vertex as `pre-solve vertex + item delta + vertex delta`. A polygon that
+   translated rigidly has no vertex delta, which is exactly when the old reconstruction
+   evaluated its pre-solve position (#670 cause 3).
+6. **An edge reference is an index, not a direction.** `measure_snapper.resolve_anchor_point`
+   (and `anchor_offset_table`) matches polygon/polyline edge anchors by `anchor_index`,
+   because their `EDGE_*` type is re-derived from the current dominant axis. Dimension
+   lines, drag enforcement and the solver's offset table all use it (#670 cause 6), and
+   `POINT_ON_EDGE` resolves its third anchor through the same vertex-aware helper the rest
+   of the solver uses (#670 cause 5).
+
+No `.ogp` format change: repaired `FIXED` targets are derived at load from the loaded
+item's frame and written back additively. Tests: `tests/unit/test_incidence_consistency.py`
+(all six causes plus the panel residual definitions and the precision pair) and
+`tests/integration/test_cad_precision_integrity.py` (the FIXED-lock round trip and drag).
+
 **Addendum (2026-10-23, issue #552 — FIXED closes the panel path).** The canvas
 drag, arrange and vertex paths honoured FIXED; the Properties panel X/Y fields
 did not (an empty propagation set fell through to a plain `MoveItemsCommand`,

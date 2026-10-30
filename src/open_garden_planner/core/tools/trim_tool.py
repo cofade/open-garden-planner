@@ -504,6 +504,12 @@ class TrimExtendTool(BaseTool):
         )
         adopt_pen(result_polyline, item.pen())  # the pen AND the stroke attributes
         result_polyline.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        # #668: the trim replaces the shape, so it keeps the source's UUID and
+        # garden bookkeeping — otherwise plants, garden records and constraints
+        # would point at an item that no longer exists.
+        from open_garden_planner.core.item_look import inherit_item_identity
+
+        inherit_item_identity(item, result_polyline)
 
         cmd = TrimPolygonCommand(self._view.scene(), item, result_polyline)
         self._view.command_manager.execute(cmd)
@@ -549,6 +555,10 @@ class TrimExtendTool(BaseTool):
         )
         adopt_pen(result_polyline, item.pen())  # the pen AND the stroke attributes
         result_polyline.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        # #668: same identity rule as the polygon trim — audit note in the issue.
+        from open_garden_planner.core.item_look import inherit_item_identity
+
+        inherit_item_identity(item, result_polyline)
 
         cmd = TrimRectangleCommand(self._view.scene(), item, result_polyline)
         self._view.command_manager.execute(cmd)

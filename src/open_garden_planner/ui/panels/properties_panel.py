@@ -362,11 +362,40 @@ class PropertiesPanel(QWidget):
 
         Also drops the field refreshers: they reference the widgets being
         destroyed here, and the rebuild re-registers fresh ones (#206).
+
+        The widgets are **detached and deleted later**, never destroyed inside
+        ``QFormLayout.removeRow`` (#658).  A rebuild can be triggered from a
+        widget's own signal — the Layer combo moving its item to a hidden or
+        locked layer deselects the item, and the selection change rebuilds the
+        panel synchronously — and ``removeRow`` deleted the combo box while Qt
+        was still delivering its ``currentIndexChanged``.  On macOS that aborted
+        the process (exit 139); on Windows the signal was silently dropped.
         """
         self._field_refreshers = []
         self._pending_text_commits = []
         while self._form_layout.rowCount() > 0:
-            self._form_layout.removeRow(0)
+            row = self._form_layout.takeRow(0)
+            for item in (row.labelItem, row.fieldItem):
+                self._dispose_form_item(item)
+
+    @staticmethod
+    def _dispose_form_item(item: object) -> None:
+        """Hide, detach and schedule deletion of one taken form row item."""
+        if item is None:
+            return
+        layout = item.layout() if hasattr(item, "layout") else None  # type: ignore[attr-defined]
+        if layout is not None:
+            while layout.count():
+                child = layout.takeAt(0)
+                PropertiesPanel._dispose_form_item(child)
+            layout.deleteLater()
+            return
+        widget = item.widget() if hasattr(item, "widget") else None  # type: ignore[attr-defined]
+        if widget is None:
+            return
+        widget.hide()
+        widget.setParent(None)
+        widget.deleteLater()
 
     def _show_no_selection(self) -> None:
         """Show message when nothing is selected."""

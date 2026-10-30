@@ -114,7 +114,13 @@ class TestNameFieldUndoGranularity:
         panel.set_selected_items([item_b])
         # Pin the mechanism: A's field was actually destroyed by the rebuild
         # (so its debounce timer can never fire) — the flush is what saved it.
+        # Since #658 the rebuild detaches its widgets and DELETES them later
+        # (destroying them inside the sender's own signal crashed macOS), so the
+        # deletion is drained before the assertion instead of being synchronous.
         from PyQt6 import sip
+        from PyQt6.QtCore import QCoreApplication, QEvent
+
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         assert sip.isdeleted(name_edit), "A's field must be destroyed by the rebuild"
         assert manager.can_undo, "A's pending edit must be flushed to a command"
         manager.undo()

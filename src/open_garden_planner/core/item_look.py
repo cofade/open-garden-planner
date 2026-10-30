@@ -191,6 +191,37 @@ def copy_visual_style(source: Any, dest: Any) -> None:
         dest.area_label_visible = True
 
 
+def inherit_item_identity(source: Any, dest: Any) -> None:
+    """Give a replacement shape the source's identity and garden bookkeeping (#668).
+
+    A corner edit, a trim, or any other "rebuild this shape" operation removes
+    the source item and inserts a freshly built one.  A constructor mints a new
+    UUID, which silently orphans everything keyed by the old one: a plant's
+    ``parent_bed_id`` and the bed's ``child_item_ids``, the bed's
+    ``metadata.garden_tracking.zone_id``, the soil / pest / harvest records the
+    ``ProjectData`` holds under that UUID, and every constraint anchored to the
+    item.  The original leaves the scene in the same command, so the UUID is
+    free for the replacement to keep.
+
+    ``object_type`` is deliberately NOT copied — the caller decides the type
+    (a trimmed rectangle becomes a fence polyline).  The transform is copied so
+    a rotated source is replaced where it stood, not at the origin.
+    """
+    import copy
+
+    dest._item_id = source.item_id
+    dest.name = source.name
+    dest._metadata = copy.deepcopy(source.metadata)
+    dest._parent_bed_id = source.parent_bed_id
+    dest._child_item_ids = list(source.child_item_ids)
+    dest.layer_id = source.layer_id
+    dest.label_visible = source.label_visible
+    dest.area_label_visible = source.area_label_visible
+    dest.setPos(source.pos())
+    dest.setRotation(source.rotation())
+    dest.setTransformOriginPoint(source.transformOriginPoint())
+
+
 def _converted(convert: Callable[[Any], Any], value: Any) -> Any:
     """``convert(value)``, or None where the value is of a kind it cannot take."""
     try:

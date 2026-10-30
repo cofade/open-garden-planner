@@ -2073,6 +2073,10 @@ class RemoveConstraintCommand(Command):
             visible=self._constraint.visible,
             constraint_id=self._constraint.constraint_id,
             constraint_type=self._constraint.constraint_type,
+            # #656: the third anchor is part of the removed constraint.  Dropping
+            # it left an ANGLE / POINT_ON_EDGE / TANGENT constraint structurally
+            # different after undo (a broken relation the panel cannot describe).
+            anchor_c=self._constraint.anchor_c,
             target_x=self._constraint.target_x,
             target_y=self._constraint.target_y,
         )

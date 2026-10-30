@@ -280,7 +280,12 @@ class ConstraintsPanel(QWidget):
         """Check whether a constraint is satisfied (within tolerance)."""
         import math
 
-        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.constraints import (
+            DISPLAY_TOLERANCE_CM,
+            INCIDENCE_TYPES,
+            ConstraintType,
+            incidence_error,
+        )
 
         if self._scene is None:
             return False
@@ -384,6 +389,31 @@ class ConstraintsPanel(QWidget):
 
         if constraint.constraint_type == ConstraintType.VERTICAL_DISTANCE:
             return abs(abs(pos_b.y() - pos_a.y()) - constraint.target_distance) < 1.0
+
+        if constraint.constraint_type in INCIDENCE_TYPES:
+            # #669: the panel had no branch for these, so a satisfied
+            # POINT_ON_EDGE compared the point with the edge's first endpoint
+            # and was painted red.  One shared residual implementation keeps the
+            # panel, the solver and the conflict scan in agreement.
+            pos_c = None
+            if constraint.anchor_c is not None:
+                pos_c = dlm._resolve_anchor_position(
+                    constraint.anchor_c.item_id,
+                    constraint.anchor_c.anchor_type,
+                    constraint.anchor_c.anchor_index,
+                )
+                if pos_c is None:
+                    return False
+            error = incidence_error(
+                constraint.constraint_type,
+                (pos_a.x(), pos_a.y()),
+                (pos_b.x(), pos_b.y()),
+                (pos_c.x(), pos_c.y()) if pos_c is not None else None,
+                constraint.target_distance,
+            )
+            if error is None:
+                return False
+            return error < DISPLAY_TOLERANCE_CM
 
         current_dist = QLineF(pos_a, pos_b).length()
         return abs(current_dist - constraint.target_distance) < 1.0

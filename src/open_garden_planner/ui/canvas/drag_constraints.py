@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QGraphicsItem
 from open_garden_planner.core import (
     AddConstraintCommand,
 )
+from open_garden_planner.core.constraints import APPLY_TOLERANCE_CM
 
 if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
@@ -41,8 +42,6 @@ class DragConstraints:
         for c in graph.constraints.values():
             if c.constraint_type != ConstraintType.FIXED:
                 continue
-            if c.target_x is None or c.target_y is None:
-                continue
             item_id = c.anchor_a.item_id
             for scene_item in cast("CanvasScene", host.scene()).items():
                 if (
@@ -51,7 +50,17 @@ class DragConstraints:
                 ):
                     from PyQt6.QtCore import QPointF as _QPointF
 
-                    scene_item.setPos(_QPointF(c.target_x, c.target_y))
+                    if c.target_x is not None and c.target_y is not None:
+                        target = _QPointF(c.target_x, c.target_y)
+                    else:
+                        # #655: a legacy FIXED constraint with no stored target
+                        # still means "do not move" — pin it where the drag began
+                        # instead of letting Qt leave it wherever the cursor is.
+                        start = host._drag_start_positions.get(scene_item)
+                        if start is None:
+                            break
+                        target = start
+                    scene_item.setPos(target)
                     break
 
 
@@ -67,7 +76,7 @@ class DragConstraints:
             return
 
         from open_garden_planner.core.constraints import ConstraintType
-        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.core.measure_snapper import resolve_anchor_point
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         graph = host._canvas_scene.constraint_graph
@@ -94,14 +103,9 @@ class DragConstraints:
                 continue
 
             # Get anchor_a's current scene position (post-drag)
-            anchor_a_scene = None
-            for anchor in get_anchor_points(item_a):
-                if (
-                    anchor.anchor_type == c.anchor_a.anchor_type
-                    and anchor.anchor_index == c.anchor_a.anchor_index
-                ):
-                    anchor_a_scene = anchor.point
-                    break
+            anchor_a_scene = resolve_anchor_point(
+                item_a, c.anchor_a.anchor_type, c.anchor_a.anchor_index
+            )
             if anchor_a_scene is None:
                 continue
 
@@ -118,14 +122,9 @@ class DragConstraints:
                 continue
 
             # Resolve anchor_b position (always needed)
-            pos_b = None
-            for anchor in get_anchor_points(item_b):
-                if (
-                    anchor.anchor_type == c.anchor_b.anchor_type
-                    and anchor.anchor_index == c.anchor_b.anchor_index
-                ):
-                    pos_b = anchor.point
-                    break
+            pos_b = resolve_anchor_point(
+                item_b, c.anchor_b.anchor_type, c.anchor_b.anchor_index
+            )
             if pos_b is None:
                 continue
 
@@ -144,14 +143,12 @@ class DragConstraints:
                 # POINT_ON_EDGE: project onto infinite line through pos_b → pos_c
                 if c.anchor_c is None:
                     continue
-                pos_c = None
-                for anchor in get_anchor_points(item_b):
-                    if (
-                        anchor.anchor_type == c.anchor_c.anchor_type
-                        and anchor.anchor_index == c.anchor_c.anchor_index
-                    ):
-                        pos_c = anchor.point
-                        break
+                # #670 cause 6: the stored edge type may no longer describe the
+                # edge's current direction; the shared resolver keeps the index
+                # alias, so the projection stays on the same edge.
+                pos_c = resolve_anchor_point(
+                    item_b, c.anchor_c.anchor_type, c.anchor_c.anchor_index
+                )
                 if pos_c is None:
                     continue
                 edx = pos_c.x() - pos_b.x()
@@ -191,7 +188,6 @@ class DragConstraints:
             Empty list if no propagation needed.
         """
         host = self._host
-        from open_garden_planner.core.measure_snapper import get_anchor_points
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
         graph = host._canvas_scene.constraint_graph
@@ -234,6 +230,8 @@ class DragConstraints:
         item_positions: dict[Any, Any] = {}
         anchor_offsets: dict[Any, Any] = {}
 
+        from open_garden_planner.core.measure_snapper import anchor_offset_table
+
         for uid, gitem in item_map.items():
             pos = gitem.pos()
             if uid in dragged_ids:
@@ -241,13 +239,10 @@ class DragConstraints:
             else:
                 item_positions[uid] = (pos.x(), pos.y())
 
-            anchors = get_anchor_points(gitem)
-            for anchor in anchors:
-                key = (uid, anchor.anchor_type, anchor.anchor_index)
-                anchor_offsets[key] = (
-                    anchor.point.x() - pos.x(),
-                    anchor.point.y() - pos.y(),
-                )
+            for (anchor_type, anchor_index), offset in anchor_offset_table(
+                gitem
+            ).items():
+                anchor_offsets[(uid, anchor_type, anchor_index)] = offset
 
         deformable_items, deformable_vertices = host._gather_deformable_info(item_map)
 
@@ -289,7 +284,6 @@ class DragConstraints:
         if not graph.constraints:
             return
 
-        from open_garden_planner.core.measure_snapper import get_anchor_points
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -434,17 +428,16 @@ class DragConstraints:
         item_positions: dict[Any, Any] = {}
         anchor_offsets: dict[Any, Any] = {}
 
+        from open_garden_planner.core.measure_snapper import anchor_offset_table
+
         for uid, gitem in item_map.items():
             pos = gitem.pos()
             item_positions[uid] = (pos.x(), pos.y())
 
-            anchors = get_anchor_points(gitem)
-            for anchor in anchors:
-                key = (uid, anchor.anchor_type, anchor.anchor_index)
-                anchor_offsets[key] = (
-                    anchor.point.x() - pos.x(),
-                    anchor.point.y() - pos.y(),
-                )
+            for (anchor_type, anchor_index), offset in anchor_offset_table(
+                gitem
+            ).items():
+                anchor_offsets[(uid, anchor_type, anchor_index)] = offset
 
         deformable_items, deformable_vertices = host._gather_deformable_info(item_map)
 
@@ -836,7 +829,6 @@ class DragConstraints:
                 new constraint.
         """
         host = self._host
-        from open_garden_planner.core.measure_snapper import get_anchor_points
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -859,6 +851,8 @@ class DragConstraints:
         anchor_offsets: dict[Any, Any] = {}
         construction_ids: set[Any] = set()
 
+        from open_garden_planner.core.measure_snapper import anchor_offset_table
+
         for item in cast("CanvasScene", host.scene()).items():
             is_garden = isinstance(item, GardenItemMixin)
             is_construction = isinstance(
@@ -869,12 +863,10 @@ class DragConstraints:
                 item_map[uid] = item
                 pos = item.pos()
                 item_positions[uid] = (pos.x(), pos.y())
-                for anchor in get_anchor_points(item):
-                    key = (uid, anchor.anchor_type, anchor.anchor_index)
-                    anchor_offsets[key] = (
-                        anchor.point.x() - pos.x(),
-                        anchor.point.y() - pos.y(),
-                    )
+                for (anchor_type, anchor_index), offset in anchor_offset_table(
+                    item
+                ).items():
+                    anchor_offsets[(uid, anchor_type, anchor_index)] = offset
                 if is_construction:
                     construction_ids.add(uid)
 
@@ -891,7 +883,9 @@ class DragConstraints:
             anchor_offsets=anchor_offsets,
             pinned_items=construction_ids | (extra_pinned or set()),
             max_iterations=20,
-            tolerance=1.0,
+            # A committed application must reach the precision the panel
+            # displays (#670 cause 4).  Live drags keep the coarser default.
+            tolerance=APPLY_TOLERANCE_CM,
             deformable_items=deformable_items,
             deformable_vertices=deformable_vertices,
         )

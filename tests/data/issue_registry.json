@@ -771,7 +771,7 @@
   },
   "532": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: Qt Quick 3D 6.11 leaks about half the ground-tile textures on every cache release (QSSGBufferManager::clear skips QHash entries)"
   },
   "534": {
@@ -971,7 +971,7 @@
   },
   "615": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "G3: a four-tile ground edit's bake pass can overrun 10 ms on CI"
   },
   "616": {
@@ -1063,5 +1063,50 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#321, #451, #540): canvas touch gestures, bridge-search pricing, and the render tier's workspace gates"
+  },
+  "655": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "FIXED position lock loses its target coordinates on save/reload - the badge stays but the object can be dragged"
+  },
+  "656": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "RemoveConstraintCommand.undo drops anchor_c - undoing a removed three-anchor constraint leaves it broken"
+  },
+  "657": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Circle handle resize corrupts the stored centre - the circle jumps on save/reload and its shadow/3D footprint is displaced"
+  },
+  "658": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Properties panel destroys the Layer combo inside its own click event - macOS SIGSEGV, Windows drops the change signal"
+  },
+  "661": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "A rotated shape inside a group is saved with the wrong coordinates and jumps on reload"
+  },
+  "662": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "FIXED items still move transiently during a drag - Qt moves them before the view resets them"
+  },
+  "668": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Chamfer/fillet on a named bed replaces it with a new UUID and loses its name, metadata, plant links and garden records"
+  },
+  "669": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "POINT_ON_EDGE and TANGENT constraints are shown as violated in the Constraints panel when they are satisfied"
+  },
+  "670": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Incidence consistency: compatible POINT_ON_EDGE/COINCIDENT links are rejected or left broken (six reproduced cases)"
   }
 }

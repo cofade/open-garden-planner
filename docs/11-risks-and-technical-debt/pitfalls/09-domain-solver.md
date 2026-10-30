@@ -428,3 +428,47 @@ snapshots before its synthetic handle release loses the rotation's atomic undo.
 Retain them through release, then clear them. The started and adopted pinch
 regressions in `test_constrained_rotation.py` were observed failing first and
 assert both corrected geometry and one-step history.
+
+
+### PF-DOM-31
+
+- **Rule:** A `FIXED` constraint is data, not derived state: round-trip `target_x`/`target_y`, repair a legacy record from the loaded item's own frame, treat a target-less `FIXED` as immobile, and take `ItemIsMovable` away for the duration of a drag instead of resetting the item afterwards.
+- **Pinned by:** `tests/unit/test_constraint_integrity.py::test_fixed_targets_survive_graph_round_trip`; `tests/unit/test_constraint_integrity.py::test_load_repairs_a_legacy_fixed_constraint_without_targets`; `tests/integration/test_cad_precision_integrity.py::test_fixed_item_has_zero_transient_positions_during_a_drag`
+- **Source:** #655, #662
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`ConstraintGraph.from_list()` rebuilt each constraint through `add_constraint()`
+without the FIXED targets, so a reopened lock kept only its badge: the padlock
+was drawn and the object could be dragged, and the next save wrote the loss into
+the file for good. Repair an older file from the **loaded item's** position,
+never a pre-save value - rectangle and polygon serialization fold the Qt
+translation into the shape coordinates, so the old frame would make the first
+drag jump. A target-less FIXED must pin the item where it is rather than fall
+through the solver as if it were free. The other half is transient motion: Qt
+moves every selected movable item *before* the view runs `_enforce_fixed_positions`,
+so one drag emitted four phantom `ItemPositionHasChanged` positions and every
+listener (snapping, propagation, shadow/3D refresh, undo watchers) saw them. A
+locked datum has to be inert, not restored.
+
+### PF-DOM-32
+
+- **Rule:** Incidence has one residual and one anchor resolver: `incidence_error()` is the single definition shared by the solver, the conflict scan and the Constraints panel, and `resolve_anchor_point()` is the single lookup. A polygon/polyline edge reference is identified by its index, because its `EDGE_*` type is re-derived from the current dominant axis.
+- **Pinned by:** `tests/unit/test_incidence_consistency.py::test_point_on_edge_panel_satisfaction`; `tests/unit/test_incidence_consistency.py::test_stored_edge_reference_survives_a_direction_change`; `tests/unit/test_incidence_consistency.py::test_point_on_edge_follows_a_deformed_second_endpoint`
+- **Source:** #669, #670
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The Constraints panel had no branch for `POINT_ON_EDGE`, `POINT_ON_CIRCLE` or
+`TANGENT` and fell through to a point-to-point distance, so a satisfied
+point-on-edge compared A with the edge's *first endpoint* and was painted red;
+the conflict scan skipped the same types entirely. One residual function now
+answers all three consumers. The same file pins the six reproduced #670 causes:
+a trial is scoped to the component the link joins (an unrelated violated
+component is not a reason to refuse); the trial pins what the application pins;
+every vertex is reconstructed with item delta plus vertex delta (a rigid polygon
+translation used to look violated); a committed application solves to 0.05 cm so
+it reaches the 0.1 cm indicator; `anchor_c` is resolved through deformed vertices;
+and a stored edge reference keeps its edge by index after the direction changes.
+Each was a second implementation of a rule one layer already had, which is how
+the layers came to disagree.
