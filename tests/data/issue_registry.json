@@ -1033,5 +1033,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#641, #643, #623, #605): precision, UI, and diagnostic bugfixes"
+  },
+  "647": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(3D): Visual polish and engine hardening package (#535, #578, #576, #619, #589, #582, #615)"
   }
 }
