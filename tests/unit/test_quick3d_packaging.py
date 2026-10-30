@@ -399,7 +399,7 @@ class TestRenderJob:
         """
         source = (REPO / WORKSPACE_RENDER).read_text(encoding="utf-8")
         assert "pytestmark = render_tier" in source
-        marked = set(re.findall(r"@pytest\.mark\.soak\ndef (test_\w+)", source))
+        marked = set(re.findall(r"^@pytest\.mark\.soak$\ndef (test_\w+)", source, flags=re.MULTILINE))
         assert marked == SOAK_TESTS, marked ^ SOAK_TESTS
         job = _code(self._job())
         assert '-m "not perf and not soak"' in job

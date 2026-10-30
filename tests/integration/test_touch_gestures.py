@@ -168,6 +168,69 @@ def test_starting_a_pinch_releases_the_first_fingers_mouse_press(
         view.viewport().removeEventFilter(watcher)
 
 
+def test_a_pinch_puts_a_dragged_item_back_and_leaves_no_undo_step(view: CanvasView) -> None:
+    """The outcome, not just the release: the first finger had already moved the item.
+
+    The press is a normal item drag; the second finger starts the pinch mid-drag.
+    The item must be back where the drag began, and the release must not push a
+    move command (the user asked to zoom, not to move).
+    """
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    item = PolygonItem(
+        [QPointF(0.0, 0.0), QPointF(200.0, 0.0), QPointF(200.0, 200.0), QPointF(0.0, 200.0)],
+        object_type=ObjectType.HOUSE,
+    )
+    view.scene().addItem(item)
+    item.setPos(view.mapToScene(view.viewport().rect().center()))
+    item.setSelected(True)
+    start = item.pos()
+    depth = len(view._command_manager._undo_stack)
+
+    press = view.mapFromScene(item.sceneBoundingRect().center())
+    QApplication.sendEvent(
+        view.viewport(),
+        _mouse(view, press, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton),
+    )
+    QApplication.sendEvent(
+        view.viewport(),
+        _mouse(view, press + QPoint(40, 25), Qt.MouseButton.NoButton,
+               Qt.MouseButton.LeftButton),
+    )
+    moved = item.pos()
+    assert moved != start, "the test's first finger really dragged the item"
+
+    anchor = QPointF(view.viewport().rect().center())
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+    assert item.pos() == start, "the pinch put the dragged item back"
+    assert len(view._command_manager._undo_stack) == depth, "no move step was committed"
+
+
+def test_a_pinch_over_empty_canvas_keeps_the_selection(view: CanvasView) -> None:
+    """The first finger's click on empty canvas clears the selection; a pinch restores it."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem
+
+    item = PolygonItem(
+        [QPointF(0.0, 0.0), QPointF(200.0, 0.0), QPointF(200.0, 200.0), QPointF(0.0, 200.0)],
+        object_type=ObjectType.HOUSE,
+    )
+    view.scene().addItem(item)
+    item.setPos(1200.0, 800.0)
+    item.setSelected(True)
+    empty_point = view.viewport().rect().center() + QPoint(200, 200)
+    QApplication.sendEvent(
+        view.viewport(),
+        _mouse(view, empty_point, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton),
+    )
+    assert not item.isSelected(), "the press on empty canvas cleared the selection"
+
+    anchor = QPointF(view.viewport().rect().center())
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+    assert item.isSelected(), "the pinch restored the selection it did not mean to clear"
+
+
 def test_a_native_trackpad_pinch_zooms_at_its_position(view: CanvasView) -> None:
     """The trackpad path: `ZoomNativeGesture` maps `1 + value` onto `_zoom_at`."""
     from PyQt6.QtGui import QNativeGestureEvent, QPointingDevice

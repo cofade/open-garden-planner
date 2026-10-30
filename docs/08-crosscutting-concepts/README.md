@@ -528,11 +528,14 @@ origin: with the window at (0, 0) the two are equal and the bug is invisible.
 **A pinch must not drag what the first finger touched.** Qt synthesises a mouse
 press for the first touch point before the second finger can start the gesture,
 and nothing in the recognizer stops that press's stream. `eventFilter` remembers
-that press; on `GestureStarted` `_cancel_touch_press` calls the active tool's own
-`cancel()` (a half-made shape is discarded, a selection box removed) and sends the
-press's release **at the point it was made**, so the interaction ends where it
-began (the item may still be selected, as a tap selects it) and the rest of the
-pinch only zooms and pans.
+that press; on `GestureStarted` `_cancel_touch_press` puts back a move the press
+had begun (item, constraint-propagated and child positions) so its release pushes
+no undo step, calls the active tool's own `cancel()` (a half-made shape or a
+selection box is discarded), sends the press's release **at the point it was made**,
+and restores a selection the press had cleared on empty canvas. The item under the
+first finger may still be selected, as a tap selects it. One exception is stated
+rather than hidden: a **resize/rotate/vertex handle** being dragged is finalized by
+that release as a normal one-step edit; a pinch does not un-resize it.
 
 **Never duplicate the transform math.** The wheel and the pinch both call
 `_zoom_at(anchor, factor)`, and the middle mouse button and the two-finger pan both

@@ -267,6 +267,10 @@ class CanvasView(QGraphicsView):
         #: The press Qt synthesised from the first finger (viewport point, button),
         #: so a pinch that starts on an item can release it instead of dragging it.
         self._touch_mouse_press: tuple[QPointF, Qt.MouseButton] | None = None
+        #: What was selected before that press, and whether it landed on an item:
+        #: a pinch over empty canvas restores the selection the press cleared.
+        self._touch_press_selection: list[QGraphicsItem] = []
+        self._touch_press_on_item = False
 
         # Drag-time bounding-box snapping engine and visual guides
         self._object_snapper = ObjectSnapper(threshold=10.0)
@@ -952,9 +956,15 @@ class CanvasView(QGraphicsView):
             kind = event.type()
             if kind == QEvent.Type.MouseButtonPress:
                 # The first finger of a pinch is Qt's synthesised mouse press; remember
-                # where it landed so the pinch can release it instead of dragging.
+                # where it landed and what it is about to change, so the pinch can
+                # release it (and put back a move) instead of dragging. PyQt6 has no
+                # source() accessor, so a real mouse press is tracked too: a mouse
+                # button held while a pinch starts is an interaction the gesture owns.
                 mouse = cast(QMouseEvent, event)
                 self._touch_mouse_press = (mouse.position(), mouse.button())
+                scene = self.scene()
+                self._touch_press_selection = list(scene.selectedItems()) if scene else []
+                self._touch_press_on_item = self.itemAt(mouse.position().toPoint()) is not None
                 return False
             if kind == QEvent.Type.MouseButtonRelease:
                 self._touch_mouse_press = None
@@ -982,7 +992,13 @@ class CanvasView(QGraphicsView):
         for gesture in event.gestures():
             if gesture.gestureType() != Qt.GestureType.PinchGesture:
                 continue
-            pinch = cast(QPinchGesture, gesture)
+            if not isinstance(gesture, QPinchGesture):
+                # A garbage-collected synthetic Python gesture can come back as a
+                # bare QGesture; treating it as a pinch would abort the process.
+                event.accept(gesture)
+                handled = True
+                continue
+            pinch = gesture
             state = pinch.state()
             if state == Qt.GestureState.GestureStarted:
                 # A pinch must not drag what the first finger touched: release the
@@ -1006,7 +1022,9 @@ class CanvasView(QGraphicsView):
         center = self._viewport_point(pinch)
         total = pinch.totalScaleFactor()
         if self._pinch_scale is None or self._pinch_center is None:
-            # Enabled while the fingers were already down: adopt them, move nothing.
+            # Enabled while the fingers were already down (or a GestureStarted was
+            # missed): adopt them, move nothing — but still cancel the first finger.
+            self._cancel_touch_press()
             self._pinch_scale, self._pinch_center = total, center
             return
         delta = center - self._pinch_center
@@ -1028,39 +1046,70 @@ class CanvasView(QGraphicsView):
 
         Qt synthesises a mouse press for the first touch point before a second
         finger can start a pinch. Without this the whole pinch drags (or draws
-        with) whatever the first finger landed on; releasing at the press point
-        ends that interaction where it began, so the pinch only zooms and pans
-        (it may still select the item under the first finger, like a tap).
+        with) whatever the first finger landed on. The live half is undone
+        first — a moved item is put back and its pending undo step never exists —
+        then the tool's own ``cancel()`` discards a half-made shape, and the
+        release ends the interaction where it began. A resize/rotate handle is
+        the one thing not reverted: its normal release finalizes the edit as one
+        undo step (§8.9.12).
         """
         press = self._touch_mouse_press
         self._touch_mouse_press = None
         if press is None:
             return
-        # A drawing tool's half-made shape is discarded through its own Escape path;
-        # a select-tool box likewise. (An item drag is ended by the release below.)
+        self._cancel_pointer_interaction()
         tool = self._tool_manager.active_tool
         if tool is not None:
             tool.cancel()
         position, button = press
-        if button == Qt.MouseButton.NoButton:
-            return
-        QApplication.sendEvent(
-            self.viewport(),
-            QMouseEvent(
-                QEvent.Type.MouseButtonRelease,
-                position,
-                QPointF(self.viewport().mapToGlobal(position.toPoint())),
-                button,
-                Qt.MouseButton.NoButton,
-                Qt.KeyboardModifier.NoModifier,
-            ),
-        )
+        if button != Qt.MouseButton.NoButton:
+            QApplication.sendEvent(
+                self.viewport(),
+                QMouseEvent(
+                    QEvent.Type.MouseButtonRelease,
+                    position,
+                    QPointF(self.viewport().mapToGlobal(position.toPoint())),
+                    button,
+                    Qt.MouseButton.NoButton,
+                    Qt.KeyboardModifier.NoModifier,
+                ),
+            )
+        scene = self.scene()
+        if not self._touch_press_on_item and scene is not None:
+            for item in self._touch_press_selection:
+                if item.scene() is scene:
+                    item.setSelected(True)
+        self._touch_press_selection = []
+        self._touch_press_on_item = False
+
+    def _cancel_pointer_interaction(self) -> None:
+        """Undo the live part of a drag the first finger began, before its release.
+
+        Items are put back where the drag started; the dictionaries are cleared so
+        the release's ``_finalize_drag_move`` sees no delta and pushes no undo step.
+        Constraint-propagated partners and plants moved with a parent are restored
+        too. A resize, rotate or vertex handle is not: its edit is committed by its
+        own release, as a normal one-step edit.
+        """
+        for moved in (
+            self._drag_start_positions,
+            self._constraint_propagated_starts,
+            self._child_drag_origins,
+        ):
+            for item, start in moved.items():
+                if item.scene() is not None:
+                    item.setPos(start)
+        self._drag_start_positions.clear()
+        self._constraint_propagated_starts.clear()
+        self._child_drag_origins.clear()
 
     def _end_pinch(self) -> None:
         """Forget the active pinch's last values (finished, cancelled or disabled)."""
         self._pinch_scale = None
         self._pinch_center = None
         self._touch_mouse_press = None
+        self._touch_press_selection = []
+        self._touch_press_on_item = False
 
     def _native_gesture(self, event: QNativeGestureEvent) -> bool:
         """A trackpad pinch arrives as Qt's native zoom gesture, not as touch."""
