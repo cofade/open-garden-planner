@@ -616,7 +616,7 @@
   },
   "443": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Bed membership is not reconciled on many edit paths (a bed that changes, most ways of moving or copying a plant)"
   },
   "445": {
@@ -716,7 +716,7 @@
   },
   "485": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Rotating constrained objects leaves distance broken until the next move; investigate skipped rotation undo"
   },
   "490": {
@@ -781,7 +781,7 @@
   },
   "535": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: a software-only adapter (WARP, no GPU) gets the hardware look - 12.8 s to the first readback"
   },
   "536": {
@@ -866,17 +866,17 @@
   },
   "576": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L2 3D: sun-path arcs should have a screen-constant width"
   },
   "578": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L2 3D: the near half of the sun-path dome crosses in front of the garden"
   },
   "582": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L2 3D: time the first Cutaway fade's shader compile (warm the door materials if > 100 ms)"
   },
   "584": {
@@ -896,7 +896,7 @@
   },
   "589": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Phase 17 L2 follow-up: X-ray look, bed plants in Cutaway, flat sun map, building floor, generic shapes under the sun study"
   },
   "592": {
@@ -991,7 +991,7 @@
   },
   "619": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Gravel texture reads as wet bubbles in shade at walk height (owner taste)"
   },
   "623": {
@@ -1056,7 +1056,7 @@
   },
   "649": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "fix(#443, #485): reconcile bed membership on every edit path and keep constrained rotations atomic"
   },
   "650": {

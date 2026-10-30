@@ -194,7 +194,10 @@ existing `AddConstraintCommand` / `RemoveConstraintCommand` with
 refresh and after load, including unselected objects. PositionLockMixin shares
 this behavior across shapes, paths, curves and text.
 
-**Addendum (2026-10-30, PR #649 owner manual step 5).** Creating an
+**Addendum (2026-10-30, PR #649 owner manual step 5).**
+**Status:** Shipped in v1.34.9 (PR #649) after owner manual acceptance on 2026-10-30.
+
+Creating an
 inter-object PARALLEL or PERPENDICULAR relation is an automatic rotation,
 so it must honor FIXED before the rotation-only command is executed.
 Both tools use `_plan_edge_rotation`: existing orientation constraints form
@@ -1204,6 +1207,8 @@ Phase 14's sun/shade features (shadow overlay US-E3, hours-of-sun heatmap US-E4,
 **Validation.** `tests/unit/test_shadow_caster_base.py` — tip shift = `base / tan α` at 15° / 35° / 60° × five azimuths × three footprints (≤ 0.1 cm; measured ≤ 2e-3, the integer grid); `S(F, b, h)` = the translated ground shadow; a ray oracle that knows no polygons (a ground point is shaded iff the ray toward the sun crosses the solid), 4,000 points per case; the bed casts the part below; `TestTheGroundPathIsTheReleasedCode` — the v1.29.10 functions against today's (decision 3 i); `TestACasterIsATypeNotALength`; the soil rule for beds and for containers. `tests/integration/test_shadow_caster_golden.py` — the golden on every platform as far as that platform can hold it, plus on both bench plans: same walk, grounded union unchanged, ground casters unchanged, raised count = an independent oracle's. `tests/integration/test_scene3d_base_stacking.py` — gate G3 through a real scene; 3D base = 2D caster base for nine parent cases; `TestMembershipIsReconciledAndTheLinkAloneNeverLifts` — (a) the bed shrunk with the real resize command now UNLINKS the plant, (b) a bed drawn around a plant links and lifts it, (c)–(d) the nesting limits, an explicit link without containment, and the one-predicate drift guard; `TestWhereAPlantStandsDoesNotDependOnABadge` — badge on and off: the 3D record, the 2D caster base and the real overlay's path unchanged; `TestLinkAndLiftAskTheSamePoint` — create, bulk create / paste, the drop, the agent's move re-link and `link_is_geometric` on the real application window, all asserting the SAME standing point; `TestCopiesAndMovesFollowTheLink` — array and mirror copies, moves in and out, and a bed moved by align/typed coordinate; `TestTheParentShapeIsBuiltOncePerWalk` — the cached path against Qt's `contains` on 7,128 points over four parent shapes, one shape per parent and walk, and the lookup's lifetime (constructed only in the two walks, never kept); `TestTheOneRule::test_a_parent_without_a_record_lifts_nothing` (30 km wide; a failed record; an unbuildable outline) and `::test_a_plant_is_grounded_whichever_of_the_two_is_stacked_higher`; `TestTheOverlaysOwnEcho` — the overlay's own `scene.changed` echo, made deterministic; one caster walk and its consumers (AST guard); a bed height change and a re-parent reaching the real overlay through the command stack; `TestHeatmapEndToEnd` — a raised plant through `SunHeatmapController` and its worker, the tip read off the grid. `tests/integration/test_bed_membership_reconciliation.py` — the #443 edit paths and their one-step undo. `tests/unit/test_object_height.py::test_soil_parent_names_match_the_soil_predicate`.
 
 ### ADR-037 addendum — bed membership is reconciled by geometry (#443, 2026-10-29)
+
+**Status:** Shipped in v1.34.9 (PR #649) after owner manual acceptance on 2026-10-30.
 
 **Context.** Decision 5's second half ("the link AND the centre inside the parent")
 made the lift honest, but the LINK itself was only evaluated on a few paths: a
