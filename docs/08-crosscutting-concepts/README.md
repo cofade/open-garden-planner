@@ -6157,22 +6157,27 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     the process's `QHash` seed: 6 to 8 of 16 same-size 512² textures per release
     (`QT_HASH_SEED=0`: 6 in every run), 26 to 32 of 64 same-size 256² textures — below the
     gate's 0.6 share.
-    *Re-check* (this entry and TD-040 replace #532 as the tracker). Triggers: every Qt pin bump
-    in `pyproject.toml`, and every change of QTBUG-151940 (the owner reported it from their
-    account, which watches it; a "Need More Info" there is answered from that account). Steps:
-    (1) Read `QSSGBufferManager::clear()` at the new pin's qtquick3d tag. If the
-    `customTextureMap` loop still iterates while `releaseTextureData()` erases, only the
-    versions named here and in TD-040 move. (2) If it changed, run the reproducer under the new
-    runtime (WARP presents with the display asleep): the leak is gone when `registeredTextures`
-    stays at 16 in all 10 cycles while `framesRendered` rises. (3) Then run G7 several times on
-    a hardware adapter with the display awake
-    (`OGP_RENDER3D=1 venv/Scripts/python.exe -m pytest tests/integration/test_view3d_workspace_render.py -m soak -n 0`):
-    the bake-on GPU slope must fall into the bake-off range (0.0 to +0.8 MB per rebuild). The
+    *Re-check* (this entry and TD-040 replace #532 as the tracker). Triggers: every change of
+    the Qt pair's version in `pyproject.toml`, and every change of QTBUG-151940 (the owner
+    reported it from their account, which watches it; a "Need More Info" there is answered from
+    that account). On a change of the report, record its status and fix version here and in
+    TD-040; a fix version is a reason to bump the pin, and the bump runs the steps. Steps on a
+    bump: (1) Run the reproducer under the new runtime, every time (about 10 s; WARP presents
+    with the display asleep). The leak is gone when `registeredTextures` stays at 16 in all 10
+    cycles while `framesRendered` rises. (2) Read `QSSGBufferManager::clear()` at the new pin's
+    qtquick3d tag as context. If the reproducer still leaks, only the versions named move:
+    here, in TD-040, and in `KNOWN_532` and the comment above it in
+    `tests/integration/test_view3d_workspace_render.py`. (3) If it no longer leaks, run G7
+    several times on a hardware adapter with the display awake:
+    `OGP_RENDER3D=1 OGP_RENDER3D_ARTIFACTS=<dir> venv/Scripts/python.exe -m pytest tests/integration/test_view3d_workspace_render.py -m soak -n 0 -s`.
+    Every G7 gate passes with or without the leak (the allowance), so judge the numbers: in
+    `<dir>/workspace-render-measured.json`, `G7["rebuild_on/ground=on"]["gpu_slope_second_half_mb_per_reload"]`
+    must fall into the range of the `ground=off` entries (0.0 to +0.8 MB per rebuild). The
     tripwire alone proves nothing: it passes with the leak in most runs (§8.10.9). (4) Remove
-    `KNOWN_532_SHARE`, the allowance and the tripwire, and update §8.10.9, ADR-048 criterion 10,
-    TD-040 (`fixed`), reference 13 of the `ogp-3d-renderer` skill and the comment at the Qt pin
-    in `pyproject.toml`. If Qt closes the report without a fix, record the reason here and in
-    TD-040 and mark the limitation permanent.
+    `KNOWN_532_SHARE`, the allowance and the tripwire, set TD-040 to `fixed`, and update every
+    hit of `git grep -n -e '#532' -e 'QTBUG-151940' -e 'KNOWN_532'` outside `archive/`. If Qt
+    closes the report without a fix, record the reason here and in TD-040 and mark the
+    limitation permanent.
     *The first measurements, as taken* (before the cause was known — their "re-baked tiles
     only" reading is superseded above): the workspace calls `QQuickWindow.releaseResources()`
     when items lost their Models (ADR-060). When ground tiles were RE-BAKED before such a

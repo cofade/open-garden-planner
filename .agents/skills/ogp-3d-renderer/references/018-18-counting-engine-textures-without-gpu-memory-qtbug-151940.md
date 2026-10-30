@@ -9,7 +9,7 @@ hardware and WARP, Vulkan, OpenGL):
   `renderStats.extendedDataCollectionEnabled: true` it is a Markdown table with one row per
   `QRhiTexture` in `QSSGRhiContextPrivate::m_textures` (`qquick3drenderstats.cpp`,
   `processRhiContextStats()`). The buffer manager registers the textures it loads there and
-  removes it only in `releaseTexture()`, so a texture that is never released stays a row until
+  removes each only in `releaseTexture()`, so a texture that is never released stays a row until
   the `QSSGRhiContext` is destroyed. Counting rows shows such a leak exactly and on every
   backend, without reading GPU memory: 16 → 24 → 32 … per release for the #532 leak, 16 in
   every cycle without the release. `renderStats.imageDataSize` moves with it (the buffer
