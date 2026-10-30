@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "9902d1c66e458a4833b0d4be610d57fbe997f634c42f55252fe480e01b41801d"
+          "current_sha256": "f1a2d594af230e24fbcfc68992c4dba31ed06eb323c78a3b7fb9ba6ffe4ec696"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -1393,7 +1393,7 @@
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
           "sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5",
-          "current_sha256": "545091c41e882a1c295d386eb461f153dd21035733ed5e7c7b4840cf6d37a813"
+          "current_sha256": "b7b88d5293c78b011c54f5ca90a4f99c76376c00496aa3a54985bf3bc2748db3"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "9902d1c66e458a4833b0d4be610d57fbe997f634c42f55252fe480e01b41801d"
+          "current_sha256": "f1a2d594af230e24fbcfc68992c4dba31ed06eb323c78a3b7fb9ba6ffe4ec696"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -2793,7 +2793,7 @@
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
           "sha256": "ab2c34c7b2e26f4920d0bfb81099f04d22c70353b918edeb9f6ed693d34428f5",
-          "current_sha256": "545091c41e882a1c295d386eb461f153dd21035733ed5e7c7b4840cf6d37a813"
+          "current_sha256": "b7b88d5293c78b011c54f5ca90a4f99c76376c00496aa3a54985bf3bc2748db3"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/010-provenance-and-maintenance.md",

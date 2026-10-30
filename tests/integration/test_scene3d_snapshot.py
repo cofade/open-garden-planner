@@ -2239,16 +2239,22 @@ class TestTheInputIsBoundedBeforeTheWork:
     def test_what_the_resolution_makes_is_counted_before_it_is_read(
         self, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
     ) -> None:
-        """A zigzag over a zigzag: 100 vertices cross 600 times and resolve into
+        """A zigzag over a zigzag: 22 + 22 lines cross 484 times and resolve into
         hundreds of cells. The cells are paid for — ring by ring, vertex by vertex
-        — before one of them is read, out of the outline's one budget."""
+        — before one of them is read, out of the outline's one budget.
+
+        The grid is 22 x 22, not 25 x 25: after #451 re-priced a bridge block, the
+        625-crossing grid's resolution needs more than ``MAX_REGION_WORK`` in the
+        best case and is refused from its size (pinned by the next test). 22 x 22
+        still makes 286 regions and spends 25.6 M units, so the charge order is
+        what this test sees."""
         from open_garden_planner.core.scene3d import polygon as polygon_module
         from open_garden_planner.core.scene3d.polygon import RegionTooLargeError, WorkBudget
 
         path: list[tuple[float, float]] = []
-        for row in range(25):
+        for row in range(22):
             path += [(-50.0, row * 50.0), (1250.0, row * 50.0)][::1 if row % 2 == 0 else -1]
-        for column in range(25):
+        for column in range(22):
             x = column * 50.0 + 25.0
             path += [(x, -50.0), (x, 1250.0)][::1 if column % 2 == 0 else -1]
         outline = tuple(path)
@@ -2262,13 +2268,10 @@ class TestTheInputIsBoundedBeforeTheWork:
 
         with monkeypatch.context() as patch:
             patch.setattr(snapshot_module, "_quantized", watching)
-            # Capacities are not this test's subject (it is the ORDER of the charges);
-            # the size floor of a region is raised out of the way so the 25 x 25 grid
-            # still resolves after #451 re-priced a bridge block.
-            patch.setattr(polygon_module, "MAX_REGION_WORK", 10**12)
             regions, resolved = snapshot_module._outline_regions(outline, whole)
-        assert resolved and not isinstance(regions, snapshot_module._Refused) and len(regions) >= 20
-        assert reached and reached[0] > 600 * 3_100  # the crossings alone, before the first reading
+        assert resolved and not isinstance(regions, snapshot_module._Refused)
+        assert len(regions) >= 200  # 286 measured; the grid is not a handful of cells
+        assert reached and reached[0] > 484 * 3_100  # the crossings alone, before the first reading
         polygon_module._examined.cache_clear()
         monkeypatch.setattr(snapshot_module, "_quantized", _never("a reading was read"))
         with pytest.raises(RegionTooLargeError):  # one unit short of what reading it costs
@@ -2276,6 +2279,30 @@ class TestTheInputIsBoundedBeforeTheWork:
         polygon_module._examined.cache_clear()
         with pytest.raises(AssertionError, match="a reading was read"):
             snapshot_module._outline_regions(outline, WorkBudget(budget=reached[0]))
+
+    def test_a_625_crossing_grid_is_refused_from_its_size_after_the_reprice(
+        self, fresh_outlines: None
+    ) -> None:
+        """The stated cost of #451's higher block price: a 25 x 25 line grid (625
+        crossings) resolved before the re-price and is now refused from its size —
+        the least its resolution can cost is over ``MAX_REGION_WORK``. It is
+        refused early (8.5 M units, not the bound), and the 2D plan is untouched."""
+        from open_garden_planner.core.scene3d.polygon import (
+            MAX_REGION_WORK,
+            RegionTooLargeError,
+            WorkBudget,
+        )
+
+        path: list[tuple[float, float]] = []
+        for row in range(25):
+            path += [(-50.0, row * 50.0), (1250.0, row * 50.0)][::1 if row % 2 == 0 else -1]
+        for column in range(25):
+            x = column * 50.0 + 25.0
+            path += [(x, -50.0), (x, 1250.0)][::1 if column % 2 == 0 else -1]
+        budget = WorkBudget(budget=10**12)
+        with pytest.raises(RegionTooLargeError, match=f"MAX_REGION_WORK = {MAX_REGION_WORK:,}"):
+            snapshot_module._outline_regions(tuple(path), budget)
+        assert budget.spent < MAX_REGION_WORK // 10, "refused before the bound was burned"
 
     def test_sorting_what_came_back_is_paid_for_too(
         self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
@@ -3378,13 +3405,13 @@ class TestOneRingWithManyHoles:
 
         questions = _watch_pyclipper(monkeypatch)
         asked = _watch_clipper(monkeypatch)
-        house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(40)], object_type=ObjectType.HOUSE)
+        house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(45)], object_type=ObjectType.HOUSE)
         canvas.scene().addItem(house)
         snapshot, skipped = snapshot_with_report(canvas.scene())
         assert skipped == [] and asked == ["plain", "strict", "band"]
         record = snapshot[str(house.item_id)]
         assert len(record.footprints) == 1 and record.holes == () and record.params["outline_resolved"] is True
-        assert record.plan_area_cm2 == pytest.approx(60.0 * 1200.0 - 40 * 0.5 * 12.0 * 12.0, rel=1e-3)
+        assert record.plan_area_cm2 == pytest.approx(60.0 * 1350.0 - 45 * 0.5 * 12.0 * 12.0, rel=1e-3)
         assert questions == [("list", pyclipper.CT_UNION, False), ("list", pyclipper.CT_UNION, True),
                              ("tree", pyclipper.CT_DIFFERENCE, False)]
 

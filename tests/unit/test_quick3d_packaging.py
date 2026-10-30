@@ -342,13 +342,20 @@ class TestRenderJob:
         runs = [line for line in job.splitlines() if "python -m pytest" in line]
         budget_runs = [line for line in runs if "::test_real_engine_scrubs_300_models_within_frame_budget" in line]
         scene_runs = [line for line in runs if line not in budget_runs]
-        assert len(scene_runs) == len(budget_runs) == 2
-        for line in scene_runs:
-            assert all(name in line for name in RENDER_TESTS), line
+        assert len(budget_runs) == 2
+        assert len(scene_runs) == 4, "two engine runs AND two workspace runs, per OS"
+        engine_runs = [line for line in scene_runs if any(name in line for name in RENDER_TESTS)]
+        workspace_runs = [line for line in scene_runs if WORKSPACE_RENDER in line]
+        assert len(engine_runs) == len(workspace_runs) == 2, (engine_runs, workspace_runs)
+        for line in engine_runs:
+            # -k is a SESSION filter: on the engine command it would deselect the engine
+            # files (#540's first review found exactly that).
+            assert " -k " not in line, line
+            assert WORKSPACE_RENDER not in line, line
             assert "tests/integration/test_plant_forge_workspace.py" in line
+        for line in workspace_runs:
             # #540: the default workspace's close/compat gates now run on a real host,
             # with the wall-clock bounds and the multi-process soaks kept local.
-            assert WORKSPACE_RENDER in line, line
             assert '-m "not perf and not soak"' in line, line
             assert WORKSPACE_K in line, line
         for line in budget_runs:
@@ -360,6 +367,15 @@ class TestRenderJob:
         assert "QT_QPA_PLATFORM" not in job, (
             "the pytest process stays offscreen; the test helper gives the DRIVER a real "
             "platform (quick3d_render_support.render_env)")
+
+    def test_every_workspace_filter_term_still_names_a_test(self) -> None:
+        """A renamed test would make `-k` select nothing and CI would stay green."""
+        source = (REPO / WORKSPACE_RENDER).read_text(encoding="utf-8")
+        names = set(re.findall(r"^def (test_\w+)", source, flags=re.MULTILINE))
+        terms = re.findall(r"(\w+)", WORKSPACE_K.split('"')[1])
+        assert len(terms) == 7 and "or" in terms  # four terms, three "or"s
+        for term in (t for t in terms if t != "or"):
+            assert any(term in name for name in names), f"-k term {term!r} matches no test"
 
     def test_the_soaks_are_marked_and_the_workspace_file_is_render_tier(self) -> None:
         """#540: an unmarked soak would be pulled into the CI job by the file name."""

@@ -3648,33 +3648,37 @@ Shipped in v1.34.7 (PR #647) after full owner manual testing, a clean senior-rev
 
 Three independent gaps in what the application promises, closed together on one branch.
 
-1. **#321 — pinch-to-zoom and two-finger pan on the canvas.** The `QGraphicsView` now
-   accepts touch events on its viewport and forwards them to a small gesture state machine
-   (centroid + mean radius). A pinch zooms about the gesture centre through **the wheel's own
-   `_zoom_at` helper**, and two fingers dragged pan through **the middle mouse button's own
-   `_pan_by` helper**, so clamping, the 1-pixel anchor compensation, `zoom_changed`, the
-   minimap and the rulers cannot drift between the two input paths. A **single** finger is
-   deliberately left unhandled (the event filter returns false for it), which is what keeps
-   Qt's synthesised mouse path — tap to select, drag to move — exactly as it was. A trackpad
-   pinch arrives as `QNativeGestureEvent` and takes the same zoom path. The behaviour is the
-   new **Preferences → Canvas → "Enable touch gestures"** setting
-   (`canvas/touch_gestures_enabled`, default on); with it off the viewport accepts no touch
-   events at all. Tests drive the state machine with plain positions because PyQt6 does not
-   expose `QTouchEvent.TouchPoint`; the event delivery itself is the manual test on real
-   touch hardware (the issue's sovereign test). See FR-CANVAS-04 and §8.9.12.
+1. **#321 — pinch-to-zoom and two-finger pan on the canvas.** The viewport grabs Qt's
+   **`QPinchGesture`** recognizer, which starts only when a second finger is down: a
+   single-finger tap or drag is never claimed and keeps arriving as the synthesised mouse
+   event the tools already handle. A pinch zooms about the gesture centre through **the
+   wheel's own `_zoom_at` helper**, and two fingers dragged pan through **the middle mouse
+   button's own `_pan_by` helper**, so clamping, the 1-pixel anchor compensation,
+   `zoom_changed`, the minimap and the rulers cannot drift between the two input paths. The
+   order is pan first, then zoom about the new centre (the other order drifts by
+   `(1 - ratio) × delta` when a pinch also moves). A trackpad pinch arrives as
+   `QNativeGestureEvent` and takes the same zoom path. The behaviour is the new
+   **Preferences → Canvas → "Enable touch gestures"** setting
+   (`canvas/touch_gestures_enabled`, default on); with it off no gesture is grabbed at all.
+   Tests drive the real `eventFilter` with synthetic `QPinchGesture`/`QGestureEvent`s
+   (PyQt6 constructs both); real touchscreen delivery is the manual test on hardware (the
+   issue's sovereign test). A window-level test covers the startup and Preferences apply
+   paths, because that wiring is one line a future refactor can delete. See FR-CANVAS-04
+   and §8.9.12.
 
 2. **#451 — the work bound's bridge search is priced at what it costs.** The touching-holes
    family was the one row of `scripts/measure_region_work.py` far above its price (3.6–8.1):
    a block of bridge candidates was charged 60 units per edge, while a hole touching the wall
    hides its nearest boundary vertices and takes block after block — 110 such holes held the
    GUI thread for 0.6–1.5 s before the 3D snapshot refused them. `_BRIDGE_UNITS` is **600**:
-   the dearest row of the table is now **1.51**, 110 touching holes are refused in about
+   the dearest row of the table is now **1.3 to 1.5**, 110 touching holes are refused in about
    **0.07 s** (200 in 0.01 s, refused from their size before one bridge is searched). The
    price is also the pre-cut size floor, so the refusal itself got cheap. Capacity moved
    where the work really is: a slab of 49 touching holes now fits (89 before), square holes
-   88 (105), triangular 117 (146); frames and every non-bridging family are unchanged.
-   Pinned by a bridge-call count (≤ 40 for 110 holes, 0 for 200), not a clock; the script
-   remains the timing gate. See §8.29.1, ADR-059 and the `debug-verbose` case study.
+   88 (105), triangular 117 (146); frames and every non-bridging family are unchanged, and
+   the higher floor also refuses a crafted 25 × 25 line grid from its size where a 22 × 22 one
+   still resolves. Pinned by a bridge-call count (≤ 40 for 110 holes, 0 for 200), not a clock;
+   the script remains the timing gate. See §8.29.1, ADR-059 and the `debug-verbose` case study.
 
 3. **#540 — the default 3D workspace now runs in CI.** The `render3d` job used to exercise
    only the engine package; no workflow ever started the workspace every user sees. It now

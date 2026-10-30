@@ -497,35 +497,51 @@ reused; the pin is a call count on `_dense_overlay_indices`, not a timer.
 
 ### 8.9.12 Touch gestures — pinch zoom and two-finger pan (#321)
 
-The canvas is a `QGraphicsView`, so touch points land on its **viewport**, not the
-view: `CanvasView.set_touch_gestures_enabled` sets
-`WA_AcceptTouchEvents` on `viewport()` and installs the view as its event filter.
-With the attribute unset (the preference off) Qt synthesises mouse events from a
-touch, which is the behaviour every tool already handles — that is why only a
-sequence with **two or more fingers** is consumed.
+The canvas is a `QGraphicsView`, so gestures belong to its **viewport**: with the
+preference on, `CanvasView.set_touch_gestures_enabled` calls
+`viewport().grabGesture(Qt.GestureType.PinchGesture)` and installs the view as the
+viewport's event filter; off ungrabs it and removes the filter.
 
-`eventFilter` forwards `TouchBegin` / `TouchUpdate` / `TouchEnd` to a small state
-machine, `_touch_started` / `_touch_moved` / `_touch_finished`, which keeps the
-fingers' centroid and mean radius. A change in radius is a pinch; a change in the
-centroid is a pan. PyQt6 does not expose `QTouchEvent.TouchPoint`, so these three
-methods are fed positions directly by the tests
-(`tests/integration/test_touch_gestures.py`); the event delivery itself is the
-manual test on a real touch device.
+**Use Qt's recognizer, not a hand-written touch state machine.** The first cut read
+`QTouchEvent`s itself and needed two points in `TouchBegin` — which Qt never sends:
+the first finger is one `TouchBegin`, the second arrives in a `TouchUpdate`, so the
+gesture could not start. `QPinchGesture`'s recognizer owns exactly that arbitration:
+it starts only when a second finger is down, so a single-finger tap or drag is
+never claimed and keeps arriving as the synthesised mouse event every tool already
+handles. It also reports the fingers' **centre** and a **cumulative**
+`totalScaleFactor` for the whole gesture.
+
+`eventFilter` routes `QEvent.Type.Gesture` to `_gesture`, which keeps the last
+cumulative scale and centre and, per update, applies the ratio to `_zoom_at` and
+the centre's movement to `_pan_by`. **Pan first, then zoom about the new centre** —
+the other order leaves a `(1 − ratio) × delta` drift when a pinch also moves. The
+gesture's `Finished`/`Canceled` state (and disabling the setting) forgets the pair,
+so the next gesture starts from its own values.
 
 **Never duplicate the transform math.** The wheel and the pinch both call
-`_zoom_at(anchor, factor)`, and the middle mouse button and the two-finger pan
-both call `_pan_by(delta)`. `_zoom_at` is exactly the old wheel body (clamp,
-`_apply_transform`, `zoom_changed`, then compensate the scrollbars so the scene
-point under the anchor stays within a pixel); `_pan_by` is exactly the old
-middle-mouse body (`centerOn` from two `mapToScene` points, so the Y-flip and any
-zoom are handled and the minimap, which listens to the scrollbars, follows).
+`_zoom_at(anchor, factor)`, and the middle mouse button and the two-finger pan both
+call `_pan_by(delta)`. `_zoom_at` is the old wheel body (clamp, `_apply_transform`,
+`zoom_changed`, then compensate the scrollbars so the scene point under the anchor
+stays within a pixel) with two stated differences: a zoom a limit did not change
+returns before re-applying or re-emitting, and the integer scrollbar step rounds
+rather than truncates. `_pan_by` is the old middle-mouse body (`centerOn` from two
+`mapToScene` points, so the Y-flip and any zoom are handled and the minimap, which
+listens to the scrollbars, follows), its second point rounded rather than truncated.
 A second copy of either would drift the moment one of them gains a clamp or a
 signal — the #326 rule.
 
-Trackpad pinch is not a touch sequence: it arrives as
+Trackpad pinch is not a touch gesture: it arrives as
 `QEvent.Type.NativeGesture` (`Qt.NativeGestureType.ZoomNativeGesture`), also
 delivered to the viewport, and `_native_gesture` maps `1 + event.value()` onto
 the same `_zoom_at`.
+
+**Testing.** PyQt6 can construct `QPinchGesture` and `QGestureEvent`, and a
+`QPinchGesture` subclass can override the read-only `state()`, so
+`tests/integration/test_touch_gestures.py` drives the real `eventFilter` with
+synthetic started/updated/finished gestures (zoom ×2 anchored within 1 px, both
+clamps, pure pan, a combined pan+pinch within 2 px, finishing and re-adopting,
+and the setting off). A real touchscreen's **delivery** is still the owner's
+manual test; a headless process cannot produce one.
 
 ## 8.10 Integration Test Policy
 
@@ -1392,16 +1408,17 @@ The scene definitions are plain engine-free functions in the driver module that 
 import, so the test predicts from the same records the driver rendered.
 
 **Which files the CI job runs (#540).** The `render3d` job (`.github/workflows/ci.yml`) runs the
-engine-package files above plus **`test_view3d_workspace_render.py`**, filtered to the default
-workspace's G5 close rows and its G6 crash-marker / compatibility / try-hardware rows
+engine-package files above, then — as a **separate pytest invocation**, because `-k` filters the
+whole session — **`test_view3d_workspace_render.py`**, filtered to the default workspace's G5
+close rows and its G6 crash-marker / compatibility / try-hardware rows
 (`-m "not perf and not soak" -k "closes_clean or start_that_died or compatibility_mode or
-try_hardware"`). This is the only workflow that starts the workspace every user sees; before
-#540 CI exercised the engine package and nothing of the default view. Its **G7 memory soaks**
-carry the `soak` marker and stay local (twenty app child processes each), and its wall-clock
-rows carry `perf`; G5's *never opened* row is also the real-host proof that no Qt Quick module
-is imported before 3D is asked for. A software-only adapter (the CI runners' WARP/llvmpipe) is
-detected and the workspace shows its compatibility notice, so those rows accept the notice
-where a hardware machine asserts none.
+try_hardware"`; 12 tests). This is the only workflow that starts the workspace every user sees;
+before #540 CI exercised the engine package and nothing of the default view. Its **G7 memory
+soaks** carry the `soak` marker and stay local (twenty app child processes each), and its
+wall-clock rows carry `perf`; G5's *never opened* row is also the real-host proof that no Qt
+Quick module is imported before 3D is asked for. A software-only adapter (the CI runners'
+WARP/llvmpipe) is detected and the workspace shows its compatibility notice, so those rows
+accept the notice where a hardware machine asserts none.
 
 A fourth file has another shape for another failure. `test_quick3d_lifecycle.py` runs ONE call
 order of the host per child process (`quick3d_lifecycle_child.py`) and judges what that process
@@ -4681,6 +4698,11 @@ table is 1.3 to 1.5 across runs — and 110 such holes are refused in about 0.07
 0.01 s, from their size
 alone, before one bridge is searched). What it costs in capacity: a slab with 49 such holes
 now fits (89 before), a row of 88 square holes (105) and a slab of 117 triangular ones (146).
+The higher block price also raises the **pre-cut floor** for an outlined region with many
+holes, and that is a stated loss: a crafted 25 × 25 line grid (625 crossings, resolving into
+regions with hundreds of holes) is now refused from its size where it used to resolve; a
+22 × 22 grid still resolves (286 regions, 25.6 M units). Real plans are far from this — a
+closed fence's one hole costs about 1 M units.
 So "one item costs at most the bound" holds in units and in seconds: 0.05 to 0.35 s, measured
 up to 0.39 beside other test runs, up to 0.7 where a busy machine meets the dearest ordinary
 family.

@@ -4836,8 +4836,10 @@ it stands after that round.
      was, until #451 re-priced it: a ring whose holes touch its outer ring stood at 3.6 to 8.1
      in the cut's bridge search (110 such holes: refused after 0.6 to 1.5 s). A block of bridge
      candidates now costs 600 units per edge, the dearest row of the table is 1.3 to 1.5, and 110
-     such holes are refused in about 0.07 s — at the price of capacity (a slab of 49 touching
-     holes now fits, 89 before; triangular 117, 146 before; square 88, 105 before). *Rejected:* a time-out (the verdict would depend on
+     such holes are refused in about 0.07 s - at the price of capacity (a slab of 49 touching
+     holes now fits, 89 before; triangular 117, 146 before; square 88, 105 before; and an
+     outlined region with many holes has a higher pre-cut floor: a crafted 25 x 25 line grid
+     is now refused from its size, a 22 x 22 one still resolves). *Rejected:* a time-out (the verdict would depend on
      the machine and the moment, and Python cannot interrupt the clipper); a cap on vertices
      alone (it admits the scribble and refuses the long honest fence); a budget across the whole
      plan (a record would depend on what else is on the plan).

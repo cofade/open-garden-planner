@@ -30,16 +30,22 @@ QTest.mouseRelease(canvas.viewport(), Qt.MouseButton.LeftButton, pos=...)
 `QT_QPA_PLATFORM=offscreen` makes this work headless in CI. Remember
 `mapFromScene` already includes the Y-flip — feed it scene coords and trust it.
 
-**Touch gestures cannot be built as `QTouchEvent`s.** PyQt6 exposes
-`QTouchEvent` but not `QTouchEvent.TouchPoint`, so a synthetic multi-touch
-event cannot be constructed (verified 2026-10-30 for #321). Drive the state
-machine's plain-position methods instead — `CanvasView._touch_started`,
-`_touch_moved`, `_touch_finished` — and keep them free of Qt event types for
-that reason. Event *delivery* (viewport attribute + event filter) is what stays
-manual. A native trackpad pinch is a `QNativeGestureEvent`, not a touch event;
-that path is `_native_gesture`. The canvas's wheel and pinch share `_zoom_at`,
-and the middle-mouse pan and two-finger pan share `_pan_by` — never duplicate
-either formula in a test helper or a second handler.
+**Touch gestures: use Qt's recognizer, and test the real event filter.** A
+hand-written `QTouchEvent` state machine looks testable but is wrong at the only
+seam that matters: Qt sends `TouchBegin` for the *first* finger and adds the
+second in a `TouchUpdate`, so a handler that waits for two points in the begin
+never starts (measured on #321). `viewport().grabGesture(Qt.GestureType.PinchGesture)`
+lets Qt arbitrate: it starts only on the second finger, reports the centre and a
+cumulative `totalScaleFactor`, and leaves a single-finger tap/drag on the
+synthesised mouse path. PyQt6 *does* expose `QPinchGesture`, its setters and
+`QGestureEvent`, and a `QPinchGesture` subclass can override the read-only
+`state()`, so the real `eventFilter` can be driven with synthetic
+started/updated/finished gestures; only a real touchscreen's delivery stays
+manual. Pan first, then zoom about the new centre. A native trackpad pinch is a
+`QNativeGestureEvent`, not a touch event; that path is `_native_gesture`. The
+canvas's wheel and pinch share `_zoom_at`, and the middle-mouse pan and
+two-finger pan share `_pan_by` - never duplicate either formula in a test helper
+or a second handler.
 
 ---
 

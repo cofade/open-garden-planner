@@ -1,18 +1,19 @@
 """Pinch-to-zoom and two-finger pan on the canvas (issue #321).
 
-The gesture state machine is fed touch positions directly: PyQt6 does not expose
-``QTouchEvent.TouchPoint``, so a synthetic ``QTouchEvent`` cannot be built in a
-test. Delivery (a real ``QTouchEvent`` reaching ``CanvasView.eventFilter``) is the
-one step CI cannot prove; it is the manual test on a touch device. Everything
-the gesture DOES — the anchored zoom, the clamp, the pan, and leaving a
-single touch to the synthesised mouse path — is pinned here.
+Qt's own ``QPinchGesture`` recognizer decides when a gesture starts — it needs a
+second finger, so a single-finger tap or drag is never claimed and stays on the
+synthesised mouse path the tools already handle. The tests drive the real
+``CanvasView.eventFilter`` with a synthetic ``QGestureEvent`` (PyQt6 exposes
+``QPinchGesture`` and its setters), so the state machine and the wiring are both
+covered. A real touchscreen's *delivery* is still the owner's manual test; it
+cannot be synthesised from a headless process.
 """
 
 from __future__ import annotations
 
 import pytest
-from PyQt6.QtCore import QPoint, QPointF, Qt
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
+from PyQt6.QtWidgets import QApplication, QDialog, QGestureEvent, QPinchGesture
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
@@ -34,19 +35,31 @@ def view(qtbot: object) -> CanvasView:
     return view
 
 
-def _fingers(center: QPointF, half_gap: float) -> list[QPointF]:
-    return [center - QPointF(half_gap, 0.0), center + QPointF(half_gap, 0.0)]
+class _Pinch(QPinchGesture):
+    """A pinch gesture whose state a test can set (QGesture.state is read-only)."""
+
+    def __init__(self, state: Qt.GestureState, total: float, center: QPointF) -> None:
+        super().__init__()
+        self._state = state
+        self.setTotalScaleFactor(total)
+        self.setCenterPoint(center)
+
+    def state(self) -> Qt.GestureState:
+        return self._state
 
 
-def _moved(points: list[QPointF], delta: QPointF) -> list[QPointF]:
-    return [point + delta for point in points]
+def _send(view: CanvasView, gesture: _Pinch) -> bool:
+    """Deliver one gesture event to the viewport; True when the view handled it."""
+    return QApplication.sendEvent(view.viewport(), QGestureEvent([gesture]))
 
 
-def _assert_point_stays(view: CanvasView, scene_point: QPointF, screen: QPointF) -> None:
-    """The scene point under the gesture centre is still within one pixel of it."""
+def _assert_point_stays(
+    view: CanvasView, scene_point: QPointF, screen: QPointF, tolerance: float = 1.0
+) -> None:
+    """The scene point under the gesture centre is still within ``tolerance`` pixels."""
     now = view.mapFromScene(scene_point)
-    assert abs(now.x() - screen.x()) <= 1.0
-    assert abs(now.y() - screen.y()) <= 1.0
+    assert abs(now.x() - screen.x()) <= tolerance
+    assert abs(now.y() - screen.y()) <= tolerance
 
 
 def test_a_pinch_at_the_view_centre_doubles_the_zoom_and_keeps_the_point(view: CanvasView) -> None:
@@ -55,8 +68,8 @@ def test_a_pinch_at_the_view_centre_doubles_the_zoom_and_keeps_the_point(view: C
     before = view.mapToScene(anchor.toPoint())
     assert view.zoom_factor == pytest.approx(1.0)
 
-    assert view._touch_started(_fingers(anchor, 40.0)) is True
-    assert view._touch_moved(_fingers(anchor, 80.0)) is True
+    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
+    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 2.0, anchor)) is True
 
     assert view.zoom_factor == pytest.approx(2.0)
     _assert_point_stays(view, before, anchor)
@@ -68,8 +81,8 @@ def test_a_pinch_clamps_at_the_maximum_zoom(view: CanvasView) -> None:
     anchor = QPointF(view.viewport().rect().center())
     before = view.mapToScene(anchor.toPoint())
 
-    assert view._touch_started(_fingers(anchor, 20.0)) is True
-    assert view._touch_moved(_fingers(anchor, 160.0)) is True  # x8, past the clamp
+    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
+    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 8.0, anchor)) is True
 
     assert view.zoom_factor == pytest.approx(view.max_zoom)
     _assert_point_stays(view, before, anchor)
@@ -78,8 +91,8 @@ def test_a_pinch_clamps_at_the_maximum_zoom(view: CanvasView) -> None:
 def test_a_pinch_below_the_minimum_stops_at_it(view: CanvasView) -> None:
     view.set_zoom(view.min_zoom * 4.0)
     anchor = QPointF(view.viewport().rect().center())
-    assert view._touch_started(_fingers(anchor, 160.0)) is True
-    assert view._touch_moved(_fingers(anchor, 20.0)) is True  # /8, below the floor
+    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 8.0, anchor)) is True
+    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 1.0, anchor)) is True
     assert view.zoom_factor == pytest.approx(view.min_zoom)
 
 
@@ -89,9 +102,8 @@ def test_two_fingers_move_the_view_and_the_content_follows_them(view: CanvasView
     before = view.mapToScene(anchor.toPoint())
     zoom = view.zoom_factor
 
-    fingers = _fingers(anchor, 40.0)
-    assert view._touch_started(fingers) is True
-    assert view._touch_moved(_moved(fingers, QPointF(60.0, 0.0))) is True
+    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
+    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 1.0, anchor + QPointF(60.0, 0.0))) is True
 
     assert view.zoom_factor == pytest.approx(zoom)  # a pure pan never zooms
     # the scene point that was under the centre is now 60 px to the right of it
@@ -100,48 +112,46 @@ def test_two_fingers_move_the_view_and_the_content_follows_them(view: CanvasView
     assert now.y() == pytest.approx(anchor.y(), abs=1.0)
 
 
-def test_the_pan_is_the_middle_mouse_pans_path(view: CanvasView) -> None:
-    """The gesture and the mouse share one pan helper, so they cannot drift."""
-    start = view.mapToScene(view.viewport().rect().center())
-    view._pan_by(QPointF(55.0, -35.0))
-    after_gesture = view.mapToScene(view.viewport().rect().center())
-
-    view.set_zoom(1.0)
-    view.centerOn(start)
-    QApplication.processEvents()
-    view._pan_by(QPointF(55.0, -35.0))
-    again = view.mapToScene(view.viewport().rect().center())
-    # centerOn snaps to whole scrollbar steps: the same call within a pixel
-    assert again.x() == pytest.approx(after_gesture.x(), abs=1.5)
-    assert again.y() == pytest.approx(after_gesture.y(), abs=1.5)
-
-
-def test_one_finger_is_left_to_the_synthesised_mouse_path(view: CanvasView) -> None:
-    """A tap or a one-finger drag is still a mouse event — the tools' path."""
+def test_a_pinch_that_also_moves_keeps_the_point_under_the_new_centre(view: CanvasView) -> None:
+    """Pan first, zoom second: the combined step must not drift by (1 - ratio)·delta."""
     anchor = QPointF(view.viewport().rect().center())
+    moved = anchor + QPointF(70.0, 0.0)
     before = view.mapToScene(anchor.toPoint())
-    assert view._touch_started([anchor]) is False
-    assert view._touch_moved([anchor + QPointF(30.0, 0.0)]) is False
-    assert view._touch_finished() is False
-    assert view.zoom_factor == pytest.approx(1.0)
-    assert view.mapToScene(anchor.toPoint()) == pytest.approx(before)
+
+    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
+    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 2.0, moved)) is True
+
+    assert view.zoom_factor == pytest.approx(2.0)
+    # 2 px, not 1: the scrollbar's unit is a scene centimetre, so at zoom 2 its
+    # integer steps land on two-pixel boundaries. A pure pinch holds to one pixel.
+    _assert_point_stays(view, before, moved, tolerance=2.0)
 
 
-def test_the_setting_off_leaves_touch_events_to_qt(view: CanvasView) -> None:
-    """Off: no touch acceptance, no gesture, and the canvas is as it was before #321."""
-    assert view.viewport().testAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents)
-    view.set_touch_gestures_enabled(False)
-    assert not view.viewport().testAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents)
-
+def test_the_gesture_is_adopted_and_finished_cleanly(view: CanvasView) -> None:
+    """Enabled mid-gesture: the first update adopts; a finish forgets the values."""
     anchor = QPointF(view.viewport().rect().center())
-    assert view._touch_started(_fingers(anchor, 40.0)) is False
-    assert view._touch_moved(_fingers(anchor, 80.0)) is False
+    view._pinch_scale = None
+    view._pinch_center = None
+    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 3.0, anchor)) is True
+    assert view.zoom_factor == pytest.approx(1.0)  # adopted, not applied
+    assert view._pinch_scale == pytest.approx(3.0)
+
+    assert _send(view, _Pinch(Qt.GestureState.GestureFinished, 3.0, anchor)) is True
+    assert view._pinch_scale is None and view._pinch_center is None
+
+
+def test_the_setting_off_ignores_gesture_events(view: CanvasView) -> None:
+    """Off: the filter is gone and a gesture moves nothing."""
+    view.set_touch_gestures_enabled(False)
+    anchor = QPointF(view.viewport().rect().center())
+    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is False
+    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 2.0, anchor)) is False
     assert view.zoom_factor == pytest.approx(1.0)
 
     view.set_touch_gestures_enabled(True)
-    assert view.viewport().testAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents)
-    assert view._touch_started(_fingers(anchor, 40.0)) is True
-    assert view._touch_finished() is True  # the end of a gesture is consumed
+    assert _send(view, _Pinch(Qt.GestureState.GestureStarted, 1.0, anchor)) is True
+    assert _send(view, _Pinch(Qt.GestureState.GestureUpdated, 2.0, anchor)) is True
+    assert view.zoom_factor == pytest.approx(2.0)
 
 
 def test_the_preference_ships_on_and_round_trips() -> None:
@@ -154,6 +164,40 @@ def test_the_preference_ships_on_and_round_trips() -> None:
         assert get_settings().touch_gestures_enabled is False
         settings.touch_gestures_enabled = True
         assert get_settings().touch_gestures_enabled is True
+    finally:
+        settings.touch_gestures_enabled = original
+
+
+def test_the_window_applies_the_preference_at_startup_and_from_the_dialog(
+    qtbot: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The wiring the view cannot prove: the window's startup and Preferences paths.
+
+    A line that can be deleted while every other test still passes is how the
+    3D look settings lost their live apply once; this is the window's own test.
+    """
+    from open_garden_planner.app.application import GardenPlannerApp
+    from open_garden_planner.ui.dialogs.preferences_dialog import PreferencesDialog
+
+    settings = get_settings()
+    original = settings.touch_gestures_enabled
+    try:
+        settings.touch_gestures_enabled = False
+        settings.show_welcome_on_startup = False
+        app = GardenPlannerApp()
+        qtbot.addWidget(app)  # type: ignore[attr-defined]
+        QApplication.processEvents()  # the QTimer.singleShot(0, ...) startup apply
+        assert app.canvas_view._touch_gestures_enabled is False
+
+        def accept_with_gestures(self: PreferencesDialog) -> int:
+            self._touch_gestures_check.setChecked(True)
+            self._save_and_accept()
+            return int(QDialog.DialogCode.Accepted)
+
+        monkeypatch.setattr(PreferencesDialog, "exec", accept_with_gestures)
+        app._on_preferences()
+        assert get_settings().touch_gestures_enabled is True
+        assert app.canvas_view._touch_gestures_enabled is True
     finally:
         settings.touch_gestures_enabled = original
 
@@ -183,7 +227,6 @@ def test_a_middle_mouse_drag_still_pans(view: CanvasView) -> None:
 
 def _mouse(view: CanvasView, position: QPoint, button: Qt.MouseButton,
            buttons: Qt.MouseButton):
-    from PyQt6.QtCore import QEvent
     from PyQt6.QtGui import QMouseEvent
 
     kind = (QEvent.Type.MouseButtonPress if button != Qt.MouseButton.NoButton

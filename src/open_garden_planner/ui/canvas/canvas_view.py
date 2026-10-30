@@ -18,7 +18,17 @@ if TYPE_CHECKING:
     from open_garden_planner.ui.canvas.items import CircleItem
     from open_garden_planner.ui.canvas.items.soil_badge_item import SoilBadgeItem
 
-from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import (
+    QCoreApplication,
+    QEvent,
+    QObject,
+    QPoint,
+    QPointF,
+    QRectF,
+    Qt,
+    QTimer,
+    pyqtSignal,
+)
 from PyQt6.QtGui import (
     QBrush,
     QColor,
@@ -30,11 +40,18 @@ from PyQt6.QtGui import (
     QPainter,
     QPaintEvent,
     QPen,
-    QTouchEvent,
     QTransform,
     QWheelEvent,
 )
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsView, QInputDialog, QLineEdit, QMenu
+from PyQt6.QtWidgets import (
+    QGestureEvent,
+    QGraphicsItem,
+    QGraphicsView,
+    QInputDialog,
+    QLineEdit,
+    QMenu,
+    QPinchGesture,
+)
 
 from open_garden_planner.core import (
     AddConstraintCommand,
@@ -239,11 +256,13 @@ class CanvasView(QGraphicsView):
         self._dynamic_input_enabled = True
         self._grid_size = 50.0  # 50cm default grid
         self._scale_bar_visible = True
-        # Touch gestures (#321): enabled by default, a sitting of the view; the
-        # app applies the saved preference after construction, as for the scale
-        # bar. ``_touch_anchor`` is (centroid, mean radius) of the fingers.
+        # Touch gestures (#321): enabled by default, a sitting of the view; the app
+        # applies the saved preference after construction, as for the scale bar.
+        # ``_pinch_scale`` / ``_pinch_center`` carry the last values of Qt's own
+        # pinch gesture (cumulative scale, viewport centre) while it is active.
         self._touch_gestures_enabled = True
-        self._touch_anchor: tuple[QPointF, float] | None = None
+        self._pinch_scale: float | None = None
+        self._pinch_center: QPointF | None = None
 
         # Drag-time bounding-box snapping engine and visual guides
         self._object_snapper = ObjectSnapper(threshold=10.0)
@@ -862,6 +881,10 @@ class CanvasView(QGraphicsView):
         THE one anchored-zoom path: the mouse wheel and the pinch gesture both
         call it, so anchoring, clamping and the ``zoom_changed`` signal stay
         identical (issue #321). ``anchor`` is in viewport pixels.
+
+        The body is the wheel's, with two differences stated here: a zoom that a
+        limit did not change returns early (nothing to re-apply or re-emit), and
+        the scrollbar compensation rounds rather than truncates its integer step.
         """
         new_zoom = max(self.min_zoom, min(self.max_zoom, self._zoom_factor * factor))
         if new_zoom == self._zoom_factor:
@@ -875,11 +898,11 @@ class CanvasView(QGraphicsView):
         scroll_delta = old_scene_pos - new_scene_pos
         self.horizontalScrollBar().setValue(
             self.horizontalScrollBar().value()
-            + int(scroll_delta.x() * self._zoom_factor)
+            + round(scroll_delta.x() * self._zoom_factor)
         )
         self.verticalScrollBar().setValue(
             self.verticalScrollBar().value()
-            - int(scroll_delta.y() * self._zoom_factor)
+            - round(scroll_delta.y() * self._zoom_factor)
         )
 
     def _pan_by(self, delta: QPointF) -> None:
@@ -893,7 +916,7 @@ class CanvasView(QGraphicsView):
         center = self.viewport().rect().center()
         scene_before = self.mapToScene(center)
         scene_after = self.mapToScene(
-            center.x() + int(delta.x()), center.y() + int(delta.y())
+            QPoint(round(center.x() + delta.x()), round(center.y() + delta.y()))
         )
         scene_delta = scene_before - scene_after
         self.centerOn(self.mapToScene(center) + scene_delta)
@@ -903,92 +926,82 @@ class CanvasView(QGraphicsView):
     def set_touch_gestures_enabled(self, enabled: bool) -> None:
         """Accept pinch-to-zoom and two-finger pan on the canvas viewport.
 
-        ``WA_AcceptTouchEvents`` is what stops Qt from turning every touch point
-        into a synthesised mouse event; the filter is where the gesture state
-        machine sees them. With the preference off the widget is exactly as it
-        was before #321: single-finger touches keep arriving as mouse events,
-        which the tools already handle.
+        Qt's **own pinch recognizer** does the arbitration a hand-written state
+        machine gets wrong: it starts only when a second finger arrives, so a
+        single-finger tap or drag is never claimed and keeps arriving as a
+        synthesised mouse event — the tools' own path. With the preference off
+        nothing is grabbed and the viewport is exactly as it was before #321.
         """
         self._touch_gestures_enabled = enabled
         viewport = self.viewport()
-        viewport.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, enabled)
         if enabled:
+            viewport.grabGesture(Qt.GestureType.PinchGesture)
             viewport.installEventFilter(self)
         else:
+            viewport.ungrabGesture(Qt.GestureType.PinchGesture)
             viewport.removeEventFilter(self)
-            self._touch_finished()
+            self._end_pinch()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        """Route touch and native trackpad gestures to the gesture handler."""
+        """Route pinch gestures and native trackpad gestures to the handlers."""
         if watched is self.viewport() and self._touch_gestures_enabled:
-            kind = event.type()
-            if kind in (
-                QEvent.Type.TouchBegin,
-                QEvent.Type.TouchUpdate,
-                QEvent.Type.TouchEnd,
-                QEvent.Type.TouchCancel,
-            ):
-                points = [point.position() for point in cast(QTouchEvent, event).points()]
-                if kind == QEvent.Type.TouchBegin:
-                    handled = self._touch_started(points)
-                elif kind == QEvent.Type.TouchUpdate:
-                    handled = self._touch_moved(points)
-                else:
-                    handled = self._touch_finished()
-                if handled:
-                    event.accept()
-                    return True
-                return False
-            if kind == QEvent.Type.NativeGesture:
+            if event.type() == QEvent.Type.Gesture:
+                return self._gesture(cast(QGestureEvent, event))
+            if event.type() == QEvent.Type.NativeGesture:
                 return self._native_gesture(cast(QNativeGestureEvent, event))
         return super().eventFilter(watched, event)
 
-    def _touch_started(self, points: list[QPointF]) -> bool:
-        """Begin a gesture from touch positions; False leaves a tap to the mouse path."""
-        if not self._touch_gestures_enabled or len(points) < 2:
-            self._touch_anchor = None
-            return False
-        self._touch_anchor = (self._touch_centroid(points), self._touch_spread(points))
-        return True
+    def _gesture(self, event: QGestureEvent) -> bool:
+        """Apply an active pinch: pan by the fingers' movement, then zoom about them.
 
-    def _touch_moved(self, points: list[QPointF]) -> bool:
-        """Zoom about the fingers' centre and pan by its movement; True if handled."""
-        if not self._touch_gestures_enabled or self._touch_anchor is None or len(points) < 2:
-            return False
-        center = self._touch_centroid(points)
-        spread = self._touch_spread(points)
-        center_before, spread_before = self._touch_anchor
-        if spread_before > 0.0 and spread > 0.0:
-            self._zoom_at(center, spread / spread_before)
-        delta = center - center_before
+        ``totalScaleFactor`` is cumulative over the gesture, so the factor applied
+        per step is the ratio to the last one; the fingers' centre moves with a
+        plain two-finger drag, which is the pan. Pan first (the content follows
+        the fingers), then zoom about their new centre — the other order leaves
+        a ``(1 - ratio) * delta`` drift on a pinch that also moves.
+        """
+        handled = False
+        for gesture in event.gestures():
+            if gesture.gestureType() != Qt.GestureType.PinchGesture:
+                continue
+            pinch = cast(QPinchGesture, gesture)
+            state = pinch.state()
+            if state == Qt.GestureState.GestureStarted:
+                self._pinch_scale = pinch.totalScaleFactor()
+                self._pinch_center = pinch.centerPoint()
+            elif state in (
+                Qt.GestureState.GestureFinished,
+                Qt.GestureState.GestureCanceled,
+            ):
+                self._end_pinch()
+            else:
+                self._apply_pinch(pinch)
+            event.accept(pinch)
+            handled = True
+        return handled
+
+    def _apply_pinch(self, pinch: QPinchGesture) -> None:
+        """One update of an active pinch (or the first one seen after enabling)."""
+        center = pinch.centerPoint()
+        total = pinch.totalScaleFactor()
+        if self._pinch_scale is None or self._pinch_center is None:
+            # Enabled while the fingers were already down: adopt them, move nothing.
+            self._pinch_scale, self._pinch_center = total, center
+            return
+        delta = center - self._pinch_center
         if not delta.isNull():
             self._pan_by(delta)
-        self._touch_anchor = (center, spread)
-        return True
+        if self._pinch_scale > 0.0 and total > 0.0:
+            factor = total / self._pinch_scale
+            if factor != 1.0:
+                self._zoom_at(center, factor)
+            self._pinch_scale = total
+        self._pinch_center = center
 
-    def _touch_finished(self) -> bool:
-        """End a gesture; True when one was active (so the end is consumed)."""
-        active = self._touch_anchor is not None
-        self._touch_anchor = None
-        return active
-
-    @staticmethod
-    def _touch_centroid(points: list[QPointF]) -> QPointF:
-        """The mean of the touch positions, in viewport pixels."""
-        count = float(len(points))
-        return QPointF(
-            sum(point.x() for point in points) / count,
-            sum(point.y() for point in points) / count,
-        )
-
-    @classmethod
-    def _touch_spread(cls, points: list[QPointF]) -> float:
-        """The fingers' mean distance from their centroid — the pinch scale's basis."""
-        center = cls._touch_centroid(points)
-        return sum(
-            ((point.x() - center.x()) ** 2 + (point.y() - center.y()) ** 2) ** 0.5
-            for point in points
-        ) / float(len(points))
+    def _end_pinch(self) -> None:
+        """Forget the active pinch's last values (finished, cancelled or disabled)."""
+        self._pinch_scale = None
+        self._pinch_center = None
 
     def _native_gesture(self, event: QNativeGestureEvent) -> bool:
         """A trackpad pinch arrives as Qt's native zoom gesture, not as touch."""
