@@ -234,7 +234,12 @@ zero for perpendicular, cross product zero for parallel. A polygon's edge
 need not align with its bounding-box axis, so comparing item rotation angles
 would miss the owner's suspected wrong-edge result. The numeric reproduction
 proved the FIXED violation; it did not reproduce parallel selected edges.
-`tests/integration/test_orientation_constraint_locks.py` pins both contracts,
+A later visual probe did identify a wrongly attached indicator: the resolver
+used index-only matching for all shapes, but every rectangle edge has index 0.
+Only polygon/polyline vertex edges use that dynamic-classification fallback;
+rectangle, ellipse and circle edge anchors match their unique edge type.
+The connector itself is asserted against the selected edge midpoints.
+`tests/integration/test_orientation_constraint_locks.py` pins these contracts,
 including the real toolbar/viewport and save/reload path.
 
 ## ADR-013: Soil Data Embedded in `.ogp` (not a sidecar file)

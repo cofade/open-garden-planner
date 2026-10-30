@@ -437,6 +437,7 @@ class DimensionLineManager:
         self, item_id: UUID, anchor_type: AnchorType, anchor_index: int = 0
     ) -> QPointF | None:
         """Get the scene position of an anchor on a garden or construction item."""
+        from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -463,7 +464,7 @@ class DimensionLineManager:
             # by the edge's current dominant axis) and may change as vertices move.
             # Match by index among all EDGE_* anchors so the indicator stays on the
             # correct edge regardless of its current orientation.
-            if anchor_type in _edge_types:
+            if anchor_type in _edge_types and isinstance(item, (PolygonItem, PolylineItem)):
                 for anchor in anchors:
                     if anchor.anchor_type in _edge_types and anchor.anchor_index == anchor_index:
                         return anchor.point

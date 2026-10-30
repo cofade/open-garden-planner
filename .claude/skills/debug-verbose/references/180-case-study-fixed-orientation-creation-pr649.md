@@ -35,3 +35,17 @@ undo/redo and scene-space geometry across save/reload.
 checks. Permission must be decided over every object in its proposed rotation
 payload. An item's stored rotation difference is not evidence that two picked
 edges are perpendicular: measure those edges in scene space.
+
+**Second finding: the annotation pointed at the wrong edge.** A production
+window screenshot of the fixed gesture showed the connector ending at the
+rectangle's top edge although its left edge was selected. Tagged measurement:
+`[ANCHOR] EDGE_LEFT/0 expected=(600,450) resolved=(650,400)`.
+`DimensionLineManager._resolve_anchor_position` applied the polygon/polyline
+index-only fallback to every shape. All four rectangle edge midpoints have
+index 0, so the first match was always EDGE_TOP. Restrict index-only matching
+to vertex-backed polygon/polyline edges; other shapes match edge type and
+index. The visible annotation connector now joins the actual selected edges.
+Thirty-seven added connector assertions failed before this fix. The suite
+also pins vertex-edge identity when a polygon/polyline's classification
+changes, so the original fallback's purpose stays covered. Geometry remained
+perpendicular in the numeric probe; the wrongly attached indicator was real.

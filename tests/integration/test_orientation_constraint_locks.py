@@ -5,13 +5,13 @@ import math
 import pytest
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QGraphicsLineItem, QMessageBox
 
 from open_garden_planner.core.commands import MoveItemsCommand
 from open_garden_planner.core.constraints import AnchorRef, ConstraintType
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.core.tools import ToolType
-from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
+from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem, RectangleItem
 from tests.constraint_tool_helpers import click, geometry
 from tests.integration.test_constrained_rotation import window as application_window_fixture
 
@@ -51,6 +51,18 @@ def _relation(a, b, kind):
     if kind == ConstraintType.PERPENDICULAR:
         return abs(va.x() * vb.x() + va.y() * vb.y()) / norm
     return abs(va.x() * vb.y() - va.y() * vb.x()) / norm
+
+
+def _assert_connector(scene, constraint, edge_a, edge_b):
+    group = scene.dimension_line_manager._groups[constraint.constraint_id]
+    connector = next(item for item in group.items if isinstance(item, QGraphicsLineItem)
+                     and item.pen().style() == Qt.PenStyle.DashLine)
+    for actual, edge in zip((connector.mapToScene(connector.line().p1()),
+                             connector.mapToScene(connector.line().p2())),
+                            (edge_a, edge_b), strict=True):
+        p0, p1 = _points(edge)
+        expected = (p0 + p1) / 2
+        assert (actual.x(), actual.y()) == pytest.approx((expected.x(), expected.y()), abs=1e-9)
 
 
 def _world_geometry(items):
@@ -116,6 +128,7 @@ def test_selected_edges_align_without_rotating_a_fixed_item(
     added = next(c for c in graph.constraints.values() if c.constraint_type == kind)
     assert added.anchor_a.anchor_index == a.anchor_index
     assert added.anchor_b.anchor_type == b.anchor_type
+    _assert_connector(canvas.scene(), added, a, b)
     assert canvas.command_manager.undo_depth == depth + 1
     after = geometry(items)
     canvas.command_manager.undo()
@@ -125,6 +138,7 @@ def test_selected_edges_align_without_rotating_a_fixed_item(
     assert geometry(items) == after
     assert added.constraint_id in graph.constraints
     assert _relation(a, b, kind) < 1e-9
+    _assert_connector(canvas.scene(), added, a, b)
 
 
 @pytest.mark.parametrize("kind", [ConstraintType.PARALLEL, ConstraintType.PERPENDICULAR])
@@ -198,6 +212,9 @@ def test_real_toolbar_perpendicular_gesture_keeps_the_locked_rectangle(
     qtbot.wait(50)
     assert geometry([rectangle]) == before
     assert _relation(a, b, ConstraintType.PERPENDICULAR) < 1e-9
+    added = next(c for c in canvas.scene().constraint_graph.constraints.values()
+                 if c.constraint_type == ConstraintType.PERPENDICULAR)
+    _assert_connector(canvas.scene(), added, a, b)
     after = geometry([triangle, rectangle])
     world_after = _world_geometry([triangle, rectangle])
     ids = triangle.item_id, rectangle.item_id
@@ -288,3 +305,19 @@ def test_conflicting_orientation_in_same_component_is_refused(canvas, monkeypatc
     assert graph.constraints == constraints
     assert geometry([triangle, rectangle]) == before
     assert canvas.command_manager.undo_depth == depth
+
+
+@pytest.mark.parametrize("item_class", [PolygonItem, PolylineItem])
+def test_vertex_edge_indicator_keeps_its_index_when_classification_changes(canvas, item_class):
+    item = item_class([QPointF(100, 100), QPointF(300, 100),
+                       QPointF(300, 300), QPointF(100, 300)])
+    canvas.scene().addItem(item)
+    before = _edge(item, index=0)
+    item._move_vertex_to(1, QPointF(100, 250))
+    after = _edge(item, index=0)
+    assert before.anchor_type != after.anchor_type
+    expected = item.mapToScene(QPointF(100, 175))
+    actual = canvas.scene().dimension_line_manager._resolve_anchor_position(
+        item.item_id, before.anchor_type, before.anchor_index,
+    )
+    assert actual == expected

@@ -415,3 +415,10 @@ group before execution, try the other free group, or refuse atomically.
 Pinned by `tests/integration/test_orientation_constraint_locks.py` (including
 real toolbar/viewport clicks). Independent endpoint vectors, not item angles,
 verify the requested parallel/perpendicular relation.
+
+The same owner pass exposed a display error: all rectangle edge anchors have
+index 0, so applying the polygon/polyline index-only fallback to a rectangle
+resolved EDGE_LEFT/0 to EDGE_TOP/0. Restrict that fallback to vertex-backed
+shapes. The orientation suite asserts the dashed connector's real endpoints
+against the selected edge midpoints, including undo/redo, and pins dynamic
+polygon/polyline edge reclassification.

@@ -3594,10 +3594,12 @@ both frozen-exe checks ran before the draft PR.
 that creating a Perpendicular relation could rotate a FIXED second object.
 The shared orientation planner now preserves FIXED endpoints and chain
 members, rotates the other free group where possible, or refuses atomically.
-The new 58-case suite measures selected-edge geometry and includes a real
+The new 60-case suite measures selected-edge geometry and includes a real
 application toolbar/viewport workflow with undo/redo and save/reload.
 Step 5 requires owner re-test on the rebuilt artifact; the other confirmations
-remain recorded. The suspected parallel result was not reproduced numerically.
+remain recorded. The suspected parallel geometry was not reproduced, but
+its indicator was attached to the wrong rectangle edge; edge-type matching
+now fixes that display error and the tests assert the connector endpoints.
 
 ### Every item with a footprint can be given a height (#628) — **shipped 2026-10-28 as v1.34.3, PR #627**
 

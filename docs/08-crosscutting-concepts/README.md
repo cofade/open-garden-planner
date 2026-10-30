@@ -7631,3 +7631,8 @@ It measures the picked edges' scene-space endpoint vectors rather than their
 items' stored angles. The full-window test clicks the toolbar button and
 viewport midpoints, then checks one-step undo/redo and saved geometry on reload.
 Refusals must retain a pre-existing redo entry as well as graph and geometry.
+
+The same suite also reads the actual dashed connector item. Its endpoints
+must match the selected scene-space edge midpoints. Index-only matching is
+valid for polygon/polyline edges whose classification changes on vertex edits;
+rectangle/ellipse/circle edge types are unique but share index 0.
