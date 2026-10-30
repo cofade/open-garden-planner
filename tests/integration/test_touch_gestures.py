@@ -207,6 +207,49 @@ def test_a_pinch_puts_a_dragged_item_back_and_leaves_no_undo_step(view: CanvasVi
     assert len(view._command_manager._undo_stack) == depth, "no move step was committed"
 
 
+def test_a_pinch_during_a_handle_drag_keeps_the_anchored_geometry(view: CanvasView) -> None:
+    """The stated exception: a resize handle being dragged is finalized, not un-resized.
+
+    The handle moves the parent's ``pos`` while resizing about the opposite corner;
+    restoring the pre-drag position (as a move drag is restored) would shift the
+    committed geometry. The anchored corner must stay, and exactly one resize
+    command is pushed.
+    """
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import RectangleItem
+    from open_garden_planner.ui.canvas.items.resize_handle import HandlePosition, ResizeHandle
+
+    item = RectangleItem(0.0, 0.0, 200.0, 150.0, object_type=ObjectType.GARDEN_BED)
+    view.scene().addItem(item)
+    item.setPos(view.mapToScene(view.viewport().rect().center()))
+    item.setSelected(True)
+    QApplication.processEvents()
+    anchored = item.sceneBoundingRect().bottomRight()
+    before = item.sceneBoundingRect().topLeft()
+    depth = len(view._command_manager._undo_stack)
+    handles = [child for child in item.childItems() if isinstance(child, ResizeHandle)]
+    top_left = next(h for h in handles if h.handle_position == HandlePosition.TOP_LEFT)
+    point = view.mapFromScene(top_left.mapToScene(top_left.rect().center()))
+
+    QApplication.sendEvent(
+        view.viewport(),
+        _mouse(view, point, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton),
+    )
+    QApplication.sendEvent(
+        view.viewport(),
+        _mouse(view, point + QPoint(40, 20), Qt.MouseButton.NoButton, Qt.MouseButton.LeftButton),
+    )
+    assert item.sceneBoundingRect().topLeft() != before, "the handle really started a resize"
+
+    anchor = QPointF(view.viewport().rect().center())
+    assert _send(view, Qt.GestureState.GestureStarted, 1.0, anchor) is True
+    after = item.sceneBoundingRect().bottomRight()
+    assert abs(after.x() - anchored.x()) <= 1.0 and abs(after.y() - anchored.y()) <= 1.0, (
+        f"the anchored corner moved: {anchored} -> {after}"
+    )
+    assert len(view._command_manager._undo_stack) == depth + 1, "exactly the resize step"
+
+
 def test_a_pinch_over_empty_canvas_keeps_the_selection(view: CanvasView) -> None:
     """The first finger's click on empty canvas clears the selection; a pinch restores it."""
     from open_garden_planner.core.object_types import ObjectType

@@ -964,7 +964,14 @@ class CanvasView(QGraphicsView):
                 self._touch_mouse_press = (mouse.position(), mouse.button())
                 scene = self.scene()
                 self._touch_press_selection = list(scene.selectedItems()) if scene else []
-                self._touch_press_on_item = self.itemAt(mouse.position().toPoint()) is not None
+                # The selection is cleared only when no SELECTABLE item is under the
+                # press (the SelectTool rule); labels, badges and locked items do not
+                # count, or a pinch over one would fail to restore the selection.
+                self._touch_press_on_item = bool(scene) and any(
+                    item.isVisible()
+                    and item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+                    for item in scene.items(self.mapToScene(mouse.position().toPoint()))
+                )
                 return False
             if kind == QEvent.Type.MouseButtonRelease:
                 self._touch_mouse_press = None
@@ -1088,17 +1095,20 @@ class CanvasView(QGraphicsView):
         Items are put back where the drag started; the dictionaries are cleared so
         the release's ``_finalize_drag_move`` sees no delta and pushes no undo step.
         Constraint-propagated partners and plants moved with a parent are restored
-        too. A resize, rotate or vertex handle is not: its edit is committed by its
-        own release, as a normal one-step edit.
+        too. A **handle** drag is the exception: its live edit (which may move the
+        parent's ``pos`` while resizing about the opposite corner) must keep the
+        geometry the handle applied, so only the move bookkeeping is cleared and
+        the handle's own release commits the anchored edit as one step.
         """
-        for moved in (
-            self._drag_start_positions,
-            self._constraint_propagated_starts,
-            self._child_drag_origins,
-        ):
-            for item, start in moved.items():
-                if item.scene() is not None:
-                    item.setPos(start)
+        if self._active_drag_handle is None:
+            for moved in (
+                self._drag_start_positions,
+                self._constraint_propagated_starts,
+                self._child_drag_origins,
+            ):
+                for item, start in moved.items():
+                    if item.scene() is not None:
+                        item.setPos(start)
         self._drag_start_positions.clear()
         self._constraint_propagated_starts.clear()
         self._child_drag_origins.clear()

@@ -253,7 +253,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "673afd886b3ccef65bde4edd21b57cf166fc7b032a441f938b517857b81e9d8a"
+          "current_sha256": "0521bd2cd4b9186f80d7cfb2aba35878825dc9d03081b6025ecfacd211878501"
         },
         {
           "path": ".agents/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -1653,7 +1653,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "673afd886b3ccef65bde4edd21b57cf166fc7b032a441f938b517857b81e9d8a"
+          "current_sha256": "0521bd2cd4b9186f80d7cfb2aba35878825dc9d03081b6025ecfacd211878501"
         },
         {
           "path": ".claude/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
