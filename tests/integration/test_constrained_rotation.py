@@ -395,9 +395,13 @@ class TestConstrainedRotationFollows:
         _rotate(canvas, rect, 40.0, qtbot)
 
         last = canvas.command_manager._undo_stack[-1]
-        assert last._partner_vertex_moves, (
+        recorded = {
+            type(item).__name__ for item, *_rest in last._partner_vertex_moves
+        }
+        assert recorded == {"PolygonItem"}, (
             "the live gesture must record the deformable partner's vertex corrections"
         )
+        assert all(item is bed for item, *_rest in last._partner_vertex_moves)
         canvas.command_manager.undo()
         assert _all_vertices(bed) == vertices_before
 
