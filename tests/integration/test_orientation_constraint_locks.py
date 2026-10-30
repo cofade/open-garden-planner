@@ -179,11 +179,11 @@ def test_real_toolbar_perpendicular_gesture_keeps_the_locked_rectangle(
     triangle, rectangle = _items(canvas)
     _lock(canvas, rectangle)
     triangle.setSelected(True)
-    window.resize(1400, 950)
+    window.resize(2200, 1000)
     window.show()
     qtbot.waitExposed(window)
-    canvas.resetTransform()
-    canvas.scale(1, -1)
+    qtbot.wait(200)
+    canvas.set_zoom(1)
     canvas.centerOn(650, 450)
     qtbot.wait(30)
     monkeypatch.setattr(QMessageBox, "warning", lambda *args: pytest.fail(args[2]))
@@ -193,6 +193,7 @@ def test_real_toolbar_perpendicular_gesture_keeps_the_locked_rectangle(
     a, b = _edge(triangle, index=1), _edge(rectangle, kind=AnchorType.EDGE_LEFT)
     before = geometry([rectangle])
     for edge in (a, b):
+        assert canvas.viewport().rect().contains(canvas.mapFromScene(edge.point))
         QTest.mouseClick(canvas.viewport(), Qt.MouseButton.LeftButton, pos=canvas.mapFromScene(edge.point))
     qtbot.wait(50)
     assert geometry([rectangle]) == before
