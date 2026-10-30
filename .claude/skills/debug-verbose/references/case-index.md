@@ -179,3 +179,4 @@
 | Case study: gravel rim chord across rounded paint (#605 owner pass) | [Read](177-case-study-gravel-rim-chord-across-rounded-paint-605.md) |
 | Case study: a rotation was exempt from the constraint solver (#485) | [Read](178-case-study-rotation-exempt-from-constraint-solver-485.md) |
 | Case study: bed membership looked reconciled (#443) | [Read](179-case-study-bed-membership-looked-reconciled-443.md) |
+| Case study: orientation creation rotated a FIXED rectangle (PR #649 owner pass) | [Read](180-case-study-fixed-orientation-creation-pr649.md) |

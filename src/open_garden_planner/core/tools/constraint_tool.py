@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Callable
+from typing import TYPE_CHECKING
+from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QColor, QCursor, QFont, QKeyEvent, QMouseEvent, QPen
@@ -25,7 +27,7 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.commands import AddConstraintCommand
-from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+from open_garden_planner.core.constraints import AnchorRef, ConstraintGraph, ConstraintType
 from open_garden_planner.core.measure_snapper import (
     AnchorPoint,
     AnchorType,
@@ -33,6 +35,9 @@ from open_garden_planner.core.measure_snapper import (
     get_anchor_points,
 )
 from open_garden_planner.core.tools.base_tool import BaseTool, ToolType
+
+if TYPE_CHECKING:
+    from open_garden_planner.ui.canvas.canvas_view import CanvasView
 
 _log = logging.getLogger(__name__)
 
@@ -1736,64 +1741,85 @@ class SymmetryConstraintTool(BaseTool):
 PREVIEW_PARALLEL_COLOR = QColor(20, 160, 100, 200)  # Green for parallel
 
 
-def _collect_rotation_chain(
-    scene_items, graph, start_item, delta: float, exclude_id
-) -> list:
-    """BFS through PARALLEL/PERPENDICULAR constraints from *start_item*.
+_RotationChange = tuple[QGraphicsItem, float, float, Callable[[QGraphicsItem, float], None]]
 
-    Returns a list of ``(item, old_rotation, new_rotation, apply_fn)`` tuples for every
-    item reachable via existing rotation constraints that should co-rotate by *delta*.
-    *exclude_id* is the item_id of the reference (fixed) item — it is never rotated.
 
-    The propagation rule: rotating any item in a PARALLEL or PERPENDICULAR chain by
-    *delta* preserves the relative angle between all pairs, so every free connected item
-    must rotate by the same *delta*.
+def _rotation_component(graph: ConstraintGraph, start_id: UUID) -> set[UUID]:
+    """Objects whose existing orientation constraints require co-rotation."""
+    result = {start_id}
+    pending = [start_id]
+    while pending:
+        current = pending.pop()
+        for constraint in graph.get_item_constraints(current):
+            if constraint.constraint_type not in {
+                ConstraintType.PARALLEL, ConstraintType.PERPENDICULAR,
+            }:
+                continue
+            for other in (constraint.anchor_a.item_id, constraint.anchor_b.item_id):
+                if other not in result:
+                    result.add(other)
+                    pending.append(other)
+    return result
+
+
+def _plan_edge_rotation(
+    view: CanvasView,
+    edge_a: AnchorPoint,
+    edge_b: AnchorPoint,
+    alpha_a: float,
+    alpha_b: float,
+    *,
+    perpendicular: bool,
+) -> tuple[float, list[_RotationChange]] | None:
+    """Plan one atomic orientation edit without rotating FIXED geometry.
+
+    Keep the established second-edge preference, including the first-edge
+    fallback for existing orientation chains. A chain is one rotation group:
+    any FIXED member pins it. Try the other group before refusing the edit.
     """
-    from collections import deque
+    from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
 
-    from open_garden_planner.core.constraints import ConstraintType
+    scene = view._canvas_scene
+    graph = scene.constraint_graph
+    offset = 90.0 if perpendicular else 0.0
+    delta_b = (alpha_a + offset - alpha_b + 90.0) % 180.0 - 90.0
+    if abs(delta_b) <= 0.01:
+        # An already satisfied relation needs no geometry edit, even if fixed.
+        return edge_b.item.rotation(), []
+    delta_a = (alpha_b + offset - alpha_a + 90.0) % 180.0 - 90.0
+    candidates = [(edge_b.item, edge_a.item, delta_b), (edge_a.item, edge_b.item, delta_a)]
+    if graph.has_rotation_constraint(edge_b.item.item_id):
+        candidates.reverse()
+    items_by_id = {
+        item.item_id: item
+        for item in scene.items()
+        if hasattr(item, "item_id") and hasattr(item, "_apply_rotation")
+    }
+    fixed_ids = graph.fixed_item_ids()
+    for moving, reference, delta in candidates:
+        group = _rotation_component(graph, moving.item_id)
+        if group & fixed_ids or reference.item_id in group:
+            continue
+        if not group.issubset(items_by_id):
+            continue
+        changes: list[_RotationChange] = []
+        for item_id in sorted(group, key=str):
+            item = items_by_id[item_id]
+            old_angle = item.rotation()
+            changes.append((item, old_angle, old_angle + delta, apply_rotation))
+        return moving.rotation() + delta, changes
 
-    rotation_types = {ConstraintType.PARALLEL, ConstraintType.PERPENDICULAR}
-
-    # Build a quick id → scene-item map
-    item_by_id: dict = {}
-    for si in scene_items:
-        if hasattr(si, "item_id") and hasattr(si, "_apply_rotation"):
-            item_by_id[si.item_id] = si
-
-    visited = {start_item.item_id, exclude_id}
-    queue: deque = deque([start_item])
-    chain: list = []
-
-    while queue:
-        current = queue.popleft()
-        for c in graph.get_item_constraints(current.item_id):
-            if c.constraint_type not in rotation_types:
-                continue
-            # Find the other item in this constraint
-            other_id = (
-                c.anchor_b.item_id
-                if c.anchor_a.item_id == current.item_id
-                else c.anchor_a.item_id
-            )
-            if other_id in visited:
-                continue
-            visited.add(other_id)
-            other_item = item_by_id.get(other_id)
-            if other_item is None:
-                continue
-            old_rot = getattr(other_item, "rotation_angle", 0.0)
-            chain.append(
-                (
-                    other_item,
-                    old_rot,
-                    old_rot + delta,
-                    lambda it, ang: it._apply_rotation(ang),
-                )
-            )
-            queue.append(other_item)
-
-    return chain
+    QMessageBox.warning(
+        view,
+        QCoreApplication.translate("ConstraintTools", "Constraint cannot be applied"),
+        QCoreApplication.translate(
+            "ConstraintTools",
+            "The selected edges cannot be aligned without changing a locked object "
+            "or an existing orientation constraint. Unlock an object or remove "
+            "the conflicting constraint first.",
+        ),
+    )
+    return None
 
 
 def _compute_edge_scene_angle(edge_anchor):
@@ -3008,19 +3034,12 @@ class ParallelConstraintTool(BaseTool):
             _create_intraobject_parallel_from_edges(self._view, edge_a, edge_b)
             return
 
-        # Prefer rotating edge B (second-clicked / "target") to align with edge A.
-        # Fall back to rotating edge A if edge B is already rotation-constrained
-        # (has an existing PARALLEL or PERPENDICULAR constraint on its item).
-        graph = scene.constraint_graph
-        if not graph.has_rotation_constraint(edge_b.item.item_id):
-            item_to_rotate = edge_b.item
-            rot = getattr(item_to_rotate, "rotation_angle", 0.0)
-            delta = (alpha_a - alpha_b + 90.0) % 180.0 - 90.0
-        else:
-            item_to_rotate = edge_a.item
-            rot = getattr(item_to_rotate, "rotation_angle", 0.0)
-            delta = (alpha_b - alpha_a + 90.0) % 180.0 - 90.0
-        target_rotation = rot + delta
+        plan = _plan_edge_rotation(
+            self._view, edge_a, edge_b, alpha_a, alpha_b, perpendicular=False,
+        )
+        if plan is None:
+            return
+        target_rotation, item_rotations = plan
 
         ref_a = AnchorRef(
             item_id=edge_a.item.item_id,
@@ -3032,29 +3051,6 @@ class ParallelConstraintTool(BaseTool):
             anchor_type=edge_b.anchor_type,
             anchor_index=edge_b.anchor_index,
         )
-
-        item_rotations: list = []
-        if hasattr(item_to_rotate, "_apply_rotation") and abs(delta) > 0.01:
-            item_rotations = [
-                (
-                    item_to_rotate,
-                    rot,
-                    target_rotation,
-                    lambda it, ang: it._apply_rotation(ang),
-                )
-            ]
-            # Propagate rotation delta through existing PARALLEL/PERPENDICULAR chains.
-            reference_item = (
-                edge_b.item if item_to_rotate is edge_a.item else edge_a.item
-            )
-            chain = _collect_rotation_chain(
-                scene.items(),
-                scene.constraint_graph,
-                item_to_rotate,
-                delta,
-                reference_item.item_id,
-            )
-            item_rotations.extend(chain)
 
         command = AddConstraintCommand(
             graph=scene.constraint_graph,
@@ -3339,21 +3335,12 @@ class PerpendicularConstraintTool(BaseTool):
             _create_intraobject_angle_from_edges(self._view, edge_a, edge_b, 90.0)
             return
 
-        # Prefer rotating edge B (second-clicked / "target") to be perpendicular to edge A.
-        # Fall back to rotating edge A if edge B is already rotation-constrained
-        # (has an existing PARALLEL or PERPENDICULAR constraint on its item).
-        graph = scene.constraint_graph
-        if not graph.has_rotation_constraint(edge_b.item.item_id):
-            item_to_rotate = edge_b.item
-            rot = getattr(item_to_rotate, "rotation_angle", 0.0)
-            target_edge_angle = (alpha_a + 90.0) % 180.0
-            delta = (target_edge_angle - alpha_b + 90.0) % 180.0 - 90.0
-        else:
-            item_to_rotate = edge_a.item
-            rot = getattr(item_to_rotate, "rotation_angle", 0.0)
-            target_edge_angle = (alpha_b + 90.0) % 180.0
-            delta = (target_edge_angle - alpha_a + 90.0) % 180.0 - 90.0
-        target_rotation = rot + delta
+        plan = _plan_edge_rotation(
+            self._view, edge_a, edge_b, alpha_a, alpha_b, perpendicular=True,
+        )
+        if plan is None:
+            return
+        target_rotation, item_rotations = plan
 
         ref_a = AnchorRef(
             item_id=edge_a.item.item_id,
@@ -3365,29 +3352,6 @@ class PerpendicularConstraintTool(BaseTool):
             anchor_type=edge_b.anchor_type,
             anchor_index=edge_b.anchor_index,
         )
-
-        item_rotations: list = []
-        if hasattr(item_to_rotate, "_apply_rotation") and abs(delta) > 0.01:
-            item_rotations = [
-                (
-                    item_to_rotate,
-                    rot,
-                    target_rotation,
-                    lambda it, ang: it._apply_rotation(ang),
-                )
-            ]
-            # Propagate rotation delta through existing PARALLEL/PERPENDICULAR chains.
-            reference_item = (
-                edge_b.item if item_to_rotate is edge_a.item else edge_a.item
-            )
-            chain = _collect_rotation_chain(
-                scene.items(),
-                scene.constraint_graph,
-                item_to_rotate,
-                delta,
-                reference_item.item_id,
-            )
-            item_rotations.extend(chain)
 
         command = AddConstraintCommand(
             graph=scene.constraint_graph,

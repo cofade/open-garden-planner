@@ -216,6 +216,27 @@ this behavior across shapes, paths, curves and text.
 - *Per-substance application_rate scaled by chemistry mass-balance (NPK %)* — would let the calculator do exact label-percentage math. Deferred: keeps the calculator's domain to "Rapitest level steps", avoids per-substance NPK% data entry on JSON, and the +1 step credit suffices for end-user purchasing decisions.
 **Consequences**: Compound NPK fertilizers (Blaukorn, Tomatendünger, etc.) emit one row instead of three. Users see an honest "Raises N 1→3 + also raises P 1→3, K 1→3" rationale. Disabling substances changes both the inline preview and the cross-bed plan and shopping-list materials in real time. Soil-texture-driven structural picks add up to two rows for clayey soil (drainage + aeration), one row for sandy or compacted soil. Bundle data file grows by 12 entries (12 → 23 substances). No file-format bump; legacy projects load with `enabled_amendments=None` (= all enabled) and `soil_texture=None` (no structural picks).
 
+**Addendum (2026-10-30, PR #649 owner manual step 5).** Creating an
+inter-object PARALLEL or PERPENDICULAR relation is an automatic rotation,
+so it must honor FIXED before the rotation-only command is executed.
+Both tools use `_plan_edge_rotation`: existing orientation constraints form
+a co-rotation group, and one FIXED member pins the group. Preserve the usual
+second-object preference where possible, then try the other free group.
+Never rotate one group relative to itself and thereby break an existing
+orientation relation. If no group is free, refuse before graph, geometry or
+history changes and explain how the user can unlock/remove a constraint.
+An already satisfied relation is allowed without rotating either object.
+The canonical rotation applier and AddConstraintCommand still provide the
+single undo step. No persisted lock angle or new file-format field is needed.
+
+The picked scene-space edge vectors are the correctness oracle: dot product
+zero for perpendicular, cross product zero for parallel. A polygon's edge
+need not align with its bounding-box axis, so comparing item rotation angles
+would miss the owner's suspected wrong-edge result. The numeric reproduction
+proved the FIXED violation; it did not reproduce parallel selected edges.
+`tests/integration/test_orientation_constraint_locks.py` pins both contracts,
+including the real toolbar/viewport and save/reload path.
+
 ## ADR-013: Soil Data Embedded in `.ogp` (not a sidecar file)
 
 **Status**: Accepted (Phase 12 — US-12.10a)

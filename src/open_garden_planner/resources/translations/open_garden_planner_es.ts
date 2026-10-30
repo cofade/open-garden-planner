@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE TS>
+<?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="es" sourcelanguage="en">
     <context>
         <name>AddPlantingRecordDialog</name>
@@ -193,7 +192,7 @@
     <context>
         <name>AngleConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1123" />
+            <location filename="../../core/tools/constraint_tool.py" line="1128" />
             <source>Angle Constraint</source>
             <translation>Restricción de ángulo</translation>
         </message>
@@ -201,22 +200,22 @@
     <context>
         <name>AngleInputDialog</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1056" />
+            <location filename="../../core/tools/constraint_tool.py" line="1061" />
             <source>Current angle: {angle:.1f}°</source>
             <translation>Ángulo actual: {angle:.1f}°</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1040" />
+            <location filename="../../core/tools/constraint_tool.py" line="1045" />
             <source>Enter the target angle (degrees):</source>
             <translation>Introduzca el ángulo objetivo (grados):</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1067" />
+            <location filename="../../core/tools/constraint_tool.py" line="1072" />
             <source>Presets:</source>
             <translation>Valores predeterminados:</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1034" />
+            <location filename="../../core/tools/constraint_tool.py" line="1039" />
             <source>Set Angle Constraint</source>
             <translation>Establecer restricción de ángulo</translation>
         </message>
@@ -1303,34 +1302,34 @@
     <context>
         <name>CoincidentConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="491" />
+            <location filename="../../core/tools/constraint_tool.py" line="496" />
             <source>Coincident Constraint</source>
             <translation>Restricción coincidente</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="658" />
-            <location filename="../../core/tools/constraint_tool.py" line="711" />
+            <location filename="../../core/tools/constraint_tool.py" line="663" />
+            <location filename="../../core/tools/constraint_tool.py" line="716" />
             <source>Conflicting Constraint</source>
             <translation>Restricción en conflicto</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="661" />
-            <location filename="../../core/tools/constraint_tool.py" line="714" />
+            <location filename="../../core/tools/constraint_tool.py" line="666" />
+            <location filename="../../core/tools/constraint_tool.py" line="719" />
             <source>This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.</source>
             <translation>Esta restricción entra en conflicto con las restricciones existentes y no se puede aplicar. Las restricciones existentes no se modifican.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="756" />
+            <location filename="../../core/tools/constraint_tool.py" line="761" />
             <source>⊙ On Circle</source>
             <translation>⊙ En círculo</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="776" />
+            <location filename="../../core/tools/constraint_tool.py" line="781" />
             <source>⊥ On Edge</source>
             <translation>⊥ En arista</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="803" />
+            <location filename="../../core/tools/constraint_tool.py" line="808" />
             <source>⦿ Coincident</source>
             <translation>⦿ Coincidente</translation>
         </message>
@@ -2581,61 +2580,61 @@
     <context>
         <name>ConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3609" />
+            <location filename="../../core/tools/constraint_tool.py" line="3573" />
             <source>Adjacent edges of the same polygon cannot be made parallel. To set a specific corner angle, use the Angle constraint tool.</source>
             <translation>Las aristas adyacentes del mismo polígono no pueden hacerse paralelas. Para definir un ángulo de esquina específico, use la herramienta de restricción de ángulo.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="377" />
+            <location filename="../../core/tools/constraint_tool.py" line="382" />
             <source>Conflicting Constraint</source>
             <translation>Restricción en conflicto</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3462" />
-            <location filename="../../core/tools/constraint_tool.py" line="3502" />
-            <location filename="../../core/tools/constraint_tool.py" line="3566" />
+            <location filename="../../core/tools/constraint_tool.py" line="3426" />
+            <location filename="../../core/tools/constraint_tool.py" line="3466" />
+            <location filename="../../core/tools/constraint_tool.py" line="3530" />
             <source>Constraint</source>
             <translation>Restricción</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="141" />
+            <location filename="../../core/tools/constraint_tool.py" line="146" />
             <source>Distance Constraint</source>
             <translation>Restricción de distancia</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3463" />
-            <location filename="../../core/tools/constraint_tool.py" line="3567" />
+            <location filename="../../core/tools/constraint_tool.py" line="3427" />
+            <location filename="../../core/tools/constraint_tool.py" line="3531" />
             <source>Intra-object edge constraints are only supported for polygons and polylines.</source>
             <translation>Las restricciones de arista dentro del mismo objeto solo son compatibles con polígonos y polilíneas.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3577" />
-            <location filename="../../core/tools/constraint_tool.py" line="3608" />
+            <location filename="../../core/tools/constraint_tool.py" line="3541" />
+            <location filename="../../core/tools/constraint_tool.py" line="3572" />
             <source>Parallel Constraint</source>
             <translation>Restricción paralela</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3503" />
+            <location filename="../../core/tools/constraint_tool.py" line="3467" />
             <source>Please select two adjacent (connected) edges of the same polygon.</source>
             <translation>Seleccione dos aristas adyacentes (conectadas) del mismo polígono.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3578" />
+            <location filename="../../core/tools/constraint_tool.py" line="3542" />
             <source>The polygon needs at least 4 vertices for a parallel constraint between non-adjacent edges.</source>
             <translation>El polígono necesita al menos 4 vértices para una restricción paralela entre aristas no adyacentes.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="378" />
+            <location filename="../../core/tools/constraint_tool.py" line="383" />
             <source>This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.</source>
             <translation>Esta restricción entra en conflicto con las restricciones existentes y no se puede aplicar. Las restricciones existentes no se modifican.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="276" />
+            <location filename="../../core/tools/constraint_tool.py" line="281" />
             <source>≡ H (same Y)</source>
             <translation>≡ H (misma Y)</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="278" />
+            <location filename="../../core/tools/constraint_tool.py" line="283" />
             <source>≡ V (same X)</source>
             <translation>≡ V (misma X)</translation>
         </message>
@@ -2746,6 +2745,19 @@
             <location filename="../../ui/widgets/constraint_toolbar.py" line="50" />
             <source>Vertical Distance</source>
             <translation>Distancia vertical</translation>
+        </message>
+    </context>
+    <context>
+        <name>ConstraintTools</name>
+        <message>
+            <location filename="../../core/tools/constraint_tool.py" line="1814" />
+            <source>Constraint cannot be applied</source>
+            <translation>No se puede aplicar la restricción</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/constraint_tool.py" line="1815" />
+            <source>The selected edges cannot be aligned without changing a locked object or an existing orientation constraint. Unlock an object or remove the conflicting constraint first.</source>
+            <translation>Las aristas seleccionadas no se pueden alinear sin modificar un objeto bloqueado o una restricción de orientación existente. Desbloquee un objeto o elimine primero la restricción incompatible.</translation>
         </message>
     </context>
     <context>
@@ -3249,17 +3261,17 @@ Esto la eliminará de su biblioteca personalizada. Las plantas ya colocadas en p
     <context>
         <name>DistanceInputDialog</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="84" />
+            <location filename="../../core/tools/constraint_tool.py" line="89" />
             <source>Current distance: {distance:.2f} m</source>
             <translation>Distancia actual: {distance:.2f} m</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="66" />
+            <location filename="../../core/tools/constraint_tool.py" line="71" />
             <source>Enter the target distance (meters):</source>
             <translation>Introduzca la distancia objetivo (metros):</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="59" />
+            <location filename="../../core/tools/constraint_tool.py" line="64" />
             <source>Set Constraint Distance</source>
             <translation>Establecer distancia de restricción</translation>
         </message>
@@ -3335,17 +3347,17 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
     <context>
         <name>EdgeLengthConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2457" />
+            <location filename="../../core/tools/constraint_tool.py" line="2483" />
             <source>Conflicting Constraint</source>
             <translation>Restricción en conflicto</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2261" />
+            <location filename="../../core/tools/constraint_tool.py" line="2287" />
             <source>Edge Length Constraint</source>
             <translation>Restricción de longitud de arista</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2460" />
+            <location filename="../../core/tools/constraint_tool.py" line="2486" />
             <source>This constraint conflicts with existing constraints and cannot be applied. The existing constraints are unchanged.</source>
             <translation>Esta restricción entra en conflicto con las restricciones existentes y no se puede aplicar. Las restricciones existentes no se modifican.</translation>
         </message>
@@ -3472,18 +3484,18 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
     <context>
         <name>EqualConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2636" />
+            <location filename="../../core/tools/constraint_tool.py" line="2662" />
             <source>= Equal</source>
             <translation>= Igual</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2705" />
+            <location filename="../../core/tools/constraint_tool.py" line="2731" />
             <source>Cannot determine the size dimension for object A.</source>
             <translation>No se puede determinar la dimensión de tamaño para el objeto A.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2520" />
-            <location filename="../../core/tools/constraint_tool.py" line="2702" />
+            <location filename="../../core/tools/constraint_tool.py" line="2546" />
+            <location filename="../../core/tools/constraint_tool.py" line="2728" />
             <source>Equal Size Constraint</source>
             <translation>Restricción de igual tamaño</translation>
         </message>
@@ -3688,12 +3700,12 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
     <context>
         <name>FixedConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3699" />
+            <location filename="../../core/tools/constraint_tool.py" line="3663" />
             <source>Fix in Place</source>
             <translation>Fijar en posición</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3816" />
+            <location filename="../../core/tools/constraint_tool.py" line="3780" />
             <source>Fix in place</source>
             <translation>Fijar en posición</translation>
         </message>
@@ -7158,17 +7170,17 @@ Por favor, guarde su proyecto en una ubicación permanente.</translation>
     <context>
         <name>HDistanceInputDialog</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3866" />
+            <location filename="../../core/tools/constraint_tool.py" line="3830" />
             <source>Current horizontal distance: {distance:.2f} m</source>
             <translation>Distancia horizontal actual: {distance:.2f} m</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3849" />
+            <location filename="../../core/tools/constraint_tool.py" line="3813" />
             <source>Enter the target horizontal distance (meters):</source>
             <translation>Introduzca la distancia horizontal objetivo (metros):</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3841" />
+            <location filename="../../core/tools/constraint_tool.py" line="3805" />
             <source>Set Horizontal Distance</source>
             <translation>Establecer distancia horizontal</translation>
         </message>
@@ -7427,7 +7439,7 @@ Por favor, guarde su proyecto en una ubicación permanente.</translation>
     <context>
         <name>HorizontalConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="431" />
+            <location filename="../../core/tools/constraint_tool.py" line="436" />
             <source>Horizontal Constraint</source>
             <translation>Restricción horizontal</translation>
         </message>
@@ -7435,12 +7447,12 @@ Por favor, guarde su proyecto en una ubicación permanente.</translation>
     <context>
         <name>HorizontalDistanceConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3954" />
+            <location filename="../../core/tools/constraint_tool.py" line="3918" />
             <source>Horizontal Distance Constraint</source>
             <translation>Restricción de distancia horizontal</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3987" />
+            <location filename="../../core/tools/constraint_tool.py" line="3951" />
             <source>↔ {d:.2f} m</source>
             <translation>↔ {d:.2f} m</translation>
         </message>
@@ -8628,24 +8640,24 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
     <context>
         <name>ParallelConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2985" />
+            <location filename="../../core/tools/constraint_tool.py" line="3011" />
             <source>Cannot determine the angle of the selected edge on object A.</source>
             <translation>No se puede determinar el ángulo de la arista seleccionada en el objeto A.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2999" />
+            <location filename="../../core/tools/constraint_tool.py" line="3025" />
             <source>Cannot determine the angle of the selected edge on object B.</source>
             <translation>No se puede determinar el ángulo de la arista seleccionada en el objeto B.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2796" />
-            <location filename="../../core/tools/constraint_tool.py" line="2982" />
-            <location filename="../../core/tools/constraint_tool.py" line="2996" />
+            <location filename="../../core/tools/constraint_tool.py" line="2822" />
+            <location filename="../../core/tools/constraint_tool.py" line="3008" />
+            <location filename="../../core/tools/constraint_tool.py" line="3022" />
             <source>Parallel Constraint</source>
             <translation>Restricción paralela</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="2915" />
+            <location filename="../../core/tools/constraint_tool.py" line="2941" />
             <source>∥ Parallel</source>
             <translation>∥ Paralelo</translation>
         </message>
@@ -9128,19 +9140,19 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
     <context>
         <name>PerpendicularConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3315" />
+            <location filename="../../core/tools/constraint_tool.py" line="3311" />
             <source>Cannot determine the angle of the selected edge on object A.</source>
             <translation>No se puede determinar el ángulo de la arista seleccionada en el objeto A.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3329" />
+            <location filename="../../core/tools/constraint_tool.py" line="3325" />
             <source>Cannot determine the angle of the selected edge on object B.</source>
             <translation>No se puede determinar el ángulo de la arista seleccionada en el objeto B.</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3125" />
-            <location filename="../../core/tools/constraint_tool.py" line="3312" />
-            <location filename="../../core/tools/constraint_tool.py" line="3326" />
+            <location filename="../../core/tools/constraint_tool.py" line="3121" />
+            <location filename="../../core/tools/constraint_tool.py" line="3308" />
+            <location filename="../../core/tools/constraint_tool.py" line="3322" />
             <source>Perpendicular Constraint</source>
             <translation>Restricción perpendicular</translation>
         </message>
@@ -13857,22 +13869,22 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
     <context>
         <name>SymmetryAxisDialog</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1449" />
+            <location filename="../../core/tools/constraint_tool.py" line="1454" />
             <source>Horizontal axis (mirror top/bottom)</source>
             <translation>Eje horizontal (reflejar arriba/abajo)</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1443" />
+            <location filename="../../core/tools/constraint_tool.py" line="1448" />
             <source>Mirror across axis:</source>
             <translation>Reflejar respecto al eje:</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1437" />
+            <location filename="../../core/tools/constraint_tool.py" line="1442" />
             <source>Set Symmetry Axis</source>
             <translation>Establecer eje de simetría</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1455" />
+            <location filename="../../core/tools/constraint_tool.py" line="1460" />
             <source>Vertical axis (mirror left/right)</source>
             <translation>Eje vertical (reflejar izquierda/derecha)</translation>
         </message>
@@ -13880,12 +13892,12 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
     <context>
         <name>SymmetryConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1502" />
+            <location filename="../../core/tools/constraint_tool.py" line="1507" />
             <source>Symmetry Constraint</source>
             <translation>Restricción de simetría</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="1615" />
+            <location filename="../../core/tools/constraint_tool.py" line="1620" />
             <source>⟺ SYM</source>
             <translation>⟺ SIM</translation>
         </message>
@@ -14235,17 +14247,17 @@ Open Garden Planner se cerrará cuando comience la instalación.
     <context>
         <name>VDistanceInputDialog</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3916" />
+            <location filename="../../core/tools/constraint_tool.py" line="3880" />
             <source>Current vertical distance: {distance:.2f} m</source>
             <translation>Distancia vertical actual: {distance:.2f} m</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3899" />
+            <location filename="../../core/tools/constraint_tool.py" line="3863" />
             <source>Enter the target vertical distance (meters):</source>
             <translation>Introduzca la distancia vertical objetivo (metros):</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="3893" />
+            <location filename="../../core/tools/constraint_tool.py" line="3857" />
             <source>Set Vertical Distance</source>
             <translation>Establecer distancia vertical</translation>
         </message>
@@ -14271,7 +14283,7 @@ Open Garden Planner se cerrará cuando comience la instalación.
     <context>
         <name>VerticalConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="452" />
+            <location filename="../../core/tools/constraint_tool.py" line="457" />
             <source>Vertical Constraint</source>
             <translation>Restricción vertical</translation>
         </message>
@@ -14279,12 +14291,12 @@ Open Garden Planner se cerrará cuando comience la instalación.
     <context>
         <name>VerticalDistanceConstraintTool</name>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="4063" />
+            <location filename="../../core/tools/constraint_tool.py" line="4027" />
             <source>Vertical Distance Constraint</source>
             <translation>Restricción de distancia vertical</translation>
         </message>
         <message>
-            <location filename="../../core/tools/constraint_tool.py" line="4096" />
+            <location filename="../../core/tools/constraint_tool.py" line="4060" />
             <source>↕ {d:.2f} m</source>
             <translation>↕ {d:.2f} m</translation>
         </message>

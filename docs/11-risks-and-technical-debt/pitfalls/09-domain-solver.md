@@ -404,3 +404,14 @@ and a returned-to-start angle is not a no-op if partner geometry changed.
 `test_bed_membership_reconciliation.py` pins FIXED children in move and
 one-shot constraint commands. The shared carry guard checks the constraint
 graph before applying any inherited translation.
+
+
+**PR #649 owner pass: creating orientation constraints also needs a lock gate.**
+The direct rotation-only branch never enters the position solver. A FIXED
+rectangle rotated 0 -> -41.309932 degrees when clicked second for a
+Perpendicular constraint. `has_rotation_constraint` only checks existing
+orientation relations, not FIXED. Both tools now plan their whole co-rotation
+group before execution, try the other free group, or refuse atomically.
+Pinned by `tests/integration/test_orientation_constraint_locks.py` (including
+real toolbar/viewport clicks). Independent endpoint vectors, not item angles,
+verify the requested parallel/perpendicular relation.

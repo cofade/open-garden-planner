@@ -3590,6 +3590,15 @@ angle with partner corrections), and the knowingly updated pinned suite
 `test_scene3d_base_stacking.py`; the full suite, ruff, bandit, the i18n gate and
 both frozen-exe checks ran before the draft PR.
 
+**Owner manual pass (2026-10-30).** Steps 1-4 and 6-8 confirmed. Step 5 found
+that creating a Perpendicular relation could rotate a FIXED second object.
+The shared orientation planner now preserves FIXED endpoints and chain
+members, rotates the other free group where possible, or refuses atomically.
+The new 58-case suite measures selected-edge geometry and includes a real
+application toolbar/viewport workflow with undo/redo and save/reload.
+Step 5 requires owner re-test on the rebuilt artifact; the other confirmations
+remain recorded. The suspected parallel result was not reproduced numerically.
+
 ### Every item with a footprint can be given a height (#628) — **shipped 2026-10-28 as v1.34.3, PR #627**
 
 The Properties panel's Height field was gated on has_height_semantics, whose last clause

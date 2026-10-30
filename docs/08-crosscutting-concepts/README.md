@@ -7622,3 +7622,12 @@ See `resources/examples/PROVENANCE.md` and `tests/integration/test_templates_gal
 The gallery tab hides Welcome's large banner. A bounded, scrollable details area
 keeps a complete card visible at 600 x 500 with 9/12 pt fonts in every locale;
 `tests/ui/test_template_gallery.py` pins the actual item/viewport rectangles.
+
+### Orientation-creation lock regression (PR #649 owner pass)
+
+`tests/integration/test_orientation_constraint_locks.py` drives registered
+Parallel/Perpendicular tool gestures with a FIXED endpoint or chain member.
+It measures the picked edges' scene-space endpoint vectors rather than their
+items' stored angles. The full-window test clicks the toolbar button and
+viewport midpoints, then checks one-step undo/redo and saved geometry on reload.
+Refusals must retain a pre-existing redo entry as well as graph and geometry.

@@ -955,3 +955,12 @@ sequenceDiagram
 A returned-to-start angle still records partner changes. A gesture with no
 angle or partner changes adds no history entry. Explicit child constraints
 outrank automatic bed carrying; containment is evaluated after geometry settles.
+
+### Creating an orientation constraint beside a locked object
+
+The Parallel and Perpendicular tools resolve the clicked edges, then ask the
+shared rotation planner for a payload. The planner first checks the entire
+orientation component for FIXED members and for the reference object. It
+returns a free group's co-rotations, or refuses before any graph write.
+AddConstraintCommand applies a successful plan and its membership changes in
+one undo entry. Undo/redo replay the recorded payload; no fresh solve is needed.
