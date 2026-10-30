@@ -22,6 +22,21 @@ test patterns: docs §8.10.9. What the ENGINE taught once it ran inside the real
   `LEAK_BOUND` + 0.6 × its OWN tile-texture bytes per release × releases per reload
   (the driver reports `ground_texture_mb`) — not with the bake off, not against a fixed
   ceiling (L1.5 review 3).
+- **#532 upstream: QTBUG-151940 (filed 2026-10-30); a Qt bump alone does not fix it.** Read on
+  2026-10-30, the `clear()` loop is unchanged in qtquick3d v6.11.3, v6.12.0 and `dev`
+  (eaf90eeb8c32). A single QML file attached to the report (`ProceduralTextureData` from
+  `QtQuick3D.Helpers`, no project code) leaks the same on 6.12.0 as on 6.11.0, run with the
+  official `qml.exe` 6.12.0 and with the PyQt6 6.11.0 / 6.12.0 wheels: 6 to 8 of 16 same-size
+  512² textures per release on D3D11 (hardware and WARP), Vulkan and OpenGL; none without the
+  release. The share depends on the process's `QHash` seed (`QT_HASH_SEED=0`: 6 of 16 in
+  every run). Re-check rule: docs §8.29.5 known limit 11 and TD-040. Two probe facts from
+  that work, both measured on 2026-10-30:
+  - `View3D.renderStats.textureDetails` (with `renderStats.extendedDataCollectionEnabled`)
+    has one row per `QRhiTexture` registered with the `QSSGRhiContext`. That count shows a
+    texture leak without reading GPU memory, and `imageDataSize` moves with it.
+  - Hardware D3D11 rendered ONE frame per run while the display slept (idle about 15 min,
+    session not locked), so every cycle showed no growth. WARP, Vulkan and OpenGL kept
+    presenting. A hardware probe must count `frameSwapped` and reject cycles without a frame.
 - **Qt keeps graphics state for every Model it ever drew — release it.** After a Model is
   destroyed, Qt Quick 3D still holds its cached per-draw-call state: about 62 kB per Model, about
   190 kB when it casts into the sun's two shadow cascades, independent of the mesh's size

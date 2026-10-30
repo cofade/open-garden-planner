@@ -6110,7 +6110,8 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     item through its cache, which cuts whatever a style draws beyond the item's bounding
     rectangle — the bars of a 30 cm metal fence reach 37.5 cm from the line, the rectangle 17 cm.
     Exports paint without the cache and show them whole; so does the ground.
-11. **OPEN (#532) — every cache release leaves about half of the ground's same-size tile
+11. **OPEN upstream ([QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940);
+    TD-040; #532 closed) — every cache release leaves about half of the ground's same-size tile
     textures behind, re-baked or not.** *Cause:* a Qt Quick 3D 6.11.0 bug, read in its source
     and proven by measurement (#532): `QSSGBufferManager::clear()`
     (`qssgrenderbuffermanager.cpp` ~2049–2052) walks `customTextureMap` with `++it` while
@@ -6142,8 +6143,21 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     release × releases per reload (11.7 MB on bench_small, so 21.7); a non-strict `xfail`
     tripwire holds the GPU slope to the plain 10 and passes the day the leak is gone (not
     strict: the leak reads about as much as the bound on this plan); the bake-off run stays
-    as Model churn alone, against the plain bound. *A fix:* upstream Qt (a report draft for the
-    owner, not filed), or a tile path outside the buffer manager's maps that passes G7.
+    as Model churn alone, against the plain bound. *A fix:* upstream Qt, or a tile path outside
+    the buffer manager's maps that passes G7. *Upstream:* filed on 2026-10-30 as
+    [QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940) (component Quick: 3D,
+    affects 6.11.0 and 6.12.0), with a single-file QML reproducer that does not use this
+    project and the owner's safeguards of #532. Read on 2026-10-30, the loop is unchanged in
+    qtquick3d v6.11.3, v6.12.0 and `dev` (eaf90eeb8c32), and the reproducer leaks the same on
+    6.12.0 as on 6.11.0 — a Qt bump alone does not fix it. How much leaks depends on the
+    process's `QHash` seed: 6 to 8 of 16 same-size 512² textures per release (`QT_HASH_SEED=0`:
+    6 in every run), 26 to 32 of 64 — below the gate's 0.6 share. *Re-check* (this entry and
+    TD-040 replace #532 as the tracker): on every Qt pin bump in `pyproject.toml`, look at
+    QTBUG-151940. When its fix version is at or below the new pin, run the G7 soak with the bake
+    on, read the tripwire (it passes once the leak is gone), drop or re-derive the allowance
+    (`KNOWN_532_SHARE` in `tests/integration/test_view3d_workspace_render.py`) and update this
+    entry. If Qt closes the report without a fix, record the reason here and in TD-040 and mark
+    the limitation permanent.
     *The first measurements, as taken* (before the cause was known — their "re-baked tiles
     only" reading is superseded above): the workspace calls `QQuickWindow.releaseResources()`
     when items lost their Models (ADR-060). When ground tiles were RE-BAKED before such a

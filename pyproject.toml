@@ -34,6 +34,9 @@ dependencies = [
     # ADR-038; that wheel pair left with Qt 3D in Phase 17 L1.10).
     # tests/unit/test_qt_runtime_pins.py fails CI if the two drift apart, if the
     # lock disagrees, or if Qt Quick 3D is not in what they pin.
+    # Before a bump, look at QTBUG-151940 (#532, TD-040): every releaseResources()
+    # keeps about half of the ground's same-size tile textures, unchanged through
+    # Qt 6.12.0. Re-check steps: docs/08-crosscutting-concepts §8.29.5 known limit 11.
     "PyQt6==6.11.0",
     "PyQt6-Qt6==6.11.0",
     "PyQt6-WebEngine>=6.10.0,<6.11",
