@@ -1043,5 +1043,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(3D): Visual polish and engine hardening package (#535, #578, #576, #619, #589, #582, #615)"
+  },
+  "649": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "fix(#443, #485): reconcile bed membership on every edit path and keep constrained rotations atomic"
   }
 }

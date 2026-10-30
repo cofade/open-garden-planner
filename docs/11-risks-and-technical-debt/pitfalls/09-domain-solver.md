@@ -384,7 +384,7 @@ The map stays at ground level; only the per-plant estimate changes its plane.
 
 - **Rule:** A gesture that changes an item's anchor positions (rotation) must run the live solver during the gesture and record every partner correction in the SAME command as the gesture's own change. "Skip the solver while rotating" is a decision, not an optimisation — it leaves a violated relation that the next unrelated move hides.
 - **Pinned by:** `tests/integration/test_constrained_rotation.py`
-- **Source:** #485, PR #NNN
+- **Source:** #485, PR #649
 - **Status:** standing
 - **Legacy:** none (new entry)
 

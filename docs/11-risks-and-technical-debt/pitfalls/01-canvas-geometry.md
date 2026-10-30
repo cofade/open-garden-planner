@@ -341,7 +341,7 @@ and exclusion from the texture interior against Qt's independent round stroke.
 
 - **Rule:** A relationship other surfaces read must be reconciled by EVERY edit path that can invalidate it, through one mutator and one geometric rule. Recompute membership inside the move/resize/rotate/vertex/copy command, so undo restores it in the same step — never at one call site; and scope a bed edit to the plants that bed can affect, or it will overrule a plant's deliberate link to another bed.
 - **Pinned by:** `tests/integration/test_bed_membership_reconciliation.py`; `tests/integration/test_scene3d_base_stacking.py`
-- **Source:** #443, PR #NNN
+- **Source:** #443, PR #649
 - **Status:** standing
 - **Legacy:** none (new entry)
 
