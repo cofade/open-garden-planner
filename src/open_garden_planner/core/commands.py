@@ -1476,7 +1476,11 @@ class RotateItemCommand(Command):
         self._membership = _membership_change_for_geometry(
             item.scene(),
             item,
-            [moved_item for moved_item, _before, _after in self._partner_moves],
+            [moved_item for moved_item, _before, _after in self._partner_moves]
+            + [
+                moved_item
+                for moved_item, _index, _before, _after in self._partner_vertex_moves
+            ],
         )
 
     @property
@@ -1892,6 +1896,7 @@ def _capture_bed_child_moves(
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
     moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
+    moved_ids = {id(item) for item, _old, _new in item_moves}
     for item, old, new in item_moves:
         scene = item.scene()
         if scene is None:
@@ -1906,7 +1911,9 @@ def _capture_bed_child_moves(
         delta = new - old
         for child_id in item.child_item_ids:
             child = finder(child_id)
-            if child is None:
+            if child is None or id(child) in moved_ids:
+                # The solver already gave this child its own absolute move;
+                # adding the bed's delta would move it twice (review round 3).
                 continue
             current = child.pos()
             moves.append((child, current, current + delta))
@@ -1950,18 +1957,28 @@ class AddConstraintCommand(Command):
         self._target_y = target_y
         self._child_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
         self._children_captured = False
-        scene = self._item_moves[0][0].scene() if self._item_moves else None
-        self._membership = _membership_change_for_move(
-            scene,
-            [item for item, _old, _new in self._item_moves]
-            + [item for item, _old_angle, _new_angle, _fn in self._item_rotations],
-        )
+        self._membership: BedMembershipChange | None = None
+
+    def _prepare_membership(self) -> None:
+        """Build the link tracker from the payload as it is NOW.
+
+        The constraint tools construct the command with an EMPTY payload, run a
+        trial ``execute()``/``undo()`` and only then inject ``_item_moves`` (the
+        shipped ``CanvasView._execute_constraint_with_solve`` path). Building the
+        tracker in ``__init__`` therefore missed the real moves — review round 3.
+        """
+        moved = [item for item, _old, _new in self._item_moves] + [
+            item for item, _old_angle, _new_angle, _fn in self._item_rotations
+        ]
+        scene = moved[0].scene() if moved else None
+        self._membership = _membership_change_for_move(scene, moved)
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Add constraint")
 
     def execute(self) -> None:
+        self._prepare_membership()
         c = self._graph.add_constraint(
             self._anchor_a,
             self._anchor_b,
@@ -2004,6 +2021,11 @@ class AddConstraintCommand(Command):
             item.setPos(old)
         for item, old_angle, _new_angle, apply_func in self._item_rotations:
             apply_func(item, old_angle)
+        # A later redo re-prepares from the payload and the restored links; the
+        # trial execute/undo of the constraint tool relies on this reset.
+        self._membership = None
+        self._children_captured = False
+        self._child_moves = []
 
 
 class RemoveConstraintCommand(Command):
@@ -2335,16 +2357,19 @@ class EditConstraintDistanceCommand(Command):
         self._vertex_moves: list[tuple[QGraphicsItem, int, QPointF, QPointF]] = []
         self._child_moves: list[tuple[QGraphicsItem, QPointF, QPointF]] = []
         self._children_captured = False
-        scene = self._item_moves[0][0].scene() if self._item_moves else None
-        self._membership = _membership_change_for_move(
-            scene, [item for item, _old, _new in self._item_moves]
-        )
+        self._membership: BedMembershipChange | None = None
+
+    def _prepare_membership(self) -> None:
+        moved = [item for item, _old, _new in self._item_moves]
+        scene = moved[0].scene() if moved else None
+        self._membership = _membership_change_for_move(scene, moved)
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Edit constraint distance")
 
     def execute(self) -> None:
+        self._prepare_membership()
         c = self._graph.constraints.get(self._constraint_id)
         if c:
             c.target_distance = self._new_distance
@@ -2374,6 +2399,9 @@ class EditConstraintDistanceCommand(Command):
                 item._move_vertex_to(idx, old_local)
         for item, old, _new in self._item_moves:
             item.setPos(old)
+        self._membership = None
+        self._children_captured = False
+        self._child_moves = []
 
 
 class SetParentBedCommand(Command):

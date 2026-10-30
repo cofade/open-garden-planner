@@ -1070,7 +1070,9 @@ class TestLinkAndLiftAskTheSamePoint:
         # after selecting: the window's companion check answers a selection change by
         # clearing the badge of a plant that has no antagonist near it
         plant.set_antagonist_warning(True)
-        window.canvas_view._update_plant_bed_relationships()
+        # The real drag-release helper (the click path no longer re-evaluates).
+        for command in window.canvas_view._plant_bed_link_commands():
+            window.canvas_view.command_manager.execute(command)
         assert plant.antagonist_warning
         assert plant.parent_bed_id == bed.item_id  # the badge no longer re-decides the link
 
@@ -1080,7 +1082,9 @@ class TestLinkAndLiftAskTheSamePoint:
             CreateItemCommand(window.canvas_scene, plant, "plant"))
         assert plant.parent_bed_id == bed.item_id
         plant.set_antagonist_warning(True)
-        assert window._agent_reconcile_bed_membership(plant) == (False, None)
+        # The prediction the agent's move uses to report the link outcome.
+        changed, new_parent, command = window._agent_reconcile_bed_membership_command(plant)
+        assert (changed, new_parent, command) == (False, None, None)
         assert plant.parent_bed_id == bed.item_id
 
     def test_link_is_geometric_and_the_lift_agree(self, window: Any) -> None:

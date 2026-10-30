@@ -748,4 +748,3 @@ class TestFullApplicationRotationWorkflow:
         assert loaded_a.rotation() == pytest.approx(60.0, abs=2.0)
         assert len(scene.constraint_graph.constraints) == 1
         assert _distance(loaded_a, 1, loaded_b, 0) == pytest.approx(target, abs=1.0)
-

@@ -3246,11 +3246,11 @@ class CanvasView(QGraphicsView):
 
     def _update_plant_bed_relationships(self) -> None:
         """Re-evaluate parent-child links for all selected plants at their CURRENT
-        positions (no drag in flight).
+        positions — an EXPLICIT re-evaluation helper (used by tests).
 
-        Each change is its own undo step here; a finished drag wraps the same
-        commands together with its move (``_plant_bed_link_commands`` +
-        ``CompoundCommand``), so one Ctrl+Z undoes both (#627).
+        Production edit paths now reconcile membership inside their own command
+        (issue #443), so a bare click no longer calls this: doing so would
+        overrule an explicit Link action the user made on purpose.
         """
         for command in self._plant_bed_link_commands():
             self._command_manager.execute(command)

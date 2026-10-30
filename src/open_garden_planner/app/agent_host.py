@@ -872,15 +872,6 @@ class AgentHost:
         return True, str(new_parent_id) if new_parent_id is not None else None, cmd
 
 
-    def _agent_reconcile_bed_membership(self, item: Any) -> tuple[bool, str | None]:
-        """Reconcile a plant's current membership through the shared command builder."""
-        host = self._host
-        changed, new_parent_id, cmd = host._agent_reconcile_bed_membership_command(item)
-        if cmd is not None:
-            host.canvas_view.command_manager.execute(cmd)
-        return changed, new_parent_id
-
-
     def _agent_item_center(self, item: Any) -> tuple[float, float]:
         """The object's centre in scene cm, using the SAME source the read tools do.
 

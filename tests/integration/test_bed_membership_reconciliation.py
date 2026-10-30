@@ -554,9 +554,14 @@ class TestThenTheFixHoldsEverywhere:
     def test_a_constraint_that_moves_a_bed_carries_its_plant(
         self, canvas: CanvasView
     ) -> None:
-        """One-shot solver moves carry a moved bed's plants (#443 (vi))."""
+        """The REAL constraint-tool path carries a moved bed's plants.
+
+        `_execute_constraint_with_solve` builds the command with an empty
+        payload, trial-executes, undoes, injects the solver moves and executes
+        again. A tracker built in the constructor missed all of that.
+        """
         from open_garden_planner.core.commands import AddConstraintCommand
-        from open_garden_planner.core.constraints import AnchorRef
+        from open_garden_planner.core.constraints import AnchorRef, ConstraintType
         from open_garden_planner.core.measure_snapper import AnchorType
 
         bed = _bed(canvas)
@@ -569,19 +574,21 @@ class TestThenTheFixHoldsEverywhere:
         canvas.command_manager.execute(CreateItemCommand(canvas.scene(), other, "other"))
         plant_before = QPointF(plant.pos())
         bed_before = QPointF(bed.pos())
+        undo_before = canvas.command_manager.undo_depth
         graph = canvas._canvas_scene.constraint_graph
-        move = QPointF(300.0, 0.0)
-        command = AddConstraintCommand(
-            graph,
-            AnchorRef(bed.item_id, AnchorType.CENTER),
-            AnchorRef(other.item_id, AnchorType.CENTER),
-            100.0,
-            item_moves=[(bed, bed_before, bed_before + move)],
+        canvas._execute_constraint_with_solve(
+            AddConstraintCommand(
+                graph,
+                AnchorRef(bed.item_id, AnchorType.CORNER, 0),
+                AnchorRef(other.item_id, AnchorType.CORNER, 0),
+                500.0,  # 300 cm shorter than the drawn distance
+                constraint_type=ConstraintType.DISTANCE,
+            )
         )
-        canvas.command_manager.execute(command)
 
-        assert bed.pos().x() == pytest.approx(bed_before.x() + 300.0)
-        assert plant.pos().x() == pytest.approx(plant_before.x() + 300.0)
+        assert canvas.command_manager.undo_depth == undo_before + 1
+        assert bed.pos().x() == pytest.approx(bed_before.x() + 300.0, abs=1.0)
+        assert plant.pos().x() == pytest.approx(plant_before.x() + 300.0, abs=1.0)
         assert plant.parent_bed_id == bed.item_id
         assert plant.item_id in bed.child_item_ids
 
@@ -589,6 +596,82 @@ class TestThenTheFixHoldsEverywhere:
         assert bed.pos().x() == pytest.approx(bed_before.x())
         assert plant.pos().x() == pytest.approx(plant_before.x())
         assert plant.parent_bed_id == bed.item_id
+
+    def test_a_rotation_only_constraint_payload_redecides_membership(
+        self, canvas: CanvasView
+    ) -> None:
+        """EQUAL/EDGE_LENGTH inject `_item_rotations` after construction."""
+        from open_garden_planner.core.commands import AddConstraintCommand
+        from open_garden_planner.core.constraints import AnchorRef
+        from open_garden_planner.core.measure_snapper import AnchorType
+        from open_garden_planner.ui.canvas.geometry_apply import apply_rotation
+
+        bed = RectangleItem(
+            400.0, 300.0, 600.0, 100.0,
+            object_type=ObjectType.RAISED_BED,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), bed, "bed"))
+        plant = _plant(canvas, 950.0, 350.0)  # near the east end
+        assert plant.parent_bed_id == bed.item_id
+        other = RectangleItem(
+            1200.0, 1200.0, 100.0, 100.0,
+            object_type=ObjectType.GENERIC_RECTANGLE,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), other, "other"))
+        graph = canvas._canvas_scene.constraint_graph
+
+        command = AddConstraintCommand(
+            graph,
+            AnchorRef(bed.item_id, AnchorType.CENTER),
+            AnchorRef(other.item_id, AnchorType.CENTER),
+            100.0,
+            item_rotations=[(bed, 0.0, 90.0, apply_rotation)],
+        )
+        canvas.command_manager.execute(command)
+
+        assert bed.rotation() == pytest.approx(90.0)
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+        canvas.command_manager.undo()
+        assert bed.rotation() == pytest.approx(0.0)
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+
+    def test_a_child_the_solver_also_moved_is_not_moved_twice(        self, canvas: CanvasView
+    ) -> None:
+        """A child in the solver's own move set must not also get the bed's delta."""
+        from open_garden_planner.core.commands import AddConstraintCommand
+        from open_garden_planner.core.constraints import AnchorRef
+        from open_garden_planner.core.measure_snapper import AnchorType
+
+        bed = _bed(canvas)
+        plant = _plant(canvas, 500.0, 400.0)
+        other = RectangleItem(
+            1200.0, 300.0, 100.0, 100.0,
+            object_type=ObjectType.GENERIC_RECTANGLE,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), other, "other"))
+        bed_before = QPointF(bed.pos())
+        plant_before = QPointF(plant.pos())
+        graph = canvas._canvas_scene.constraint_graph
+        command = AddConstraintCommand(
+            graph,
+            AnchorRef(bed.item_id, AnchorType.CENTER),
+            AnchorRef(other.item_id, AnchorType.CENTER),
+            100.0,
+            item_moves=[
+                (bed, bed_before, bed_before + QPointF(100.0, 0.0)),
+                (plant, plant_before, plant_before + QPointF(500.0, 0.0)),
+            ],
+        )
+        canvas.command_manager.execute(command)
+
+        assert plant.pos().x() == pytest.approx(plant_before.x() + 500.0)
+        # It also left the bed by its own move, so the link is re-decided.
+        assert plant.parent_bed_id is None
 
     def test_a_click_does_not_overrule_an_explicit_link(
         self, canvas: CanvasView, qtbot: object
@@ -687,5 +770,3 @@ class TestTheRealEditSurfaces:
         canvas.command_manager.undo()
         assert plant.parent_bed_id == bed.item_id
         assert plant.item_id in bed.child_item_ids
-
-

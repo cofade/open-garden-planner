@@ -3093,10 +3093,11 @@ association, else orphaned); contained plants are still detached, not
 deleted, matching the GUI's "Keep plants" choice. `move_object` mirrors
 `CanvasView`'s whole drag-release sequence — a bed/container/trellis's
 contained plants move with it (`AlignItemsCommand` over item+children), and a
-moved plant's bed membership is re-evaluated afterward (`SetParentBedCommand`
-on a boundary crossing) — so **one agent write is one undoable step for a lone
-item, and two when a move also reparents a plant**, never more; every command
-still marks the plan dirty (invariants #3/#4/#13; no parallel mutation path).
+moved plant's bed membership is re-evaluated inside the same move command
+(`MoveItemsCommand`/`AlignItemsCommand` reconcile it; #443) — so **one agent
+write is one undoable step, including a move that reparents a plant**, never
+more; every command still marks the plan dirty (invariants #3/#4/#13; no
+parallel mutation path).
 Both tools **refuse** (in the shared `_resolve_agent_item` chokepoint, so
 future write tools inherit it) rather than silently mishandle cases the agent
 could otherwise reach by resolving a UUID directly but the GUI forbids: an

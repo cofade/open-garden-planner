@@ -66,8 +66,11 @@ PRIMITIVES = U + "test_scene3d_builders_primitives.py"
 PALETTE = U + "test_scene3d_builders_palette.py"
 SHADOWS = U + "test_scene3d_shadow_agreement.py"
 
-#: The geometric centre of a plant, written out — what a link decision must NOT ask.
-_RECT_CENTRE = "item.mapToScene(item.rect().center())"
+#: The centre of a plant's decorated bounding rect — what a link decision must NOT
+#: ask. Deliberately ``boundingRect()``, not ``rect()``: for a CircleItem the
+#: rect's centre IS the standing point, so that spelling would be an equivalent
+#: mutant and could never be killed (review round 3).
+_RECT_CENTRE = "item.mapToScene(item.boundingRect().center())"
 
 
 @dataclass(frozen=True)
@@ -98,11 +101,6 @@ MUTANTS: tuple[Mutant, ...] = (
            "    point = standing_point(item)\n    if point is not None:\n        return point\n",
            "    return item.mapToScene(item.boundingRect().center())\n",
            (STACKING,), "TestLinkAndLiftAskTheSamePoint"),
-    Mutant("a footprint-less item's link point is its geometric centre (not the shipped fallback)",
-           SRC + "ui/canvas/footprints.py",
-           "    fallback: QPointF = item.mapToScene(item.boundingRect().center())\n",
-           "    fallback: QPointF = item.mapToScene(item.rect().center())\n",
-           (STACKING,), "TestLinkAndLiftAskTheSamePoint"),
     Mutant("auto-parenting (create, bulk create, paste) asks the bounding rect's centre",
            SRC + "core/commands.py",
            "    best_bed = find(bed_membership_point(item))\n",
@@ -122,7 +120,7 @@ MUTANTS: tuple[Mutant, ...] = (
            SRC + "app/agent_host.py",
            "            link_is_geometric = centre_is_inside(plant, bed)\n",
            "            link_is_geometric = bool(bed.contains(bed.mapFromScene(\n"
-           "                plant.mapToScene(plant.rect().center()))))\n",
+           "                plant.mapToScene(plant.boundingRect().center()))))\n",
            (STACKING,), "TestLinkAndLiftAskTheSamePoint"),
     Mutant("the walk's shape of a parent is its bounding rectangle",
            SRC + "ui/canvas/footprints.py",
