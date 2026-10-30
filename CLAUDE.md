@@ -263,9 +263,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   rotation is one atomic undo step) are in review (PR #649): one membership rule
   applied by the commands (ADR-037 addendum; PF-CAN-32) and a rotation that
   records its solver corrections (PF-DOM-30), including a returned-to-start
-  angle. Child constraints outrank implicit bed carrying. Both stay open until the owner's
-  manual pass. Owner steps 1-4 and 6-8 passed; step 5 awaits re-test of
-  FIXED-aware Parallel/Perpendicular creation.
+  angle. Child constraints outrank implicit bed carrying. The owner confirmed all
+  manual tests, including FIXED-aware Parallel/Perpendicular creation, and approved
+  finalization on 2026-10-30.
 - Touch/region/CI package (#321, #451, #540) shipped in v1.34.8 (PR #650): pinch and
   two-finger pan behind `canvas/touch_gestures_enabled`, the bridge search re-priced
   (`_BRIDGE_UNITS` 600; 110 touching holes refused in ~0.07 s, dearest work row 1.3–1.5),
