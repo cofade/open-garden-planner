@@ -363,12 +363,12 @@ def set_parent_link(
 
     The ONE geometry-driven mutator for the plant→bed relationship (issue #443):
     every edit path — creation, a move, a bed edit, a copy, the panel's Link
-    action, the agent — calls it, so ``parent_bed_id`` and the parent's
-    ``child_item_ids`` cannot drift apart. (A few deliberate writers remain
-    outside it and set the id directly: the loader's
-    ``_relink_parent_child_relationships``, delete snapshots/restores,
-    paste/duplicate's remap and the mirror tool's copy remap.) Returns whether
-    anything changed.
+    action, the panel's Link action, the agent — calls it, so ``parent_bed_id``
+    and the parent's ``child_item_ids`` cannot drift apart. (A few deliberate
+    writers remain outside it and set the id directly: the loader's
+    ``_relink_parent_child_relationships`` and ``_deserialize_item``, delete
+    snapshots/restores, paste/duplicate's remap and the mirror tool's
+    ``_stamp_identity``.) Returns whether anything changed.
     """
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
@@ -1967,9 +1967,11 @@ class AddConstraintCommand(Command):
         shipped ``CanvasView._execute_constraint_with_solve`` path). Building the
         tracker in ``__init__`` therefore missed the real moves — review round 3.
         """
-        moved = [item for item, _old, _new in self._item_moves] + [
-            item for item, _old_angle, _new_angle, _fn in self._item_rotations
-        ]
+        moved = (
+            [item for item, _old, _new in self._item_moves]
+            + [item for item, _old_angle, _new_angle, _fn in self._item_rotations]
+            + [item for item, _index, _old_local, _new_local in self._vertex_moves]
+        )
         scene = moved[0].scene() if moved else None
         self._membership = _membership_change_for_move(scene, moved)
 
@@ -2360,7 +2362,10 @@ class EditConstraintDistanceCommand(Command):
         self._membership: BedMembershipChange | None = None
 
     def _prepare_membership(self) -> None:
-        moved = [item for item, _old, _new in self._item_moves]
+        moved = (
+            [item for item, _old, _new in self._item_moves]
+            + [item for item, _index, _old_local, _new_local in self._vertex_moves]
+        )
         scene = moved[0].scene() if moved else None
         self._membership = _membership_change_for_move(scene, moved)
 

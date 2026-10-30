@@ -25,6 +25,9 @@ from open_garden_planner.core.constraints import AnchorRef, ConstraintType
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
 from open_garden_planner.ui.canvas import footprints
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.geometry_apply import (
+    apply_rotation,
+)
 from open_garden_planner.ui.canvas.items import CircleItem, PolygonItem, RectangleItem
 from open_garden_planner.ui.canvas.items.resize_handle import RotationHandle
 
@@ -327,6 +330,50 @@ class TestConstrainedRotationFollows:
         assert plant.pos().y() == pytest.approx(plant_before.y(), abs=0.01)
         assert bed.pos().x() == pytest.approx(bed_before.x(), abs=0.01)
         assert plant.parent_bed_id == bed.item_id
+
+    def test_a_rotation_that_deforms_a_partner_bed_redecides_its_plants(
+        self, canvas: CanvasView
+    ) -> None:
+        """Vertex-level partner corrections must re-decide a deformed bed's plants."""
+        from open_garden_planner.core.commands import RotateItemCommand
+        from open_garden_planner.core.object_types import ObjectType
+
+        bed = PolygonItem(
+            [QPointF(0.0, 0.0), QPointF(300.0, 0.0), QPointF(300.0, 200.0), QPointF(0.0, 200.0)],
+            object_type=ObjectType.RAISED_BED,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        bed.setPos(400.0, 300.0)
+        canvas.scene().addItem(bed)
+        plant = CircleItem(
+            690.0, 310.0, 15.0,
+            object_type=ObjectType.PERENNIAL,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        canvas.scene().addItem(plant)
+        from open_garden_planner.core.commands import CreateItemCommand
+
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), bed, "bed"))
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), plant, "plant"))
+        assert plant.parent_bed_id == bed.item_id
+        other = RectangleItem(0.0, 0.0, 100.0, 100.0)
+        other.setPos(1200.0, 900.0)
+        canvas.scene().addItem(other)
+
+        command = RotateItemCommand(
+            other, 0.0, 45.0, apply_rotation,
+            partner_vertex_moves=[
+                (bed, 1, QPointF(300.0, 0.0), QPointF(180.0, 0.0)),
+                (bed, 2, QPointF(300.0, 200.0), QPointF(180.0, 200.0)),
+            ],
+        )
+        canvas.command_manager.execute(command)
+
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
 
     def test_triangle_to_rectangle_corner_distance(
         self, canvas: CanvasView, qtbot: object

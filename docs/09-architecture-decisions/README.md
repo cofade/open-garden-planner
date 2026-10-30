@@ -1015,7 +1015,7 @@ The second write slice adds **`create_object(object_type, x, y, width?, height?,
 
 2. **The API speaks centres, both directions.** `x`/`y` are the object's centre in the read tools' own Y-up frame, so an agent can place relative to something it just read. Rectangles serialise anchor-based, so the conversion is `anchor = centre − extent/2` — chosen deliberately because it holds under either y-direction reading and therefore **cannot** introduce a Y-flip bug, the failure mode ADR-002/§8.20 keeps costing this project.
 
-3. **The bed-linking premise was wrong, and a probe is what caught it.** The design started from "the GUI's gallery-drop path never sets `parent_bed_id`, so a dropped plant stays unlinked until something moves it" — read off the `CanvasView` drop handler, which indeed contains no linking code. The plan was therefore to reconcile membership explicitly after creating (as `move_object` must), accepting a deliberate divergence from the GUI. **A failing test then contradicted it**, and instrumenting the real path showed the new plant *already* carried the correct `parent_bed_id` before the reconcile ran: `CreateItemCommand.execute` calls `_auto_parent_plant`, and `undo` calls `_detach_from_parent` (`core/commands.py`). The linking is one layer below where it was looked for. Consequences: the reconcile call was **removed as dead code** (it could only ever return "unchanged"), `create_object` always produces **exactly one undo-stack entry** — unlike `move_object`, whose `MoveItemsCommand` has no such hook — and `WriteResult.bed_membership_changed` is documented as strictly meaning "a *second* undo step happened", with the new plant's parent reported via `new_parent_bed_id` instead. The general lesson is the project's own: **verify the premise against the running code before designing around it** — reading the obvious call site was not the same as measuring the behaviour.
+3. **The bed-linking premise was wrong, and a probe is what caught it.** The design started from "the GUI's gallery-drop path never sets `parent_bed_id`, so a dropped plant stays unlinked until something moves it" — read off the `CanvasView` drop handler, which indeed contains no linking code. The plan was therefore to reconcile membership explicitly after creating (as `move_object` must), accepting a deliberate divergence from the GUI. **A failing test then contradicted it**, and instrumenting the real path showed the new plant *already* carried the correct `parent_bed_id` before the reconcile ran: `CreateItemCommand.execute` calls `_auto_parent_plant`, and `undo` calls `_detach_from_parent` (`core/commands.py`). The linking is one layer below where it was looked for. Consequences: the reconcile call was **removed as dead code** (it could only ever return "unchanged"), and `create_object` always produces **exactly one undo-stack entry**. At the time of that review `move_object` had no such hook and produced a second entry when it reparented; since #635/#443 the move command reconciles membership itself, so it is one step too, and `WriteResult.bed_membership_changed` means "the addressed plant's parent changed", not "a second step happened". The general lesson is the project's own: **verify the premise against the running code before designing around it** — reading the obvious call site was not the same as measuring the behaviour.
 
 Note that "one undo-stack entry" is a claim about the *stack*, not about total side effects: creating on a **hidden** active layer silently un-hides it (`QGraphicsScene.addItem` does this for the GUI's draw tools too) and undo does not re-hide it. Pre-existing GUI behaviour rather than a D2.1 regression, but it sits oddly beside the deliberate locked-layer refusal, so it is stated in §8.19 and FR-AGENT-14 rather than left to be discovered.
 
@@ -1213,11 +1213,18 @@ badge moves by up to 1.8 cm per axis, so it could disagree with the lift.
    arrow keys, typed coordinates, align/distribute and constraint propagation)
    and expand a moved plant-parent with its children; ``ResizeItemCommand`` and
    ``RotateItemCommand`` carry a ``BedMembershipChange`` tracker for a plant or
-   plant-parent edit; the live-applied drag paths (resize, corner edit, vertex
-   edit) go through ``register_applied_with_membership``; the create, paste,
-   duplicate, array and mirror commands reconcile the items they add; a new
-   bed reconciles the plants that already stood where it lands. ``undo``
-   restores the recorded links, so one Ctrl+Z reverses geometry AND membership.
+   plant-parent edit; ``AddConstraintCommand`` and
+   ``EditConstraintDistanceCommand`` build that tracker from the payload —
+   moves, rotations AND vertex moves — at each ``execute``, because the
+   constraint tools trial-execute, undo and only then inject the solver payload;
+   the live-applied drag paths (resize, corner edit, vertex edit) go through
+   ``register_applied_with_membership``; the create, paste, duplicate, array and
+   mirror commands reconcile the items they add; a new bed reconciles the plants
+   that already stood where it lands. ``undo`` restores the recorded links, so
+   one Ctrl+Z reverses geometry AND membership. (The properties panel's trailing
+   live constraint-solver pass and the fillet/chamfer + object-type conversions
+   are not routed through this yet; the next edit of the plant or its parent bed
+   re-decides them.)
 4. **A copy never inherits its source's link.** Array, mirror-copy and paste
    paths drop the serialised link for plants and let geometry decide; a
    non-plant child's deliberate remap (mirror of a bed with its contents) is

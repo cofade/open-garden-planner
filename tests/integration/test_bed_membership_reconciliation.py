@@ -299,7 +299,8 @@ class TestCopiesAndExplicitLinks:
         assert plant.parent_bed_id == far_bed.item_id
         assert plant.item_id in far_bed.child_item_ids
 
-    def test_an_explicit_link_survives_until_the_plant_moves(        self, canvas: CanvasView
+    def test_an_explicit_link_survives_until_the_plant_moves(
+        self, canvas: CanvasView
     ) -> None:
         """The panel/agent Link action may link a plant that is not in the bed
         (``link_is_geometric: false``) — that is a user decision, not a stale link.
@@ -639,7 +640,96 @@ class TestThenTheFixHoldsEverywhere:
         assert plant.parent_bed_id == bed.item_id
         assert plant.item_id in bed.child_item_ids
 
-    def test_a_child_the_solver_also_moved_is_not_moved_twice(        self, canvas: CanvasView
+    def test_a_vertex_only_constraint_payload_redecides_membership(
+        self, canvas: CanvasView
+    ) -> None:
+        """EDGE_LENGTH injects `_vertex_moves` only — the bed's plants follow."""
+        from open_garden_planner.core.commands import AddConstraintCommand
+        from open_garden_planner.core.constraints import AnchorRef
+        from open_garden_planner.core.measure_snapper import AnchorType
+
+        scene = canvas.scene()
+        bed = PolygonItem(
+            [QPointF(0.0, 0.0), QPointF(300.0, 0.0), QPointF(300.0, 200.0), QPointF(0.0, 200.0)],
+            object_type=ObjectType.RAISED_BED,
+            layer_id=scene.active_layer.id,
+        )
+        bed.setPos(400.0, 300.0)
+        canvas.command_manager.execute(CreateItemCommand(scene, bed, "bed"))
+        plant = _plant(canvas, 690.0, 310.0)  # near the east edge
+        assert plant.parent_bed_id == bed.item_id
+        other = RectangleItem(
+            1200.0, 1200.0, 100.0, 100.0,
+            object_type=ObjectType.GENERIC_RECTANGLE,
+            layer_id=scene.active_layer.id,
+        )
+        canvas.command_manager.execute(CreateItemCommand(scene, other, "other"))
+        graph = scene.constraint_graph
+
+        command = AddConstraintCommand(
+            graph,
+            AnchorRef(bed.item_id, AnchorType.CENTER),
+            AnchorRef(other.item_id, AnchorType.CENTER),
+            100.0,
+        )
+        command._vertex_moves = [
+            (bed, 1, QPointF(300.0, 0.0), QPointF(180.0, 0.0)),
+            (bed, 2, QPointF(300.0, 200.0), QPointF(180.0, 200.0)),
+        ]
+        canvas.command_manager.execute(command)
+
+        assert plant.parent_bed_id is None
+        assert plant.item_id not in bed.child_item_ids
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id == bed.item_id
+        assert plant.item_id in bed.child_item_ids
+
+    def test_an_edited_distance_with_a_vertex_move_redecides_membership(
+        self, canvas: CanvasView
+    ) -> None:
+        """The panel injects `_vertex_moves` into EditConstraintDistanceCommand."""
+        from open_garden_planner.core.commands import EditConstraintDistanceCommand
+        from open_garden_planner.core.constraints import AnchorRef
+        from open_garden_planner.core.measure_snapper import AnchorType
+
+        scene = canvas.scene()
+        bed = PolygonItem(
+            [QPointF(0.0, 0.0), QPointF(300.0, 0.0), QPointF(300.0, 200.0), QPointF(0.0, 200.0)],
+            object_type=ObjectType.RAISED_BED,
+            layer_id=scene.active_layer.id,
+        )
+        bed.setPos(400.0, 300.0)
+        canvas.command_manager.execute(CreateItemCommand(scene, bed, "bed"))
+        plant = _plant(canvas, 690.0, 310.0)
+        assert plant.parent_bed_id == bed.item_id
+        other = RectangleItem(
+            1200.0, 1200.0, 100.0, 100.0,
+            object_type=ObjectType.GENERIC_RECTANGLE,
+            layer_id=scene.active_layer.id,
+        )
+        canvas.command_manager.execute(CreateItemCommand(scene, other, "other"))
+        graph = scene.constraint_graph
+        constraint = graph.add_constraint(
+            AnchorRef(bed.item_id, AnchorType.CENTER),
+            AnchorRef(other.item_id, AnchorType.CENTER),
+            100.0,
+        )
+
+        command = EditConstraintDistanceCommand(
+            graph, constraint.constraint_id, 100.0, 120.0
+        )
+        command._vertex_moves = [
+            (bed, 1, QPointF(300.0, 0.0), QPointF(180.0, 0.0)),
+            (bed, 2, QPointF(300.0, 200.0), QPointF(180.0, 200.0)),
+        ]
+        canvas.command_manager.execute(command)
+
+        assert plant.parent_bed_id is None
+        canvas.command_manager.undo()
+        assert plant.parent_bed_id == bed.item_id
+
+    def test_a_child_the_solver_also_moved_is_not_moved_twice(
+        self, canvas: CanvasView
     ) -> None:
         """A child in the solver's own move set must not also get the bed's delta."""
         from open_garden_planner.core.commands import AddConstraintCommand

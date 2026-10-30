@@ -3578,12 +3578,13 @@ cannot reverse; the owner's skipped-undo report itself was not reproduced and
 its root cause is not claimed. ADR-037 addendum, §11.4.
 
 **Validation.** New suites `tests/integration/test_bed_membership_reconciliation.py`
-(21 tests, including the Properties-panel resize, the agent `set_vertex` path,
-the mirror-Move undo/redo, EQUAL-partner resizes, one-shot solver moves, the
-click path and unrelated-bed scoping) and
-`tests/integration/test_constrained_rotation.py` (14, including the
-full-application rotate → save → reload workflow, partner plants/beds and a real
-swallowed release), and the knowingly updated pinned suite
+(25 tests, including the Properties-panel resize, the agent `set_vertex` path,
+mirror-Move undo/redo, EQUAL-partner resizes, the real constraint-tool path
+with move/rotation/vertex payloads, one-shot solver moves, the click path and
+unrelated-bed scoping) and
+`tests/integration/test_constrained_rotation.py` (15, including the
+full-application rotate → save → reload workflow, partner plants/beds/vertices
+and a real swallowed release), and the knowingly updated pinned suite
 `test_scene3d_base_stacking.py`; the full suite, ruff, bandit, the i18n gate and
 both frozen-exe checks ran before the draft PR.
 

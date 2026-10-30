@@ -419,11 +419,10 @@ class PlanLifecycleResult(BaseModel):
 # (ADR-033/ADR-036) and runs on the Qt main thread via the same commands the GUI
 # itself uses. WriteResult is
 # the curated confirmation returned to the agent — decoupled from the .ogp
-# serializer. move_object/set_object_position are ONE undo step for a lone item
-# and for a bed whose children travel in the same command, but — mirroring
-# CanvasView's own drag-release behaviour — TWO when placement also crosses a bed
-# boundary and reparents a plant; children_moved/bed_membership_changed/
-# new_parent_bed_id surface that.
+# serializer. Every write is ONE undo step, including a move/placement that
+# crosses a bed boundary and reparents a plant (the move command reconciles
+# membership in the same step since #443); children_moved/
+# bed_membership_changed/new_parent_bed_id surface what it did.
 
 
 class WriteResult(BaseModel):
