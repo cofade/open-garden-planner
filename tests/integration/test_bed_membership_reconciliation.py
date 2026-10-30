@@ -926,8 +926,14 @@ def test_implicit_bed_move_preserves_constrained_child(
         event = QKeyEvent(QKeyEvent.Type.KeyPress, Qt.Key.Key_Right, Qt.KeyboardModifier.ShiftModifier)
         canvas._move_selected_items(event)
     elif path == "agent":
-        result = window._agent_move_object(str(bed.item_id), 700.0, 0.0)
-        assert result["children_moved"] == 0
+        with pytest.raises(ValueError, match="constraint"):
+            window._agent_move_object(str(bed.item_id), 700.0, 0.0)
+        assert plant.pos() == plant_before
+        assert bed.pos() == bed_before
+        assert plant.parent_bed_id == bed.item_id
+        assert canvas.command_manager.undo_depth == depth_before
+        assert canvas.command_manager.redo_depth == 0
+        return
     else:
         canvas._drag_start_positions = {bed: QPointF(bed.pos())}
         bed.moveBy(700.0, 0.0)

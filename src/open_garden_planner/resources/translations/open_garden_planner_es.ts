@@ -1441,7 +1441,7 @@
             <translation>Alinear arriba</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2814" />
+            <location filename="../../app/agent_host.py" line="2825" />
             <location filename="../../core/commands.py" line="1328" />
             <source>Apply species data</source>
             <translation>Aplicar datos de la especie</translation>
@@ -5125,17 +5125,17 @@ Proyecto original: {original_file}
             <translation>Herramienta activa</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3612" />
+            <location filename="../../app/agent_host.py" line="3623" />
             <source>Agent API failed to start (see log)</source>
             <translation>Error al iniciar la API del agente (consulte el registro)</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3617" />
+            <location filename="../../app/agent_host.py" line="3628" />
             <source>Agent API running at {url}</source>
             <translation>API del agente ejecutándose en {url}</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3604" />
+            <location filename="../../app/agent_host.py" line="3615" />
             <source>Agent API: port {port} is already in use</source>
             <translation>API del agente: el puerto {port} ya está en uso</translation>
         </message>
@@ -6006,7 +6006,7 @@ Por favor, reinicie la aplicación para aplicar el cambio.</translation>
             <translation>Seleccione un área en Google Maps y cárguela como fondo satelital a escala real</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="1871" />
+            <location filename="../../app/agent_host.py" line="1882" />
             <source>Plan-wide default</source>
             <translation>Predeterminado de todo el plano</translation>
         </message>
@@ -6096,7 +6096,7 @@ Por favor, reinicie la aplicación para aplicar el cambio.</translation>
             <translation>Registrar el servidor MCP de este plano con su asistente de IA</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2159" />
+            <location filename="../../app/agent_host.py" line="2170" />
             <source>Remove soil test</source>
             <translation>Eliminar análisis de suelo</translation>
         </message>

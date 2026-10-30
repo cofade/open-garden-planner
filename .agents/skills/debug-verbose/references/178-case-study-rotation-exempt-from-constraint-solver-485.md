@@ -97,9 +97,13 @@ it unchanged and before adding implicit movement after a constraint solve.
 
 **Review round 5.** Direct bed drag still re-added a FIXED child at release:
 `[DRAG] before release child=(0,0); after release child=(200,0)`.
-The release collector and older keyboard/agent expansions had bypassed the
+The release collector and older keyboard expansion had bypassed the
 new command guard by presenting inherited moves as explicit moves. They now
-use the same eligibility predicate; the agent delegates expansion itself to
-`expand_with_bed_children`. The full-application regression parametrises
-nudge/drag/agent over FIXED and independent DISTANCE child constraints,
-checks `children_moved == 0` for the agent, and checks one-step undo/redo.
+use the same eligibility predicate. The agent keeps its established stricter
+preflight: it considers every child and refuses the entire bed move if any
+child is constrained. A full-suite regression exposed that filtering the
+agent payload first would silently relax this refusal contract; that change
+was removed. The full-application regression parametrises nudge/drag/agent
+over FIXED and independent DISTANCE child constraints. It checks GUI
+one-step undo/redo and verifies that agent refusal changes neither geometry
+nor history.

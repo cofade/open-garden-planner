@@ -1465,7 +1465,7 @@
             <translation>Oben ausrichten</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2814" />
+            <location filename="../../app/agent_host.py" line="2825" />
             <location filename="../../core/commands.py" line="1328" />
             <source>Apply species data</source>
             <translation>Artdaten anwenden</translation>
@@ -5332,17 +5332,17 @@ Möchten Sie diese Datei wiederherstellen?</translation>
             <translation>Aktives Werkzeug</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3612" />
+            <location filename="../../app/agent_host.py" line="3623" />
             <source>Agent API failed to start (see log)</source>
             <translation>Agent-API konnte nicht gestartet werden (siehe Protokoll)</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3617" />
+            <location filename="../../app/agent_host.py" line="3628" />
             <source>Agent API running at {url}</source>
             <translation>Agent-API läuft unter {url}</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3604" />
+            <location filename="../../app/agent_host.py" line="3615" />
             <source>Agent API: port {port} is already in use</source>
             <translation>Agent-API: Port {port} wird bereits verwendet</translation>
         </message>
@@ -6253,7 +6253,7 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
             <translation>Bereich auf Google Maps auswählen und maßstabsgetreu als Satellitenbild laden</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="1871" />
+            <location filename="../../app/agent_host.py" line="1882" />
             <source>Plan-wide default</source>
             <translation>Gesamter Plan</translation>
         </message>
@@ -6343,7 +6343,7 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
             <translation>Den MCP-Server dieses Plans mit Ihrem KI-Assistenten registrieren</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2159" />
+            <location filename="../../app/agent_host.py" line="2170" />
             <source>Remove soil test</source>
             <translation>Bodenprobe entfernen</translation>
         </message>

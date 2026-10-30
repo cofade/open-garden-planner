@@ -1250,7 +1250,9 @@ badge moves by up to 1.8 cm per axis, so it could disagree with the lift.
    children inherit the parent's translation. This includes FIXED and zero-delta
    solver results. The shared `bed_child_has_constraints` predicate applies to
    live propagation, move/align expansion and one-shot constraint commands.
-   Membership is reconciled against the resulting geometry.
+   Membership is reconciled against the resulting geometry. The agent's
+   existing preflight remains stricter: a bed move with any constrained child
+   refuses the entire operation before geometry or history can change.
 9. **No-op means the complete gesture is unchanged.** Returning a rotation to
    its initial angle can leave partner translations or vertex corrections.
    Such changes still produce one undo entry; a click without any geometry

@@ -1445,7 +1445,7 @@
             <translation>Align top</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2814" />
+            <location filename="../../app/agent_host.py" line="2825" />
             <location filename="../../core/commands.py" line="1328" />
             <source>Apply species data</source>
             <translation>Apply species data</translation>
@@ -5260,17 +5260,17 @@ Would you like to recover this file?</translation>
             <translation>Active tool</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3612" />
+            <location filename="../../app/agent_host.py" line="3623" />
             <source>Agent API failed to start (see log)</source>
             <translation>Agent API failed to start (see log)</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3617" />
+            <location filename="../../app/agent_host.py" line="3628" />
             <source>Agent API running at {url}</source>
             <translation>Agent API running at {url}</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3604" />
+            <location filename="../../app/agent_host.py" line="3615" />
             <source>Agent API: port {port} is already in use</source>
             <translation>Agent API: port {port} is already in use</translation>
         </message>
@@ -6161,7 +6161,7 @@ Please restart the application for the change to take effect.</translation>
             <translation>Pick an area on Google Maps and load it as a true-to-scale satellite background</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="1871" />
+            <location filename="../../app/agent_host.py" line="1882" />
             <source>Plan-wide default</source>
             <translation>Plan-wide default</translation>
         </message>
@@ -6251,7 +6251,7 @@ Please restart the application for the change to take effect.</translation>
             <translation>Register this plan's MCP server with your AI assistant</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2159" />
+            <location filename="../../app/agent_host.py" line="2170" />
             <source>Remove soil test</source>
             <translation>Remove soil test</translation>
         </message>
