@@ -3310,8 +3310,8 @@ rest of the curated object surface addresses only top-level ids.
 Four writes share the ADR-036 gate. `set_object_position(item_id, x, y)`
 validates a finite, canvas-reachable absolute centre, converts it to a delta, and
 enters the same orchestration as `move_object`: logical bed children move with
-the parent, plant bed membership is reconciled, and the documented reparent case
-remains the only two-step move. `set_vertex`, `add_vertex`, and `delete_vertex`
+the parent, plant bed membership is reconciled inside that same move command
+(#443), and a reparent is therefore ONE undo step, not a second one. `set_vertex`, `add_vertex`, and `delete_vertex`
 support only the polygon/polyline protocol. Qt-free `agent_api/edits.py` owns
 finite/reachable point validation, zero-based index semantics (an append uses
 `index == vertex_count`), and the deletion minimum supplied by the item's

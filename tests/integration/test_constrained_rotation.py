@@ -23,6 +23,7 @@ from PyQt6.QtTest import QTest
 from open_garden_planner.core.commands import AddConstraintCommand
 from open_garden_planner.core.constraints import AnchorRef, ConstraintType
 from open_garden_planner.core.measure_snapper import AnchorType, get_anchor_points
+from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas import footprints
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.geometry_apply import (
@@ -130,6 +131,18 @@ def _base(canvas: CanvasView, plant: CircleItem) -> float:
     from open_garden_planner.ui.view3d.snapshot import snapshot_records
 
     return snapshot_records(canvas.scene())[str(plant.item_id)].transform.base_cm
+
+
+def _distance_between_points(a: QPointF, b: QPointF) -> float:
+    return math.hypot(b.x() - a.x(), b.y() - a.y())
+
+
+def _all_vertices(item: object) -> list[QPointF]:
+    count = int(item._get_vertex_count())  # type: ignore[attr-defined]
+    return [
+        QPointF(item._get_vertex_position(i))  # type: ignore[attr-defined]
+        for i in range(count)
+    ]
 
 
 class TestConstrainedRotationFollows:
@@ -330,6 +343,63 @@ class TestConstrainedRotationFollows:
         assert plant.pos().y() == pytest.approx(plant_before.y(), abs=0.01)
         assert bed.pos().x() == pytest.approx(bed_before.x(), abs=0.01)
         assert plant.parent_bed_id == bed.item_id
+
+    def test_a_live_rotation_records_a_deformable_partner_s_vertex_corrections(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """The real gesture path records the solver's vertex corrections (#485)."""
+        bed = PolygonItem(
+            [QPointF(0.0, 0.0), QPointF(400.0, 0.0), QPointF(400.0, 200.0), QPointF(0.0, 200.0)],
+            object_type=ObjectType.RAISED_BED,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        bed.setPos(700.0, 300.0)
+        canvas.scene().addItem(bed)
+        plant = CircleItem(
+            750.0, 400.0, 15.0,
+            object_type=ObjectType.PERENNIAL,
+            layer_id=canvas.scene().active_layer.id,
+        )
+        canvas.scene().addItem(plant)
+        from open_garden_planner.core.commands import CreateItemCommand
+
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), bed, "bed"))
+        canvas.command_manager.execute(CreateItemCommand(canvas.scene(), plant, "plant"))
+        assert plant.parent_bed_id == bed.item_id
+
+        rect = RectangleItem(0.0, 0.0, 100.0, 100.0)
+        rect.setPos(300.0, 300.0)
+        canvas.scene().addItem(rect)
+        graph = canvas._canvas_scene.constraint_graph
+        # Two distinct vertex anchors make the bed deformable.
+        for corner_index in (0, 1):
+            target = _distance_between_points(
+                _anchor(rect, AnchorType.CORNER, corner_index),
+                _anchor(bed, AnchorType.CORNER, corner_index),
+            )
+            canvas._execute_constraint_with_solve(
+                AddConstraintCommand(
+                    graph,
+                    AnchorRef(rect.item_id, AnchorType.CORNER, corner_index),
+                    AnchorRef(bed.item_id, AnchorType.CORNER, corner_index),
+                    target,
+                    constraint_type=ConstraintType.DISTANCE,
+                )
+            )
+        _show(canvas, qtbot)
+        canvas.centerOn(rect.mapToScene(rect.rect().center()))
+        rect.setSelected(True)
+        qtbot.wait(20)  # type: ignore[attr-defined]
+        vertices_before = [QPointF(p) for p in _all_vertices(bed)]
+
+        _rotate(canvas, rect, 40.0, qtbot)
+
+        last = canvas.command_manager._undo_stack[-1]
+        assert last._partner_vertex_moves, (
+            "the live gesture must record the deformable partner's vertex corrections"
+        )
+        canvas.command_manager.undo()
+        assert _all_vertices(bed) == vertices_before
 
     def test_a_rotation_that_deforms_a_partner_bed_redecides_its_plants(
         self, canvas: CanvasView

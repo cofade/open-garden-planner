@@ -363,12 +363,14 @@ def set_parent_link(
 
     The ONE geometry-driven mutator for the plant→bed relationship (issue #443):
     every edit path — creation, a move, a bed edit, a copy, the panel's Link
-    action, the panel's Link action, the agent — calls it, so ``parent_bed_id``
+    action, the agent — calls it, so ``parent_bed_id``
     and the parent's ``child_item_ids`` cannot drift apart. (A few deliberate
     writers remain outside it and set the id directly: the loader's
     ``_relink_parent_child_relationships`` and ``_deserialize_item``, delete
-    snapshots/restores, paste/duplicate's remap and the mirror tool's
-    ``_stamp_identity``.) Returns whether anything changed.
+    snapshots/restores, paste/duplicate's remap, and the mirror tool's
+    ``_remap_parent_links`` / ``_stamp_identity``.) Returns whether anything
+    changed. This docstring is the authoritative direct-writer list; prose
+    elsewhere points here.
     """
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 

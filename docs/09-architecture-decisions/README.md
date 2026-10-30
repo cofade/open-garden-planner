@@ -1204,10 +1204,10 @@ badge moves by up to 1.8 cm per axis, so it could disagree with the lift.
    sets ``parent_bed_id`` and the parent's ``child_item_ids`` together (and heals
    a stale id whose child list never got it). ``_auto_parent_plant``,
    ``SetParentBedCommand``, the neighbourhood reconcile and every command below
-   call it. A few deliberate writers still set the id directly and are named
-   here so the claim stays true: the loader's
-   ``_relink_parent_child_relationships``, delete snapshots/restores, the
-   paste/duplicate remap and the mirror tool's copy remap.
+   call it. A few deliberate writers still set the id directly; the
+   authoritative list is ``set_parent_link``'s docstring (the loader, delete
+   snapshots/restores, the paste/duplicate remap, and the mirror tool's remap
+   and identity stamp).
 3. **Every edit path applies it, in the same undo step.**
    ``MoveItemsCommand``/``AlignItemsCommand`` reconcile after moving (covering
    arrow keys, typed coordinates, align/distribute and constraint propagation)
