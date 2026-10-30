@@ -1056,7 +1056,7 @@ class CanvasView(QGraphicsView):
         with) whatever the first finger landed on. The live half is undone
         first — a moved item is put back and its pending undo step never exists —
         then the tool's own ``cancel()`` discards a half-made shape, and the
-        release ends the interaction where it began. A resize/rotate handle is
+        release ends the interaction where it began. A resize/rotate/vertex handle is
         the one thing not reverted: its normal release finalizes the edit as one
         undo step (§8.9.12).
         """

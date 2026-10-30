@@ -558,9 +558,11 @@ the same `_zoom_at`.
 `QPinchGesture` subclass can override the read-only `state()`, so
 `tests/integration/test_touch_gestures.py` drives the real `eventFilter` with
 synthetic started/updated/finished gestures (zoom ×2 anchored within 1 px, both
-clamps, pure pan, a combined pan+pinch within 2 px, finishing and re-adopting,
-and the setting off). A real touchscreen's **delivery** is still the owner's
-manual test; a headless process cannot produce one.
+clamps, pure pan, a combined pan+pinch within 2 px, the press released at its own
+point, a dragged item put back with no undo step, a selection restored, a handle
+drag keeping its anchored corner and exactly one resize step, finishing and
+re-adopting, and the setting off). A real touchscreen's **delivery** is still the
+owner's manual test; a headless process cannot produce one.
 
 ## 8.10 Integration Test Policy
 

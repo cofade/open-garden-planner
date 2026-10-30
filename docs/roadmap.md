@@ -3669,8 +3669,9 @@ Three independent gaps in what the application promises, closed together on one 
    (`canvas/touch_gestures_enabled`, default on); with it off no gesture is grabbed
    at all. Tests drive the real `eventFilter` with synthetic
    `QPinchGesture`/`QGestureEvent`s (PyQt6 constructs both), one moves the window
-   off the origin so the global-to-viewport mapping is exercised, and two pin the
-   outcome (a dragged item is back with no undo step; a cleared selection returns);
+   off the origin so the global-to-viewport mapping is exercised, and three pin the
+   outcome (a dragged item is back with no undo step; a cleared selection returns;
+   a handle drag keeps its anchored corner and one resize step);
    real touchscreen delivery is the manual test on hardware (the issue's sovereign
    test). A window-level test covers the startup and Preferences apply paths,
    because that wiring is one line a future refactor can delete. See FR-CANVAS-04
