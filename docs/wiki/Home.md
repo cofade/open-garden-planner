@@ -123,6 +123,10 @@ touch gestures, region-work pricing and the render tier's workspace rows in
 [v1.34.8](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.8) via
 [PR #650](https://github.com/cofade/open-garden-planner/pull/650).
 
+Bed membership reconciliation and atomic constrained rotations (#443, #485) shipped in
+[v1.34.9](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.9) via [PR #649](https://github.com/cofade/open-garden-planner/pull/649) after full owner manual acceptance.
+Parallel/Perpendicular creation preserves locked objects and marks the selected edge.
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

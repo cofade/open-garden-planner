@@ -259,13 +259,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   arc 25% near-half fade & constant width, ground slope clamp 0.22, interior wood
   floor & solid bed plants & generic ground shapes under Cutaway, Cutaway shader
   pre-warming (`shaderWarmer`), and ground-bake benchmark contract alignment.
-- #443/#485 (bed membership reconciled by every edit path; a constrained
-  rotation is one atomic undo step) are in review (PR #649): one membership rule
-  applied by the commands (ADR-037 addendum; PF-CAN-32) and a rotation that
-  records its solver corrections (PF-DOM-30), including a returned-to-start
-  angle. Child constraints outrank implicit bed carrying. The owner confirmed all
-  manual tests, including FIXED-aware Parallel/Perpendicular creation, and approved
-  finalization on 2026-10-30.
+- #443/#485 shipped in v1.34.9 (PR #649) after full owner manual acceptance:
+  command-owned bed membership reconciliation (ADR-037 addendum; PF-CAN-32),
+  atomic constrained rotations including partner corrections and touch takeover
+  (PF-DOM-30), and FIXED-aware Parallel/Perpendicular creation with indicators
+  attached to the selected edge. Child constraints outrank implicit bed carrying.
 - Touch/region/CI package (#321, #451, #540) shipped in v1.34.8 (PR #650): pinch and
   two-finger pan behind `canvas/touch_gestures_enabled`, the bridge search re-priced
   (`_BRIDGE_UNITS` 600; 110 touching holes refused in ~0.07 s, dearest work row 1.3–1.5),

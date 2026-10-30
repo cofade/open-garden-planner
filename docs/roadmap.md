@@ -3541,7 +3541,7 @@ gone and the FR-id uniqueness gate now covers **every** FR id instead of only FR
 (it found four pre-existing collisions — FR-SNAP-04/05, FR-PLANT-19, FR-LAYER-09 — which are
 renumbered here: FR-SNAP-11/12, FR-PLANT-24, FR-LAYER-10).
 
-### Bed membership follows geometry, and a rotation keeps its constraint (#443, #485) — **in review, PR #649**
+### Bed membership follows geometry, and a rotation keeps its constraint (#443, #485) — **shipped 2026-10-30 as v1.34.9, PR #649**
 
 Two canvas defects that both came from a write path that did not mirror the
 whole gesture.
