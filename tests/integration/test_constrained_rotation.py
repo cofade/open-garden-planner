@@ -627,6 +627,7 @@ class TestRotationPoliciesPreserved:
         assert rect_b.pos().y() == pytest.approx(partner_before.y(), abs=0.01)
         assert canvas.command_manager.undo_depth == undo_before
         assert len(graph.constraints) == 1
+        assert canvas._rotating_item is None
 
     def test_fixed_partner_stays_pinned_and_the_failure_is_real(
         self, canvas: CanvasView, qtbot: object
