@@ -706,4 +706,3 @@ def test_grouped_construction_geometry_round_trips(
         (loaded_circle.center.y(), circle_before.y(), "center.y"),
     ):
         assert got == pytest.approx(want, abs=1e-6), f"grouped construction {axis}"
-

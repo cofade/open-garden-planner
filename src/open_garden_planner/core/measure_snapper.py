@@ -48,11 +48,22 @@ EDGE_ANCHOR_TYPES = frozenset(
 )
 
 
-def _has_indexed_edges(item: QGraphicsItem) -> bool:
-    """True for items whose edges are numbered, so the index alone names one."""
+def is_vertex_deformable(item: QGraphicsItem) -> bool:
+    """True for items whose individual vertices the solver may move.
+
+    Polygons and polylines carry per-vertex DOF in ``solve_anchored``; every other
+    shape is rigid in that solver.  The pin rule and the EDGE_LENGTH application
+    consult this one predicate, so a rigid shape is never handed to the solver as
+    if it could change its own corner distance (round-4 review P0).
+    """
     from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
 
     return isinstance(item, (PolygonItem, PolylineItem))
+
+
+def _has_indexed_edges(item: QGraphicsItem) -> bool:
+    """True for items whose edges are numbered, so the index alone names one."""
+    return is_vertex_deformable(item)
 
 
 def resolve_anchor_point(
@@ -94,14 +105,12 @@ def resolve_anchor_point(
             and anchor.anchor_index == anchor_index
         ):
             return anchor.point
-    for anchor in anchors:
-        if anchor.anchor_type == anchor_type:
-            return anchor.point
-    if fallback_to_center:
-        # Display-only leniency: a dimension line for a reference whose anchor
-        # kind no longer exists (a converted shape) still draws at the centre.
-        # Enforcement paths must NOT use this — projecting an anchor onto the
-        # item's origin is a silent, wrong correction.
+    if anchor_type == AnchorType.CENTER or fallback_to_center:
+        # Type-only leniency is safe ONLY for the unique centre anchor.  Falling
+        # back by type for an indexed kind (CORNER/ENDPOINT/EDGE_*) would return
+        # the first vertex/edge of that kind — a different point (round-4 review).
+        # Dimension lines keep the display-only centre fallback for a reference
+        # whose anchor kind no longer exists; a satisfaction check must not.
         for anchor in anchors:
             if anchor.anchor_type == AnchorType.CENTER:
                 return anchor.point

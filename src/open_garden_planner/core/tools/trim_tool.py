@@ -439,7 +439,7 @@ class TrimExtendTool(BaseTool):
 
         msg = QCoreApplication.translate(
             "TrimExtendTool",
-            "Cannot trim this object: it is a bed, a group member, or carries a constraint. Remove the constraint first.",
+            "Cannot trim this object: beds and group members cannot become an open line, and a constrained object must be unconstrained first.",
         )
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)

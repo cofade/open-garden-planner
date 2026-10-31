@@ -499,6 +499,102 @@ def test_vertex_topology_edit_shifts_every_indexed_anchor(qtbot) -> None:
     assert corner.constraint_id in graph.constraints
 
 
+def test_vertex_insert_then_undo_restores_indexed_anchors(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """The command owns the renumbering, so undo restores it (round-4 P1)."""
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [QPointF(0, 0), QPointF(100, 0), QPointF(100, 100), QPointF(0, 100)]
+    )
+    scene.addItem(polygon)
+    graph = scene.constraint_graph
+    corner = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.CORNER, 3),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    closing_edge = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.EDGE_TOP, 3),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    split_edge = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.EDGE_BOTTOM, 0),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+
+    polygon._add_vertex_at_edge(0, QPointF(50.0, -20.0))
+    assert polygon.polygon().count() == 5
+    assert corner.anchor_a.anchor_index == 4
+    assert closing_edge.anchor_a.anchor_index == 4
+    assert split_edge.constraint_id not in graph.constraints
+
+    canvas.command_manager.undo()
+    assert polygon.polygon().count() == 4
+    assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 3
+    assert graph.constraints[closing_edge.constraint_id].anchor_a.anchor_index == 3
+    assert split_edge.constraint_id in graph.constraints
+
+    canvas.command_manager.redo()
+    assert polygon.polygon().count() == 5
+    assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 4
+
+
+def test_vertex_delete_of_the_first_vertex_drops_the_closing_edge(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """Deleting vertex 0 removes the closing edge, not the wrong one."""
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [QPointF(0, 0), QPointF(100, 0), QPointF(100, 100), QPointF(0, 100)]
+    )
+    scene.addItem(polygon)
+    graph = scene.constraint_graph
+    closing_edge = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.EDGE_TOP, 3),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    later_edge = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.EDGE_TOP, 1),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    corner = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.CORNER, 2),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+
+    polygon._delete_vertex(0)
+    assert polygon.polygon().count() == 3
+    assert closing_edge.constraint_id not in graph.constraints
+    assert graph.constraints[later_edge.constraint_id].anchor_a.anchor_index == 0
+    assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 1
+
+    canvas.command_manager.undo()
+    assert polygon.polygon().count() == 4
+    assert graph.constraints[closing_edge.constraint_id].anchor_a.anchor_index == 3
+    assert graph.constraints[later_edge.constraint_id].anchor_a.anchor_index == 1
+    assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 2
+
+
 def test_incidence_error_definitions(qtbot) -> None:
     """The shared residual: line distance, radius gap and tangency."""
     # Point (5, 3) against the x axis through (0, 0) and (10, 0).

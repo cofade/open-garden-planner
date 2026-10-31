@@ -1564,19 +1564,23 @@ class CanvasView(QGraphicsView):
         if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
 
-    def _constraint_reference_pins(self, anchor_a: object, anchor_b: object) -> set:
+    def _constraint_reference_pins(
+        self, anchor_a: object, anchor_b: object
+    ) -> set:
         """Item IDs a new constraint must treat as immovable (CAD convention).
 
-        "A is constrained to B" means A moves and B stays — unless A already
-        carries a FIXED constraint (the solver's FIXED pre-pass pins A, so B
-        must remain free) or both anchors live on the same item (pinning it
-        would stop the vertex deformation an intra-object constraint needs).
+        "A is constrained to B" means A moves and B stays — unless A is always
+        pinned (construction geometry, or a FIXED constraint: the solver's
+        pre-pass pins it, so B must remain free) or both anchors share an item.
+        A same-item constraint may only leave the item free when the item is
+        VERTEX-DEFORMABLE (polygon/polyline); a rigid rectangle handed to the
+        positional solver as a free variable translates instead of changing its
+        own edge length (round-4 review P0).
 
-        ONE rule, used by both the feasibility trial and the application: they
-        used to answer different questions, so a trial could approve a link the
-        application could not honour (#670 cause 2).
+        ONE rule, used by every application surface.
         """
         from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.measure_snapper import is_vertex_deformable
 
         graph = self._canvas_scene.constraint_graph
         anchor_a_id = anchor_a.item_id  # type: ignore[attr-defined]
@@ -1597,7 +1601,11 @@ class CanvasView(QGraphicsView):
             and c.anchor_a.item_id == anchor_a_id
             for c in graph.constraints.values()
         )
-        if a_is_fixed or anchor_a_id == anchor_b_id:
+        if a_is_fixed:
+            return set()
+        if anchor_a_id == anchor_b_id:
+            if a_item is None or not is_vertex_deformable(a_item):
+                return {anchor_a_id}
             return set()
         return {anchor_b_id}
 
@@ -1608,7 +1616,10 @@ class CanvasView(QGraphicsView):
         so using it here made the construction branch above dead code
         (round-3 review P1).
         """
-        for item in self.scene().items():
+        scene = self.scene()
+        if scene is None:
+            return None
+        for item in scene.items():
             if getattr(item, "item_id", None) == item_id:
                 return item
         return None
@@ -3159,6 +3170,22 @@ class CanvasView(QGraphicsView):
         constraint = graph.constraints.get(constraint_id)
         if constraint is None:
             return
+        if constraint.constraint_type == ConstraintType.EDGE_LENGTH:
+            # A rigid shape cannot change its own edge length through the
+            # positional solver: moving one corner translates the whole item
+            # (round-4 review P0).  A rectangle's edge length is changed by
+            # resizing it, which the edge-length tool does through the canonical
+            # rect-resize command — this dialog would fight that path.
+            from open_garden_planner.core.measure_snapper import is_vertex_deformable
+
+            item = self._find_any_item(constraint.anchor_a.item_id)
+            if item is None or not is_vertex_deformable(item):
+                self.set_status_message(
+                    self.tr(
+                        "This edge length belongs to a rigid shape. Resize the shape instead."
+                    )
+                )
+                return
         if constraint.constraint_type not in {
             ConstraintType.DISTANCE,
             ConstraintType.EDGE_LENGTH,

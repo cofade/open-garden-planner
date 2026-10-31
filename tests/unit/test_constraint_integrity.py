@@ -98,6 +98,39 @@ def test_fixed_without_target_pins_the_item_where_it_is(qtbot) -> None:
     assert other_id in result.item_deltas, "the partner must still be solved"
 
 
+def test_load_drops_a_fixed_constraint_whose_item_is_missing(qtbot) -> None:
+    """A dangling FIXED record is removed, not left pinning a dead frame."""
+    from uuid import uuid4
+
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintGraph
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+    scene = CanvasScene(width_cm=1000, height_cm=800)
+    rect = RectangleItem(100, 200, 300, 150)
+    scene.addItem(rect)
+    graph = ConstraintGraph()
+    graph.add_constraint(
+        AnchorRef(rect.item_id, AnchorType.CENTER),
+        AnchorRef(rect.item_id, AnchorType.CENTER),
+        0.0,
+        constraint_type=ConstraintType.FIXED,
+    )
+    ghost = uuid4()
+    graph.add_constraint(
+        AnchorRef(ghost, AnchorType.CENTER),
+        AnchorRef(ghost, AnchorType.CENTER),
+        0.0,
+        constraint_type=ConstraintType.FIXED,
+    )
+    retargeted = graph.retarget_fixed_constraints(
+        {rect.item_id: (rect.pos().x(), rect.pos().y())}
+    )
+    assert retargeted == 1
+    assert [c.anchor_a.item_id for c in graph.constraints.values()] == [rect.item_id]
+
+
 def test_load_repairs_a_legacy_fixed_constraint_without_targets(
     qtbot, tmp_path
 ) -> None:

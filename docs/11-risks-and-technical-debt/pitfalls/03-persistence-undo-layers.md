@@ -240,11 +240,11 @@ stays the caller's decision, and the replacement keeps its stack rank so it does
 not jump above its plants. Identity is a property of what the user edited, not
 of the Python object a rebuild happened to construct.
 
-A vertex insert/delete renumbers indexed anchors, so the graph-level
-`shift_vertex_indices()` shifts `EDGE_*` anchors alongside vertex indices, and
-`drop_edge_constraints()` removes a reference to an edge that a split or a delete
-made disappear instead of guessing one of the halves. Both are pinned directly;
-the interactive insert/delete path calls them for polygons and polylines.
+A vertex insert/delete renumbers indexed anchors, so the renumbering lives in
+`AddVertexCommand`/`DeleteVertexCommand`: the command captures the before-state,
+shifts `EDGE_*` anchors alongside vertex indices and drops a reference to an edge
+that a split or delete made disappear, and its undo restores the snapshot. GUI,
+undo/redo and the Agent API therefore share one invariant.
 
 Keeping the UUID is only half the answer, and the first review round found the
 other half: topology. A chamfer replaces one vertex with two, renumbering every

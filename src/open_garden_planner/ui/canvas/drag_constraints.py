@@ -724,7 +724,10 @@ class DragConstraints:
                 return [], []
         else:
             return host._compute_constraint_solve_moves(
-                extra_pinned={anchor_b.item_id}, scope_ids=component
+                extra_pinned=(
+                    host._constraint_reference_pins(anchor_a, anchor_b) or None
+                ),
+                scope_ids=component,
             )
 
         old_local = host._get_vertex_local(item, anchor_a.anchor_index)

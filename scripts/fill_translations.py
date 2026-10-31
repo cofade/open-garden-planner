@@ -260,6 +260,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
+        "This edge length belongs to a rigid shape. Resize the shape instead.":
+            "Diese Kantenlänge gehört zu einer starren Form. Ändern Sie stattdessen "
+            "die Größe der Form.",
         # #550: boolean union over a selection.
         "All shapes must be on the same layer": "Alle Formen müssen auf derselben Ebene liegen",
         "Select at least two shapes (intersection and subtraction need exactly two)": (
@@ -499,11 +502,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Kanten hängt eine Randbedingung",
     },
     "TrimExtendTool": {
-        "Cannot trim this object: it is a bed, a group member, or carries a "
-        "constraint. Remove the constraint first.":
-            "Dieses Objekt kann nicht gekürzt werden: Es ist ein Beet, ein "
-            "Gruppenelement oder trägt eine Randbedingung. Entfernen Sie zuerst "
-            "die Randbedingung.",
+        "Cannot trim this object: beds and group members cannot become an open "
+        "line, and a constrained object must be unconstrained first.":
+            "Dieses Objekt kann nicht gekürzt werden: Beete und Gruppenelemente "
+            "können keine offene Linie werden, und ein Objekt mit Randbedingungen "
+            "muss zuerst von ihnen befreit werden.",
     },
 
     # ── EdgeLengthConstraintTool ──

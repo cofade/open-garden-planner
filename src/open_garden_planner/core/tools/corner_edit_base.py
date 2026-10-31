@@ -273,9 +273,15 @@ def rebuild_with_corner_replaced(
 
     item = target.item
 
+    # A grouped member's replacement is added to the scene's top level, which
+    # would move it out of its group; the picker already skips groups, and this
+    # guard closes the programmatic path too (round-4 review P2).
+    if getattr(item, "parentItem", lambda: None)() is not None:
+        return None
+
     # #668 review P1: replacing one corner with two renumbers every later
-    # CORNER/ENDPOINT anchor, and the edited vertex itself no longer exists.
-    # Refuse rather than silently retarget a constraint to a different vertex.
+    # indexed anchor (vertex AND edge), and the edited vertex itself no longer
+    # exists.  Refuse rather than silently retarget a constraint.
     scene = item.scene()
     graph = getattr(scene, "constraint_graph", None) if scene is not None else None
     item_id = getattr(item, "item_id", None)

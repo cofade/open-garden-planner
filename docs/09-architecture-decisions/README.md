@@ -234,6 +234,19 @@ unrelated broken component neither moves nor raises a dialog, a cross-component 
 trial rejects is reported by the conflict scan, a locked pair at non-zero `pos()` does not
 block a compatible link, a point-on-edge added through the view lands on the edge and shows
 satisfied, and a lock on a MOVED item keeps its scene geometry through save → drag → save).
+Each of the four application surfaces (add, Properties resize, distance edit, vertex-drag
+correction) has an integration test with an unrelated broken component.
+
+**Addendum (rigid shapes and topology, #670 review).** "Same item" does not mean "can
+deform its vertices": `measure_snapper.is_vertex_deformable()` is the one predicate for
+polygons/polylines, and the pin rule leaves a self-constraint's item free only when it is
+vertex-deformable. A rigid shape's edge length is changed by resizing it, so the distance
+dialog refuses a rigid `EDGE_LENGTH` instead of feeding the positional solver a free rigid
+body (measured before the fix: a 200 cm top edge edited to 400 left the edge at 200 and
+moved the item to −4000 cm). Vertex insert/delete renumber indexed anchors (`CORNER`,
+`ENDPOINT` and `EDGE_*`) through `AddVertexCommand`/`DeleteVertexCommand`, which capture a
+before-state and restore it on undo, so GUI, undo/redo and the Agent API share one
+invariant.
 
 **Addendum (replacement identity, #668).** A command that rebuilds a shape (`inherit_item_identity()`
 in `core/item_look.py`) keeps the source's UUID, name, metadata copy, parent/child links,

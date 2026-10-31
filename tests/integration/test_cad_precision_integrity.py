@@ -496,6 +496,134 @@ def test_a_properties_resize_does_not_solve_an_unrelated_component(
     )
 
 
+def test_a_rigid_shapes_edge_length_cannot_be_edited_as_a_distance(
+    canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rectangle cannot change its own edge length through the solver (#670 P0).
+
+    Round 4: the same-item pin rule freed the rectangle, so editing its top-edge
+    edge length translated it by metres.  It is refused instead.
+    """
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.core.tools.constraint_tool import DistanceInputDialog
+
+    scene = canvas.scene()
+    rect = RectangleItem(100, 100, 200, 100)
+    scene.addItem(rect)
+    constraint = scene.constraint_graph.add_constraint(
+        AnchorRef(rect.item_id, AnchorType.CORNER, 0),
+        AnchorRef(rect.item_id, AnchorType.CORNER, 1),
+        200.0,
+        constraint_type=ConstraintType.EDGE_LENGTH,
+    )
+    before = QPointF(rect.pos())
+    steps = canvas.command_manager.undo_depth
+
+    monkeypatch.setattr(DistanceInputDialog, "exec", lambda _self: True)
+    monkeypatch.setattr(DistanceInputDialog, "distance_cm", lambda _self: 400.0)
+    canvas._edit_constraint_distance(constraint.constraint_id)
+
+    assert rect.pos() == before, "the rectangle must not be translated"
+    assert canvas.command_manager.undo_depth == steps
+    assert constraint.target_distance == 200.0
+
+
+def test_editing_a_distance_does_not_solve_an_unrelated_component(
+    canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The distance-edit path is component-scoped (round-4 review P1)."""
+    from open_garden_planner.core.tools.constraint_tool import DistanceInputDialog
+
+    scene = canvas.scene()
+    first = RectangleItem(0, 0, 100, 100)
+    second = RectangleItem(900, 0, 100, 100)
+    left = RectangleItem(0, 900, 100, 100)
+    right = RectangleItem(300, 900, 100, 100)
+    for item in (first, second, left, right):
+        scene.addItem(item)
+    graph = scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(first.item_id, AnchorType.CENTER),
+        AnchorRef(second.item_id, AnchorType.CENTER),
+        100.0,
+    )
+    graph.add_constraint(
+        AnchorRef(first.item_id, AnchorType.CENTER),
+        AnchorRef(second.item_id, AnchorType.CENTER),
+        500.0,
+    )
+    editable = graph.add_constraint(
+        AnchorRef(left.item_id, AnchorType.CENTER),
+        AnchorRef(right.item_id, AnchorType.CENTER),
+        300.0,
+    )
+    before = {item: QPointF(item.pos()) for item in (first, second)}
+
+    monkeypatch.setattr(DistanceInputDialog, "exec", lambda _self: True)
+    monkeypatch.setattr(DistanceInputDialog, "distance_cm", lambda _self: 400.0)
+    canvas._edit_constraint_distance(editable.constraint_id)
+
+    for label, item in (("first", first), ("second", second)):
+        assert item.pos() == before[item], (
+            f"the unrelated {label} pair moved during a distance edit"
+        )
+    left_centre = left.mapToScene(left.boundingRect().center())
+    right_centre = right.mapToScene(right.boundingRect().center())
+    assert math.dist(
+        (left_centre.x(), left_centre.y()), (right_centre.x(), right_centre.y())
+    ) == pytest.approx(400.0, abs=0.1)
+
+
+def test_a_vertex_drag_does_not_solve_an_unrelated_component(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """The vertex-drag correction is component-scoped (round-4 review P1)."""
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [QPointF(0, 0), QPointF(200, 0), QPointF(200, 100), QPointF(0, 100)]
+    )
+    first = RectangleItem(0, 900, 100, 100)
+    second = RectangleItem(900, 900, 100, 100)
+    for item in (polygon, first, second):
+        scene.addItem(item)
+    graph = scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.CORNER, 0),
+        AnchorRef(polygon.item_id, AnchorType.CORNER, 1),
+        200.0,
+        constraint_type=ConstraintType.EDGE_LENGTH,
+    )
+    graph.add_constraint(
+        AnchorRef(first.item_id, AnchorType.CENTER),
+        AnchorRef(second.item_id, AnchorType.CENTER),
+        100.0,
+    )
+    graph.add_constraint(
+        AnchorRef(first.item_id, AnchorType.CENTER),
+        AnchorRef(second.item_id, AnchorType.CENTER),
+        500.0,
+    )
+    before = {item: QPointF(item.pos()) for item in (first, second)}
+    old = QPointF(polygon.polygon().at(1))
+    polygon._move_vertex_to(1, QPointF(240.0, 20.0))
+    canvas._deferred_vertex_move = (
+        polygon,
+        1,
+        old,
+        QPointF(240.0, 20.0),
+    )
+
+    canvas._enforce_after_vertex_drag()
+
+    for label, item in (("first", first), ("second", second)):
+        assert item.pos() == before[item], (
+            f"the unrelated {label} pair moved during a vertex drag"
+        )
+
+
 def test_a_locked_pair_does_not_block_a_compatible_link(
     canvas: CanvasView, qtbot: object
 ) -> None:

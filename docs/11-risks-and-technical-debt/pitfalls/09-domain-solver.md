@@ -458,7 +458,7 @@ restored.
 ### PF-DOM-32
 
 - **Rule:** Incidence has one residual and one anchor resolver: `incidence_error()` is the single definition shared by the solver, the conflict scan and the Constraints panel, and `resolve_anchor_point()` is the single lookup. A polygon/polyline edge reference is identified by its index, because its `EDGE_*` type is re-derived from the current dominant axis.
-- **Pinned by:** `tests/unit/test_incidence_consistency.py::test_point_on_edge_panel_satisfaction`; `tests/unit/test_incidence_consistency.py::test_stored_edge_reference_survives_a_direction_change`; `tests/unit/test_incidence_consistency.py::test_point_on_edge_follows_a_deformed_second_endpoint`; `tests/unit/test_incidence_consistency.py::test_vertex_topology_edit_shifts_every_indexed_anchor`; `tests/integration/test_cad_precision_integrity.py::test_adding_a_link_does_not_move_an_unrelated_broken_component`; `tests/integration/test_cad_precision_integrity.py::test_a_cross_component_trial_is_seen_by_the_conflict_scan`; `tests/integration/test_cad_precision_integrity.py::test_a_construction_to_garden_link_is_feasible`; `tests/integration/test_cad_precision_integrity.py::test_a_properties_resize_does_not_solve_an_unrelated_component`
+- **Pinned by:** `tests/unit/test_incidence_consistency.py::test_point_on_edge_panel_satisfaction`; `tests/unit/test_incidence_consistency.py::test_stored_edge_reference_survives_a_direction_change`; `tests/unit/test_incidence_consistency.py::test_point_on_edge_follows_a_deformed_second_endpoint`; `tests/unit/test_incidence_consistency.py::test_vertex_topology_edit_shifts_every_indexed_anchor`; `tests/unit/test_incidence_consistency.py::test_vertex_insert_then_undo_restores_indexed_anchors`; `tests/unit/test_incidence_consistency.py::test_vertex_delete_of_the_first_vertex_drops_the_closing_edge`; `tests/integration/test_cad_precision_integrity.py::test_adding_a_link_does_not_move_an_unrelated_broken_component`; `tests/integration/test_cad_precision_integrity.py::test_a_cross_component_trial_is_seen_by_the_conflict_scan`; `tests/integration/test_cad_precision_integrity.py::test_a_construction_to_garden_link_is_feasible`; `tests/integration/test_cad_precision_integrity.py::test_a_properties_resize_does_not_solve_an_unrelated_component`; `tests/integration/test_cad_precision_integrity.py::test_editing_a_distance_does_not_solve_an_unrelated_component`; `tests/integration/test_cad_precision_integrity.py::test_a_vertex_drag_does_not_solve_an_unrelated_component`; `tests/integration/test_cad_precision_integrity.py::test_a_rigid_shapes_edge_length_cannot_be_edited_as_a_distance`
 - **Source:** #669, #670
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -490,8 +490,18 @@ only injects a `FIXED` item the solve actually contains. The dialog keeps its ow
 1.0 cm threshold on purpose: it answers "would this visibly distort an existing
 relation?", not "did the solve converge?".
 
-A vertex insert/delete renumbers indexed anchors too, so the graph's
-`shift_vertex_indices()` now shifts `EDGE_*` midpoints with the vertex indices and
-`drop_edge_constraints()` removes a reference to an edge that a split or delete
-made disappear. The interactive topology path was shifting only vertices before,
-which left an edge constraint naming a different edge.
+A vertex insert/delete renumbers indexed anchors too, so `shift_vertex_indices()`
+shifts `EDGE_*` midpoints with the vertex indices and `drop_edge_constraints()`
+removes a reference to an edge that a split or delete made disappear. The
+renumbering lives in `AddVertexCommand`/`DeleteVertexCommand` (with a captured
+before-state restored on undo), so the GUI, undo/redo and the Agent API share one
+invariant rather than the GUI having its own copy.
+
+One more trap the same review found: "same item" is NOT "can deform its
+vertices". A rectangle is rigid in the positional solver, so leaving a
+self-constraint's item free translates the whole shape instead of changing its
+edge length (measured: a 200 cm top edge edited to 400 left the edge at 200 and
+moved the item to -4000 cm). The pin rule now asks
+`measure_snapper.is_vertex_deformable()`, and editing a rigid shape's edge
+length through the distance dialog is refused with a translated message — a
+rectangle's edge length is changed by resizing it.

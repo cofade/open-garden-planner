@@ -3811,10 +3811,12 @@ recomputed somewhere else, and the two answers drifted apart.
    that match the application, symmetric vertex reconstruction, a 0.05 cm application
    tolerance inside the 0.1 cm indicator, `anchor_c` resolved through deformed vertices, and
    edge identity kept by index after a direction change (ADR-012 addendum). The conflict
-   scan and the application solve use the same component and pins as the trial — including
-   a trial that joins two existing components — and one resolver
+   scan and all four application surfaces use the same component and pins as the trial —
+   including a trial that joins two existing components — one resolver
    (`resolve_anchor_point`/`anchor_offset_table`) serves dimension lines, drag enforcement
-   and the solver.
+   and the solver, and vertex insert/delete renumber indexed anchors in the undoable command
+   so GUI and Agent API agree. A rigid shape's edge length is refused in the distance dialog
+   (resize it instead) rather than handed to the positional solver.
 
 No `.ogp` format change. Tests: `tests/unit/test_constraint_integrity.py`,
 `tests/unit/test_geometry_identity.py`, `tests/unit/test_incidence_consistency.py` and

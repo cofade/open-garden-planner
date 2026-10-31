@@ -6,6 +6,7 @@ that resolves distance and alignment constraints between object anchor points.
 
 from __future__ import annotations
 
+import logging
 import math
 from collections import deque
 from dataclasses import dataclass, field
@@ -14,6 +15,8 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from open_garden_planner.core.measure_snapper import EDGE_ANCHOR_TYPES, AnchorType
+
+_log = logging.getLogger(__name__)
 
 
 class ConstraintType(Enum):
@@ -447,6 +450,113 @@ class ConstraintGraph:
                     removed.append(cid)
                     break
         return removed
+
+    def apply_vertex_insert(
+        self,
+        item_id: UUID,
+        insert_index: int,
+        *,
+        closed: bool,
+        vertex_count_before: int,
+    ) -> None:
+        """Renumber indexed anchors after a vertex is inserted at *insert_index*.
+
+        Shared by the interactive edit, the undo/redo commands and the Agent API
+        so one invariant serves every path (round-4 review P1).  The edge the
+        insert splits is dropped; every later indexed anchor shifts up by one.
+        """
+        if insert_index == 0:
+            split_edge = max(0, vertex_count_before - 1) if closed else None
+        else:
+            split_edge = insert_index - 1
+        if split_edge is not None:
+            self.drop_edge_constraints(item_id, {split_edge})
+        self.shift_vertex_indices(item_id, insert_index, +1)
+
+    def apply_vertex_delete(
+        self,
+        item_id: UUID,
+        deleted_index: int,
+        *,
+        closed: bool,
+        vertex_count_before: int,
+    ) -> None:
+        """Renumber indexed anchors after vertex *deleted_index* is removed.
+
+        The vertex's own constraints and the two edges that vanish are dropped;
+        every later indexed anchor shifts down by one.
+        """
+        self.remove_vertex_constraints(item_id, deleted_index)
+        edge_count = vertex_count_before if closed else max(
+            0, vertex_count_before - 1
+        )
+        drop: set[int] = set()
+        previous_edge = (
+            (deleted_index - 1) % vertex_count_before if closed else deleted_index - 1
+        )
+        if 0 <= previous_edge < edge_count:
+            drop.add(previous_edge)
+        if deleted_index < edge_count:
+            drop.add(deleted_index)
+        self.drop_edge_constraints(item_id, drop)
+        self.shift_vertex_indices(item_id, deleted_index + 1, -1)
+
+    def capture_topology_state(
+        self, item_id: UUID
+    ) -> tuple[UUID, dict[UUID, tuple[Constraint, dict[str, int]]]]:
+        """Snapshot every constraint touching *item_id* and its anchor indices.
+
+        The vertex commands store this before their first application and write
+        it back on undo, so a dropped edge constraint is restored and shifted
+        indices return to their previous values (round-4 review P1).
+        """
+        import copy
+
+        state: dict[UUID, tuple[Constraint, dict[str, int]]] = {}
+        for cid in self._adjacency.get(item_id, set()):
+            constraint = self._constraints.get(cid)
+            if constraint is None:
+                continue
+            indices: dict[str, int] = {}
+            for slot, anchor in (
+                ("a", constraint.anchor_a),
+                ("b", constraint.anchor_b),
+                ("c", constraint.anchor_c),
+            ):
+                if anchor is not None and anchor.item_id == item_id:
+                    indices[slot] = anchor.anchor_index
+            state[cid] = (copy.deepcopy(constraint), indices)
+        return item_id, state
+
+    def restore_topology_state(
+        self,
+        snapshot: tuple[UUID, dict[UUID, tuple[Constraint, dict[str, int]]]],
+    ) -> None:
+        """Write a :py:meth:`capture_topology_state` snapshot back.
+
+        Constraints that still exist get the stored indices; constraints that
+        were dropped by a topology edit are re-added from the stored copy.
+        """
+        item_id, state = snapshot
+        for cid, (constraint, indices) in state.items():
+            current = self._constraints.get(cid)
+            if current is None:
+                self.add_constraint(
+                    anchor_a=constraint.anchor_a,
+                    anchor_b=constraint.anchor_b,
+                    target_distance=constraint.target_distance,
+                    visible=constraint.visible,
+                    constraint_id=constraint.constraint_id,
+                    constraint_type=constraint.constraint_type,
+                    anchor_c=constraint.anchor_c,
+                    target_x=constraint.target_x,
+                    target_y=constraint.target_y,
+                )
+                continue
+            for slot, index in indices.items():
+                anchor = getattr(current, f"anchor_{slot}")
+                if anchor is not None and anchor.item_id == item_id:
+                    anchor.anchor_index = index
 
     def remove_vertex_constraints(self, item_id: UUID, vertex_index: int) -> list[UUID]:
         """Remove constraints whose vertex anchor on ``item_id`` is exactly ``vertex_index``.
@@ -1885,9 +1995,7 @@ class ConstraintGraph:
             constraint.target_x, constraint.target_y = position
             retargeted += 1
         for constraint_id in dangling:
-            import logging
-
-            logging.getLogger(__name__).warning(
+            _log.warning(
                 "Dropping FIXED constraint %s: its item is not in the loaded plan",
                 constraint_id,
             )
