@@ -2574,6 +2574,48 @@ class PropertiesPanel(QWidget):
         if self._command_manager:
             self._command_manager.execute(command)
 
+    def _refuse_rigid_edge_length_resize(self, item: QGraphicsItem) -> bool:
+        """Refuse resizing a rigid shape that carries its own EDGE_LENGTH.
+
+        The solver cannot enforce a rigid item's self edge length (its anchors
+        translate together), and silently moving the item outside the resize
+        command was the #670 round-5 P0.  The user is told to remove the
+        constraint first; a resizable edge length is a polygon/polyline feature.
+        """
+        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.measure_snapper import is_vertex_deformable
+
+        scene = item.scene()
+        graph = getattr(scene, "constraint_graph", None)
+        item_id = getattr(item, "item_id", None)
+        if graph is None or item_id is None or is_vertex_deformable(item):
+            return False
+        for constraint in graph.get_item_constraints(item_id):
+            if (
+                constraint.constraint_type == ConstraintType.EDGE_LENGTH
+                and constraint.anchor_a.item_id == item_id
+                and constraint.anchor_b.item_id == item_id
+            ):
+                self._show_status_message(
+                    self.tr(
+                        "Cannot resize this shape: its edge length is constrained. "
+                        "Remove the constraint first."
+                    ),
+                    item,
+                )
+                return True
+        return False
+
+    def _show_status_message(self, message: str, item: QGraphicsItem) -> None:
+        """Show *message* in the canvas view's status bar, if one is attached."""
+        scene = item.scene()
+        if scene is None:
+            return
+        views = scene.views()
+        target = views[0] if views else None
+        if target is not None and hasattr(target, "set_status_message"):
+            target.set_status_message(message)
+
     def _on_dimension_changed(
         self,
         item: QGraphicsItem,
@@ -2592,6 +2634,8 @@ class PropertiesPanel(QWidget):
             height_spin: Height spin box (for rectangles)
         """
         if self._updating:
+            return
+        if self._refuse_rigid_edge_length_resize(item):
             return
 
         from open_garden_planner.core.commands import ResizeItemCommand

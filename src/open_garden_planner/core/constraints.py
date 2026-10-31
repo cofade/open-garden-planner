@@ -541,14 +541,22 @@ class ConstraintGraph:
         for cid, (constraint, indices) in state.items():
             current = self._constraints.get(cid)
             if current is None:
+                import copy
+
+                # Deep-copy the anchors: a later shift through the re-added
+                # constraint must not mutate the snapshot it came from.
                 self.add_constraint(
-                    anchor_a=constraint.anchor_a,
-                    anchor_b=constraint.anchor_b,
+                    anchor_a=copy.deepcopy(constraint.anchor_a),
+                    anchor_b=copy.deepcopy(constraint.anchor_b),
                     target_distance=constraint.target_distance,
                     visible=constraint.visible,
                     constraint_id=constraint.constraint_id,
                     constraint_type=constraint.constraint_type,
-                    anchor_c=constraint.anchor_c,
+                    anchor_c=(
+                        copy.deepcopy(constraint.anchor_c)
+                        if constraint.anchor_c is not None
+                        else None
+                    ),
                     target_x=constraint.target_x,
                     target_y=constraint.target_y,
                 )
@@ -1089,6 +1097,23 @@ class ConstraintGraph:
 
                 # FIXED constraints are handled entirely in the pre-pass above.
                 if constraint.constraint_type == ConstraintType.FIXED:
+                    continue
+
+                # A self-constraint on a RIGID item cannot be satisfied by
+                # moving the item: both anchors translate together, so every
+                # solver iteration re-applies the full correction and the shape
+                # drifts by metres (measured: a 200 cm edge edited to 400 moved a
+                # rectangle by -4000 cm).  Only vertex-deformable items
+                # (polygon/polyline) have per-anchor DOF.  A rigid item's size
+                # changes through a resize command, not here.  The residual stays
+                # visible in the panel because it computes it independently.
+                if (
+                    id_a == id_b
+                    and not (
+                        _is_vtx(id_a, constraint.anchor_a)
+                        or _is_vtx(id_b, constraint.anchor_b)
+                    )
+                ):
                     continue
 
                 # Get anchor offsets for this constraint's endpoints

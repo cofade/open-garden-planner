@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import json
 import math
+from uuid import uuid4
 
 import pytest
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QGraphicsItem, QMenu
 
@@ -494,6 +495,72 @@ def test_a_properties_resize_does_not_solve_an_unrelated_component(
         c.constraint_type == ConstraintType.DISTANCE and c.target_distance == 450.0
         for c in graph.constraints.values()
     )
+
+
+def test_the_solver_never_translates_a_rigid_self_constraint() -> None:
+    """A rigid item's self EDGE_LENGTH must produce no translation (round-5 P0)."""
+    from open_garden_planner.core.constraints import (
+        APPLY_TOLERANCE_CM,
+        AnchorRef,
+        ConstraintGraph,
+        ConstraintType,
+    )
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    graph = ConstraintGraph()
+    item = uuid4()
+    graph.add_constraint(
+        AnchorRef(item, AnchorType.CORNER, 0),
+        AnchorRef(item, AnchorType.CORNER, 1),
+        400.0,
+        constraint_type=ConstraintType.EDGE_LENGTH,
+    )
+    result = graph.solve_anchored(
+        {item: (0.0, 0.0)},
+        {
+            (item, AnchorType.CORNER, 0): (0.0, 0.0),
+            (item, AnchorType.CORNER, 1): (200.0, 0.0),
+        },
+        max_iterations=20,
+        tolerance=APPLY_TOLERANCE_CM,
+    )
+    assert result.item_deltas == {}, "the rigid shape was translated by the solver"
+
+
+def test_a_rigid_shapes_edge_length_refuses_a_properties_resize(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """Resizing a rigid shape with its own EDGE_LENGTH is refused (round-5 P0)."""
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
+
+    scene = canvas.scene()
+    rect = RectangleItem(100, 100, 200, 100)
+    scene.addItem(rect)
+    scene.constraint_graph.add_constraint(
+        AnchorRef(rect.item_id, AnchorType.CORNER, 0),
+        AnchorRef(rect.item_id, AnchorType.CORNER, 1),
+        200.0,
+        constraint_type=ConstraintType.EDGE_LENGTH,
+    )
+    before_rect = QRectF(rect.rect())
+    before_pos = QPointF(rect.pos())
+    steps = canvas.command_manager.undo_depth
+
+    class _Spin:
+        def __init__(self, value: float) -> None:
+            self._value = value
+
+        def value(self) -> float:
+            return self._value
+
+    panel = PropertiesPanel(command_manager=canvas.command_manager)
+    qtbot.addWidget(panel)  # type: ignore[attr-defined]
+    panel._on_dimension_changed(rect, "rect_size", None, _Spin(240.0), _Spin(100.0))
+
+    assert rect.rect() == before_rect, "the refused resize must not change geometry"
+    assert rect.pos() == before_pos
+    assert canvas.command_manager.undo_depth == steps
 
 
 def test_a_rigid_shapes_edge_length_cannot_be_edited_as_a_distance(

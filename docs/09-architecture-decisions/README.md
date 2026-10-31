@@ -208,11 +208,17 @@ than the application. Six decisions, each pinned:
    threshold is a separate, deliberate question — "would this visibly distort an existing
    relation?" — not the application's convergence tolerance.
 4. **The trial pins what the application pins.** One rule,
-   `CanvasView._constraint_reference_pins`: B stays still (A moves to B) unless A already
-   carries `FIXED` or both anchors share an item. It feeds both the feasibility trial and
-   the application, and `solve_anchored()` only injects a `FIXED` item that the solve
-   actually contains, so an out-of-component locked pair cannot make a scoped trial
-   non-convergent (#670 causes 1–2).
+   `CanvasView._constraint_reference_pins`: B stays still (A moves to B) unless A
+   is always pinned (construction geometry, or a FIXED constraint), or both
+   anchors share a VERTEX-DEFORMABLE item (polygon/polyline). A self-constraint on
+   a rigid shape pins that shape, so the solver cannot translate it; if the
+   constraint is a self `EDGE_LENGTH`, the solver makes no move at all (a rigid
+   edge length changes through a resize, not through the positional solver), and
+   the distance dialog and the Properties resize refuse that edit with a
+   translated message. It feeds the feasibility trial and every application
+   surface, and `solve_anchored()` only injects a `FIXED` item that the solve
+   actually contains, so an out-of-component locked pair cannot make a scoped
+   trial non-convergent (#670 causes 1–2).
 5. **Reconstruct resolved state from deltas, symmetrically.** `find_conflicting_constraints`
    rebuilds every vertex as `pre-solve vertex + item delta + vertex delta`. A polygon that
    translated rigidly has no vertex delta, which is exactly when the old reconstruction
@@ -234,19 +240,24 @@ unrelated broken component neither moves nor raises a dialog, a cross-component 
 trial rejects is reported by the conflict scan, a locked pair at non-zero `pos()` does not
 block a compatible link, a point-on-edge added through the view lands on the edge and shows
 satisfied, and a lock on a MOVED item keeps its scene geometry through save → drag → save).
-Each of the four application surfaces (add, Properties resize, distance edit, vertex-drag
-correction) has an integration test with an unrelated broken component.
+The four application surfaces (add, Properties resize, distance edit, vertex-drag correction)
+share the component scope, and each has an integration test with an unrelated broken
+component; the new-constraint surfaces also share the pin rule.
 
 **Addendum (rigid shapes and topology, #670 review).** "Same item" does not mean "can
 deform its vertices": `measure_snapper.is_vertex_deformable()` is the one predicate for
-polygons/polylines, and the pin rule leaves a self-constraint's item free only when it is
-vertex-deformable. A rigid shape's edge length is changed by resizing it, so the distance
-dialog refuses a rigid `EDGE_LENGTH` instead of feeding the positional solver a free rigid
-body (measured before the fix: a 200 cm top edge edited to 400 left the edge at 200 and
-moved the item to −4000 cm). Vertex insert/delete renumber indexed anchors (`CORNER`,
-`ENDPOINT` and `EDGE_*`) through `AddVertexCommand`/`DeleteVertexCommand`, which capture a
-before-state and restore it on undo, so GUI, undo/redo and the Agent API share one
-invariant.
+polygons/polylines. The pin rule leaves a self-constraint's item free only when it is
+vertex-deformable, and the solver itself skips any self-constraint on a rigid item — moving
+the item translates both anchors, so every iteration re-applied the full correction
+(measured before the fix: a 200 cm top edge edited to 400 left the edge at 200 and moved the
+item to −4000 cm). A rigid shape's edge length follows its size, not the solver, so the
+distance dialog and the Properties resize both refuse that edit with a translated message.
+Vertex insert/delete renumber indexed anchors (`CORNER`, `ENDPOINT` and `EDGE_*`) through
+`AddVertexCommand`/`DeleteVertexCommand`, which capture a before-state and restore it on
+undo; the Agent API, GUI and undo/redo share that invariant. A corner edit also reconciles
+bed membership in the same undo step (`ReconcileBedMembershipCommand`), so a plant left
+outside a chamfered bed is unlinked — and relinked on undo — rather than staying attached
+to geometry it no longer touches.
 
 **Addendum (replacement identity, #668).** A command that rebuilds a shape (`inherit_item_identity()`
 in `core/item_look.py`) keeps the source's UUID, name, metadata copy, parent/child links,

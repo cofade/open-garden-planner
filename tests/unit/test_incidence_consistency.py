@@ -547,6 +547,8 @@ def test_vertex_insert_then_undo_restores_indexed_anchors(
     canvas.command_manager.redo()
     assert polygon.polygon().count() == 5
     assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 4
+    assert graph.constraints[closing_edge.constraint_id].anchor_a.anchor_index == 4
+    assert split_edge.constraint_id not in graph.constraints
 
 
 def test_vertex_delete_of_the_first_vertex_drops_the_closing_edge(
@@ -594,11 +596,21 @@ def test_vertex_delete_of_the_first_vertex_drops_the_closing_edge(
     assert graph.constraints[later_edge.constraint_id].anchor_a.anchor_index == 1
     assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 2
 
+    canvas.command_manager.redo()
+    assert polygon.polygon().count() == 3
+    assert closing_edge.constraint_id not in graph.constraints
+    assert graph.constraints[later_edge.constraint_id].anchor_a.anchor_index == 0
+    assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 1
+
 
 def test_agent_built_vertex_command_shares_the_topology_invariant(
     canvas: CanvasView, qtbot: object
 ) -> None:
-    """The Agent API builds the command before executing; it must still shift."""
+    """The Agent API builds the command before executing; it must still shift.
+
+    The insert is at index 0, the case that uses ``vertex_count_before`` to
+    identify the closing edge (round-5 review P1).
+    """
     from open_garden_planner.core.constraints import AnchorRef, ConstraintType
     from open_garden_planner.core.measure_snapper import AnchorType
     from open_garden_planner.ui.canvas.geometry_apply import build_add_vertex_command
@@ -616,23 +628,54 @@ def test_agent_built_vertex_command_shares_the_topology_invariant(
         100.0,
         constraint_type=ConstraintType.DISTANCE,
     )
-    split_edge = graph.add_constraint(
-        AnchorRef(polygon.item_id, AnchorType.EDGE_BOTTOM, 0),
+    closing_edge = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.EDGE_TOP, 3),
         AnchorRef(polygon.item_id, AnchorType.CENTER),
         100.0,
         constraint_type=ConstraintType.DISTANCE,
     )
 
-    command = build_add_vertex_command(polygon, 1, QPointF(50.0, -20.0))
+    command = build_add_vertex_command(polygon, 0, QPointF(50.0, -20.0))
     canvas.command_manager.execute(command)
     assert polygon.polygon().count() == 5
     assert corner.anchor_a.anchor_index == 3
-    assert split_edge.constraint_id not in graph.constraints
+    assert closing_edge.constraint_id not in graph.constraints, (
+        "the closing edge was split by the insert and must be dropped"
+    )
 
     canvas.command_manager.undo()
     assert polygon.polygon().count() == 4
     assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 2
-    assert split_edge.constraint_id in graph.constraints
+    assert closing_edge.constraint_id in graph.constraints, "undo must restore it"
+    assert graph.constraints[closing_edge.constraint_id].anchor_a.anchor_index == 3
+
+    canvas.command_manager.redo()
+    assert polygon.polygon().count() == 5
+    assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 3
+    assert closing_edge.constraint_id not in graph.constraints
+
+
+def test_a_missing_indexed_anchor_resolves_to_none(qtbot) -> None:
+    """A stale index must not fall through to the first vertex/edge (#670 P2)."""
+    from open_garden_planner.core.measure_snapper import resolve_anchor_point
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+    scene = CanvasScene(width_cm=4000, height_cm=4000)
+    polygon = PolygonItem(
+        [QPointF(0, 0), QPointF(100, 0), QPointF(100, 100), QPointF(0, 100)]
+    )
+    scene.addItem(polygon)
+    assert resolve_anchor_point(polygon, AnchorType.CORNER, 99) is None
+    assert resolve_anchor_point(polygon, AnchorType.EDGE_TOP, 99) is None
+
+    # A rectangle is not index-backed: type+index still matches its own edge,
+    # and never another edge (#649).
+    rectangle = RectangleItem(200, 200, 100, 100)
+    scene.addItem(rectangle)
+    top = resolve_anchor_point(rectangle, AnchorType.EDGE_TOP, 0)
+    assert top is not None
+    assert (top.x(), top.y()) == pytest.approx((250.0, 200.0))
 
 
 def test_incidence_error_definitions(qtbot) -> None:

@@ -361,6 +361,43 @@ class _Records:
         self.harvest = {str(bed_id): [{"crop": "tomato"}]}
 
 
+def test_corner_edit_unlinks_a_plant_outside_the_new_bed(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """A cut corner must reconcile bed membership in the same undo step (#443)."""
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    bed = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.RAISED_BED,
+    )
+    scene.addItem(bed)
+    plant = CircleItem(410.0, 410.0, 20.0, object_type=ObjectType.TREE)
+    scene.addItem(plant)
+    plant.parent_bed_id = bed.item_id
+    bed.add_child_id(plant.item_id)
+
+    target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
+    assert target is not None and target.item is bed
+    ChamferTool(canvas).apply_to_target(target)
+
+    assert plant.parent_bed_id is None, (
+        "a plant left outside the chamfered bed is still linked to it"
+    )
+    canvas.command_manager.undo()
+    assert plant.parent_bed_id == bed.item_id, "undo must restore the link"
+    canvas.command_manager.redo()
+    assert plant.parent_bed_id is None
+
+
 @pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
 def test_corner_edit_keeps_the_bed_identity(
     canvas: CanvasView, qtbot: object, tool_name: str
