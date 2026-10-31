@@ -1581,10 +1581,7 @@ class CanvasView(QGraphicsView):
         graph = self._canvas_scene.constraint_graph
         anchor_a_id = anchor_a.item_id  # type: ignore[attr-defined]
         anchor_b_id = anchor_b.item_id  # type: ignore[attr-defined]
-        a_item = None
-        find_item = getattr(self._canvas_scene, "find_item_by_id", None)
-        if callable(find_item):
-            a_item = find_item(anchor_a_id)
+        a_item = self._find_any_item(anchor_a_id)
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
             ConstructionLineItem,
@@ -1603,6 +1600,18 @@ class CanvasView(QGraphicsView):
         if a_is_fixed or anchor_a_id == anchor_b_id:
             return set()
         return {anchor_b_id}
+
+    def _find_any_item(self, item_id: object) -> object | None:
+        """Find any scene item (garden OR construction) by UUID.
+
+        ``CanvasScene.find_item_by_id`` only returns ``GardenItemMixin`` items,
+        so using it here made the construction branch above dead code
+        (round-3 review P1).
+        """
+        for item in self.scene().items():
+            if getattr(item, "item_id", None) == item_id:
+                return item
+        return None
 
     def _execute_constraint_with_solve(
         self, command: AddConstraintCommand, *, conflicts_checked: bool = False
@@ -3164,23 +3173,26 @@ class CanvasView(QGraphicsView):
             if abs(new_distance - constraint.target_distance) > 0.01:
                 old_distance = constraint.target_distance
 
-                # CAD convention: A moves, B stays.  If A is already FIXED the
-                # pre-pass in solve_anchored pins it, so B must remain free.
-                a_is_fixed = any(
-                    c.constraint_type == ConstraintType.FIXED
-                    and c.anchor_a.item_id == constraint.anchor_a.item_id
-                    for c in graph.constraints.values()
+                # #670 round-3 P1: this is an application surface too — scope it
+                # to the edited constraint's component and use the ONE pin rule.
+                extra_pinned = (
+                    self._constraint_reference_pins(
+                        constraint.anchor_a, constraint.anchor_b
+                    )
+                    or None
                 )
-                extra_pinned: set | None = (
-                    None if a_is_fixed else {constraint.anchor_b.item_id}
+                scope_ids = graph.get_connected_component(
+                    constraint.anchor_a.item_id
                 )
 
                 # Temporarily apply new distance so solver can compute moves
                 constraint.target_distance = new_distance
-                item_moves, vertex_moves = self._compute_constraint_solve_moves(
-                    extra_pinned=extra_pinned
-                )
-                constraint.target_distance = old_distance  # command will set it
+                try:
+                    item_moves, vertex_moves = self._compute_constraint_solve_moves(
+                        extra_pinned=extra_pinned, scope_ids=scope_ids
+                    )
+                finally:
+                    constraint.target_distance = old_distance  # command will set it
 
                 command = EditConstraintDistanceCommand(
                     graph=graph,

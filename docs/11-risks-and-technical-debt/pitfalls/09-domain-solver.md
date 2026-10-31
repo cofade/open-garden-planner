@@ -433,7 +433,7 @@ assert both corrected geometry and one-step history.
 ### PF-DOM-31
 
 - **Rule:** A `FIXED` constraint is data, not derived state: round-trip `target_x`/`target_y`, re-derive every target from the loaded item's own frame on load (the serializers normalize `pos()`), treat a target-less `FIXED` as immobile, and take `ItemIsMovable` away for the duration of a drag instead of resetting the item afterwards.
-- **Pinned by:** `tests/unit/test_constraint_integrity.py::test_fixed_targets_survive_graph_round_trip`; `tests/unit/test_constraint_integrity.py::test_load_repairs_a_legacy_fixed_constraint_without_targets`; `tests/integration/test_cad_precision_integrity.py::test_fixed_item_has_zero_transient_positions_during_a_drag`
+- **Pinned by:** `tests/unit/test_constraint_integrity.py::test_fixed_targets_survive_graph_round_trip`; `tests/unit/test_constraint_integrity.py::test_load_repairs_a_legacy_fixed_constraint_without_targets`; `tests/integration/test_cad_precision_integrity.py::test_fixed_item_has_zero_transient_positions_during_a_drag`; `tests/integration/test_cad_precision_integrity.py::test_a_lock_on_a_moved_item_does_not_jump_on_reload`
 - **Source:** #655, #662
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -458,7 +458,7 @@ restored.
 ### PF-DOM-32
 
 - **Rule:** Incidence has one residual and one anchor resolver: `incidence_error()` is the single definition shared by the solver, the conflict scan and the Constraints panel, and `resolve_anchor_point()` is the single lookup. A polygon/polyline edge reference is identified by its index, because its `EDGE_*` type is re-derived from the current dominant axis.
-- **Pinned by:** `tests/unit/test_incidence_consistency.py::test_point_on_edge_panel_satisfaction`; `tests/unit/test_incidence_consistency.py::test_stored_edge_reference_survives_a_direction_change`; `tests/unit/test_incidence_consistency.py::test_point_on_edge_follows_a_deformed_second_endpoint`; `tests/integration/test_cad_precision_integrity.py::test_adding_a_link_does_not_move_an_unrelated_broken_component`
+- **Pinned by:** `tests/unit/test_incidence_consistency.py::test_point_on_edge_panel_satisfaction`; `tests/unit/test_incidence_consistency.py::test_stored_edge_reference_survives_a_direction_change`; `tests/unit/test_incidence_consistency.py::test_point_on_edge_follows_a_deformed_second_endpoint`; `tests/unit/test_incidence_consistency.py::test_vertex_topology_edit_shifts_every_indexed_anchor`; `tests/integration/test_cad_precision_integrity.py::test_adding_a_link_does_not_move_an_unrelated_broken_component`; `tests/integration/test_cad_precision_integrity.py::test_a_cross_component_trial_is_seen_by_the_conflict_scan`; `tests/integration/test_cad_precision_integrity.py::test_a_construction_to_garden_link_is_feasible`; `tests/integration/test_cad_precision_integrity.py::test_a_properties_resize_does_not_solve_an_unrelated_component`
 - **Source:** #669, #670
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -482,7 +482,16 @@ had been scoped but the *application* solve and the conflict scan still solved
 the whole plan, so an accepted link could move an unrelated broken component and
 an unrelated violated component could still raise the conflict dialog. The
 component, the pins and the reconstructed state now come from one scope in all
-three paths (pinned by the integration tests below as well as the unit file), and
-`solve_anchored()` only injects a `FIXED` item the solve actually contains. The
-dialog keeps its own 1.0 cm threshold on purpose: it answers "would this visibly
-distort an existing relation?", not "did the solve converge?".
+four application surfaces (add-constraint, Properties-panel resize,
+constraint-distance edit, vertex-drag correction), with one integration test per
+surface against an unrelated broken component; the trial inserts itself through
+`add_constraint()` so a link joining two components sees both. `solve_anchored()`
+only injects a `FIXED` item the solve actually contains. The dialog keeps its own
+1.0 cm threshold on purpose: it answers "would this visibly distort an existing
+relation?", not "did the solve converge?".
+
+A vertex insert/delete renumbers indexed anchors too, so the graph's
+`shift_vertex_indices()` now shifts `EDGE_*` midpoints with the vertex indices and
+`drop_edge_constraints()` removes a reference to an edge that a split or delete
+made disappear. The interactive topology path was shifting only vertices before,
+which left an edge constraint naming a different edge.

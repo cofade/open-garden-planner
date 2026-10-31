@@ -326,6 +326,7 @@ class ConstraintsPanel(QWidget):
                 constraint.anchor_c.item_id,
                 constraint.anchor_c.anchor_type,
                 constraint.anchor_c.anchor_index,
+                fallback_to_center=False,
             )
             if pos_c is None:
                 return False

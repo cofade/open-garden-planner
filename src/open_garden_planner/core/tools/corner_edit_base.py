@@ -50,6 +50,12 @@ def _is_corner_editable(item: object) -> bool:
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
+    # A grouped child is not a top-level shape: the replacement commands add the
+    # new item to the scene's top level, which would move it out of its group
+    # (round-3 review P2).  Group members are not individually selectable, so
+    # this only closes a programmatic path, but it must not be silent.
+    if getattr(item, "parentItem", lambda: None)() is not None:
+        return False
     return isinstance(item, (PolylineItem, PolygonItem, RectangleItem))
 
 

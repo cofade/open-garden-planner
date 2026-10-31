@@ -402,6 +402,100 @@ def test_a_cross_component_trial_is_seen_by_the_conflict_scan(
     ), "the cancelled constraint must not be in the graph"
 
 
+def test_a_construction_to_garden_link_is_feasible(canvas: CanvasView) -> None:
+    """Construction geometry is always pinned, so B must stay free (round-3 P1).
+
+    ``find_item_by_id`` only returns garden items, so the construction branch was
+    dead and the trial pinned B as well — refusing a satisfiable link.
+    """
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.ui.canvas.items.construction_item import (
+        ConstructionLineItem,
+    )
+
+    scene = canvas.scene()
+    construction = ConstructionLineItem(QPointF(600.0, 400.0), QPointF(600.0, 700.0))
+    bed = RectangleItem(100, 100, 200, 200)
+    scene.addItem(construction)
+    scene.addItem(bed)
+    construction_anchor = AnchorRef(construction.item_id, AnchorType.ENDPOINT, 0)
+    bed_anchor = AnchorRef(bed.item_id, AnchorType.CENTER)
+
+    assert (
+        canvas._constraint_reference_pins(construction_anchor, bed_anchor) == set()
+    ), "a construction A is already pinned; B must stay free"
+    assert canvas.is_constraint_feasible(
+        construction_anchor, bed_anchor, 300.0, ConstraintType.DISTANCE
+    )
+    # The other order pins B (construction), which is also correct.
+    assert canvas._constraint_reference_pins(bed_anchor, construction_anchor) == {
+        construction.item_id
+    }
+
+
+def test_a_properties_resize_does_not_solve_an_unrelated_component(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """The resize path solves the edited item's component only (round-3 P1)."""
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.core.measure_snapper import resolve_anchor_point
+    from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
+
+    scene = canvas.scene()
+    # An unrelated, contradictory pair.
+    first = RectangleItem(0, 0, 100, 100)
+    second = RectangleItem(900, 0, 100, 100)
+    # The edited bed and a partner at a satisfied distance from its right edge.
+    bed = RectangleItem(0, 900, 400, 300)
+    partner = RectangleItem(800, 900, 100, 100)
+    for item in (first, second, bed, partner):
+        scene.addItem(item)
+    graph = scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(first.item_id, AnchorType.CENTER),
+        AnchorRef(second.item_id, AnchorType.CENTER),
+        100.0,
+    )
+    graph.add_constraint(
+        AnchorRef(first.item_id, AnchorType.CENTER),
+        AnchorRef(second.item_id, AnchorType.CENTER),
+        500.0,
+    )
+    graph.add_constraint(
+        AnchorRef(bed.item_id, AnchorType.EDGE_RIGHT, 0),
+        AnchorRef(partner.item_id, AnchorType.CENTER),
+        450.0,
+    )
+    before = {item: QPointF(item.pos()) for item in (first, second)}
+
+    class _Spin:
+        def __init__(self, value: float) -> None:
+            self._value = value
+
+        def value(self) -> float:
+            return self._value
+
+    panel = PropertiesPanel(command_manager=canvas.command_manager)
+    qtbot.addWidget(panel)  # type: ignore[attr-defined]
+    panel._on_dimension_changed(bed, "rect_size", None, _Spin(600.0), _Spin(300.0))
+
+    for label, item in (("first", first), ("second", second)):
+        assert item.pos() == before[item], (
+            f"the unrelated {label} pair moved during an unrelated resize"
+        )
+    right = resolve_anchor_point(bed, AnchorType.EDGE_RIGHT, 0)
+    centre = resolve_anchor_point(partner, AnchorType.CENTER, 0)
+    assert right is not None and centre is not None
+    distance = math.hypot(right.x() - centre.x(), right.y() - centre.y())
+    assert distance == pytest.approx(450.0, abs=0.1), (
+        "the same-component partner was not re-solved"
+    )
+    assert any(
+        c.constraint_type == ConstraintType.DISTANCE and c.target_distance == 450.0
+        for c in graph.constraints.values()
+    )
+
+
 def test_a_locked_pair_does_not_block_a_compatible_link(
     canvas: CanvasView, qtbot: object
 ) -> None:

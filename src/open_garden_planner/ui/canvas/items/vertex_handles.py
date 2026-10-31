@@ -81,28 +81,67 @@ ANNOTATION_EDGE_OFFSET = 8.0  # pixels offset from edge midpoint
 MINIMUM_VERTICES = 3  # Cannot delete below this count
 
 
-def _shift_constraint_indices_after_insert(item: Any, insert_index: int) -> None:
+def _shift_constraint_indices_after_insert(
+    item: Any, insert_index: int, *, closed: bool
+) -> None:
     """Shift constraint anchor indices on ``item`` after a vertex is inserted.
 
     Without this, an edge-length / angle constraint silently retargets a
     different vertex once an earlier vertex is added — the visible symptom is
     geometry suddenly snapping to the wrong place on the next solver pass.
+
+    The inserted vertex also splits one edge in two (the closing edge when the
+    insert lands at index 0 of a closed shape). A constraint on that edge named
+    an edge that no longer exists, so it is dropped rather than attached to one
+    of the halves (round-3 review P1).
     """
     scene = item.scene() if hasattr(item, "scene") else None
     item_id = getattr(item, "item_id", None)
     if scene is None or item_id is None or not hasattr(scene, "constraint_graph"):
         return
-    scene.constraint_graph.shift_vertex_indices(item_id, insert_index, +1)
+    graph = scene.constraint_graph
+    split_edge = None
+    if insert_index == 0:
+        if closed:
+            # The closing edge is split; the geometry already changed, so the
+            # previous count is the current one - 1.
+            split_edge = max(0, _current_vertex_count(item) - 2)
+    else:
+        split_edge = insert_index - 1
+    if split_edge is not None:
+        graph.drop_edge_constraints(item_id, {split_edge})
+    graph.shift_vertex_indices(item_id, insert_index, +1)
 
 
-def _shift_constraint_indices_after_delete(item: Any, deleted_index: int) -> None:
-    """Drop constraints on the deleted vertex, then shift higher indices down."""
+def _current_vertex_count(item: Any) -> int:
+    """Vertex count of a polygon/polyline item (post-mutation at call time)."""
+    polygon = getattr(item, "polygon", None)
+    if callable(polygon):
+        return int(polygon().count())
+    points = getattr(item, "points", None)
+    return len(points) if points is not None else 0
+
+
+def _shift_constraint_indices_after_delete(
+    item: Any, deleted_index: int, *, closed: bool
+) -> None:
+    """Drop constraints on the deleted vertex and vanishing edges, then shift down."""
     scene = item.scene() if hasattr(item, "scene") else None
     item_id = getattr(item, "item_id", None)
     if scene is None or item_id is None or not hasattr(scene, "constraint_graph"):
         return
     graph = scene.constraint_graph
     graph.remove_vertex_constraints(item_id, deleted_index)
+    # The geometry already changed: the old vertex count is the current one + 1.
+    old_count = _current_vertex_count(item) + 1
+    edge_count = old_count if closed else max(0, old_count - 1)
+    drop: set[int] = set()
+    previous_edge = (deleted_index - 1) % old_count if closed else deleted_index - 1
+    if 0 <= previous_edge < edge_count:
+        drop.add(previous_edge)
+    if deleted_index < edge_count:
+        drop.add(deleted_index)
+    graph.drop_edge_constraints(item_id, drop)
     graph.shift_vertex_indices(item_id, deleted_index + 1, -1)
 
 
@@ -1077,7 +1116,7 @@ class VertexEditMixin:
         self._after_vertex_topology_change()
 
         # Shift any constraint anchor indices that now point past the insert.
-        _shift_constraint_indices_after_insert(self, insert_index)
+        _shift_constraint_indices_after_insert(self, insert_index, closed=True)
 
         # Recreate handles and annotations (indices changed)
         self._create_vertex_handles()
@@ -1112,7 +1151,7 @@ class VertexEditMixin:
         deleted_pos = polygon.at(index)
 
         # Drop constraints on the deleted vertex and shift higher indices down.
-        _shift_constraint_indices_after_delete(self, index)
+        _shift_constraint_indices_after_delete(self, index, closed=True)
 
         # Remove vertex
         vertices = [polygon.at(i) for i in range(polygon.count()) if i != index]
@@ -2171,7 +2210,7 @@ class PolylineVertexEditMixin:
         points.insert(insert_index, pos)
 
         # Shift any constraint anchor indices that now point past the insert.
-        _shift_constraint_indices_after_insert(self, insert_index)
+        _shift_constraint_indices_after_insert(self, insert_index, closed=False)
 
         self._rebuild_path()
         self._after_vertex_topology_change()
@@ -2196,7 +2235,7 @@ class PolylineVertexEditMixin:
         deleted_pos = QPointF(points[index])
 
         # Drop constraints on the deleted vertex and shift higher indices down.
-        _shift_constraint_indices_after_delete(self, index)
+        _shift_constraint_indices_after_delete(self, index, closed=False)
 
         del points[index]
 

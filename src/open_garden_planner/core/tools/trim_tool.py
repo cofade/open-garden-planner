@@ -424,6 +424,10 @@ class TrimExtendTool(BaseTool):
 
         if is_plant_parent_type(getattr(item, "object_type", None)):
             return True
+        if getattr(item, "parentItem", lambda: None)() is not None:
+            # The replacement is added at the top level; a grouped member would
+            # leave its group (round-3 review P2).
+            return True
         item_id = getattr(item, "item_id", None)
         if item_id is None:
             return False
@@ -435,7 +439,7 @@ class TrimExtendTool(BaseTool):
 
         msg = QCoreApplication.translate(
             "TrimExtendTool",
-            "Cannot trim this object: a bed or a constrained object cannot become an open line",
+            "Cannot trim this object: it is a bed, a group member, or carries a constraint. Remove the constraint first.",
         )
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)

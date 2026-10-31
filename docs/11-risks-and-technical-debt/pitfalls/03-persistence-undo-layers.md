@@ -201,7 +201,7 @@ the same or a higher layer; reciprocal parent/child IDs alone do not ensure this
 ### PF-PER-20
 
 - **Rule:** A shape is serialized in its **parent's** frame - the local geometry translated by `mapToParent(shape centre) - shape centre` - not by `item.pos()`, because `QGraphicsItemGroup.addToGroup()` folds the old rotation pivot into `pos()`.
-- **Pinned by:** `tests/unit/test_geometry_identity.py::test_rotated_grouped_shape_round_trips`
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_rotated_grouped_shape_round_trips`; `tests/unit/test_geometry_identity.py::test_grouped_curves_round_trip_in_their_parent_frame`; `tests/unit/test_geometry_identity.py::test_grouped_construction_geometry_round_trips`; `tests/unit/test_geometry_identity.py::test_nested_groups_round_trip`
 - **Source:** #661
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -239,6 +239,12 @@ the single rule now used by the corner tools and both trim tools; `object_type`
 stays the caller's decision, and the replacement keeps its stack rank so it does
 not jump above its plants. Identity is a property of what the user edited, not
 of the Python object a rebuild happened to construct.
+
+A vertex insert/delete renumbers indexed anchors, so the graph-level
+`shift_vertex_indices()` shifts `EDGE_*` anchors alongside vertex indices, and
+`drop_edge_constraints()` removes a reference to an edge that a split or a delete
+made disappear instead of guessing one of the halves. Both are pinned directly;
+the interactive insert/delete path calls them for polygons and polylines.
 
 Keeping the UUID is only half the answer, and the first review round found the
 other half: topology. A chamfer replaces one vertex with two, renumbering every

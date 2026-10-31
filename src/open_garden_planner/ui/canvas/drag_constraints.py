@@ -545,8 +545,17 @@ class DragConstraints:
         # item-translation DOF), and vertex_corrections is the channel that
         # rebalances neighbour vertices to satisfy the constraint the drag
         # just disturbed. _item_moves is intentionally discarded for the
-        # moving item below.
-        _item_moves, vertex_corrections = host._compute_constraint_solve_moves()
+        # moving item below.  Scoped to the dragged item's component: a vertex
+        # drag must not re-solve an unrelated component (#670 round-3 P1).
+        item_id = getattr(item, "item_id", None)
+        scope_ids = None
+        if item_id is not None:
+            scope_ids = host._canvas_scene.constraint_graph.get_connected_component(
+                item_id
+            )
+        _item_moves, vertex_corrections = host._compute_constraint_solve_moves(
+            scope_ids=scope_ids
+        )
         for gitem, idx, _old_local, new_local in vertex_corrections:
             if hasattr(gitem, '_move_vertex_to'):
                 gitem._move_vertex_to(idx, new_local)

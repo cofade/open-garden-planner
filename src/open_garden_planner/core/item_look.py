@@ -206,9 +206,13 @@ def inherit_item_identity(source: Any, dest: Any) -> None:
     item.  The original leaves the scene in the same command, so the UUID is
     free for the replacement to keep.
 
-    ``object_type`` is deliberately NOT copied — the caller decides the type
-    (a trimmed rectangle becomes a fence polyline).  The transform is copied so
-    a rotated source is replaced where it stood, not at the origin.
+    ``object_type`` is deliberately NOT copied — the caller decides the type.
+    The transform (including the stored ``rotation_angle``) is copied so a
+    rotated source is replaced where it stood, not at the origin.
+
+    Only TOP-LEVEL replacements are supported: every caller adds ``dest`` to the
+    scene's top level, so a grouped source would leave its group.  The corner and
+    trim tools refuse a grouped item rather than calling this.
     """
     import copy
 

@@ -13,7 +13,7 @@ from enum import Enum, auto
 from typing import Any
 from uuid import UUID, uuid4
 
-from open_garden_planner.core.measure_snapper import AnchorType
+from open_garden_planner.core.measure_snapper import EDGE_ANCHOR_TYPES, AnchorType
 
 
 class ConstraintType(Enum):
@@ -391,16 +391,23 @@ class ConstraintGraph:
         threshold: int,
         delta: int,
     ) -> None:
-        """Shift vertex anchor indices on ``item_id`` after a vertex insert/delete.
+        """Shift vertex AND edge anchor indices on ``item_id`` after a topology edit.
 
         Insert at position p → call with ``threshold=p, delta=+1`` so any
         existing anchor at index ``>= p`` shifts up by 1.
-        Delete at position p → call with ``threshold=p+1, delta=-1`` (caller
-        must first remove constraints whose anchor is exactly ``p`` via
-        :py:meth:`remove_vertex_constraints`).
+        Delete at position p → call with ``threshold=p+1, delta=-1`` (callers
+        must first remove constraints on the removed vertex via
+        :py:meth:`remove_vertex_constraints` and on the two vanishing edges via
+        :py:meth:`drop_edge_constraints`).
+
+        ``EDGE_*`` anchors are indexed for polygons/polylines and are renumbered
+        by the same insert/delete, so they shift with the vertices — leaving
+        them alone silently attached a constraint to a different edge
+        (round-3 review P1).
         """
         if delta == 0:
             return
+        indexed = {AnchorType.CORNER, AnchorType.ENDPOINT, *EDGE_ANCHOR_TYPES}
         for cid in self._adjacency.get(item_id, set()):
             c = self._constraints.get(cid)
             if c is None:
@@ -408,10 +415,38 @@ class ConstraintGraph:
             for anchor in (c.anchor_a, c.anchor_b, c.anchor_c):
                 if anchor is None or anchor.item_id != item_id:
                     continue
-                if anchor.anchor_type not in {AnchorType.CORNER, AnchorType.ENDPOINT}:
+                if anchor.anchor_type not in indexed:
                     continue
                 if anchor.anchor_index >= threshold:
                     anchor.anchor_index += delta
+
+    def drop_edge_constraints(
+        self, item_id: UUID, edge_indices: set[int]
+    ) -> list[UUID]:
+        """Remove constraints anchored to one of *edge_indices* on ``item_id``.
+
+        A vertex insert splits an edge and a vertex delete removes two edges;
+        the stored reference named an edge that no longer exists as one edge, so
+        it is dropped rather than silently retargeted to one of the halves.
+        """
+        if not edge_indices:
+            return []
+        removed: list[UUID] = []
+        for cid in list(self._adjacency.get(item_id, set())):
+            c = self._constraints.get(cid)
+            if c is None:
+                continue
+            for anchor in (c.anchor_a, c.anchor_b, c.anchor_c):
+                if (
+                    anchor is not None
+                    and anchor.item_id == item_id
+                    and anchor.anchor_type in EDGE_ANCHOR_TYPES
+                    and anchor.anchor_index in edge_indices
+                ):
+                    self.remove_constraint(cid)
+                    removed.append(cid)
+                    break
+        return removed
 
     def remove_vertex_constraints(self, item_id: UUID, vertex_index: int) -> list[UUID]:
         """Remove constraints whose vertex anchor on ``item_id`` is exactly ``vertex_index``.
@@ -1671,12 +1706,21 @@ class ConstraintGraph:
         union of both, or B's side is filtered out and the scan reports no
         conflict for a link the trial rejects (round-2 review P0).
         """
+        trial_ids = {trial_constraint.anchor_a.item_id, trial_constraint.anchor_b.item_id}
+        if trial_constraint.anchor_c is not None:
+            trial_ids.add(trial_constraint.anchor_c.item_id)
+        if not trial_ids.issubset(item_positions):
+            # Nothing to solve against.  The list contract means "no existing
+            # constraint is in conflict", but a caller that needs a verdict must
+            # ask validate_constraint(), which refuses this case explicitly.
+            return []
         temp = self.add_constraint(
             anchor_a=trial_constraint.anchor_a,
             anchor_b=trial_constraint.anchor_b,
             target_distance=trial_constraint.target_distance,
             visible=trial_constraint.visible,
-            constraint_id=trial_constraint.constraint_id,
+            # Fresh id: never trust the caller's id to be absent from the graph.
+            constraint_id=uuid4(),
             constraint_type=trial_constraint.constraint_type,
             anchor_c=trial_constraint.anchor_c,
             target_x=trial_constraint.target_x,
@@ -1825,31 +1869,41 @@ class ConstraintGraph:
         position names a frame that exists now.
 
         Legacy files (before #655) have no target at all, and are repaired by
-        the same rule.  Returns the number of constraints (re)targeted.
+        the same rule.  A FIXED whose item is not in the scene is dangling (its
+        delete path failed); it is dropped rather than left pinning a frame that
+        no longer exists.  Returns the number of constraints (re)targeted.
         """
         retargeted = 0
+        dangling: list[UUID] = []
         for constraint in self._constraints.values():
             if constraint.constraint_type != ConstraintType.FIXED:
                 continue
             position = item_positions.get(constraint.anchor_a.item_id)
             if position is None:
+                dangling.append(constraint.constraint_id)
                 continue
             constraint.target_x, constraint.target_y = position
             retargeted += 1
+        for constraint_id in dangling:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Dropping FIXED constraint %s: its item is not in the loaded plan",
+                constraint_id,
+            )
+            self.remove_constraint(constraint_id)
         return retargeted
 
     def has_indexed_anchor(self, item_id: UUID) -> bool:
         """True if any constraint anchors an *indexed* anchor of *item_id*.
 
-        Indexed anchors are polygon/polyline ``CORNER``/``ENDPOINT`` vertices and
-        their ``EDGE_*`` midpoints (both carry ``anchor_index``; the edge type is
-        re-derived from the current axis).  Used by the corner-edit tools (#668):
-        a chamfer/fillet replaces one vertex with two, which renumbers every
-        later vertex AND edge index.  Such an item is refused rather than
-        silently retargeting the user's constraints to a different point.
+        Indexed anchors are every ``CORNER``/``ENDPOINT`` anchor (all shapes,
+        including rectangles) and every ``EDGE_*`` midpoint (polygons/polylines,
+        where the edge type is re-derived from the current axis).  Used by the
+        corner and vertex-topology edits (#668): replacing or inserting a vertex
+        renumbers every later one.  Such an item is refused rather than silently
+        retargeting the user's constraints to a different point.
         """
-        from open_garden_planner.core.measure_snapper import EDGE_ANCHOR_TYPES
-
         indexed_types = {
             AnchorType.CORNER,
             AnchorType.ENDPOINT,

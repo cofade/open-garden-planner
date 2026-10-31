@@ -458,6 +458,47 @@ def test_stored_edge_reference_survives_a_direction_change(qtbot) -> None:
         assert table[(edge_type, 0)] == pytest.approx((150.0, 100.0))
 
 
+def test_vertex_topology_edit_shifts_every_indexed_anchor(qtbot) -> None:
+    """The graph contract: insert/delete renumber EDGE anchors too.
+
+    Round-3 review P1: only CORNER/ENDPOINT were shifted, so an edge-middle
+    constraint silently moved to a different edge.
+    """
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    graph = ConstraintGraph()
+    item_id = uuid4()
+    corner = graph.add_constraint(
+        AnchorRef(item_id, AnchorType.CORNER, 3),
+        AnchorRef(item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    edge = graph.add_constraint(
+        AnchorRef(item_id, AnchorType.EDGE_TOP, 3),
+        AnchorRef(item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    split = graph.add_constraint(
+        AnchorRef(item_id, AnchorType.EDGE_BOTTOM, 0),
+        AnchorRef(item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+
+    graph.shift_vertex_indices(item_id, 1, +1)
+    assert corner.anchor_a.anchor_index == 4
+    assert edge.anchor_a.anchor_index == 4
+    # The split edge is index 0; the caller drops it rather than shifting it.
+    assert split.anchor_a.anchor_index == 0
+
+    graph.drop_edge_constraints(item_id, {0, 1})
+    assert split.constraint_id not in graph.constraints
+    assert corner.constraint_id in graph.constraints
+
+
 def test_incidence_error_definitions(qtbot) -> None:
     """The shared residual: line distance, radius gap and tangency."""
     # Point (5, 3) against the x axis through (0, 0) and (10, 0).

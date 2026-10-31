@@ -483,6 +483,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Abrundungsradius zu groß für diese Ecke",
         "Fillet radius: {radius:.1f} cm — press R to change":
             "Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern",
+        "Cannot round this corner: a constraint is attached to its vertices or edges":
+            "Diese Ecke kann nicht abgerundet werden: An ihren Eckpunkten oder "
+            "Kanten hängt eine Randbedingung",
     },
     "ChamferTool": {
         "Chamfer": "Anfasen",
@@ -491,6 +494,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Anfasabstand zu groß für diese Ecke",
         "Chamfer distance: {distance:.1f} cm — press D to change":
             "Anfasabstand: {distance:.1f} cm — D drücken zum Ändern",
+        "Cannot chamfer this corner: a constraint is attached to its vertices or edges":
+            "Diese Ecke kann nicht abgeschrägt werden: An ihren Eckpunkten oder "
+            "Kanten hängt eine Randbedingung",
+    },
+    "TrimExtendTool": {
+        "Cannot trim this object: it is a bed, a group member, or carries a "
+        "constraint. Remove the constraint first.":
+            "Dieses Objekt kann nicht gekürzt werden: Es ist ein Beet, ein "
+            "Gruppenelement oder trägt eine Randbedingung. Entfernen Sie zuerst "
+            "die Randbedingung.",
     },
 
     # ── EdgeLengthConstraintTool ──

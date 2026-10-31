@@ -1506,10 +1506,12 @@ class ProjectManager(QObject):
         ``(0, 0)``), so ``pos() + local`` double-counts the compensation and the
         shape jumps on reload.
 
-        ``mapToParent(local_centre)`` is unaffected, because ``_apply_rotation``
-        always pivots on the shape's own centre — that centre maps to itself.
-        Returning the difference lets every shape branch translate its local
-        geometry into the parent frame with the pivot preserved.
+        ``mapToParent(local_centre)`` is the shape's own centre in the parent
+        frame.  It is the right anchor because the loader re-derives the rotation
+        pivot from the loaded geometry's centre: shifting every local point by
+        ``mapToParent(centre) - centre`` makes the re-created shape's centre
+        coincide with the old one, whatever Qt folded into ``pos()`` when the
+        child was grouped.
         """
         return item.mapToParent(local_centre) - local_centre
 
