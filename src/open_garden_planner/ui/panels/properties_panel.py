@@ -2574,13 +2574,21 @@ class PropertiesPanel(QWidget):
         if self._command_manager:
             self._command_manager.execute(command)
 
-    def _refuse_rigid_edge_length_resize(self, item: QGraphicsItem) -> bool:
-        """Refuse resizing a rigid shape that carries its own EDGE_LENGTH.
+    def _refuse_rigid_edge_length_resize(
+        self,
+        item: QGraphicsItem,
+        dimension_type: str,
+        value: float | None,  # noqa: ARG002 - part of the shared signature
+        width_spin: QDoubleSpinBox | None,
+        height_spin: QDoubleSpinBox | None,
+    ) -> bool:
+        """Refuse only a resize that would change a rigid self edge length.
 
         The solver cannot enforce a rigid item's self edge length (its anchors
         translate together), and silently moving the item outside the resize
-        command was the #670 round-5 P0.  The user is told to remove the
-        constraint first; a resizable edge length is a polygon/polyline feature.
+        command was the #670 round-5 P0.  A resize that leaves the constrained
+        edge's own length untouched (width-only on a top-edge constraint, or a
+        circle's diameter) is still allowed — over-blocking was the round-6 P2.
         """
         from open_garden_planner.core.constraints import ConstraintType
         from open_garden_planner.core.measure_snapper import is_vertex_deformable
@@ -2590,21 +2598,58 @@ class PropertiesPanel(QWidget):
         item_id = getattr(item, "item_id", None)
         if graph is None or item_id is None or is_vertex_deformable(item):
             return False
-        for constraint in graph.get_item_constraints(item_id):
-            if (
-                constraint.constraint_type == ConstraintType.EDGE_LENGTH
-                and constraint.anchor_a.item_id == item_id
-                and constraint.anchor_b.item_id == item_id
-            ):
-                self._show_status_message(
-                    self.tr(
-                        "Cannot resize this shape: its edge length is constrained. "
-                        "Remove the constraint first."
-                    ),
+        constraints = [
+            constraint
+            for constraint in graph.get_item_constraints(item_id)
+            if constraint.constraint_type == ConstraintType.EDGE_LENGTH
+            and constraint.anchor_a.item_id == item_id
+            and constraint.anchor_b.item_id == item_id
+        ]
+        if not constraints:
+            return False
+
+        if dimension_type != "rect_size" or width_spin is None or height_spin is None:
+            changes_any = True
+        else:
+            current = item.rect()  # type: ignore[attr-defined]
+            changes_width = abs(float(width_spin.value()) - current.width()) > 1e-6
+            changes_height = abs(float(height_spin.value()) - current.height()) > 1e-6
+            changes_any = False
+            from open_garden_planner.core.measure_snapper import resolve_anchor_point
+
+            for constraint in constraints:
+                first = resolve_anchor_point(
                     item,
+                    constraint.anchor_a.anchor_type,
+                    constraint.anchor_a.anchor_index,
                 )
-                return True
-        return False
+                second = resolve_anchor_point(
+                    item,
+                    constraint.anchor_b.anchor_type,
+                    constraint.anchor_b.anchor_index,
+                )
+                if first is None or second is None:
+                    changes_any = True  # unknown geometry → keep the refusal
+                    break
+                edge_is_horizontal = abs(first.x() - second.x()) >= abs(
+                    first.y() - second.y()
+                )
+                if (changes_width if edge_is_horizontal else changes_height):
+                    changes_any = True
+                    break
+
+        if not changes_any:
+            return False
+        self._show_status_message(
+            self.tr(
+                "Cannot resize this shape: its edge length is constrained. "
+                "Remove the constraint first."
+            ),
+            item,
+        )
+        # The typed value was never applied; put the field back on the model.
+        self._refresh_field_values()
+        return True
 
     def _show_status_message(self, message: str, item: QGraphicsItem) -> None:
         """Show *message* in the canvas view's status bar, if one is attached."""
@@ -2635,7 +2680,9 @@ class PropertiesPanel(QWidget):
         """
         if self._updating:
             return
-        if self._refuse_rigid_edge_length_resize(item):
+        if self._refuse_rigid_edge_length_resize(
+            item, dimension_type, value, width_spin, height_spin
+        ):
             return
 
         from open_garden_planner.core.commands import ResizeItemCommand

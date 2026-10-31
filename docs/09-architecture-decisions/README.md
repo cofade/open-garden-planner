@@ -251,7 +251,8 @@ vertex-deformable, and the solver itself skips any self-constraint on a rigid it
 the item translates both anchors, so every iteration re-applied the full correction
 (measured before the fix: a 200 cm top edge edited to 400 left the edge at 200 and moved the
 item to −4000 cm). A rigid shape's edge length follows its size, not the solver, so the
-distance dialog and the Properties resize both refuse that edit with a translated message.
+distance dialog and the Properties resize both refuse that edit and ask the user to remove
+the constraint before resizing.
 Vertex insert/delete renumber indexed anchors (`CORNER`, `ENDPOINT` and `EDGE_*`) through
 `AddVertexCommand`/`DeleteVertexCommand`, which capture a before-state and restore it on
 undo; the Agent API, GUI and undo/redo share that invariant. A corner edit also reconciles

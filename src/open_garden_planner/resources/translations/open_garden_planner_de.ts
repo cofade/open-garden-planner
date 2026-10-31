@@ -1057,8 +1057,12 @@
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="3184" />
+            <source>This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.</source>
+            <translation>Diese Kantenlänge gehört zu einer starren Form. Entfernen Sie die Randbedingung und ändern Sie dann die Größe der Form.</translation>
+        </message>
+        <message>
             <source>This edge length belongs to a rigid shape. Resize the shape instead.</source>
-            <translation>Diese Kantenlänge gehört zu einer starren Form. Ändern Sie stattdessen die Größe der Form.</translation>
+            <translation type="vanished">Diese Kantenlänge gehört zu einer starren Form. Ändern Sie stattdessen die Größe der Form.</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="599" />
@@ -1189,7 +1193,7 @@
             <translation type="vanished">Diese Ecke kann nicht abgeschrägt werden: An ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="135" />
+            <location filename="../../core/tools/chamfer_tool.py" line="139" />
             <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
             <translation>Diese Ecke kann nicht bearbeitet werden: Sie ist gruppiert, oder an ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
         </message>
@@ -1200,7 +1204,7 @@
             <translation>Anfasen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="128" />
+            <location filename="../../core/tools/chamfer_tool.py" line="132" />
             <source>Chamfer distance too large for this corner</source>
             <translation>Anfasabstand zu groß für diese Ecke</translation>
         </message>
@@ -1900,7 +1904,7 @@
             <translation type="vanished">Ebene</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2779" />
+            <location filename="../../ui/panels/properties_panel.py" line="2826" />
             <source>name</source>
             <translation>Name</translation>
         </message>
@@ -3799,7 +3803,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>FilletTool</name>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="173" />
+            <location filename="../../core/tools/fillet_tool.py" line="177" />
             <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
             <translation>Diese Ecke kann nicht bearbeitet werden: Sie ist gruppiert, oder an ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
         </message>
@@ -3814,7 +3818,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
             <translation>Abrunden</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="166" />
+            <location filename="../../core/tools/fillet_tool.py" line="170" />
             <source>Fillet radius too large for this corner</source>
             <translation>Abrundungsradius zu groß für diese Ecke</translation>
         </message>
@@ -11807,7 +11811,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2600" />
+            <location filename="../../ui/panels/properties_panel.py" line="2644" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>Diese Form kann nicht skaliert werden: Ihre Kantenlänge ist durch eine Randbedingung festgelegt. Entfernen Sie zuerst die Randbedingung.</translation>
         </message>

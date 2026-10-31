@@ -550,6 +550,13 @@ def test_vertex_insert_then_undo_restores_indexed_anchors(
     assert graph.constraints[closing_edge.constraint_id].anchor_a.anchor_index == 4
     assert split_edge.constraint_id not in graph.constraints
 
+    # A second undo after the redo must restore the snapshot exactly; this is
+    # what the deep-copied anchors in restore_topology_state protect.
+    canvas.command_manager.undo()
+    assert polygon.polygon().count() == 4
+    assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 3
+    assert graph.constraints[split_edge.constraint_id].anchor_a.anchor_index == 0
+
 
 def test_vertex_delete_of_the_first_vertex_drops_the_closing_edge(
     canvas: CanvasView, qtbot: object
@@ -601,6 +608,11 @@ def test_vertex_delete_of_the_first_vertex_drops_the_closing_edge(
     assert closing_edge.constraint_id not in graph.constraints
     assert graph.constraints[later_edge.constraint_id].anchor_a.anchor_index == 0
     assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 1
+
+    canvas.command_manager.undo()
+    assert polygon.polygon().count() == 4
+    assert graph.constraints[closing_edge.constraint_id].anchor_a.anchor_index == 3
+    assert graph.constraints[later_edge.constraint_id].anchor_a.anchor_index == 1
 
 
 def test_agent_built_vertex_command_shares_the_topology_invariant(

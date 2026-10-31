@@ -1037,8 +1037,12 @@
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="3184" />
+            <source>This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.</source>
+            <translation>Esta longitud de lado pertenece a una forma rígida. Elimine la restricción y cambie el tamaño de la forma.</translation>
+        </message>
+        <message>
             <source>This edge length belongs to a rigid shape. Resize the shape instead.</source>
-            <translation>Esta longitud de lado pertenece a una forma rígida. Cambie el tamaño de la forma en su lugar.</translation>
+            <translation type="vanished">Esta longitud de lado pertenece a una forma rígida. Cambie el tamaño de la forma en su lugar.</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="599" />
@@ -1169,7 +1173,7 @@
             <translation type="vanished">No se puede achaflanar esta esquina: hay una restricción unida a sus vértices o lados</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="135" />
+            <location filename="../../core/tools/chamfer_tool.py" line="139" />
             <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
             <translation>No se puede editar esta esquina: está agrupada o tiene una restricción unida a sus vértices o lados</translation>
         </message>
@@ -1180,7 +1184,7 @@
             <translation>Chaflán</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="128" />
+            <location filename="../../core/tools/chamfer_tool.py" line="132" />
             <source>Chamfer distance too large for this corner</source>
             <translation>Distancia de chaflán demasiado grande para esta esquina</translation>
         </message>
@@ -1872,7 +1876,7 @@
             <translation>visibilidad de etiqueta</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2779" />
+            <location filename="../../ui/panels/properties_panel.py" line="2826" />
             <source>name</source>
             <translation>nombre</translation>
         </message>
@@ -3616,7 +3620,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
     <context>
         <name>FilletTool</name>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="173" />
+            <location filename="../../core/tools/fillet_tool.py" line="177" />
             <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
             <translation>No se puede editar esta esquina: está agrupada o tiene una restricción unida a sus vértices o lados</translation>
         </message>
@@ -3631,7 +3635,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Redondeo</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="166" />
+            <location filename="../../core/tools/fillet_tool.py" line="170" />
             <source>Fillet radius too large for this corner</source>
             <translation>Radio de redondeo demasiado grande para esta esquina</translation>
         </message>
@@ -11382,7 +11386,7 @@ para asignar datos de especie.</translation>
             <translation>Traer al frente</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2600" />
+            <location filename="../../ui/panels/properties_panel.py" line="2644" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>No se puede cambiar el tamaño de esta forma: su longitud de lado está restringida. Elimine primero la restricción.</translation>
         </message>

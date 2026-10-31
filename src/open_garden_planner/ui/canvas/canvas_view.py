@@ -3182,7 +3182,7 @@ class CanvasView(QGraphicsView):
             if item is None or not is_vertex_deformable(item):
                 self.set_status_message(
                     self.tr(
-                        "This edge length belongs to a rigid shape. Resize the shape instead."
+                        "This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead."
                     )
                 )
                 return

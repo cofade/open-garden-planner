@@ -506,8 +506,9 @@ class TrimExtendTool(BaseTool):
 
             inherit_item_identity(item, new_pieces[0])
             if len(new_pieces) > 1 and hasattr(item, "stack_order"):
-                # Keep the new piece above the original's rank instead of letting
-                # it sort to the layer's bottom.
+                # An unranked item sorts ABOVE every ranked one (None is the
+                # top), so a bare clone would jump to the front of the layer.
+                # Place the new piece just above its source instead.
                 new_pieces[1].stack_order = (item.stack_order or 0) + 1
 
         cmd = TrimPolylineCommand(self._view.scene(), item, new_pieces)

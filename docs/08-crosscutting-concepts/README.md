@@ -2463,6 +2463,8 @@ Every `solve_anchored` call runs in two phases:
 
 Convergence criterion: `max|F| ≤ tolerance`. `solve` defaults to 0.1 cm and 20 warm-start iterations; `solve_anchored` defaults to 1.0 cm and 10. Newton defaults to 25 iterations and 15 backtracks. Caller tolerances govern the final physical error. With no movable variables, evaluate the fixed-state residual before reporting feasibility (#457).
 
+A **self-constraint on a rigid item** (a rectangle's own edge length, coincidence or symmetry) is measured but never moved: both anchors translate with the item, so a correction can never change the distance and would repeat every iteration. Its residual still counts towards `max|F|` (so `validate_constraint()` refuses it and the conflict dialog fires), but Newton does not receive it — a translation-invariant residual would sit as a constant floor and stop Armijo from refining the other constraints. The predicate is "neither anchor resolves to a deformable vertex", which is broader than "rigid item".
+
 ### 8.12.3 Why two phases
 
 Gauss-Seidel alone fails on coupled systems — the canonical case is two `EDGE_LENGTH` constraints sharing a vertex. The feasible vertex position is the intersection of two circles, which cannot be reached by alternating 1D projections. Newton handles the 2D move. In the non-coupled majority case, Newton returns immediately because Gauss-Seidel already hit tolerance.

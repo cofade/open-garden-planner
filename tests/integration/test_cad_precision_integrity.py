@@ -527,8 +527,30 @@ def test_the_solver_never_translates_a_rigid_self_constraint() -> None:
     assert result.item_deltas == {}, "the rigid shape was translated by the solver"
 
 
+def test_a_violated_rigid_self_constraint_is_refused_by_the_trial() -> None:
+    """The measured residual keeps the conflict dialog alive (round-6 P1)."""
+    from open_garden_planner.core.constraints import (
+        ConstraintGraph,
+        ConstraintType,
+    )
+
+    graph = ConstraintGraph()
+    item = uuid4()
+    assert graph.validate_constraint(
+        AnchorRef(item, AnchorType.CORNER, 0),
+        AnchorRef(item, AnchorType.CORNER, 2),
+        500.0,
+        ConstraintType.DISTANCE,
+        {item: (0.0, 0.0)},
+        {
+            (item, AnchorType.CORNER, 0): (0.0, 0.0),
+            (item, AnchorType.CORNER, 2): (100.0, 100.0),
+        },
+    ) is False, "an unenforceable self-constraint must not be approved"
+
+
 def test_a_rigid_shapes_edge_length_refuses_a_properties_resize(
-    canvas: CanvasView, qtbot: object
+    canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Resizing a rigid shape with its own EDGE_LENGTH is refused (round-5 P0)."""
     from open_garden_planner.core.constraints import ConstraintType
@@ -546,6 +568,14 @@ def test_a_rigid_shapes_edge_length_refuses_a_properties_resize(
     before_rect = QRectF(rect.rect())
     before_pos = QPointF(rect.pos())
     steps = canvas.command_manager.undo_depth
+    messages: list[str] = []
+    original = canvas.set_status_message
+
+    def _record(message: str) -> None:
+        messages.append(message)
+        original(message)
+
+    monkeypatch.setattr(canvas, "set_status_message", _record)
 
     class _Spin:
         def __init__(self, value: float) -> None:
@@ -561,6 +591,11 @@ def test_a_rigid_shapes_edge_length_refuses_a_properties_resize(
     assert rect.rect() == before_rect, "the refused resize must not change geometry"
     assert rect.pos() == before_pos
     assert canvas.command_manager.undo_depth == steps
+    assert messages, "the refusal must be explained to the user"
+
+    # A height-only edit leaves a TOP/BOTTOM edge length untouched and is allowed.
+    panel._on_dimension_changed(rect, "rect_size", None, _Spin(200.0), _Spin(140.0))
+    assert rect.rect().height() == pytest.approx(140.0)
 
 
 def test_a_rigid_shapes_edge_length_cannot_be_edited_as_a_distance(

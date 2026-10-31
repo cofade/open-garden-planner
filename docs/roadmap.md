@@ -3815,8 +3815,9 @@ recomputed somewhere else, and the two answers drifted apart.
    including a trial that joins two existing components — one resolver
    (`resolve_anchor_point`/`anchor_offset_table`) serves dimension lines, drag enforcement
    and the solver, and vertex insert/delete renumber indexed anchors in the undoable command
-   so GUI and Agent API agree. A rigid shape's edge length is refused by the solver and by
-   both edit surfaces (the shape follows a resize instead).
+   so GUI and Agent API agree. A rigid shape's edge length is measured but never solved (the
+   conflict dialog still refuses an unsatisfiable one), and both edit surfaces ask the user
+   to remove the constraint before resizing.
 
 No `.ogp` format change. Tests: `tests/unit/test_constraint_integrity.py`,
 `tests/unit/test_geometry_identity.py`, `tests/unit/test_incidence_consistency.py` and

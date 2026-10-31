@@ -137,6 +137,62 @@ def incidence_error(
     return None
 
 
+def _static_self_residual(
+    constraint: Constraint,
+    ax: float,
+    ay: float,
+    bx: float,
+    by: float,
+    cx: float | None,
+    cy: float | None,
+) -> float | None:
+    """Residual of a self-constraint the positional solver cannot move.
+
+    Used for a self-constraint on a rigid item (a rectangle/circle's own edge
+    length, coincidence, symmetry...).  The solver must not translate the item to
+    "fix" it — both anchors move together — but the residual still has to count
+    towards convergence so ``validate_constraint()`` can refuse it and the
+    conflict dialog still appears.  Returns ``None`` for types this helper does
+    not model (rotation-only types are skipped earlier).
+    """
+    kind = constraint.constraint_type
+    if kind in (ConstraintType.DISTANCE, ConstraintType.EDGE_LENGTH):
+        return abs(math.hypot(ax - bx, ay - by) - constraint.target_distance)
+    if kind == ConstraintType.HORIZONTAL:
+        return abs(by - ay)
+    if kind == ConstraintType.VERTICAL:
+        return abs(bx - ax)
+    if kind == ConstraintType.HORIZONTAL_DISTANCE:
+        return abs(abs(bx - ax) - constraint.target_distance)
+    if kind == ConstraintType.VERTICAL_DISTANCE:
+        return abs(abs(by - ay) - constraint.target_distance)
+    if kind == ConstraintType.COINCIDENT:
+        return math.hypot(ax - bx, ay - by)
+    if kind == ConstraintType.SYMMETRY_HORIZONTAL:
+        axis_y = constraint.target_distance
+        return math.hypot(bx - ax, (ay + by) - 2.0 * axis_y)
+    if kind == ConstraintType.SYMMETRY_VERTICAL:
+        axis_x = constraint.target_distance
+        return math.hypot(by - ay, (ax + bx) - 2.0 * axis_x)
+    if kind in INCIDENCE_TYPES:
+        return incidence_error(
+            kind, (ax, ay), (bx, by), (cx, cy) if cx is not None else None,
+            constraint.target_distance,
+        )
+    if kind == ConstraintType.ANGLE:
+        if cx is None or cy is None:
+            return None
+        ba_x, ba_y = ax - bx, ay - by
+        bc_x, bc_y = cx - bx, cy - by
+        ba_len = math.hypot(ba_x, ba_y)
+        bc_len = math.hypot(bc_x, bc_y)
+        if ba_len < 1e-9 or bc_len < 1e-9:
+            return None
+        cos_val = max(-1.0, min(1.0, (ba_x * bc_x + ba_y * bc_y) / (ba_len * bc_len)))
+        return abs(math.degrees(math.acos(cos_val)) - constraint.target_distance) * 100.0
+    return None
+
+
 @dataclass
 class AnchorRef:
     """Reference to an anchor point on a specific item.
@@ -1084,6 +1140,14 @@ class ConstraintGraph:
         rotation_deltas: dict[UUID, float] = {}
         max_error = float("inf")
         iterations_used = 0
+        # Self-constraints on rigid items: measured, never moved (see the guard
+        # below).  Newton must not receive them either — their residual is
+        # translation-invariant, so it would sit as a constant floor on max|F| and
+        # stop Armijo from refining the other constraints (#670 round-6 review).
+        skipped_constraint_ids: set[UUID] = set()
+        # The best residual among skipped constraints: a constant floor that
+        # Newton cannot improve (it never receives those constraints).
+        skipped_floor = 0.0
 
         for iteration in range(max_iterations):
             max_error = 0.0
@@ -1105,8 +1169,10 @@ class ConstraintGraph:
                 # drifts by metres (measured: a 200 cm edge edited to 400 moved a
                 # rectangle by -4000 cm).  Only vertex-deformable items
                 # (polygon/polyline) have per-anchor DOF.  A rigid item's size
-                # changes through a resize command, not here.  The residual stays
-                # visible in the panel because it computes it independently.
+                # changes through a resize command, not here.  The residual is
+                # still MEASURED (never moved), so validate_constraint() can
+                # refuse a self-constraint the solver cannot enforce and the
+                # conflict dialog still fires (round-6 review P1).
                 if (
                     id_a == id_b
                     and not (
@@ -1114,6 +1180,41 @@ class ConstraintGraph:
                         or _is_vtx(id_b, constraint.anchor_b)
                     )
                 ):
+                    skipped_constraint_ids.add(constraint.constraint_id)
+                    key_a = (
+                        id_a,
+                        constraint.anchor_a.anchor_type,
+                        constraint.anchor_a.anchor_index,
+                    )
+                    key_b = (
+                        id_b,
+                        constraint.anchor_b.anchor_type,
+                        constraint.anchor_b.anchor_index,
+                    )
+                    ax, ay = _anchor_pos(
+                        id_a, constraint.anchor_a, anchor_offsets.get(key_a, (0.0, 0.0))
+                    )
+                    bx, by = _anchor_pos(
+                        id_b, constraint.anchor_b, anchor_offsets.get(key_b, (0.0, 0.0))
+                    )
+                    cx = cy = None
+                    if constraint.anchor_c is not None:
+                        key_c = (
+                            constraint.anchor_c.item_id,
+                            constraint.anchor_c.anchor_type,
+                            constraint.anchor_c.anchor_index,
+                        )
+                        cx, cy = _anchor_pos(
+                            constraint.anchor_c.item_id,
+                            constraint.anchor_c,
+                            anchor_offsets.get(key_c, (0.0, 0.0)),
+                        )
+                    residual = _static_self_residual(
+                        constraint, ax, ay, bx, by, cx, cy
+                    )
+                    if residual is not None:
+                        max_error = max(max_error, residual)
+                        skipped_floor = max(skipped_floor, residual)
                     continue
 
                 # Get anchor offsets for this constraint's endpoints
@@ -1576,11 +1677,18 @@ class ConstraintGraph:
                 anchor_offsets=anchor_offsets,
                 deformable_items=deformable,
                 deformable_vkeys=deformable_vkeys,
-                constraints=list(self._constraints.values()),
+                constraints=[
+                    c
+                    for c in self._constraints.values()
+                    if c.constraint_id not in skipped_constraint_ids
+                ],
                 pinned_items=pinned_items,
                 tol=tolerance,
             )
             max_error = min(max_error, refined_err)
+            # Newton refined only the constraints it was given; the skipped
+            # self-constraints are a constant floor that must survive it.
+            max_error = max(max_error, skipped_floor)
 
         item_deltas: dict[UUID, tuple[float, float]] = {}
         for uid, pos in positions.items():

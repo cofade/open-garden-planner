@@ -361,12 +361,14 @@ class _Records:
         self.harvest = {str(bed_id): [{"crop": "tomato"}]}
 
 
+@pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
 def test_corner_edit_unlinks_a_plant_outside_the_new_bed(
-    canvas: CanvasView, qtbot: object
+    canvas: CanvasView, qtbot: object, tool_name: str
 ) -> None:
     """A cut corner must reconcile bed membership in the same undo step (#443)."""
     from open_garden_planner.core.tools.chamfer_tool import ChamferTool
     from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.core.tools.fillet_tool import FilletTool
     from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 
     scene = canvas.scene()
@@ -384,18 +386,30 @@ def test_corner_edit_unlinks_a_plant_outside_the_new_bed(
     scene.addItem(plant)
     plant.parent_bed_id = bed.item_id
     bed.add_child_id(plant.item_id)
+    steps = canvas.command_manager.undo_depth
 
     target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
     assert target is not None and target.item is bed
-    ChamferTool(canvas).apply_to_target(target)
+    if tool_name == "chamfer":
+        tool = ChamferTool(canvas)
+        tool._distance = 25.0
+    else:
+        tool = FilletTool(canvas)
+        tool._radius = 25.0
+    tool.apply_to_target(target)
 
+    assert canvas.command_manager.undo_depth == steps + 1, "one undo step"
     assert plant.parent_bed_id is None, (
-        "a plant left outside the chamfered bed is still linked to it"
+        "a plant left outside the cut bed is still linked to it"
     )
     canvas.command_manager.undo()
     assert plant.parent_bed_id == bed.item_id, "undo must restore the link"
+    assert len(
+        [p for p in scene.items() if getattr(p, "item_id", None) == bed.item_id]
+    ) == 1, "undo must restore the original bed object"
     canvas.command_manager.redo()
     assert plant.parent_bed_id is None
+    assert bed.scene() is None
 
 
 @pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
@@ -443,6 +457,48 @@ def test_corner_edit_keeps_the_bed_identity(
     assert new_item.scene() is scene and new_item.item_id == old_id
     assert new_item.name == "Bed A"
     assert plant.parent_bed_id == old_id
+
+
+def test_trim_polyline_keeps_the_source_identity_and_a_neighbouring_rank(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """The split keeps the UUID on piece A and places piece B just above it."""
+    from open_garden_planner.core.tools.trim_tool import TrimExtendTool, _TrimTarget
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    scene = canvas.scene()
+    line = PolylineItem(
+        [QPointF(0, 0), QPointF(100, 0), QPointF(200, 0), QPointF(300, 0)],
+        object_type=ObjectType.FENCE,
+    )
+    line.name = "Fence"
+    line.stack_order = 500
+    scene.addItem(line)
+    old_id = line.item_id
+
+    TrimExtendTool(canvas)._trim_polyline(
+        _TrimTarget(
+            item=line,
+            seg_index=1,
+            t_start=0.3,
+            t_end=0.7,
+            p1_scene=QPointF(100.0, 0.0),
+            p2_scene=QPointF(200.0, 0.0),
+        )
+    )
+
+    pieces = sorted(
+        (
+            item
+            for item in scene.items()
+            if isinstance(item, PolylineItem) and item.scene() is scene
+        ),
+        key=lambda item: item.stack_order or 0,
+    )
+    assert len(pieces) == 2
+    assert pieces[0].item_id == old_id and pieces[0].name == "Fence"
+    assert pieces[0].stack_order == 500
+    assert pieces[1].stack_order == 501
 
 
 def test_trim_refuses_a_referenced_bed(canvas: CanvasView, qtbot: object) -> None:

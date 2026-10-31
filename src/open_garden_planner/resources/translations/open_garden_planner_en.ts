@@ -1041,8 +1041,12 @@
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="3184" />
+            <source>This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.</source>
+            <translation>This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.</translation>
+        </message>
+        <message>
             <source>This edge length belongs to a rigid shape. Resize the shape instead.</source>
-            <translation>This edge length belongs to a rigid shape. Resize the shape instead.</translation>
+            <translation type="vanished">This edge length belongs to a rigid shape. Resize the shape instead.</translation>
         </message>
         <message>
             <location filename="../../ui/canvas/canvas_view.py" line="599" />
@@ -1177,7 +1181,7 @@
             <translation type="vanished">Cannot chamfer this corner: a constraint is attached to one of its vertices</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="135" />
+            <location filename="../../core/tools/chamfer_tool.py" line="139" />
             <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
             <translation>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</translation>
         </message>
@@ -1188,7 +1192,7 @@
             <translation>Chamfer</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="128" />
+            <location filename="../../core/tools/chamfer_tool.py" line="132" />
             <source>Chamfer distance too large for this corner</source>
             <translation>Chamfer distance too large for this corner</translation>
         </message>
@@ -1880,7 +1884,7 @@
             <translation>label visibility</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2779" />
+            <location filename="../../ui/panels/properties_panel.py" line="2826" />
             <source>name</source>
             <translation>name</translation>
         </message>
@@ -3743,7 +3747,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
     <context>
         <name>FilletTool</name>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="173" />
+            <location filename="../../core/tools/fillet_tool.py" line="177" />
             <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
             <translation>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</translation>
         </message>
@@ -3762,7 +3766,7 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
             <translation>Fillet</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="166" />
+            <location filename="../../core/tools/fillet_tool.py" line="170" />
             <source>Fillet radius too large for this corner</source>
             <translation>Fillet radius too large for this corner</translation>
         </message>
@@ -11601,7 +11605,7 @@ to assign species data.</translation>
             <translation>Bring to Front</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2600" />
+            <location filename="../../ui/panels/properties_panel.py" line="2644" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</translation>
         </message>

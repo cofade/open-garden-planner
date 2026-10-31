@@ -502,7 +502,10 @@ vertices". A rectangle is rigid in the positional solver, so leaving a
 self-constraint's item free translates the whole shape instead of changing its
 edge length (measured: a 200 cm top edge edited to 400 left the edge at 200 and
 moved the item to -4000 cm). The pin rule asks
-`measure_snapper.is_vertex_deformable()`, the solver skips any self-constraint on
-a rigid item, and both the distance dialog and the Properties resize refuse the
-edit with a translated message: a rigid shape's edge length follows its size, not
-the solver.
+`measure_snapper.is_vertex_deformable()`; the solver MEASURES a rigid
+self-constraint's residual but never moves the item (so the trial still refuses
+an unsatisfiable one and the conflict dialog fires), and Newton does not receive
+it (a translation-invariant residual would floor the refinement). A rigid shape's
+edge length follows a RECONSTRAINT-FREE resize, so the distance dialog and the
+Properties resize both refuse the edit and ask the user to remove the constraint
+first.

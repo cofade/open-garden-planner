@@ -260,9 +260,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
-        "This edge length belongs to a rigid shape. Resize the shape instead.":
-            "Diese Kantenlänge gehört zu einer starren Form. Ändern Sie stattdessen "
-            "die Größe der Form.",
+        "This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.":
+            "Diese Kantenlänge gehört zu einer starren Form. Entfernen Sie die "
+            "Randbedingung und ändern Sie dann die Größe der Form.",
         # #550: boolean union over a selection.
         "All shapes must be on the same layer": "Alle Formen müssen auf derselben Ebene liegen",
         "Select at least two shapes (intersection and subtraction need exactly two)": (
