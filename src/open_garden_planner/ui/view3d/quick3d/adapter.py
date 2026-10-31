@@ -385,11 +385,11 @@ class Quick3DSink:
         held = self._require_known("remove", item_id)
         all_slots = [s for s in held.active_slots if s is not None] + held.dormant_slots
         for slot in all_slots:
+            self._scene.destroy_part(slot.handle)   # the Model first: a freed picture
+            self.models_destroyed += 1              # under a live Model draws white
             if slot.fill_key is not None:
                 self._release(slot.fill_key)
                 slot.fill_key = None
-            self._scene.destroy_part(slot.handle)
-            self.models_destroyed += 1
         del self._items[item_id]
 
     def update_transform(self, item_id: str, transform: Transform) -> None:
@@ -495,12 +495,12 @@ class Quick3DSink:
         # Unmatched remaining slots in available_slots become/stay dormant
         new_dormant_slots: list[_PartSlot] = []
         for slot in available_slots:
-            if slot.fill_key is not None:
-                self._release(slot.fill_key)
-                slot.fill_key = None
             if slot.active:
                 slot.active = False
-                self._scene.set_part_dormant(slot.handle, True)
+                self._scene.set_part_dormant(slot.handle, True)   # hide it FIRST: a
+            if slot.fill_key is not None:                          # freed picture under
+                self._release(slot.fill_key)                       # a live Model is white
+                slot.fill_key = None
             new_dormant_slots.append(slot)
 
         # Build new_active_slots

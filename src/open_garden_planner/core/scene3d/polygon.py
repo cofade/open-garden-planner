@@ -8,12 +8,15 @@ clockwise (signed area < 0). That is the orientation pyclipper emits and the one
 load-bearing — its stroke comes back as two rings, and extruding the inner one
 as a solid turns a 3.6 m² fence into an 80 m² slab (senior review, fix round 1).
 
-Plain Python on float pairs, except where a test is quadratic and runs on every
-edit of a ring — the simplicity test of a large ring and the triangulation of a
-region with holes run on numpy. ``triangulate_polygon`` is the ear clipper the
-Qt 3D view of US-E6 used, moved here unchanged from the pre-L1.1 module that L1.10
-deleted with that view; ``triangulate_region`` adds holes by bridging each hole to the
-boundary and clipping ears of the merged ring.
+Plain Python on float pairs, except where a test is superlinear and runs on every
+edit of a ring — the simplicity test of a large ring and the ring-conflict sweep
+run on numpy. ``triangulate_polygon`` is the ear clipper the Qt 3D view of US-E6
+used, moved here unchanged from the pre-L1.1 module that L1.10 deleted with that
+view; it remains the test reference and the builders' fallback for small rings.
+``triangulate_region`` cuts a region with holes, or a hole-free ring of
+``ARRAY_EAR_CLIP_FROM`` vertices or more, with ONE native call (``mapbox-earcut``,
+ADR-069); below that size it clips ears of the shared clipper, whose triangles the
+golden meshes pin.
 
 ONE predicate says whether a region may be handed to a builder:
 ``is_buildable_region`` — true exactly when ``cut_region``, the triangulation
@@ -24,12 +27,13 @@ region's area. The snapshot asks it for every outline it turns into rings, so
 Two bounds hold for everything here, because the rings come out of a plan file
 and a plan file can be written by anybody (security review of fix round 3):
 
-- WORK. Whatever is superlinear — the simplicity test, sorting rings into
-  regions, a bridge, the ear clipping, counting the pairs of a path — is paid
-  for in work units out of a ``WorkBudget`` BEFORE it runs, and refused
-  (``RegionTooLargeError``) when the budget does not cover it. One region may
-  cost ``MAX_REGION_WORK``; so may everything ONE item's outline needs, which
-  ``ui.view3d.snapshot`` pays into one budget.
+- WORK. Whatever is superlinear — the simplicity test, the ring-conflict sweep,
+  sorting rings into regions, a bridge, the native triangulation (worst case),
+  counting the pairs of a path — is paid for in work units out of a
+  ``WorkBudget`` BEFORE it runs, and refused (``RegionTooLargeError``) when the
+  budget does not cover it. One region may cost ``MAX_REGION_WORK``; so may
+  everything ONE item's outline needs, which ``ui.view3d.snapshot`` pays into one
+  budget.
 - MEMORY. What is remembered about rings (``ring_keyed``: ``ring_area``, the
   verdict and the cut of a region) is bounded by the VERTICES it holds, not by
   the number of answers, and a ring of more than ``MAX_ITEM_VERTICES`` vertices
@@ -61,10 +65,11 @@ _Floats: TypeAlias = "NDArray[np.float64] | float"
 #: DRAWN (a polygon's ring, the points of a path) and as it is MADE (every ring
 #: the clipper returns for it, together). The first is asked of the item before
 #: one vertex is read, the second of the clipper's answer before one ring of it
-#: is. Far above what the work bound lets through (a plain outline of about
-#: 3,500 vertices; a straight path of about 6,600 points, whose pairs alone are
-#: the bound), so it never refuses what could be built — it is what makes the
-#: answer for 200,000 points ONE comparison, and what bounds a key.
+#: is. Above what the work bound lets through (a plain outline of about 7,000
+#: vertices with the native cut's pricing, fewer for a ring whose shape makes the
+#: sweep pay; a straight path of about 6,600 points, whose pairs alone are the
+#: bound), so it refuses only what could not be built anyway — it is what
+#: makes the answer for 200,000 points ONE comparison, and what bounds a key.
 MAX_ITEM_VERTICES: Final = 16_384
 #: How many vertices of STALE answers ONE ``ring_keyed`` function holds at most,
 #: keys and answers together — answers the plan no longer asks for: the ring an
