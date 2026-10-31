@@ -281,7 +281,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   (0.02 cm), rectangle types map to their polygonal equivalent (raised bed → garden
   bed), the refusal is corner-scoped with in-command renumbering, and the toolbar
   tooltip's shortcut is appended once in the UI language (ADR-022 addendum;
-  PF-CAN-34, PF-DOM-33, PF-UI-32).
+  PF-CAN-33/34/35, PF-DOM-31/32/33, PF-UI-31/32). An offset of an open fence/path
+  is now a parallel line (not a polygon); the 3D curved-fence fillet is issue #675.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

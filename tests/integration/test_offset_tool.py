@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from PyQt6.QtCore import QPointF, Qt
-from PyQt6.QtGui import QColor, QMouseEvent
+from PyQt6.QtGui import QColor, QMouseEvent, QPen
 
 from open_garden_planner.core.fill_patterns import FillPattern
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
@@ -484,22 +484,55 @@ class TestOffsetCopyLooksLikeItsSource:
             _assert_reloaded_look(source, item)
 
 
-def test_offset_polyline_result_is_a_corner_editable_polygon(qtbot) -> None:
-    """A path's FENCE/WALL/PATH type has no polygonal form (review 2026-10-31).
+def test_offset_polyline_result_is_a_parallel_line(qtbot) -> None:
+    """An open fence/wall/path offsets to a LINE on the cursor's side.
 
-    The offset of a polyline is a closed area; leaving the source's line type on
-    it made the result a PolygonItem that the corner tools (correctly) refuse.
-    It must take the generic polygon type and stay filletable.
+    Review of the 2026-10-31 follow-up: the old code wrapped the open offset
+    contour in a filled polygon — a meaningless rounded band on the ground. A
+    line keeps its type and look and has no closing segment.
     """
-    from open_garden_planner.core.tools.corner_edit_base import _is_corner_editable
+    from open_garden_planner.core.item_look import adopt_pen
+    from open_garden_planner.core.tools.offset_tool import _offset_polyline
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    line = PolylineItem(
+        [QPointF(0.0, 0.0), QPointF(200.0, 0.0)],
+        object_type=ObjectType.FENCE,
+    )
+    adopt_pen(line, QPen(QColor(20, 140, 40), 3.5))
+
+    above = _offset_polyline(line, 20.0, QPointF(100.0, -50.0))
+    below = _offset_polyline(line, 20.0, QPointF(100.0, 50.0))
+    assert isinstance(above, PolylineItem)
+    assert isinstance(below, PolylineItem)
+    assert above.object_type == ObjectType.FENCE
+    assert above.item_id != line.item_id, "an offset is a new object"
+    assert all(point.y() == pytest.approx(-20.0) for point in above.points)
+    assert all(point.y() == pytest.approx(20.0) for point in below.points)
+    assert above.pen().color().rgba() == line.pen().color().rgba()
+    assert above.pen().widthF() == pytest.approx(line.pen().widthF())
+
+    # A moved source offsets in SCENE space, not around its local origin.
+    line.setPos(100.0, 50.0)
+    moved = _offset_polyline(line, 20.0, QPointF(200.0, 0.0))
+    assert isinstance(moved, PolylineItem)
+    assert all(point.y() == pytest.approx(30.0) for point in moved.points)
+    assert min(point.x() for point in moved.points) == pytest.approx(100.0, abs=1.0)
+    assert max(point.x() for point in moved.points) == pytest.approx(300.0, abs=1.0)
+
+
+def test_offset_polyline_miters_a_right_angle_corner(qtbot) -> None:
+    """The parallel line keeps the source's corner shape (miter, not a gap)."""
     from open_garden_planner.core.tools.offset_tool import _offset_polyline
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
     line = PolylineItem(
         [QPointF(0.0, 0.0), QPointF(200.0, 0.0), QPointF(200.0, 150.0)],
-        object_type=ObjectType.FENCE,
+        object_type=ObjectType.WALL,
     )
-    result = _offset_polyline(line, 20.0)
-    assert isinstance(result, PolygonItem)
-    assert result.object_type == ObjectType.GENERIC_POLYGON
-    assert _is_corner_editable(result), "the offset result must stay filletable"
+    # Cursor outside the L: below the first leg and right of the second.
+    result = _offset_polyline(line, 20.0, QPointF(300.0, -50.0))
+    assert isinstance(result, PolylineItem)
+    assert result.object_type == ObjectType.WALL
+    points = [(round(p.x(), 6), round(p.y(), 6)) for p in result.points]
+    assert (220.0, -20.0) in points, f"missing mitred corner: {points}"

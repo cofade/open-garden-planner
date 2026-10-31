@@ -1,4 +1,8 @@
-"""Offset tool — creates a parallel copy of a shape inward or outward (US-11.15)."""
+"""Offset tool — creates a parallel copy of a shape (US-11.15).
+
+Closed shapes get an inward/outward copy (polygon).  An open polyline (fence,
+wall, path) has no inside: the result is a parallel *line* on the cursor's side.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +10,14 @@ import math
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QT_TR_NOOP, QCoreApplication, QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QKeyEvent,
+    QMouseEvent,
+    QPainterPath,
+    QPen,
+)
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
 from open_garden_planner.core.item_look import copy_visual_style
@@ -70,6 +81,7 @@ def _compute_offset_item(
     item: QGraphicsItem,
     distance: float,
     inward: bool,
+    scene_pos: QPointF | None = None,
 ) -> QGraphicsItem | None:
     """Create an offset copy of item at the given distance. Returns None if invalid."""
     from open_garden_planner.ui.canvas.items.circle_item import CircleItem
@@ -89,7 +101,8 @@ def _compute_offset_item(
     if isinstance(item, PolygonItem):
         return _offset_polygon(item, d)
     if isinstance(item, PolylineItem):
-        return _offset_polyline(item, d)
+        # An open line has no inside; the cursor picks the side instead.
+        return _offset_polyline(item, abs(distance), scene_pos)
     return None
 
 
@@ -211,50 +224,134 @@ def _offset_polygon(item: PolygonItem, d: float) -> QGraphicsItem | None:
     return new_item
 
 
-def _offset_polyline(item: PolylineItem, d: float) -> QGraphicsItem | None:
-    try:
-        import pyclipper
-    except ImportError:
-        return None
+def _offset_polyline(
+    item: PolylineItem,
+    distance: float,
+    scene_pos: QPointF | None = None,
+) -> QGraphicsItem | None:
+    """A parallel LINE on the cursor's side — never an area.
 
+    An open fence/wall/path has no inside; the old code wrapped the offset
+    contour in a filled ``PolygonItem``, which produced a meaningless rounded
+    band on the ground (owner manual test 2026-11-01).  A polyline is offset
+    segment by segment (miter joins, bevelled past the miter limit), giving one
+    open line.  Both sides are computed and the one nearer the cursor wins, so
+    moving the mouse across the line flips the side.
+    """
     pts = _polyline_points_scene(item)
     if len(pts) < 2:
         return None
 
-    pco = pyclipper.PyclipperOffset()
-    pco.AddPath(
-        _to_clipper(pts),
-        pyclipper.JT_ROUND,
-        pyclipper.ET_OPENROUND,
-    )
-    result = pco.Execute(int(abs(d) * _CLIPPER_SCALE))
-    if not result:
+    candidates = [
+        points
+        for side in (1.0, -1.0)
+        if (points := _offset_open_points(pts, abs(distance), side))
+    ]
+    if not candidates:
         return None
+    if scene_pos is None:
+        out_pts = candidates[0]
+    else:
 
-    out_pts = _from_clipper(result[0])
-    if len(out_pts) < 2:
-        return None
+        def _closest(points: list[QPointF]) -> float:
+            return min(
+                math.hypot(point.x() - scene_pos.x(), point.y() - scene_pos.y())
+                for point in points
+            )
 
-    from open_garden_planner.core.object_types import (
-        ObjectType,
-        polygon_equivalent_object_type,
+        out_pts = min(candidates, key=_closest)
+
+    from open_garden_planner.core.item_look import (
+        apply_line_look,
+        capture_line_look,
     )
-    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
-    # A polyline's FENCE/WALL/PATH type has no polygonal form; the offset result
-    # is a closed area, so it takes the generic polygon type (and stays corner-
-    # editable, which a fence-typed polygon is not — review of the 2026-10-31
-    # follow-up).
-    object_type = polygon_equivalent_object_type(item.object_type)
-    if object_type is None:
-        object_type = ObjectType.GENERIC_POLYGON
-    new_item = PolygonItem(
-        vertices=out_pts,
-        object_type=object_type,
+    new_item = PolylineItem(
+        points=out_pts,
+        object_type=item.object_type,
         layer_id=item.layer_id,
     )
-    copy_visual_style(item, new_item)
+    apply_line_look(new_item, capture_line_look(item))
     return new_item
+
+
+#: A miter longer than this multiple of the offset distance becomes a bevel
+#: (two points).  sqrt(2) is a 90° corner; 4 keeps normal corners sharp and
+#: refuses spikes on acute turns.
+_MITER_LIMIT = 4.0
+
+
+def _segment_normal(start: QPointF, end: QPointF) -> QPointF | None:
+    dx, dy = end.x() - start.x(), end.y() - start.y()
+    length = math.hypot(dx, dy)
+    if length < 1e-9:
+        return None
+    return QPointF(-dy / length, dx / length)
+
+
+def _line_intersection(
+    a1: QPointF, a2: QPointF, b1: QPointF, b2: QPointF
+) -> QPointF | None:
+    rx, ry = a2.x() - a1.x(), a2.y() - a1.y()
+    sx, sy = b2.x() - b1.x(), b2.y() - b1.y()
+    denom = rx * sy - ry * sx
+    if abs(denom) < 1e-9:
+        return None
+    t = ((b1.x() - a1.x()) * sy - (b1.y() - a1.y()) * sx) / denom
+    return QPointF(a1.x() + t * rx, a1.y() + t * ry)
+
+
+def _offset_open_points(
+    points: list[QPointF], distance: float, side: float
+) -> list[QPointF] | None:
+    """One open offset line of a polyline, ``distance`` to the chosen side."""
+    segments: list[tuple[QPointF, QPointF, QPointF]] = []
+    for start, end in zip(points, points[1:], strict=False):
+        normal = _segment_normal(start, end)
+        if normal is None:
+            continue
+        offset = QPointF(
+            normal.x() * distance * side, normal.y() * distance * side
+        )
+        segments.append((start, end, offset))
+    if not segments:
+        return None
+
+    offset_segments = [
+        (
+            QPointF(start.x() + offset.x(), start.y() + offset.y()),
+            QPointF(end.x() + offset.x(), end.y() + offset.y()),
+        )
+        for start, end, offset in segments
+    ]
+
+    out: list[QPointF] = [offset_segments[0][0]]
+    for index in range(1, len(offset_segments)):
+        prev_start, prev_end = offset_segments[index - 1]
+        cur_start, cur_end = offset_segments[index]
+        corner = _line_intersection(prev_start, prev_end, cur_start, cur_end)
+        base_vertex = segments[index][0]
+        if corner is None:
+            # Collinear or reversed: the shared offset point is the vertex.
+            offset = segments[index - 1][2]
+            out.append(QPointF(base_vertex.x() + offset.x(), base_vertex.y() + offset.y()))
+        elif math.hypot(
+            corner.x() - base_vertex.x(), corner.y() - base_vertex.y()
+        ) > _MITER_LIMIT * abs(distance):
+            out.append(prev_end)
+            out.append(cur_start)
+        else:
+            out.append(corner)
+    out.append(offset_segments[-1][1])
+
+    deduped: list[QPointF] = []
+    for point in out:
+        if not deduped or math.hypot(
+            point.x() - deduped[-1].x(), point.y() - deduped[-1].y()
+        ) > 1e-9:
+            deduped.append(point)
+    return deduped if len(deduped) >= 2 else None
 
 
 class OffsetTool(BaseTool):
@@ -310,7 +407,9 @@ class OffsetTool(BaseTool):
             return True
 
         preview_d = dist if not self._inward else -dist
-        preview_item = _compute_offset_item(self._target, abs(preview_d), self._inward)
+        preview_item = _compute_offset_item(
+            self._target, abs(preview_d), self._inward, scene_pos
+        )
         self._set_preview(preview_item)
         return True
 
@@ -332,7 +431,9 @@ class OffsetTool(BaseTool):
         if dist < 0.5:
             return True
 
-        result = _compute_offset_item(self._target, dist, self._inward)
+        result = _compute_offset_item(
+            self._target, dist, self._inward, scene_pos
+        )
         if result is None:
             self._view.set_status_message(
                 QCoreApplication.translate("CanvasView", "Offset result is empty — try a smaller distance")
@@ -340,10 +441,21 @@ class OffsetTool(BaseTool):
             return True
 
         self._view.add_item(result, "offset")
-        direction = QCoreApplication.translate("CanvasView", "inward") if self._inward else QCoreApplication.translate("CanvasView", "outward")
-        self._view.set_status_message(
-            QCoreApplication.translate("CanvasView", "Created {dir} offset of {dist:.1f} cm").format(dir=direction, dist=dist)
+        from open_garden_planner.ui.canvas.items.polyline_item import (
+            PolylineItem,
         )
+
+        if isinstance(self._target, PolylineItem):
+            self._view.set_status_message(
+                QCoreApplication.translate(
+                    "CanvasView", "Created a parallel line at {dist:.1f} cm"
+                ).format(dist=dist)
+            )
+        else:
+            direction = QCoreApplication.translate("CanvasView", "inward") if self._inward else QCoreApplication.translate("CanvasView", "outward")
+            self._view.set_status_message(
+                QCoreApplication.translate("CanvasView", "Created {dir} offset of {dist:.1f} cm").format(dir=direction, dist=dist)
+            )
         self._view._tool_manager.set_active_tool(ToolType.SELECT)
         return True
 
@@ -367,12 +479,26 @@ class OffsetTool(BaseTool):
         if item is None:
             return
 
-        path = item.shape()
+        from open_garden_planner.ui.canvas.items.polyline_item import (
+            PolylineItem,
+        )
+
         path_item = QGraphicsPathItem()
-        path_item.setPath(item.mapToScene(path))
+        if isinstance(item, PolylineItem):
+            # A line's shape() is its stroke band; preview the line itself.
+            points = [item.mapToScene(p) for p in item.points]
+            path = QPainterPath()
+            path.moveTo(points[0])
+            for point in points[1:]:
+                path.lineTo(point)
+            path_item.setPath(path)
+            path_item.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        else:
+            path = item.shape()
+            path_item.setPath(item.mapToScene(path))
+            path_item.setBrush(QBrush(QColor(0, 150, 255, 30)))
         pen = QPen(QColor(0, 150, 255, 200), 1.5, Qt.PenStyle.DashLine)
         path_item.setPen(pen)
-        path_item.setBrush(QBrush(QColor(0, 150, 255, 30)))
         path_item.setZValue(9999)
         self._view.scene().addItem(path_item)
         self._preview = path_item

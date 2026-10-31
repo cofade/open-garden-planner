@@ -1108,5 +1108,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Incidence consistency: compatible POINT_ON_EDGE/COINCIDENT links are rejected or left broken (six reproduced cases)"
+  },
+  "675": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: a filleted fence/wall corner renders as a solid curved block (posts must follow the arc at straight-run spacing)"
   }
 }

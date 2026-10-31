@@ -83,6 +83,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Created grid array of {count} items ({rows}×{cols})': 'Creada matriz en cuadrícula de {count} elementos ({rows}×{cols})',
         'Created linear array of {count} items': 'Creada matriz lineal de {count} elementos',
         'Created {dir} offset of {dist:.1f} cm': 'Creado desplazamiento {dir} de {dist:.1f} cm',
+        'Created a parallel line at {dist:.1f} cm': 'Línea paralela creada a {dist:.1f} cm',
         'Cut {count} item(s)': 'Cortado(s) {count} elemento(s)',
         'Delete Bed': 'Eliminar bancal',
         'Delete bed and plants': 'Eliminar bancal y plantas',

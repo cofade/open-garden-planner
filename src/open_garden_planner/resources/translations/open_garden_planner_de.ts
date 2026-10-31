@@ -643,6 +643,11 @@
             <translation>{count} Element(e) kopiert</translation>
         </message>
         <message>
+            <location filename="../../core/tools/offset_tool.py" line="450" />
+            <source>Created a parallel line at {dist:.1f} cm</source>
+            <translation>Parallele Linie mit Abstand {dist:.1f} cm erstellt</translation>
+        </message>
+        <message>
             <location filename="../../ui/canvas/clipboard_operations.py" line="862" />
             <source>Created array of {count} items along path</source>
             <translation>Muster mit {count} Objekten entlang Pfad erstellt</translation>
@@ -663,7 +668,7 @@
             <translation>Lineares Muster mit {count} Objekten erstellt</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="333" />
+            <location filename="../../core/tools/offset_tool.py" line="457" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
             <translation>{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
@@ -851,7 +856,7 @@
             <translation>Nichts zum Einfügen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="326" />
+            <location filename="../../core/tools/offset_tool.py" line="439" />
             <source>Offset result is empty — try a smaller distance</source>
             <translation>Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand</translation>
         </message>
@@ -941,7 +946,7 @@
             <translation>Mindestens 2 Elemente zum Gruppieren auswählen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="311" />
+            <location filename="../../core/tools/offset_tool.py" line="422" />
             <source>Select a shape to offset</source>
             <translation>Form zum Versetzen auswählen</translation>
         </message>
@@ -1135,12 +1140,12 @@
             <translation>Y</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="331" />
+            <location filename="../../core/tools/offset_tool.py" line="455" />
             <source>inward</source>
             <translation>einwärts</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="331" />
+            <location filename="../../core/tools/offset_tool.py" line="455" />
             <source>outward</source>
             <translation>auswärts</translation>
         </message>
@@ -1426,12 +1431,12 @@
             <translation>Bedingung hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3915" />
+            <location filename="../../core/commands.py" line="3923" />
             <source>Add garden journal note</source>
             <translation>Gartentagebuch-Notiz hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3713" />
+            <location filename="../../core/commands.py" line="3721" />
             <source>Add harvest entry</source>
             <translation>Ernte-Eintrag hinzufügen</translation>
         </message>
@@ -1441,17 +1446,17 @@
             <translation>Ebene '{name}' hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3566" />
+            <location filename="../../core/commands.py" line="3574" />
             <source>Add pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3438" />
+            <location filename="../../core/commands.py" line="3446" />
             <source>Add soil test</source>
             <translation>Bodenprobe hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4012" />
+            <location filename="../../core/commands.py" line="4020" />
             <source>Add task</source>
             <translation>Aufgabe hinzufügen</translation>
         </message>
@@ -1528,7 +1533,7 @@
             <translation>{count} Objekt(e) ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3400" />
+            <location filename="../../core/commands.py" line="3408" />
             <source>Chamfer corner</source>
             <translation>Ecke abschrägen</translation>
         </message>
@@ -1579,12 +1584,12 @@
             <translation>{item_type} erstellen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3981" />
+            <location filename="../../core/commands.py" line="3989" />
             <source>Delete garden journal note</source>
             <translation>Gartentagebuch-Notiz löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3833" />
+            <location filename="../../core/commands.py" line="3841" />
             <source>Delete harvest entry</source>
             <translation>Ernte-Eintrag löschen</translation>
         </message>
@@ -1599,17 +1604,17 @@
             <translation>Ebene '{name}' löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3646" />
+            <location filename="../../core/commands.py" line="3654" />
             <source>Delete pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3526" />
+            <location filename="../../core/commands.py" line="3534" />
             <source>Delete soil test</source>
             <translation>Bodenprobe löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4056" />
+            <location filename="../../core/commands.py" line="4064" />
             <source>Delete task</source>
             <translation>Aufgabe löschen</translation>
         </message>
@@ -1649,17 +1654,17 @@
             <translation>Bedingungsabstand bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3950" />
+            <location filename="../../core/commands.py" line="3958" />
             <source>Edit garden journal note</source>
             <translation>Gartentagebuch-Notiz bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3767" />
+            <location filename="../../core/commands.py" line="3775" />
             <source>Edit harvest entry</source>
             <translation>Ernte-Eintrag bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3606" />
+            <location filename="../../core/commands.py" line="3614" />
             <source>Edit pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag bearbeiten</translation>
         </message>
@@ -1670,12 +1675,12 @@
             <translation>Pflanzendetails bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3482" />
+            <location filename="../../core/commands.py" line="3490" />
             <source>Edit soil test</source>
             <translation>Bodenprobe bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4034" />
+            <location filename="../../core/commands.py" line="4042" />
             <source>Edit task</source>
             <translation>Aufgabe bearbeiten</translation>
         </message>
@@ -1685,7 +1690,7 @@
             <translation>Polylinie verlängern</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3389" />
+            <location filename="../../core/commands.py" line="3397" />
             <source>Fillet corner</source>
             <translation>Ecke abrunden</translation>
         </message>
@@ -1804,7 +1809,7 @@
             <translation>Deckkraft der Ebene '{name}' auf {pct}% setzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3880" />
+            <location filename="../../core/commands.py" line="3888" />
             <source>Set succession plan</source>
             <translation>Folgepflanzung festlegen</translation>
         </message>
@@ -2787,7 +2792,7 @@
     <context>
         <name>ConstraintToolbar</name>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="79" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="80" />
             <source>Angle Constraint</source>
             <translation>Winkelbedingung</translation>
         </message>
@@ -2796,42 +2801,42 @@
             <translation type="vanished">Anfasen (Umschalt+C) — Ecke abschrägen</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
             <source>Chamfer — bevel a corner</source>
             <translation>Anfasen — Ecke abschrägen</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="66" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="67" />
             <source>Coincident</source>
             <translation>Koinzident</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="125" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="126" />
             <source>Constraints</source>
             <translation>Randbedingungen</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="89" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="90" />
             <source>Construction Circle</source>
             <translation>Hilfskreis</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="86" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="87" />
             <source>Construction Line</source>
             <translation>Hilfslinie</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="35" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="36" />
             <source>Distance Constraint (K)</source>
             <translation>Abstandsbedingung (K)</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="39" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="40" />
             <source>Edge Length Constraint</source>
             <translation>Kantenlängenrandbedingung</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="75" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="76" />
             <source>Equal Size</source>
             <translation>Gleiche Größe</translation>
         </message>
@@ -2844,12 +2849,12 @@
             <translation type="vanished">Abrunden (Umschalt+F) — Ecke abrunden</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
             <source>Fillet — round a corner</source>
             <translation>Abrunden — Ecke abrunden</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="76" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="77" />
             <source>Fix in Place</source>
             <translation>Position fixieren</translation>
         </message>
@@ -2858,12 +2863,12 @@
             <translation type="vanished">Position fixieren (demnächst)</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="56" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="57" />
             <source>Horizontal Alignment</source>
             <translation>Horizontale Ausrichtung</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="45" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="46" />
             <source>Horizontal Distance</source>
             <translation>Horizontaler Abstand</translation>
         </message>
@@ -2872,7 +2877,7 @@
             <translation type="vanished">Spiegeln (Umschalt+M) — Auswahl an einer Achse spiegeln</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="104" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="105" />
             <source>Mirror — reflect selection across an axis</source>
             <translation>Spiegeln — Auswahl an einer Achse spiegeln</translation>
         </message>
@@ -2881,22 +2886,22 @@
             <translation type="vanished">Versatz (O) — parallele Kopie nach innen/außen</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="99" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
             <source>Offset — parallel copy inward/outward</source>
             <translation>Versatz — parallele Kopie nach innen/außen</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="68" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="69" />
             <source>Parallel</source>
             <translation>Parallel</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="71" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="72" />
             <source>Perpendicular</source>
             <translation>Senkrecht</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="81" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="82" />
             <source>Symmetry Constraint</source>
             <translation>Symmetrie-Randbedingung</translation>
         </message>
@@ -2905,17 +2910,17 @@
             <translation type="vanished">Trimmen/Erweitern (I) — X wechselt Modus</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="97" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="98" />
             <source>Trim/Extend — X toggles mode</source>
             <translation>Trimmen/Erweitern — X wechselt Modus</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="61" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="62" />
             <source>Vertical Alignment</source>
             <translation>Vertikale Ausrichtung</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="50" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="51" />
             <source>Vertical Distance</source>
             <translation>Vertikaler Abstand</translation>
         </message>
@@ -7531,12 +7536,12 @@ Bitte speichern Sie Ihr Projekt an einem dauerhaften Speicherort.</translation>
     <context>
         <name>HarvestJournal</name>
         <message>
-            <location filename="../../core/commands.py" line="3666" />
+            <location filename="../../core/commands.py" line="3674" />
             <source>Harvested {qty} {unit}</source>
             <translation>{qty} {unit} geerntet</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3663" />
+            <location filename="../../core/commands.py" line="3671" />
             <source>Harvested {qty} {unit} of {name}</source>
             <translation>{qty} {unit} {name} geerntet</translation>
         </message>
@@ -9023,7 +9028,7 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <translation type="vanished">{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="259" />
+            <location filename="../../core/tools/offset_tool.py" line="368" />
             <source>Offset</source>
             <translation>Versatz</translation>
         </message>
@@ -13206,169 +13211,169 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
     <context>
         <name>ShortcutsDialog</name>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="112" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="102" />
             <source>3D View</source>
             <translation>3D-Ansicht</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="114" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="104" />
             <source>3D only</source>
             <translation>Nur 3D</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="44" />
+            <location filename="../../ui/shortcut_text.py" line="25" />
             <source>Alt</source>
             <translation>Alt</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="119" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="120" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="184" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="109" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="110" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
             <source>Arrow Keys</source>
             <translation>Pfeiltasten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="87" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="77" />
             <source>Bring Forward</source>
             <translation>Weiter nach vorn</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="85" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="75" />
             <source>Bring to Front</source>
             <translation>Ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="147" />
             <source>Circle</source>
             <translation>Kreis</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="129" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="119" />
             <source>Click</source>
             <translation>Klick</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="196" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
             <source>Close</source>
             <translation>Schließen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="78" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="68" />
             <source>Copy</source>
             <translation>Kopieren</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="40" />
+            <location filename="../../ui/shortcut_text.py" line="23" />
             <source>Ctrl</source>
             <translation>Strg</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="77" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="67" />
             <source>Cut</source>
             <translation>Ausschneiden</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="142" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="132" />
             <source>Dashboard Tabs</source>
             <translation>Dashboard-Tabs</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="42" />
+            <location filename="../../ui/shortcut_text.py" line="26" />
             <source>Delete</source>
             <translation>Entf</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="81" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="71" />
             <source>Delete selected</source>
             <translation>Auswahl löschen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
             <source>Double-click</source>
             <translation>Doppelklick</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="46" />
+            <location filename="../../ui/shortcut_text.py" line="29" />
             <source>Down</source>
             <translation>Ab</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="142" />
             <source>Drawing Tools</source>
             <translation>Zeichenwerkzeuge</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
             <source>Driveway</source>
             <translation>Einfahrt</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="80" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="70" />
             <source>Duplicate</source>
             <translation>Duplizieren</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="74" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="64" />
             <source>Edit</source>
             <translation>Bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="186" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
             <source>Edit object label</source>
             <translation>Objektbeschriftung bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="43" />
+            <location filename="../../ui/shortcut_text.py" line="27" />
             <source>Escape</source>
             <translation>Esc</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="69" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="59" />
             <source>Exit</source>
             <translation>Beenden</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="104" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="94" />
             <source>Exit Fullscreen Preview</source>
             <translation>Vollbildvorschau beenden</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="157" />
             <source>Fence</source>
             <translation>Zaun</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="64" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="54" />
             <source>File</source>
             <translation>Datei</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="100" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="90" />
             <source>Fit to Window</source>
             <translation>An Fenster anpassen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="103" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="93" />
             <source>Fullscreen Preview</source>
             <translation>Vollbildvorschau</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
             <source>Garden Bed</source>
             <translation>Gartenbeet</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="143" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="133" />
             <source>Garden Plan tab</source>
             <translation>Tab Gartenplan</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="147" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="137" />
             <source>Harvest tab</source>
             <translation>Tab Ernte</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="163" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
             <source>House</source>
             <translation>Haus</translation>
         </message>
@@ -13378,292 +13383,292 @@ angehakt = immer schützen, nicht angehakt = nie schützen, unbestimmt = Standar
             <translation>Tastenkürzel</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="137" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="127" />
             <source>Leave walk mode</source>
             <translation>Rundgang beenden</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="116" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="106" />
             <source>Left Mouse Drag</source>
             <translation>Ziehen mit linker Maustaste</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="136" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="126" />
             <source>Look around</source>
             <translation>Umsehen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="144" />
             <source>Measure Tool</source>
             <translation>Messwerkzeug</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="106" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="96" />
             <source>Middle Mouse Drag</source>
             <translation>Mittlere Maustaste ziehen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="136" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="126" />
             <source>Mouse Drag</source>
             <translation>Ziehen mit der Maus</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
             <source>Move selected (by 1cm)</source>
             <translation>Auswahl verschieben (um 1 cm)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="184" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
             <source>Move selected (by grid size)</source>
             <translation>Auswahl verschieben (um Rastergröße)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="65" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="55" />
             <source>New Project</source>
             <translation>Neues Projekt</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="183" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="173" />
             <source>Object Manipulation</source>
             <translation>Objektbearbeitung</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="66" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="56" />
             <source>Open Project</source>
             <translation>Projekt öffnen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="117" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="121" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="107" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="111" />
             <source>Orbit the 3D view</source>
             <translation>3D-Ansicht drehen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="122" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="112" />
             <source>Page Up / Page Down</source>
             <translation>Bild auf / Bild ab</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="106" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="96" />
             <source>Pan</source>
             <translation>Schwenken</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="116" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="119" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="106" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="109" />
             <source>Pan the 3D view</source>
             <translation>3D-Ansicht verschieben</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="79" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="69" />
             <source>Paste</source>
             <translation>Einfügen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="169" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="159" />
             <source>Path</source>
             <translation>Weg</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="177" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="167" />
             <source>Perennial</source>
             <translation>Staude</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="115" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="105" />
             <source>Plan and 3D side by side (Split)</source>
             <translation>Plan und 3D nebeneinander (Geteilt)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="113" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="103" />
             <source>Plan only</source>
             <translation>Nur Plan</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="174" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
             <source>Plant Tools</source>
             <translation>Pflanzenwerkzeuge</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="144" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="134" />
             <source>Planting Calendar tab</source>
             <translation>Tab Pflanzkalender</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="156" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="146" />
             <source>Polygon</source>
             <translation>Polygon</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="162" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="152" />
             <source>Property Objects</source>
             <translation>Grundstücksobjekte</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="155" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="145" />
             <source>Rectangle</source>
             <translation>Rechteck</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="76" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="66" />
             <source>Redo</source>
             <translation>Wiederherstellen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="127" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="117" />
             <source>Reset 3D View</source>
             <translation>3D-Ansicht zurücksetzen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="117" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="107" />
             <source>Right Mouse Drag</source>
             <translation>Ziehen mit rechter Maustaste</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="135" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="125" />
             <source>Run</source>
             <translation>Laufen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="67" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="57" />
             <source>Save</source>
             <translation>Speichern</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="68" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="58" />
             <source>Save As</source>
             <translation>Speichern unter</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="105" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="118" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="108" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="95" />
             <source>Scroll Wheel</source>
             <translation>Mausrad</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="178" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
             <source>Search Plant Database</source>
             <translation>Pflanzendatenbank durchsuchen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="145" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="135" />
             <source>Seed Inventory tab</source>
             <translation>Tab Saatgutbestand</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="82" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="72" />
             <source>Select All</source>
             <translation>Alles auswählen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="153" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="143" />
             <source>Select Tool</source>
             <translation>Auswahlwerkzeug</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="129" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="119" />
             <source>Select the object under the pointer</source>
             <translation>Objekt unter dem Mauszeiger auswählen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="88" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="78" />
             <source>Send Backward</source>
             <translation>Weiter nach hinten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="91" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="81" />
             <source>Send to Back</source>
             <translation>Ganz nach hinten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="41" />
+            <location filename="../../ui/shortcut_text.py" line="24" />
             <source>Shift</source>
             <translation>Umschalt</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="185" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
             <source>Shift+Arrow Keys</source>
             <translation>Umschalt+Pfeiltasten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="176" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="166" />
             <source>Shrub</source>
             <translation>Strauch</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="146" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="136" />
             <source>Tasks tab</source>
             <translation>Tab Aufgaben</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="164" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="154" />
             <source>Terrace/Patio</source>
             <translation>Terrasse/Patio</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="101" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="91" />
             <source>Toggle Grid</source>
             <translation>Raster umschalten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="102" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="92" />
             <source>Toggle Snap to Grid</source>
             <translation>Am Raster einrasten umschalten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="175" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="165" />
             <source>Tree</source>
             <translation>Baum</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="75" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="65" />
             <source>Undo</source>
             <translation>Rückgängig</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="45" />
+            <location filename="../../ui/shortcut_text.py" line="28" />
             <source>Up</source>
             <translation>Auf</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="97" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="87" />
             <source>View</source>
             <translation>Ansicht</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="134" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="124" />
             <source>W A S D / Arrow Keys</source>
             <translation>W A S D / Pfeiltasten</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="134" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="124" />
             <source>Walk</source>
             <translation>Gehen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="133" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="123" />
             <source>Walk Mode (3D)</source>
             <translation>Rundgang (3D)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="168" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="158" />
             <source>Wall</source>
             <translation>Mauer</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="105" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="118" />
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="122" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="108" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="112" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="95" />
             <source>Zoom</source>
             <translation>Zoom</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="98" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="88" />
             <source>Zoom In</source>
             <translation>Vergrößern</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="99" />
+            <location filename="../../ui/dialogs/shortcuts_dialog.py" line="89" />
             <source>Zoom Out</source>
             <translation>Verkleinern</translation>
         </message>

@@ -1679,7 +1679,7 @@ Icon designs per tool:
 
 ### US-11.15: Offset Tool
 
-**Description**: Offset a shape inward or outward by a specified distance, creating a parallel copy.
+**Description**: Offset a shape inward or outward by a specified distance, creating a parallel copy. Closed shapes get an inward/outward area copy; an open polyline (fence, wall, path) gets a parallel **line** on the cursor's side.
 
 **Acceptance Criteria**:
 - Select a shape, activate Offset tool, click inside (inward) or outside (outward)
@@ -1688,6 +1688,7 @@ Icon designs per tool:
 - Creates a new shape (the offset copy), original unchanged
 - Preview during cursor movement (shows offset direction)
 - Undo support
+- **Revised 2026-11-01 (owner manual test):** offsetting an open polyline creates a parallel line of the same type/look, never a filled polygon. The side follows the cursor; corners use a miter join, bevelled past a 4× distance miter limit. The old open-path result was a rounded band on the ground (no garden meaning). See PR #672.
 
 **Technical Notes**:
 - Use `QPainterPath.toSubpathPolygons()` after `QPainterPathStroker` for polygon offset

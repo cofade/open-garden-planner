@@ -259,6 +259,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
+        "Created a parallel line at {dist:.1f} cm":
+            "Parallele Linie mit Abstand {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
         "This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.":
             "Diese Kantenlänge gehört zu einer starren Form. Entfernen Sie die "

@@ -413,3 +413,26 @@ legal mapping exists; never leave an item in a type/shape combination the panel
 cannot represent. A real type change also takes the new type's fill pattern (a
 converted raised bed shows the garden bed's soil, not the raised bed's solid
 fill) while keeping the user's colour; a same-type edit keeps the user's pattern.
+
+
+### PF-CAN-35
+
+- **Rule:** An open path has no inside: offsetting a polyline creates a parallel LINE on the cursor's side, never a filled polygon. Clipper-1 returns the stroked band outline for an open path; take the outline as an area only after proving the source is closed.
+- **Pinned by:** `tests/integration/test_offset_tool.py::test_offset_polyline_result_is_a_parallel_line`; `tests/integration/test_offset_tool.py::test_offset_polyline_miters_a_right_angle_corner`
+- **Source:** manual-test follow-up 2026-11-01, PR #672
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The owner offset a fence, clicked, and asked what the rounded brown band on the
+ground was supposed to be. Nothing: pyclipper's open-path offset returns the
+outline of the stroked band (both sides joined at the ends), and the tool wrapped
+that contour in a `PolygonItem`, filled it with the fence's style and left it in
+the scene. A line has no inward/outward side to choose by containment either —
+`shape().contains()` is false everywhere on a stroke — so the "inward" rule was
+meaningless.
+
+Offset a polyline segment by segment on one side, with miter joins (bevelled past
+a 4× distance limit), and choose the side whose points are nearest the cursor.
+The result keeps the source's type and line look (`capture_line_look` /
+`apply_line_look`) and is a `PolylineItem`, so it reads as a second fence/path
+and exports as a line. Closed shapes continue to use the area offset.
