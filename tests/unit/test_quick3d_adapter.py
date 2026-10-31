@@ -62,6 +62,7 @@ class FakePart:
     tint: tuple[int, int, int, int]
     alive: bool = True
     fill: tuple[str | None, tuple[int, int, int, int]] | None = None
+    dormant: bool = False
 
 
 class EngineGone(RuntimeError):
@@ -130,6 +131,18 @@ class FakeScene:
         handle.alive = False
         self.parts.remove(handle)
         self.calls.append(("destroy", handle.spec.item_id))
+
+    def update_part_geometry(self, handle: object, spec: PartSpec) -> None:
+        self._alive("update_part_geometry")
+        assert isinstance(handle, FakePart) and handle.alive
+        handle.spec = spec
+        self.calls.append(("update_geometry", handle.spec.item_id, spec.kind))
+
+    def set_part_dormant(self, handle: object, dormant: bool = True) -> None:
+        self._alive("set_part_dormant")
+        assert isinstance(handle, FakePart) and handle.alive
+        handle.dormant = dormant
+        self.calls.append(("set_dormant", handle.spec.item_id, dormant))
 
     def pose_part(self, handle: object, pose: EnginePose) -> None:
         self._alive("pose_part")
@@ -352,11 +365,61 @@ class TestUpdates:
         taller = (_prism(300.0), _prism(20.0, kind="roof"))
         sink.replace_geometry("a", taller)
         new = scene.of("a")
-        assert not old.alive and len(new) == 2 and old not in new  # fresh Models, never a reuse
+        assert old.alive and len(new) == 2 and old is new[0]  # persistent Model reused (#531)
         assert new[0].spec.buffers == engine_buffers(taller[0].mesh)
         assert all(p.pose == EnginePose((7.0, 0.0, -8.0), 45.0) for p in new)
         assert new[0].tint == (200, 30, 30, 255)
         assert sink.item("a").parts == taller and sink.geometry_uploads == 3
+        assert sink.models_created == 2  # 1 initial + 1 for roof
+        assert sink.models_destroyed == 0  # no churn!
+
+    def test_replace_geometry_reuses_dormant_slots_on_lod_change(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        sink, scene = rig
+        sink.begin()
+        parts3 = (_prism(10.0, name="foliage_1", kind="foliage"),
+                  _prism(20.0, name="foliage_2", kind="foliage"),
+                  _prism(30.0, name="trunk", kind="vc"))
+        sink.add("plant", parts3, Transform(), RED)
+        assert sink.active_model_count == 3 and sink.dormant_model_count == 0
+        assert sink.models_created == 3 and sink.models_destroyed == 0
+
+        # Drop LOD: only trunk and 1 foliage
+        parts2 = (_prism(15.0, name="foliage_1", kind="foliage"),
+                  _prism(30.0, name="trunk", kind="vc"))
+        sink.replace_geometry("plant", parts2)
+        assert sink.active_model_count == 2 and sink.dormant_model_count == 1
+        assert sink.models_created == 3 and sink.models_destroyed == 0
+
+        # Restore LOD: 3 parts again - reuses dormant slot!
+        sink.replace_geometry("plant", parts3)
+        assert sink.active_model_count == 3 and sink.dormant_model_count == 0
+        assert sink.models_created == 3 and sink.models_destroyed == 0
+
+    def test_replace_geometry_retains_dormant_slots_across_lifetime(
+            self, rig: tuple[Quick3DSink, FakeScene]) -> None:
+        sink, scene = rig
+        sink.begin()
+        parts = (_prism(50.0, name="crop", kind="vc"),)
+        sink.add("plant", parts, Transform(), RED)
+        assert sink.active_model_count == 1 and sink.dormant_model_count == 0
+
+        # Lifetime hides item: parts is empty tuple
+        sink.replace_geometry("plant", ())
+        assert sink.active_model_count == 0 and sink.dormant_model_count == 1
+        assert sink.part_count("plant") == 0
+        assert sink.models_created == 1 and sink.models_destroyed == 0
+
+        # Lifetime reactivates item: dormant slot is reused
+        sink.replace_geometry("plant", parts)
+        assert sink.active_model_count == 1 and sink.dormant_model_count == 0
+        assert sink.part_count("plant") == 1
+        assert sink.models_created == 1 and sink.models_destroyed == 0
+
+        # Item removed from document: destroys all slots
+        sink.remove("plant")
+        assert sink.active_model_count == 0 and sink.dormant_model_count == 0
+        assert sink.models_destroyed == 1
 
     def test_remove_destroys_every_part(self, rig: tuple[Quick3DSink, FakeScene]) -> None:
         sink, scene = rig
@@ -794,7 +857,7 @@ class TestThroughSceneSync:
         assert (scene.ground not in nothing) == (expected.ground is not None)
 
     @pytest.mark.parametrize(("call", "trigger"), [
-        ("create_part", "add"), ("create_part", "replace"), ("pose_part", "move"),
+        ("create_part", "add"), ("update_part_geometry", "replace"), ("pose_part", "move"),
         ("set_part_fill", "recolour"), ("release_fill", "recolour"),
         ("set_sun", "sun"), ("set_ground", "ground"),
         ("request_frame", "move"),
@@ -825,7 +888,6 @@ class TestThroughSceneSync:
             scene.fail_on_create = scene.created + 2   # c is built, d fails
         elif trigger == "replace":
             after.update(a=self._record("a", height=250.0), b=self._record("b", 300.0, height=50.0))
-            scene.fail_on_create = scene.created + 2   # a is rebuilt, b is destroyed and fails
         elif trigger == "move":
             after.update(a=self._record("a", east=40.0), b=self._record("b", 340.0))
         elif trigger == "recolour":

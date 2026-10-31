@@ -600,7 +600,7 @@ def test_package_is_qt_free(path: Path) -> None:
     for name in _imports(path):
         top = name.split(".")[0]
         assert top != "PyQt6", f"{path.name} imports {name}"
-        if top in STDLIB or top == "numpy":
+        if top in STDLIB or top in {"numpy", "mapbox_earcut"}:  # the one native dependency (#452, ADR-069)
             continue
         assert name.startswith("open_garden_planner.core"), f"{path.name} imports {name}"
 

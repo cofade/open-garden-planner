@@ -214,30 +214,105 @@ Item {
 
     // Plant Forge: material state only. A date scrub keeps every Model and buffer.
     property var plantSeasons: ({})
-    function applyPlantSeason(part) {
-        var state = plantSeasons[part.itemId]
+    property var seasonalParts: ({})
+
+    function _isSeasonalPart(part) {
+        return part.kind === "foliage" || part.kind === "grass"
+            || part.partName === "fruits" || part.partName === "flowers"
+            || part.partName === "lawn_blades"
+    }
+
+    function _applyPartSeasonState(part, state) {
+        if (part.dormant) {
+            part.visible = false
+            return
+        }
         var foliage = part.kind === "foliage" || part.kind === "grass"
         var fruit = part.partName === "fruits"
-        part.seasonDensity = state && foliage ? state[0] : 1.0
-        part.seasonSnow = state && foliage ? state[6] : 0.0
-        part.seasonTint = state && foliage ? Qt.vector3d(state[1], state[2], state[3]) :
-                          state && fruit ? Qt.vector3d(state[7], state[8], state[9]) : Qt.vector3d(1, 1, 1)
-        part.seasonOpacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
-                             part.partName === "fruits" ? (state[5] > 0.0 ? 1.0 : 0.0) : 1.0
+
+        var density = state && foliage ? state[0] : 1.0
+        if (part.seasonDensity !== density)
+            part.seasonDensity = density
+
+        var snow = state && foliage ? state[6] : 0.0
+        if (part.seasonSnow !== snow)
+            part.seasonSnow = snow
+
+        var tx = 1.0, ty = 1.0, tz = 1.0
+        if (state && foliage) {
+            tx = state[1]; ty = state[2]; tz = state[3]
+        } else if (state && fruit) {
+            tx = state[7]; ty = state[8]; tz = state[9]
+        }
+        var curTint = part.seasonTint
+        if (curTint.x !== tx || curTint.y !== ty || curTint.z !== tz) {
+            part.seasonTint = Qt.vector3d(tx, ty, tz)
+        }
+
+        var opacity = !state ? 1.0 : part.partName === "flowers" ? state[4] :
+                      part.partName === "fruits" ? (state[5] > 0.0 ? 1.0 : 0.0) : 1.0
+        if (part.seasonOpacity !== opacity)
+            part.seasonOpacity = opacity
+
         // Seasonal absence removes its shadow too. X-ray's independent fade keeps it.
         // A lawn's blades show only at the presets that draw them (lawnBlades).
-        part.visible = !part.retired && part.seasonOpacity > 0.0
-                       && (part.partName !== "lawn_blades" || root.lawnBlades)
+        var vis = !part.retired && opacity > 0.0
+                  && (part.partName !== "lawn_blades" || root.lawnBlades)
+        if (part.visible !== vis)
+            part.visible = vis
+    }
+
+    function applyPlantSeason(part) {
+        if (!_isSeasonalPart(part))
+            return true
+
+        var list = seasonalParts[part.itemId]
+        if (!list) {
+            list = []
+            seasonalParts[part.itemId] = list
+        }
+        if (list.indexOf(part) === -1) {
+            list.push(part)
+        }
+
+        var state = plantSeasons[part.itemId]
+        _applyPartSeasonState(part, state)
         return true
     }
-    function setPlantSeasons(states) {
-        plantSeasons = states
-        for (var i = 0; i < parts.children.length; ++i) {
-            var part = parts.children[i]
-            if (!part.retired)
-                applyPlantSeason(part)
+
+    function _statesEqual(a, b) {
+        if (a === b) return true
+        if (!a || !b) return false
+        if (a.length !== b.length) return false
+        for (var i = 0; i < a.length; ++i) {
+            if (a[i] !== b[i]) return false
         }
         return true
+    }
+
+    function setPlantSeasons(changes) {
+        for (var itemId in changes) {
+            var newState = changes[itemId]
+            if (newState === null || newState === undefined) {
+                delete plantSeasons[itemId]
+            } else {
+                plantSeasons[itemId] = newState
+            }
+            var list = seasonalParts[itemId]
+            if (!list || list.length === 0)
+                continue
+            for (var i = 0; i < list.length; ++i) {
+                var part = list[i]
+                if (!part.retired)
+                    _applyPartSeasonState(part, newState)
+            }
+        }
+        return true
+    }
+
+    function clearSeasonalParts() {
+        seasonalParts = ({})
+        plantSeasons = ({})
     }
 
     function destroyPart(part) {
@@ -247,6 +322,14 @@ Item {
         part.visible = false
         part.pickable = false
         part.geometry = null
+        if (part.itemId && seasonalParts[part.itemId]) {
+            var list = seasonalParts[part.itemId]
+            var idx = list.indexOf(part)
+            if (idx !== -1)
+                list.splice(idx, 1)
+            if (list.length === 0)
+                delete seasonalParts[part.itemId]
+        }
         part.destroy()
     }
 
@@ -266,7 +349,8 @@ Item {
                 "r": p.tint.r, "g": p.tint.g, "b": p.tint.b,
                 "casts": p.castsShadows, "geometry": p.geometry !== null,
                 "visible": p.visible, "fade": p.fade,
-                "drawn": (m && m.uOpacity !== undefined) ? m.uOpacity : 1.0
+                "drawn": (m && m.uOpacity !== undefined) ? m.uOpacity : 1.0,
+                "dormant": !!p.dormant
             })
         }
         return out
@@ -387,10 +471,14 @@ Item {
     // wall and a free gable.
     property bool roofsHidden: false
     onLawnBladesChanged: {
-        for (var i = 0; i < parts.children.length; ++i) {
-            var part = parts.children[i]
-            if (!part.retired && part.partName === "lawn_blades")
-                applyPlantSeason(part)
+        for (var itemId in seasonalParts) {
+            var list = seasonalParts[itemId]
+            if (!list) continue
+            for (var i = 0; i < list.length; ++i) {
+                var part = list[i]
+                if (!part.retired && part.partName === "lawn_blades")
+                    _applyPartSeasonState(part, plantSeasons[part.itemId])
+            }
         }
     }
     function overlayModel(layer) {
@@ -436,10 +524,12 @@ Item {
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property var patternMap: null  // #628: the item's own fill picture, or null
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property bool dormant: false
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0 && !groundDetail
+            pickable: !dormant && fade >= 1.0 && !groundDetail
+            visible: !dormant
             materials: fade < 1.0 ? [vcScreen] : [vcLook]
             PrincipledMaterial {
                 id: vcLook
@@ -478,10 +568,12 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property bool dormant: false
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0 && !root.roofsHidden && !groundDetail
+            pickable: !dormant && fade >= 1.0 && !root.roofsHidden && !groundDetail
+            visible: !dormant
             // Cutaway (L2.4): a binding, so a roof built while it is on is born cut - a
             // screen door with nothing left, still casting its shadow
             materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]
@@ -519,10 +611,12 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property bool dormant: false
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0 && !groundDetail
+            pickable: !dormant && fade >= 1.0 && !groundDetail
+            visible: !dormant
             materials: PrincipledMaterial {
                 vertexColorsEnabled: true
                 baseColor: tint
@@ -550,11 +644,13 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property bool dormant: false
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
             property var patternMap: null  // #627: the item's own water picture, or null
             receivesShadows: true
-            pickable: fade >= 1.0 && !groundDetail
+            pickable: !dormant && fade >= 1.0 && !groundDetail
+            visible: !dormant
             // a custom shader keeps the water's hue in every mood; see water.frag for why
             // this is not a PrincipledMaterial (measured in the spike: lavender at golden hour)
             materials: fade < 1.0 ? [waterDoor] : [waterLook]
@@ -658,10 +754,11 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property bool dormant: false
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0 && !groundDetail
+            pickable: !dormant && fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [foliageDoor] : [foliageLook]
             CustomMaterial {
                 id: foliageLook
@@ -704,10 +801,11 @@ Item {
             property color tint: "#ffffff"
             property vector3d tintLinear: Qt.vector3d(1, 1, 1)
             property bool retired: false   // set by destroyPart(); never a reason to hide
+            property bool dormant: false
             property real fade: 1.0        // X-ray (L2.4)
             property bool groundDetail: false   // L4: relief on painted ground — never picked
             receivesShadows: true
-            pickable: fade >= 1.0 && !groundDetail
+            pickable: !dormant && fade >= 1.0 && !groundDetail
             materials: fade < 1.0 ? [grassDoor] : [grassLook]
             CustomMaterial {
                 id: grassLook
