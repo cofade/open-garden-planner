@@ -433,14 +433,17 @@ class PaintLog(QObject):
 
 
 def _note_each_snapshot(monkeypatch: pytest.MonkeyPatch, note: Any) -> None:
-    """Call ``note()`` at the START of every whole-plan snapshot the pipeline takes."""
-    real = sync_controller.snapshot_records
+    """Call ``note()`` at the START of every whole-plan read the pipeline takes.
+
+    The read is a generator since #452, but it is STARTED here, in the pass that owes
+    it ? the moment the note is about (the item reads that follow are slices)."""
+    real = sync_controller.snapshot_steps
 
     def watched(*arguments: Any, **options: Any) -> Any:
         note()
         return real(*arguments, **options)
 
-    monkeypatch.setattr(sync_controller, "snapshot_records", watched)
+    monkeypatch.setattr(sync_controller, "snapshot_steps", watched)
 
 
 def test_the_building_notice_is_painted_before_the_first_snapshot_starts(

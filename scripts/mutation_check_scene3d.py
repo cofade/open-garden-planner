@@ -87,7 +87,6 @@ class Mutant:
     tests: tuple[str, ...]
 
 
-_SNAPSHOT_LOOP = "    for item in reversed(items):\n        if not item.isVisible():\n            continue\n"
 
 MUTANTS: tuple[Mutant, ...] = (
     # ── the record and its signatures ────────────────────────────────────────
@@ -376,11 +375,11 @@ MUTANTS: tuple[Mutant, ...] = (
            (SNAPSHOT,)),
     Mutant("invisible items are snapshotted",
            SRC + "ui/view3d/snapshot.py",
-           _SNAPSHOT_LOOP, "    for item in reversed(items):\n",
+           "            if not visible:\n                continue\n", "",
            (SNAPSHOT,)),
     Mutant("the snapshot is ordered top to bottom",
            SRC + "ui/view3d/snapshot.py",
-           _SNAPSHOT_LOOP, _SNAPSHOT_LOOP.replace("reversed(items)", "items"),
+           "enumerate(reversed(items))", "enumerate(items)",
            (SNAPSHOT,)),
     Mutant("the snapshot drops the holes of a stroke",
            SRC + "ui/view3d/snapshot.py",
@@ -406,9 +405,9 @@ MUTANTS: tuple[Mutant, ...] = (
            (SNAPSHOT, PIPELINE, EDGE_PLAN)),
     Mutant("of two items with one id the upper one wins, silently (review P2-5)",
            SRC + "ui/view3d/snapshot.py",
-           "        if item_id in records:\n"
-           "            _report(SkippedItem(item_id, kind, SkipReason.DUPLICATE_ID), skipped)\n"
-           "            continue\n",
+           "            if item_id in records:\n"
+           "                _report(SkippedItem(item_id, kind, SkipReason.DUPLICATE_ID), skipped)\n"
+           "                continue\n",
            "",
            (SNAPSHOT,)),
     Mutant("a skipped item is logged but never handed to the caller's list",
@@ -708,8 +707,7 @@ MUTANTS: tuple[Mutant, ...] = (
            MEMORY),
     Mutant("the snapshot is no generation",
            SRC + "ui/view3d/snapshot.py",
-           "@snapshot_generation()  # what a snapshot asks for stays remembered while the plan keeps asking\n",
-           "",
+           "    with snapshot_generation():\n", "    if True:\n",
            (SNAPSHOT + "::TestAnUnchangedPlanIsAnsweredFromMemory",)),
     Mutant("a live answer can be dropped to make room for a stale one",
            SRC + "core/scene3d/polygon.py",
@@ -1001,10 +999,10 @@ MUTANTS: tuple[Mutant, ...] = (
            (MESH,)),
     Mutant("an item with a length out of range is reported as a failed record",
            SRC + "ui/view3d/snapshot.py",
-           "        except RecordRangeError as error:  # a length beyond what a plan can hold\n"
-           "            _report(SkippedItem(item_id, kind, SkipReason.OUT_OF_RANGE,\n"
-           "                                type(error).__name__, str(error)), skipped)\n"
-           "            continue\n",
+           "            except RecordRangeError as error:  # a length beyond what a plan can hold\n"
+           "                _report(SkippedItem(item_id, kind, SkipReason.OUT_OF_RANGE,\n"
+           "                                    type(error).__name__, str(error)), skipped)\n"
+           "                continue\n",
            "",
            (SNAPSHOT,)),
     Mutant("an infinite height is silently no height again",

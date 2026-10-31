@@ -68,6 +68,27 @@ The rules it enforces:
   layer refused an item: ``SkipReason``) and ``failures`` (a builder raised) are
   kept from the last tick; ``problems_changed`` fires when they change.
 
+THE READ IS SLICED (#452). A whole-plan read used to be one block: the first build of
+a 160-polygon plan held the GUI thread for 4.0 s, a 110-story fence plan for 12.6 s.
+``snapshot_steps`` yields before every item, and this controller drives it
+``CAPTURE_SLICE_MS`` at a time between turns of the event loop (``_capture_slice``);
+the slice that finds the read finished applies it. The records are the SAME records —
+no budget across the plan, every item is read, and one item's record still depends on
+its own item alone. A change that lands while the read runs does not restart it (a
+drag would starve the read forever): the pass applies the coherent earlier snapshot,
+an item deleted since is dropped, and the read the change leaves owed follows at once.
+A document change, a reset, hiding 3D or shutdown DROP the read instead — a new plan
+must never be assembled from the old plan's items.
+
+THE GEOMETRY LANE (#452). Builders are the other half: a 160-bed plan spends about two
+seconds in them. A pass whose changed items hold ``PREPARE_OFF_THREAD_VERTICES`` vertices
+or more hands those records to one worker (``SceneSync.prepare``: the same builder
+path, no sink), and applies its answer through ``SceneSync.apply(prepared=...)`` when
+the poll finds it (``_check_prepared``). One flight at a time; a newer pass waits in
+``_flight_pending`` and replaces the one waiting — a busy plan is prepared for where it
+IS. Nothing else changes: the diff, the transaction, the refusals, the recovery and the
+ground are the same, and a small edit (below the threshold) is built in its own pass.
+
 THE GROUND (L1.5, §8.29.5). A ``ground_baker`` handed to the constructor goes
 into the ``SceneSync``: every pass's ``apply`` bakes the plan's flat surfaces
 into ground tiles with the SAME diff the builders run from and the set of items
@@ -118,7 +139,8 @@ import contextlib
 import logging
 import math
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
@@ -146,12 +168,14 @@ from open_garden_planner.core.scene3d.context import (
     context_params_for,
     without_lawn_blades,
 )
+from open_garden_planner.core.scene3d.mesh import MeshPart
 from open_garden_planner.core.scene3d.record import PARAM_LAWN_BLADES, lawn_blade_share
+from open_garden_planner.core.scene3d.scene_diff import diff
 from open_garden_planner.core.sim_clock import SimChange, SimClock
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
-from .snapshot import SkippedItem, snapshot_records
+from .snapshot import SkippedItem, snapshot_steps
 
 if TYPE_CHECKING:
     from .ground_bake import GroundBaker
@@ -166,6 +190,21 @@ _PASS_EVENT: Final = QEvent.Type(QEvent.registerEventType())
 #: The catch-up pass after 3D became visible waits this long, so that the pane (and
 #: its "building" note) is painted before a first build that can take a second.
 CATCH_UP_MS: Final = 25
+#: THE CAPTURE (#452): a whole-plan read runs in slices of this long, one item per
+#: step, between turns of the event loop (``snapshot_steps``). A plan of 160 items of
+#: 1,000 vertices took 4.0 s in one block before; the same work in 4 ms slices leaves
+#: the window responsive while it runs. Not a "budget across the plan": every item is
+#: still read, and a record still depends on its item alone.
+CAPTURE_SLICE_MS: Final = 4.0
+#: THE GEOMETRY LANE (#452). Meshes of changed items are built on a worker thread
+#: when the work is at least this many outline vertices: 20,000 is about 20 ms
+#: measured on the dev box, and a build below it is applied by the pass itself (a
+#: thread hop would only make an edit later). A first build of 160 beds of 1,000
+#: vertices is 160,000: two seconds that used to hold the GUI thread.
+PREPARE_OFF_THREAD_VERTICES: Final = 20_000
+#: How often the lane's answer is looked for (the future's own signal would need a
+#: cross-thread connection; a poll of one flight at 10 ms costs nothing).
+PREPARE_POLL_MS: Final = 10
 #: THE NET's quiet time (module docstring): a repaint that no announcement explains
 #: is looked at once the scene has been quiet for this long. Twice the sun
 #: animation's tick (200 ms, ``ui/widgets/sun_sim_toolbar``) on purpose: while
@@ -205,6 +244,10 @@ _MAX_FAILURES_REMEMBERED: Final = 32
 #: — a busy loop on the GUI thread (review 3: 2,308 ground passes in 3 s).
 GROUND_RECOVERIES: Final = 1
 _GROUND_FAILED: Final = "painting the 3D ground failed"
+#: How many rounds of "a cooperative read, then the read a change during it owed"
+#: ``flush`` finishes in one call: a capped loop, so a caller that keeps changing the
+#: scene from a signal cannot spin here.
+_MAX_FLUSH_ROUNDS: Final = 4
 #: The sun without a garden location — the documented fallback of FR-SUN-06 (the
 #: shipped 3D view's): a southern midday sun.
 NO_LOCATION_SUN: Final = SunState(elevation_deg=50.0, azimuth_deg=180.0)
@@ -285,6 +328,35 @@ class TickReport:
 
 
 @dataclass(frozen=True, slots=True)
+class _Ticket:
+    """A pass whose records are read and whose geometry may be built off the GUI
+    thread (#452): everything the apply needs, so the pass finishes when the lane
+    answers — or is dropped when the plan moved on meanwhile."""
+
+    #: The records to apply (the context hold applied).
+    records: dict[str, Record]
+    #: … as read, for a rebuild from scratch (nothing held back).
+    snapshot: dict[str, Record]
+    sun: SunState
+    width: float
+    depth: float
+    skipped: tuple[SkippedItem, ...]
+    snapshot_ms: float
+    #: ``_plan_epoch`` when the read started: a different one at apply time means the
+    #: plan changed while the geometry was built.
+    epoch: int
+    reconciling: bool
+    #: The items whose geometry this pass must build (the diff's added + geometry).
+    build_ids: tuple[str, ...]
+
+
+def _outline_vertices(record: Record) -> int:
+    """How many vertices a record's outline holds — the work its builder pays first."""
+    return (sum(len(ring) for ring in record.footprints)
+            + sum(len(hole) for holes in record.holes for hole in holes))
+
+
+@dataclass(frozen=True, slots=True)
 class GroundProblems:
     """What the ground bake could not do, as of the last pass — plain data for the
     problems list (``problems_dialog.problems_of``)."""
@@ -327,6 +399,10 @@ class Scene3DController(QObject):
     document_shown = pyqtSignal()
     #: A pass failed even after a reset; the text is for the log and a notice.
     failed = pyqtSignal(str)
+    #: A cooperative whole-plan read (#452) started (True) or ended (False). The
+    #: workspace shows its translated "updating" note only while a read outlasts the
+    #: notice's wait: a capture of a small plan must not flicker the status line.
+    capturing_changed = pyqtSignal(bool)
 
     _lawn_blades = True
 
@@ -371,6 +447,34 @@ class Scene3DController(QObject):
         #: its way, though the records are dirty (``idle``).
         self._given_up = False
         self._document_pending = True  # the first pass shows a document
+        #: THE CAPTURE (#452): the whole-plan read in progress (``snapshot_steps``),
+        #: the plan epoch it started at, and the date/skips it reads for. One at a
+        #: time; a document change, a reset, hiding 3D or closing drop it.
+        self._capture: Generator[int, None, dict[str, Record]] | None = None
+        self._capture_epoch = 0
+        self._capture_date: date | None = None
+        self._capture_skipped: list[SkippedItem] = []
+        self._capture_started = 0.0
+        self._capture_reconciling = False
+        #: The plan changed while records were being read: apply what was read, then
+        #: read again (a coherent earlier snapshot, converged by the next pass).
+        self._capture_stale = False
+        #: The plan's epoch: every announced change of the plan moves it. A capture
+        #: that outlived one is stale (``_finish_records``).
+        self._plan_epoch = 0
+        #: Instrument: slices of cooperative whole-plan reads (#452).
+        self.capture_slices = 0
+        # THE GEOMETRY LANE (#452): one worker, one flight at a time; a newer pass
+        # waits in ``_flight_pending`` (coalesced, the latest read wins).
+        self._lane: ThreadPoolExecutor | None = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="scene3d-prepare")
+        self._flight: tuple[Future[dict[str, tuple[MeshPart, ...]]], _Ticket] | None = None
+        self._flight_pending: _Ticket | None = None
+        self._prepared_timer = QTimer(self)
+        self._prepared_timer.setSingleShot(True)
+        self._prepared_timer.timeout.connect(self._check_prepared)
+        #: Instrument: passes whose geometry was built on the lane.
+        self.prepared_count = 0
         self._skipped: tuple[SkippedItem, ...] = ()
         self._failures: dict[str, BuildFailure] = {}
         self._last_error: str | None = None
@@ -451,8 +555,15 @@ class Scene3DController(QObject):
 
     @property
     def dirty(self) -> bool:
-        """Something changed that the sink has not been told."""
-        return self._records_dirty or self._sun_dirty
+        """Something changed that the sink has not been told — or the read that would
+        tell it, or the geometry it builds, is still running (#452)."""
+        return (self._records_dirty or self._sun_dirty or self._capture is not None
+                or self._flight is not None or self._flight_pending is not None)
+
+    @property
+    def capturing(self) -> bool:
+        """A cooperative whole-plan read is in progress (#452)."""
+        return self._capture is not None
 
     @property
     def idle(self) -> bool:
@@ -528,6 +639,11 @@ class Scene3DController(QObject):
             return
         self._active = active
         if not active:
+            # a read that was running is dropped: it holds the scene's items, and
+            # coming back reads the plan again — a whole pass, not a net look
+            if self._capture is not None:
+                self._abandon_capture()
+                self._records_dirty = True
             with contextlib.suppress(RuntimeError):  # the #230 teardown guard
                 self._timer.stop()
                 if self._net.isActive():
@@ -608,10 +724,30 @@ class Scene3DController(QObject):
         self._schedule(self._tick_ms)
 
     def flush(self) -> None:
-        """Run a pending pass now (tests, and a caller that needs the scene current)."""
+        """Run a pending pass now (tests, and a caller that needs the scene current).
+
+        A cooperative read in progress is finished HERE, in one call: the slices exist
+        for the event loop, not for a caller that returns only when the scene is in."""
         with contextlib.suppress(RuntimeError):
             self._timer.stop()
+            self._prepared_timer.stop()
         self._tick()
+        # a cooperative read the tick started (and the read a change during it owed)
+        # is finished HERE, in this call: the slices exist for the event loop, not for
+        # a caller that returns only when the scene is in. So is a geometry lane's
+        # build — ``wait=True`` blocks on it instead of polling.
+        for _ in range(_MAX_FLUSH_ROUNDS):
+            while self._capture is not None:
+                self._capture_slice(synchronous=True)
+            if self._flight is not None:
+                self._check_prepared(wait=True)
+            elif self._records_dirty:
+                self._tick()
+            else:
+                break
+        # a slice may have left its follow-up event in the queue; its work is done
+        # here, so it must not keep the controller "not idle" for a turn nobody needs
+        self._posted = False
 
     def shutdown(self) -> None:
         """Stop for good (the 3D view closes, or the main window does). The sink is
@@ -620,10 +756,18 @@ class Scene3DController(QObject):
         self._drop_plan_memories()
         self._active = False
         self._net_owed = False
+        self._flight_pending = None
+        flight, self._flight = self._flight, None
+        if flight is not None:
+            flight[0].cancel()  # a build still running finishes; its answer is dropped
+        if self._lane is not None:
+            self._lane.shutdown(wait=False, cancel_futures=True)
+            self._lane = None
         with contextlib.suppress(RuntimeError):
             self._timer.stop()
             self._net.stop()
             self._date_timer.stop()
+            self._prepared_timer.stop()
         scene = self._scene
         connections: list[tuple[Any, Callable[..., None]]] = [
             (scene.changed, self._on_scene_changed),
@@ -649,6 +793,7 @@ class Scene3DController(QObject):
 
         from .snapshot import clear_outline_cache
 
+        self._abandon_capture()  # a read of the old plan must never reach the new one
         clear_shape_cache()    # the plant builder's shapes
         clear_lawn_cache()     # the lawns' blades (L4)
         clear_outline_cache()  # the record layer's outlines: regions, cuts, ring facts
@@ -670,6 +815,7 @@ class Scene3DController(QObject):
         the scene on every step."""
         self._given_up = False
         if plan:
+            self._plan_epoch += 1  # a read that outlives this line is stale (#452)
             self._ground_recoveries = 0
             self._ground_unfinished = None
 
@@ -857,21 +1003,29 @@ class Scene3DController(QObject):
     def _tick(self) -> None:
         if not self._active:
             return
-        if self._records_dirty:
-            self._failed_in_pass = False
-            self._pass_records()
-        elif self._sun_dirty:
-            self._failed_in_pass = False
-            self._pass_light()
-        elif self._ground_owed:
-            # a ground pass CONTINUES the pass before it: what failed there still
-            # counts, and the outage ends when the work is done (``_end_outage``)
-            self._pass_ground()
-        if self._selection_dirty and not self._records_dirty:
-            # (L1.8) a records pass that went through carried the ring in its own
-            # transaction — then this finds nothing left to send; one that gave up
-            # left the flag for the next change
-            self._pass_selection()
+        if self._capture is not None:
+            # #452: ONE slice of the whole-plan read per turn of the event loop; the
+            # slice that ends it applies (``_finish_records``). Nothing else starts
+            # while it runs — a change rides with the read after it.
+            self._capture_slice()
+        if not self._active:
+            return  # a slot that ran above hid 3D: the flags are all that happens now
+        if self._capture is None:
+            if self._records_dirty:
+                self._failed_in_pass = False
+                self._pass_records()
+            elif self._sun_dirty:
+                self._failed_in_pass = False
+                self._pass_light()
+            elif self._ground_owed:
+                # a ground pass CONTINUES the pass before it: what failed there still
+                # counts, and the outage ends when the work is done (``_end_outage``)
+                self._pass_ground()
+            if self._selection_dirty and not self._records_dirty:
+                # (L1.8) a records pass that went through carried the ring in its own
+                # transaction — then this finds nothing left to send; one that gave up
+                # left the flag for the next change
+                self._pass_selection()
         self._follow_ground()
 
     def _follow_ground(self) -> None:
@@ -955,39 +1109,185 @@ class Scene3DController(QObject):
                               (time.perf_counter() - started) * 1000.0))
 
     def _pass_records(self, *, reconciling: bool = False) -> None:
+        """START a whole-plan read (#452). It runs one item per step in slices of
+        ``CAPTURE_SLICE_MS`` between turns of the event loop (``_capture_slice``);
+        the records reach the sync in ``_finish_records``, which is the rest of what
+        this used to do in one block. A plan whose sum was 4 s to 12.6 s is read the
+        same way, but the window answers in between."""
         self._records_dirty = self._sun_dirty = False
         # whatever was repainted before this line is in the snapshot this pass takes:
         # the net has nothing left to look at
         self._net_owed = False
         with contextlib.suppress(RuntimeError):  # the #230 teardown guard
             self._net.stop()
-        started = time.perf_counter()
-        skipped: list[SkippedItem] = []
+        self._abandon_capture()  # a read still running is superseded by this one
+        # THE ONE snapshotting scene of the process. The record layer's outline
+        # memories ride a process-wide generation clock: one scene snapshotted
+        # tick after tick is answered from memory; several scenes taking turns
+        # would recompute everything on every tick. The workspace has one canvas
+        # scene and one controller — keep it that way (L1.1's contract).
+        self._pass_date = self._clock.plan_date
+        self._capture_date = self._pass_date
+        self._capture_skipped = []
+        self._capture_epoch = self._plan_epoch
+        self._capture_reconciling = reconciling
+        self._capture_started = time.perf_counter()
         try:
-            # THE ONE snapshotting scene of the process. The record layer's outline
-            # memories ride a process-wide generation clock: one scene snapshotted
-            # tick after tick is answered from memory; several scenes taking turns
-            # would recompute everything on every tick. The workspace has one canvas
-            # scene and one controller — keep it that way (L1.1's contract).
-            self._pass_date = self._clock.plan_date
-            records = snapshot_records(self._scene, self._pass_date, skipped=skipped)
-            if not self._lawn_blades:
-                records = without_lawn_blades(records)
+            self._capture = snapshot_steps(self._scene, self._capture_date,
+                                           skipped=self._capture_skipped)
+            try:
+                next(self._capture)  # the scene's items are listed HERE, on this turn
+            except StopIteration as done:
+                # a scene with no items at all: the read is over before one slice
+                self._capture = None
+                finished: dict[str, Record] = done.value
+                self._finish_records(finished)
+                return
         except Exception as error:  # noqa: BLE001 - one item never raises; this is the scene itself
+            self._capture = None
             self._give_up("the plan could not be read for the 3D view", error)
             return
+        self.capturing_changed.emit(True)
+        self._capture_slice()
+
+    def _capture_slice(self, *, synchronous: bool = False) -> None:
+        """ONE slice of the whole-plan read in progress: up to ``CAPTURE_SLICE_MS`` of
+        item reads, then the event loop's turn. The slice that finds the read finished
+        applies it (``_finish_records``).
+
+        ``synchronous``: ``flush`` — do not stand in the queue for a turn that is not
+        coming; the caller resumes immediately."""
+        capture = self._capture
+        if capture is None:
+            return
+        self.capture_slices += 1
+        deadline = time.perf_counter() + CAPTURE_SLICE_MS / 1000.0
+        try:
+            while True:
+                next(capture)  # one item — ALWAYS one, whatever the slice's length
+                if time.perf_counter() >= deadline:
+                    if not synchronous:
+                        self._schedule(0)  # the rest of it, next turn
+                    return
+        except StopIteration as done:
+            records = done.value
+        except Exception as error:  # noqa: BLE001 - one item never raises; this is the scene itself
+            self._capture = None
+            self.capturing_changed.emit(False)
+            self._give_up("the plan could not be read for the 3D view", error)
+            return
+        self._capture = None
+        self.capturing_changed.emit(False)
+        self._finish_records(records, synchronous=synchronous)
+
+    def _abandon_capture(self) -> None:
+        """Drop the whole-plan read in progress, if any: its generation ends with
+        ``close()`` (``snapshot_steps``), so what it asked the record layer to
+        remember is settled, and the items it held are let go."""
+        capture, self._capture = self._capture, None
+        if capture is None:
+            return
+        with contextlib.suppress(Exception):  # a generator that raised is already done
+            capture.close()
+        self.capturing_changed.emit(False)
+
+    def _finish_records(self, records: dict[str, Record], *, synchronous: bool = False) -> None:
+        """The records of a finished read are turned into a TICKET (skips, the context
+        hold, the sun, the ground stage) and applied ? here, or after the geometry lane
+        built their meshes (#452)."""
+        skipped = self._capture_skipped
+        snapshot_ms = (time.perf_counter() - self._capture_started) * 1000.0
+        if not self._lawn_blades:
+            records = without_lawn_blades(records)
         self.snapshot_count += 1
-        snapshot_ms = (time.perf_counter() - started) * 1000.0
         snapshot = records
         records = self._hold_context(snapshot)
-        sun = self._sun()
         width, depth = self._plan_size()
+        changes = diff(self._sync.records, records)
+        build_ids = tuple(item_id for item_id in (*changes.added, *changes.geometry)
+                          if item_id in records)
+        ticket = _Ticket(records, snapshot, self._sun(), width, depth, tuple(skipped),
+                         snapshot_ms, self._plan_epoch, self._capture_reconciling,
+                         build_ids)
+        if (build_ids and self._lane is not None and not self._sync.poisoned
+                and sum(_outline_vertices(ticket.records[i]) for i in build_ids)
+                >= PREPARE_OFF_THREAD_VERTICES):
+            self._submit(ticket, synchronous=synchronous)
+            return
+        self._apply_ticket(ticket, synchronous=synchronous)
+
+    def _submit(self, ticket: _Ticket, *, synchronous: bool = False) -> None:
+        """Hand the ticket's geometry to the lane. ONE flight at a time: a ticket that
+        arrives while one runs waits, and the latest replaces the one waiting ? a busy
+        plan is prepared for where it IS, not for every step on the way (#452)."""
+        if self._flight is not None:
+            self._flight_pending = ticket
+            return
+        lane = self._lane
+        if lane is None:
+            self._apply_ticket(ticket, synchronous=synchronous)
+            return
+        records = {item_id: ticket.records[item_id] for item_id in ticket.build_ids}
+        self._flight = (lane.submit(self._sync.prepare, records), ticket)
+        self.prepared_count += 1
+        if not synchronous:
+            self._prepared_timer.start(PREPARE_POLL_MS)
+
+    def _check_prepared(self, *, wait: bool = False) -> None:
+        """The lane answered (or ``wait``: block until it does): apply its parts, then
+        the ticket that queued behind it."""
+        flight, self._flight = self._flight, None
+        if flight is None:
+            return
+        future, ticket = flight
+        if not future.done() and not wait:
+            self._flight = flight
+            self._prepared_timer.start(PREPARE_POLL_MS)
+            return
+        prepared: dict[str, tuple[MeshPart, ...]] | None
+        try:
+            prepared = future.result()  # blocks only when ``wait``
+        except Exception as error:  # noqa: BLE001 - a lane that raised builds in the pass
+            self._log_failure("preparing the 3D geometry failed; it is built in the pass",
+                              error)
+            prepared = None
+        if not self._active:
+            self._records_dirty = True  # shown again: the catch-up pass reads the plan
+            return
+        self._apply_ticket(ticket, prepared=prepared)
+        pending, self._flight_pending = self._flight_pending, None
+        if pending is not None:
+            self._submit(pending)
+
+    def _apply_ticket(self, ticket: _Ticket, prepared: Mapping[str, tuple[MeshPart, ...]] | None = None,
+                      *, synchronous: bool = False) -> None:
+        """Apply one pass's records ? the rest of what ``_pass_records`` used to do in
+        one block (the apply, its recovery, the report)."""
+        records, snapshot = ticket.records, ticket.snapshot
+        skipped = ticket.skipped
+        sun, width, depth = ticket.sun, ticket.width, ticket.depth
+        snapshot_ms = ticket.snapshot_ms
+        stale = ticket.epoch != self._plan_epoch
+        if stale:
+            # The plan changed while its records were read or its geometry built: this
+            # is a coherent snapshot of an earlier moment (that is what a preparation
+            # ticket is for). An item DELETED since is not shown again ? it is dropped
+            # here; everything else is a moment behind and is corrected by the read
+            # this leaves owed.
+            current: set[str] = set()
+            for item in self._scene.items():
+                item_uuid = getattr(item, "item_id", None)
+                if item_uuid is not None:
+                    current.add(str(item_uuid))
+            records = {name: record for name, record in records.items() if name in current}
+            snapshot = {name: record for name, record in snapshot.items() if name in current}
+            self._records_dirty = True
         started = time.perf_counter()
         changes: SceneDiff | None = None
         if self._sync.poisoned:
             # An engine call failed earlier and the sync refuses every apply until it is
             # reset: go straight there. The failure that left it so was logged when it
-            # happened — by this class, in a pass; if it was not (somebody else's call
+            # happened ? by this class, in a pass; if it was not (somebody else's call
             # failed), say once that the scene is being rebuilt, and why. Nothing has
             # failed in THIS pass: if the rebuild goes through, the outage is over.
             if not self._failures_logged:
@@ -998,7 +1298,8 @@ class Scene3DController(QObject):
             try:
                 changes = self._sync.apply(
                     records, sun=sun,
-                    ground=self._ground(self._sync.records, records, width, depth))
+                    ground=self._ground(self._sync.records, records, width, depth),
+                    prepared=prepared)
             except Exception as error:  # noqa: BLE001 - whatever a sink raised
                 self._log_failure(
                     "a pass failed; resetting the 3D scene and applying again", error)
@@ -1017,12 +1318,12 @@ class Scene3DController(QObject):
         self.apply_count += 1
         self._last_error = None
         self._given_up = False
-        self._end_outage()  # … if nothing failed, and no ground is left to paint
-        if reconciling:
+        self._end_outage()  # ? if nothing failed, and no ground is left to paint
+        if ticket.reconciling:
             self.reconcile_count += 1
             if not changes.is_empty:
                 # an edit path changed the plan and told nobody: it is in 3D now (this
-                # pass applied it), late by the quiet time — and it is counted, so that
+                # pass applied it), late by the quiet time ? and it is counted, so that
                 # a missing announcement is a number and not a feeling
                 self.unannounced_changes += 1
                 _LOG.debug("3D sync: the plan changed without an announcement (%s); the "
@@ -1040,10 +1341,12 @@ class Scene3DController(QObject):
         self._retired_by_reset = 0
         self._done(TickReport(changes, True, len(records), snapshot_ms,
                               (time.perf_counter() - started) * 1000.0, recovered, retired,
-                              reconciling))
+                              ticket.reconciling))
         if self._document_pending:
             self._document_pending = False
             self.document_shown.emit()
+        if stale and not synchronous:
+            self._schedule(0)  # the read this one outlived: one more, with the plan now
 
     def _done(self, report: TickReport) -> None:
         self.last_tick = report

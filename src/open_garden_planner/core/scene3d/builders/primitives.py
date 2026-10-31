@@ -29,7 +29,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from ..mesh import Mesh
-from ..polygon import triangulate_polygon
+from ..polygon import ARRAY_EAR_CLIP_FROM, ccw, cut_region, triangulate_polygon
 from ..record import PATTERN_TILE_CM
 
 F64: TypeAlias = NDArray[np.float64]
@@ -319,14 +319,42 @@ def offset_ring(ring: ArrayLike, distance: float) -> F64:
 
 
 def polygon_triangles(ring: ArrayLike) -> F64:
-    """Ear-clipped plan triangles ``(t, 3, 2)`` of a polygon, each counter-clockwise."""
+    """Plan triangles ``(t, 3, 2)`` of a polygon, each counter-clockwise.
+
+    A ring of ``ARRAY_EAR_CLIP_FROM`` vertices or more is cut by the SAME native
+    triangulation the record layer proved (``polygon.cut_region``, #452): for a
+    traced bed that is the difference between a millisecond and three quarters of a
+    second (the shared ear clipper verifies every triangle against every edge —
+    O(n²) — and a 1,000-vertex bed spent 0.75 s in it). Covered by the same memory,
+    so the cut the snapshot already made is the one the builder gets. Smaller rings,
+    and any ring the native cut refuses, keep the shared clipper the golden meshes
+    pin.
+    """
     points = np.asarray(ring, dtype=np.float64).reshape(-1, 2)
     if len(points) < 3:
         return np.zeros((0, 3, 2))
+    if len(points) >= ARRAY_EAR_CLIP_FROM:
+        plan = _native_plan_triangles(points)
+        if len(plan):
+            return plan
     index = triangulate_polygon([(float(x), float(y)) for x, y in points])
     if not index:
         return np.zeros((0, 3, 2))
     return points[np.asarray(index, dtype=np.int64)]
+
+
+def _native_plan_triangles(points: F64) -> F64:
+    """``points``' triangles from the canonical region cutter — empty when it refuses
+    (a degenerate ring keeps the shared ear clipper's fan, as it always did)."""
+    ring = ccw(tuple((float(x), float(y)) for x, y in points))
+    try:
+        vertices, triangles = cut_region(ring)
+    except ValueError:  # RegionTooLargeError included: not cut here, as it never was
+        return np.zeros((0, 3, 2))
+    if not triangles:
+        return np.zeros((0, 3, 2))
+    return np.asarray([[vertices[a], vertices[b], vertices[c]] for a, b, c in triangles],
+                      dtype=np.float64)
 
 
 def polygon_cap(ring: ArrayLike, z: float, color: ArrayLike = _WHITE, *, up: bool = True) -> Mesh:

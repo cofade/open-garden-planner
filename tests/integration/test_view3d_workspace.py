@@ -45,6 +45,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.scene3d import RecordingSink
 from open_garden_planner.core.scene3d.builders import plants
 from open_garden_planner.core.scene3d.camera import Bounds, frame_pose
+from open_garden_planner.core.scene3d.polygon import MAX_ITEM_VERTICES
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.canvas.geometry_apply import (
     apply_rect_like_geometry,
@@ -768,9 +769,11 @@ def _ring(count: int, radius: float = 600.0) -> list[QPointF]:
 
 def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
         app3d, qtbot) -> None:
-    """Addendum point 12. A RAISED bed traced with 6,000 points is drawn by the canvas and
-    refused by the record layer (``outline_too_large``): it is absent from 3D, and the
-    workspace says so until the outline has fewer points. A raised bed — something with
+    """Addendum point 12. A RAISED bed traced with more points than the record layer
+    will ever read (``MAX_ITEM_VERTICES``) is drawn by the canvas and refused by the
+    record layer (``outline_too_large``): it is absent from 3D, and the workspace says
+    so until the outline has fewer points. (It was 6,000 points until #452 repriced the
+    work bound for native triangulation and such an outline became buildable.) A raised bed — something with
     a height — on purpose: the ground-bake story (L1.5) keeps a FLAT item that the solid
     path refuses visible, painted on the ground (FR-3D-GROUND-04), so an in-ground bed
     is no longer "not shown in 3D" there; both stories trace a raised bed.
@@ -783,7 +786,8 @@ def test_a_plan_with_a_refused_item_shows_the_indicator_and_fixing_it_clears_it(
     window, engines = app3d
     workspace, scene = window._workspace, window.canvas_scene
     commands = window.canvas_view.command_manager
-    traced = PolygonItem(_ring(6000), object_type=ObjectType.RAISED_BED, name="Traced bed",
+    traced = PolygonItem(_ring(MAX_ITEM_VERTICES + 16), object_type=ObjectType.RAISED_BED,
+                         name="Traced bed",
                          layer_id=scene.active_layer.id)
     commands.execute(CreateItemCommand(scene, traced, "bed"))
     workspace.set_mode(SPLIT)

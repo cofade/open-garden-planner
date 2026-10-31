@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Generator
 from dataclasses import dataclass, replace
 from datetime import date
 from enum import StrEnum
@@ -1131,14 +1132,38 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
     )
 
 
-@snapshot_generation()  # what a snapshot asks for stays remembered while the plan keeps asking
 def snapshot_records(
     scene: QGraphicsScene,
     at_date: date | None = None,
     *,
     skipped: list[SkippedItem] | None = None,
 ) -> dict[str, Record]:
-    """Every visible item with a footprint → one contract-v2 ``Record``.
+    """``snapshot_steps`` run to the end in one go — the synchronous API (exports,
+    tests, the offscreen renderer). Same records, same ``skipped``."""
+    steps = snapshot_steps(scene, at_date, skipped=skipped)
+    while True:
+        try:
+            next(steps)
+        except StopIteration as done:
+            return done.value  # type: ignore[no-any-return]
+
+
+def snapshot_steps(
+    scene: QGraphicsScene,
+    at_date: date | None = None,
+    *,
+    skipped: list[SkippedItem] | None = None,
+) -> Generator[int, None, dict[str, Record]]:
+    """Every visible item with a footprint → one contract-v2 ``Record``, ONE ITEM PER STEP.
+
+    A generator (#452): it yields the number of items read so far BEFORE it reads each
+    item, and RETURNS the records — ``snapshot_records`` is the loop that drives it to the
+    end. The sync controller drives it in slices of a few milliseconds between event-loop
+    turns, so a plan of many items does not hold the GUI thread for the sum of them. The
+    caller owns two obligations: stop resuming it when the plan changes (the items it
+    holds are the scene's at the START), and ``close()`` it when it is abandoned — the
+    snapshot's generation (``snapshot_generation``: what a snapshot asks for stays
+    remembered while the plan keeps asking) ends there.
 
     Returns a dict keyed by item id, insertion-ordered BOTTOM TO TOP (paint
     order). Runs on the GUI thread; the records are plain immutable data.
@@ -1198,44 +1223,52 @@ def snapshot_records(
       ``SimClock.plan_date`` for growth; a snapshot does not move that clock or
       temporarily reveal plants hidden by the current plan date.
     """
-    items: list[Any] = scene.items()  # top-first; garden items are duck-typed below
-    lookup = ItemLookup(items)
-    records: dict[str, Record] = {}
-    for item in reversed(items):
-        if not item.isVisible():
-            continue
-        object_type = getattr(item, "object_type", None)
-        item_uuid = getattr(item, "item_id", None)
-        if object_type is None or item_uuid is None:
-            continue
-        kind = str(getattr(object_type, "name", object_type))
-        if kind in _NO_RECORD_KINDS:
-            continue
-        item_id = str(item_uuid)
-        try:
-            record = _record_of(item, object_type, item_id, at_date, lookup)
-        except RecordRangeError as error:  # a length beyond what a plan can hold
-            _report(SkippedItem(item_id, kind, SkipReason.OUT_OF_RANGE,
-                                type(error).__name__, str(error)), skipped)
-            continue
-        except _UnbuildableOutline as error:
-            reason = (SkipReason.OUTLINE_TOO_LARGE if isinstance(error, _OutlineTooLarge)
-                      else SkipReason.OUTLINE_UNBUILDABLE)
-            _report(SkippedItem(item_id, kind, reason, type(error).__name__, str(error)), skipped)
-            continue
-        except Exception as error:  # one bad item must not blank the view (docstring)
-            _report(SkippedItem(item_id, kind, SkipReason.RECORD_FAILED,
-                                type(error).__name__, str(error)), skipped, error)
-            continue
-        if record is None:
-            continue
-        if item_id in records:
-            _report(SkippedItem(item_id, kind, SkipReason.DUPLICATE_ID), skipped)
-            continue
-        records[item_id] = record
-    _ground_items_without_a_parent_record(records)
-    with_context(records)  # a door toward the nearest path, a lawn's cut-outs (L4)
-    return records
+    with snapshot_generation():
+        items: list[Any] = scene.items()  # top-first; garden items are duck-typed below
+        lookup = ItemLookup(items)
+        records: dict[str, Record] = {}
+        for read, item in enumerate(reversed(items)):
+            yield read
+            try:
+                visible = item.isVisible()
+            except RuntimeError:
+                # deleted since the read began (#452): it is not in the plan any more,
+                # so it is not a problem — it is simply gone
+                continue
+            if not visible:
+                continue
+            object_type = getattr(item, "object_type", None)
+            item_uuid = getattr(item, "item_id", None)
+            if object_type is None or item_uuid is None:
+                continue
+            kind = str(getattr(object_type, "name", object_type))
+            if kind in _NO_RECORD_KINDS:
+                continue
+            item_id = str(item_uuid)
+            try:
+                record = _record_of(item, object_type, item_id, at_date, lookup)
+            except RecordRangeError as error:  # a length beyond what a plan can hold
+                _report(SkippedItem(item_id, kind, SkipReason.OUT_OF_RANGE,
+                                    type(error).__name__, str(error)), skipped)
+                continue
+            except _UnbuildableOutline as error:
+                reason = (SkipReason.OUTLINE_TOO_LARGE if isinstance(error, _OutlineTooLarge)
+                          else SkipReason.OUTLINE_UNBUILDABLE)
+                _report(SkippedItem(item_id, kind, reason, type(error).__name__, str(error)), skipped)
+                continue
+            except Exception as error:  # one bad item must not blank the view (docstring)
+                _report(SkippedItem(item_id, kind, SkipReason.RECORD_FAILED,
+                                    type(error).__name__, str(error)), skipped, error)
+                continue
+            if record is None:
+                continue
+            if item_id in records:
+                _report(SkippedItem(item_id, kind, SkipReason.DUPLICATE_ID), skipped)
+                continue
+            records[item_id] = record
+        _ground_items_without_a_parent_record(records)
+        with_context(records)  # a door toward the nearest path, a lawn's cut-outs (L4)
+        return records
 
 
 def _ground_items_without_a_parent_record(records: dict[str, Record]) -> None:

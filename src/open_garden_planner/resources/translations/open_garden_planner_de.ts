@@ -15395,32 +15395,32 @@ Verwenden Sie Datei › Gartenstandort festlegen zum Konfigurieren der GPS-Koord
     <context>
         <name>Workspace</name>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="516" />
+            <location filename="../../ui/view3d/workspace.py" line="525" />
             <source>&amp;3D</source>
             <translation>&amp;3D</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="514" />
+            <location filename="../../ui/view3d/workspace.py" line="523" />
             <source>&amp;Plan</source>
             <translation>&amp;Plan</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="532" />
+            <location filename="../../ui/view3d/workspace.py" line="541" />
             <source>&amp;Reset 3D View</source>
             <translation>3D-Ansicht &amp;zurücksetzen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="518" />
+            <location filename="../../ui/view3d/workspace.py" line="527" />
             <source>&amp;Split</source>
             <translation>&amp;Geteilt</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1530" />
+            <location filename="../../ui/view3d/workspace.py" line="1555" />
             <source>&amp;Walk</source>
             <translation>&amp;Rundgang</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="551" />
+            <location filename="../../ui/view3d/workspace.py" line="560" />
             <source>&amp;Workspace</source>
             <translation>&amp;Arbeitsbereich</translation>
         </message>
@@ -15440,12 +15440,12 @@ Verwenden Sie Datei › Gartenstandort festlegen zum Konfigurieren der GPS-Koord
             <translation>+3 Jahre</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1210" />
+            <location filename="../../ui/view3d/workspace.py" line="1235" />
             <source>1 object is not shown in 3D</source>
             <translation>1 Objekt wird in 3D nicht angezeigt</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1208" />
+            <location filename="../../ui/view3d/workspace.py" line="1233" />
             <source>1 object is not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>1 Objekt wird in 3D nicht angezeigt; der 3D-Boden zeigt nicht den ganzen Plan</translation>
         </message>
@@ -15470,27 +15470,27 @@ Verwenden Sie Datei › Gartenstandort festlegen zum Konfigurieren der GPS-Koord
             <translation>2D-Schatten auf dem Boden</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1351" />
+            <location filename="../../ui/view3d/workspace.py" line="1376" />
             <source>3D is running in compatibility mode (software rendering) because it did not start properly last time.</source>
             <translation>3D läuft im Kompatibilitätsmodus (Software-Rendering), weil es beim letzten Mal nicht richtig gestartet ist.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1353" />
+            <location filename="../../ui/view3d/workspace.py" line="1378" />
             <source>3D is running in compatibility mode (software rendering).</source>
             <translation>3D läuft im Kompatibilitätsmodus (Software-Rendering).</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="791" />
+            <location filename="../../ui/view3d/workspace.py" line="800" />
             <source>3D is switched off on this computer: it did not start, not even in compatibility mode (software rendering). The rest of the application is not affected.</source>
             <translation>3D ist auf diesem Computer ausgeschaltet: Es ist nicht gestartet, auch nicht im Kompatibilitätsmodus (Software-Rendering). Der Rest der Anwendung ist nicht betroffen.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1357" />
+            <location filename="../../ui/view3d/workspace.py" line="1382" />
             <source>3D is switched off: it did not start in compatibility mode (software rendering) either.</source>
             <translation>3D ist ausgeschaltet: Es ist auch im Kompatibilitätsmodus (Software-Rendering) nicht gestartet.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1330" />
+            <location filename="../../ui/view3d/workspace.py" line="1355" />
             <source>3D is unavailable on this graphics device. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -15499,7 +15499,7 @@ Details: {error}</source>
 Details: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1678" />
+            <location filename="../../ui/view3d/workspace.py" line="1703" />
             <source>Adult</source>
             <translation>Erwachsene Person</translation>
         </message>
@@ -15530,12 +15530,12 @@ Details: {error}</translation>
             <translation>Vorher: {date}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="936" />
+            <location filename="../../ui/view3d/workspace.py" line="946" />
             <source>Building the 3D view…</source>
             <translation>3D-Ansicht wird aufgebaut…</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1678" />
+            <location filename="../../ui/view3d/workspace.py" line="1703" />
             <source>Child</source>
             <translation>Kind</translation>
         </message>
@@ -15550,12 +15550,12 @@ Details: {error}</translation>
             <translation>Klicken Sie auf den Boden, um seine Sonnenstunden abzulesen.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1355" />
+            <location filename="../../ui/view3d/workspace.py" line="1380" />
             <source>Compatibility mode (software rendering) is switched on.</source>
             <translation>Der Kompatibilitätsmodus (Software-Rendering) ist eingeschaltet.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1360" />
+            <location filename="../../ui/view3d/workspace.py" line="1385" />
             <source>Compatibility mode will be used the next time the application starts.</source>
             <translation>Beim nächsten Start der Anwendung wird der Kompatibilitätsmodus verwendet.</translation>
         </message>
@@ -15565,7 +15565,7 @@ Details: {error}</translation>
             <translation>Schnittansicht</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1675" />
+            <location filename="../../ui/view3d/workspace.py" line="1700" />
             <source>Eye height while walking</source>
             <translation>Augenhöhe beim Rundgang</translation>
         </message>
@@ -15580,7 +15580,7 @@ Details: {error}</translation>
             <translation>Wachstum</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1379" />
+            <location filename="../../ui/view3d/workspace.py" line="1404" />
             <source>Hardware rendering will be tried the next time the application starts.</source>
             <translation>Beim nächsten Start der Anwendung wird Hardware-Rendering versucht.</translation>
         </message>
@@ -15630,12 +15630,12 @@ Details: {error}</translation>
             <translation>Legen Sie einen Gartenstandort fest, um die Sonnenbahn zu zeichnen.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="749" />
+            <location filename="../../ui/view3d/workspace.py" line="758" />
             <source>Show List</source>
             <translation>Liste zeigen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="517" />
+            <location filename="../../ui/view3d/workspace.py" line="526" />
             <source>Show the garden in 3D</source>
             <translation>Den Garten in 3D anzeigen</translation>
         </message>
@@ -15645,12 +15645,12 @@ Details: {error}</translation>
             <translation>Den Garten in 3D ohne Analyse auf dem Boden zeigen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="519" />
+            <location filename="../../ui/view3d/workspace.py" line="528" />
             <source>Show the plan and the 3D view side by side</source>
             <translation>Plan und 3D-Ansicht nebeneinander anzeigen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="515" />
+            <location filename="../../ui/view3d/workspace.py" line="524" />
             <source>Show the plan only</source>
             <translation>Nur den Plan anzeigen</translation>
         </message>
@@ -15659,12 +15659,12 @@ Details: {error}</translation>
             <translation type="vanished">Wieder den ganzen Garten zeigen (Pos1)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="537" />
+            <location filename="../../ui/view3d/workspace.py" line="546" />
             <source>Show the whole garden again ({key})</source>
             <translation>Wieder den ganzen Garten zeigen ({key})</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="533" />
+            <location filename="../../ui/view3d/workspace.py" line="542" />
             <source>Show the whole garden in the 3D view again</source>
             <translation>Wieder den ganzen Garten in der 3D-Ansicht zeigen</translation>
         </message>
@@ -15674,12 +15674,12 @@ Details: {error}</translation>
             <translation>Zeigen, wo die Sonne heute, an beiden Sonnenwenden und zur Tagundnachtgleiche verläuft, und einen Kompass</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="750" />
+            <location filename="../../ui/view3d/workspace.py" line="759" />
             <source>Show which objects are missing from the 3D view</source>
             <translation>Zeigen, welche Objekte in der 3D-Ansicht fehlen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1678" />
+            <location filename="../../ui/view3d/workspace.py" line="1703" />
             <source>Smaller adult</source>
             <translation>Kleinere erwachsene Person</translation>
         </message>
@@ -15709,12 +15709,12 @@ Details: {error}</translation>
             <translation>Diese Stelle liegt außerhalb der Sonnenstunden-Karte.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1206" />
+            <location filename="../../ui/view3d/workspace.py" line="1231" />
             <source>The 3D ground does not show all of the plan</source>
             <translation>Der 3D-Boden zeigt nicht den ganzen Plan</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="844" />
+            <location filename="../../ui/view3d/workspace.py" line="853" />
             <source>The 3D view could not be started. The rest of the application is not affected.
 
 Details: {error}</source>
@@ -15723,12 +15723,12 @@ Details: {error}</source>
 Details: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1195" />
+            <location filename="../../ui/view3d/workspace.py" line="1220" />
             <source>The 3D view could not be updated. It will try again with the next change.</source>
             <translation>Die 3D-Ansicht konnte nicht aktualisiert werden. Bei der nächsten Änderung wird es erneut versucht.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1312" />
+            <location filename="../../ui/view3d/workspace.py" line="1337" />
             <source>The 3D view reported a problem. Details are in the log file.</source>
             <translation>Die 3D-Ansicht hat ein Problem gemeldet. Details stehen in der Protokolldatei.</translation>
         </message>
@@ -15748,7 +15748,7 @@ Details: {error}</translation>
             <translation>Die Sonnenstunden konnten für den geänderten Plan nicht berechnet werden.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1389" />
+            <location filename="../../ui/view3d/workspace.py" line="1414" />
             <source>The setting could not be changed. Details are in the log file.</source>
             <translation>Die Einstellung konnte nicht geändert werden. Details stehen in der Protokolldatei.</translation>
         </message>
@@ -15763,37 +15763,42 @@ Details: {error}</translation>
             <translation>Es gibt keinen freien Boden zum Begehen.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="846" />
+            <location filename="../../ui/view3d/workspace.py" line="855" />
             <source>Try Again</source>
             <translation>Erneut versuchen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1366" />
+            <location filename="../../ui/view3d/workspace.py" line="1391" />
             <source>Try Hardware Next Time</source>
             <translation>Hardware wieder versuchen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1332" />
+            <location filename="../../ui/view3d/workspace.py" line="982" />
+            <source>Updating the 3D view…</source>
+            <translation>Die 3D-Ansicht wird aktualisiert…</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace.py" line="1357" />
             <source>Use Compatibility Mode Next Time</source>
             <translation>Kompatibilitätsmodus verwenden</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1532" />
+            <location filename="../../ui/view3d/workspace.py" line="1557" />
             <source>Walk through the garden at eye height</source>
             <translation>Auf Augenhöhe durch den Garten gehen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1533" />
+            <location filename="../../ui/view3d/workspace.py" line="1558" />
             <source>Walk through the garden at eye height (W A S D or the arrow keys walk, drag to look around, Shift runs, Esc leaves)</source>
             <translation>Auf Augenhöhe durch den Garten gehen (W A S D oder die Pfeiltasten gehen, Ziehen schaut sich um, Umschalt läuft, Esc beendet)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1215" />
+            <location filename="../../ui/view3d/workspace.py" line="1240" />
             <source>{count} objects are not shown in 3D</source>
             <translation>{count} Objekte werden in 3D nicht angezeigt</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1212" />
+            <location filename="../../ui/view3d/workspace.py" line="1237" />
             <source>{count} objects are not shown in 3D; the 3D ground does not show all of the plan</source>
             <translation>{count} Objekte werden in 3D nicht angezeigt; der 3D-Boden zeigt nicht den ganzen Plan</translation>
         </message>
@@ -15808,12 +15813,12 @@ Details: {error}</translation>
             <translation>{day} — gleiche Bahn wie am Plandatum</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="527" />
+            <location filename="../../ui/view3d/workspace.py" line="536" />
             <source>{tip} ({shortcut})</source>
             <translation>{tip} ({shortcut})</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace.py" line="1681" />
+            <location filename="../../ui/view3d/workspace.py" line="1706" />
             <source>{who} – {height}</source>
             <translation>{who} – {height}</translation>
         </message>
