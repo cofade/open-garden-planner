@@ -2523,6 +2523,12 @@ class ProjectManager(QObject):
                         "garden bed"
                     )
                     object_type = ObjectType.GARDEN_BED
+                    if fill_pattern in (None, FillPattern.SOLID):
+                        # The old corner conversion copied the raised bed's
+                        # solid fill; a garden bed shows its soil pattern.
+                        from open_garden_planner.core.object_types import get_style
+
+                        fill_pattern = get_style(ObjectType.GARDEN_BED).fill_pattern
                 item = PolygonItem(
                     points,
                     object_type=object_type or ObjectType.GENERIC_POLYGON,

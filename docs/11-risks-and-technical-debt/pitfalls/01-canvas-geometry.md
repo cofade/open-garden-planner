@@ -410,4 +410,6 @@ group, save, delete or undo carries the whole picture. When a shape changes clas
 (rectangle → polygon), map its type to a legal member of the new class (raised bed
 → garden bed, generic rectangle → generic polygon) and refuse the edit when no
 legal mapping exists; never leave an item in a type/shape combination the panel
-cannot represent.
+cannot represent. A real type change also takes the new type's fill pattern (a
+converted raised bed shows the garden bed's soil, not the raised bed's solid
+fill) while keeping the user's colour; a same-type edit keeps the user's pattern.

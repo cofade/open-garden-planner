@@ -737,6 +737,7 @@ def test_a_raised_bed_converts_to_a_garden_bed_polygon(
     bed.name = "Hochbeet"
     scene.addItem(bed)
     old_id = bed.item_id
+    colour_before = bed.fill_color
 
     target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
     assert target is not None and target.item is bed
@@ -751,6 +752,18 @@ def test_a_raised_bed_converts_to_a_garden_bed_polygon(
         "the properties panel must offer the type the item now has"
     )
     assert replacement.name == "Hochbeet", "identity must survive the conversion"
+    # The type change adopts the garden bed's soil pattern; the user's colour
+    # (this raised bed's brown) stays.
+    from open_garden_planner.core.fill_patterns import FillPattern
+    from open_garden_planner.core.item_look import style_gaps
+    from open_garden_planner.core.object_types import get_style
+
+    assert replacement.fill_pattern == get_style(ObjectType.GARDEN_BED).fill_pattern
+    assert replacement.fill_pattern == FillPattern.SOIL
+    assert replacement.fill_color is not None
+    assert replacement.fill_color.rgba() == colour_before.rgba()
+    assert replacement.brush().style() == Qt.BrushStyle.TexturePattern
+    assert style_gaps(replacement) == [], "pattern, colour and brush must agree"
 
     canvas.command_manager.undo()
     assert bed.scene() is scene
@@ -1011,6 +1024,42 @@ def test_a_furniture_rectangle_has_no_corner_edit(
     assert messages, "the refusal must be explained"
 
 
+@pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
+def test_a_garden_bed_keeps_its_custom_fill_pattern(
+    canvas: CanvasView, qtbot: object, tool_name: str
+) -> None:
+    """Only a TYPE change adopts the new pattern; a same-type edit keeps the user's.
+
+    A garden bed with a brick fill must stay brick through a corner edit — the
+    soil-pattern rule is part of the raised-bed → garden-bed conversion, not a
+    reset of every corner edit.
+    """
+    from open_garden_planner.core.fill_patterns import FillPattern
+    from open_garden_planner.core.item_look import fill_brush, style_gaps
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.core.tools.fillet_tool import FilletTool
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    bed = RectangleItem(400, 400, 300, 200, object_type=ObjectType.GARDEN_BED)
+    bed.fill_pattern = FillPattern.BRICK
+    bed.setBrush(fill_brush(bed, bed.fill_color))
+    scene.addItem(bed)
+
+    target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
+    assert target is not None and target.item is bed
+    tool = ChamferTool(canvas) if tool_name == "chamfer" else FilletTool(canvas)
+    tool.apply_to_target(target)
+
+    replacement = scene.find_item_by_id(bed.item_id)
+    assert replacement is not None and replacement is not bed
+    assert isinstance(replacement, PolygonItem)
+    assert replacement.object_type == ObjectType.GARDEN_BED
+    assert replacement.fill_pattern == FillPattern.BRICK
+    assert style_gaps(replacement) == []
+
+
 def test_a_saved_polygon_raised_bed_loads_as_a_garden_bed(
     canvas: CanvasView, tmp_path, qtbot: object
 ) -> None:
@@ -1037,6 +1086,11 @@ def test_a_saved_polygon_raised_bed_loads_as_a_garden_bed(
     loaded = loaded_scene.find_item_by_id(polygon.item_id)
     assert loaded is not None
     assert loaded.object_type == ObjectType.GARDEN_BED
+    from open_garden_planner.core.fill_patterns import FillPattern
+
+    assert loaded.fill_pattern == FillPattern.SOIL, (
+        "the migrated garden bed must show the soil pattern, not the old solid fill"
+    )
 
 
 def test_rotated_trim_keeps_orientation(canvas: CanvasView, qtbot: object) -> None:
