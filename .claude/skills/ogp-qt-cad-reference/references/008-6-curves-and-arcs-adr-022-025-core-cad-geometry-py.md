@@ -3,8 +3,8 @@
 The Qt-free geometry kernel is `src/open_garden_planner/core/cad_geometry.py`.
 Verified contents: `point_to_segment_distance`, `segment_segment_intersection`,
 `collect_intersections_on_segment`, `polyline/polygon/rectangle_to_scene_segments`,
-`arc_from_three_points`, `arc_to_painter_path`, `fillet_corner`,
-`chamfer_corner`, `reflect_point`, `reflect_angle_deg`,
+`arc_from_three_points`, `arc_to_painter_path`, `sample_arc_points`,
+`fillet_corner`, `chamfer_corner`, `reflect_point`, `reflect_angle_deg`,
 `snap_point_to_axis_step`.
 
 - **Cubic Bezier is the single curve model** (ADR-022). Each anchor stores
@@ -27,12 +27,18 @@ Verified contents: `point_to_segment_distance`, `segment_segment_intersection`,
   through-point, persisted as *additive* `through_x`/`through_y` keys (older
   files derive the angular midpoint on load; `FILE_VERSION` stayed 1.4).
 - **Fillet/chamfer** (`fillet_corner` / `chamfer_corner`): polylines and
-  polygons mutate in place (vertex split + `ArcItem`). **Rectangles have no
-  per-corner geometry slot**, so filleting one is a *destructive, undoable
-  conversion*: `RectangleItem` → 5-vertex `PolygonItem` + free-standing
-  `ArcItem`; undo restores the original rect; past the undo horizon the
-  polygon stays a polygon (ADR-022 — the rejected alternatives there explain
-  why).
+  polygons mutate in place. The fillet's tangent arc is **sampled into the
+  host's own vertex list** (`sample_arc_points`, max chord deviation
+  `FILLET_ARC_TOLERANCE_CM = 0.02 cm`), so the rounded corner is one item that
+  moves/groups/saves/undoes with the shape — the old free-standing `ArcItem`
+  stayed behind when the host moved (ADR-022 addendum 2026-10-31). **Rectangles
+  have no per-corner geometry slot**, so editing one is a *destructive, undoable
+  conversion*: `RectangleItem` → `PolygonItem`; undo restores the original rect;
+  past the undo horizon the polygon stays a polygon. The replacement takes its
+  source's polygonal type (raised bed → garden bed, generic rectangle → generic
+  polygon, hedge section → hedge polygon); types with no polygonal form
+  (furniture, containers, trellis) are refused. Only the edited vertex and its
+  two incident edges block a constraint; later anchors renumber in the command.
 - Curve editing uses a dedicated `CurveEditMixin` + `CurveControlHandle`
   (selection-driven, keyed on `self.isSelected()`), not the polygon
   `VertexHandle`; undo is a whole-geometry snapshot

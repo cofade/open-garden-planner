@@ -235,10 +235,22 @@ def _offset_polyline(item: PolylineItem, d: float) -> QGraphicsItem | None:
     if len(out_pts) < 2:
         return None
 
+    from open_garden_planner.core.object_types import (
+        ObjectType,
+        polygon_equivalent_object_type,
+    )
     from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    # A polyline's FENCE/WALL/PATH type has no polygonal form; the offset result
+    # is a closed area, so it takes the generic polygon type (and stays corner-
+    # editable, which a fence-typed polygon is not — review of the 2026-10-31
+    # follow-up).
+    object_type = polygon_equivalent_object_type(item.object_type)
+    if object_type is None:
+        object_type = ObjectType.GENERIC_POLYGON
     new_item = PolygonItem(
         vertices=out_pts,
-        object_type=item.object_type,
+        object_type=object_type,
         layer_id=item.layer_id,
     )
     copy_visual_style(item, new_item)

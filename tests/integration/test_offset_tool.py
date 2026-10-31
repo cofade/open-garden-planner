@@ -482,3 +482,24 @@ class TestOffsetCopyLooksLikeItsSource:
         assert len(reloaded) == 2, "source and its offset copy must both persist"
         for item in reloaded:
             _assert_reloaded_look(source, item)
+
+
+def test_offset_polyline_result_is_a_corner_editable_polygon(qtbot) -> None:
+    """A path's FENCE/WALL/PATH type has no polygonal form (review 2026-10-31).
+
+    The offset of a polyline is a closed area; leaving the source's line type on
+    it made the result a PolygonItem that the corner tools (correctly) refuse.
+    It must take the generic polygon type and stay filletable.
+    """
+    from open_garden_planner.core.tools.corner_edit_base import _is_corner_editable
+    from open_garden_planner.core.tools.offset_tool import _offset_polyline
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    line = PolylineItem(
+        [QPointF(0.0, 0.0), QPointF(200.0, 0.0), QPointF(200.0, 150.0)],
+        object_type=ObjectType.FENCE,
+    )
+    result = _offset_polyline(line, 20.0)
+    assert isinstance(result, PolygonItem)
+    assert result.object_type == ObjectType.GENERIC_POLYGON
+    assert _is_corner_editable(result), "the offset result must stay filletable"

@@ -3345,6 +3345,11 @@ class _CornerReplacementCommand(Command):
         self._new = new_item
         self._vertex_index = vertex_index
         self._inserted_count = inserted_count
+        from open_garden_planner.ui.canvas.items.rectangle_item import (
+            RectangleItem,
+        )
+
+        self._rectangle = isinstance(original_item, RectangleItem)
         graph = getattr(scene, "constraint_graph", None)
         item_id = getattr(original_item, "item_id", None)
         self._graph = graph
@@ -3362,7 +3367,10 @@ class _CornerReplacementCommand(Command):
             self._scene.addItem(self._new)
         if self._graph is not None and self._topology is not None:
             self._graph.apply_corner_edit(
-                self._item_id, self._vertex_index, self._inserted_count
+                self._item_id,
+                self._vertex_index,
+                self._inserted_count,
+                rectangle=self._rectangle,
             )
 
     def undo(self) -> None:

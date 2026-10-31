@@ -719,6 +719,39 @@ def is_container_type(object_type: ObjectType | None) -> bool:
     return object_type in CONTAINER_TYPES
 
 
+def polygon_equivalent_object_type(
+    object_type: ObjectType | None,
+) -> ObjectType | None:
+    """The type a shape keeps when it is rebuilt as a polygon.
+
+    A ``PolygonItem`` may only carry one of the types the Properties panel
+    offers for polygons (``get_valid_types_for_shape``); copying a rectangle's
+    type blindly left a raised bed or a compost bin claiming to be that object
+    on a free-form outline (owner manual test 2026-10-31).
+
+    * a type that is already valid for a polygon is kept;
+    * ``GENERIC_RECTANGLE`` → ``GENERIC_POLYGON``;
+    * ``RAISED_BED`` → ``GARDEN_BED`` (a soil bed whose wooden frame cannot be
+      drawn on a free-form outline is a garden bed);
+    * ``HEDGE_SECTION`` → ``HEDGE_POLYGON`` (the loader already migrates this
+      pair for older plans);
+    * anything else (furniture, containers, trellis, …) has no polygonal form
+      and returns ``None`` — the caller refuses the edit or supplies its own
+      polygon type.
+    """
+    if object_type is None:
+        return ObjectType.GENERIC_POLYGON
+    if object_type in get_valid_types_for_shape("polygon"):
+        return object_type
+    if object_type == ObjectType.GENERIC_RECTANGLE:
+        return ObjectType.GENERIC_POLYGON
+    if object_type == ObjectType.RAISED_BED:
+        return ObjectType.GARDEN_BED
+    if object_type == ObjectType.HEDGE_SECTION:
+        return ObjectType.HEDGE_POLYGON
+    return None
+
+
 def get_valid_types_for_shape(
     shape: Literal["circle", "polygon", "rectangle", "polyline", "ellipse"],
 ) -> list[ObjectType]:

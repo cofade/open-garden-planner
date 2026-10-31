@@ -514,7 +514,7 @@ first.
 ### PF-DOM-33
 
 - **Rule:** Scope an edit refusal to what the edit actually invalidates. A corner replacement removes one vertex and shortens its two incident edges, so it refuses only a constraint on those anchors; every later indexed anchor renumbers inside the command (with a captured before-state for undo). Refusing the whole item blocks valid corners.
-- **Pinned by:** `tests/unit/test_geometry_identity.py::test_a_constraint_on_another_corner_does_not_block_the_edit`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_a_vertex_constrained_item`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_an_edge_constrained_item`
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_a_constraint_on_another_corner_does_not_block_the_edit`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_a_vertex_constrained_item`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_an_edge_constrained_item`; `tests/unit/test_geometry_identity.py::test_a_rectangle_corner_constraint_follows_the_same_corner`; `tests/unit/test_geometry_identity.py::test_a_rectangle_refuses_the_corner_its_constraint_names`
 - **Source:** #670 manual-test follow-up, PR #672
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -531,3 +531,15 @@ making undo exact. A rectangle is stricter at the type boundary — its typed
 `EDGE_*` anchors have no faithful polygon index — so any edge anchor still
 refuses the rect → polygon conversion; corner anchors on surviving corners map
 by index.
+
+Rectangle corner anchors are numbered **TL, TR, BL, BR**
+(`measure_snapper._rect_anchors`), while the corner-edit geometry walks a
+rectangle **TL, TR, BR, BL** (`rectangle_corners_local`). The first version of
+this scoped fix compared and shifted those indices as if the orders matched: a
+constraint on the bottom-left corner became bottom-right after editing the
+top-left, and the bottom corners were refused under the other corner's
+constraint. `RECT_CORNER_POLYGON_ORDER = (0, 1, 3, 2)` is now the one map, used by
+`corner_edit_is_blocked()` for the edited corner and by `apply_corner_edit()` to
+rewrite every surviving anchor to its polygon index before the inserted shift.
+The parametrised 4×4 rectangle matrix in `test_geometry_identity.py` pins every
+edited/constrained pair through undo and redo.

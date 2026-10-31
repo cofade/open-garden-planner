@@ -339,7 +339,9 @@ def sample_arc_points(
 
     The step is chosen from the chord-sagitta relation
     ``deviation = radius * (1 - cos(step / 2))``; a tolerance at least as large
-    as the radius degenerates to one chord (the endpoints alone).
+    as the radius degenerates to one chord (the endpoints alone). The 512-segment
+    cap bounds the vertex count; it is only reached for radii above roughly
+    170 m at a 90° span, beyond any garden-scale fillet.
     """
     if radius <= 0.0 or abs(span_deg) < 1e-12:
         return []

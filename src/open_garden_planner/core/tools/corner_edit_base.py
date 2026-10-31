@@ -18,6 +18,9 @@ from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
+from open_garden_planner.core.object_types import (
+    polygon_equivalent_object_type,
+)
 from open_garden_planner.core.tools.base_tool import BaseTool
 
 if TYPE_CHECKING:
@@ -53,43 +56,6 @@ class CornerEditRefusal(Enum):
     GROUPED = "grouped"
     UNSUPPORTED_TYPE = "unsupported_type"
     CONSTRAINT = "constraint"
-
-
-def polygon_equivalent_object_type(object_type: object) -> object | None:
-    """The type a rectangle keeps when a corner edit turns it into a polygon.
-
-    A ``PolygonItem`` may only carry one of the types the Properties panel
-    offers for polygons (``object_types.get_valid_types_for_shape``); the old
-    code copied the rectangle's type blindly, so a raised bed or a compost bin
-    became a polygon that still claimed to be that object — the owner's manual
-    test (2026-10-31) saw a "Polygon" with raised-bed records, soil depth and
-    plant links but none of the raised bed's look.
-
-    * a type that is already valid for a polygon is kept;
-    * ``GENERIC_RECTANGLE`` → ``GENERIC_POLYGON``;
-    * ``RAISED_BED`` → ``GARDEN_BED`` (the owner's decision: a soil bed whose
-      wooden frame cannot be drawn on a free-form outline is a garden bed);
-    * ``HEDGE_SECTION`` → ``HEDGE_POLYGON`` (the loader already migrates this
-      pair for older plans);
-    * anything else (furniture, containers, trellis, …) has no polygonal form
-      and returns ``None`` — the caller refuses the edit.
-    """
-    from open_garden_planner.core.object_types import (
-        ObjectType,
-        get_valid_types_for_shape,
-    )
-
-    if object_type is None:
-        return ObjectType.GENERIC_POLYGON
-    if object_type in get_valid_types_for_shape("polygon"):
-        return object_type
-    if object_type == ObjectType.GENERIC_RECTANGLE:
-        return ObjectType.GENERIC_POLYGON
-    if object_type == ObjectType.RAISED_BED:
-        return ObjectType.GARDEN_BED
-    if object_type == ObjectType.HEDGE_SECTION:
-        return ObjectType.HEDGE_POLYGON
-    return None
 
 
 def _is_corner_editable(item: object) -> bool:
@@ -343,6 +309,15 @@ def corner_edit_refusal(target: CornerTarget) -> CornerEditRefusal | None:
     ) is None:
         return CornerEditRefusal.UNSUPPORTED_TYPE
 
+    vertex_index = target.vertex_index
+    if is_rectangle:
+        # The picker walks TL,TR,BR,BL; a rectangle's anchors are TL,TR,BL,BR.
+        from open_garden_planner.core.measure_snapper import (
+            RECT_CORNER_POLYGON_ORDER,
+        )
+
+        vertex_index = RECT_CORNER_POLYGON_ORDER[vertex_index]
+
     scene = item.scene()
     graph = getattr(scene, "constraint_graph", None) if scene is not None else None
     item_id = getattr(item, "item_id", None)
@@ -351,7 +326,7 @@ def corner_edit_refusal(target: CornerTarget) -> CornerEditRefusal | None:
         and item_id is not None
         and graph.corner_edit_is_blocked(
             item_id,
-            target.vertex_index,
+            vertex_index,
             closed=closed,
             rectangle=is_rectangle,
             vertex_count=vertex_count,

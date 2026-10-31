@@ -61,6 +61,13 @@ def is_vertex_deformable(item: QGraphicsItem) -> bool:
     return isinstance(item, (PolygonItem, PolylineItem))
 
 
+#: Rectangle corner anchors are numbered TL, TR, BL, BR (``_rect_anchors``),
+#: while the corner-edit tools walk a rectangle's vertices TL, TR, BR, BL
+#: (``corner_edit_base.rectangle_corners_local``).  This is the index map
+#: between them — an involution (2 <-> 3), so the same tuple serves both ways.
+RECT_CORNER_POLYGON_ORDER: tuple[int, int, int, int] = (0, 1, 3, 2)
+
+
 def _has_indexed_edges(item: QGraphicsItem) -> bool:
     """True for items whose edges are numbered, so the index alone names one."""
     return is_vertex_deformable(item)

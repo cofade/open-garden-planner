@@ -87,10 +87,12 @@ class TestFilletWorkflow:
 
         # The whole rounded corner travels with the host when it moves: there
         # is only one object to move (owner manual test 2026-10-31).
-        before = [QPointF(p) for p in polylines[0].points]
+        tangent = polylines[0].mapToScene(polylines[0].points[1])
         polylines[0].moveBy(120.0, 80.0)
+        moved = polylines[0].mapToScene(polylines[0].points[1])
+        assert moved.x() == pytest.approx(tangent.x() + 120.0)
+        assert moved.y() == pytest.approx(tangent.y() + 80.0)
         assert len([i for i in canvas.scene().items() if isinstance(i, ArcItem)]) == 0
-        assert polylines[0].points == before, "moving must not change local geometry"
 
     def test_fillet_polyline_undo_restores_original(
         self, canvas: CanvasView
@@ -161,6 +163,37 @@ class TestFilletWorkflow:
         ]
         assert len(rects_after) == 1
         assert len(polygons_after) == 0
+
+    def test_a_rounded_bed_round_trips(self, canvas: CanvasView, tmp_path) -> None:
+        """The baked corner is part of the polygon, so a save keeps it."""
+        from open_garden_planner.core.project import ProjectManager
+
+        rect = RectangleItem(0, 0, 200, 100, object_type=ObjectType.RAISED_BED)
+        canvas.scene().addItem(rect)
+
+        tool = _activate_fillet(canvas, radius_cm=20.0)
+        tool.mouse_press(_left_click_event(), QPointF(0, 0))
+
+        rounded = next(
+            i for i in canvas.scene().items() if isinstance(i, PolygonItem)
+        )
+        before = [(p.x(), p.y()) for p in rounded.polygon()]
+        path = tmp_path / "rounded.ogp"
+        ProjectManager().save(canvas.scene(), path)
+
+        loaded_scene = CanvasScene(width_cm=8000, height_cm=6000)
+        ProjectManager().load(loaded_scene, path)
+        loaded = loaded_scene.find_item_by_id(rounded.item_id)
+        assert loaded is not None
+        assert loaded.object_type == ObjectType.GARDEN_BED
+        after = [(p.x(), p.y()) for p in loaded.polygon()]
+        assert len(after) == len(before)
+        for (bx, by), (ax, ay) in zip(before, after, strict=True):
+            assert ax == pytest.approx(bx, abs=1e-6)
+            assert ay == pytest.approx(by, abs=1e-6)
+        assert not [
+            i for i in loaded_scene.items() if isinstance(i, ArcItem)
+        ], "no free-standing arc may be saved or loaded"
 
     def test_fillet_arc_is_tangent_to_both_edges(
         self, canvas: CanvasView

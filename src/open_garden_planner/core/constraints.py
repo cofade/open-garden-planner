@@ -2161,9 +2161,11 @@ class ConstraintGraph:
         either incident edge (both are shortened and one is split).  A
         rectangle is stricter: its ``EDGE_*`` anchors are typed, not indexed,
         and no mapping onto polygon edge indices exists, so any edge anchor
-        blocks the conversion.  All other corners of the same item stay
-        editable — the old item-wide check refused them (owner manual test
-        2026-10-31).
+        blocks the conversion.  The ``vertex_index`` for a rectangle is its
+        ANCHOR index (TL, TR, BL, BR), not the corner-edit order (TL, TR, BR,
+        BL); the caller maps it with ``RECT_CORNER_POLYGON_ORDER``.  All other
+        corners of the same item stay editable — the old item-wide check
+        refused them (owner manual test 2026-10-31).
         """
         vertex_types = {AnchorType.CORNER, AnchorType.ENDPOINT}
         for cid in self._adjacency.get(item_id, set()):
@@ -2195,6 +2197,8 @@ class ConstraintGraph:
         item_id: UUID,
         vertex_index: int,
         inserted_count: int,
+        *,
+        rectangle: bool = False,
     ) -> None:
         """Renumber indexed anchors after *inserted_count* points replace a corner.
 
@@ -2204,7 +2208,44 @@ class ConstraintGraph:
         :py:meth:`corner_edit_is_blocked` refused the edit if either carried a
         constraint).  Callers capture :py:meth:`capture_topology_state` before
         the first application and restore it on undo.
+
+        A rectangle is special: its corner anchors are numbered TL, TR, BL, BR
+        while the replacement polygon's vertices are TL, TR, BR, BL
+        (``RECT_CORNER_POLYGON_ORDER``).  Every surviving corner anchor is
+        rewritten to its polygon index (plus the inserted shift) rather than
+        shifted in place — shifting 2 and 3 as if they were adjacent silently
+        moved a bottom-edge constraint to the wrong corner.
         """
+        if rectangle:
+            from open_garden_planner.core.measure_snapper import (
+                RECT_CORNER_POLYGON_ORDER,
+            )
+
+            for cid in self._adjacency.get(item_id, set()):
+                constraint = self._constraints.get(cid)
+                if constraint is None:
+                    continue
+                for anchor in (
+                    constraint.anchor_a,
+                    constraint.anchor_b,
+                    constraint.anchor_c,
+                ):
+                    if (
+                        anchor is None
+                        or anchor.item_id != item_id
+                        or anchor.anchor_type != AnchorType.CORNER
+                    ):
+                        continue
+                    old = anchor.anchor_index
+                    if not 0 <= old < len(RECT_CORNER_POLYGON_ORDER):
+                        continue
+                    polygon_index = RECT_CORNER_POLYGON_ORDER[old]
+                    anchor.anchor_index = (
+                        polygon_index + inserted_count - 1
+                        if polygon_index > vertex_index
+                        else polygon_index
+                    )
+            return
         self.shift_vertex_indices(
             item_id, vertex_index + 1, inserted_count - 1
         )

@@ -874,6 +874,108 @@ def test_a_constraint_on_another_edge_follows_its_edge(
     assert constraint.anchor_a.anchor_index == 1
 
 
+#: Rectangle corner order used by the corner-edit geometry: TL, TR, BR, BL.
+_RECT_POLY_CORNERS = [
+    QPointF(400.0, 400.0),
+    QPointF(700.0, 400.0),
+    QPointF(700.0, 600.0),
+    QPointF(400.0, 600.0),
+]
+#: Rectangle ANCHOR order (measure_snapper._rect_anchors): TL, TR, BL, BR.
+_RECT_ANCHOR_ORDER = [0, 1, 3, 2]
+
+
+@pytest.mark.parametrize("edited", range(4))
+@pytest.mark.parametrize("constrained", range(4))
+def test_a_rectangle_corner_constraint_follows_the_same_corner(
+    canvas: CanvasView, qtbot: object, edited: int, constrained: int
+) -> None:
+    """Rectangle anchors are TL,TR,BL,BR; corner-edit vertices are TL,TR,BR,BL.
+
+    Mixing the two orders silently retargeted a surviving corner (review of the
+    2026-10-31 follow-up).  The constraint must still resolve to the same
+    physical point after the edit, through undo and redo.
+    """
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import (
+        AnchorType,
+        resolve_anchor_point,
+    )
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+
+    if constrained == edited:
+        pytest.skip("the edited corner's own constraint is refused separately")
+
+    scene = canvas.scene()
+    bed = RectangleItem(400, 400, 300, 200, object_type=ObjectType.GARDEN_BED)
+    scene.addItem(bed)
+    anchor_index = _RECT_ANCHOR_ORDER[constrained]
+    constraint = scene.constraint_graph.add_constraint(
+        AnchorRef(bed.item_id, AnchorType.CORNER, anchor_index),
+        AnchorRef(bed.item_id, AnchorType.CENTER),
+        250.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+
+    target = find_nearest_corner(canvas, _RECT_POLY_CORNERS[edited])
+    assert target is not None and target.item is bed
+    tool = ChamferTool(canvas)
+    tool._distance = 20.0
+    tool.apply_to_target(target)
+
+    replacement = scene.find_item_by_id(bed.item_id)
+    assert replacement is not None and replacement is not bed, (
+        "an unrelated corner constraint must not block the edit"
+    )
+    inserted = replacement.polygon().count() - 4
+    expected = constrained + (inserted if constrained > edited else 0)
+    assert constraint.anchor_a.anchor_index == expected
+    point = resolve_anchor_point(replacement, AnchorType.CORNER, expected)
+    assert point is not None
+    assert point.x() == pytest.approx(_RECT_POLY_CORNERS[constrained].x())
+    assert point.y() == pytest.approx(_RECT_POLY_CORNERS[constrained].y()), (
+        "the surviving constraint was retargeted to another corner"
+    )
+
+    canvas.command_manager.undo()
+    assert constraint.anchor_a.anchor_index == anchor_index
+    canvas.command_manager.redo()
+    assert constraint.anchor_a.anchor_index == expected
+
+
+@pytest.mark.parametrize("corner", range(4))
+def test_a_rectangle_refuses_the_corner_its_constraint_names(
+    canvas: CanvasView, qtbot: object, corner: int
+) -> None:
+    """The refusal must compare the SAME corner, not another one in the other order."""
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+
+    scene = canvas.scene()
+    bed = RectangleItem(400, 400, 300, 200, object_type=ObjectType.GARDEN_BED)
+    scene.addItem(bed)
+    scene.constraint_graph.add_constraint(
+        AnchorRef(bed.item_id, AnchorType.CORNER, _RECT_ANCHOR_ORDER[corner]),
+        AnchorRef(bed.item_id, AnchorType.CENTER),
+        250.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+
+    target = find_nearest_corner(canvas, _RECT_POLY_CORNERS[corner])
+    assert target is not None and target.item is bed
+    tool = ChamferTool(canvas)
+    tool._distance = 20.0
+    tool.apply_to_target(target)
+
+    assert bed.scene() is scene, "the constrained corner must be refused"
+    assert len(
+        [i for i in scene.items() if getattr(i, "item_id", None) == bed.item_id]
+    ) == 1
+
+
 def test_a_furniture_rectangle_has_no_corner_edit(
     canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
