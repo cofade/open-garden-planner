@@ -339,7 +339,7 @@ def _a_referenced_bed(scene):
             QPointF(800, 700),
             QPointF(400, 700),
         ],
-        object_type=ObjectType.RAISED_BED,
+        object_type=ObjectType.GARDEN_BED,
     )
     bed.name = "Bed A"
     bed.metadata["garden_tracking"] = {"zone_id": str(bed.item_id)}
@@ -379,10 +379,14 @@ def test_corner_edit_unlinks_a_plant_outside_the_new_bed(
             QPointF(800, 700),
             QPointF(400, 700),
         ],
-        object_type=ObjectType.RAISED_BED,
+        object_type=ObjectType.GARDEN_BED,
     )
     scene.addItem(bed)
-    plant = CircleItem(410.0, 410.0, 20.0, object_type=ObjectType.TREE)
+    # (405, 405) is outside BOTH a 25 cm chamfer (which cuts at 412.5 on the
+    # diagonal) and the 25 cm fillet arc, whose samples bow closer to the
+    # corner (407.3).  (410, 410) is outside the chamfer but inside the arc —
+    # the old test exercised the chamfer fill while claiming to test the fillet.
+    plant = CircleItem(405.0, 405.0, 20.0, object_type=ObjectType.TREE)
     scene.addItem(plant)
     plant.parent_bed_id = bed.item_id
     bed.add_child_id(plant.item_id)
@@ -596,7 +600,7 @@ def test_corner_edit_refuses_a_vertex_constrained_item(
             QPointF(800, 700),
             QPointF(400, 700),
         ],
-        object_type=ObjectType.RAISED_BED,
+        object_type=ObjectType.GARDEN_BED,
     )
     scene.addItem(polygon)
     constraint = scene.constraint_graph.add_constraint(
@@ -636,7 +640,7 @@ def test_corner_edit_refuses_an_edge_constrained_item(
             QPointF(800, 700),
             QPointF(400, 700),
         ],
-        object_type=ObjectType.RAISED_BED,
+        object_type=ObjectType.GARDEN_BED,
     )
     scene.addItem(polygon)
     # The auto-constraint path emits exactly this shape of reference.
@@ -673,7 +677,7 @@ def test_rotated_corner_edit_keeps_orientation_and_geometry(
             QPointF(800, 700),
             QPointF(400, 700),
         ],
-        object_type=ObjectType.RAISED_BED,
+        object_type=ObjectType.GARDEN_BED,
     )
     scene.addItem(bed)
     bed.name = "Rotated bed"
@@ -709,6 +713,228 @@ def test_rotated_corner_edit_keeps_orientation_and_geometry(
     far_after = loaded.mapToScene(loaded.polygon().boundingRect().center())
     assert far_after.x() == pytest.approx(far_before.x(), abs=1e-6)
     assert far_after.y() == pytest.approx(far_before.y(), abs=1e-6)
+
+
+@pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
+def test_a_raised_bed_converts_to_a_garden_bed_polygon(
+    canvas: CanvasView, qtbot: object, tool_name: str
+) -> None:
+    """A raised bed's frame has no polygonal form — owner decision 2026-10-31.
+
+    The old conversion kept ``RAISED_BED`` on a ``PolygonItem``: the panel showed
+    "Polygon" (the type was not one the polygon dropdown offers) while the bed
+    still had soil depth, plants and records.  It now becomes a garden bed, a
+    type the polygon panel offers, and keeps its identity.
+    """
+    from open_garden_planner.core.object_types import get_valid_types_for_shape
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.core.tools.fillet_tool import FilletTool
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    bed = RectangleItem(400, 400, 300, 200, object_type=ObjectType.RAISED_BED)
+    bed.name = "Hochbeet"
+    scene.addItem(bed)
+    old_id = bed.item_id
+
+    target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
+    assert target is not None and target.item is bed
+    tool = ChamferTool(canvas) if tool_name == "chamfer" else FilletTool(canvas)
+    tool.apply_to_target(target)
+
+    replacement = scene.find_item_by_id(old_id)
+    assert replacement is not None and replacement is not bed
+    assert isinstance(replacement, PolygonItem)
+    assert replacement.object_type == ObjectType.GARDEN_BED
+    assert replacement.object_type in get_valid_types_for_shape("polygon"), (
+        "the properties panel must offer the type the item now has"
+    )
+    assert replacement.name == "Hochbeet", "identity must survive the conversion"
+
+    canvas.command_manager.undo()
+    assert bed.scene() is scene
+
+
+@pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
+def test_a_constraint_on_another_corner_does_not_block_the_edit(
+    canvas: CanvasView, qtbot: object, tool_name: str
+) -> None:
+    """Only the edited corner (and its edges) can block; later anchors renumber.
+
+    Owner manual test 2026-10-31: a rectangle refused every corner as soon as one
+    corner carried a constraint.  The edited corner's own anchor still refuses
+    (see ``test_corner_edit_refuses_a_vertex_constrained_item``); an anchor on a
+    corner that survives must simply move to its new index, through undo and
+    redo.
+    """
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.core.tools.fillet_tool import FilletTool
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    scene.addItem(polygon)
+    constraint = scene.constraint_graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.CORNER, 1),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        250.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+
+    target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
+    assert target is not None and target.item is polygon
+    tool = ChamferTool(canvas) if tool_name == "chamfer" else FilletTool(canvas)
+    tool.apply_to_target(target)
+
+    replacement = scene.find_item_by_id(polygon.item_id)
+    assert replacement is not None and replacement is not polygon
+    inserted = replacement.polygon().count() - 4
+    assert inserted >= 1
+    assert constraint.anchor_a.anchor_index == 1 + inserted, (
+        "the surviving corner must move with its vertex, not be silently retargeted"
+    )
+    resolved = replacement.mapToScene(replacement.polygon().at(1 + inserted))
+    assert resolved.x() == pytest.approx(800.0)
+    assert resolved.y() == pytest.approx(400.0)
+
+    canvas.command_manager.undo()
+    assert constraint.anchor_a.anchor_index == 1
+    canvas.command_manager.redo()
+    assert constraint.anchor_a.anchor_index == 1 + inserted
+
+
+@pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
+def test_a_constraint_on_another_edge_follows_its_edge(
+    canvas: CanvasView, qtbot: object, tool_name: str
+) -> None:
+    """A non-incident edge anchor shifts with its edge and keeps its midpoint.
+
+    The old item-wide refusal rejected this too; an incident edge still refuses
+    (see ``test_corner_edit_refuses_an_edge_constrained_item``).
+    """
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import (
+        AnchorType,
+        resolve_anchor_point,
+    )
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.core.tools.fillet_tool import FilletTool
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.GARDEN_BED,
+    )
+    scene.addItem(polygon)
+    # EDGE index 1 is the right side (800,400)->(800,700); corner 0's incident
+    # edges are 3 (left) and 0 (top), so this one survives the edit.
+    constraint = scene.constraint_graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.EDGE_RIGHT, 1),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        200.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+
+    target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
+    assert target is not None and target.item is polygon
+    tool = ChamferTool(canvas) if tool_name == "chamfer" else FilletTool(canvas)
+    tool.apply_to_target(target)
+
+    replacement = scene.find_item_by_id(polygon.item_id)
+    assert replacement is not None and replacement is not polygon
+    inserted = replacement.polygon().count() - 4
+    assert constraint.anchor_a.anchor_index == 1 + inserted
+    point = resolve_anchor_point(
+        replacement, AnchorType.EDGE_RIGHT, 1 + inserted
+    )
+    assert point is not None
+    assert point.x() == pytest.approx(800.0)
+    assert point.y() == pytest.approx(550.0)
+
+    canvas.command_manager.undo()
+    assert constraint.anchor_a.anchor_index == 1
+
+
+def test_a_furniture_rectangle_has_no_corner_edit(
+    canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A compost bin has no polygonal form: it must not highlight or be replaced."""
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import (
+        CornerTarget,
+        find_nearest_corner,
+    )
+
+    scene = canvas.scene()
+    bin_item = RectangleItem(400, 400, 120, 100, object_type=ObjectType.COMPOST_BIN)
+    scene.addItem(bin_item)
+
+    assert find_nearest_corner(canvas, QPointF(400.0, 400.0)) is None, (
+        "a type with no polygonal form must not offer a corner target"
+    )
+
+    messages: list[str] = []
+    monkeypatch.setattr(canvas, "set_status_message", messages.append)
+    tool = ChamferTool(canvas)
+    tool._distance = 10.0
+    tool.apply_to_target(
+        CornerTarget(
+            item=bin_item,
+            vertex_index=0,
+            p_prev_scene=QPointF(400.0, 500.0),
+            p_corner_scene=QPointF(400.0, 400.0),
+            p_next_scene=QPointF(520.0, 400.0),
+        )
+    )
+    assert bin_item.scene() is scene, "the bin must survive a refused edit"
+    assert messages, "the refusal must be explained"
+
+
+def test_a_saved_polygon_raised_bed_loads_as_a_garden_bed(
+    canvas: CanvasView, tmp_path, qtbot: object
+) -> None:
+    """Plans saved during the old conversion are repaired on load."""
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.RAISED_BED,
+    )
+    scene.addItem(polygon)
+    path = tmp_path / "polygon-raised-bed.ogp"
+    ProjectManager().save(scene, path)
+
+    loaded_scene = CanvasScene(width_cm=8000, height_cm=6000)
+    ProjectManager().load(loaded_scene, path)
+    loaded = loaded_scene.find_item_by_id(polygon.item_id)
+    assert loaded is not None
+    assert loaded.object_type == ObjectType.GARDEN_BED
 
 
 def test_rotated_trim_keeps_orientation(canvas: CanvasView, qtbot: object) -> None:

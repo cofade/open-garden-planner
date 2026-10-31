@@ -2513,6 +2513,16 @@ class ProjectManager(QObject):
                 )
                 return None
             if len(points) >= 3:
+                # Owner manual test 2026-10-31: an earlier corner edit turned a
+                # raised bed into a polygon that still claimed RAISED_BED, so the
+                # panel showed a Polygon with bed records while the wooden frame
+                # was gone.  Load such a plan as the garden bed it now is.
+                if object_type == ObjectType.RAISED_BED:
+                    logging.getLogger(__name__).warning(
+                        "Plan stores a raised bed as a polygon; loading it as a "
+                        "garden bed"
+                    )
+                    object_type = ObjectType.GARDEN_BED
                 item = PolygonItem(
                     points,
                     object_type=object_type or ObjectType.GENERIC_POLYGON,

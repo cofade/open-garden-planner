@@ -2381,7 +2381,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 ### Acceptance highlights
 - `SnapProvider.candidates()` extended with `reference_point: QPointF | None = None`; all in-tree providers updated atomically; existing tests still green.
 - File format `FILE_VERSION` bumped 1.3 → 1.4 to register the new `arc` / `bezier` item types. v1.3 files load unchanged — regression test in place.
-- Filleted rectangles convert destructively to polygon-with-arc; undo restores the rectangle (ADR-022).
+- Filleted rectangles convert destructively to a polygon whose rounded corner is baked in as sampled vertices; undo restores the rectangle (ADR-022, including its 2026-10-31 addendum).
 - Shared `services/scene_rendering.render_scene_region()` helper consolidates PNG export's overlay-hiding / Y-flip / text-scaling bookkeeping into one place. PNG export refactored to use it; SVG export + print dialog migration tracked as follow-up.
 
 ### Out of scope (deferred)
@@ -3824,3 +3824,20 @@ No `.ogp` format change. Tests: `tests/unit/test_constraint_integrity.py`,
 `tests/integration/test_cad_precision_integrity.py`, each observed failing first; the
 integration file drives the real Lock / viewport-drag / Properties-panel / add-constraint
 paths.
+
+**Manual-test follow-up (2026-10-31, PR #672).** The owner's acceptance pass found three
+things this package made visible. (a) A fillet built a chamfered polygon plus a free-standing
+`ArcItem`: the fill never followed the arc, and moving the bed left the arc behind. The arc is
+now sampled into the host's own vertices (0.02 cm maximum chord deviation), so the rounded
+corner is one item that moves, groups, saves and undoes with the shape. (b) A rectangle whose
+corner was replaced kept its `RAISED_BED` type on a `PolygonItem`, so the Properties panel
+showed "Polygon" while the bed kept its soil depth, plants and records but lost the wooden
+frame. A rectangle now takes its polygonal equivalent (raised bed → **garden bed**, generic
+rectangle → generic polygon, hedge section → hedge polygon); a type with no polygonal form
+(furniture, containers, trellis) is refused, and a plan saved with the old polygon/raised-bed
+pair loads as a garden bed. (c) The #668 refusal was item-wide: one constrained corner rejected
+every corner of the rectangle. The refusal is now corner-scoped (the edited vertex and its two
+incident edges), and later indexed anchors renumber inside the same undo step. The constraint
+toolbar's tooltips also shed a duplicated, half-English shortcut ("Anfasen (Umschalt+C) —
+Ecke abschrägen (Shift+C)") and now append Qt's native shortcut spelling once. New pitfalls:
+PF-CAN-34, PF-DOM-33, PF-UI-32; ADR-022 addendum.

@@ -275,7 +275,13 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   rotated shape serializes in its parent frame; a replaced bed keeps its UUID and
   records; the Properties panel detaches rather than destroys form rows; incidence has
   one residual and one anchor resolver (ADR-012 addendum; PF-CAN-33, PF-PER-20/21,
-  PF-UI-31, PF-DOM-31/32).
+  PF-UI-31, PF-DOM-31/32). The owner's acceptance pass then found a fillet that left
+  its arc behind on a move, a raised bed converted into a polygon that still claimed
+  its type, and an item-wide constraint refusal; the arc is now baked into the host
+  (0.02 cm), rectangle types map to their polygonal equivalent (raised bed → garden
+  bed), the refusal is corner-scoped with in-command renumbering, and the toolbar
+  tooltip's shortcut is appended once in Qt's native spelling (ADR-022 addendum;
+  PF-CAN-34, PF-DOM-33, PF-UI-32).
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

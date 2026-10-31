@@ -509,3 +509,25 @@ it (a translation-invariant residual would floor the refinement). A rigid shape'
 edge length follows a RECONSTRAINT-FREE resize, so the distance dialog and the
 Properties resize both refuse the edit and ask the user to remove the constraint
 first.
+
+
+### PF-DOM-33
+
+- **Rule:** Scope an edit refusal to what the edit actually invalidates. A corner replacement removes one vertex and shortens its two incident edges, so it refuses only a constraint on those anchors; every later indexed anchor renumbers inside the command (with a captured before-state for undo). Refusing the whole item blocks valid corners.
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_a_constraint_on_another_corner_does_not_block_the_edit`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_a_vertex_constrained_item`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_an_edge_constrained_item`
+- **Source:** #670 manual-test follow-up, PR #672
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+#668 fixed the silent retargeting of a corner edit by refusing any item with an
+indexed anchor. That avoided the data corruption but over-refused: on a rectangle
+with one constrained corner, EVERY corner was rejected, including corners whose
+vertices and edges had no constraint at all (owner manual test 2026-10-31).
+The set an edit invalidates is small and nameable: the edited vertex (gone), its
+two incident edges (shortened, one split), and every later index (shifted). Refuse
+only the first two; apply the shift in `ConstraintGraph.apply_corner_edit()` from
+inside the undoable command, with `capture_topology_state()`/`restore_topology_state()`
+making undo exact. A rectangle is stricter at the type boundary — its typed
+`EDGE_*` anchors have no faithful polygon index — so any edge anchor still
+refuses the rect → polygon conversion; corner anchors on surviving corners map
+by index.

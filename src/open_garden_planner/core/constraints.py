@@ -2139,33 +2139,75 @@ class ConstraintGraph:
             self.remove_constraint(constraint_id)
         return retargeted
 
-    def has_indexed_anchor(self, item_id: UUID) -> bool:
-        """True if any constraint anchors an *indexed* anchor of *item_id*.
+    def corner_edit_is_blocked(
+        self,
+        item_id: UUID,
+        vertex_index: int,
+        *,
+        closed: bool,
+        rectangle: bool,
+        vertex_count: int,
+    ) -> bool:
+        """True if replacing corner *vertex_index* would break a constraint.
 
-        Indexed anchors are every ``CORNER``/``ENDPOINT`` anchor (all shapes,
-        including rectangles) and every ``EDGE_*`` midpoint (polygons/polylines,
-        where the edge type is re-derived from the current axis).  Used by the
-        corner and vertex-topology edits (#668): replacing or inserting a vertex
-        renumbers every later one.  Such an item is refused rather than silently
-        retargeting the user's constraints to a different point.
+        A corner edit replaces one vertex with several, so it can only preserve:
+
+        * indexed anchors **after** the edited vertex — they renumber by the
+          inserted count (:py:meth:`apply_corner_edit` does that);
+        * edge anchors that are not incident to the corner — their endpoints
+          and index survive.
+
+        It cannot preserve the edited vertex itself (it no longer exists) or
+        either incident edge (both are shortened and one is split).  A
+        rectangle is stricter: its ``EDGE_*`` anchors are typed, not indexed,
+        and no mapping onto polygon edge indices exists, so any edge anchor
+        blocks the conversion.  All other corners of the same item stay
+        editable — the old item-wide check refused them (owner manual test
+        2026-10-31).
         """
-        indexed_types = {
-            AnchorType.CORNER,
-            AnchorType.ENDPOINT,
-            *EDGE_ANCHOR_TYPES,
-        }
+        vertex_types = {AnchorType.CORNER, AnchorType.ENDPOINT}
         for cid in self._adjacency.get(item_id, set()):
             constraint = self._constraints.get(cid)
             if constraint is None:
                 continue
             for ref in (constraint.anchor_a, constraint.anchor_b, constraint.anchor_c):
-                if (
-                    ref is not None
-                    and ref.item_id == item_id
-                    and ref.anchor_type in indexed_types
-                ):
-                    return True
+                if ref is None or ref.item_id != item_id:
+                    continue
+                if ref.anchor_type in vertex_types:
+                    if ref.anchor_index == vertex_index:
+                        return True
+                elif ref.anchor_type in EDGE_ANCHOR_TYPES:
+                    if rectangle:
+                        return True
+                    if closed and vertex_count > 0:
+                        incident = {
+                            (vertex_index - 1) % vertex_count,
+                            vertex_index,
+                        }
+                    else:
+                        incident = {vertex_index - 1, vertex_index}
+                    if ref.anchor_index in incident:
+                        return True
         return False
+
+    def apply_corner_edit(
+        self,
+        item_id: UUID,
+        vertex_index: int,
+        inserted_count: int,
+    ) -> None:
+        """Renumber indexed anchors after *inserted_count* points replace a corner.
+
+        The edited vertex becomes ``inserted_count`` vertices, so every later
+        vertex and every later edge moves by ``inserted_count - 1``.  The two
+        incident edges keep their indices (they are shortened, and
+        :py:meth:`corner_edit_is_blocked` refused the edit if either carried a
+        constraint).  Callers capture :py:meth:`capture_topology_state` before
+        the first application and restore it on undo.
+        """
+        self.shift_vertex_indices(
+            item_id, vertex_index + 1, inserted_count - 1
+        )
 
     def has_item_constraint(self, item_id: UUID) -> bool:
         """True if any constraint references *item_id* at all."""

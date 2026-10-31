@@ -383,3 +383,31 @@ jumped on reload and every consumer of `item.center` (shadow, 3D footprint) read
 the wrong point. The 4-rotation x 8-handle matrix is what exposes it: at
 rotation 0 the visual anchor masks the error. `EllipseItem` is the control - it
 reads the rect directly and never kept a derived centre.
+
+
+### PF-CAN-34
+
+- **Rule:** A derived visual belongs to the item that owns it: bake it into that item's geometry (or its own serialized state), never add a second free scene item. A separate decoration does not follow the host when it moves or groups, is not deleted with it, and is not part of its undo/save.
+- **Pinned by:** `tests/integration/test_fillet_chamfer.py::test_fillet_polyline_bakes_the_arc_into_the_host`; `tests/unit/test_geometry_identity.py::test_a_raised_bed_converts_to_a_garden_bed_polygon`; `tests/unit/test_fillet_geometry.py::test_sample_arc_points_lie_on_the_arc_between_the_tangent_points`
+- **Source:** #668 manual-test follow-up, PR #672
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The fillet tool built two objects: a polygon whose corner was cut straight (the
+old "5-vertex polygon") and a free-standing `ArcItem` drawn between the tangent
+points. The fill therefore never followed the arc, and the moment the owner moved
+the bed the arc stayed at its old scene position while the polygon moved: the
+"rounded" corner came apart into an unfilleted chamfer, exactly what the manual
+test reported. The same rebuild copied the rectangle's `object_type` blindly, so
+a raised bed became a `PolygonItem` that still said `RAISED_BED` — the Properties
+panel showed "Polygon" (its dropdown does not offer that type for polygons)
+while the bed kept its soil depth, plants and records, and the wooden frame was
+gone.
+
+Bake the derived geometry into the item: the tangent points and the sampled arc
+are vertices of the host (`FILLET_ARC_TOLERANCE_CM = 0.02 cm`), so one move,
+group, save, delete or undo carries the whole picture. When a shape changes class
+(rectangle → polygon), map its type to a legal member of the new class (raised bed
+→ garden bed, generic rectangle → generic polygon) and refuse the edit when no
+legal mapping exists; never leave an item in a type/shape combination the panel
+cannot represent.

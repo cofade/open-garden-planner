@@ -121,3 +121,47 @@ class TestMainToolbar:
         """Test buttons have tooltips."""
         for button in toolbar._buttons.values():
             assert button.toolTip() != ""
+
+
+def _constraint_toolbar(qtbot):
+    from open_garden_planner.ui.widgets.constraint_toolbar import ConstraintToolbar
+
+    toolbar = ConstraintToolbar()
+    qtbot.addWidget(toolbar)
+    return toolbar
+
+
+@pytest.mark.parametrize(
+    ("tool_type", "shortcut"),
+    [
+        (ToolType.TRIM_EXTEND, "I"),
+        (ToolType.OFFSET, "O"),
+        (ToolType.FILLET, "Shift+F"),
+        (ToolType.CHAMFER, "Shift+C"),
+        (ToolType.MIRROR, "Shift+M"),
+    ],
+)
+def test_the_constraint_toolbars_shortcut_is_native_and_appears_once(
+    qtbot, tool_type, shortcut
+) -> None:
+    """The shortcut appears once, in Qt's native (localized) spelling.
+
+    Owner manual test 2026-10-31: the chamfer tooltip read
+    "Anfasen (Umschalt+C) — Ecke abschrägen (Shift+C)" — the shortcut was baked
+    into the translated text AND appended again, the second time in English.
+    """
+    from PyQt6.QtGui import QKeySequence
+
+    toolbar = _constraint_toolbar(qtbot)
+    native = QKeySequence(shortcut).toString(
+        QKeySequence.SequenceFormat.NativeText
+    )
+    tip = toolbar._buttons[tool_type].toolTip()
+    assert tip.count("(") == 1, f"one tooltip group only: {tip!r}"
+    assert tip.count(f"({native})") == 1, (
+        f"shortcut {shortcut!r} repeated or missing in tooltip {tip!r}"
+    )
+    assert tip.endswith(f"({native})"), (
+        "the shortcut must be the one, final parenthesised group"
+    )
+    assert f"({shortcut}) (" not in tip, "the raw English shortcut leaked in"

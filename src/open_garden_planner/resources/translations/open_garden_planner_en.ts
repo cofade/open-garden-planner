@@ -1181,28 +1181,42 @@
             <translation type="vanished">Cannot chamfer this corner: a constraint is attached to one of its vertices</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="139" />
-            <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
-            <translation>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</translation>
+            <location filename="../../core/tools/chamfer_tool.py" line="156" />
+            <source>Cannot edit this corner: a constraint is attached to it or to its edges</source>
+            <translation>Cannot edit this corner: a constraint is attached to it or to its edges</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="35" />
-            <location filename="../../core/tools/chamfer_tool.py" line="71" />
+            <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
+            <translation type="vanished">Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/chamfer_tool.py" line="148" />
+            <source>Cannot edit this corner: the object is inside a group</source>
+            <translation>Cannot edit this corner: the object is inside a group</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/chamfer_tool.py" line="152" />
+            <source>Cannot edit this corner: this object type has no polygonal form</source>
+            <translation>Cannot edit this corner: this object type has no polygonal form</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/chamfer_tool.py" line="37" />
+            <location filename="../../core/tools/chamfer_tool.py" line="73" />
             <source>Chamfer</source>
             <translation>Chamfer</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="132" />
+            <location filename="../../core/tools/chamfer_tool.py" line="140" />
             <source>Chamfer distance too large for this corner</source>
             <translation>Chamfer distance too large for this corner</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="45" />
+            <location filename="../../core/tools/chamfer_tool.py" line="47" />
             <source>Chamfer distance: {distance:.1f} cm — press D to change</source>
             <translation>Chamfer distance: {distance:.1f} cm — press D to change</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="72" />
+            <location filename="../../core/tools/chamfer_tool.py" line="74" />
             <source>Distance (cm):</source>
             <translation>Distance (cm):</translation>
         </message>
@@ -1396,12 +1410,12 @@
             <translation>Add constraint</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3928" />
+            <location filename="../../core/commands.py" line="3915" />
             <source>Add garden journal note</source>
             <translation>Add garden journal note</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3726" />
+            <location filename="../../core/commands.py" line="3713" />
             <source>Add harvest entry</source>
             <translation>Add harvest entry</translation>
         </message>
@@ -1411,17 +1425,17 @@
             <translation>Add layer '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3579" />
+            <location filename="../../core/commands.py" line="3566" />
             <source>Add pest/disease log</source>
             <translation>Add pest/disease log</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3451" />
+            <location filename="../../core/commands.py" line="3438" />
             <source>Add soil test</source>
             <translation>Add soil test</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4025" />
+            <location filename="../../core/commands.py" line="4012" />
             <source>Add task</source>
             <translation>Add task</translation>
         </message>
@@ -1498,7 +1512,7 @@
             <translation>Bring {count} item(s) to front</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3401" />
+            <location filename="../../core/commands.py" line="3400" />
             <source>Chamfer corner</source>
             <translation>Chamfer corner</translation>
         </message>
@@ -1549,12 +1563,12 @@
             <translation>Create {item_type}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3994" />
+            <location filename="../../core/commands.py" line="3981" />
             <source>Delete garden journal note</source>
             <translation>Delete garden journal note</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3846" />
+            <location filename="../../core/commands.py" line="3833" />
             <source>Delete harvest entry</source>
             <translation>Delete harvest entry</translation>
         </message>
@@ -1569,17 +1583,17 @@
             <translation>Delete layer '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3659" />
+            <location filename="../../core/commands.py" line="3646" />
             <source>Delete pest/disease log</source>
             <translation>Delete pest/disease log</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3539" />
+            <location filename="../../core/commands.py" line="3526" />
             <source>Delete soil test</source>
             <translation>Delete soil test</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4069" />
+            <location filename="../../core/commands.py" line="4056" />
             <source>Delete task</source>
             <translation>Delete task</translation>
         </message>
@@ -1619,17 +1633,17 @@
             <translation>Edit constraint distance</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3963" />
+            <location filename="../../core/commands.py" line="3950" />
             <source>Edit garden journal note</source>
             <translation>Edit garden journal note</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3780" />
+            <location filename="../../core/commands.py" line="3767" />
             <source>Edit harvest entry</source>
             <translation>Edit harvest entry</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3619" />
+            <location filename="../../core/commands.py" line="3606" />
             <source>Edit pest/disease log</source>
             <translation>Edit pest/disease log</translation>
         </message>
@@ -1640,12 +1654,12 @@
             <translation>Edit plant details</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3495" />
+            <location filename="../../core/commands.py" line="3482" />
             <source>Edit soil test</source>
             <translation>Edit soil test</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4047" />
+            <location filename="../../core/commands.py" line="4034" />
             <source>Edit task</source>
             <translation>Edit task</translation>
         </message>
@@ -1655,7 +1669,7 @@
             <translation>Extend polyline</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3362" />
+            <location filename="../../core/commands.py" line="3389" />
             <source>Fillet corner</source>
             <translation>Fillet corner</translation>
         </message>
@@ -1774,7 +1788,7 @@
             <translation>Set opacity of layer '{name}' to {pct}%</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3893" />
+            <location filename="../../core/commands.py" line="3880" />
             <source>Set succession plan</source>
             <translation>Set succession plan</translation>
         </message>
@@ -1884,7 +1898,7 @@
             <translation>label visibility</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2826" />
+            <location filename="../../ui/panels/properties_panel.py" line="2834" />
             <source>name</source>
             <translation>name</translation>
         </message>
@@ -2734,9 +2748,13 @@
             <translation>Angle Constraint</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="103" />
             <source>Chamfer (Shift+C) — bevel a corner</source>
-            <translation>Chamfer (Shift+C) — bevel a corner</translation>
+            <translation type="vanished">Chamfer (Shift+C) — bevel a corner</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <source>Chamfer — bevel a corner</source>
+            <translation>Chamfer — bevel a corner</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="66" />
@@ -2744,7 +2762,7 @@
             <translation>Coincident</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="128" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="125" />
             <source>Constraints</source>
             <translation>Constraints</translation>
         </message>
@@ -2778,9 +2796,13 @@
             <translation type="vanished">Equal Size (coming soon)</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
             <source>Fillet (Shift+F) — round a corner</source>
-            <translation>Fillet (Shift+F) — round a corner</translation>
+            <translation type="vanished">Fillet (Shift+F) — round a corner</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
+            <source>Fillet — round a corner</source>
+            <translation>Fillet — round a corner</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="76" />
@@ -2802,14 +2824,22 @@
             <translation>Horizontal Distance</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="107" />
             <source>Mirror (Shift+M) — reflect selection across an axis</source>
-            <translation>Mirror (Shift+M) — reflect selection across an axis</translation>
+            <translation type="vanished">Mirror (Shift+M) — reflect selection across an axis</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="97" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="104" />
+            <source>Mirror — reflect selection across an axis</source>
+            <translation>Mirror — reflect selection across an axis</translation>
+        </message>
+        <message>
             <source>Offset (O) — parallel copy inward/outward</source>
-            <translation>Offset (O) — parallel copy inward/outward</translation>
+            <translation type="vanished">Offset (O) — parallel copy inward/outward</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="99" />
+            <source>Offset — parallel copy inward/outward</source>
+            <translation>Offset — parallel copy inward/outward</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="68" />
@@ -2827,9 +2857,13 @@
             <translation>Symmetry Constraint</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="94" />
             <source>Trim/Extend (I) — X toggles mode</source>
-            <translation>Trim/Extend (I) — X toggles mode</translation>
+            <translation type="vanished">Trim/Extend (I) — X toggles mode</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="97" />
+            <source>Trim/Extend — X toggles mode</source>
+            <translation>Trim/Extend — X toggles mode</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="61" />
@@ -3747,9 +3781,23 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
     <context>
         <name>FilletTool</name>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="177" />
+            <location filename="../../core/tools/fillet_tool.py" line="179" />
+            <source>Cannot edit this corner: a constraint is attached to it or to its edges</source>
+            <translation>Cannot edit this corner: a constraint is attached to it or to its edges</translation>
+        </message>
+        <message>
             <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
-            <translation>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</translation>
+            <translation type="vanished">Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/fillet_tool.py" line="171" />
+            <source>Cannot edit this corner: the object is inside a group</source>
+            <translation>Cannot edit this corner: the object is inside a group</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/fillet_tool.py" line="175" />
+            <source>Cannot edit this corner: this object type has no polygonal form</source>
+            <translation>Cannot edit this corner: this object type has no polygonal form</translation>
         </message>
         <message>
             <source>Cannot round this corner: a constraint is attached to its vertices or edges</source>
@@ -3760,23 +3808,23 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</translation>
             <translation type="vanished">Cannot round this corner: a constraint is attached to one of its vertices</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="41" />
-            <location filename="../../core/tools/fillet_tool.py" line="84" />
+            <location filename="../../core/tools/fillet_tool.py" line="48" />
+            <location filename="../../core/tools/fillet_tool.py" line="91" />
             <source>Fillet</source>
             <translation>Fillet</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="170" />
+            <location filename="../../core/tools/fillet_tool.py" line="163" />
             <source>Fillet radius too large for this corner</source>
             <translation>Fillet radius too large for this corner</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="51" />
+            <location filename="../../core/tools/fillet_tool.py" line="58" />
             <source>Fillet radius: {radius:.1f} cm — press R to change</source>
             <translation>Fillet radius: {radius:.1f} cm — press R to change</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="85" />
+            <location filename="../../core/tools/fillet_tool.py" line="92" />
             <source>Radius (cm):</source>
             <translation>Radius (cm):</translation>
         </message>
@@ -7383,12 +7431,12 @@ Please save your project to a permanent location.</translation>
     <context>
         <name>HarvestJournal</name>
         <message>
-            <location filename="../../core/commands.py" line="3679" />
+            <location filename="../../core/commands.py" line="3666" />
             <source>Harvested {qty} {unit}</source>
             <translation>Harvested {qty} {unit}</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3676" />
+            <location filename="../../core/commands.py" line="3663" />
             <source>Harvested {qty} {unit} of {name}</source>
             <translation>Harvested {qty} {unit} of {name}</translation>
         </message>
@@ -11605,7 +11653,7 @@ to assign species data.</translation>
             <translation>Bring to Front</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2644" />
+            <location filename="../../ui/panels/properties_panel.py" line="2652" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</translation>
         </message>

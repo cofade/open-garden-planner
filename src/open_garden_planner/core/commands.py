@@ -3319,19 +3319,16 @@ class ExtendPolylineCommand(Command):
 # ────────────────────────────────────────────────────────────────────────────
 
 
-class FilletCornerCommand(Command):
-    """Round one corner of a polyline / polygon / rectangle with a tangent arc.
+class _CornerReplacementCommand(Command):
+    """Swap a corner-edited item and keep indexed constraint anchors honest.
 
-    Execute:
-        - Polyline / polygon: replace the corner vertex with the two tangent
-          points; spawn a separate ``ArcItem`` for the rounded fillet.
-        - Rectangle: convert to a 5-vertex polygon (one corner becomes two
-          tangent points); spawn the arc. On undo the rectangle is restored
-          unchanged.
-
-    The arc itself is created externally and passed in already-built so the
-    command stays pure-Python and doesn't depend on Qt geometry calls during
-    undo/redo.
+    Both fillet and chamfer replace one vertex with several.  The replacement
+    keeps the source UUID (``inherit_item_identity``), so the graph still finds
+    its constraints; the later indexed anchors must shift by the inserted count.
+    Capturing the topology state before the first application makes undo an
+    exact restore, and redo re-applies the same shift (round-5/6 reviews of
+    #668/#670; the old item-wide refusal that avoided this shift is replaced by
+    the corner-scoped check in ``corner_edit_base``).
     """
 
     def __init__(
@@ -3339,78 +3336,68 @@ class FilletCornerCommand(Command):
         scene: QGraphicsScene,
         original_item: QGraphicsItem,
         new_item: QGraphicsItem,
-        arc_item: QGraphicsItem,
+        *,
+        vertex_index: int,
+        inserted_count: int,
     ) -> None:
-        """Initialize.
-
-        Args:
-            scene: Canvas scene.
-            original_item: The polyline / polygon / rectangle being modified.
-            new_item: Replacement item carrying the corner-split vertex list.
-                For polylines / polygons this is a fresh ``PolylineItem`` /
-                ``PolygonItem`` with the same styling. For rectangles it is
-                a ``PolygonItem`` (the destructive rect→polygon conversion).
-            arc_item: Pre-built ``ArcItem`` representing the fillet arc.
-        """
         self._scene = scene
         self._original = original_item
         self._new = new_item
-        self._arc = arc_item
+        self._vertex_index = vertex_index
+        self._inserted_count = inserted_count
+        graph = getattr(scene, "constraint_graph", None)
+        item_id = getattr(original_item, "item_id", None)
+        self._graph = graph
+        self._item_id = item_id
+        self._topology = (
+            graph.capture_topology_state(item_id)
+            if graph is not None and item_id is not None
+            else None
+        )
+
+    def execute(self) -> None:
+        if self._original.scene() is not None:
+            self._scene.removeItem(self._original)
+        if self._new.scene() is None:
+            self._scene.addItem(self._new)
+        if self._graph is not None and self._topology is not None:
+            self._graph.apply_corner_edit(
+                self._item_id, self._vertex_index, self._inserted_count
+            )
+
+    def undo(self) -> None:
+        if self._new.scene() is not None:
+            self._scene.removeItem(self._new)
+        if self._original.scene() is None:
+            self._scene.addItem(self._original)
+        if self._graph is not None and self._topology is not None:
+            self._graph.restore_topology_state(self._topology)
+
+
+class FilletCornerCommand(_CornerReplacementCommand):
+    """Round one corner of a polyline / polygon / rectangle.
+
+    The arc is baked into the host's vertex list (sampled at
+    ``cad_geometry.FILLET_ARC_TOLERANCE_CM``); the host is replaced whole so a
+    rectangle can become a polygon, and undo restores the original object.
+    There is no second item to leave behind when the host moves (owner manual
+    test 2026-10-31).
+    """
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Fillet corner")
 
-    def execute(self) -> None:
-        if self._original.scene() is not None:
-            self._scene.removeItem(self._original)
-        if self._new.scene() is None:
-            self._scene.addItem(self._new)
-        if self._arc.scene() is None:
-            self._scene.addItem(self._arc)
 
-    def undo(self) -> None:
-        if self._arc.scene() is not None:
-            self._scene.removeItem(self._arc)
-        if self._new.scene() is not None:
-            self._scene.removeItem(self._new)
-        if self._original.scene() is None:
-            self._scene.addItem(self._original)
-
-
-class ChamferCornerCommand(Command):
+class ChamferCornerCommand(_CornerReplacementCommand):
     """Bevel one corner of a polyline / polygon / rectangle with a straight cut.
 
-    Like ``FilletCornerCommand`` but without an arc — the corner vertex is
-    simply replaced by two cut-points so the two adjacent edges keep their
-    direction and a new straight segment bridges them.
+    Like ``FilletCornerCommand`` with the two cut-points as the replacement.
     """
-
-    def __init__(
-        self,
-        scene: QGraphicsScene,
-        original_item: QGraphicsItem,
-        new_item: QGraphicsItem,
-    ) -> None:
-        self._scene = scene
-        self._original = original_item
-        self._new = new_item
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Chamfer corner")
-
-    def execute(self) -> None:
-        if self._original.scene() is not None:
-            self._scene.removeItem(self._original)
-        if self._new.scene() is None:
-            self._scene.addItem(self._new)
-
-    def undo(self) -> None:
-        if self._new.scene() is not None:
-            self._scene.removeItem(self._new)
-        if self._original.scene() is None:
-            self._scene.addItem(self._original)
 
 
 class AddSoilTestCommand(Command):

@@ -163,5 +163,59 @@ class TestFilletCornerArcContinuity:
         assert _approx(dot, 0.0, tol=1e-9)
 
 
+def test_sample_arc_points_lie_on_the_arc_between_the_tangent_points() -> None:
+    """The fillet is baked into the host, so the sampler owns the tolerance."""
+    from open_garden_planner.core.cad_geometry import (
+        FILLET_ARC_TOLERANCE_CM,
+        sample_arc_points,
+    )
+
+    result = fillet_corner(
+        QPointF(100, 0), QPointF(0, 0), QPointF(0, 100), 20.0
+    )
+    assert result is not None
+    tin, tout, centre, start_deg, span_deg = result
+    samples = sample_arc_points(centre, 20.0, start_deg, span_deg)
+
+    assert samples, "a 90-degree arc must have interior samples"
+    for point in samples:
+        assert math.hypot(
+            point.x() - centre.x(), point.y() - centre.y()
+        ) == pytest.approx(20.0, abs=1e-9)
+        assert (round(point.x(), 9), round(point.y(), 9)) != (
+            round(tin.x(), 9),
+            round(tin.y(), 9),
+        )
+        assert (round(point.x(), 9), round(point.y(), 9)) != (
+            round(tout.x(), 9),
+            round(tout.y(), 9),
+        )
+
+    boundary = [tin, *samples, tout]
+    for start, end in zip(boundary, boundary[1:], strict=False):
+        chord = math.hypot(end.x() - start.x(), end.y() - start.y())
+        sagitta = 20.0 - math.sqrt(max(0.0, 20.0**2 - (chord / 2.0) ** 2))
+        assert sagitta <= FILLET_ARC_TOLERANCE_CM + 1e-12
+
+
+def test_sample_arc_points_degenerate_inputs_return_no_interior_points() -> None:
+    from open_garden_planner.core.cad_geometry import sample_arc_points
+
+    assert sample_arc_points(QPointF(0, 0), 0.0, 0.0, 90.0) == []
+    assert sample_arc_points(QPointF(0, 0), -5.0, 0.0, 90.0) == []
+    assert sample_arc_points(QPointF(0, 0), 10.0, 0.0, 0.0) == []
+    # A tolerance at least as large as the radius is one chord: endpoints only.
+    assert sample_arc_points(QPointF(0, 0), 10.0, 0.0, 90.0, 10.0) == []
+
+
+def test_sample_arc_points_follow_the_signed_span() -> None:
+    from open_garden_planner.core.cad_geometry import sample_arc_points
+
+    ccw = sample_arc_points(QPointF(0, 0), 10.0, 0.0, 90.0)
+    cw = sample_arc_points(QPointF(0, 0), 10.0, 90.0, -90.0)
+    assert all(point.y() > 0 for point in ccw)
+    assert all(point.y() > 0 for point in cw)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

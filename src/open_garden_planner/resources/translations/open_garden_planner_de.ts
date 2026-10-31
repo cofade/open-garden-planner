@@ -1193,28 +1193,42 @@
             <translation type="vanished">Diese Ecke kann nicht abgeschrägt werden: An ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="139" />
-            <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
-            <translation>Diese Ecke kann nicht bearbeitet werden: Sie ist gruppiert, oder an ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
+            <location filename="../../core/tools/chamfer_tool.py" line="156" />
+            <source>Cannot edit this corner: a constraint is attached to it or to its edges</source>
+            <translation>Diese Ecke kann nicht bearbeitet werden: An ihr oder ihren Kanten hängt eine Randbedingung</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="35" />
-            <location filename="../../core/tools/chamfer_tool.py" line="71" />
+            <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
+            <translation type="vanished">Diese Ecke kann nicht bearbeitet werden: Sie ist gruppiert, oder an ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/chamfer_tool.py" line="148" />
+            <source>Cannot edit this corner: the object is inside a group</source>
+            <translation>Diese Ecke kann nicht bearbeitet werden: Das Objekt ist Teil einer Gruppe</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/chamfer_tool.py" line="152" />
+            <source>Cannot edit this corner: this object type has no polygonal form</source>
+            <translation>Diese Ecke kann nicht bearbeitet werden: Dieser Objekttyp hat keine Polygonform</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/chamfer_tool.py" line="37" />
+            <location filename="../../core/tools/chamfer_tool.py" line="73" />
             <source>Chamfer</source>
             <translation>Anfasen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="132" />
+            <location filename="../../core/tools/chamfer_tool.py" line="140" />
             <source>Chamfer distance too large for this corner</source>
             <translation>Anfasabstand zu groß für diese Ecke</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="45" />
+            <location filename="../../core/tools/chamfer_tool.py" line="47" />
             <source>Chamfer distance: {distance:.1f} cm — press D to change</source>
             <translation>Anfasabstand: {distance:.1f} cm — D drücken zum Ändern</translation>
         </message>
         <message>
-            <location filename="../../core/tools/chamfer_tool.py" line="72" />
+            <location filename="../../core/tools/chamfer_tool.py" line="74" />
             <source>Distance (cm):</source>
             <translation>Abstand (cm):</translation>
         </message>
@@ -1412,12 +1426,12 @@
             <translation>Bedingung hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3928" />
+            <location filename="../../core/commands.py" line="3915" />
             <source>Add garden journal note</source>
             <translation>Gartentagebuch-Notiz hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3726" />
+            <location filename="../../core/commands.py" line="3713" />
             <source>Add harvest entry</source>
             <translation>Ernte-Eintrag hinzufügen</translation>
         </message>
@@ -1427,17 +1441,17 @@
             <translation>Ebene '{name}' hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3579" />
+            <location filename="../../core/commands.py" line="3566" />
             <source>Add pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3451" />
+            <location filename="../../core/commands.py" line="3438" />
             <source>Add soil test</source>
             <translation>Bodenprobe hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4025" />
+            <location filename="../../core/commands.py" line="4012" />
             <source>Add task</source>
             <translation>Aufgabe hinzufügen</translation>
         </message>
@@ -1514,7 +1528,7 @@
             <translation>{count} Objekt(e) ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3401" />
+            <location filename="../../core/commands.py" line="3400" />
             <source>Chamfer corner</source>
             <translation>Ecke abschrägen</translation>
         </message>
@@ -1565,12 +1579,12 @@
             <translation>{item_type} erstellen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3994" />
+            <location filename="../../core/commands.py" line="3981" />
             <source>Delete garden journal note</source>
             <translation>Gartentagebuch-Notiz löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3846" />
+            <location filename="../../core/commands.py" line="3833" />
             <source>Delete harvest entry</source>
             <translation>Ernte-Eintrag löschen</translation>
         </message>
@@ -1585,17 +1599,17 @@
             <translation>Ebene '{name}' löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3659" />
+            <location filename="../../core/commands.py" line="3646" />
             <source>Delete pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3539" />
+            <location filename="../../core/commands.py" line="3526" />
             <source>Delete soil test</source>
             <translation>Bodenprobe löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4069" />
+            <location filename="../../core/commands.py" line="4056" />
             <source>Delete task</source>
             <translation>Aufgabe löschen</translation>
         </message>
@@ -1635,17 +1649,17 @@
             <translation>Bedingungsabstand bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3963" />
+            <location filename="../../core/commands.py" line="3950" />
             <source>Edit garden journal note</source>
             <translation>Gartentagebuch-Notiz bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3780" />
+            <location filename="../../core/commands.py" line="3767" />
             <source>Edit harvest entry</source>
             <translation>Ernte-Eintrag bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3619" />
+            <location filename="../../core/commands.py" line="3606" />
             <source>Edit pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag bearbeiten</translation>
         </message>
@@ -1656,12 +1670,12 @@
             <translation>Pflanzendetails bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3495" />
+            <location filename="../../core/commands.py" line="3482" />
             <source>Edit soil test</source>
             <translation>Bodenprobe bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4047" />
+            <location filename="../../core/commands.py" line="4034" />
             <source>Edit task</source>
             <translation>Aufgabe bearbeiten</translation>
         </message>
@@ -1671,7 +1685,7 @@
             <translation>Polylinie verlängern</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3362" />
+            <location filename="../../core/commands.py" line="3389" />
             <source>Fillet corner</source>
             <translation>Ecke abrunden</translation>
         </message>
@@ -1790,7 +1804,7 @@
             <translation>Deckkraft der Ebene '{name}' auf {pct}% setzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3893" />
+            <location filename="../../core/commands.py" line="3880" />
             <source>Set succession plan</source>
             <translation>Folgepflanzung festlegen</translation>
         </message>
@@ -1904,7 +1918,7 @@
             <translation type="vanished">Ebene</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2826" />
+            <location filename="../../ui/panels/properties_panel.py" line="2834" />
             <source>name</source>
             <translation>Name</translation>
         </message>
@@ -2778,9 +2792,13 @@
             <translation>Winkelbedingung</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="103" />
             <source>Chamfer (Shift+C) — bevel a corner</source>
-            <translation>Anfasen (Umschalt+C) — Ecke abschrägen</translation>
+            <translation type="vanished">Anfasen (Umschalt+C) — Ecke abschrägen</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <source>Chamfer — bevel a corner</source>
+            <translation>Anfasen — Ecke abschrägen</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="66" />
@@ -2788,7 +2806,7 @@
             <translation>Koinzident</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="128" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="125" />
             <source>Constraints</source>
             <translation>Randbedingungen</translation>
         </message>
@@ -2822,9 +2840,13 @@
             <translation type="vanished">Gleiche Größe (demnächst)</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
             <source>Fillet (Shift+F) — round a corner</source>
-            <translation>Abrunden (Umschalt+F) — Ecke abrunden</translation>
+            <translation type="vanished">Abrunden (Umschalt+F) — Ecke abrunden</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
+            <source>Fillet — round a corner</source>
+            <translation>Abrunden — Ecke abrunden</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="76" />
@@ -2846,14 +2868,22 @@
             <translation>Horizontaler Abstand</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="107" />
             <source>Mirror (Shift+M) — reflect selection across an axis</source>
-            <translation>Spiegeln (Umschalt+M) — Auswahl an einer Achse spiegeln</translation>
+            <translation type="vanished">Spiegeln (Umschalt+M) — Auswahl an einer Achse spiegeln</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="97" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="104" />
+            <source>Mirror — reflect selection across an axis</source>
+            <translation>Spiegeln — Auswahl an einer Achse spiegeln</translation>
+        </message>
+        <message>
             <source>Offset (O) — parallel copy inward/outward</source>
-            <translation>Versatz (O) — parallele Kopie nach innen/außen</translation>
+            <translation type="vanished">Versatz (O) — parallele Kopie nach innen/außen</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="99" />
+            <source>Offset — parallel copy inward/outward</source>
+            <translation>Versatz — parallele Kopie nach innen/außen</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="68" />
@@ -2871,9 +2901,13 @@
             <translation>Symmetrie-Randbedingung</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="94" />
             <source>Trim/Extend (I) — X toggles mode</source>
-            <translation>Trimmen/Erweitern (I) — X wechselt Modus</translation>
+            <translation type="vanished">Trimmen/Erweitern (I) — X wechselt Modus</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="97" />
+            <source>Trim/Extend — X toggles mode</source>
+            <translation>Trimmen/Erweitern — X wechselt Modus</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="61" />
@@ -3803,32 +3837,46 @@ Use 0.1 for DXF in mm, 100 for DXF in metres.</source>
     <context>
         <name>FilletTool</name>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="177" />
+            <location filename="../../core/tools/fillet_tool.py" line="179" />
+            <source>Cannot edit this corner: a constraint is attached to it or to its edges</source>
+            <translation>Diese Ecke kann nicht bearbeitet werden: An ihr oder ihren Kanten hängt eine Randbedingung</translation>
+        </message>
+        <message>
             <source>Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges</source>
-            <translation>Diese Ecke kann nicht bearbeitet werden: Sie ist gruppiert, oder an ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
+            <translation type="vanished">Diese Ecke kann nicht bearbeitet werden: Sie ist gruppiert, oder an ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/fillet_tool.py" line="171" />
+            <source>Cannot edit this corner: the object is inside a group</source>
+            <translation>Diese Ecke kann nicht bearbeitet werden: Das Objekt ist Teil einer Gruppe</translation>
+        </message>
+        <message>
+            <location filename="../../core/tools/fillet_tool.py" line="175" />
+            <source>Cannot edit this corner: this object type has no polygonal form</source>
+            <translation>Diese Ecke kann nicht bearbeitet werden: Dieser Objekttyp hat keine Polygonform</translation>
         </message>
         <message>
             <source>Cannot round this corner: a constraint is attached to its vertices or edges</source>
             <translation type="vanished">Diese Ecke kann nicht abgerundet werden: An ihren Eckpunkten oder Kanten hängt eine Randbedingung</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="41" />
-            <location filename="../../core/tools/fillet_tool.py" line="84" />
+            <location filename="../../core/tools/fillet_tool.py" line="48" />
+            <location filename="../../core/tools/fillet_tool.py" line="91" />
             <source>Fillet</source>
             <translation>Abrunden</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="170" />
+            <location filename="../../core/tools/fillet_tool.py" line="163" />
             <source>Fillet radius too large for this corner</source>
             <translation>Abrundungsradius zu groß für diese Ecke</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="51" />
+            <location filename="../../core/tools/fillet_tool.py" line="58" />
             <source>Fillet radius: {radius:.1f} cm — press R to change</source>
             <translation>Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern</translation>
         </message>
         <message>
-            <location filename="../../core/tools/fillet_tool.py" line="85" />
+            <location filename="../../core/tools/fillet_tool.py" line="92" />
             <source>Radius (cm):</source>
             <translation>Radius (cm):</translation>
         </message>
@@ -7483,12 +7531,12 @@ Bitte speichern Sie Ihr Projekt an einem dauerhaften Speicherort.</translation>
     <context>
         <name>HarvestJournal</name>
         <message>
-            <location filename="../../core/commands.py" line="3679" />
+            <location filename="../../core/commands.py" line="3666" />
             <source>Harvested {qty} {unit}</source>
             <translation>{qty} {unit} geerntet</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3676" />
+            <location filename="../../core/commands.py" line="3663" />
             <source>Harvested {qty} {unit} of {name}</source>
             <translation>{qty} {unit} {name} geerntet</translation>
         </message>
@@ -11811,7 +11859,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2644" />
+            <location filename="../../ui/panels/properties_panel.py" line="2652" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>Diese Form kann nicht skaliert werden: Ihre Kantenlänge ist durch eine Randbedingung festgelegt. Entfernen Sie zuerst die Randbedingung.</translation>
         </message>

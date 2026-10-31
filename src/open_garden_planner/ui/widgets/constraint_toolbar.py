@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from PyQt6.QtCore import QCoreApplication, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QKeySequence
 from PyQt6.QtWidgets import QButtonGroup, QToolBar, QToolButton, QWidget
 
 from open_garden_planner.core.tools import ToolType
@@ -90,21 +90,18 @@ _TOOLBAR_ENTRIES: list[_ToolEntry | None] = [
     ),
     _SEP,
     # ── CAD editing ───────────────────────────────────────────────────────────
+    # The shortcut is deliberately NOT part of the tooltip text: the builder
+    # below appends it once, localized (owner manual test 2026-10-31 saw
+    # "Anfasen (Umschalt+C) — Ecke abschrägen (Shift+C)").
     _ToolEntry(
-        "trim_extend", "Trim/Extend (I) — X toggles mode", "I", ToolType.TRIM_EXTEND
+        "trim_extend", "Trim/Extend — X toggles mode", "I", ToolType.TRIM_EXTEND
     ),
-    _ToolEntry(
-        "offset", "Offset (O) — parallel copy inward/outward", "O", ToolType.OFFSET
-    ),
-    _ToolEntry(
-        "fillet", "Fillet (Shift+F) — round a corner", "Shift+F", ToolType.FILLET
-    ),
-    _ToolEntry(
-        "chamfer", "Chamfer (Shift+C) — bevel a corner", "Shift+C", ToolType.CHAMFER
-    ),
+    _ToolEntry("offset", "Offset — parallel copy inward/outward", "O", ToolType.OFFSET),
+    _ToolEntry("fillet", "Fillet — round a corner", "Shift+F", ToolType.FILLET),
+    _ToolEntry("chamfer", "Chamfer — bevel a corner", "Shift+C", ToolType.CHAMFER),
     _ToolEntry(
         "mirror",
-        "Mirror (Shift+M) — reflect selection across an axis",
+        "Mirror — reflect selection across an axis",
         "Shift+M",
         ToolType.MIRROR,
     ),
@@ -155,9 +152,15 @@ class ConstraintToolbar(QToolBar):
             button = QToolButton()
             button.setCheckable(implemented)
             button.setEnabled(implemented)
-            button.setToolTip(
-                f"{tooltip} ({entry.shortcut})" if entry.shortcut else tooltip
-            )
+            if entry.shortcut:
+                # NativeText renders "Shift+C" as the platform's own name
+                # ("Umschalt+C" in German) and matches the label Qt shows in
+                # menus. The tooltip key no longer repeats it.
+                native = QKeySequence(entry.shortcut).toString(
+                    QKeySequence.SequenceFormat.NativeText
+                )
+                tooltip = f"{tooltip} ({native})"
+            button.setToolTip(tooltip)
             button.setFixedSize(36, 36)
 
             icon = self._load_icon(entry.icon_name)

@@ -56,3 +56,21 @@ The rebuild now takes each row, hides and detaches its widgets and schedules
 the widget alive for the rest of the delivery. The test wires the real
 selection-to-panel path and asserts through `sip.isdeleted` that the sender is
 alive while its signal runs.
+
+
+### PF-UI-32
+
+- **Rule:** A tooltip shows a shortcut once, in the platform's own spelling. Keep shortcuts out of the translated tooltip text and append `QKeySequence(shortcut).toString(NativeText)`; a baked literal is untranslated and duplicates the shortcut when the builder appends it.
+- **Pinned by:** `tests/unit/test_toolbar.py::test_the_constraint_toolbars_shortcut_is_native_and_appears_once`
+- **Source:** manual-test follow-up 2026-10-31, PR #672
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The constraint toolbar's entries already read "Chamfer (Shift+C) — bevel a
+corner" and `ConstraintToolbar` appended `({shortcut})` itself. In German the
+chamfer button therefore read "Anfasen (Umschalt+C) — Ecke abschrägen
+(Shift+C)": the shortcut twice, and the second one in English because the
+appended literal was not translated. The tooltip keys now carry no shortcut; the
+builder appends Qt's `NativeText` rendering, which is the same string menus show
+("Umschalt+C", "Mayús+C"). The test asserts one parenthesised group and that it
+is the native form, so a future entry cannot reintroduce either half.
