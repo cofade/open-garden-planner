@@ -60,8 +60,8 @@ alive while its signal runs.
 
 ### PF-UI-32
 
-- **Rule:** A tooltip shows a shortcut once, in the platform's own spelling. Keep shortcuts out of the translated tooltip text and append `QKeySequence(shortcut).toString(NativeText)`; a baked literal is untranslated and duplicates the shortcut when the builder appends it.
-- **Pinned by:** `tests/unit/test_toolbar.py::test_the_constraint_toolbars_shortcut_is_native_and_appears_once`
+- **Rule:** A tooltip shows a shortcut once, in the user's own spelling. Keep shortcuts out of the translated tooltip text and append `ui.shortcut_text.localized_shortcut()`: Qt's key name plus the app's translated modifier tokens (`ShortcutsDialog` context: Strg/Umschalt/Auf). A baked literal is untranslated and duplicates the shortcut when the builder appends it; `QKeySequence.toString(NativeText)` alone stays English because Qt's own catalogs are not installed.
+- **Pinned by:** `tests/unit/test_toolbar.py::test_the_constraint_toolbars_shortcut_is_native_and_appears_once`; `tests/unit/test_toolbar.py::test_the_constraint_toolbars_shortcut_is_german_in_a_german_ui`
 - **Source:** manual-test follow-up 2026-10-31, PR #672
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -71,6 +71,9 @@ corner" and `ConstraintToolbar` appended `({shortcut})` itself. In German the
 chamfer button therefore read "Anfasen (Umschalt+C) — Ecke abschrägen
 (Shift+C)": the shortcut twice, and the second one in English because the
 appended literal was not translated. The tooltip keys now carry no shortcut; the
-builder appends Qt's `NativeText` rendering, which is the same string menus show
-("Umschalt+C", "Mayús+C"). The test asserts one parenthesised group and that it
-is the native form, so a future entry cannot reintroduce either half.
+builder appends `localized_shortcut()`, which renders the Qt key name and then
+translates the modifier tokens through the shortcuts dialog's existing
+`ShortcutsDialog` strings ("Umschalt+C", "Mayús+C"). Qt's own `NativeText` alone
+was measured to stay English here: the app installs its own catalog, not Qt's.
+The test asserts one parenthesised group and pins the complete German tooltip, so
+a future entry cannot reintroduce either half.

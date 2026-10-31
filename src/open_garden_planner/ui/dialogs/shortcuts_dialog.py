@@ -27,24 +27,14 @@ class ShortcutsDialog(QDialog):
     def _localize_shortcut(self, shortcut: str) -> str:
         """Localize keyboard modifier and arrow-key names for display.
 
-        Translates standard English key names to localized equivalents
-        (e.g., Ctrl→Strg, Shift→Umschalt, Delete→Entf, Up→Auf, Down→Ab for
-        German — matching Qt's own native rendering of e.g.
-        "Ctrl+Shift+Up" as "Strg+Umschalt+Auf"). "Up"/"Down" cover the
-        issue #338 arrange shortcuts (``Ctrl+Up`` / ``Ctrl+Shift+Down``
-        etc.); no other shortcut string in this dialog contains those
-        tokens as a substring of something else, so a plain replace is safe
-        (review round 2, P2).
+        Delegates to :func:`open_garden_planner.ui.shortcut_text.translate_shortcut_tokens`
+        so the shortcuts dialog and the constraint toolbar use one set of
+        translations (PF-UI-32). The strings here are plain ("Ctrl+Shift+Up"),
+        not key sequences, so no Qt native conversion is applied.
         """
-        result = shortcut
-        result = result.replace("Ctrl", self.tr("Ctrl"))
-        result = result.replace("Shift", self.tr("Shift"))
-        result = result.replace("Delete", self.tr("Delete"))
-        result = result.replace("Escape", self.tr("Escape"))
-        result = result.replace("Alt", self.tr("Alt"))
-        result = result.replace("Up", self.tr("Up"))
-        result = result.replace("Down", self.tr("Down"))
-        return result
+        from open_garden_planner.ui.shortcut_text import translate_shortcut_tokens
+
+        return translate_shortcut_tokens(shortcut)
 
     def _setup_ui(self) -> None:
         """Set up the dialog UI."""

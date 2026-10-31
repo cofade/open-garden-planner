@@ -280,7 +280,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   its type, and an item-wide constraint refusal; the arc is now baked into the host
   (0.02 cm), rectangle types map to their polygonal equivalent (raised bed → garden
   bed), the refusal is corner-scoped with in-command renumbering, and the toolbar
-  tooltip's shortcut is appended once in Qt's native spelling (ADR-022 addendum;
+  tooltip's shortcut is appended once in the UI language (ADR-022 addendum;
   PF-CAN-34, PF-DOM-33, PF-UI-32).
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and

@@ -165,3 +165,30 @@ def test_the_constraint_toolbars_shortcut_is_native_and_appears_once(
         "the shortcut must be the one, final parenthesised group"
     )
     assert f"({shortcut}) (" not in tip, "the raw English shortcut leaked in"
+
+
+def test_the_constraint_toolbars_shortcut_is_german_in_a_german_ui(qtbot) -> None:
+    """The owner's report: the second shortcut was English in the German UI.
+
+    This installs the real German catalog and asserts the complete tooltip, so
+    neither the duplicated group nor an untranslated modifier can come back.
+    """
+    from PyQt6.QtCore import QCoreApplication, QTranslator
+
+    from open_garden_planner.core.i18n import _TRANSLATIONS_DIR
+
+    translator = QTranslator()
+    qm = _TRANSLATIONS_DIR / "open_garden_planner_de.qm"
+    assert qm.exists(), f"German .qm not found: {qm}"
+    assert translator.load(str(qm)), "German .qm failed to load"
+    QCoreApplication.installTranslator(translator)
+    try:
+        toolbar = _constraint_toolbar(qtbot)
+        assert toolbar._buttons[ToolType.CHAMFER].toolTip() == (
+            "Anfasen — Ecke abschrägen (Umschalt+C)"
+        )
+        assert toolbar._buttons[ToolType.FILLET].toolTip() == (
+            "Abrunden — Ecke abrunden (Umschalt+F)"
+        )
+    finally:
+        QCoreApplication.removeTranslator(translator)

@@ -3839,5 +3839,5 @@ pair loads as a garden bed. (c) The #668 refusal was item-wide: one constrained 
 every corner of the rectangle. The refusal is now corner-scoped (the edited vertex and its two
 incident edges), and later indexed anchors renumber inside the same undo step. The constraint
 toolbar's tooltips also shed a duplicated, half-English shortcut ("Anfasen (Umschalt+C) —
-Ecke abschrägen (Shift+C)") and now append Qt's native shortcut spelling once. New pitfalls:
+Ecke abschrägen (Shift+C)") and now append one localized shortcut. New pitfalls:
 PF-CAN-34, PF-DOM-33, PF-UI-32; ADR-022 addendum.

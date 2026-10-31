@@ -9,11 +9,12 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from PyQt6.QtCore import QCoreApplication, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QKeySequence
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QButtonGroup, QToolBar, QToolButton, QWidget
 
 from open_garden_planner.core.tools import ToolType
 from open_garden_planner.ui.icons import get_icon
+from open_garden_planner.ui.shortcut_text import localized_shortcut
 
 
 class _ToolEntry(NamedTuple):
@@ -153,13 +154,10 @@ class ConstraintToolbar(QToolBar):
             button.setCheckable(implemented)
             button.setEnabled(implemented)
             if entry.shortcut:
-                # NativeText renders "Shift+C" as the platform's own name
-                # ("Umschalt+C" in German) and matches the label Qt shows in
-                # menus. The tooltip key no longer repeats it.
-                native = QKeySequence(entry.shortcut).toString(
-                    QKeySequence.SequenceFormat.NativeText
-                )
-                tooltip = f"{tooltip} ({native})"
+                # One shortcut, in the user's own spelling: Qt's key name
+                # ("Shift+C") with this app's modifier translation
+                # ("Umschalt+C"). The tooltip key no longer repeats it.
+                tooltip = f"{tooltip} ({localized_shortcut(entry.shortcut)})"
             button.setToolTip(tooltip)
             button.setFixedSize(36, 36)
 
