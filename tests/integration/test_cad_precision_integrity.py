@@ -605,6 +605,15 @@ def test_a_rigid_shapes_edge_length_refuses_a_properties_resize(
         "a rotated rectangle's constrained top edge was changed by a width edit"
     )
 
+    # The same local-frame rule must not over-refuse: a height-only edit leaves
+    # the constrained top edge alone even when the shape is rotated.
+    panel._on_dimension_changed(rect, "rect_size", None, _Spin(200.0), _Spin(160.0))
+    assert rect.rect().width() == pytest.approx(200.0)
+    assert rect.rect().height() == pytest.approx(160.0), (
+        "a rotated rectangle's height-only edit was refused although the "
+        "constrained top edge is untouched"
+    )
+
 
 def test_a_rigid_shapes_edge_length_cannot_be_edited_as_a_distance(
     canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
