@@ -2672,7 +2672,7 @@ class PropertiesPanel(QWidget):
             scene.update()
             views = scene.views()
             if views and hasattr(views[0], 'apply_constraint_solver'):
-                views[0].apply_constraint_solver()
+                views[0].apply_constraint_solver(item)
 
     def _attach_commit_timer(self, edit: QWidget, on_commit: Callable[[], None]) -> None:
         """Attach a single-shot debounce timer that commits a free-text edit.

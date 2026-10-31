@@ -2090,10 +2090,12 @@ class ProjectManager(QObject):
 
         # Load constraints if present
         if parsed_constraints is not None and hasattr(scene, "constraint_graph"):
-            # #655: a FIXED lock saved before the round-trip fix carries no
-            # pinned coordinates.  Repair them from the loaded items BEFORE the
-            # graph becomes live, so the first drag cannot move a locked object
-            # and the next save writes the lock back.
+            # #655 + round-2 review: a FIXED lock's stored target is a
+            # ``pos()`` from the SAVING frame, and the shape serializers fold
+            # that translation into the geometry.  Re-target every FIXED
+            # constraint to the loaded item's own position BEFORE the graph
+            # becomes live, so neither a legacy record nor a moved lock makes
+            # the first drag jump (and the next save keeps the truth).
             loaded_positions: dict[UUID, tuple[float, float]] = {}
 
             def _collect_positions(item_list: list[QGraphicsItem]) -> None:
@@ -2109,7 +2111,7 @@ class ProjectManager(QObject):
                         _collect_positions(list(loaded.childItems()))
 
             _collect_positions(deserialized_items)
-            parsed_constraints.repair_missing_fixed_targets(loaded_positions)
+            parsed_constraints.retarget_fixed_constraints(loaded_positions)
             scene.constraint_graph = parsed_constraints
             # The FIXED-lock padlock badge is derived from the graph: re-derive
             # it for every loaded item so a saved lock is visible without

@@ -16,6 +16,8 @@ So the writers go through this module:
 
 * :func:`copy_visual_style` — an "item made from an item" (offset, mirror,
   chamfer / fillet, a re-pointed line) takes its source's look, both halves;
+* :func:`inherit_item_identity` — the same "made from an item" operations that
+  REPLACE their source keep its UUID, garden bookkeeping and transform (#668);
 * :func:`restore_stored_look` — the ``.ogp`` loader writes the saved attributes
   before it derives brush and pen from them;
 * :func:`adopt_pen` — whoever gives an item a pen states it in the stroke
@@ -73,6 +75,7 @@ __all__ = [
     "capture_line_look",
     "copy_visual_style",
     "fill_brush",
+    "inherit_item_identity",
     "line_look_for_preset",
     "line_look_for_type",
     "paints_sprite",
@@ -227,6 +230,11 @@ def inherit_item_identity(source: Any, dest: Any) -> None:
     dest.setPos(source.pos())
     dest.setRotation(source.rotation())
     dest.setTransformOriginPoint(source.transformOriginPoint())
+    # ``setRotation`` does not touch the stored ``rotation_angle`` that the
+    # serializers read; without this copy a rotated bed loses its orientation on
+    # the next save (round-2 review P1).
+    if hasattr(source, "rotation_angle") and hasattr(dest, "rotation_angle"):
+        dest.rotation_angle = source.rotation_angle
 
 
 def _converted(convert: Callable[[Any], Any], value: Any) -> Any:

@@ -160,7 +160,7 @@ class FilletTool(CornerEditTool):
     def _notify_constrained(self) -> None:
         msg = QCoreApplication.translate(
             "FilletTool",
-            "Cannot round this corner: a constraint is attached to one of its vertices",
+            "Cannot round this corner: a constraint is attached to its vertices or edges",
         )
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)

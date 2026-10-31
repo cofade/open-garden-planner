@@ -58,9 +58,10 @@ class ConstraintStatus(Enum):
     OVER_CONSTRAINED = auto()
 
 
-#: The precision the Constraints panel reports a satisfied relation at, in cm
-#: (1 mm).  A constraint accepted by the application path must reach this, or
-#: the panel immediately shows the row red (#670 cause 4).
+#: The precision the Constraints panel reports COINCIDENT and the three incidence
+#: types at, in cm (1 mm).  A constraint accepted by the application path must
+#: reach this, or the panel immediately shows the row red (#670 cause 4).  The
+#: remaining types keep their own (coarser) display thresholds.
 DISPLAY_TOLERANCE_CM = 0.1
 
 #: What a *committed* solve aims for, in cm.  Comfortably inside
@@ -1660,8 +1661,27 @@ class ConstraintGraph:
         ``tolerance`` stays a caller decision: the conflict dialog asks "would
         this distort an existing relation visibly?" (1.0 cm), not "is the solve
         exact?" (``APPLY_TOLERANCE_CM``).
+
+        A trial whose anchors are missing from ``item_positions`` has nothing to
+        solve against and returns ``[]``; callers that need a verdict must use
+        ``validate_constraint()``, which refuses that case explicitly.
+
+        The trial is inserted through ``add_constraint()`` so its ADJACENCY is
+        updated too: a trial that joins two existing components must see the
+        union of both, or B's side is filtered out and the scan reports no
+        conflict for a link the trial rejects (round-2 review P0).
         """
-        self._constraints[trial_constraint.constraint_id] = trial_constraint
+        temp = self.add_constraint(
+            anchor_a=trial_constraint.anchor_a,
+            anchor_b=trial_constraint.anchor_b,
+            target_distance=trial_constraint.target_distance,
+            visible=trial_constraint.visible,
+            constraint_id=trial_constraint.constraint_id,
+            constraint_type=trial_constraint.constraint_type,
+            anchor_c=trial_constraint.anchor_c,
+            target_x=trial_constraint.target_x,
+            target_y=trial_constraint.target_y,
+        )
         try:
             component = self.get_connected_component(trial_constraint.anchor_a.item_id)
             scoped_positions = {
@@ -1692,7 +1712,7 @@ class ConstraintGraph:
                 deformable_vertices=scoped_vertices,
             )
         finally:
-            del self._constraints[trial_constraint.constraint_id]
+            self.remove_constraint(temp.constraint_id)
 
         # Rebuild resolved anchor positions from deltas
         resolved_item_pos: dict[UUID, tuple[float, float]] = dict(scoped_positions)
@@ -1790,40 +1810,51 @@ class ConstraintGraph:
                 conflicting.append(cid)
         return conflicting
 
-    def repair_missing_fixed_targets(
+    def retarget_fixed_constraints(
         self, item_positions: dict[UUID, tuple[float, float]]
     ) -> int:
-        """Fill in ``target_x``/``target_y`` for FIXED constraints that lack them.
+        """Pin every ``FIXED`` constraint to the *loaded* item's own frame.
 
-        Issue #655: files written before the round-trip fix carry a ``FIXED``
-        record with no pinned coordinates.  The loaded item's own position is
-        the only trustworthy source — a rectangle/polygon folds the Qt
-        translation into its shape coordinates on save, so reusing any
-        pre-save value would make the first drag jump.  Returns the number of
-        constraints repaired.
+        A FIXED target is an ``item.pos()`` in the solver's frame.  The shape
+        serializers fold that Qt translation into the geometry (a rectangle's
+        saved ``x`` is ``pos + rect.x``; the same holds for polygons,
+        polylines, ellipses, circles and curves), so after a reload the item's
+        ``pos()`` is the shape's local origin — **not** the value the target was
+        captured from.  Keeping a saved target therefore moves a locked item on
+        its first drag after reopening (round-2 review P0); only the loaded
+        position names a frame that exists now.
+
+        Legacy files (before #655) have no target at all, and are repaired by
+        the same rule.  Returns the number of constraints (re)targeted.
         """
-        repaired = 0
+        retargeted = 0
         for constraint in self._constraints.values():
             if constraint.constraint_type != ConstraintType.FIXED:
-                continue
-            if constraint.target_x is not None and constraint.target_y is not None:
                 continue
             position = item_positions.get(constraint.anchor_a.item_id)
             if position is None:
                 continue
             constraint.target_x, constraint.target_y = position
-            repaired += 1
-        return repaired
+            retargeted += 1
+        return retargeted
 
-    def has_vertex_anchor(self, item_id: UUID) -> bool:
-        """True if any constraint anchors a corner or endpoint of *item_id*.
+    def has_indexed_anchor(self, item_id: UUID) -> bool:
+        """True if any constraint anchors an *indexed* anchor of *item_id*.
 
-        Used by the corner-edit tools (#668 review): a chamfer/fillet replaces
-        one vertex with two, which renumbers every later CORNER/ENDPOINT index.
-        Such an item is refused rather than silently retargeting the user's
-        constraints to a different vertex.
+        Indexed anchors are polygon/polyline ``CORNER``/``ENDPOINT`` vertices and
+        their ``EDGE_*`` midpoints (both carry ``anchor_index``; the edge type is
+        re-derived from the current axis).  Used by the corner-edit tools (#668):
+        a chamfer/fillet replaces one vertex with two, which renumbers every
+        later vertex AND edge index.  Such an item is refused rather than
+        silently retargeting the user's constraints to a different point.
         """
-        vertex_types = {AnchorType.CORNER, AnchorType.ENDPOINT}
+        from open_garden_planner.core.measure_snapper import EDGE_ANCHOR_TYPES
+
+        indexed_types = {
+            AnchorType.CORNER,
+            AnchorType.ENDPOINT,
+            *EDGE_ANCHOR_TYPES,
+        }
         for cid in self._adjacency.get(item_id, set()):
             constraint = self._constraints.get(cid)
             if constraint is None:
@@ -1832,7 +1863,7 @@ class ConstraintGraph:
                 if (
                     ref is not None
                     and ref.item_id == item_id
-                    and ref.anchor_type in vertex_types
+                    and ref.anchor_type in indexed_types
                 ):
                     return True
         return False

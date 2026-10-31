@@ -774,9 +774,10 @@ class DragConstraints:
         try:
             # For intra-object self-constraints (common on polygon edges), pinning
             # anchor_b would pin the entire polygon, making vertex moves impossible.
-            # Only pin the reference when it is a *different* item.
-            intra_object = anchor_a.item_id == anchor_b.item_id
-            extra_pinned = None if intra_object else {anchor_b.item_id}
+            # ONE pin rule, shared with the trial and the application (#670).
+            extra_pinned = (
+                host._constraint_reference_pins(anchor_a, anchor_b) or None
+            )
             _item_moves, vertex_moves = host._compute_constraint_solve_moves(
                 extra_pinned=extra_pinned, scope_ids=component
             )

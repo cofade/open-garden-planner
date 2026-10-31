@@ -276,7 +276,7 @@ def rebuild_with_corner_replaced(
     if (
         graph is not None
         and item_id is not None
-        and graph.has_vertex_anchor(item_id)
+        and graph.has_indexed_anchor(item_id)
     ):
         return None
 

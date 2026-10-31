@@ -522,3 +522,188 @@ def test_corner_edit_refuses_a_vertex_constrained_item(
     ), "the constraint must still anchor the same item"
     assert polygon.item_id == constraint.anchor_a.item_id
 
+
+@pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
+def test_corner_edit_refuses_an_edge_constrained_item(
+    canvas: CanvasView, qtbot: object, tool_name: str
+) -> None:
+    """An indexed EDGE anchor is renumbered by a split too (round-2 review)."""
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.core.tools.fillet_tool import FilletTool
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.RAISED_BED,
+    )
+    scene.addItem(polygon)
+    # The auto-constraint path emits exactly this shape of reference.
+    scene.constraint_graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.EDGE_TOP, 0),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        200.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
+    assert target is not None
+    tool = ChamferTool(canvas) if tool_name == "chamfer" else FilletTool(canvas)
+    tool.apply_to_target(target)
+
+    assert polygon.scene() is scene, "an edge-indexed constraint must refuse the edit"
+
+
+@pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
+def test_rotated_corner_edit_keeps_orientation_and_geometry(
+    canvas: CanvasView, tmp_path, qtbot: object, tool_name: str
+) -> None:
+    """The replacement must keep the stored rotation angle, not just setRotation."""
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.core.tools.fillet_tool import FilletTool
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    bed = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.RAISED_BED,
+    )
+    scene.addItem(bed)
+    bed.name = "Rotated bed"
+    bed._apply_rotation(30.0)
+    corner_scene = bed.mapToScene(QPointF(400.0, 400.0))
+
+    target = find_nearest_corner(canvas, corner_scene)
+    assert target is not None and target.item is bed
+    tool = ChamferTool(canvas) if tool_name == "chamfer" else FilletTool(canvas)
+    tool.apply_to_target(target)
+
+    replacement = next(
+        item
+        for item in scene.items()
+        if getattr(item, "item_id", None) == bed.item_id
+    )
+    assert replacement is not bed
+    assert replacement.rotation() == pytest.approx(30.0)
+    assert replacement.rotation_angle == pytest.approx(30.0), (
+        "the stored angle the serializer reads was not copied"
+    )
+
+    far_before = replacement.mapToScene(
+        replacement.polygon().boundingRect().center()
+    )
+    path = tmp_path / f"rotated-{tool_name}.ogp"
+    ProjectManager().save(scene, path)
+    loaded_scene = CanvasScene(width_cm=8000, height_cm=6000)
+    ProjectManager().load(loaded_scene, path)
+    loaded = loaded_scene.find_item_by_id(bed.item_id)
+    assert loaded is not None
+    assert loaded.rotation_angle == pytest.approx(30.0), "orientation lost on save"
+    far_after = loaded.mapToScene(loaded.polygon().boundingRect().center())
+    assert far_after.x() == pytest.approx(far_before.x(), abs=1e-6)
+    assert far_after.y() == pytest.approx(far_before.y(), abs=1e-6)
+
+
+def test_rotated_trim_keeps_orientation(canvas: CanvasView, qtbot: object) -> None:
+    """The trimmed polyline must keep the stored rotation angle too."""
+    from open_garden_planner.core.tools.trim_tool import TrimExtendTool, _TrimTarget
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.GENERIC_POLYGON,
+    )
+    polygon.name = "Rotated path"
+    scene.addItem(polygon)
+    polygon._apply_rotation(30.0)
+    old_id = polygon.item_id
+
+    TrimExtendTool(canvas)._trim_polygon(
+        _TrimTarget(
+            item=polygon,
+            seg_index=0,
+            t_start=0.3,
+            t_end=0.7,
+            p1_scene=polygon.mapToScene(QPointF(400.0, 400.0)),
+            p2_scene=polygon.mapToScene(QPointF(800.0, 400.0)),
+        )
+    )
+
+    trimmed = next(
+        item
+        for item in scene.items()
+        if isinstance(item, PolylineItem) and item.item_id == old_id
+    )
+    assert trimmed.rotation_angle == pytest.approx(30.0)
+
+
+def test_grouped_construction_geometry_round_trips(
+    canvas: CanvasView, tmp_path, qtbot: object
+) -> None:
+    """Construction lines/circles still wrote scene coordinates (round-2 P1)."""
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.ui.canvas.items.construction_item import (
+        ConstructionCircleItem,
+        ConstructionLineItem,
+    )
+
+    scene = canvas.scene()
+    line = ConstructionLineItem(QPointF(100.0, 100.0), QPointF(300.0, 200.0))
+    circle = ConstructionCircleItem(500.0, 400.0, 80.0)
+    companion = RectangleItem(900, 900, 100, 100)
+    for item in (line, circle, companion):
+        scene.addItem(item)
+    GroupCommand(scene, [line, circle, companion]).execute()
+    group = next(item for item in scene.items() if item.__class__.__name__ == "GroupItem")
+    group.setPos(group.pos() + QPointF(120.0, 80.0))
+
+    line_before = (QPointF(line.p1), QPointF(line.p2))
+    circle_before = QPointF(circle.center)
+    line_id, circle_id = line.item_id, circle.item_id
+    path = tmp_path / "grouped-construction.ogp"
+    ProjectManager().save(scene, path)
+
+    loaded_scene = CanvasScene(width_cm=8000, height_cm=6000)
+    ProjectManager().load(loaded_scene, path)
+    loaded_line = next(
+        item
+        for item in loaded_scene.items()
+        if getattr(item, "item_id", None) == line_id
+    )
+    loaded_circle = next(
+        item
+        for item in loaded_scene.items()
+        if getattr(item, "item_id", None) == circle_id
+    )
+    for got, want, axis in (
+        (loaded_line.p1.x(), line_before[0].x(), "p1.x"),
+        (loaded_line.p1.y(), line_before[0].y(), "p1.y"),
+        (loaded_line.p2.x(), line_before[1].x(), "p2.x"),
+        (loaded_line.p2.y(), line_before[1].y(), "p2.y"),
+        (loaded_circle.center.x(), circle_before.x(), "center.x"),
+        (loaded_circle.center.y(), circle_before.y(), "center.y"),
+    ):
+        assert got == pytest.approx(want, abs=1e-6), f"grouped construction {axis}"
+

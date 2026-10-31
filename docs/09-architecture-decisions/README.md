@@ -224,22 +224,27 @@ than the application. Six decisions, each pinned:
    `POINT_ON_EDGE` resolves its third anchor through the same vertex-aware helper the rest
    of the solver uses (#670 cause 5).
 
-No `.ogp` format change: repaired `FIXED` targets are derived at load from the loaded
-item's frame and written back additively. Tests: `tests/unit/test_incidence_consistency.py`
-(all six causes plus the panel residual definitions and the precision pair) and
+No `.ogp` format change: FIXED targets are **re-derived on every load** from the loaded
+item's own `pos()` — the shape serializers fold the Qt translation into the geometry, so a
+saved target names a frame the reload no longer has; only a target captured after loading
+is truthful (round-2 review). Tests: `tests/unit/test_incidence_consistency.py` (all six
+causes plus the panel residual definitions and the precision pair) and
 `tests/integration/test_cad_precision_integrity.py` (the real add-constraint path: an
-unrelated broken component neither moves nor raises a dialog, a locked pair at non-zero
-`pos()` does not block a compatible link, and a point-on-edge added through the view lands
-on the edge and shows satisfied).
+unrelated broken component neither moves nor raises a dialog, a cross-component trial the
+trial rejects is reported by the conflict scan, a locked pair at non-zero `pos()` does not
+block a compatible link, a point-on-edge added through the view lands on the edge and shows
+satisfied, and a lock on a MOVED item keeps its scene geometry through save → drag → save).
 
 **Addendum (replacement identity, #668).** A command that rebuilds a shape (`inherit_item_identity()`
 in `core/item_look.py`) keeps the source's UUID, name, metadata copy, parent/child links,
-layer, stack rank, label flags and transform, so garden records, plants and constraints stay
-attached. Identity does not extend to topology: a corner edit replaces one vertex with two
-and renumbers every later `CORNER`/`ENDPOINT` anchor, and a trim turns a closed shape into an
-open line. Those edits are **refused** when the item carries vertex constraints (corner
-edits) or is a plant-parent / carries any constraint (trim), with a translated status
-message, rather than silently retargeting an anchor or attaching a bed's records to a fence.
+layer, stack rank, label flags and transform — including the stored `rotation_angle` the
+serializer reads, which `setRotation()` alone does not update. Identity does not extend to
+topology: a corner edit replaces one vertex with two and renumbers every later indexed
+anchor (`CORNER`/`ENDPOINT` **and** `EDGE_*` midpoints), and a trim turns a closed shape
+into an open line. Those edits are **refused** when the item carries any indexed anchor
+(corner edits) or is a plant-parent / carries any constraint (trim), with a translated
+status message, rather than silently retargeting an anchor or attaching a bed's records to
+a fence.
 
 **Addendum (2026-10-23, issue #552 — FIXED closes the panel path).** The canvas
 drag, arrange and vertex paths honoured FIXED; the Properties panel X/Y fields

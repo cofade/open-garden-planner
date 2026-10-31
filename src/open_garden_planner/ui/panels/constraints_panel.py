@@ -291,15 +291,19 @@ class ConstraintsPanel(QWidget):
             return False
 
         dlm = self._scene.dimension_line_manager
+        # A satisfaction check must NOT accept the dimension-line centre
+        # fallback: a converted shape would read as satisfied at its centre.
         pos_a = dlm._resolve_anchor_position(
             constraint.anchor_a.item_id,
             constraint.anchor_a.anchor_type,
             constraint.anchor_a.anchor_index,
+            fallback_to_center=False,
         )
         pos_b = dlm._resolve_anchor_position(
             constraint.anchor_b.item_id,
             constraint.anchor_b.anchor_type,
             constraint.anchor_b.anchor_index,
+            fallback_to_center=False,
         )
         if pos_a is None or pos_b is None:
             return False
@@ -401,6 +405,7 @@ class ConstraintsPanel(QWidget):
                     constraint.anchor_c.item_id,
                     constraint.anchor_c.anchor_type,
                     constraint.anchor_c.anchor_index,
+                    fallback_to_center=False,
                 )
                 if pos_c is None:
                     return False

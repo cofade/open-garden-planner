@@ -434,13 +434,20 @@ class DimensionLineManager:
         self._groups[constraint.constraint_id] = group
 
     def _resolve_anchor_position(
-        self, item_id: UUID, anchor_type: AnchorType, anchor_index: int = 0
+        self,
+        item_id: UUID,
+        anchor_type: AnchorType,
+        anchor_index: int = 0,
+        *,
+        fallback_to_center: bool = True,
     ) -> QPointF | None:
         """Get the scene position of an anchor on a garden or construction item.
 
         Delegates to the shared resolver: polygon / polyline edge anchors are
         typed by their current dominant axis, so a stored reference must keep
-        identifying the same edge by index (#670 cause 6).
+        identifying the same edge by index (#670 cause 6).  Dimension lines pass
+        ``fallback_to_center=True`` (display leniency); a satisfaction check
+        must not, or a converted shape reads as satisfied at its centre.
         """
         from open_garden_planner.core.measure_snapper import resolve_anchor_point
         from open_garden_planner.ui.canvas.items.construction_item import (
@@ -458,7 +465,10 @@ class DimensionLineManager:
             if item.item_id != item_id:
                 continue
             return resolve_anchor_point(
-                item, anchor_type, anchor_index, fallback_to_center=True
+                item,
+                anchor_type,
+                anchor_index,
+                fallback_to_center=fallback_to_center,
             )
         return None
 

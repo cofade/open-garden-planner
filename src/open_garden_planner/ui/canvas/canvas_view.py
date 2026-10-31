@@ -1533,7 +1533,7 @@ class CanvasView(QGraphicsView):
         """Trigger a rebuild of all constraint dimension lines."""
         self._canvas_scene.update_dimension_lines()
 
-    def apply_constraint_solver(self) -> None:
+    def apply_constraint_solver(self, item: object | None = None) -> None:
         """Run the constraint solver and move items to satisfy all constraints.
 
         Call this after adding a new constraint (or changing target distances)
@@ -1541,8 +1541,21 @@ class CanvasView(QGraphicsView):
         item moves are NOT recorded on the undo stack; they are folded into
         the subsequent drag or treated as the "initial state" for the newly
         created constraint.
+
+        Args:
+            item: When given, only the connected component that item belongs to
+                is solved.  A size edit must not move an unrelated, broken
+                component (round-2 review P2).
         """
-        moves, vertex_moves = self._compute_constraint_solve_moves()
+        scope_ids = None
+        item_id = getattr(item, "item_id", None)
+        if item_id is not None:
+            scope_ids = self._canvas_scene.constraint_graph.get_connected_component(
+                item_id
+            )
+        moves, vertex_moves = self._compute_constraint_solve_moves(
+            scope_ids=scope_ids
+        )
         for item, _old, new in moves:
             item.setPos(new)
         for item, idx, _old_local, new_local in vertex_moves:
@@ -1568,6 +1581,20 @@ class CanvasView(QGraphicsView):
         graph = self._canvas_scene.constraint_graph
         anchor_a_id = anchor_a.item_id  # type: ignore[attr-defined]
         anchor_b_id = anchor_b.item_id  # type: ignore[attr-defined]
+        a_item = None
+        find_item = getattr(self._canvas_scene, "find_item_by_id", None)
+        if callable(find_item):
+            a_item = find_item(anchor_a_id)
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
+        if isinstance(a_item, (ConstructionLineItem, ConstructionCircleItem)):
+            # Construction geometry is ALWAYS pinned by every solve; pinning B as
+            # well would make a satisfiable garden-to-construction link
+            # unsatisfiable (round-2 review).
+            return set()
         a_is_fixed = any(
             c.constraint_type == ConstraintType.FIXED
             and c.anchor_a.item_id == anchor_a_id

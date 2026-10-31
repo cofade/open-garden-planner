@@ -91,9 +91,9 @@ def test_saved_lock_still_holds_after_reopen(canvas: CanvasView, tmp_path) -> No
         "the lock's target coordinates were dropped on load"
     )
     assert (constraint.target_x, constraint.target_y) == (
-        pinned.x(),
-        pinned.y(),
-    )
+        loaded.pos().x(),
+        loaded.pos().y(),
+    ), "the loaded lock must be pinned in the loaded frame"
 
     _drag_in_view(canvas, loaded, QPointF(180.0, 120.0))
     assert loaded.pos() == pinned, "a reopened lock must still refuse to move"
@@ -107,6 +107,54 @@ def test_saved_lock_still_holds_after_reopen(canvas: CanvasView, tmp_path) -> No
     )
     assert fixed["target_x"] == pytest.approx(pinned.x())
     assert fixed["target_y"] == pytest.approx(pinned.y())
+
+
+def test_a_lock_on_a_moved_item_does_not_jump_on_reload(
+    canvas: CanvasView, tmp_path, qtbot: object
+) -> None:
+    """The target names a frame that the serializer normalizes away (#655 P0).
+
+    The rectangle is created at local (600, 700) and then MOVED to pos
+    (100, 100); its saved ``x`` is ``pos + rect.x``, so the loader recreates it
+    at pos 0.  A saved target of (100, 100) would then move it on the first drag.
+    """
+    scene = canvas.scene()
+    rect = RectangleItem(600, 700, 300, 200)
+    scene.addItem(rect)
+    rect.setPos(100.0, 100.0)
+    _lock(rect)
+    visible_before = rect.mapToScene(rect.boundingRect().center())
+    path = tmp_path / "moved-lock.ogp"
+    ProjectManager().save(scene, path)
+
+    ProjectManager().load(scene, path)
+    loaded = next(
+        item
+        for item in scene.items()
+        if getattr(item, "item_id", None) == rect.item_id
+    )
+    visible_after_load = loaded.mapToScene(loaded.boundingRect().center())
+    assert visible_after_load.x() == pytest.approx(visible_before.x(), abs=1e-6)
+    assert visible_after_load.y() == pytest.approx(visible_before.y(), abs=1e-6)
+
+    _drag_in_view(canvas, loaded, QPointF(180.0, 120.0))
+    visible_after_drag = loaded.mapToScene(loaded.boundingRect().center())
+    assert visible_after_drag.x() == pytest.approx(visible_before.x(), abs=1e-6), (
+        "the first drag after reopening moved the locked item"
+    )
+    assert visible_after_drag.y() == pytest.approx(visible_before.y(), abs=1e-6)
+
+    again = tmp_path / "moved-lock-again.ogp"
+    ProjectManager().save(scene, again)
+    ProjectManager().load(scene, again)
+    twice = next(
+        item
+        for item in scene.items()
+        if getattr(item, "item_id", None) == rect.item_id
+    )
+    final = twice.mapToScene(twice.boundingRect().center())
+    assert final.x() == pytest.approx(visible_before.x(), abs=1e-6)
+    assert final.y() == pytest.approx(visible_before.y(), abs=1e-6)
 
 
 # ── #662: a locked item is inert during the drag, not restored after it ───
@@ -278,6 +326,80 @@ def test_adding_a_link_does_not_move_an_unrelated_broken_component(
         and c.target_distance == 200.0
         for c in graph.constraints.values()
     )
+
+
+def test_a_cross_component_trial_is_seen_by_the_conflict_scan(
+    canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A trial that JOINS two components must see both sides (round-2 P0).
+
+    A is locked at the origin; B1 is constrained to B2 (locked at (500, 100)).
+    Linking A to B1 at 100 cm is geometrically impossible, so the trial says no.
+    The conflict scan used to insert the trial without adjacency and see only
+    A's side, returning "no conflict" — the dialog then let it through.
+    """
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (
+        ConstraintConflictDialog,
+    )
+
+    scene = canvas.scene()
+    anchor = RectangleItem(0, 0, 100, 100)
+    moving = RectangleItem(450, 0, 100, 100)
+    moving.setPos(500.0, 0.0)
+    distant = RectangleItem(450, 100, 100, 100)
+    distant.setPos(500.0, 100.0)
+    for item in (anchor, moving, distant):
+        scene.addItem(item)
+    graph = scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(anchor.item_id, AnchorType.CENTER),
+        AnchorRef(anchor.item_id, AnchorType.CENTER),
+        0.0,
+        constraint_type=ConstraintType.FIXED,
+        target_x=anchor.pos().x(),
+        target_y=anchor.pos().y(),
+    )
+    graph.add_constraint(
+        AnchorRef(distant.item_id, AnchorType.CENTER),
+        AnchorRef(distant.item_id, AnchorType.CENTER),
+        0.0,
+        constraint_type=ConstraintType.FIXED,
+        target_x=distant.pos().x(),
+        target_y=distant.pos().y(),
+    )
+    graph.add_constraint(
+        AnchorRef(moving.item_id, AnchorType.CENTER),
+        AnchorRef(distant.item_id, AnchorType.CENTER),
+        100.0,
+    )
+
+    assert not canvas.is_constraint_feasible(
+        AnchorRef(anchor.item_id, AnchorType.CENTER),
+        AnchorRef(moving.item_id, AnchorType.CENTER),
+        100.0,
+        ConstraintType.DISTANCE,
+    ), "the trial geometry must be recognised as impossible"
+
+    asked: list[object] = []
+
+    def _record(rows, parent=None):
+        asked.append(rows)
+        return None
+
+    monkeypatch.setattr(
+        ConstraintConflictDialog, "ask", staticmethod(_record)
+    )
+    command = _distance(canvas, anchor, moving, 100.0)
+    _add_constraint(canvas, command, conflicts_checked=False)
+
+    assert asked, "the conflict dialog must see the violated B1-B2 relation"
+    assert moving.pos() == QPointF(500.0, 0.0), "a cancelled add must not move"
+    assert not any(
+        c.target_distance == 100.0 and c.constraint_type == ConstraintType.DISTANCE
+        for c in graph.constraints.values()
+        if c.anchor_a.item_id == anchor.item_id
+    ), "the cancelled constraint must not be in the graph"
 
 
 def test_a_locked_pair_does_not_block_a_compatible_link(

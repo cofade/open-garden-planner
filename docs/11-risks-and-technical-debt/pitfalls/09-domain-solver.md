@@ -432,7 +432,7 @@ assert both corrected geometry and one-step history.
 
 ### PF-DOM-31
 
-- **Rule:** A `FIXED` constraint is data, not derived state: round-trip `target_x`/`target_y`, repair a legacy record from the loaded item's own frame, treat a target-less `FIXED` as immobile, and take `ItemIsMovable` away for the duration of a drag instead of resetting the item afterwards.
+- **Rule:** A `FIXED` constraint is data, not derived state: round-trip `target_x`/`target_y`, re-derive every target from the loaded item's own frame on load (the serializers normalize `pos()`), treat a target-less `FIXED` as immobile, and take `ItemIsMovable` away for the duration of a drag instead of resetting the item afterwards.
 - **Pinned by:** `tests/unit/test_constraint_integrity.py::test_fixed_targets_survive_graph_round_trip`; `tests/unit/test_constraint_integrity.py::test_load_repairs_a_legacy_fixed_constraint_without_targets`; `tests/integration/test_cad_precision_integrity.py::test_fixed_item_has_zero_transient_positions_during_a_drag`
 - **Source:** #655, #662
 - **Status:** standing
@@ -441,15 +441,19 @@ assert both corrected geometry and one-step history.
 `ConstraintGraph.from_list()` rebuilt each constraint through `add_constraint()`
 without the FIXED targets, so a reopened lock kept only its badge: the padlock
 was drawn and the object could be dragged, and the next save wrote the loss into
-the file for good. Repair an older file from the **loaded item's** position,
-never a pre-save value - rectangle and polygon serialization fold the Qt
-translation into the shape coordinates, so the old frame would make the first
-drag jump. A target-less FIXED must pin the item where it is rather than fall
-through the solver as if it were free. The other half is transient motion: Qt
-moves every selected movable item *before* the view runs `_enforce_fixed_positions`,
-so one drag emitted four phantom `ItemPositionHasChanged` positions and every
-listener (snapping, propagation, shadow/3D refresh, undo watchers) saw them. A
-locked datum has to be inert, not restored.
+the file for good. Fixing the round trip exposed the deeper half (round-2
+review): a FIXED target is an `item.pos()` in the solver's frame, and the shape
+serializers fold that translation into the geometry, so a target saved for a
+MOVED item names a frame the reload no longer has - the first drag after
+reopening then jumped the object by its old offset. Every load therefore
+re-targets **all** FIXED constraints to the loaded item's own `pos()`; only a
+value captured after loading is truthful. A target-less FIXED pins the item
+where it is rather than falling through the solver as if it were free. The other
+half is transient motion: Qt moves every selected movable item *before* the view
+runs `_enforce_fixed_positions`, so one drag emitted four phantom
+`ItemPositionHasChanged` positions and every listener (snapping, propagation,
+shadow/3D refresh, undo watchers) saw them. A locked datum has to be inert, not
+restored.
 
 ### PF-DOM-32
 
