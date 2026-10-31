@@ -150,6 +150,9 @@ def measure(name: str, kind: str, count: int, vertices: int, *, deadline_s: floa
         # applied) is one nobody ticked through, and it is the one a user feels as a
         # frozen window ? a gap list that stops at the last beat would hide it
         gaps.append(read_s * 1000.0 - (beats[-1] - started) * 1000.0)
+    if not applied:
+        raise SystemExit(f"{name}: nothing was applied ? the deadline ({deadline_s:g} s) "
+                         "fired or the read failed; this is not a measurement")
     slices = controller.capture_slices
     records = len(controller.sync.records)
 
@@ -187,6 +190,7 @@ def measure(name: str, kind: str, count: int, vertices: int, *, deadline_s: floa
 
 
 def main() -> int:
+    script_isolation.isolate()   # its own settings and data, as every measuring script does
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", choices=sorted(FIXTURES), action="append",
                         help="only these fixtures (default: all)")

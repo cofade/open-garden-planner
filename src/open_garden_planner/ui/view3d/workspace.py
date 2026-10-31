@@ -914,6 +914,9 @@ class Workspace(QWidget):
         if not showing:
             self._drop_held_build()
             self._forge_timer.stop()
+            # a hidden view is not "updating" anything: the read is dropped with it
+            self._updating_timer.stop()
+            self._say(_NOTICE_UPDATING, "")
             controller.set_active(False)
             self._health_timer.stop()
             self._camera_timer.stop()
@@ -977,9 +980,9 @@ class Workspace(QWidget):
         self._say(_NOTICE_UPDATING, "")
 
     def _show_updating(self) -> None:
-        controller = self._controller
-        if controller is not None and controller.capturing:
-            self._say(_NOTICE_UPDATING, self.tr("Updating the 3D view…"))
+        # the timer is stopped by the read's end (``_on_capturing_changed``), so if it
+        # fired the read is still running: say it
+        self._say(_NOTICE_UPDATING, self.tr("Updating the 3D view…"))
 
     # ── the status line: one notice at a time, each until what it says is over ──
 
@@ -1197,9 +1200,10 @@ class Workspace(QWidget):
             return
         if upgraded:
             self._applied_at = _now()
-            self._retired += len(upgraded)
-            if self._retired >= RELEASE_NOW_RETIRED:
-                self._release_engine_caches()
+            # #531: an upgrade replaces the geometry IN the Models it has, so it
+            # destroys none ? and a release is what Qt's destroyed-Model cache needs,
+            # not what a reloaded geometry does. Counting it here made the release run
+            # for nothing (and every release leaves cached tile textures behind, #532).
         if worker.pending_count > 0 and self._pane_is_showing():
             self._forge_timer.start(10)
 

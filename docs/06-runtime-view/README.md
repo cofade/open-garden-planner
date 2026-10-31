@@ -443,8 +443,10 @@ first error is re-raised afterwards.
 
 ## 6.9 The 3D workspace: an edit, the first open, a new document, the close (Phase 17 L1.3 / L1.9, ADR-060)
 
-The 3D view of every main window since L1.9 (there is no switch). Four flows; in all of them the GUI
-thread is the only thread of ours (Qt renders the 3D window on its own).
+The 3D view of every main window since L1.9 (there is no switch). Four flows. The GUI thread
+reads the canvas and owns the sink; since #452 the MESHES of changed items may be built on one
+worker lane (`SceneSync.prepare`), whose answer reaches the sink through `apply(prepared=...)` on
+the GUI thread. Qt renders the 3D window on its own thread.
 
 **An edit while 3D is visible** — one pass per turn of the event loop, whatever announced it:
 
@@ -461,7 +463,8 @@ sequenceDiagram
     C-->>K: stack_changed → mark_dirty()
     Note over K: posts ONE pass event (normal priority)
     S-->>K: changed (queued by Qt) → mark_dirty(): rides with it
-    K->>K: pass event → snapshot_records(scene, plan_date)
+    K->>K: pass event → snapshot_steps(scene, plan_date), 4 ms slices
+    Note over K: a heavy pass builds its changed geometry on the lane (#452)
     Note over K: the snapshot ends with with_context(records):<br/>door wall, lawn cut-outs and blade share (L4)
     K->>Y: apply(records, sun, ground)
     Y->>E: begin · the minimal calls · commit

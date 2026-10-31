@@ -335,13 +335,13 @@ class TestOnePlanDateEastOfUtc:
         records_dates: list[date | None] = []
         from open_garden_planner.ui.view3d import sync_controller
 
-        real = sync_controller.snapshot_records
+        real = sync_controller.snapshot_steps
 
         def recorded(scene, at_date=None, **options):
             records_dates.append(at_date)
             return real(scene, at_date, **options)
 
-        monkeypatch.setattr(sync_controller, "snapshot_records", recorded)
+        monkeypatch.setattr(sync_controller, "snapshot_steps", recorded)
         settle()
         controller.mark_dirty()  # 3D geometry: one pass, which reads the plan date
         settle()

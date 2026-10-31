@@ -342,9 +342,12 @@ class _Ticket:
     depth: float
     skipped: tuple[SkippedItem, ...]
     snapshot_ms: float
-    #: ``_plan_epoch`` when the read started: a different one at apply time means the
-    #: plan changed while the geometry was built.
+    #: ``_capture_epoch`` when the READ started: a different one at apply time means
+    #: the plan changed while its records were read or its geometry built.
     epoch: int
+    #: ``_light_epoch`` when the sun was taken: a different one at apply time means a
+    #: light-only change came meanwhile, and its sun is the one to send.
+    light_epoch: int
     reconciling: bool
     #: The items whose geometry this pass must build (the diff's added + geometry).
     build_ids: tuple[str, ...]
@@ -456,12 +459,12 @@ class Scene3DController(QObject):
         self._capture_skipped: list[SkippedItem] = []
         self._capture_started = 0.0
         self._capture_reconciling = False
-        #: The plan changed while records were being read: apply what was read, then
-        #: read again (a coherent earlier snapshot, converged by the next pass).
-        self._capture_stale = False
-        #: The plan's epoch: every announced change of the plan moves it. A capture
-        #: that outlived one is stale (``_finish_records``).
+        #: The plan's epoch: every announced change of the plan moves it. A read or a
+        #: build that outlived one is stale (``_apply_ticket``).
         self._plan_epoch = 0
+        #: The LIGHT's epoch: a sun-only change moves it, so a ticket built before it
+        #: does not put the old sun back (``_apply_ticket``).
+        self._light_epoch = 0
         #: Instrument: slices of cooperative whole-plan reads (#452).
         self.capture_slices = 0
         # THE GEOMETRY LANE (#452): one worker, one flight at a time; a newer pass
@@ -644,6 +647,9 @@ class Scene3DController(QObject):
             if self._capture is not None:
                 self._abandon_capture()
                 self._records_dirty = True
+            if self._flight is not None or self._flight_pending is not None:
+                self._drop_flight()
+                self._records_dirty = True
             with contextlib.suppress(RuntimeError):  # the #230 teardown guard
                 self._timer.stop()
                 if self._net.isActive():
@@ -756,10 +762,7 @@ class Scene3DController(QObject):
         self._drop_plan_memories()
         self._active = False
         self._net_owed = False
-        self._flight_pending = None
-        flight, self._flight = self._flight, None
-        if flight is not None:
-            flight[0].cancel()  # a build still running finishes; its answer is dropped
+        self._drop_flight()  # a build still running finishes; its answer is dropped
         if self._lane is not None:
             self._lane.shutdown(wait=False, cancel_futures=True)
             self._lane = None
@@ -794,6 +797,7 @@ class Scene3DController(QObject):
         from .snapshot import clear_outline_cache
 
         self._abandon_capture()  # a read of the old plan must never reach the new one
+        self._drop_flight()      # ? and neither may a build of it
         clear_shape_cache()    # the plant builder's shapes
         clear_lawn_cache()     # the lawns' blades (L4)
         clear_outline_cache()  # the record layer's outlines: regions, cuts, ring facts
@@ -814,6 +818,8 @@ class Scene3DController(QObject):
         does not: the sun animated over a ground that keeps failing must not rebuild
         the scene on every step."""
         self._given_up = False
+        if not plan:
+            self._light_epoch += 1  # a ticket built before this line sends the new sun
         if plan:
             self._plan_epoch += 1  # a read that outlives this line is stale (#452)
             self._ground_recoveries = 0
@@ -1191,6 +1197,19 @@ class Scene3DController(QObject):
             capture.close()
         self.capturing_changed.emit(False)
 
+    def _drop_flight(self) -> None:
+        """Drop a geometry build in progress, and the ticket queued behind it.
+
+        A build is for a DOCUMENT (its records, its ids): a new plan, a reset, hiding 3D
+        or shutdown must not apply it to another one ? the next pass reads the plan
+        again anyway. A running build cannot be stopped; its answer is discarded."""
+        self._flight_pending = None
+        flight, self._flight = self._flight, None
+        if flight is not None:
+            flight[0].cancel()
+        with contextlib.suppress(RuntimeError):
+            self._prepared_timer.stop()
+
     def _finish_records(self, records: dict[str, Record], *, synchronous: bool = False) -> None:
         """The records of a finished read are turned into a TICKET (skips, the context
         hold, the sun, the ground stage) and applied ? here, or after the geometry lane
@@ -1207,8 +1226,8 @@ class Scene3DController(QObject):
         build_ids = tuple(item_id for item_id in (*changes.added, *changes.geometry)
                           if item_id in records)
         ticket = _Ticket(records, snapshot, self._sun(), width, depth, tuple(skipped),
-                         snapshot_ms, self._plan_epoch, self._capture_reconciling,
-                         build_ids)
+                         snapshot_ms, self._capture_epoch, self._light_epoch,
+                         self._capture_reconciling, build_ids)
         if (build_ids and self._lane is not None and not self._sync.poisoned
                 and sum(_outline_vertices(ticket.records[i]) for i in build_ids)
                 >= PREPARE_OFF_THREAD_VERTICES):
@@ -1256,7 +1275,7 @@ class Scene3DController(QObject):
             return
         self._apply_ticket(ticket, prepared=prepared)
         pending, self._flight_pending = self._flight_pending, None
-        if pending is not None:
+        if pending is not None and self._active:
             self._submit(pending)
 
     def _apply_ticket(self, ticket: _Ticket, prepared: Mapping[str, tuple[MeshPart, ...]] | None = None,
@@ -1265,7 +1284,10 @@ class Scene3DController(QObject):
         one block (the apply, its recovery, the report)."""
         records, snapshot = ticket.records, ticket.snapshot
         skipped = ticket.skipped
-        sun, width, depth = ticket.sun, ticket.width, ticket.depth
+        # the sun the ticket took, unless a LIGHT-ONLY change came while its geometry
+        # was built: that change's sun is newer than this pass's records (#452 review)
+        sun = self._sun() if ticket.light_epoch != self._light_epoch else ticket.sun
+        width, depth = ticket.width, ticket.depth
         snapshot_ms = ticket.snapshot_ms
         stale = ticket.epoch != self._plan_epoch
         if stale:
@@ -1337,7 +1359,9 @@ class Scene3DController(QObject):
         # write stayed out of 3D (scoped re-check 2026-10-19, P1-B).
         QTimer.singleShot(0, self._expire_explanation)
         self._set_problems(tuple(skipped), dict(self._sync.failures))
-        retired = self._retired_by_reset + len(changes.removed) + len(changes.geometry)
+        # #531: a geometry change RECONCILES its parts into the Models it has, so it
+        # retires none ? only removed items do (and everything a reset cleared).
+        retired = self._retired_by_reset + len(changes.removed)
         self._retired_by_reset = 0
         self._done(TickReport(changes, True, len(records), snapshot_ms,
                               (time.perf_counter() - started) * 1000.0, recovered, retired,

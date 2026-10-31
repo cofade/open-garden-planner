@@ -834,7 +834,7 @@ The built world complete (L4, #388, ADR-065).
   coherent earlier snapshot (an item deleted since is dropped) and is read again at
   once; a document change, a reset, hiding 3D or shutdown drop the read, so a new plan
   is never assembled from the old one's items. A read that outlasts a quarter second
-  says "Updating the 3D view?" on the status line.
+  says "Updating the 3D view…" on the status line.
 - **FR-3D-PREP-02** (#452, ADR-069): A long but honest outline gets a solid. A drawn
   region up to 16,384 vertices and a stroke whose region is within the work bound are
   cut by the native triangulation; a 4,096-vertex ring and a slab with 200 touching

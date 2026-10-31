@@ -328,6 +328,115 @@ def test_flush_waits_for_the_geometry_lane(rig: Rig, qtbot, monkeypatch: pytest.
     rig.assert_equals_a_from_scratch_apply()
 
 
+
+def test_an_item_deleted_after_it_was_read_is_dropped_by_the_same_pass(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The epoch is the READ's: an item read before the deletion is in the read's
+    records, and the apply must still not show it (review P1)."""
+    _one_item_per_slice(monkeypatch)
+    items = _fan(rig, 6)
+    doomed = items[0]   # read first (bottom of the paint order)
+    deleted: list[bool] = []
+    first_apply: list[tuple[str, ...]] = []
+
+    def delete_when_it_was_read(reading: bool) -> None:
+        if reading and not deleted:
+            deleted.append(True)
+            rig.commands.execute(DeleteItemsCommand(rig.scene, [doomed]))
+
+    rig.controller.capturing_changed.connect(delete_when_it_was_read)
+    rig.controller.applied.connect(lambda report: first_apply.append(report.changes.added)
+                                   if report.snapshot else None)
+    rig.controller.set_active(True)
+    rig.settle()
+    assert deleted == [True]
+    assert str(doomed.item_id) not in first_apply[0], "dropped by the pass that read it"
+    assert str(doomed.item_id) not in rig.controller.sync.records
+
+
+def _slow_prepare(monkeypatch: pytest.MonkeyPatch, rig: Rig, seconds: float = 0.15) -> None:
+    """Make the lane's build take long enough to change the plan while it runs."""
+    real = type(rig.controller.sync).prepare
+
+    def prepare(self: Any, records: Any) -> Any:
+        time_module.sleep(seconds)
+        return real(self, records)
+
+    monkeypatch.setattr(type(rig.controller.sync), "prepare", prepare)
+    monkeypatch.setattr(sync_controller, "PREPARE_OFF_THREAD_VERTICES", 0)
+
+
+def test_a_light_change_during_the_build_is_not_overwritten(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ticket carries the sun of its read; a LIGHT-ONLY change during the build must
+    win, not be replaced by the older sun (review P1)."""
+    _slow_prepare(monkeypatch, rig)
+    _fan(rig, 3)
+    rig.controller.set_active(True)
+    rig.settle()                      # the first build, with the noon sun
+    before = rig.controller.sync.sun
+    started: list[bool] = []
+
+    def move_the_sun(reading: bool) -> None:
+        if reading:
+            started.append(True)
+            rig.clock.set_time_of_day(time(9, 0))
+
+    rig.controller.capturing_changed.connect(move_the_sun)
+    rig.bed(400.0, 400.0)   # a new item: a heavy pass, built on the lane
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    assert started and rig.controller.sync.sun != before, "the new light was sent"
+    assert rig.controller.sync.sun == rig.controller._sun(), (  # noqa: SLF001
+        "a light change during the build is the one that lands")
+
+
+def test_hiding_drops_a_build_in_progress(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    _slow_prepare(monkeypatch, rig)
+    _fan(rig, 3)
+    hidden: list[bool] = []
+
+    def hide_now(reading: bool) -> None:
+        if reading and not hidden:
+            hidden.append(True)
+            rig.controller.set_active(False)
+
+    rig.controller.capturing_changed.connect(hide_now)
+    rig.controller.set_active(True)
+    qtbot.waitUntil(lambda: bool(hidden), timeout=5000)
+    rig.settle()
+    assert rig.controller._flight is None and rig.controller._flight_pending is None
+    assert rig.controller.apply_count == 0 and rig.controller.dirty
+    rig.controller.set_active(True)
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    assert rig.controller.apply_count == 1, "one pass of the plan, no stale one"
+
+
+def test_a_document_change_drops_a_build_in_progress(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The build is for a DOCUMENT: a new plan must not receive its records."""
+    _slow_prepare(monkeypatch, rig)
+    _fan(rig, 3)
+    replaced: list[bool] = []
+    controller_class = type(rig.controller)
+    real_submit = controller_class._submit  # noqa: SLF001
+
+    def submit_then_replace(self: Any, ticket: Any, *, synchronous: bool = False) -> None:
+        real_submit(self, ticket, synchronous=synchronous)
+        if not replaced:
+            replaced.append(True)
+            self.document_changed()   # ? while the build runs
+
+    monkeypatch.setattr(controller_class, "_submit", submit_then_replace)
+    rig.controller.set_active(True)
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    assert replaced == [True]
+    assert rig.controller._flight is None and rig.controller._flight_pending is None
+    assert rig.controller.apply_count >= 1
+    assert len(rig.controller.sync.records) == 3
+    rig.assert_equals_a_from_scratch_apply()
+
+
 # ── G4: paused while hidden, one catch-up pass ───────────────────────────────
 
 
@@ -1646,7 +1755,9 @@ def test_a_pass_says_how_many_items_lost_their_models(rig: Rig) -> None:
     old, new = build_rect_resize(bed, 500.0, 120.0, keep_center=True)
     rig.commands.execute(ResizeItemCommand(bed, old, new, apply_rect_like_geometry))
     rig.settle()
-    assert rig.reports[-1].retired == 1, "new geometry is a new Model: the old one is destroyed"
+    # #531: the geometry is reconciled into the SAME Models ? a resize destroys none,
+    # so it must not count towards the cache release either
+    assert rig.reports[-1].retired == 0, "new geometry is loaded into the Model it has"
 
     rig.commands.execute(DeleteItemsCommand(rig.scene, [bed, other]))
     rig.settle()

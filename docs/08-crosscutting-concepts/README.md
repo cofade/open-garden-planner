@@ -5157,12 +5157,17 @@ Importing the package itself is free (`__init__` is a docstring); the engine loa
 `offscreen` is imported. Measured in the running app on the dev box: the package 1 ms, the sink
 with `core/scene3d` 17 ms, the engine bindings 17 ms.
 
-**One Model per mesh part, one geometry per Model lifetime.** `Quick3DSink.add` creates one
-engine `Model` per `MeshPart` (a part without triangles gets none), each with its OWN geometry
-object and its own material instance. `remove` destroys them; `replace_geometry` destroys and
-creates; `clear()` destroys everything. A geometry is never handed to a second Model and never
-re-filled — `BufferGeometry` has no method to do it — because the spike measured what reuse
-costs: a blank frame and 0 of 20 picks. There is no `Repeater3D` over a list: any change of the
+**One Model per mesh part; a changed geometry is reloaded into it (#531).** `Quick3DSink.add`
+creates one engine `Model` per `MeshPart` (a part without triangles gets none), each with its OWN
+geometry object and its own material instance. `remove` destroys them; `clear()` destroys
+everything. `replace_geometry` RECONCILES: parts are matched by stable name, material kind and
+occurrence, and each matched Model gets its geometry RELOADED; a part whose Model is gone is
+created, one that is gone becomes DORMANT (a spare, hidden and unpickable, kept for a part that
+comes back) and is released with the item. The sink exposes active / dormant / created /
+destroyed counts, so the retention is visible to tests. Reuse was rejected by the L0 spike for a
+geometry handed to a SECOND Model (a blank frame and 0 of 20 picks); a Model that keeps its own
+identity and only takes a new buffer is the case that spike did not measure, and the render tier
+pins the result (an edited item stays drawn and pickable). There is no `Repeater3D` over a list: any change of the
 list recreates every delegate. The render tier pins the consequence: an item removed and added
 again, and the whole scene cleared and re-sent, come back pixel-identical and pickable.
 

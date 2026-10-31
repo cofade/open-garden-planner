@@ -28,10 +28,17 @@ What the sink guarantees:
   somebody else: the constructor and ``attach`` refuse it
   (``SinkProtocolError``). Two sinks on one scene would draw both sinks' items,
   and the first ``clear()`` would destroy the other one's Models.
-- **One Model per mesh part, one geometry per Model lifetime.** ``add`` creates
-  the Models, ``remove`` destroys them, ``replace_geometry`` destroys and
-  creates. A geometry object is never handed to a second Model: the L0 spike
-  measured a blank frame and 0/20 picks for that (``ogp-3d-renderer`` §2).
+- **One Model per mesh part, reconciled in place when its geometry changes
+  (#531).** ``add`` creates the Models, ``remove`` destroys them, and
+  ``replace_geometry`` MATCHES the parts to the Models they belong to (stable
+  name, material kind, occurrence) and reloads each Model's OWN geometry; an
+  unmatched part creates a Model, a Model left without its part becomes
+  DORMANT (hidden, unpickable, kept for a part that comes back) and is
+  released with its item or on ``clear()``. A geometry object is still never
+  handed to a SECOND Model: the L0 spike measured a blank frame and 0/20 picks
+  for that (``ogp-3d-renderer`` §2). The sink exposes active / dormant /
+  created / destroyed Model counts; a render-tier test pins that an edited item
+  stays drawn and pickable.
 - **A move or a recolour uploads nothing.** ``update_transform`` re-poses,
   ``update_material`` re-colours (``materials.part_tint`` — the one rule a fill part
   changes: its picture carries the colour); ``geometry_uploads`` counts every buffer

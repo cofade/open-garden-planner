@@ -12,4 +12,4 @@
 | PF-E3D-08 | Anything that comes and goes in the 3D pane is a resize of the view, so its room is reserved, and a walk-mode key filter owns a key only if it claims it at `ShortcutOverride`. | standing | [10](../10-3d-engine-scene.md#pf-e3d-08) | 11.4.19 |
 | PF-E3D-09 | Measure the unchanged code before crediting a change with a difference, and after merging into a removal scan the whole merged tree for every removed name, not only the files that conflicted. | standing | [10](../10-3d-engine-scene.md#pf-e3d-09) | 11.4.20 |
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](../10-3d-engine-scene.md#pf-e3d-10) |  |
-| PF-E3D-11 | A GUI-heartbeat measurement must include the tail after the last tick, and must run a real event loop rather than `processEvents()`. | standing | [10](../10-3d-engine-scene.md#pf-e3d-11) |  |
+| PF-E3D-11 | A GUI-heartbeat measurement must include the time from the last tick to the end of the work, and it must run the real event loop, not `processEvents()`. | standing | [10](../10-3d-engine-scene.md#pf-e3d-11) |  |
