@@ -550,8 +550,10 @@ def test_vertex_insert_then_undo_restores_indexed_anchors(
     assert graph.constraints[closing_edge.constraint_id].anchor_a.anchor_index == 4
     assert split_edge.constraint_id not in graph.constraints
 
-    # A second undo after the redo must restore the snapshot exactly; this is
-    # what the deep-copied anchors in restore_topology_state protect.
+    # A second undo after the redo must restore the snapshot exactly.  The
+    # deep-copied anchors are defensive: a re-added constraint shares the
+    # snapshot's AnchorRefs, so any future path that shifts it before undo would
+    # mutate the record this assertion protects.
     canvas.command_manager.undo()
     assert polygon.polygon().count() == 4
     assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 3

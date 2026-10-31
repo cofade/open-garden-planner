@@ -2587,8 +2587,11 @@ class PropertiesPanel(QWidget):
         The solver cannot enforce a rigid item's self edge length (its anchors
         translate together), and silently moving the item outside the resize
         command was the #670 round-5 P0.  A resize that leaves the constrained
-        edge's own length untouched (width-only on a top-edge constraint, or a
-        circle's diameter) is still allowed — over-blocking was the round-6 P2.
+        edge's own length untouched is still allowed: a TOP/BOTTOM edge survives
+        a height-only change, a LEFT/RIGHT edge survives a width-only change, and
+        a circle's diameter edit is refused.  The edge's axis is classified in
+        the ITEM's local frame, because a rotated rectangle's scene-space edges
+        are not axis-aligned (round-7 review P1).
         """
         from open_garden_planner.core.constraints import ConstraintType
         from open_garden_planner.core.measure_snapper import is_vertex_deformable
@@ -2631,8 +2634,13 @@ class PropertiesPanel(QWidget):
                 if first is None or second is None:
                     changes_any = True  # unknown geometry → keep the refusal
                     break
-                edge_is_horizontal = abs(first.x() - second.x()) >= abs(
-                    first.y() - second.y()
+                # Local frame: a rotated rectangle's scene-space edge is not
+                # axis-aligned, so width/height must be judged before the item
+                # transform (round-7 review P1).
+                first_local = item.mapFromScene(first)
+                second_local = item.mapFromScene(second)
+                edge_is_horizontal = abs(first_local.x() - second_local.x()) >= abs(
+                    first_local.y() - second_local.y()
                 )
                 if (changes_width if edge_is_horizontal else changes_height):
                     changes_any = True

@@ -597,6 +597,14 @@ def test_a_rigid_shapes_edge_length_refuses_a_properties_resize(
     panel._on_dimension_changed(rect, "rect_size", None, _Spin(200.0), _Spin(140.0))
     assert rect.rect().height() == pytest.approx(140.0)
 
+    # The classification uses the item's LOCAL frame: at 60 degrees a rotated
+    # rectangle's top edge is diagonal in scene space (round-7 review P1).
+    rect._apply_rotation(60.0)
+    panel._on_dimension_changed(rect, "rect_size", None, _Spin(240.0), _Spin(140.0))
+    assert rect.rect().width() == pytest.approx(200.0), (
+        "a rotated rectangle's constrained top edge was changed by a width edit"
+    )
+
 
 def test_a_rigid_shapes_edge_length_cannot_be_edited_as_a_distance(
     canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch

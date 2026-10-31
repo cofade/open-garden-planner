@@ -247,12 +247,14 @@ component; the new-constraint surfaces also share the pin rule.
 **Addendum (rigid shapes and topology, #670 review).** "Same item" does not mean "can
 deform its vertices": `measure_snapper.is_vertex_deformable()` is the one predicate for
 polygons/polylines. The pin rule leaves a self-constraint's item free only when it is
-vertex-deformable, and the solver itself skips any self-constraint on a rigid item — moving
-the item translates both anchors, so every iteration re-applied the full correction
+vertex-deformable; the solver MEASURES a self-constraint on a rigid item but never moves the
+item — moving it translates both anchors, so every iteration re-applied the full correction
 (measured before the fix: a 200 cm top edge edited to 400 left the edge at 200 and moved the
-item to −4000 cm). A rigid shape's edge length follows its size, not the solver, so the
-distance dialog and the Properties resize both refuse that edit and ask the user to remove
-the constraint before resizing.
+item to −4000 cm). The measured residual still counts towards convergence, so the trial
+refuses an unsatisfiable one and the conflict dialog fires, while Newton does not receive it
+(a translation-invariant residual would floor the refinement). A rigid shape's edge length
+follows its size, not the solver, so the distance dialog and the Properties resize both
+refuse that edit and ask the user to remove the constraint before resizing.
 Vertex insert/delete renumber indexed anchors (`CORNER`, `ENDPOINT` and `EDGE_*`) through
 `AddVertexCommand`/`DeleteVertexCommand`, which capture a before-state and restore it on
 undo; the Agent API, GUI and undo/redo share that invariant. A corner edit also reconciles

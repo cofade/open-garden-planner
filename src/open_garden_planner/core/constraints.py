@@ -175,8 +175,12 @@ def _static_self_residual(
         axis_x = constraint.target_distance
         return math.hypot(by - ay, (ax + bx) - 2.0 * axis_x)
     if kind in INCIDENCE_TYPES:
+        point_c = (cx, cy) if cx is not None and cy is not None else None
         return incidence_error(
-            kind, (ax, ay), (bx, by), (cx, cy) if cx is not None else None,
+            kind,
+            (ax, ay),
+            (bx, by),
+            point_c,
             constraint.target_distance,
         )
     if kind == ConstraintType.ANGLE:
