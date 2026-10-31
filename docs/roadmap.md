@@ -2738,6 +2738,20 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
+### 3D performance and stability (Slice A) ? **draft PR on `feature/3d-performance-stability`, 2026-11-01**
+
+Five issues from the 3D follow-up cluster (#452, #475, #531, #534, #598), delivered in
+one branch with ADR-069. Three are complete with measured evidence; two stay open and
+are NOT closed by the pull request.
+
+| Issue | State | Evidence |
+|---|---|---|
+| [#531](https://github.com/cofade/open-garden-planner/issues/531) | **done** ? `Quick3DSink.replace_geometry` reconciles parts into persistent Models instead of destroying and recreating them; active/dormant/created/destroyed Model counts are exposed, slot bounds follow the document | existing 20/60-rebuild soaks, growth/lifetime cycles and teardown pass |
+| [#598](https://github.com/cofade/open-garden-planner/issues/598) | **done** ? an item-to-seasonal-parts index with sparse updates, new parts initialised from current state, stale entries retired | 300-plant/100-support protocol unchanged |
+| [#452](https://github.com/cofade/open-garden-planner/issues/452) | **done** ? native triangulation (`mapbox-earcut`, ADR-069), a repriced work bound, cooperative 4 ms whole-plan reads and a geometry lane; 4,096-vertex rings and long drawn paths now get solids | heartbeat p95 1.7?3.6 ms / max 8?20 ms on the issue's three plans (4.0/5.4/12.6 s in one block before); `scripts/measure_capture_heartbeat.py` |
+| [#475](https://github.com/cofade/open-garden-planner/issues/475) | **open** ? ground tiles are still painted by the controller's sliced ground passes; the global pixel grid and padded tiles are not implemented | the #615 two-/four-tile contracts still pass unchanged |
+| [#534](https://github.com/cofade/open-garden-planner/issues/534) | **open** ? the wind-memory growth is not fixed; no closing keyword | the xfail stays |
+
 ### Test lifecycle, popup focus, release classification, and 3D workspace modularization — **shipped 2026-10-28 as v1.34.2, PR #632**
 
 One package covers #561, #515, #460, #463, #583, and #580 (closing #447).

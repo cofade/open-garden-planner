@@ -182,3 +182,4 @@
 | Case study: orientation creation rotated a FIXED rectangle (PR #649 owner pass) | [Read](180-case-study-fixed-orientation-creation-pr649.md) |
 | Case study: a work budget that could not stop the bridge search (#451) | [Read](178-case-study-a-work-budget-that-could-not-stop-the-bridge-search-451.md) |
 | Case study: the pane that destroyed the widget talking to it, and a group frame that moved on reload (#658, #661) | [Read](181-case-study-panel-destroyed-its-own-sender-and-group-frame.md) |
+| Case study: a heartbeat that never saw its longest block (#452) | [Read](182-case-study-heartbeat-never-saw-its-longest-block-452.md) |

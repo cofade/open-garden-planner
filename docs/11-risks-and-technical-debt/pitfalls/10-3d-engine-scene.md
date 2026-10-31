@@ -85,3 +85,20 @@ One entry per lesson, each under its permanent `PF-<AREA>-<NN>` ID. Each entry g
 - **Legacy:** none (new entry)
 
 Ten planting/removal boundary steps produced ten immediate snapshots through ItemVisibleHasChanged. CanvasScene scopes only derived timeline visibility announcements, restoring the scope in finally. The same probe produces zero immediate snapshots and the trailing clock update reaches the final date. See section 8.31 and ADR-062 for the current lifecycle contract.
+
+### PF-E3D-11
+
+- **Rule:** A GUI-heartbeat measurement must include the time from the last tick to the end of the work, and it must run the real event loop, not `processEvents()`. A gap list built from consecutive timer ticks hides the FINAL block ? the apply ? which is exactly the block a user feels as a frozen window.
+- **Pinned by:** `scripts/measure_capture_heartbeat.py` (the tail gap is appended); `tests/integration/test_view3d_sync_controller.py` (the slicing and the lane, by behaviour, not by timing).
+- **Source:** #452, ADR-069.
+- **Status:** standing; narrative below.
+- **Legacy:** none (new entry).
+
+The first heartbeat reading of the sliced read claimed a max gap of 5.65 ms while the
+same run took 2.37 s and applied once. The gaps were computed between timer ticks, and
+the 2.1 s apply happened after the last tick: the number that mattered was outside the
+list. The tail is now part of the distribution, and the same run reads max 8.05 ms once
+the geometry lane moved the builders off the GUI thread. A second trap in the same
+measurement: driving it with `QApplication.processEvents()` in a loop lets a chain of
+posted events drain inside one call, so the slices never yield. The script runs a real
+`QEventLoop`.

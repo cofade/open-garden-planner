@@ -283,6 +283,13 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   tooltip's shortcut is appended once in the UI language (ADR-022 addendum;
   PF-CAN-33/34/35, PF-DOM-31/32/33, PF-UI-31/32). An offset of an open fence/path
   is now a parallel line (not a polygon); the 3D curved-fence fillet is issue #675.
+- 3D performance and stability, Slice A (ADR-069): #531 and #452 are done on
+  `feature/3d-performance-stability` (draft PR); #598 is implemented there with its
+  measurement still owed — Models are reconciled in place,
+  seasonal updates are sparse, and a whole-plan read is sliced at 4 ms with heavy
+  builders on one worker lane (heartbeat p95 1.7–3.6 ms on the issue's plans, was
+  4.0–12.6 s in one block). #475 (raster lane, padded tiles) and #534 (wind memory)
+  are still open and must not be closed by that PR.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
