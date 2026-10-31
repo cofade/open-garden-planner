@@ -1794,9 +1794,12 @@ class AddVertexCommand(Command):
 
     def execute(self) -> None:
         """Add the vertex."""
-        self._apply_add_func(self._item, self._vertex_index, self._position)
+        # Resolve the pre-mutation state BEFORE the geometry changes: the Agent
+        # API builds this command before executing, so this is the only place
+        # the old vertex count is still observable (#670 review).
         graph = self._graph()
         topology = self._ensure_topology()
+        self._apply_add_func(self._item, self._vertex_index, self._position)
         if graph is not None and topology is not None:
             before, closed, count_before = topology
             del before

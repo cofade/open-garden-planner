@@ -595,6 +595,46 @@ def test_vertex_delete_of_the_first_vertex_drops_the_closing_edge(
     assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 2
 
 
+def test_agent_built_vertex_command_shares_the_topology_invariant(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """The Agent API builds the command before executing; it must still shift."""
+    from open_garden_planner.core.constraints import AnchorRef, ConstraintType
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.geometry_apply import build_add_vertex_command
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [QPointF(0, 0), QPointF(100, 0), QPointF(100, 100), QPointF(0, 100)]
+    )
+    scene.addItem(polygon)
+    graph = scene.constraint_graph
+    corner = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.CORNER, 2),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+    split_edge = graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.EDGE_BOTTOM, 0),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        100.0,
+        constraint_type=ConstraintType.DISTANCE,
+    )
+
+    command = build_add_vertex_command(polygon, 1, QPointF(50.0, -20.0))
+    canvas.command_manager.execute(command)
+    assert polygon.polygon().count() == 5
+    assert corner.anchor_a.anchor_index == 3
+    assert split_edge.constraint_id not in graph.constraints
+
+    canvas.command_manager.undo()
+    assert polygon.polygon().count() == 4
+    assert graph.constraints[corner.constraint_id].anchor_a.anchor_index == 2
+    assert split_edge.constraint_id in graph.constraints
+
+
 def test_incidence_error_definitions(qtbot) -> None:
     """The shared residual: line distance, radius gap and tangency."""
     # Point (5, 3) against the x axis through (0, 0) and (10, 0).
