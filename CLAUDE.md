@@ -269,6 +269,13 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   (`_BRIDGE_UNITS` 600; 110 touching holes refused in ~0.07 s, dearest work row 1.3–1.5),
   and the `render3d` job's G5 close + G6 compatibility workspace rows. The owner accepted
   the touch evidence without a physical device; the hardware checklist stays in PR #650.
+- CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669,
+  #670) is on branch `fix/655-670-cad-precision-integrity` as a draft PR awaiting
+  owner manual testing. FIXED locks round-trip and are inert during a drag; a grouped
+  rotated shape serializes in its parent frame; a replaced bed keeps its UUID and
+  records; the Properties panel detaches rather than destroys form rows; incidence has
+  one residual and one anchor resolver (ADR-012 addendum; PF-CAN-33, PF-PER-20/21,
+  PF-UI-31, PF-DOM-31/32).
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

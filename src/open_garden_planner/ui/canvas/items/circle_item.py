@@ -709,7 +709,13 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         the dimension feedback, handles, labels and annotations.
         """
         r = self.rect()
-        self._center = QPointF(r.width() / 2.0, r.height() / 2.0)
+        # #657: the shared resize primitive keeps the rect's local origin (the
+        # handle path rebuilds QRectF(init_rect.x(), init_rect.y(), w, h)), and a
+        # circle's rect normally starts at ``center - radius``.  ``width / 2``
+        # assumed origin (0, 0), so an interactive resize stored a displaced
+        # centre that the visible drawing did not share: the serializer wrote it,
+        # the object jumped on reload, and shadows / 3D footprints read it.
+        self._center = r.center()
         self._radius = r.width() / 2.0
         # Single dimension readout: the circle annotates its own diameter ("Ø")
         # when annotations are visible, so only fall back to the handle's

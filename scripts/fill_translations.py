@@ -260,6 +260,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
+        "This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.":
+            "Diese Kantenlänge gehört zu einer starren Form. Entfernen Sie die "
+            "Randbedingung und ändern Sie dann die Größe der Form.",
         # #550: boolean union over a selection.
         "All shapes must be on the same layer": "Alle Formen müssen auf derselben Ebene liegen",
         "Select at least two shapes (intersection and subtraction need exactly two)": (
@@ -483,6 +486,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Abrundungsradius zu groß für diese Ecke",
         "Fillet radius: {radius:.1f} cm — press R to change":
             "Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern",
+        "Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges":
+            "Diese Ecke kann nicht bearbeitet werden: Sie ist gruppiert, oder an "
+            "ihren Eckpunkten oder Kanten hängt eine Randbedingung",
     },
     "ChamferTool": {
         "Chamfer": "Anfasen",
@@ -491,6 +497,16 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Anfasabstand zu groß für diese Ecke",
         "Chamfer distance: {distance:.1f} cm — press D to change":
             "Anfasabstand: {distance:.1f} cm — D drücken zum Ändern",
+        "Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges":
+            "Diese Ecke kann nicht bearbeitet werden: Sie ist gruppiert, oder an "
+            "ihren Eckpunkten oder Kanten hängt eine Randbedingung",
+    },
+    "TrimExtendTool": {
+        "Cannot trim this object: beds and group members cannot become an open "
+        "line, and a constrained object must be unconstrained first.":
+            "Dieses Objekt kann nicht gekürzt werden: Beete und Gruppenelemente "
+            "können keine offene Linie werden, und ein Objekt mit Randbedingungen "
+            "muss zuerst von ihnen befreit werden.",
     },
 
     # ── EdgeLengthConstraintTool ──
@@ -3065,6 +3081,9 @@ _ARRANGE_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bring Forward": "Weiter nach vorn",
         "Send Backward": "Weiter nach hinten",
         "Send to Back": "Ganz nach hinten",
+        "Cannot resize this shape: its edge length is constrained. Remove the constraint first.":
+            "Diese Form kann nicht skaliert werden: Ihre Kantenlänge ist durch "
+            "eine Randbedingung festgelegt. Entfernen Sie zuerst die Randbedingung.",
     },
 }
 

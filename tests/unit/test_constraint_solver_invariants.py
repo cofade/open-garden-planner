@@ -168,6 +168,7 @@ def test_trial_queries_clean_up_after_solver_exception(monkeypatch, method, qtbo
     graph = ConstraintGraph()
     pair = constraint(a, b, ConstraintType.DISTANCE, 100)
     before = copy.deepcopy((graph.constraints, graph._adjacency))
+    positions = {a: (0.0, 0.0), b: (100.0, 0.0)}
 
     def fail(**kwargs):
         raise RuntimeError("solver probe failed")
@@ -175,9 +176,30 @@ def test_trial_queries_clean_up_after_solver_exception(monkeypatch, method, qtbo
     monkeypatch.setattr(graph, "solve_anchored", fail)
     with pytest.raises(RuntimeError, match="solver probe failed"):
         if method == "validate":
-            graph.validate_constraint(pair.anchor_a, pair.anchor_b, 100, pair.constraint_type, {}, {})
+            graph.validate_constraint(
+                pair.anchor_a, pair.anchor_b, 100, pair.constraint_type, positions, {}
+            )
         else:
-            graph.find_conflicting_constraints(pair, {}, {})
+            graph.find_conflicting_constraints(pair, positions, {})
+    assert (graph.constraints, graph._adjacency) == before
+
+
+def test_a_trial_with_a_missing_anchor_is_infeasible(qtbot):
+    """A graph we cannot even build is not "compatible" (#670 review, P2)."""
+    a, b = uuid4(), uuid4()
+    graph = ConstraintGraph()
+    before = copy.deepcopy((graph.constraints, graph._adjacency))
+    assert (
+        graph.validate_constraint(
+            AnchorRef(a, AnchorType.CENTER),
+            AnchorRef(b, AnchorType.CENTER),
+            100.0,
+            ConstraintType.DISTANCE,
+            {a: (0.0, 0.0)},  # b is missing
+            {},
+        )
+        is False
+    )
     assert (graph.constraints, graph._adjacency) == before
 
 

@@ -3769,3 +3769,58 @@ Shipped in **v1.34.8** (PR #650) after owner acceptance. The owner accepted the 
 path on the automated evidence (15 integration tests + review) because no physical touch
 device was available; the hardware checklist is recorded in the PR. #451's ordinary-plan
 check and #540's CI rows passed.
+
+### CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669, #670) — **draft PR, awaiting owner manual testing**
+
+Nine reproduced defects sharing one shape: a value the user's plan depends on was
+recomputed somewhere else, and the two answers drifted apart.
+
+1. **#655 — a saved position lock stayed a lock.** `ConstraintGraph.from_list()` rebuilt
+   FIXED constraints without their `target_x`/`target_y`, so a reopened lock kept only its
+   badge and could be dragged; the next save wrote the loss into the file. The targets now
+   round-trip, a legacy file is repaired from the loaded item's own frame, and a
+   target-less FIXED pins instead of falling through the solver.
+2. **#656 — undoing a removed constraint restored every anchor.** `RemoveConstraintCommand.undo()`
+   omitted `anchor_c`, leaving ANGLE / POINT_ON_EDGE / TANGENT structurally different.
+3. **#657 — an interactive circle resize kept the stored centre.** `_after_resize_geometry`
+   used `width/2, height/2` although a circle's rect starts at `centre - radius`; the
+   canvas looked right, the serializer wrote a displaced centre, and the object jumped on
+   reload.
+4. **#658 — the Properties panel's Layer combo survived its own signal.** A hidden/locked
+   destination deselects the item, and the synchronous rebuild called `removeRow`, which
+   deleted the combo inside its `currentIndexChanged` (SIGSEGV on macOS, a dropped signal
+   on Windows). The rebuild now detaches and `deleteLater()`s its rows.
+5. **#661 — a rotated shape inside a group kept its frame.** Children were saved with
+   `pos() + local`, but `addToGroup()` folds the old rotation pivot into `pos()`; a grouped
+   30-degree rectangle moved on reload. Every shape branch now serializes through
+   `mapToParent(shape centre) - shape centre`; arc, bezier and construction items use the
+   same frame, and a nested group round-trips too.
+6. **#662 — a FIXED item was inert, not merely restored.** Qt moved it before the view reset
+   it, so one drag emitted four phantom positions to snapping, propagation, the 3D refresh
+   and undo watchers. The drag takes `ItemIsMovable` away for its duration.
+7. **#668 — a corner edit kept the bed's identity.** Chamfer/fillet/trim replaced a named bed
+   with a fresh UUID, orphaning its name, metadata, plant links and garden records.
+   `inherit_item_identity()` gives the replacement the source's UUID, bookkeeping, stack rank,
+   stored rotation angle and transform; an edit that would renumber a constrained vertex or
+   edge anchor, and a trim that would turn a bed or a constrained object into an open line,
+   is refused with a status message instead.
+8. **#669 — the Constraints panel agreed with the geometry.** It had no incidence branch and
+   compared a point-on-edge with the edge's first endpoint, painting satisfied constraints
+   red. One shared `incidence_error()` now serves the solver, the conflict scan and the panel.
+9. **#670 — the incidence pipeline's six causes.** Component-scoped feasibility trials, pins
+   that match the application, symmetric vertex reconstruction, a 0.05 cm application
+   tolerance inside the 0.1 cm indicator, `anchor_c` resolved through deformed vertices, and
+   edge identity kept by index after a direction change (ADR-012 addendum). The conflict
+   scan and all four application surfaces use the same component and pins as the trial —
+   including a trial that joins two existing components — one resolver
+   (`resolve_anchor_point`/`anchor_offset_table`) serves dimension lines, drag enforcement
+   and the solver, and vertex insert/delete renumber indexed anchors in the undoable command
+   so GUI and Agent API agree. A rigid shape's edge length is measured but never solved (the
+   conflict dialog still refuses an unsatisfiable one), and both edit surfaces ask the user
+   to remove the constraint before resizing.
+
+No `.ogp` format change. Tests: `tests/unit/test_constraint_integrity.py`,
+`tests/unit/test_geometry_identity.py`, `tests/unit/test_incidence_consistency.py` and
+`tests/integration/test_cad_precision_integrity.py`, each observed failing first; the
+integration file drives the real Lock / viewport-drag / Properties-panel / add-constraint
+paths.

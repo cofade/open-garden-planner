@@ -139,6 +139,7 @@ class FilletTool(CornerEditTool):
             target, tin_scene, tout_scene
         )
         if new_host is None:
+            self._notify_constrained()
             return
 
         cmd = FilletCornerCommand(
@@ -147,11 +148,35 @@ class FilletTool(CornerEditTool):
             new_item=new_host,
             arc_item=arc_item,
         )
-        self._view.command_manager.execute(cmd)
+        # A cut corner changes which plants the bed contains: reconcile the
+        # membership in the SAME undo step (#443/PF-CAN-32, round-5 review P1).
+        from open_garden_planner.core.commands import (
+            Command,
+            CompoundCommand,
+            ReconcileBedMembershipCommand,
+        )
+
+        command: Command = cmd
+        scene = self._view.scene()
+        item_id = getattr(target.item, "item_id", None)
+        if scene is not None and item_id is not None:
+            reconcile = ReconcileBedMembershipCommand(
+                scene, focus_parents={item_id}
+            )
+            command = CompoundCommand([cmd, reconcile], cmd.description)
+        self._view.command_manager.execute(command)
 
     def _notify_too_large(self) -> None:
         msg = QCoreApplication.translate(
             "FilletTool", "Fillet radius too large for this corner"
+        )
+        if hasattr(self._view, "set_status_message"):
+            self._view.set_status_message(msg)
+
+    def _notify_constrained(self) -> None:
+        msg = QCoreApplication.translate(
+            "FilletTool",
+            "Cannot edit this corner: it is grouped, or a constraint is attached to its vertices or edges",
         )
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)

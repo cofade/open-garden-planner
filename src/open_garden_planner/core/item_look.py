@@ -16,6 +16,8 @@ So the writers go through this module:
 
 * :func:`copy_visual_style` — an "item made from an item" (offset, mirror,
   chamfer / fillet, a re-pointed line) takes its source's look, both halves;
+* :func:`inherit_item_identity` — the same "made from an item" operations that
+  REPLACE their source keep its UUID, garden bookkeeping and transform (#668);
 * :func:`restore_stored_look` — the ``.ogp`` loader writes the saved attributes
   before it derives brush and pen from them;
 * :func:`adopt_pen` — whoever gives an item a pen states it in the stroke
@@ -73,6 +75,7 @@ __all__ = [
     "capture_line_look",
     "copy_visual_style",
     "fill_brush",
+    "inherit_item_identity",
     "line_look_for_preset",
     "line_look_for_type",
     "paints_sprite",
@@ -189,6 +192,53 @@ def copy_visual_style(source: Any, dest: Any) -> None:
 
     if getattr(source, "area_label_visible", False):
         dest.area_label_visible = True
+
+
+def inherit_item_identity(source: Any, dest: Any) -> None:
+    """Give a replacement shape the source's identity and garden bookkeeping (#668).
+
+    A corner edit, a trim, or any other "rebuild this shape" operation removes
+    the source item and inserts a freshly built one.  A constructor mints a new
+    UUID, which silently orphans everything keyed by the old one: a plant's
+    ``parent_bed_id`` and the bed's ``child_item_ids``, the bed's
+    ``metadata.garden_tracking.zone_id``, the soil / pest / harvest records the
+    ``ProjectData`` holds under that UUID, and every constraint anchored to the
+    item.  The original leaves the scene in the same command, so the UUID is
+    free for the replacement to keep.
+
+    ``object_type`` is deliberately NOT copied — the caller decides the type.
+    The transform (including the stored ``rotation_angle``) is copied so a
+    rotated source is replaced where it stood, not at the origin.
+
+    Only TOP-LEVEL replacements are supported: every caller adds ``dest`` to the
+    scene's top level, so a grouped source would leave its group.  The corner and
+    trim tools refuse a grouped item rather than calling this.
+    """
+    import copy
+
+    dest._item_id = source.item_id
+    dest.name = source.name
+    dest._metadata = copy.deepcopy(source.metadata)
+    dest._parent_bed_id = source.parent_bed_id
+    dest._child_item_ids = list(source.child_item_ids)
+    dest.layer_id = source.layer_id
+    dest.label_visible = source.label_visible
+    dest.area_label_visible = source.area_label_visible
+    # Keep the object where it was in the layer's stack (issue #338): a rebuilt
+    # item with no rank would sort to the top of its layer, over the plants.
+    if hasattr(source, "stack_order") and hasattr(dest, "stack_order"):
+        dest.stack_order = source.stack_order
+    # A polyline's path/fence preset lives beside the pen, not in it.
+    if hasattr(source, "path_fence_style") and hasattr(dest, "path_fence_style"):
+        dest.path_fence_style = source.path_fence_style
+    dest.setPos(source.pos())
+    dest.setRotation(source.rotation())
+    dest.setTransformOriginPoint(source.transformOriginPoint())
+    # ``setRotation`` does not touch the stored ``rotation_angle`` that the
+    # serializers read; without this copy a rotated bed loses its orientation on
+    # the next save (round-2 review P1).
+    if hasattr(source, "rotation_angle") and hasattr(dest, "rotation_angle"):
+        dest.rotation_angle = source.rotation_angle
 
 
 def _converted(convert: Callable[[Any], Any], value: Any) -> Any:

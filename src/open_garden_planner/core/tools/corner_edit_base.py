@@ -50,6 +50,12 @@ def _is_corner_editable(item: object) -> bool:
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
+    # A grouped child is not a top-level shape: the replacement commands add the
+    # new item to the scene's top level, which would move it out of its group
+    # (round-3 review P2).  Group members are not individually selectable, so
+    # this only closes a programmatic path, but it must not be silent.
+    if getattr(item, "parentItem", lambda: None)() is not None:
+        return False
     return isinstance(item, (PolylineItem, PolygonItem, RectangleItem))
 
 
@@ -257,12 +263,34 @@ def rebuild_with_corner_replaced(
     the undo command keeps a reference to the original rectangle so
     "undo" restores it whole (see ADR-022).
     """
-    from open_garden_planner.core.item_look import copy_visual_style
+    from open_garden_planner.core.item_look import (
+        copy_visual_style,
+        inherit_item_identity,
+    )
     from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
     item = target.item
+
+    # A grouped member's replacement is added to the scene's top level, which
+    # would move it out of its group; the picker already skips groups, and this
+    # guard closes the programmatic path too (round-4 review P2).
+    if getattr(item, "parentItem", lambda: None)() is not None:
+        return None
+
+    # #668 review P1: replacing one corner with two renumbers every later
+    # indexed anchor (vertex AND edge), and the edited vertex itself no longer
+    # exists.  Refuse rather than silently retarget a constraint.
+    scene = item.scene()
+    graph = getattr(scene, "constraint_graph", None) if scene is not None else None
+    item_id = getattr(item, "item_id", None)
+    if (
+        graph is not None
+        and item_id is not None
+        and graph.has_indexed_anchor(item_id)
+    ):
+        return None
 
     if isinstance(item, PolylineItem):
         pts_local = item.points
@@ -273,7 +301,11 @@ def rebuild_with_corner_replaced(
             + [p_in_local, p_out_local]
             + pts_local[target.vertex_index + 1 :]
         )
-        return item.clone_with_points(new_pts)
+        clone = item.clone_with_points(new_pts)
+        # #668: the corner edit replaces the item; it must not replace its UUID
+        # (constraints, garden records and plant links are keyed by it).
+        inherit_item_identity(item, clone)
+        return clone
 
     if isinstance(item, PolygonItem):
         poly = item.polygon()
@@ -286,15 +318,14 @@ def rebuild_with_corner_replaced(
             + [p_in_local, p_out_local]
             + verts_local[target.vertex_index + 1 :]
         )
-        clone = PolygonItem(
+        polygon_clone = PolygonItem(
             vertices=new_verts,
             object_type=item.object_type,
             layer_id=item.layer_id,
         )
-        copy_visual_style(item, clone)
-        clone.setPos(item.pos())
-        clone.setRotation(item.rotation())
-        return clone
+        copy_visual_style(item, polygon_clone)
+        inherit_item_identity(item, polygon_clone)
+        return polygon_clone
 
     if isinstance(item, RectangleItem):
         corners_local = rectangle_corners_local(item)
@@ -305,14 +336,13 @@ def rebuild_with_corner_replaced(
             + [p_in_local, p_out_local]
             + corners_local[target.vertex_index + 1 :]
         )
-        clone = PolygonItem(
+        rect_clone = PolygonItem(
             vertices=new_verts,
             object_type=item.object_type,
             layer_id=item.layer_id,
         )
-        copy_visual_style(item, clone)
-        clone.setPos(item.pos())
-        clone.setRotation(item.rotation())
-        return clone
+        copy_visual_style(item, rect_clone)
+        inherit_item_identity(item, rect_clone)
+        return rect_clone
 
     return None

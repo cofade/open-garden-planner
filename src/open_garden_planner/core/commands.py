@@ -1740,6 +1740,7 @@ class AddVertexCommand(Command):
         position: QPointF,
         apply_add_func: Callable[[QGraphicsItem, int, QPointF], None],
         apply_remove_func: Callable[[QGraphicsItem, int], None],
+        topology: tuple[object, bool, int] | None = None,
     ) -> None:
         """Initialize the add vertex command.
 
@@ -1749,25 +1750,73 @@ class AddVertexCommand(Command):
             position: Position of the new vertex
             apply_add_func: Function to add a vertex to the item
             apply_remove_func: Function to remove a vertex from the item
+            topology: ``(before_snapshot, closed, vertex_count_before)`` captured
+                before the interactive mutation.  The command owns the
+                constraint renumbering so GUI undo, redo and the Agent API share
+                one invariant (round-4 review P1); when omitted it captures the
+                snapshot itself (the Agent API builds before executing).
         """
         self._item = item
         self._vertex_index = vertex_index
         self._position = position
         self._apply_add_func = apply_add_func
         self._apply_remove_func = apply_remove_func
+        self._topology = topology
+        self._before: object | None = topology[0] if topology else None
 
     @property
     def description(self) -> str:
         """Human-readable description."""
         return QCoreApplication.translate("Commands", "Add vertex")
 
+    def _graph(self) -> object | None:
+        scene = self._item.scene()
+        return getattr(scene, "constraint_graph", None)
+
+    def _ensure_topology(self) -> tuple[object, bool, int] | None:
+        """The ``(before_snapshot, closed, count)`` this command applies."""
+        if self._topology is not None:
+            return self._topology
+        graph = self._graph()
+        item_id = getattr(self._item, "item_id", None)
+        if graph is None or item_id is None:
+            return None
+        from open_garden_planner.ui.canvas.items import PolygonItem
+
+        count = int(self._item._get_vertex_count())  # type: ignore[attr-defined]
+        self._topology = (
+            graph.capture_topology_state(item_id),  # type: ignore[attr-defined]
+            isinstance(self._item, PolygonItem),
+            count,
+        )
+        self._before = self._topology[0]
+        return self._topology
+
     def execute(self) -> None:
         """Add the vertex."""
+        # Resolve the pre-mutation state BEFORE the geometry changes: the Agent
+        # API builds this command before executing, so this is the only place
+        # the old vertex count is still observable (#670 review).
+        graph = self._graph()
+        topology = self._ensure_topology()
         self._apply_add_func(self._item, self._vertex_index, self._position)
+        if graph is not None and topology is not None:
+            before, closed, count_before = topology
+            del before
+            graph.apply_vertex_insert(  # type: ignore[attr-defined]
+                self._item.item_id,  # type: ignore[attr-defined]
+                self._vertex_index,
+                closed=closed,
+                vertex_count_before=count_before,
+            )
 
     def undo(self) -> None:
-        """Remove the vertex."""
+        """Remove the vertex and restore the constraint anchors it renumbered."""
         self._apply_remove_func(self._item, self._vertex_index)
+        graph = self._graph()
+        self._ensure_topology()
+        if graph is not None and self._before is not None:
+            graph.restore_topology_state(self._before)  # type: ignore[attr-defined]
 
 
 class AlignItemsCommand(Command):
@@ -1832,6 +1881,7 @@ class DeleteVertexCommand(Command):
         position: QPointF,
         apply_add_func: Callable[[QGraphicsItem, int, QPointF], None],
         apply_remove_func: Callable[[QGraphicsItem, int], None],
+        topology: tuple[object, bool, int] | None = None,
     ) -> None:
         """Initialize the delete vertex command.
 
@@ -1841,25 +1891,67 @@ class DeleteVertexCommand(Command):
             position: Position of the vertex (for undo)
             apply_add_func: Function to add a vertex to the item (for undo)
             apply_remove_func: Function to remove a vertex from the item
+            topology: ``(before_snapshot, closed, vertex_count_before)`` captured
+                before the interactive mutation (see ``AddVertexCommand``).
         """
         self._item = item
         self._vertex_index = vertex_index
         self._position = position
         self._apply_add_func = apply_add_func
         self._apply_remove_func = apply_remove_func
+        self._topology = topology
+        self._before: object | None = topology[0] if topology else None
 
     @property
     def description(self) -> str:
         """Human-readable description."""
         return QCoreApplication.translate("Commands", "Delete vertex")
 
+    def _graph(self) -> object | None:
+        scene = self._item.scene()
+        return getattr(scene, "constraint_graph", None)
+
+    def _ensure_topology(self) -> tuple[object, bool, int] | None:
+        """The ``(before_snapshot, closed, count)`` this command applies."""
+        if self._topology is not None:
+            return self._topology
+        graph = self._graph()
+        item_id = getattr(self._item, "item_id", None)
+        if graph is None or item_id is None:
+            return None
+        from open_garden_planner.ui.canvas.items import PolygonItem
+
+        count = int(self._item._get_vertex_count())  # type: ignore[attr-defined]
+        self._topology = (
+            graph.capture_topology_state(item_id),  # type: ignore[attr-defined]
+            isinstance(self._item, PolygonItem),
+            count,
+        )
+        self._before = self._topology[0]
+        return self._topology
+
     def execute(self) -> None:
         """Remove the vertex."""
+        graph = self._graph()
+        topology = self._ensure_topology()
         self._apply_remove_func(self._item, self._vertex_index)
+        if graph is not None and topology is not None:
+            before, closed, count_before = topology
+            del before
+            graph.apply_vertex_delete(  # type: ignore[attr-defined]
+                self._item.item_id,  # type: ignore[attr-defined]
+                self._vertex_index,
+                closed=closed,
+                vertex_count_before=count_before,
+            )
 
     def undo(self) -> None:
-        """Restore the vertex."""
+        """Restore the vertex and the constraint anchors it renumbered."""
         self._apply_add_func(self._item, self._vertex_index, self._position)
+        graph = self._graph()
+        self._ensure_topology()
+        if graph is not None and self._before is not None:
+            graph.restore_topology_state(self._before)  # type: ignore[attr-defined]
 
 
 class MultiVertexMoveCommand(Command):
@@ -2073,6 +2165,10 @@ class RemoveConstraintCommand(Command):
             visible=self._constraint.visible,
             constraint_id=self._constraint.constraint_id,
             constraint_type=self._constraint.constraint_type,
+            # #656: the third anchor is part of the removed constraint.  Dropping
+            # it left an ANGLE / POINT_ON_EDGE / TANGENT constraint structurally
+            # different after undo (a broken relation the panel cannot describe).
+            anchor_c=self._constraint.anchor_c,
             target_x=self._constraint.target_x,
             target_y=self._constraint.target_y,
         )

@@ -71,15 +71,17 @@ class ConstructionLineItem(QGraphicsLineItem):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary for project file."""
-        scene_p1 = self.mapToScene(self.line().p1())
-        scene_p2 = self.mapToScene(self.line().p2())
+        # Parent frame, not scene frame (#661): a grouped construction line must
+        # save into the frame the loader recreates it in.
+        parent_p1 = self.mapToParent(self.line().p1())
+        parent_p2 = self.mapToParent(self.line().p2())
         return {
             "type": "construction_line",
             "item_id": str(self._item_id),
-            "x1": scene_p1.x(),
-            "y1": scene_p1.y(),
-            "x2": scene_p2.x(),
-            "y2": scene_p2.y(),
+            "x1": parent_p1.x(),
+            "y1": parent_p1.y(),
+            "x2": parent_p2.x(),
+            "y2": parent_p2.y(),
         }
 
     @classmethod
@@ -179,12 +181,14 @@ class ConstructionCircleItem(QGraphicsEllipseItem):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary for project file."""
-        scene_center = self.center
+        # Parent frame, not scene frame (#661) — see ConstructionLineItem.
+        rect = self.rect()
+        parent_center = self.mapToParent(rect.center())
         return {
             "type": "construction_circle",
             "item_id": str(self._item_id),
-            "center_x": scene_center.x(),
-            "center_y": scene_center.y(),
+            "center_x": parent_center.x(),
+            "center_y": parent_center.y(),
             "radius": self.radius,
         }
 

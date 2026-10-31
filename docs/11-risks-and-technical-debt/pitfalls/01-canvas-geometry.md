@@ -362,3 +362,24 @@ execute a command with no drag-release handler at all. Test the real entry
 point, not the command a caller builds. It also proved the scoping rule: a
 scene-wide recompute on a bed edit unlinked a plant from a far-away bed it had
 been deliberately linked to.
+
+
+### PF-CAN-33
+
+- **Rule:** An item's derived centre is `rect().center()`, never `width/2, height/2`: a circle's rect is built at `centre - radius`, so its local origin is not `(0, 0)` and the half-size value names a different point.
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_circle_handle_resize_keeps_centre_and_rect_in_step`; `tests/unit/test_geometry_identity.py::test_circle_handle_resize_survives_save_and_reload`
+- **Source:** #657
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`CircleItem._after_resize_geometry()` recomputed `_center` as `QPointF(width/2, height/2)`.
+The shared resize primitive preserves the rect's local origin (the handle path
+rebuilds `QRectF(init_rect.x(), init_rect.y(), w, h)`), and a circle's rect
+normally starts at `centre - radius`, so an interactive resize stored a centre
+the visible drawing did not share: measured 150/150 stored against 550/550
+visible on master `f4e5060`. The canvas still looked right because the primitive
+anchors the scene geometry; the serializer writes `pos + centre`, so the object
+jumped on reload and every consumer of `item.center` (shadow, 3D footprint) read
+the wrong point. The 4-rotation x 8-handle matrix is what exposes it: at
+rotation 0 the visual anchor masks the error. `EllipseItem` is the control - it
+reads the rect directly and never kept a derived centre.

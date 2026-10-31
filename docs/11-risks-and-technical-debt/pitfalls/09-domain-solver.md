@@ -428,3 +428,84 @@ snapshots before its synthetic handle release loses the rotation's atomic undo.
 Retain them through release, then clear them. The started and adopted pinch
 regressions in `test_constrained_rotation.py` were observed failing first and
 assert both corrected geometry and one-step history.
+
+
+### PF-DOM-31
+
+- **Rule:** A `FIXED` constraint is data, not derived state: round-trip `target_x`/`target_y`, re-derive every target from the loaded item's own frame on load (the serializers normalize `pos()`), treat a target-less `FIXED` as immobile, and take `ItemIsMovable` away for the duration of a drag instead of resetting the item afterwards.
+- **Pinned by:** `tests/unit/test_constraint_integrity.py::test_fixed_targets_survive_graph_round_trip`; `tests/unit/test_constraint_integrity.py::test_load_repairs_a_legacy_fixed_constraint_without_targets`; `tests/integration/test_cad_precision_integrity.py::test_fixed_item_has_zero_transient_positions_during_a_drag`; `tests/integration/test_cad_precision_integrity.py::test_a_lock_on_a_moved_item_does_not_jump_on_reload`
+- **Source:** #655, #662
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`ConstraintGraph.from_list()` rebuilt each constraint through `add_constraint()`
+without the FIXED targets, so a reopened lock kept only its badge: the padlock
+was drawn and the object could be dragged, and the next save wrote the loss into
+the file for good. Fixing the round trip exposed the deeper half (round-2
+review): a FIXED target is an `item.pos()` in the solver's frame, and the shape
+serializers fold that translation into the geometry, so a target saved for a
+MOVED item names a frame the reload no longer has - the first drag after
+reopening then jumped the object by its old offset. Every load therefore
+re-targets **all** FIXED constraints to the loaded item's own `pos()`; only a
+value captured after loading is truthful. A target-less FIXED pins the item
+where it is rather than falling through the solver as if it were free. The other
+half is transient motion: Qt moves every selected movable item *before* the view
+runs `_enforce_fixed_positions`, so one drag emitted four phantom
+`ItemPositionHasChanged` positions and every listener (snapping, propagation,
+shadow/3D refresh, undo watchers) saw them. A locked datum has to be inert, not
+restored.
+
+### PF-DOM-32
+
+- **Rule:** Incidence has one residual and one anchor resolver: `incidence_error()` is the single definition shared by the solver, the conflict scan and the Constraints panel, and `resolve_anchor_point()` is the single lookup. A polygon/polyline edge reference is identified by its index, because its `EDGE_*` type is re-derived from the current dominant axis.
+- **Pinned by:** `tests/unit/test_incidence_consistency.py::test_point_on_edge_panel_satisfaction`; `tests/unit/test_incidence_consistency.py::test_stored_edge_reference_survives_a_direction_change`; `tests/unit/test_incidence_consistency.py::test_point_on_edge_follows_a_deformed_second_endpoint`; `tests/unit/test_incidence_consistency.py::test_vertex_topology_edit_shifts_every_indexed_anchor`; `tests/unit/test_incidence_consistency.py::test_vertex_insert_then_undo_restores_indexed_anchors`; `tests/unit/test_incidence_consistency.py::test_vertex_delete_of_the_first_vertex_drops_the_closing_edge`; `tests/integration/test_cad_precision_integrity.py::test_adding_a_link_does_not_move_an_unrelated_broken_component`; `tests/integration/test_cad_precision_integrity.py::test_a_cross_component_trial_is_seen_by_the_conflict_scan`; `tests/integration/test_cad_precision_integrity.py::test_a_construction_to_garden_link_is_feasible`; `tests/integration/test_cad_precision_integrity.py::test_a_properties_resize_does_not_solve_an_unrelated_component`; `tests/integration/test_cad_precision_integrity.py::test_editing_a_distance_does_not_solve_an_unrelated_component`; `tests/integration/test_cad_precision_integrity.py::test_a_vertex_drag_does_not_solve_an_unrelated_component`; `tests/integration/test_cad_precision_integrity.py::test_a_rigid_shapes_edge_length_cannot_be_edited_as_a_distance`
+- **Source:** #669, #670
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The Constraints panel had no branch for `POINT_ON_EDGE`, `POINT_ON_CIRCLE` or
+`TANGENT` and fell through to a point-to-point distance, so a satisfied
+point-on-edge compared A with the edge's *first endpoint* and was painted red;
+the conflict scan skipped the same types entirely. One residual function now
+answers all three consumers. The same file pins the six reproduced #670 causes:
+a trial is scoped to the component the link joins (an unrelated violated
+component is not a reason to refuse); the trial pins what the application pins;
+every vertex is reconstructed with item delta plus vertex delta (a rigid polygon
+translation used to look violated); a committed application solves to 0.05 cm so
+it reaches the 0.1 cm indicator; `anchor_c` is resolved through deformed vertices;
+and a stored edge reference keeps its edge by index after the direction changes.
+Each was a second implementation of a rule one layer already had, which is how
+the layers came to disagree.
+
+The first review round proved the point one layer over: `validate_constraint()`
+had been scoped but the *application* solve and the conflict scan still solved
+the whole plan, so an accepted link could move an unrelated broken component and
+an unrelated violated component could still raise the conflict dialog. The
+component, the pins and the reconstructed state now come from one scope in all
+four application surfaces (add-constraint, Properties-panel resize,
+constraint-distance edit, vertex-drag correction), with one integration test per
+surface against an unrelated broken component; the trial inserts itself through
+`add_constraint()` so a link joining two components sees both. `solve_anchored()`
+only injects a `FIXED` item the solve actually contains. The dialog keeps its own
+1.0 cm threshold on purpose: it answers "would this visibly distort an existing
+relation?", not "did the solve converge?".
+
+A vertex insert/delete renumbers indexed anchors too, so `shift_vertex_indices()`
+shifts `EDGE_*` midpoints with the vertex indices and `drop_edge_constraints()`
+removes a reference to an edge that a split or delete made disappear. The
+renumbering lives in `AddVertexCommand`/`DeleteVertexCommand` (with a captured
+before-state restored on undo), so the GUI, undo/redo and the Agent API share one
+invariant rather than the GUI having its own copy.
+
+One more trap the same review found: "same item" is NOT "can deform its
+vertices". A rectangle is rigid in the positional solver, so leaving a
+self-constraint's item free translates the whole shape instead of changing its
+edge length (measured: a 200 cm top edge edited to 400 left the edge at 200 and
+moved the item to -4000 cm). The pin rule asks
+`measure_snapper.is_vertex_deformable()`; the solver MEASURES a rigid
+self-constraint's residual but never moves the item (so the trial still refuses
+an unsatisfiable one and the conflict dialog fires), and Newton does not receive
+it (a translation-invariant residual would floor the refinement). A rigid shape's
+edge length follows a RECONSTRAINT-FREE resize, so the distance dialog and the
+Properties resize both refuse the edit and ask the user to remove the constraint
+first.

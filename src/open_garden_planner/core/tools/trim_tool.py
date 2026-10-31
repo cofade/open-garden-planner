@@ -411,6 +411,39 @@ class TrimExtendTool(BaseTool):
 
     # ── Trim execute ──────────────────────────────────────────────────────────
 
+    def _trim_would_orphan(self, item: object) -> bool:
+        """True when replacing *item* with an open line would detach its world.
+
+        A trim is a type change: a closed bed/container/trellis becomes an open
+        ``FENCE`` polyline, and a constrained shape loses the vertices its
+        anchors name.  Keeping the UUID in those cases attaches the bed's
+        records and plants to a fence (#668 review P1), so the edit is refused
+        and the user is told why.
+        """
+        from open_garden_planner.core.object_types import is_plant_parent_type
+
+        if is_plant_parent_type(getattr(item, "object_type", None)):
+            return True
+        if getattr(item, "parentItem", lambda: None)() is not None:
+            # The replacement is added at the top level; a grouped member would
+            # leave its group (round-3 review P2).
+            return True
+        item_id = getattr(item, "item_id", None)
+        if item_id is None:
+            return False
+        graph = getattr(self._view.scene(), "constraint_graph", None)
+        return graph is not None and graph.has_item_constraint(item_id)
+
+    def _notify_trim_refused(self) -> None:
+        from PyQt6.QtCore import QCoreApplication
+
+        msg = QCoreApplication.translate(
+            "TrimExtendTool",
+            "Cannot trim this object: beds and group members cannot become an open line, and a constrained object must be unconstrained first.",
+        )
+        if hasattr(self._view, "set_status_message"):
+            self._view.set_status_message(msg)
+
     def _execute_trim(self) -> bool:
         target = self._trim_target
         if target is None:
@@ -435,6 +468,9 @@ class TrimExtendTool(BaseTool):
         from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
         item: PolylineItem = target.item  # type: ignore[assignment]
+        if self._trim_would_orphan(item):
+            self._notify_trim_refused()
+            return
         seg_i = target.seg_index
         pts = item.points  # item-local, copy
 
@@ -464,6 +500,16 @@ class TrimExtendTool(BaseTool):
             for p in (piece_a_pts, piece_b_pts)
             if len(p) >= 2
         ]
+        if new_pieces:
+            # The first piece continues the original object; the second is new.
+            from open_garden_planner.core.item_look import inherit_item_identity
+
+            inherit_item_identity(item, new_pieces[0])
+            if len(new_pieces) > 1 and hasattr(item, "stack_order"):
+                # An unranked item sorts ABOVE every ranked one (None is the
+                # top), so a bare clone would jump to the front of the layer.
+                # Place the new piece just above its source instead.
+                new_pieces[1].stack_order = (item.stack_order or 0) + 1
 
         cmd = TrimPolylineCommand(self._view.scene(), item, new_pieces)
         self._view.command_manager.execute(cmd)
@@ -474,6 +520,9 @@ class TrimExtendTool(BaseTool):
         from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
         item: PolygonItem = target.item  # type: ignore[assignment]
+        if self._trim_would_orphan(item):
+            self._notify_trim_refused()
+            return
         seg_i = target.seg_index
 
         cut_start_local = item.mapFromScene(
@@ -504,6 +553,12 @@ class TrimExtendTool(BaseTool):
         )
         adopt_pen(result_polyline, item.pen())  # the pen AND the stroke attributes
         result_polyline.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        # #668: the trim replaces the shape, so it keeps the source's UUID and
+        # garden bookkeeping — otherwise plants, garden records and constraints
+        # would point at an item that no longer exists.
+        from open_garden_planner.core.item_look import inherit_item_identity
+
+        inherit_item_identity(item, result_polyline)
 
         cmd = TrimPolygonCommand(self._view.scene(), item, result_polyline)
         self._view.command_manager.execute(cmd)
@@ -514,6 +569,9 @@ class TrimExtendTool(BaseTool):
         from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
         item: RectangleItem = target.item  # type: ignore[assignment]
+        if self._trim_would_orphan(item):
+            self._notify_trim_refused()
+            return
         seg_i = target.seg_index
 
         cut_start_local = item.mapFromScene(
@@ -549,6 +607,10 @@ class TrimExtendTool(BaseTool):
         )
         adopt_pen(result_polyline, item.pen())  # the pen AND the stroke attributes
         result_polyline.setBrush(QBrush(Qt.BrushStyle.NoBrush))
+        # #668: same identity rule as the polygon trim — audit note in the issue.
+        from open_garden_planner.core.item_look import inherit_item_identity
+
+        inherit_item_identity(item, result_polyline)
 
         cmd = TrimRectangleCommand(self._view.scene(), item, result_polyline)
         self._view.command_manager.execute(cmd)
