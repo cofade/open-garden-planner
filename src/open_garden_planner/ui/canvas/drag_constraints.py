@@ -684,6 +684,10 @@ class DragConstraints:
         anchor_a = command._anchor_a
         anchor_b = command._anchor_b
         target_distance = command._target_distance
+        graph = host._canvas_scene.constraint_graph
+        # #670 review P0: the application solve is scoped to the component this
+        # link joins, exactly like the feasibility trial.
+        component = graph.get_connected_component(anchor_a.item_id)
 
         item = next(
             (
@@ -710,7 +714,9 @@ class DragConstraints:
             if not (0 <= anchor_b.anchor_index < len(points)):
                 return [], []
         else:
-            return host._compute_constraint_solve_moves(extra_pinned={anchor_b.item_id})
+            return host._compute_constraint_solve_moves(
+                extra_pinned={anchor_b.item_id}, scope_ids=component
+            )
 
         old_local = host._get_vertex_local(item, anchor_a.anchor_index)
         ref_local = host._get_vertex_local(item, anchor_b.anchor_index)
@@ -772,7 +778,7 @@ class DragConstraints:
             intra_object = anchor_a.item_id == anchor_b.item_id
             extra_pinned = None if intra_object else {anchor_b.item_id}
             _item_moves, vertex_moves = host._compute_constraint_solve_moves(
-                extra_pinned=extra_pinned
+                extra_pinned=extra_pinned, scope_ids=component
             )
         finally:
             if original_polygon is not None and isinstance(item, PolygonItem):
@@ -814,6 +820,7 @@ class DragConstraints:
     def _compute_constraint_solve_moves(
         self,
         extra_pinned: set[Any] | None = None,
+        scope_ids: set[Any] | None = None,
     ) -> tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]:
         """Run the constraint solver and return position changes.
 
@@ -827,6 +834,11 @@ class DragConstraints:
                 items.  Used to implement the CAD convention that item B (the
                 reference anchor) stays fixed while item A moves to satisfy the
                 new constraint.
+            scope_ids: When given, only items in this connected component are
+                variables.  ``_execute_constraint_with_solve`` passes the
+                component the new constraint joins, so the application answers
+                the same question ``validate_constraint`` did (#670 review P0).
+                ``None`` means the whole plan (the general re-solve).
         """
         host = self._host
         from open_garden_planner.ui.canvas.items import GardenItemMixin
@@ -845,6 +857,8 @@ class DragConstraints:
             constrained_ids.add(c.anchor_b.item_id)
             if c.anchor_c is not None:
                 constrained_ids.add(c.anchor_c.item_id)
+        if scope_ids is not None:
+            constrained_ids &= scope_ids
 
         item_map: dict[Any, Any] = {}
         item_positions: dict[Any, Any] = {}

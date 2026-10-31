@@ -217,6 +217,13 @@ def inherit_item_identity(source: Any, dest: Any) -> None:
     dest.layer_id = source.layer_id
     dest.label_visible = source.label_visible
     dest.area_label_visible = source.area_label_visible
+    # Keep the object where it was in the layer's stack (issue #338): a rebuilt
+    # item with no rank would sort to the top of its layer, over the plants.
+    if hasattr(source, "stack_order") and hasattr(dest, "stack_order"):
+        dest.stack_order = source.stack_order
+    # A polyline's path/fence preset lives beside the pen, not in it.
+    if hasattr(source, "path_fence_style") and hasattr(dest, "path_fence_style"):
+        dest.path_fence_style = source.path_fence_style
     dest.setPos(source.pos())
     dest.setRotation(source.rotation())
     dest.setTransformOriginPoint(source.transformOriginPoint())

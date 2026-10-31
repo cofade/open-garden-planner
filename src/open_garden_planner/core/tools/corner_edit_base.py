@@ -267,6 +267,19 @@ def rebuild_with_corner_replaced(
 
     item = target.item
 
+    # #668 review P1: replacing one corner with two renumbers every later
+    # CORNER/ENDPOINT anchor, and the edited vertex itself no longer exists.
+    # Refuse rather than silently retarget a constraint to a different vertex.
+    scene = item.scene()
+    graph = getattr(scene, "constraint_graph", None) if scene is not None else None
+    item_id = getattr(item, "item_id", None)
+    if (
+        graph is not None
+        and item_id is not None
+        and graph.has_vertex_anchor(item_id)
+    ):
+        return None
+
     if isinstance(item, PolylineItem):
         pts_local = item.points
         p_in_local = item.mapFromScene(point_in_scene)

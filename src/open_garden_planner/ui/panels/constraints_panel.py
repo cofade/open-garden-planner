@@ -314,7 +314,7 @@ class ConstraintsPanel(QWidget):
         if constraint.constraint_type == ConstraintType.COINCIDENT:
             dx = pos_b.x() - pos_a.x()
             dy = pos_b.y() - pos_a.y()
-            return math.sqrt(dx * dx + dy * dy) < 0.1  # 1 mm tolerance
+            return math.sqrt(dx * dx + dy * dy) < DISPLAY_TOLERANCE_CM
         if constraint.constraint_type == ConstraintType.ANGLE:
             if constraint.anchor_c is None:
                 return False

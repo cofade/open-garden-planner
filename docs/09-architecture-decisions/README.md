@@ -200,11 +200,19 @@ than the application. Six decisions, each pinned:
 3. **A trial joins a component, it does not re-solve the plan.** `validate_constraint`
    restricts positions, offsets, deformable items and pins to the connected component the
    trial link creates. A knowingly violated constraint in an unrelated component is not a
-   reason to refuse a satisfiable one (#670 cause 1).
+   reason to refuse a satisfiable one (#670 cause 1). **The application and the conflict
+   scan answer the same scoped question:** `_compute_constraint_solve_moves()` (and the
+   edge-length path) accept the trial's component, `find_conflicting_constraints()` scopes
+   its solve and its rescan to that component, and `_constraint_reference_pins()` supplies
+   the same pins to the trial, the dialog and the applied solve. The dialog's 1.0 cm
+   threshold is a separate, deliberate question — "would this visibly distort an existing
+   relation?" — not the application's convergence tolerance.
 4. **The trial pins what the application pins.** One rule,
    `CanvasView._constraint_reference_pins`: B stays still (A moves to B) unless A already
    carries `FIXED` or both anchors share an item. It feeds both the feasibility trial and
-   the application, so they cannot answer different questions (#670 cause 2).
+   the application, and `solve_anchored()` only injects a `FIXED` item that the solve
+   actually contains, so an out-of-component locked pair cannot make a scoped trial
+   non-convergent (#670 causes 1–2).
 5. **Reconstruct resolved state from deltas, symmetrically.** `find_conflicting_constraints`
    rebuilds every vertex as `pre-solve vertex + item delta + vertex delta`. A polygon that
    translated rigidly has no vertex delta, which is exactly when the old reconstruction
@@ -219,7 +227,19 @@ than the application. Six decisions, each pinned:
 No `.ogp` format change: repaired `FIXED` targets are derived at load from the loaded
 item's frame and written back additively. Tests: `tests/unit/test_incidence_consistency.py`
 (all six causes plus the panel residual definitions and the precision pair) and
-`tests/integration/test_cad_precision_integrity.py` (the FIXED-lock round trip and drag).
+`tests/integration/test_cad_precision_integrity.py` (the real add-constraint path: an
+unrelated broken component neither moves nor raises a dialog, a locked pair at non-zero
+`pos()` does not block a compatible link, and a point-on-edge added through the view lands
+on the edge and shows satisfied).
+
+**Addendum (replacement identity, #668).** A command that rebuilds a shape (`inherit_item_identity()`
+in `core/item_look.py`) keeps the source's UUID, name, metadata copy, parent/child links,
+layer, stack rank, label flags and transform, so garden records, plants and constraints stay
+attached. Identity does not extend to topology: a corner edit replaces one vertex with two
+and renumbers every later `CORNER`/`ENDPOINT` anchor, and a trim turns a closed shape into an
+open line. Those edits are **refused** when the item carries vertex constraints (corner
+edits) or is a plant-parent / carries any constraint (trim), with a translated status
+message, rather than silently retargeting an anchor or attaching a bed's records to a fence.
 
 **Addendum (2026-10-23, issue #552 — FIXED closes the panel path).** The canvas
 drag, arrange and vertex paths honoured FIXED; the Properties panel X/Y fields

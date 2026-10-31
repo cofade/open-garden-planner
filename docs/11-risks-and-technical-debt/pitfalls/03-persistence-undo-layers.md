@@ -216,13 +216,13 @@ rect centre and its visible scene centre moved from `(160, 130)` to
 and not fixed by moving the group afterwards. `mapToParent(centre)` is invariant
 because `_apply_rotation` always pivots on the shape's own centre, so every
 shape branch (rectangle, ellipse, circle, polygon, polyline) translates by that
-offset. The matrix covers four shape types x four rotations, a group move before
+offset. The matrix covers five shape types x four rotations, a group move before
 the save, and a second save/reload that must not drift again.
 
 ### PF-PER-21
 
-- **Rule:** A command that replaces a shape with a rebuilt one gives the replacement the source's UUID and garden bookkeeping (name, metadata copy, parent/child links, layer, label flags, transform). A constructor's fresh UUID silently orphans everything keyed by the old one.
-- **Pinned by:** `tests/unit/test_geometry_identity.py::test_corner_edit_keeps_the_bed_identity`; `tests/unit/test_geometry_identity.py::test_trim_keeps_the_bed_identity`
+- **Rule:** A command that replaces a shape with a rebuilt one gives the replacement the source's UUID and garden bookkeeping (name, metadata copy, parent/child links, layer, stack rank, label flags, transform). When the edit would also change topology (a corner split renumbers vertex anchors) or the object's kind (a trim turns a closed bed into an open line), it is refused instead of silently retargeting anchors or orphaning records.
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_corner_edit_keeps_the_bed_identity`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_a_vertex_constrained_item`; `tests/unit/test_geometry_identity.py::test_trim_refuses_a_referenced_bed`; `tests/unit/test_geometry_identity.py::test_trim_keeps_a_plain_shape_identity`
 - **Source:** #668
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -234,7 +234,17 @@ constraint anchored to the old id dangling. Undo restored the original, so the
 loss only surfaced on redo or the next save - and a `.ogp` written afterwards
 kept the orphans forever. `inherit_item_identity()` in `core/item_look.py` is
 the single rule now used by the corner tools and both trim tools; `object_type`
-stays the caller's decision (a trimmed rectangle becomes a fence polyline), so
-keeping the UUID keeps the surviving object's records attached rather than
-orphaning them. Identity is a property of what the user edited, not of the
-Python object a rebuild happened to construct.
+stays the caller's decision, and the replacement keeps its stack rank so it does
+not jump above its plants. Identity is a property of what the user edited, not
+of the Python object a rebuild happened to construct.
+
+Keeping the UUID is only half the answer, and the first review round found the
+other half: topology. A chamfer replaces one vertex with two, renumbering every
+later `CORNER`/`ENDPOINT` anchor, and a trim reorders the perimeter completely.
+Version one of the fix kept the UUID anyway, so a constrained vertex silently
+retargeted a different point, and a trimmed bed became a `FENCE` polyline that
+still owned the bed's records and plants. The tools now refuse those two edits
+(corner edit when the item carries a vertex constraint; trim when the item is a
+plant-parent or carries any constraint) and say why in the status bar. A plain
+unconstrained polygon still trims with its identity intact. Pinned by the four
+tests above, including the refusal branches and the plain-shape control.

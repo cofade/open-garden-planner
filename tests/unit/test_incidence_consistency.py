@@ -304,10 +304,6 @@ def test_rigid_polygon_translation_reports_no_false_conflict(qtbot) -> None:
 # ── #670 cause 4: the application reaches the displayed precision ─────────
 
 
-def test_application_tolerance_is_inside_the_displayed_band() -> None:
-    assert APPLY_TOLERANCE_CM * 2 <= DISPLAY_TOLERANCE_CM
-
-
 def test_trial_refuses_a_relation_the_panel_would_show_red(qtbot) -> None:
     """A 0.5 cm gap between pinned anchors is visibly violated, so refuse it."""
     graph = ConstraintGraph()

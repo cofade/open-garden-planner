@@ -454,7 +454,7 @@ locked datum has to be inert, not restored.
 ### PF-DOM-32
 
 - **Rule:** Incidence has one residual and one anchor resolver: `incidence_error()` is the single definition shared by the solver, the conflict scan and the Constraints panel, and `resolve_anchor_point()` is the single lookup. A polygon/polyline edge reference is identified by its index, because its `EDGE_*` type is re-derived from the current dominant axis.
-- **Pinned by:** `tests/unit/test_incidence_consistency.py::test_point_on_edge_panel_satisfaction`; `tests/unit/test_incidence_consistency.py::test_stored_edge_reference_survives_a_direction_change`; `tests/unit/test_incidence_consistency.py::test_point_on_edge_follows_a_deformed_second_endpoint`
+- **Pinned by:** `tests/unit/test_incidence_consistency.py::test_point_on_edge_panel_satisfaction`; `tests/unit/test_incidence_consistency.py::test_stored_edge_reference_survives_a_direction_change`; `tests/unit/test_incidence_consistency.py::test_point_on_edge_follows_a_deformed_second_endpoint`; `tests/integration/test_cad_precision_integrity.py::test_adding_a_link_does_not_move_an_unrelated_broken_component`
 - **Source:** #669, #670
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -472,3 +472,13 @@ it reaches the 0.1 cm indicator; `anchor_c` is resolved through deformed vertice
 and a stored edge reference keeps its edge by index after the direction changes.
 Each was a second implementation of a rule one layer already had, which is how
 the layers came to disagree.
+
+The first review round proved the point one layer over: `validate_constraint()`
+had been scoped but the *application* solve and the conflict scan still solved
+the whole plan, so an accepted link could move an unrelated broken component and
+an unrelated violated component could still raise the conflict dialog. The
+component, the pins and the reconstructed state now come from one scope in all
+three paths (pinned by the integration tests below as well as the unit file), and
+`solve_anchored()` only injects a `FIXED` item the solve actually contains. The
+dialog keeps its own 1.0 cm threshold on purpose: it answers "would this visibly
+distort an existing relation?", not "did the solve converge?".

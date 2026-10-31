@@ -135,6 +135,7 @@ def test_fixed_item_has_zero_transient_positions_during_a_drag(
 
     monkeypatch.setattr(RectangleItem, "itemChange", spy)
     rect.setSelected(True)
+    steps_before = canvas.command_manager.undo_depth
     _drag_in_view(canvas, rect, QPointF(200.0, 140.0))
     monkeypatch.undo()
 
@@ -143,10 +144,7 @@ def test_fixed_item_has_zero_transient_positions_during_a_drag(
         f"the locked item reported {len(seen)} positions it never had: {seen}"
     )
     # The drag must leave no undo step for an object that cannot move.
-    assert not canvas.command_manager.can_undo or (
-        canvas.command_manager._undo_stack[-1].description
-        not in ("Move item", "Move items (constrained)")
-    )
+    assert canvas.command_manager.undo_depth == steps_before
 
 
 def test_a_mobile_partner_still_follows_the_fixed_reference(canvas: CanvasView) -> None:
@@ -154,7 +152,7 @@ def test_a_mobile_partner_still_follows_the_fixed_reference(canvas: CanvasView) 
     fixed = RectangleItem(600, 700, 300, 200)
     scene.addItem(fixed)
     _lock(fixed)
-    mobile = RectangleItem(1200, 700, 200, 200)
+    mobile = RectangleItem(1250, 700, 200, 200)
     scene.addItem(mobile)
     graph = scene.constraint_graph
     graph.add_constraint(
@@ -200,6 +198,174 @@ def test_the_lock_flag_is_restored_after_the_gesture(canvas: CanvasView) -> None
     before = QPointF(rect.pos())
     _drag_in_view(canvas, rect, QPointF(150.0, 100.0))
     assert rect.pos() != before, "an unlocked item must drag again"
+
+
+# ── #669 / #670: the add-constraint path the tools actually call ─────────
+
+
+def _add_constraint(canvas: CanvasView, command, *, conflicts_checked: bool = True):
+    canvas._execute_constraint_with_solve(
+        command, conflicts_checked=conflicts_checked
+    )
+
+
+def _distance(canvas: CanvasView, first, second, distance: float):
+    from open_garden_planner.core.commands import AddConstraintCommand
+
+    return AddConstraintCommand(
+        graph=canvas.scene().constraint_graph,
+        anchor_a=AnchorRef(first.item_id, AnchorType.CENTER),
+        anchor_b=AnchorRef(second.item_id, AnchorType.CENTER),
+        target_distance=distance,
+    )
+
+
+def test_adding_a_link_does_not_move_an_unrelated_broken_component(
+    canvas: CanvasView, qtbot: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The #670 cause-1 defect, through the application path (review P0).
+
+    Two free rectangles carry contradictory target distances (100 and 500 cm
+    between the same anchors).  Adding a compatible link between two other
+    rectangles must not touch them, and must not report a conflict.
+    """
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.ui.dialogs.constraint_conflict_dialog import (
+        ConstraintConflictDialog,
+    )
+
+    scene = canvas.scene()
+    first = RectangleItem(0, 0, 100, 100)
+    second = RectangleItem(900, 0, 100, 100)
+    third = RectangleItem(0, 900, 100, 100)
+    fourth = RectangleItem(200, 900, 100, 100)
+    for item in (first, second, third, fourth):
+        scene.addItem(item)
+
+    graph = scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(first.item_id, AnchorType.CENTER),
+        AnchorRef(second.item_id, AnchorType.CENTER),
+        100.0,
+    )
+    graph.add_constraint(
+        AnchorRef(first.item_id, AnchorType.CENTER),
+        AnchorRef(second.item_id, AnchorType.CENTER),
+        500.0,
+    )
+    before = {item: QPointF(item.pos()) for item in (first, second)}
+    asked: list[object] = []
+
+    def _never_ask(rows, parent=None):  # pragma: no cover - the assertion
+        asked.append(rows)
+        return None
+
+    monkeypatch.setattr(ConstraintConflictDialog, "ask", staticmethod(_never_ask))
+    _add_constraint(
+        canvas,
+        _distance(canvas, third, fourth, 200.0),
+        conflicts_checked=False,
+    )
+
+    assert asked == [], "an unrelated broken component raised a conflict dialog"
+    for label, item in (("first", first), ("second", second)):
+        assert item.pos() == before[item], (
+            f"{label} moved although its broken component is unrelated to the "
+            f"added link"
+        )
+    assert any(
+        c.constraint_type == ConstraintType.DISTANCE
+        and c.target_distance == 200.0
+        for c in graph.constraints.values()
+    )
+
+
+def test_a_locked_pair_does_not_block_a_compatible_link(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """A FIXED pair outside the trial's component must not enter the trial."""
+    from open_garden_planner.core.constraints import ConstraintType
+
+    scene = canvas.scene()
+    locked_a = RectangleItem(500, 500, 100, 100)
+    locked_b = RectangleItem(800, 800, 100, 100)
+    locked_a.setPos(500.0, 500.0)
+    locked_b.setPos(800.0, 800.0)
+    moving = RectangleItem(100, 100, 200, 200)
+    reference = RectangleItem(600, 100, 200, 200)
+    for item in (locked_a, locked_b, moving, reference):
+        scene.addItem(item)
+    graph = scene.constraint_graph
+    for locked in (locked_a, locked_b):
+        graph.add_constraint(
+            AnchorRef(locked.item_id, AnchorType.CENTER),
+            AnchorRef(locked.item_id, AnchorType.CENTER),
+            0.0,
+            constraint_type=ConstraintType.FIXED,
+            target_x=locked.pos().x(),
+            target_y=locked.pos().y(),
+        )
+    # A knowingly violated link between the two locked items.
+    graph.add_constraint(
+        AnchorRef(locked_a.item_id, AnchorType.CENTER),
+        AnchorRef(locked_b.item_id, AnchorType.CENTER),
+        0.0,
+        constraint_type=ConstraintType.COINCIDENT,
+    )
+
+    assert canvas.is_constraint_feasible(
+        AnchorRef(moving.item_id, AnchorType.CENTER),
+        AnchorRef(reference.item_id, AnchorType.CENTER),
+        500.0,
+        ConstraintType.DISTANCE,
+    ), "an out-of-component locked pair must not make the trial infeasible"
+
+
+def test_point_on_edge_added_through_the_view_is_satisfied(
+    canvas: CanvasView, qtbot: object
+) -> None:
+    """#669 end to end: the constraint the tool adds is on the edge and green."""
+    from open_garden_planner.core.commands import AddConstraintCommand
+    from open_garden_planner.core.constraints import ConstraintType
+    from open_garden_planner.core.measure_snapper import resolve_anchor_point
+    from open_garden_planner.ui.panels.constraints_panel import ConstraintsPanel
+
+    scene = canvas.scene()
+    reference = RectangleItem(400, 400, 400, 300)
+    moving = RectangleItem(800, 500, 50, 50)
+    scene.addItem(reference)
+    scene.addItem(moving)
+    steps = canvas.command_manager.undo_depth
+    before = QPointF(moving.pos())
+
+    command = AddConstraintCommand(
+        graph=scene.constraint_graph,
+        anchor_a=AnchorRef(moving.item_id, AnchorType.CORNER, 0),
+        anchor_b=AnchorRef(reference.item_id, AnchorType.CORNER, 1),
+        target_distance=0.0,
+        constraint_type=ConstraintType.POINT_ON_EDGE,
+        anchor_c=AnchorRef(reference.item_id, AnchorType.CORNER, 3),
+    )
+    _add_constraint(canvas, command)
+
+    assert canvas.command_manager.undo_depth == steps + 1, "one undo step"
+    constraint = next(
+        c
+        for c in scene.constraint_graph.constraints.values()
+        if c.constraint_type == ConstraintType.POINT_ON_EDGE
+    )
+    corner = resolve_anchor_point(moving, AnchorType.CORNER, 0)
+    assert corner is not None
+    assert corner.x() == pytest.approx(800.0, abs=0.1), "the corner is on the edge"
+
+    panel = ConstraintsPanel()
+    qtbot.addWidget(panel)  # type: ignore[attr-defined]
+    panel.set_scene(scene)
+    assert panel._is_satisfied(constraint), "the row must not be red"
+
+    canvas.command_manager.undo()
+    assert not scene.constraint_graph.constraints
+    assert moving.pos() == before, "undo must restore the pre-add position"
 
 
 # ── #658: the Layer combo survives its own change signal ─────────────────

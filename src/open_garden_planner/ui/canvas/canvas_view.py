@@ -325,8 +325,8 @@ class CanvasView(QGraphicsView):
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
         # Items whose ItemIsMovable this drag took away because they are FIXED
-        # (#662); restored on release / cancellation.
-        self._fixed_drag_flag_restore: set[QGraphicsItem] = set()
+        # (#662), with the flag value to restore.
+        self._fixed_drag_flag_restore: dict[QGraphicsItem, bool] = {}
         # Constraint-propagated items' start positions during drag
         self._constraint_propagated_starts: dict[QGraphicsItem, QPointF] = {}
         # Child items moved during bed drag (original positions)
@@ -1614,11 +1614,16 @@ class CanvasView(QGraphicsView):
 
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
+        # #670 review P0: the application solve must be scoped to the same
+        # component the feasibility trial answered for.  Solving the whole plan
+        # here let an accepted link move items in an unrelated, broken component.
+        graph = self._canvas_scene.constraint_graph
+        component = graph.get_connected_component(command._anchor_a.item_id)
         if command._constraint_type == _CT.EDGE_LENGTH:
             moves, vertex_moves = self._compute_edge_length_constraint_moves(command)
         else:
             moves, vertex_moves = self._compute_constraint_solve_moves(
-                extra_pinned=extra_pinned
+                extra_pinned=extra_pinned, scope_ids=component
             )
         # 2. Remove temporarily — we want the official execute() below to do it.
         command.undo()
@@ -1675,6 +1680,7 @@ class CanvasView(QGraphicsView):
         item_positions: dict = {}
         item_map: dict = {}
         anchor_offsets: dict = {}
+        construction_ids: set = set()
         for item in self.scene().items():
             is_garden = isinstance(item, GardenItemMixin)
             is_construction = isinstance(
@@ -1688,6 +1694,8 @@ class CanvasView(QGraphicsView):
             item_positions[uid] = (pos.x(), pos.y())
             for (anchor_type, anchor_index), offset in anchor_offset_table(item).items():
                 anchor_offsets[(uid, anchor_type, anchor_index)] = offset
+            if is_construction:
+                construction_ids.add(uid)
 
         deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
 
@@ -1699,6 +1707,10 @@ class CanvasView(QGraphicsView):
                 deformable_items=deformable_items,
                 deformable_vertices=deformable_vertices,
                 tolerance=1.0,
+                # #670 review P1: the scan must pin what the application pins,
+                # or it reports a conflict the applied solve would not create.
+                pinned_items=construction_ids
+                | self._constraint_reference_pins(command._anchor_a, command._anchor_b),
             )
         except Exception:
             return allow_override  # A non-interactive size probe fails closed.
@@ -1822,9 +1834,6 @@ class CanvasView(QGraphicsView):
                     anchor_offsets[(uid, anchor_type, anchor_index)] = offset
                 if is_construction:
                     construction_ids.add(uid)
-
-        if len(item_positions) < 2:
-            return True  # Not enough items to form a conflict — optimistically allow
 
         deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
 
@@ -2471,7 +2480,7 @@ class CanvasView(QGraphicsView):
             if getattr(item, "item_id", None) not in fixed_ids:
                 continue
             if item.flags() & movable:
-                self._fixed_drag_flag_restore.add(item)
+                self._fixed_drag_flag_restore[item] = True
                 item.setFlag(movable, False)
 
     def _thaw_fixed_drag_items(self) -> None:
@@ -2479,10 +2488,22 @@ class CanvasView(QGraphicsView):
         from PyQt6.QtWidgets import QGraphicsItem
 
         movable = QGraphicsItem.GraphicsItemFlag.ItemIsMovable
-        for item in self._fixed_drag_flag_restore:
-            if item.scene() is not None:
-                item.setFlag(movable, True)
+        for item, was_movable in self._fixed_drag_flag_restore.items():
+            # Restore the recorded value even when the item left the scene
+            # during the gesture (delete + undo must not come back frozen), but
+            # never overrule a layer that became locked in the meantime.
+            allowed = was_movable and not self._layer_is_locked_for(item)
+            item.setFlag(movable, allowed)
         self._fixed_drag_flag_restore.clear()
+
+    def _layer_is_locked_for(self, item: QGraphicsItem) -> bool:
+        """Whether *item*'s current layer is locked (the scene's movable rule)."""
+        layer_id = getattr(item, "layer_id", None)
+        get_layer = getattr(self._canvas_scene, "get_layer_by_id", None)
+        if layer_id is None or not callable(get_layer):
+            return False
+        layer = get_layer(layer_id)
+        return bool(getattr(layer, "locked", False))
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Handle mouse move for panning, tool operations, and coordinate updates."""
@@ -3189,8 +3210,11 @@ class CanvasView(QGraphicsView):
     def _compute_constraint_solve_moves(
         self,
         extra_pinned: set | None = None,
+        scope_ids: set | None = None,
     ) -> tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]:
-        return self._drag_constraints._compute_constraint_solve_moves(extra_pinned)
+        return self._drag_constraints._compute_constraint_solve_moves(
+            extra_pinned, scope_ids=scope_ids
+        )
 
     def _delete_selected_items(self) -> None:
         """Delete all selected items from the scene with undo support.

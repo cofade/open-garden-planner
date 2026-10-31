@@ -139,6 +139,7 @@ class FilletTool(CornerEditTool):
             target, tin_scene, tout_scene
         )
         if new_host is None:
+            self._notify_constrained()
             return
 
         cmd = FilletCornerCommand(
@@ -152,6 +153,14 @@ class FilletTool(CornerEditTool):
     def _notify_too_large(self) -> None:
         msg = QCoreApplication.translate(
             "FilletTool", "Fillet radius too large for this corner"
+        )
+        if hasattr(self._view, "set_status_message"):
+            self._view.set_status_message(msg)
+
+    def _notify_constrained(self) -> None:
+        msg = QCoreApplication.translate(
+            "FilletTool",
+            "Cannot round this corner: a constraint is attached to one of its vertices",
         )
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)

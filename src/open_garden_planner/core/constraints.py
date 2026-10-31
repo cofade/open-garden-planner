@@ -816,6 +816,12 @@ class ConstraintGraph:
             if c.constraint_type != ConstraintType.FIXED:
                 continue
             fixed_id = c.anchor_a.item_id
+            # Only pin a FIXED item this solve actually owns.  A scoped solve
+            # (validate_constraint) deliberately drops out-of-component items;
+            # re-adding one here would let an unrelated locked pair make the
+            # trial non-convergent (#670 review, P1).
+            if fixed_id not in item_positions:
+                continue
             pinned_items.add(fixed_id)
             if c.target_x is not None and c.target_y is not None:
                 item_positions = dict(item_positions)
@@ -1485,6 +1491,13 @@ class ConstraintGraph:
             True  — constraint is compatible with the existing system.
             False — adding the constraint would cause an irresolvable conflict.
         """
+        trial_ids = {anchor_a.item_id, anchor_b.item_id}
+        if anchor_c is not None:
+            trial_ids.add(anchor_c.item_id)
+        if not trial_ids.issubset(item_positions):
+            # A missing anchor cannot prove feasibility (#670 review, P2).  This
+            # used to solve an empty graph and report "converged".
+            return False
         temp = self.add_constraint(
             anchor_a=anchor_a,
             anchor_b=anchor_b,
@@ -1625,6 +1638,7 @@ class ConstraintGraph:
         deformable_items: set[UUID] | None = None,
         deformable_vertices: dict[UUID, list[tuple[float, float]]] | None = None,
         tolerance: float = 1.0,
+        pinned_items: set[UUID] | None = None,
     ) -> list[UUID]:
         """Return IDs of existing constraints that would be violated by ``trial_constraint``.
 
@@ -1633,29 +1647,61 @@ class ConstraintGraph:
         exceed ``tolerance`` — i.e. constraints the solver had to sacrifice in
         order to satisfy the trial one.  Empty list means the trial constraint
         is compatible with everything already in the graph.
+
+        The trial only touches the connected component it joins: the solve, the
+        reconstructed positions and the scan are all restricted to it.  Solving
+        the whole plan here was the same defect as ``validate_constraint``'s
+        (#670 cause 1) one layer down — an unrelated violated component reported
+        a false conflict.  ``pinned_items`` mirrors what the application will
+        hold still (construction geometry plus ``_constraint_reference_pins``);
+        a trial that pins different references answers a different question
+        (#670 cause 2).
+
+        ``tolerance`` stays a caller decision: the conflict dialog asks "would
+        this distort an existing relation visibly?" (1.0 cm), not "is the solve
+        exact?" (``APPLY_TOLERANCE_CM``).
         """
         self._constraints[trial_constraint.constraint_id] = trial_constraint
         try:
+            component = self.get_connected_component(trial_constraint.anchor_a.item_id)
+            scoped_positions = {
+                uid: position
+                for uid, position in item_positions.items()
+                if uid in component
+            }
+            scoped_offsets = {
+                key: offset
+                for key, offset in anchor_offsets.items()
+                if key[0] in component
+            }
+            scoped_deformable = {
+                uid for uid in (deformable_items or set()) if uid in component
+            }
+            scoped_vertices = {
+                uid: vertices
+                for uid, vertices in (deformable_vertices or {}).items()
+                if uid in component
+            }
             result = self.solve_anchored(
-                item_positions=item_positions,
-                anchor_offsets=anchor_offsets,
-                pinned_items=set(),
+                item_positions=scoped_positions,
+                anchor_offsets=scoped_offsets,
+                pinned_items=set(pinned_items or set()) & component,
                 max_iterations=50,
                 tolerance=tolerance,
-                deformable_items=deformable_items,
-                deformable_vertices=deformable_vertices,
+                deformable_items=scoped_deformable,
+                deformable_vertices=scoped_vertices,
             )
         finally:
             del self._constraints[trial_constraint.constraint_id]
 
         # Rebuild resolved anchor positions from deltas
-        resolved_item_pos: dict[UUID, tuple[float, float]] = dict(item_positions)
+        resolved_item_pos: dict[UUID, tuple[float, float]] = dict(scoped_positions)
         for uid, (dx, dy) in result.item_deltas.items():
-            base = item_positions[uid]
+            base = scoped_positions[uid]
             resolved_item_pos[uid] = (base[0] + dx, base[1] + dy)
         resolved_vertex_pos: dict[tuple[UUID, int], tuple[float, float]] = {}
-        if deformable_vertices:
-            for uid, verts in deformable_vertices.items():
+        if scoped_vertices:
+            for uid, verts in scoped_vertices.items():
                 for vi, (vx, vy) in enumerate(verts):
                     resolved_vertex_pos[(uid, vi)] = (vx, vy)
         if resolved_vertex_pos:
@@ -1678,14 +1724,14 @@ class ConstraintGraph:
 
         def anchor_pos(anchor: AnchorRef) -> tuple[float, float]:
             if (
-                deformable_items
-                and anchor.item_id in deformable_items
+                scoped_deformable
+                and anchor.item_id in scoped_deformable
                 and anchor.anchor_type in {AnchorType.CORNER, AnchorType.ENDPOINT}
             ):
                 vp = resolved_vertex_pos.get((anchor.item_id, anchor.anchor_index))
                 if vp is not None:
                     return vp
-            off = anchor_offsets.get(
+            off = scoped_offsets.get(
                 (anchor.item_id, anchor.anchor_type, anchor.anchor_index), (0.0, 0.0)
             )
             base = resolved_item_pos.get(anchor.item_id, (0.0, 0.0))
@@ -1701,6 +1747,10 @@ class ConstraintGraph:
             ):
                 # Rotation-only and pinning types aren't meaningfully evaluated
                 # from positions alone — skip.
+                continue
+            # Only constraints inside the trial's component can be affected by
+            # it; the rest were never variables of this solve.
+            if c.anchor_a.item_id not in component and c.anchor_b.item_id not in component:
                 continue
             ax, ay = anchor_pos(c.anchor_a)
             bx, by = anchor_pos(c.anchor_b)
@@ -1764,6 +1814,32 @@ class ConstraintGraph:
             constraint.target_x, constraint.target_y = position
             repaired += 1
         return repaired
+
+    def has_vertex_anchor(self, item_id: UUID) -> bool:
+        """True if any constraint anchors a corner or endpoint of *item_id*.
+
+        Used by the corner-edit tools (#668 review): a chamfer/fillet replaces
+        one vertex with two, which renumbers every later CORNER/ENDPOINT index.
+        Such an item is refused rather than silently retargeting the user's
+        constraints to a different vertex.
+        """
+        vertex_types = {AnchorType.CORNER, AnchorType.ENDPOINT}
+        for cid in self._adjacency.get(item_id, set()):
+            constraint = self._constraints.get(cid)
+            if constraint is None:
+                continue
+            for ref in (constraint.anchor_a, constraint.anchor_b, constraint.anchor_c):
+                if (
+                    ref is not None
+                    and ref.item_id == item_id
+                    and ref.anchor_type in vertex_types
+                ):
+                    return True
+        return False
+
+    def has_item_constraint(self, item_id: UUID) -> bool:
+        """True if any constraint references *item_id* at all."""
+        return bool(self._adjacency.get(item_id))
 
     def clear(self) -> None:
         """Remove all constraints."""

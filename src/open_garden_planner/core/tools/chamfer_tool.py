@@ -102,6 +102,7 @@ class ChamferTool(CornerEditTool):
             target, cut_in_scene, cut_out_scene
         )
         if new_host is None:
+            self._notify_constrained()
             return
 
         cmd = ChamferCornerCommand(
@@ -114,6 +115,14 @@ class ChamferTool(CornerEditTool):
     def _notify_too_large(self) -> None:
         msg = QCoreApplication.translate(
             "ChamferTool", "Chamfer distance too large for this corner"
+        )
+        if hasattr(self._view, "set_status_message"):
+            self._view.set_status_message(msg)
+
+    def _notify_constrained(self) -> None:
+        msg = QCoreApplication.translate(
+            "ChamferTool",
+            "Cannot chamfer this corner: a constraint is attached to one of its vertices",
         )
         if hasattr(self._view, "set_status_message"):
             self._view.set_status_message(msg)

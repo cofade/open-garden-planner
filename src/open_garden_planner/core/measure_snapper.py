@@ -83,6 +83,11 @@ def resolve_anchor_point(
                 and anchor.anchor_index == anchor_index
             ):
                 return anchor.point
+        # The edge this reference names no longer exists (a vertex was deleted).
+        # Falling through to the first edge of the same type would project the
+        # anchor onto the wrong edge; no answer is safer than a wrong one
+        # (#670 review, P2).
+        return None
     for anchor in anchors:
         if (
             anchor.anchor_type == anchor_type

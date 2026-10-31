@@ -322,8 +322,11 @@ class BezierItem(CurveEditMixin, QGraphicsPathItem):
     # ------------------------------------------------------------------
 
     def _point_to_dict(self, p: QPointF, in_scene: bool = True) -> dict[str, float]:
+        # Parent frame, not scene frame (#661): a grouped curve must save into
+        # the frame the loader recreates it in.  For a top-level item
+        # mapToParent() == mapToScene().
         if in_scene:
-            sp = self.mapToScene(p)
+            sp = self.mapToParent(p)
             return {"x": sp.x(), "y": sp.y()}
         return {"x": p.x(), "y": p.y()}
 

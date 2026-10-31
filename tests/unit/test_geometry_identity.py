@@ -2,11 +2,11 @@
 
 Three different ways this codebase has lost an object's *identity or frame*:
 
-* #657 â€” an interactive circle resize recomputed the derived centre as
+* #657 — an interactive circle resize recomputed the derived centre as
   ``width/2, height/2`` although the circle's rect has a non-zero origin.
-* #661 â€” a rotated shape inside a group was serialized in a frame that only
+* #661 — a rotated shape inside a group was serialized in a frame that only
   existed because of Qt's reparent compensation, so it moved on reload.
-* #668 â€” chamfer/fillet replaced a named bed with a new UUID, orphaning its
+* #668 — chamfer/fillet replaced a named bed with a new UUID, orphaning its
   name, metadata, plant links, garden records and constraints.
 """
 
@@ -23,6 +23,7 @@ from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
 from open_garden_planner.ui.canvas.items.ellipse_item import EllipseItem
+from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.canvas.items.resize_handle import ResizeHandle
 
 _ROTATIONS = [0.0, 30.0, 90.0, 215.0]
@@ -57,7 +58,7 @@ def _drag_handle(handle: ResizeHandle, delta: QPointF) -> None:
     handle.mouseReleaseEvent(mouse)
 
 
-# â”€â”€ #657: a handle resize must not displace the stored circle centre â”€â”€â”€â”€â”€â”€
+# ── #657: a handle resize must not displace the stored circle centre ──────
 
 
 @pytest.mark.parametrize("rotation", _ROTATIONS)
@@ -140,7 +141,7 @@ def test_ellipse_handle_resize_is_the_control(
     assert serialized_centre == item.mapToScene(item.rect().center())
 
 
-# â”€â”€ #661: a rotated shape inside a group must round-trip in its own frame â”€â”€
+# ── #661: a rotated shape inside a group must round-trip in its own frame ──
 
 
 def _shape(kind: str):
@@ -234,7 +235,96 @@ def test_rotated_grouped_shape_round_trips(
     assert _shape_centre(twice).y() == pytest.approx(centre_before.y(), abs=1e-6)
 
 
-# â”€â”€ #668: a corner edit must keep the bed's identity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+@pytest.mark.parametrize("kind", ["arc", "bezier"])
+def test_grouped_curves_round_trip_in_their_parent_frame(
+    canvas: CanvasView, tmp_path, qtbot: object, kind: str
+) -> None:
+    """Arc and Bezier wrote SCENE coordinates; a group child moves on reload."""
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.project import ProjectManager
+    from open_garden_planner.ui.canvas.items.arc_item import ArcItem
+    from open_garden_planner.ui.canvas.items.bezier_item import BezierItem
+
+    scene = canvas.scene()
+    if kind == "arc":
+        curve = ArcItem(QPointF(200.0, 200.0), 80.0, 0.0, 90.0)
+
+        def probe(item):
+            return item.mapToScene(item._center)
+
+    else:
+        curve = BezierItem(
+            [QPointF(100, 100), QPointF(300, 250)],
+            [QPointF(80, 140), QPointF(260, 200)],
+            [QPointF(160, 60), QPointF(340, 300)],
+        )
+
+        def probe(item):
+            return item.mapToScene(item._anchors[0])
+
+    scene.addItem(curve)
+    companion = RectangleItem(900, 900, 100, 100)
+    scene.addItem(companion)
+    GroupCommand(scene, [curve, companion]).execute()
+    group = next(item for item in scene.items() if item.__class__.__name__ == "GroupItem")
+    group.setPos(group.pos() + QPointF(120.0, 80.0))
+
+    before = probe(curve)
+    curve_id = curve.item_id
+    path = tmp_path / f"group-{kind}.ogp"
+    ProjectManager().save(scene, path)
+
+    loaded_scene = CanvasScene(width_cm=8000, height_cm=6000)
+    ProjectManager().load(loaded_scene, path)
+    loaded = next(
+        item
+        for item in loaded_scene.items()
+        if getattr(item, "item_id", None) == curve_id
+    )
+    after = probe(loaded)
+    assert after.x() == pytest.approx(before.x(), abs=1e-6), (
+        f"the grouped {kind} moved horizontally on reload"
+    )
+    assert after.y() == pytest.approx(before.y(), abs=1e-6), (
+        f"the grouped {kind} moved vertically on reload"
+    )
+
+
+def test_nested_groups_round_trip(canvas: CanvasView, tmp_path, qtbot: object) -> None:
+    """A group inside a group must keep every member where it was."""
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.project import ProjectManager
+
+    scene = canvas.scene()
+    first = RectangleItem(100, 100, 120, 60)
+    second = RectangleItem(400, 100, 120, 60)
+    third = RectangleItem(700, 400, 120, 60)
+    for item in (first, second, third):
+        scene.addItem(item)
+    GroupCommand(scene, [first, second]).execute()
+    inner = next(item for item in scene.items() if item.__class__.__name__ == "GroupItem")
+    GroupCommand(scene, [inner, third]).execute()
+    outer = next(
+        item
+        for item in scene.items()
+        if item.__class__.__name__ == "GroupItem" and item is not inner
+    )
+    outer.setPos(outer.pos() + QPointF(-60.0, 45.0))
+
+    centres = {item.item_id: _shape_centre(item) for item in (first, second, third)}
+    path = tmp_path / "nested.ogp"
+    ProjectManager().save(scene, path)
+
+    loaded_scene = CanvasScene(width_cm=8000, height_cm=6000)
+    ProjectManager().load(loaded_scene, path)
+    for item_id, centre in centres.items():
+        loaded = loaded_scene.find_item_by_id(item_id)
+        assert loaded is not None
+        assert _shape_centre(loaded).x() == pytest.approx(centre.x(), abs=1e-6)
+        assert _shape_centre(loaded).y() == pytest.approx(centre.y(), abs=1e-6)
+
+
+# ── #668: a corner edit must keep the bed's identity ───────────────────────
 
 
 def _a_referenced_bed(scene):
@@ -282,6 +372,7 @@ def test_corner_edit_keeps_the_bed_identity(
 
     scene = canvas.scene()
     bed, plant = _a_referenced_bed(scene)
+    bed.stack_order = 500
     records = _Records(bed.item_id)
     old_id = bed.item_id
 
@@ -306,6 +397,7 @@ def test_corner_edit_keeps_the_bed_identity(
     assert str(new_item.item_id) in records.harvest
     assert plant.parent_bed_id == new_item.item_id, "the plant lost its parent"
     assert plant.item_id in new_item.child_item_ids
+    assert new_item.stack_order == 500, "the bed must keep its place in the stack"
 
     # Undo/redo must also keep identity, not alternate between two objects.
     canvas.command_manager.undo()
@@ -316,8 +408,8 @@ def test_corner_edit_keeps_the_bed_identity(
     assert plant.parent_bed_id == old_id
 
 
-def test_trim_keeps_the_bed_identity(canvas: CanvasView, qtbot: object) -> None:
-    """A trim replaces the shape too, so it must keep the referenced UUID."""
+def test_trim_refuses_a_referenced_bed(canvas: CanvasView, qtbot: object) -> None:
+    """Trimming a bed would turn it into a fence; the tool must refuse (#668)."""
     from open_garden_planner.core.tools.trim_tool import TrimExtendTool, _TrimTarget
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 
@@ -337,21 +429,96 @@ def test_trim_keeps_the_bed_identity(canvas: CanvasView, qtbot: object) -> None:
     )
     tool._trim_polygon(target)
 
-    assert bed.scene() is None
+    assert bed.scene() is scene, "the bed must survive a refused trim"
+    assert not [
+        item for item in scene.items() if isinstance(item, PolylineItem)
+    ], "no replacement line may be created"
+    assert plant.parent_bed_id == old_id
+    assert str(old_id) in records.soil
+
+
+def test_trim_keeps_a_plain_shape_identity(canvas: CanvasView, qtbot: object) -> None:
+    """A plain, unconstrained polygon keeps its UUID through a trim."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.tools.trim_tool import TrimExtendTool, _TrimTarget
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.GENERIC_POLYGON,
+    )
+    polygon.name = "Path piece"
+    polygon.stack_order = 700
+    scene.addItem(polygon)
+    old_id = polygon.item_id
+
+    TrimExtendTool(canvas)._trim_polygon(
+        _TrimTarget(
+            item=polygon,
+            seg_index=0,
+            t_start=0.3,
+            t_end=0.7,
+            p1_scene=QPointF(400.0, 400.0),
+            p2_scene=QPointF(800.0, 400.0),
+        )
+    )
+
+    assert polygon.scene() is None
     trimmed = next(
         item
         for item in scene.items()
         if isinstance(item, PolylineItem) and item.item_id == old_id
     )
-    assert trimmed.name == "Bed A"
-    assert trimmed.metadata == {"garden_tracking": {"zone_id": str(old_id)}}
-    assert plant.parent_bed_id == old_id
-    assert plant.item_id in trimmed.child_item_ids
-    assert str(trimmed.item_id) in records.soil
-    # The open shape stays where the bed was, not at the scene origin (an
-    # unrotated bed drawn at 400/400 has pos (0, 0), so the check that matters
-    # is that every point is still inside the bed's old bounds).
+    assert trimmed.name == "Path piece"
+    assert trimmed.stack_order == 700
     scene_points = [trimmed.mapToScene(point) for point in trimmed.points]
     assert all(399.0 <= point.x() <= 801.0 for point in scene_points)
     assert all(399.0 <= point.y() <= 701.0 for point in scene_points)
+
+
+@pytest.mark.parametrize("tool_name", ["chamfer", "fillet"])
+def test_corner_edit_refuses_a_vertex_constrained_item(
+    canvas: CanvasView, qtbot: object, tool_name: str
+) -> None:
+    """Replacing a constrained vertex would retarget the anchor; refuse (#668)."""
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.core.tools.chamfer_tool import ChamferTool
+    from open_garden_planner.core.tools.corner_edit_base import find_nearest_corner
+    from open_garden_planner.core.tools.fillet_tool import FilletTool
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+
+    scene = canvas.scene()
+    polygon = PolygonItem(
+        [
+            QPointF(400, 400),
+            QPointF(800, 400),
+            QPointF(800, 700),
+            QPointF(400, 700),
+        ],
+        object_type=ObjectType.RAISED_BED,
+    )
+    scene.addItem(polygon)
+    constraint = scene.constraint_graph.add_constraint(
+        AnchorRef(polygon.item_id, AnchorType.CORNER, 0),
+        AnchorRef(polygon.item_id, AnchorType.CENTER),
+        200.0,
+    )
+    target = find_nearest_corner(canvas, QPointF(400.0, 400.0))
+    assert target is not None and target.item is polygon
+    tool = ChamferTool(canvas) if tool_name == "chamfer" else FilletTool(canvas)
+    tool.apply_to_target(target)
+
+    assert polygon.scene() is scene, "nothing may be replaced"
+    assert scene.constraint_graph.constraints[constraint.constraint_id] is (
+        constraint
+    ), "the constraint must still anchor the same item"
+    assert polygon.item_id == constraint.anchor_a.item_id
 
