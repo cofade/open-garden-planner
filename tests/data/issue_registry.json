@@ -641,7 +641,7 @@
   },
   "452": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "3D: the first build of a plan costs the sum of its items on the GUI thread (no plan-wide budget), and very long outlines are left out of 3D"
   },
   "453": {
@@ -1138,5 +1138,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "3D: a filleted fence/wall corner renders as a solid curved block (posts must follow the arc at straight-run spacing)"
+  },
+  "676": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#452): sliced whole-plan preparation, a geometry lane, and native triangulation"
   }
 }
