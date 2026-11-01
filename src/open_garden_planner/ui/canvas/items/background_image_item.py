@@ -20,6 +20,7 @@ background costs about 1.2 s of main-thread time per read for unchanged bytes.
 """
 
 import base64
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -51,9 +52,11 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.plan_io import PlanValidationError, finite_number
 
+logger = logging.getLogger(__name__)
+
 # Decoded-size allowance for ONE background decode, in MB. Qt's default is 256,
 # which rejects any image over ~67 megapixels at RGBA8 — below a real site plan
-# (the reported case is 9917 x 7009, 278 MiB decoded). #659.
+# (the reported case is 9917 x 7009: 278 MB, 265 MiB, decoded). #659.
 DECODE_ALLOCATION_LIMIT_MB = 512
 
 # Accepted pixel count of a background. The item holds the decoded pixmap twice
@@ -71,12 +74,13 @@ def _decode_budget(limit_mb: int = DECODE_ALLOCATION_LIMIT_MB) -> Iterator[None]
     ``QImageReader.setAllocationLimit`` is a process-wide static, not a per-reader
     setting, so the previous value is restored in ``finally``. A raise that leaked
     would let every later decode in the application allocate more than it should.
-    An environment that already permits more (or has disabled the limit with -1)
-    keeps its own budget. Both callers (the import action and plan load) run on the
-    GUI thread, so the widened window is not observable by another decode path.
+    Zero means *disabled* (Qt normalises ``-1`` to it too), so a budget that is
+    already disabled or already larger is left untouched rather than narrowed.
+    Every caller runs on the GUI thread — the import action, plan load and the
+    satellite import — so the widened window is not observable by another decode.
     """
     previous = QImageReader.allocationLimit()
-    raised = 0 <= previous < limit_mb
+    raised = 0 < previous < limit_mb
     if raised:
         QImageReader.setAllocationLimit(limit_mb)
     try:
@@ -105,7 +109,9 @@ def _check_image_size(size: QSize) -> None:
             "of memory. Background images are limited to {limit} megapixels.",
         ).format(
             megapixels=f"{pixels / 1_000_000:.1f}",
-            megabytes=pixels * 4 // (1024 * 1024),
+            # The item keeps the decoded pixmap twice (original + flipped copy);
+            # reporting one copy would understate the cost of what is being refused.
+            megabytes=pixels * 8 // 1_000_000,
             limit=f"{MAX_BACKGROUND_PIXELS / 1_000_000:.0f}",
         )
     )
@@ -157,8 +163,14 @@ def _encode_png_base64(pixmap: QPixmap) -> str:
     if not saved:
         # Internal invariant, not user input: an unencodable pixmap must fail the
         # save loudly rather than write an empty image_data that reloads as a
-        # placeholder (the data-loss shape AUD-043 exists to prevent).
-        raise RuntimeError("Failed to encode the background image as PNG")
+        # placeholder (the data-loss shape AUD-043 exists to prevent). Translated
+        # because ProjectManager.save shows str(error) in a dialog.
+        raise RuntimeError(
+            QCoreApplication.translate(
+                "BackgroundImageItem",
+                "Failed to encode the background image as PNG",
+            )
+        )
     return encoded
 
 
@@ -415,7 +427,9 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         Honors a saved ``geo_metadata`` block (present for satellite imports);
         older projects without one keep loading unchanged.
         If image file loading or decoding fails, returns a placeholder item
-        that preserves data on re-save (AUD-043).
+        that preserves data on re-save (AUD-043). The refusal reason is logged:
+        an image above the size cap otherwise degrades to a dashed
+        "[Missing Image: ...]" box with nothing in the log to explain why.
         """
         image_path = data.get("image_path", "")
         geo_metadata = data.get("geo_metadata")
@@ -432,7 +446,13 @@ class BackgroundImageItem(QGraphicsPixmapItem):
                 item = cls(image_path, geo_metadata=geo_metadata)
         except PlanValidationError:
             raise
-        except Exception:
+        except Exception as error:
+            logger.warning(
+                "Background image could not be decoded; loading a placeholder "
+                "that keeps its data on re-save: path=%r reason=%s",
+                image_path,
+                error,
+            )
             item = cls(
                 image_path,
                 geo_metadata=geo_metadata,

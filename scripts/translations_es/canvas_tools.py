@@ -30,6 +30,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             'No se pudo cargar la imagen desde los datos incrustados'
         ),
         'Failed to load image: {path}': 'No se pudo cargar la imagen: {path}',
+        'Failed to encode the background image as PNG': (
+            'No se pudo codificar la imagen de fondo como PNG'
+        ),
         'Lock Image': 'Bloquear imagen',
         'Remove Image': 'Quitar imagen',
         'Set Opacity ({pct}%)...': 'Establecer opacidad ({pct}%)...',

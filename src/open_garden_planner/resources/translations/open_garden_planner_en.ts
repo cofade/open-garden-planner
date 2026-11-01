@@ -336,42 +336,47 @@
     <context>
         <name>BackgroundImageItem</name>
         <message>
-            <location filename="../../ui/canvas/items/background_image_item.py" line="489" />
+            <location filename="../../ui/canvas/items/background_image_item.py" line="521" />
             <source>Calibrate Scale...</source>
             <translation>Calibrate Scale...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/background_image_item.py" line="136" />
+            <location filename="../../ui/canvas/items/background_image_item.py" line="169" />
+            <source>Failed to encode the background image as PNG</source>
+            <translation>Failed to encode the background image as PNG</translation>
+        </message>
+        <message>
+            <location filename="../../ui/canvas/items/background_image_item.py" line="149" />
             <source>Failed to load image from embedded data</source>
             <translation>Failed to load image from embedded data</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/background_image_item.py" line="114" />
+            <location filename="../../ui/canvas/items/background_image_item.py" line="127" />
             <source>Failed to load image: {path}</source>
             <translation>Failed to load image: {path}</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/background_image_item.py" line="505" />
+            <location filename="../../ui/canvas/items/background_image_item.py" line="537" />
             <source>Lock Image</source>
             <translation>Lock Image</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/background_image_item.py" line="513" />
+            <location filename="../../ui/canvas/items/background_image_item.py" line="545" />
             <source>Remove Image</source>
             <translation>Remove Image</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/background_image_item.py" line="495" />
+            <location filename="../../ui/canvas/items/background_image_item.py" line="527" />
             <source>Set Opacity ({pct}%)...</source>
             <translation>Set Opacity ({pct}%)...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/background_image_item.py" line="95" />
+            <location filename="../../ui/canvas/items/background_image_item.py" line="106" />
             <source>This image is {megapixels} megapixels and needs about {megabytes} MB of memory. Background images are limited to {limit} megapixels.</source>
             <translation>This image is {megapixels} megapixels and needs about {megabytes} MB of memory. Background images are limited to {limit} megapixels.</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/background_image_item.py" line="503" />
+            <location filename="../../ui/canvas/items/background_image_item.py" line="535" />
             <source>Unlock Image</source>
             <translation>Unlock Image</translation>
         </message>

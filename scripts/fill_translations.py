@@ -155,6 +155,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Failed to load image from embedded data": (
             "Bild konnte nicht aus eingebetteten Daten geladen werden"
         ),
+        "Failed to encode the background image as PNG": (
+            "Das Hintergrundbild konnte nicht als PNG gespeichert werden"
+        ),
         "This image is {megapixels} megapixels and needs about {megabytes} MB "
         "of memory. Background images are limited to {limit} megapixels.": (
             "Dieses Bild hat {megapixels} Megapixel und benötigt etwa {megabytes} MB "

@@ -3885,11 +3885,14 @@ re-encode it.
   307,004-character payload (0.48 s at 6000 x 5000 — the cost is linear in pixels). The encoded
   string is now built once and reused, keyed on `QPixmap.cacheKey()` so any pixmap change
   invalidates it; the placeholder path still returns its raw dictionary untouched.
-- **Evidence.** 11 tests observed failing first on the pre-fix tree
-  (`tests/unit/test_background_image_item.py`, `tests/integration/test_background_image_portable.py`),
-  including a save → source-file-deleted → reload at a lowered process budget (the placeholder
-  regression) and a two-read snapshot that must encode once. The 1:1 275 MiB case is an
-  owner manual test; the automated tests lower the process budget to 4 MB and use a
+- **Evidence.** 17 new tests (`tests/unit/test_background_image_item.py`,
+  `tests/integration/test_background_image_portable.py`); **11 of them were observed failing**
+  on the pre-fix tree, including a save → source-file-deleted → reload at a lowered process
+  budget (the placeholder regression) and a two-read snapshot that must encode once. The other
+  six pin paths that cannot exist before the helper: budget restoration (after success, after a
+  refusal, when the environment already allows more, and when the check is disabled with `0`),
+  the pair-based refusal message, the encode guard and the placeholder log. The 1:1 275 MiB case
+  is an owner manual test; the automated tests lower the process budget to 4 MB and use a
   2000 x 2000 image, which is the same code path with no CI memory spike.
 - **Docs.** FR-IMG-12/13; §8.7 (error handling) extended; new pitfalls PF-PER-22/23;
   no `.ogp` change and no `FILE_VERSION` bump (the embedded key already existed).

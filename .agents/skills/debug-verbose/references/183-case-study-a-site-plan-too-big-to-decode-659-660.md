@@ -69,8 +69,11 @@ pixels.
   `errorString()` before blaming the asset.
 - **The failure mode of a raised limit is a leak of the limit itself.** It is a
   static: raise it in a `contextmanager` with `finally`, never as a module-level
-  `setAllocationLimit()` call at import, and prefer `max(previous, wanted)` so an
-  environment with a bigger budget keeps it.
+  `setAllocationLimit()` call at import. And do not "raise" blindly — Qt spells
+  "no limit" as **0** (`-1` is normalised to it), so a condition like
+  `previous < wanted` that accepts 0 silently narrows a deliberately disabled
+  check to your own budget. Raise only when the current value is a positive
+  number below yours.
 - **Check the second copy.** The fix that makes a 275 MiB image loadable also
   makes the flipped copy in `__init__` 275 MiB. The real budget is the pair, so
   the accepted pixel count has to be stated for the pair.

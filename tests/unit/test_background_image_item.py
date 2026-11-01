@@ -1,9 +1,11 @@
 """Unit tests for BackgroundImageItem."""
 
+import base64
+import logging
 from pathlib import Path
 
 import pytest
-from PyQt6.QtCore import QBuffer, QIODevice, QPointF
+from PyQt6.QtCore import QBuffer, QIODevice, QPointF, QSize
 from PyQt6.QtGui import QColor, QImage, QImageReader, QPixmap
 from PyQt6.QtWidgets import QGraphicsItem
 
@@ -338,6 +340,31 @@ class TestDecodeAllocationBudget:
         finally:
             QImageReader.setAllocationLimit(previous)
 
+    def test_a_disabled_budget_is_not_narrowed(
+        self, qtbot, test_image_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """0 means "no allocation limit"; raising it to 512 would narrow it.
+
+        Observed *inside* the decode window, because a wrong raise is restored
+        afterwards and would otherwise be invisible.
+        """
+        seen: list[int] = []
+        real_check = bg_module._check_image_size
+
+        def spy(size: QSize) -> None:
+            seen.append(QImageReader.allocationLimit())
+            real_check(size)
+
+        monkeypatch.setattr(bg_module, "_check_image_size", spy)
+        previous = QImageReader.allocationLimit()
+        QImageReader.setAllocationLimit(0)
+        try:
+            BackgroundImageItem(str(test_image_path))
+            assert seen == [0], "a disabled decode budget must stay disabled"
+            assert QImageReader.allocationLimit() == 0
+        finally:
+            QImageReader.setAllocationLimit(previous)
+
     def test_the_limit_is_restored_after_a_refusal(
         self, qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -352,6 +379,15 @@ class TestDecodeAllocationBudget:
     ) -> None:
         monkeypatch.setattr(bg_module, "MAX_BACKGROUND_PIXELS", 1_000_000)
         with pytest.raises(ValueError, match="4.0 megapixels"):
+            BackgroundImageItem(str(_write_png(tmp_path / "huge.png", 2000, 2000)))
+
+    def test_the_refusal_reports_the_memory_of_both_copies(
+        self, qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # 4 MP at RGBA8 is 16 MB per copy; the item holds the original and the
+        # flipped copy, so the message must not report a single copy as the cost.
+        monkeypatch.setattr(bg_module, "MAX_BACKGROUND_PIXELS", 1_000_000)
+        with pytest.raises(ValueError, match="needs about 32 MB"):
             BackgroundImageItem(str(_write_png(tmp_path / "huge.png", 2000, 2000)))
 
     def test_an_oversized_embedded_image_is_refused(
@@ -446,5 +482,25 @@ class TestEncodedPngCache:
         # placeholder, so the failure must not be silent.
         with pytest.raises(RuntimeError, match="Failed to encode"):
             bg_module._encode_png_base64(QPixmap())
+
+    def test_a_refused_embedded_image_logs_why_it_became_a_placeholder(
+        self, qtbot, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A plan over the cap degrades to a placeholder; the log must say why."""
+        monkeypatch.setattr(bg_module, "MAX_BACKGROUND_PIXELS", 1_000_000)
+        data = {
+            "type": "background_image",
+            "image_path": "site_plan.png",
+            "image_data": base64.b64encode(_png_bytes(2000, 2000)).decode("ascii"),
+            "position": {"x": 0.0, "y": 0.0},
+        }
+
+        with caplog.at_level(logging.WARNING, logger=bg_module.__name__):
+            item = BackgroundImageItem.from_dict(data)
+
+        assert item.is_placeholder is True
+        messages = [record.getMessage() for record in caplog.records]
+        assert any("could not be decoded" in message for message in messages)
+        assert any("megapixels" in message for message in messages)
 
 

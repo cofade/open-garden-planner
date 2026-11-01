@@ -273,29 +273,35 @@ branches, the plain-shape control, rotation, and a save/reload of the result.
 - **Status:** standing
 - **Legacy:** none (new entry)
 
-A user's 9917 x 7009 cadastral plan is a 2.8 MB PNG and 278 MiB decoded. Qt's
-allocation limit is 256 MB by default, and it is a **static** on `QImageReader`,
-not a per-reader setting: `QPixmap(path)` and `loadFromData()` both honour it, so
-the import failed, and a plan that embedded the same image reopened as an
-AUD-043 placeholder — visibly missing, no error the user could act on. Measured
-on master `c48e4624` (reproducing the issue's numbers from `f4e5060`): at the default limit a 9000 x 8000 PNG (294 kB) decodes to
-`null` in 0.01 s; at 512 MB it loads in 0.20 s.
+A user's 9917 x 7009 cadastral plan is a 2.8 MB PNG and 278 MB (265 MiB) decoded.
+Qt's allocation limit is 256 MB by default, and it is a **static** on
+`QImageReader`, not a per-reader setting: `QPixmap(path)` and `loadFromData()`
+both honour it, so the import failed, and a plan that embedded the same image
+reopened as an AUD-043 placeholder — visibly missing, no error the user could
+act on. Measured on master `c48e4624` (reproducing the issue's numbers from
+`f4e5060`): at the default limit a 9000 x 8000 PNG (294 kB) decodes to `null` in
+0.01 s; at 512 MB it loads in 0.20 s.
 
 Two details are the actual lesson. First, **restore in `finally`**: the value is
 process-wide, so a raise that leaked would let every later decode in the
 application allocate more than it should, including ones the user never asked
-for; the helper takes `max(previous, limit)` so an environment that already
-permits more keeps its own budget. Second, the decoder budget is not the whole
+for; the helper raises only when the current budget is a positive number below
+its own, so an environment that already permits more — or has disabled the check
+outright, which Qt spells **0** (it normalises `-1` to 0) — keeps its own budget
+rather than being narrowed to 512 MB. Second, the decoder budget is not the whole
 cost: `BackgroundImageItem` keeps the pixmap twice (the original it serializes
 plus the vertically flipped copy it paints), so the pixel cap
 (`MAX_BACKGROUND_PIXELS`, 120 MP) bounds the pair and is checked from the
 **header** — `QImageReader(path).size()` and a `QImageReader` over the embedded
 bytes both report the size without decoding — so an oversized file is refused
-with a translated message before anything is allocated. A format that cannot
-report its size falls through to the decoder's own limit as the backstop. A 1:1
-regression test would need 275 MiB per copy, so the tests lower the process
-budget to 4 MB and use a 2000 x 2000 image: same code path, same failure mode,
-no CI memory spike.
+with a translated message before anything is allocated, and the message reports
+the pair's memory rather than one copy's. A format that cannot report its size
+falls through to the decoder's own limit as the backstop. A 1:1 regression test
+would need 275 MiB per copy, so the tests lower the process budget to 4 MB and
+use a 2000 x 2000 image: same code path, same failure mode, no CI memory spike.
+The "disabled stays disabled" case cannot be observed after the call (a wrong
+raise is restored), so that test spies on the budget from inside the decode
+window instead.
 
 ### PF-PER-23
 
