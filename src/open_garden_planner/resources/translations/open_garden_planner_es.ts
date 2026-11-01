@@ -631,7 +631,7 @@
             <translation>Copiado(s) {count} elemento(s)</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="450" />
+            <location filename="../../core/tools/offset_tool.py" line="454" />
             <source>Created a parallel line at {dist:.1f} cm</source>
             <translation>Línea paralela creada a {dist:.1f} cm</translation>
         </message>
@@ -656,7 +656,7 @@
             <translation>Creada matriz lineal de {count} elementos</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="457" />
+            <location filename="../../core/tools/offset_tool.py" line="461" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
             <translation>Creado desplazamiento {dir} de {dist:.1f} cm</translation>
         </message>
@@ -836,7 +836,7 @@
             <translation>Nada que pegar</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="439" />
+            <location filename="../../core/tools/offset_tool.py" line="443" />
             <source>Offset result is empty — try a smaller distance</source>
             <translation>El resultado del desplazamiento está vacío — pruebe con una distancia menor</translation>
         </message>
@@ -926,7 +926,7 @@
             <translation>Seleccione 2 o más elementos para agrupar</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="422" />
+            <location filename="../../core/tools/offset_tool.py" line="426" />
             <source>Select a shape to offset</source>
             <translation>Seleccione una forma para desplazar</translation>
         </message>
@@ -1120,12 +1120,12 @@
             <translation>Y</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="455" />
+            <location filename="../../core/tools/offset_tool.py" line="459" />
             <source>inward</source>
             <translation>hacia dentro</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="455" />
+            <location filename="../../core/tools/offset_tool.py" line="459" />
             <source>outward</source>
             <translation>hacia fuera</translation>
         </message>
@@ -2689,7 +2689,7 @@
             <translation type="vanished">Achaflanar (Mayús+C) — biselar una esquina</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="104" />
             <source>Chamfer — bevel a corner</source>
             <translation>Achaflanar — biselar una esquina</translation>
         </message>
@@ -2699,7 +2699,7 @@
             <translation>Coincidente</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="126" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="128" />
             <source>Constraints</source>
             <translation>Restricciones</translation>
         </message>
@@ -2733,7 +2733,7 @@
             <translation type="vanished">Redondear (Mayús+F) — redondear una esquina</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="103" />
             <source>Fillet — round a corner</source>
             <translation>Redondear — redondear una esquina</translation>
         </message>
@@ -2757,7 +2757,7 @@
             <translation type="vanished">Simetría (Mayús+M) — reflejar selección respecto a un eje</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="105" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="107" />
             <source>Mirror — reflect selection across an axis</source>
             <translation>Simetría — reflejar selección respecto a un eje</translation>
         </message>
@@ -2766,9 +2766,13 @@
             <translation type="vanished">Desfase (O) — copia paralela hacia adentro/afuera</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
             <source>Offset — parallel copy inward/outward</source>
-            <translation>Desfase — copia paralela hacia adentro/afuera</translation>
+            <translation type="vanished">Desfase — copia paralela hacia adentro/afuera</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <source>Offset — parallel copy or parallel line</source>
+            <translation>Desfase — copia paralela o línea paralela</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="69" />
@@ -8713,7 +8717,7 @@ Puede capturar la vista satelital directamente desde el mapa a continuación en 
     <context>
         <name>OffsetTool</name>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="368" />
+            <location filename="../../core/tools/offset_tool.py" line="372" />
             <source>Offset</source>
             <translation>Desplazamiento</translation>
         </message>

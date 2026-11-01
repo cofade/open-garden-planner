@@ -2517,18 +2517,13 @@ class ProjectManager(QObject):
                 # raised bed into a polygon that still claimed RAISED_BED, so the
                 # panel showed a Polygon with bed records while the wooden frame
                 # was gone.  Load such a plan as the garden bed it now is.
-                if object_type == ObjectType.RAISED_BED:
+                migrated_raised_bed = object_type == ObjectType.RAISED_BED
+                if migrated_raised_bed:
                     logging.getLogger(__name__).warning(
                         "Plan stores a raised bed as a polygon; loading it as a "
                         "garden bed"
                     )
                     object_type = ObjectType.GARDEN_BED
-                    if fill_pattern in (None, FillPattern.SOLID):
-                        # The old corner conversion copied the raised bed's
-                        # solid fill; a garden bed shows its soil pattern.
-                        from open_garden_planner.core.object_types import get_style
-
-                        fill_pattern = get_style(ObjectType.GARDEN_BED).fill_pattern
                 item = PolygonItem(
                     points,
                     object_type=object_type or ObjectType.GENERIC_POLYGON,
@@ -2562,6 +2557,12 @@ class ProjectManager(QObject):
                     item._apply_rotation(obj["rotation_angle"])
                 if obj.get("area_label_visible"):
                     item.area_label_visible = True
+                if migrated_raised_bed:
+                    from open_garden_planner.core.item_look import adopt_type_fill
+
+                    adopt_type_fill(
+                        item, ObjectType.RAISED_BED, ObjectType.GARDEN_BED
+                    )
                 return item
         elif obj_type == "callout":
             from open_garden_planner.ui.canvas.items.callout_item import CalloutItem

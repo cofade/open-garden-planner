@@ -27,7 +27,7 @@ TRANSLATIONS = {
         "Horizontal Alignment": "Alineación horizontal",
         "Horizontal Distance": "Distancia horizontal",
         "Mirror — reflect selection across an axis": "Simetría — reflejar selección respecto a un eje",
-        "Offset — parallel copy inward/outward": "Desfase — copia paralela hacia adentro/afuera",
+        "Offset — parallel copy or parallel line": "Desfase — copia paralela o línea paralela",
         "Parallel": "Paralelo",
         "Perpendicular": "Perpendicular",
         "Symmetry Constraint": "Restricción de simetría",

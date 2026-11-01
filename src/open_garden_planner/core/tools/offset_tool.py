@@ -355,13 +355,17 @@ def _offset_open_points(
 
 
 class OffsetTool(BaseTool):
-    """Offset a selected shape inward or outward by a specified distance.
+    """Offset a selected shape by a specified distance.
+
+    Closed shapes get an inward or outward area copy; a polyline gets a
+    parallel line on the cursor's side.
 
     Usage:
         1. Select a shape (rectangle, circle, ellipse, polygon, or polyline)
         2. Activate the Offset tool
-        3. Hover inside shape for inward preview, outside for outward preview
-        4. Click to confirm — enter distance in the dialog
+        3. Closed shapes: hover inside for inward / outside for outward.
+           Polylines: hover on the side the parallel line should take.
+        4. Click to confirm — the distance follows the cursor.
     """
 
     tool_type = ToolType.OFFSET

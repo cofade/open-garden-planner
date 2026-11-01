@@ -364,11 +364,10 @@ def rebuild_with_corner_replaced(
     (raised bed → garden bed); types with no polygonal form are refused.
     """
     from open_garden_planner.core.item_look import (
+        adopt_type_fill,
         copy_visual_style,
-        fill_brush,
         inherit_item_identity,
     )
-    from open_garden_planner.core.object_types import get_style
     from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
@@ -421,17 +420,11 @@ def rebuild_with_corner_replaced(
             layer_id=item.layer_id,
         )
         copy_visual_style(item, polygon_clone)
-        if mapped_type != getattr(item, "object_type", None):
-            # A real type change takes the new type's fill pattern (owner manual
-            # test 2026-10-31: a raised bed turned garden bed must show the soil
-            # pattern, not the raised bed's solid fill), while the colours stay
-            # the user's — the same compromise as keeping a custom fill.
-            style = get_style(mapped_type)
-            polygon_clone.fill_pattern = style.fill_pattern
-            colour = polygon_clone.fill_color
-            if colour is None:
-                colour = style.fill_color
-            polygon_clone.setBrush(fill_brush(polygon_clone, colour))
+        adopt_type_fill(
+            polygon_clone,
+            getattr(item, "object_type", None),
+            mapped_type,
+        )
         inherit_item_identity(item, polygon_clone)
         return polygon_clone
 

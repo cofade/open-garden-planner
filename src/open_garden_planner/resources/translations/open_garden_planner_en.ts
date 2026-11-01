@@ -631,7 +631,7 @@
             <translation>Copied {count} item(s)</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="450" />
+            <location filename="../../core/tools/offset_tool.py" line="454" />
             <source>Created a parallel line at {dist:.1f} cm</source>
             <translation>Created a parallel line at {dist:.1f} cm</translation>
         </message>
@@ -656,7 +656,7 @@
             <translation>Created linear array of {count} items</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="457" />
+            <location filename="../../core/tools/offset_tool.py" line="461" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
             <translation>Created {dir} offset of {dist:.1f} cm</translation>
         </message>
@@ -840,7 +840,7 @@
             <translation>Nothing to paste</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="439" />
+            <location filename="../../core/tools/offset_tool.py" line="443" />
             <source>Offset result is empty — try a smaller distance</source>
             <translation>Offset result is empty — try a smaller distance</translation>
         </message>
@@ -930,7 +930,7 @@
             <translation>Select 2 or more items to group</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="422" />
+            <location filename="../../core/tools/offset_tool.py" line="426" />
             <source>Select a shape to offset</source>
             <translation>Select a shape to offset</translation>
         </message>
@@ -1124,12 +1124,12 @@
             <translation>Y</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="455" />
+            <location filename="../../core/tools/offset_tool.py" line="459" />
             <source>inward</source>
             <translation>inward</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="455" />
+            <location filename="../../core/tools/offset_tool.py" line="459" />
             <source>outward</source>
             <translation>outward</translation>
         </message>
@@ -2757,7 +2757,7 @@
             <translation type="vanished">Chamfer (Shift+C) — bevel a corner</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="104" />
             <source>Chamfer — bevel a corner</source>
             <translation>Chamfer — bevel a corner</translation>
         </message>
@@ -2767,7 +2767,7 @@
             <translation>Coincident</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="126" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="128" />
             <source>Constraints</source>
             <translation>Constraints</translation>
         </message>
@@ -2805,7 +2805,7 @@
             <translation type="vanished">Fillet (Shift+F) — round a corner</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="103" />
             <source>Fillet — round a corner</source>
             <translation>Fillet — round a corner</translation>
         </message>
@@ -2833,7 +2833,7 @@
             <translation type="vanished">Mirror (Shift+M) — reflect selection across an axis</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="105" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="107" />
             <source>Mirror — reflect selection across an axis</source>
             <translation>Mirror — reflect selection across an axis</translation>
         </message>
@@ -2842,9 +2842,13 @@
             <translation type="vanished">Offset (O) — parallel copy inward/outward</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
             <source>Offset — parallel copy inward/outward</source>
-            <translation>Offset — parallel copy inward/outward</translation>
+            <translation type="vanished">Offset — parallel copy inward/outward</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <source>Offset — parallel copy or parallel line</source>
+            <translation>Offset — parallel copy or parallel line</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="69" />
@@ -8892,7 +8896,7 @@ You can capture the satellite view directly from the map below instead.</transla
             <translation type="vanished">Created {dir} offset of {dist:.1f} cm</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="368" />
+            <location filename="../../core/tools/offset_tool.py" line="372" />
             <source>Offset</source>
             <translation>Offset</translation>
         </message>

@@ -1827,8 +1827,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     "ConstraintToolbar": {
         "Constraints": "Randbedingungen",
         "Trim/Extend — X toggles mode": "Trimmen/Erweitern — X wechselt Modus",
-        "Offset — parallel copy inward/outward":
-            "Versatz — parallele Kopie nach innen/außen",
+        "Offset — parallel copy or parallel line":
+            "Versatz — parallele Kopie oder parallele Linie",
         "Fillet — round a corner": "Abrunden — Ecke abrunden",
         "Chamfer — bevel a corner": "Anfasen — Ecke abschrägen",
         "Mirror — reflect selection across an axis":

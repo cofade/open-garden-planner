@@ -643,7 +643,7 @@
             <translation>{count} Element(e) kopiert</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="450" />
+            <location filename="../../core/tools/offset_tool.py" line="454" />
             <source>Created a parallel line at {dist:.1f} cm</source>
             <translation>Parallele Linie mit Abstand {dist:.1f} cm erstellt</translation>
         </message>
@@ -668,7 +668,7 @@
             <translation>Lineares Muster mit {count} Objekten erstellt</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="457" />
+            <location filename="../../core/tools/offset_tool.py" line="461" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
             <translation>{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
@@ -856,7 +856,7 @@
             <translation>Nichts zum Einfügen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="439" />
+            <location filename="../../core/tools/offset_tool.py" line="443" />
             <source>Offset result is empty — try a smaller distance</source>
             <translation>Versatzergebnis ist leer – versuchen Sie einen kleineren Abstand</translation>
         </message>
@@ -946,7 +946,7 @@
             <translation>Mindestens 2 Elemente zum Gruppieren auswählen</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="422" />
+            <location filename="../../core/tools/offset_tool.py" line="426" />
             <source>Select a shape to offset</source>
             <translation>Form zum Versetzen auswählen</translation>
         </message>
@@ -1140,12 +1140,12 @@
             <translation>Y</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="455" />
+            <location filename="../../core/tools/offset_tool.py" line="459" />
             <source>inward</source>
             <translation>einwärts</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="455" />
+            <location filename="../../core/tools/offset_tool.py" line="459" />
             <source>outward</source>
             <translation>auswärts</translation>
         </message>
@@ -2801,7 +2801,7 @@
             <translation type="vanished">Anfasen (Umschalt+C) — Ecke abschrägen</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="102" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="104" />
             <source>Chamfer — bevel a corner</source>
             <translation>Anfasen — Ecke abschrägen</translation>
         </message>
@@ -2811,7 +2811,7 @@
             <translation>Koinzident</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="126" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="128" />
             <source>Constraints</source>
             <translation>Randbedingungen</translation>
         </message>
@@ -2849,7 +2849,7 @@
             <translation type="vanished">Abrunden (Umschalt+F) — Ecke abrunden</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="103" />
             <source>Fillet — round a corner</source>
             <translation>Abrunden — Ecke abrunden</translation>
         </message>
@@ -2877,7 +2877,7 @@
             <translation type="vanished">Spiegeln (Umschalt+M) — Auswahl an einer Achse spiegeln</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="105" />
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="107" />
             <source>Mirror — reflect selection across an axis</source>
             <translation>Spiegeln — Auswahl an einer Achse spiegeln</translation>
         </message>
@@ -2886,9 +2886,13 @@
             <translation type="vanished">Versatz (O) — parallele Kopie nach innen/außen</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/constraint_toolbar.py" line="100" />
             <source>Offset — parallel copy inward/outward</source>
-            <translation>Versatz — parallele Kopie nach innen/außen</translation>
+            <translation type="vanished">Versatz — parallele Kopie nach innen/außen</translation>
+        </message>
+        <message>
+            <location filename="../../ui/widgets/constraint_toolbar.py" line="101" />
+            <source>Offset — parallel copy or parallel line</source>
+            <translation>Versatz — parallele Kopie oder parallele Linie</translation>
         </message>
         <message>
             <location filename="../../ui/widgets/constraint_toolbar.py" line="69" />
@@ -9028,7 +9032,7 @@ Sie können die Satellitenansicht stattdessen direkt aus der unten angezeigten K
             <translation type="vanished">{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="368" />
+            <location filename="../../core/tools/offset_tool.py" line="372" />
             <source>Offset</source>
             <translation>Versatz</translation>
         </message>

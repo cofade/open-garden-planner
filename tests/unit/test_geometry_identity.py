@@ -1087,10 +1087,13 @@ def test_a_saved_polygon_raised_bed_loads_as_a_garden_bed(
     assert loaded is not None
     assert loaded.object_type == ObjectType.GARDEN_BED
     from open_garden_planner.core.fill_patterns import FillPattern
+    from open_garden_planner.core.item_look import style_gaps
 
     assert loaded.fill_pattern == FillPattern.SOIL, (
         "the migrated garden bed must show the soil pattern, not the old solid fill"
     )
+    assert loaded.brush().style() == Qt.BrushStyle.TexturePattern
+    assert style_gaps(loaded) == [], "pattern, colour and brush must agree"
 
 
 def test_rotated_trim_keeps_orientation(canvas: CanvasView, qtbot: object) -> None:

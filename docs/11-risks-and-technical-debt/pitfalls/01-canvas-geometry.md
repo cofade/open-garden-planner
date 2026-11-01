@@ -428,8 +428,8 @@ ground was supposed to be. Nothing: pyclipper's open-path offset returns the
 outline of the stroked band (both sides joined at the ends), and the tool wrapped
 that contour in a `PolygonItem`, filled it with the fence's style and left it in
 the scene. A line has no inward/outward side to choose by containment either —
-`shape().contains()` is false everywhere on a stroke — so the "inward" rule was
-meaningless.
+`shape().contains()` is only true inside the stroked band, never on one side of
+the line — so the "inward" rule was meaningless.
 
 Offset a polyline segment by segment on one side, with miter joins (bevelled past
 a 4× distance limit), and choose the side whose points are nearest the cursor.

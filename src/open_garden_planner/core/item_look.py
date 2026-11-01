@@ -71,6 +71,7 @@ __all__ = [
     "MIN_STROKE_WIDTH",
     "LineLook",
     "adopt_pen",
+    "adopt_type_fill",
     "apply_line_look",
     "capture_line_look",
     "copy_visual_style",
@@ -192,6 +193,33 @@ def copy_visual_style(source: Any, dest: Any) -> None:
 
     if getattr(source, "area_label_visible", False):
         dest.area_label_visible = True
+
+
+def adopt_type_fill(
+    item: Any,
+    previous_type: ObjectType | None,
+    new_type: ObjectType | None,
+) -> None:
+    """On a REAL type change, take the new type's fill pattern; keep the colour.
+
+    The corner tools convert a rectangle into a polygon and may change its type
+    (raised bed → garden bed) while the loader migrates old plans with the same
+    pair.  Both call this one rule, so "a real type change adopts the new type's
+    pattern" cannot drift between the live edit and the file path (review of
+    the 2026-10-31/11-01 follow-ups).  A same-type edit changes nothing, which
+    keeps a user's custom pattern through a corner edit.  The saved colour is
+    preserved: it is the user's soil/border tint, not the type's default.
+    """
+    if new_type is None or new_type == previous_type:
+        return
+    style = get_style(new_type)
+    if hasattr(item, "fill_pattern"):
+        item.fill_pattern = style.fill_pattern
+    colour = getattr(item, "fill_color", None)
+    if colour is None:
+        colour = style.fill_color
+    item.setBrush(fill_brush(item, QColor(colour)))
+    item.update()
 
 
 def inherit_item_identity(source: Any, dest: Any) -> None:
