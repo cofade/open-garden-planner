@@ -292,6 +292,7 @@ class SceneSync:
         sun: SunState | None = None,
         ground: GroundSpec | None = None,
         prepared: Mapping[str, tuple[MeshPart, ...]] | None = None,
+        changes: SceneDiff | None = None,
     ) -> SceneDiff:
         """Bring the sink to ``records`` (bottom-to-top) with the fewest calls.
 
@@ -306,6 +307,11 @@ class SceneSync:
         (its record did not change). See the module docstring for what happens
         when a builder or the sink raises.
 
+        ``changes`` (#452): the diff of ``records`` against the snapshot last applied,
+        when the caller already made it (the controller's pass, which needs it to know
+        which items the geometry lane should build). It must describe ``records``
+        against exactly what this sync last applied.
+
         ``prepared`` (#452): parts for items of THIS snapshot whose meshes a caller
         built ahead — the geometry lane — so this call does not build them again on
         the GUI thread. ``prepare(records)`` is the same builder path; an item the
@@ -313,7 +319,10 @@ class SceneSync:
         """
         self._require_usable()
         new = dict(records)
-        changes = diff(self._records, new)
+        if changes is None:
+            changes = diff(self._records, new)
+        # a caller that already diffed (the geometry lane's pass, #452) hands it in:
+        # the same records, the same answer, paid once
         fresh = (*changes.added, *changes.geometry)
         builder_for = self._registry.builder_for
         version = getattr(self._registry, "version", None)

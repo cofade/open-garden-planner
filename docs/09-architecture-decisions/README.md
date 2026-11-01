@@ -9366,8 +9366,11 @@ exclusion are required.
 ## ADR-069: Native triangulation and off-the-GUI-thread 3D preparation (#452, #531, #598)
 
 **Status**: Accepted; implemented on the Slice A branch of the 3D performance package
-(draft PR) with #531 (persistent Models) and #598 (sparse seasonal updates, whose
-hosted-CI measurement is still owed). #475 (raster lane, padded tiles) and #534 (wind memory) are NOT covered
+(draft PR) for #452 and #598 (whose hosted-CI measurement is still owed). The decision's
+#531 half — persistent Models with in-place geometry reload — was built, measured on
+both render tiers and WITHDRAWN: a new geometry object assigned to a live Model, and new data
+loaded into the object it already has, both render nothing while still picking. A changed
+part therefore gets a new Model, as before, and #531 stays open. #475 (raster lane, padded tiles) and #534 (wind memory) are NOT covered
 by this decision and stay open.
 
 **Date**: 2026-11-01.

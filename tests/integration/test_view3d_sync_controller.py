@@ -1753,9 +1753,7 @@ def test_a_pass_says_how_many_items_lost_their_models(rig: Rig) -> None:
     old, new = build_rect_resize(bed, 500.0, 120.0, keep_center=True)
     rig.commands.execute(ResizeItemCommand(bed, old, new, apply_rect_like_geometry))
     rig.settle()
-    # #531: the geometry is reconciled into the SAME Models ? a resize destroys none,
-    # so it must not count towards the cache release either
-    assert rig.reports[-1].retired == 0, "new geometry is loaded into the Model it has"
+    assert rig.reports[-1].retired == 1, "new geometry is a new Model: the old one is destroyed"
 
     rig.commands.execute(DeleteItemsCommand(rig.scene, [bed, other]))
     rig.settle()

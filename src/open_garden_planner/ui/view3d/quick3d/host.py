@@ -88,7 +88,6 @@ No input handling and no orbit camera here: L1.3.
 
 from __future__ import annotations
 
-import contextlib
 import logging
 import math
 import threading
@@ -269,7 +268,6 @@ class EnginePart:
     #: The share of its pixels the part's ACTIVE material draws: 1 for its look, the
     #: screen door's opacity while it fades, 0 for a roof Cutaway cuts (L2.4)
     drawn: float = 1.0
-    dormant: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -425,9 +423,6 @@ class Quick3DHost:
                  prefer_software: bool = False) -> None:
         self._log: Callable[..., None] = log if log is not None else (lambda *_a, **_k: None)
         self._parts: set[_Part] = set()  # THE owner of every Model and geometry
-        self._last_plant_seasons: dict[str, PhenologyState] = {}
-        self.models_created = 0
-        self.models_destroyed = 0
         #: The analysis overlays' geometries by layer (L2, ``set_overlay``), and the
         #: items whose parts are drawn faded with their opacity (``set_faded_items``).
         self._overlays: dict[str, ReloadableGeometry] = {}
@@ -589,7 +584,6 @@ class Quick3DHost:
                 f"of item {spec.item_id!r}")
         part = _Part(model, geometry, spec.kind, spec.item_id)
         self._parts.add(part)
-        self.models_created += 1
         try:
             _set(model, "partName", spec.name)
             if spec.ground_detail:
@@ -612,52 +606,6 @@ class Quick3DHost:
                 handle.forget()
             return
         self._destroy(self._part(handle))
-
-    def update_part_geometry(self, handle: object, spec: PartSpec) -> None:
-        """Update geometry and properties of an existing persistent Model (#531)."""
-        self._open("update_part_geometry")
-        part = self._part(handle)
-        model = part.model
-        if model is None:
-            raise EngineError(f"not a live part of this host: {handle!r}")
-        if spec.kind != part.kind:
-            raise EngineError(f"cannot update geometry kind {part.kind!r} with kind {spec.kind!r}")
-        geometry = BufferGeometry(spec.buffers)
-        part.geometry = geometry
-        _set(model, "geometry", geometry)
-        _set(model, "partIndex", spec.part_index)
-        _set(model, "partName", spec.name)
-        _set(model, "castsShadows", spec.casts_shadow)
-        _set(model, "groundDetail", spec.ground_detail)
-        # pickability belongs to the QML binding (`!dormant && fade >= 1.0 && ?`):
-        # writing it here would REMOVE the binding, and a later X-ray or Cutaway would
-        # no longer change it (#452 review round 2)
-        self._call("applyPlantSeason", model)
-
-    def set_part_dormant(self, handle: object, dormant: bool = True) -> None:
-        """Hide or unhide a dormant part retained for model reuse (#531)."""
-        self._open("set_part_dormant")
-        part = self._part(handle)
-        model = part.model
-        if model is None:
-            raise EngineError(f"not a live part of this host: {handle!r}")
-        _set(model, "dormant", bool(dormant))   # the QML binding hides and unpicks it
-        if not dormant:
-            # the component's own visible binding does not exist on every part kind
-            # (foliage and grass set `visible` from the seasonal state instead), so a
-            # returning slot is shown here; pickability stays the binding's
-            _set(model, "visible", True)
-            self._call("applyPlantSeason", model)
-
-    @property
-    def active_model_count(self) -> int:
-        self._open("active_model_count")
-        return sum(1 for p in self._parts if p.model is not None and not p.model.property("dormant"))
-
-    @property
-    def dormant_model_count(self) -> int:
-        self._open("dormant_model_count")
-        return sum(1 for p in self._parts if p.model is not None and bool(p.model.property("dormant")))
 
     def part_count(self) -> int:
         """How many Models the engine holds for this host (its own books — which a failed
@@ -702,9 +650,6 @@ class Quick3DHost:
                 f"clear(): {len(failures)} of {total + len(steps)} steps failed; the engine still holds "
                 f"{len(self._parts)} Model(s), and so do the host's books. First: "
                 f"{failures[0]}") from failures[0]
-        self._last_plant_seasons.clear()
-        with contextlib.suppress(Exception):
-            self._call("clearSeasonalParts")
         self._forget_fill_textures()  # no Model shows a fill picture any more
 
     def pose_part(self, handle: object, pose: EnginePose) -> None:
@@ -833,19 +778,12 @@ class Quick3DHost:
     def set_plant_seasons(self, states: Mapping[str, PhenologyState]) -> None:
         """Update seasonal material values in one QML hop, with no Model/geometry churn."""
         self._open("set_plant_seasons")
-        changed: dict[str, list[float] | None] = {}
-        for item_id, state in states.items():
-            if self._last_plant_seasons.get(item_id) != state:
-                changed[item_id] = [
-                    state.leaf_density, *state.foliage_tint_linear,
-                    state.bloom, state.ripeness, state.snow, *state.accent_tint_linear
-                ]
-        for stale_id in self._last_plant_seasons.keys() - states.keys():
-            changed[stale_id] = None
-        self._last_plant_seasons = dict(states)
-        if not changed:
-            return
-        self._call("setPlantSeasons", changed)
+        values = {
+            item_id: [state.leaf_density, *state.foliage_tint_linear,
+                      state.bloom, state.ripeness, state.snow, *state.accent_tint_linear]
+            for item_id, state in states.items()
+        }
+        self._call("setPlantSeasons", values)
         self.request_frame()
 
     # ── the endless meadow (#388) ────────────────────────────────────────────
@@ -1411,25 +1349,19 @@ class Quick3DHost:
         result = self._call("projectToView", engine.x(), engine.y(), engine.z())
         return float(result["x"]), float(result["y"])
 
-    def engine_parts(self, include_dormant: bool = False) -> list[EnginePart]:
-        """Every ACTIVE Model of the QML scene that was not destroyed — what the
-        engine draws, read from it (a Model a later story hides is still listed,
-        ``visible=False``). Dormant slots (#531) are spare Models with no item: they
-        are listed only with ``include_dormant=True``."""
+    def engine_parts(self) -> list[EnginePart]:
+        """Every Model of the QML scene that was not destroyed — what the engine holds,
+        read from it (a Model a later story hides is still listed, ``visible=False``)."""
         self._open("engine_parts")
         rows = self._call("listParts")
-        parts = [EnginePart(
+        return [EnginePart(
             item_id=str(row["id"]), part_index=int(row["part"]), kind=str(row["kind"]),
             position=(float(row["x"]), float(row["y"]), float(row["z"])),
             yaw_deg=float(row["yaw"]),
             tint_rgb=(round(row["r"] * 255.0), round(row["g"] * 255.0), round(row["b"] * 255.0)),
             casts_shadow=bool(row["casts"]), has_geometry=bool(row["geometry"]),
             visible=bool(row["visible"]), fade=float(row["fade"]), drawn=float(row["drawn"]),
-            dormant=bool(row.get("dormant", False)),
         ) for row in rows]
-        if not include_dormant:
-            return [p for p in parts if not p.dormant]
-        return parts
 
     def scene_property(self, name: str) -> Any:
         """A root property of ``Garden.qml`` (tests and diagnostics); ``EngineError``
@@ -1609,7 +1541,6 @@ class Quick3DHost:
             raise EngineError("the scene's destroyPart() did not retire the Model — it failed "
                               "(see health().qml_warnings); the engine still holds it")
         self._parts.discard(part)
-        self.models_destroyed += 1
         part.forget()
 
     def _forget_parts(self) -> None:

@@ -312,10 +312,9 @@ class TickReport:
     apply_ms: float
     #: True when this pass had to reset the sync first (a sink failure before it).
     recovered: bool = False
-    #: Items whose engine Models were DESTROYED since the pass before: removed items
-    #: and everything a reset cleared. A geometry change destroys NONE since #531 —
-    #: the parts are reconciled into the Models they have — so it is not counted. Qt
-    #: keeps graphics state for every Model it once
+    #: Items whose engine Models were DESTROYED since the pass before: removed
+    #: items, items whose geometry was replaced (new geometry is a new Model), and
+    #: everything a reset cleared. Qt keeps graphics state for every Model it once
     #: drew until it is told to let go; the workspace counts these to know when
     #: (ADR-060, "what a destroyed Model leaves behind").
     retired: int = 0
@@ -356,6 +355,9 @@ class _Ticket:
     reconciling: bool
     #: The items whose geometry this pass must build (the diff's added + geometry).
     build_ids: tuple[str, ...]
+    #: The diff the ticket was made from ? ``apply`` would compute the same one, so
+    #: the pass hands its own in and pays for it once (#452).
+    changes: SceneDiff
 
 
 def _outline_vertices(record: Record) -> int:
@@ -1245,7 +1247,7 @@ class Scene3DController(QObject):
                           if item_id in records)
         ticket = _Ticket(records, snapshot, self._sun(), width, depth, tuple(skipped),
                          snapshot_ms, self._capture_epoch, self._light_epoch,
-                         self._capture_reconciling, build_ids)
+                         self._capture_reconciling, build_ids, changes)
         lane_work = sum(_outline_vertices(ticket.records[i]) for i in build_ids
                         if ticket.records[i].kind not in PLANT_KINDS)
         if (lane_work >= PREPARE_OFF_THREAD_VERTICES and self._lane is not None
@@ -1340,7 +1342,7 @@ class Scene3DController(QObject):
                 changes = self._sync.apply(
                     records, sun=sun,
                     ground=self._ground(self._sync.records, records, width, depth),
-                    prepared=prepared)
+                    prepared=prepared, changes=None if stale else ticket.changes)
             except Exception as error:  # noqa: BLE001 - whatever a sink raised
                 self._log_failure(
                     "a pass failed; resetting the 3D scene and applying again", error)
@@ -1378,9 +1380,7 @@ class Scene3DController(QObject):
         # write stayed out of 3D (scoped re-check 2026-10-19, P1-B).
         QTimer.singleShot(0, self._expire_explanation)
         self._set_problems(tuple(skipped), dict(self._sync.failures))
-        # #531: a geometry change RECONCILES its parts into the Models it has, so it
-        # retires none ? only removed items do (and everything a reset cleared).
-        retired = self._retired_by_reset + len(changes.removed)
+        retired = self._retired_by_reset + len(changes.removed) + len(changes.geometry)
         self._retired_by_reset = 0
         self._done(TickReport(changes, True, len(records), snapshot_ms,
                               (time.perf_counter() - started) * 1000.0, recovered, retired,

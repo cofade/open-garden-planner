@@ -1316,11 +1316,12 @@ def _triangulate(outer: Ring, holes: Sequence[Ring], work: WorkBudget) -> tuple[
     found = np.asarray(mapbox_earcut.triangulate_float64(xy, ends), dtype=np.int64).reshape(-1, 3)
     if not len(found):
         return points, []
-    a, b, c = xy[found[:, 0]], xy[found[:, 1]], xy[found[:, 2]]
-    doubled = (b[:, 0] - a[:, 0]) * (c[:, 1] - a[:, 1]) - (b[:, 1] - a[:, 1]) * (c[:, 0] - a[:, 0])
-    reach = np.max(np.abs(np.stack([a, b, c])), axis=(0, 2))
-    edges = (np.abs(b[:, 0] - a[:, 0]) + np.abs(b[:, 1] - a[:, 1])
-             + np.abs(c[:, 0] - a[:, 0]) + np.abs(c[:, 1] - a[:, 1]))
+    va, vb, vc = xy[found[:, 0]], xy[found[:, 1]], xy[found[:, 2]]
+    doubled = ((vb[:, 0] - va[:, 0]) * (vc[:, 1] - va[:, 1])
+               - (vb[:, 1] - va[:, 1]) * (vc[:, 0] - va[:, 0]))
+    reach = np.max(np.abs(np.stack([va, vb, vc])), axis=(0, 2))
+    edges = (np.abs(vb[:, 0] - va[:, 0]) + np.abs(vb[:, 1] - va[:, 1])
+             + np.abs(vc[:, 0] - va[:, 0]) + np.abs(vc[:, 1] - va[:, 1]))
     kept = found[doubled > _FLAT_CORNER * reach * edges]
     return points, [(int(i), int(j), int(k)) for i, j, k in kept.tolist()]
 

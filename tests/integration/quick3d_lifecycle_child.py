@@ -68,8 +68,6 @@ def _register_calls() -> None:
     HOST_CALLS.update({
         "create_part": lambda host, _part: host.create_part(spec, pose, (255, 255, 255, 255)),
         "pose_part": lambda host, part: host.pose_part(part, pose),
-        "update_part_geometry": lambda host, part: host.update_part_geometry(part, spec),
-        "set_part_dormant": lambda host, part: host.set_part_dormant(part, True),
         "tint_part": lambda host, part: host.tint_part(part, (1, 2, 3, 255)),
         "set_part_fill": lambda host, part: host.set_part_fill(part, "GRASS", (90, 160, 60, 255)),
         "part_count": lambda host, _part: host.part_count(),

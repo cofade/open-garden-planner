@@ -28,17 +28,10 @@ What the sink guarantees:
   somebody else: the constructor and ``attach`` refuse it
   (``SinkProtocolError``). Two sinks on one scene would draw both sinks' items,
   and the first ``clear()`` would destroy the other one's Models.
-- **One Model per mesh part, reconciled in place when its geometry changes
-  (#531).** ``add`` creates the Models, ``remove`` destroys them, and
-  ``replace_geometry`` MATCHES the parts to the Models they belong to (stable
-  name, material kind, occurrence) and reloads each Model's OWN geometry; an
-  unmatched part creates a Model, a Model left without its part becomes
-  DORMANT (hidden, unpickable, kept for a part that comes back) and is
-  released with its item or on ``clear()``. A geometry object is still never
-  handed to a SECOND Model: the L0 spike measured a blank frame and 0/20 picks
-  for that (``ogp-3d-renderer`` §2). The sink exposes active / dormant /
-  created / destroyed Model counts; a render-tier test pins that an edited item
-  stays drawn and pickable.
+- **One Model per mesh part, one geometry per Model lifetime.** ``add`` creates
+  the Models, ``remove`` destroys them, ``replace_geometry`` destroys and
+  creates. A geometry object is never handed to a second Model: the L0 spike
+  measured a blank frame and 0/20 picks for that (``ogp-3d-renderer`` §2).
 - **A move or a recolour uploads nothing.** ``update_transform`` re-poses,
   ``update_material`` re-colours (``materials.part_tint`` — the one rule a fill part
   changes: its picture carries the colour); ``geometry_uploads`` counts every buffer
@@ -143,12 +136,6 @@ class EngineScene(Protocol):
     def destroy_part(self, handle: object) -> None:
         """Destroy the Model (and its geometry) for good. A no-op when the engine is gone."""
 
-    def update_part_geometry(self, handle: object, spec: PartSpec) -> None:
-        """Update geometry and properties of an existing Model in place (#531)."""
-
-    def set_part_dormant(self, handle: object, dormant: bool = True) -> None:
-        """Hide or unhide a dormant Model retained for reuse (#531)."""
-
     def clear(self) -> None:
         """Destroy every Model, no sun, no plan ground, no selection ring (hidden — its
         one Model stays). A no-op when the engine is gone
@@ -194,24 +181,11 @@ class EngineScene(Protocol):
 
 
 @dataclass(slots=True)
-class _PartSlot:
-    """One persistent engine Model slot (#531)."""
-
-    handle: object
-    kind: str
-    name: str = ""
-    occurrence: int = 0
-    active: bool = True
-    fill_key: FillKey | None = None
-
-
-@dataclass(slots=True)
 class _Held:
     parts: tuple[MeshPart, ...]
     transform: Transform
     material: Material
-    active_slots: list[_PartSlot | None]
-    dormant_slots: list[_PartSlot] = field(default_factory=list)
+    handles: list[object | None]  # one per part; None = that part has nothing to draw
 
 
 #: A fill picture the engine holds for a fill_texture part: its pattern (None for
@@ -242,8 +216,6 @@ class Quick3DSink:
         #: Vertex/index buffers handed to the engine so far. A move or a recolour
         #: must leave it unchanged — the instrument behind that gate.
         self.geometry_uploads = 0
-        self.models_created = 0
-        self.models_destroyed = 0
         self._selection: Selection = EMPTY_SELECTION
         #: Ring meshes handed to the engine so far (L1.8) — counted apart from the
         #: Models' buffers: the ring follows a selected item that moves.
@@ -298,17 +270,7 @@ class Quick3DSink:
 
     def part_count(self, item_id: str) -> int:
         """Engine Models the item has (parts without triangles have none)."""
-        return sum(s is not None for s in self._items[item_id].active_slots)
-
-    @property
-    def active_model_count(self) -> int:
-        """How many active Models the sink drives across all items (#531)."""
-        return sum(sum(1 for s in held.active_slots if s is not None) for held in self._items.values())
-
-    @property
-    def dormant_model_count(self) -> int:
-        """How many dormant Models the sink retains for in-place geometry reuse (#531)."""
-        return sum(len(held.dormant_slots) for held in self._items.values())
+        return sum(handle is not None for handle in self._items[item_id].handles)
 
     def clear(self) -> None:
         """Tear the engine scene down: no item, no sun, no ground, no transaction.
@@ -377,183 +339,60 @@ class Quick3DSink:
         self._require_open("add")
         if item_id in self._items:
             raise SinkProtocolError(f"add(): item {item_id!r} is already in the sink")
-        held = _Held(_checked(parts), transform, material, [], [])
+        held = _Held(_checked(parts), transform, material, [])
         self._items[item_id] = held  # before the engine is touched: clear() can clean up
         self._create(item_id, held)
 
     def remove(self, item_id: str) -> None:
         held = self._require_known("remove", item_id)
-        all_slots = [s for s in held.active_slots if s is not None] + held.dormant_slots
-        for slot in all_slots:
-            self._scene.destroy_part(slot.handle)   # the Model first: a freed picture
-            self.models_destroyed += 1              # under a live Model draws white
-            if slot.fill_key is not None:
-                self._release(slot.fill_key)
-                slot.fill_key = None
+        keys = self._fill_keys(held)
+        self._destroy(held)  # the Models first: no live Model may point at a released picture
+        for key in keys:
+            self._release(key)
         del self._items[item_id]
 
     def update_transform(self, item_id: str, transform: Transform) -> None:
         held = self._require_known("update_transform", item_id)
         held.transform = transform
         pose = engine_pose(transform)
-        for slot in held.active_slots:
-            if slot is not None:
-                self._scene.pose_part(slot.handle, pose)
+        for handle in held.handles:
+            if handle is not None:
+                self._scene.pose_part(handle, pose)
 
     def update_material(self, item_id: str, material: Material) -> None:
         held = self._require_known("update_material", item_id)
         previous = held.material
         held.material = material
         released: list[FillKey] = []
-        for part, slot in zip(held.parts, held.active_slots, strict=True):
-            if slot is None:
+        for part, handle in zip(held.parts, held.handles, strict=True):
+            if handle is None:
                 continue
             if part.tinted:
-                self._scene.tint_part(slot.handle, part_tint(part, material))
+                self._scene.tint_part(handle, part_tint(part, material))
             if part.fill_texture:
                 old_key, new_key = _fill_key(part, previous), _fill_key(part, material)
                 if old_key != new_key:
                     if new_key is None:  # _fill_key always answers for a fill part
                         raise SinkProtocolError(
                             f"update_material(): fill part {part.name!r} has no fill key")
+                    # in the books BEFORE a Model can show it; a failed set poisons the
+                    # sync, whose reset() clears these books with the engine
                     self._acquire(new_key)
-                    self._scene.set_part_fill(slot.handle, *new_key)
-                    slot.fill_key = new_key
+                    self._scene.set_part_fill(handle, *new_key)
                     if old_key is not None:
                         released.append(old_key)
         for key in released:  # after EVERY Model shows its new picture, not between two of them
             self._release(key)
 
     def replace_geometry(self, item_id: str, parts: Sequence[MeshPart]) -> None:
-        """In-place model reconciliation (#531): reuse existing and dormant Models."""
         held = self._require_known("replace_geometry", item_id)
         checked = _checked(parts)
-
-        # Pool of available slots for this item (previously active non-None slots + dormant slots)
-        available_slots: list[_PartSlot] = [s for s in held.active_slots if s is not None] + held.dormant_slots
-
-        # Group incoming non-empty parts with their occurrence by (part.name, part.material_kind)
-        incoming: list[tuple[int, MeshPart, int]] = []
-        occ_counter: dict[tuple[str, str], int] = {}
-        for index, part in enumerate(checked):
-            buffers = engine_buffers(part.mesh)
-            if buffers.is_empty:
-                continue
-            key = (part.name, part.material_kind)
-            occ = occ_counter.get(key, 0)
-            occ_counter[key] = occ + 1
-            incoming.append((index, part, occ))
-
-        matched_slots: dict[int, _PartSlot] = {}
-        unmatched_incoming: list[tuple[int, MeshPart, int]] = []
-
-        # Pass 1: exact match by (name, kind, occurrence)
-        for item in incoming:
-            idx, part, occ = item
-            match = None
-            for slot in available_slots:
-                if slot.name == part.name and slot.kind == part.material_kind and slot.occurrence == occ:
-                    match = slot
-                    break
-            if match is not None:
-                available_slots.remove(match)
-                matched_slots[idx] = match
-            else:
-                unmatched_incoming.append(item)
-
-        # Pass 2: match remaining incoming parts with spare dormant slots of the same kind
-        still_unmatched: list[tuple[int, MeshPart, int]] = []
-        for item in unmatched_incoming:
-            idx, part, occ = item
-            match = None
-            for slot in available_slots:
-                if not slot.active and slot.kind == part.material_kind:
-                    match = slot
-                    break
-            if match is not None:
-                available_slots.remove(match)
-                slot.name = part.name
-                slot.occurrence = occ
-                matched_slots[idx] = match
-            else:
-                still_unmatched.append(item)
-
-        # Pass 3: match remaining incoming parts with ANY spare slot of the same kind
-        for item in still_unmatched:
-            idx, part, occ = item
-            match = None
-            for slot in available_slots:
-                if slot.kind == part.material_kind:
-                    match = slot
-                    break
-            if match is not None:
-                available_slots.remove(match)
-                slot.name = part.name
-                slot.occurrence = occ
-                matched_slots[idx] = match
-
-        # Unmatched remaining slots in available_slots become/stay dormant
-        new_dormant_slots: list[_PartSlot] = []
-        for slot in available_slots:
-            if slot.active:
-                slot.active = False
-                self._scene.set_part_dormant(slot.handle, True)   # hide it FIRST: a
-            if slot.fill_key is not None:                          # freed picture under
-                self._release(slot.fill_key)                       # a live Model is white
-                slot.fill_key = None
-            new_dormant_slots.append(slot)
-
-        # Build new_active_slots
-        new_active_slots: list[_PartSlot | None] = []
-        for index, part in enumerate(checked):
-            buffers = engine_buffers(part.mesh)
-            if buffers.is_empty:
-                new_active_slots.append(None)
-                continue
-            spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow, part.name,
-                            part.ground_detail)
-            new_key = _fill_key(part, held.material)
-
-            if index in matched_slots:
-                slot = matched_slots[index]
-                self._scene.update_part_geometry(slot.handle, spec)
-                self.geometry_uploads += 1
-                if not slot.active:
-                    slot.active = True
-                    self._scene.set_part_dormant(slot.handle, False)
-                    self._scene.pose_part(slot.handle, engine_pose(held.transform))
-
-                if part.tinted:
-                    self._scene.tint_part(slot.handle, part_tint(part, held.material))
-                else:
-                    self._scene.tint_part(slot.handle, (255, 255, 255, 255))
-
-                if slot.fill_key != new_key:
-                    old_key = slot.fill_key
-                    if new_key is not None:
-                        self._acquire(new_key)
-                        self._scene.set_part_fill(slot.handle, *new_key)
-                    else:
-                        self._scene.set_part_fill(slot.handle, None, part_tint(part, held.material))
-                    if old_key is not None:
-                        self._release(old_key)
-                    slot.fill_key = new_key
-                new_active_slots.append(slot)
-            else:
-                handle = self._scene.create_part(spec, engine_pose(held.transform), part_tint(part, held.material))
-                self.models_created += 1
-                self.geometry_uploads += 1
-                if new_key is not None:
-                    self._scene.set_part_fill(handle, *new_key)
-                    self._acquire(new_key)
-                occ = next(o for i, p, o in incoming if i == index)
-                slot = _PartSlot(handle=handle, kind=part.material_kind, name=part.name,
-                                 occurrence=occ, active=True, fill_key=new_key)
-                new_active_slots.append(slot)
-
+        keys = self._fill_keys(held)
+        self._destroy(held)  # the old Models first: no live Model may point at a freed picture
+        for key in keys:
+            self._release(key)
         held.parts = checked
-        held.active_slots = new_active_slots
-        held.dormant_slots = new_dormant_slots
+        self._create(item_id, held)
 
     def set_sun(self, sun: SunState) -> None:
         self._require_open("set_sun")
@@ -590,27 +429,32 @@ class Quick3DSink:
 
     def _create(self, item_id: str, held: _Held) -> None:
         pose = engine_pose(held.transform)
-        occ_counter: dict[tuple[str, str], int] = {}
         for index, part in enumerate(held.parts):
             buffers = engine_buffers(part.mesh)
             if buffers.is_empty:
-                held.active_slots.append(None)
+                held.handles.append(None)
                 continue
             spec = PartSpec(item_id, index, part.material_kind, buffers, part.casts_shadow, part.name,
                             part.ground_detail)
             handle = self._scene.create_part(spec, pose, part_tint(part, held.material))
-            self.models_created += 1
+            held.handles.append(handle)  # before the fill: clear() must be able to destroy it
             self.geometry_uploads += 1
             key = _fill_key(part, held.material)
             if key is not None:
                 self._scene.set_part_fill(handle, *key)
                 self._acquire(key)
-            occ_key = (part.name, part.material_kind)
-            occ = occ_counter.get(occ_key, 0)
-            occ_counter[occ_key] = occ + 1
-            slot = _PartSlot(handle=handle, kind=part.material_kind, name=part.name,
-                             occurrence=occ, active=True, fill_key=key)
-            held.active_slots.append(slot)
+
+    def _fill_keys(self, held: _Held) -> list[FillKey]:
+        """The fill pictures *held*'s Models show, in part order (released after the
+        Models that show them are gone — a picture freed under a live Model is white)."""
+        keys: list[FillKey] = []
+        for part, handle in zip(held.parts, held.handles, strict=True):
+            if handle is None:
+                continue
+            key = _fill_key(part, held.material)
+            if key is not None:
+                keys.append(key)
+        return keys
 
     def _acquire(self, key: FillKey) -> None:
         self._fills[key] = self._fills.get(key, 0) + 1
@@ -622,6 +466,12 @@ class Quick3DSink:
             return
         self._fills.pop(key, None)
         self._scene.release_fill(*key)
+
+    def _destroy(self, held: _Held) -> None:
+        handles, held.handles = held.handles, []
+        for handle in handles:
+            if handle is not None:
+                self._scene.destroy_part(handle)
 
     def _require_open(self, op: str) -> None:
         if not self._open:

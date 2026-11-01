@@ -154,10 +154,7 @@ def test_every_part_component_is_a_pickable_model_with_the_tint_properties() -> 
                        "property color tint", "property vector3d tintLinear",
                        "receivesShadows: true", "property bool retired: false",
                        # L2.4 (X-ray): pickable unless it fades as an occluder of the selection
-                       "property real fade: 1.0", "pickable: !dormant && fade >= 1.0",
-                       # #531: a DORMANT slot is a spare Model kept for a part that came
-                       # back ? no geometry, never drawn, never picked
-                       "property bool dormant: false"):
+                       "property real fade: 1.0", "pickable: fade >= 1.0"):
             assert needed in block, (name, needed)
     # a custom shader takes the LINEAR tint as a uniform — read from the scene, which
     # is the one place that says which kinds have a shader of their own
@@ -183,11 +180,7 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
         if name == "glassPart":
             continue
         assert "sourceBlend" not in block and "opacity: fade" not in block, name
-        # nothing hides a part to cut or fade it. A DORMANT slot (#531) is the one
-        # exception: it is a spare Model, not a drawn part ? it has no geometry
-        for line in block.splitlines():
-            if "visible:" in line:
-                assert line.strip() == "visible: !dormant", (name, line.strip())
+        assert "visible:" not in block, name     # nothing hides a part to cut or fade it
     assert "materials: fade < 1.0 ? [vcScreen] : [vcLook]" in blocks["vcPart"]
     for name, door in (("waterPart", "waterDoor"), ("foliagePart", "foliageDoor"),
                        ("grassPart", "grassDoor")):
@@ -204,7 +197,7 @@ def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
         assert "#if QSSG_ENABLE_DEPTH_PASS" in source and "if (uOpacity < 1.0)" in source, name
     assert "materials: root.roofsHidden || fade < 1.0 ? [roofScreen] : [roofLook]" in blocks["roofPart"]
     assert "property real uOpacity: root.roofsHidden ? 0.0 : fade" in blocks["roofPart"]
-    assert "pickable: !dormant && fade >= 1.0 && !root.roofsHidden" in blocks["roofPart"]
+    assert "pickable: fade >= 1.0 && !root.roofsHidden" in blocks["roofPart"]
     # the roofless house reads as a room: its walls drop back-face culling
     assert blocks["vcPart"].count("cullMode: root.roofsHidden ? Material.NoCulling") == 2
     for name in ("screen.frag", "foliage_door.frag", "water_door.frag"):
