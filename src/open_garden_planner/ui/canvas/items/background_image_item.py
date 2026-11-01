@@ -106,19 +106,22 @@ def _check_image_size(size: QSize) -> None:
         return
     # Round the measured size UP: a 120.05 MP image formatted with one decimal
     # would otherwise read "120.0 megapixels ... limited to 120", i.e. refused
-    # for exceeding a limit it appears to equal.
-    megapixels = math.ceil(pixels / 100_000) / 10
+    # for exceeding a limit it appears to equal. The limit takes the same
+    # rounding so the two figures cannot disagree if the constant ever changes.
+    def megapixels(px: int) -> float:
+        return math.ceil(px / 100_000) / 10
+
     raise ValueError(
         QCoreApplication.translate(
             "BackgroundImageItem",
             "This image is {megapixels} megapixels and needs about {megabytes} MB "
             "of memory. Background images are limited to {limit} megapixels.",
         ).format(
-            megapixels=f"{megapixels:.1f}",
+            megapixels=f"{megapixels(pixels):.1f}",
             # The item keeps the decoded pixmap twice (original + flipped copy);
             # reporting one copy would understate the cost of what is being refused.
             megabytes=pixels * 8 // 1_000_000,
-            limit=f"{MAX_BACKGROUND_PIXELS / 1_000_000:.0f}",
+            limit=f"{megapixels(MAX_BACKGROUND_PIXELS):.1f}",
         )
     )
 

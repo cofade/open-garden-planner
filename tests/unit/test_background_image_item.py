@@ -370,7 +370,7 @@ class TestDecodeAllocationBudget:
     ) -> None:
         monkeypatch.setattr(bg_module, "MAX_BACKGROUND_PIXELS", 1_000_000)
         previous = QImageReader.allocationLimit()
-        with pytest.raises(ValueError, match="limited to 1 megapixels"):
+        with pytest.raises(ValueError, match="limited to 1.0 megapixels"):
             BackgroundImageItem(str(_write_png(tmp_path / "huge.png", 2000, 2000)))
         assert QImageReader.allocationLimit() == previous
 

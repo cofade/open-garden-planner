@@ -3889,15 +3889,16 @@ re-encode it.
   `tests/integration/test_background_image_portable.py`). The regression pins were **observed
   failing** on the pre-fix tree: the decode-limit test (Qt logs `QImageIOHandler: Rejecting image
   as it exceeds the current allocation limit`), the save → source-deleted → reload test
-  (`is_placeholder is True`), the payload-identity and encoder-count tests (a re-encode returns a
-  fresh string object), and both "refused without decoding" tests (verified by moving the size
-  check after the decode in `_load_pixmap_from_file` / `_load_pixmap_from_data`, which fails them
-  with "the image was decoded before its size was checked"). The rest pin behaviour that cannot
-  exist without the helper and are guards, not regression pins: budget restoration (after success,
-  after a refusal, when the environment allows more, and when the check is disabled with 0), the
-  pair-based refusal message, the encode guard and the placeholder log. The 1:1 275 MiB case is an
-  owner manual test; the automated tests lower the process budget to 4 MB and use a 2000 x 2000
-  image, which is the same code path with no CI memory spike.
+  (`is_placeholder is True`), the payload-identity test (a re-encode returns a fresh string
+  object) and the two encoder-count tests (which fail on the pre-fix tree at the missing helper
+  rather than at an assertion), and both "refused without decoding" tests (verified by moving the
+  size check after the decode in `_load_pixmap_from_file` / `_load_pixmap_from_data`, which fails
+  them with "the image was decoded before its size was checked"). The rest pin behaviour that
+  cannot exist without the helper and are guards, not regression pins: budget restoration (after
+  success, after a refusal, when the environment allows more, and when the check is disabled with
+  0), the pair-based refusal message, the encode guard and the placeholder log. The 1:1 275 MiB
+  case is an owner manual test; the automated tests lower the process budget to 4 MB and use a
+  2000 x 2000 image, which is the same code path with no CI memory spike.
 - **Docs.** FR-IMG-12/13; §8.7 (error handling) extended; new pitfalls PF-PER-22/23;
   no `.ogp` change and no `FILE_VERSION` bump (the embedded key already existed).
 
