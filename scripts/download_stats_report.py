@@ -10,6 +10,7 @@ import json
 import math
 import re
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from fractions import Fraction
@@ -125,9 +126,21 @@ def _history(days: dict[date, CalendarDay], seed: dict[str, Any]) -> None:
         days[starts[0].date()].partial = True
 
 
-def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[str, Any]:
-    """Historical estimate plus post-seed increments; never re-count the seed.
+def current_release(snapshot_rows: Iterable[Row]) -> Row | None:
+    """Resolve the current release's installer row at one snapshot (max published_at)."""
+    installers = [
+        row for row in snapshot_rows
+        if not row.prerelease and row.asset.endswith("-Setup.exe")
+    ]
+    if not installers:
+        return None
+    return max(installers, key=lambda r: (instant(r.published_at), r.asset_id))
 
+
+def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[str, Any]:
+    """Historical estimate plus post-seed increments of the then-current release.
+
+    An older release is closed once a newer non-prerelease release is published.
     Ordinary windows are assigned to the UTC date preceding the ending snapshot.
     Missing dates are shared evenly. Same-date manual windows are explicitly partial.
     Asset-specific gaps retain their own previous observation, just like daily_deltas.
@@ -140,12 +153,19 @@ def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[st
     admitted = {key: asset for key, asset in previous.items() if not asset["prerelease"]}
     pending: dict[int, int] = defaultdict(int)
     resets: set[int] = set()
-    snapshot_times = sorted({r.taken_at for r in rows if r.taken_at > cutoff})
+    ordered = [r for r in sorted(rows, key=lambda r: (r.taken_at, r.asset_id)) if r.taken_at > cutoff]
+    by_snapshot: dict[str, list[Row]] = defaultdict(list)
+    for row in ordered:
+        by_snapshot[row.taken_at].append(row)
+    snapshot_times = sorted(by_snapshot)
     preceding = {stamp: (snapshot_times[i - 1] if i else cutoff)
                  for i, stamp in enumerate(snapshot_times)}
-    for row in sorted(rows, key=lambda r: (r.taken_at, r.asset_id)):
-        if row.taken_at <= cutoff:
-            continue
+    current_ids = {
+        stamp: current.asset_id
+        for stamp, snap_rows in by_snapshot.items()
+        if (current := current_release(snap_rows)) is not None
+    }
+    for row in ordered:
         seen = previous.get(row.asset_id)
         previous[row.asset_id] = asdict(row)
         if row.asset_id in admitted and seen is not None:
@@ -155,6 +175,11 @@ def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[st
             else:
                 pending[row.asset_id] += row.download_count - seen["download_count"]
         if row.prerelease or not row.asset.endswith("-Setup.exe"):
+            continue
+        if row.asset_id != current_ids.get(row.taken_at):
+            admitted[row.asset_id] = asdict(row)
+            pending.pop(row.asset_id, None)
+            resets.discard(row.asset_id)
             continue
         old = admitted.get(row.asset_id)
         start_stamp = (old["taken_at"] if old else
@@ -191,7 +216,7 @@ def calendar_series(rows: list[Row], seed: dict[str, Any], repo: str) -> dict[st
     last_day = max(days, default=None)
     if last_day is not None and last_day >= instant(covered_until).date():
         days[last_day].partial = True
-    return {"version": 1, "timezone": "UTC", "repo": repo,
+    return {"version": 2, "basis": "current_release", "timezone": "UTC", "repo": repo,
             "baseline_at": cutoff, "updated_at": latest,
             "days": [days[day].export(day) for day in sorted(days)]}
 

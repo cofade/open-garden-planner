@@ -570,15 +570,15 @@ file nears GitHub's size limits:
 | `daily/YYYY-MM.csv` | Derived: the difference to the asset's previous snapshot, the **hours** it covers, and a `kind` (`baseline`, `normal`, `new`, `reset`). |
 | `SUMMARY.md` | Derived: the last 30 snapshots and the totals per release (version-sorted, with a total). |
 | `baseline.json` | Immutable earliest snapshot, frozen before a same-date rerun can replace it; the sole basis for the historical estimate. |
-| `site/timeline.json` | UTC daily installer series with historical/observed/gap components, partial flags and actual observation windows. |
+| `site/timeline.json` | UTC daily installer series (`"version": 2`, `"basis": "current_release"`) with historical/observed/gap components, partial flags and actual observation windows. |
 | `site/` | Self-contained localized interactive chart and SVG preview; only this directory is deployed to Pages. |
 
-**Chart (ADR-067 addendum, #634 follow-up).** `SUMMARY.md` embeds a daily SVG preview
+**Chart (ADR-067 addenda, #634 follow-up and #677).** `SUMMARY.md` embeds a daily SVG preview
 above the tables and links to `https://cofade.github.io/open-garden-planner/`.
 Default: daily bars over the last 365 calendar dates ending at the last covered date.
 Controls select day/week/month/year and 30/90/365 days/all history. Weeks start Monday;
 all boundaries are UTC. Groups SUM their daily values, retaining historical estimates
-(grey), recorded increments (green), and gap estimates (amber). Cut-off periods are
+(grey), increments of the current release (green), and gap estimates (amber). Cut-off periods are
 labelled partial. Nothing before the first release or after the last covered date is
 padded with zeros. An unchanged observed counter is a genuine zero.
 
@@ -586,21 +586,29 @@ Historical baseline counts are allocated uniformly over the exact elapsed second
 between successive regular release publications, ending at the baseline for its newest
 release. Same-time releases share a boundary; same-day contributions sum. Fractions
 are retained internally; rounding is presentation-only. Later downloads never change
-this modelled history. A live one-date window belongs to the UTC date preceding its
+this modelled history. An older release is closed as soon as a newer regular release is
+published (#677): at each post-seed snapshot, only the non-prerelease installer with the
+latest `published_at` (`current_release`) contributes to `observed`/`gap`, so historical and
+observed components share one definition while `daily/` and `SUMMARY.md` retain raw counters
+across all releases. A live one-date window belongs to the UTC date preceding its
 ending snapshot; multiple dates share the increase equally and are marked estimated.
 A same-date manual window belongs to that date and is partial. Each asset retains its
 own previous observation when missing from a snapshot. New assets cannot contribute
 before publication. Promotion from prerelease admits the counter once; a reset admits
 the new count. Previously admitted assets retain pending increments and every observed
 reset while temporarily excluded as prereleases. Calendar bars approximate days: execution delays and downloads around
-midnight are not knowable from counters. The original CSVs remain exact window reports.
+midnight are not knowable from counters. The original CSVs remain exact window reports, and
+`_summary_row` notes `new release or asset` only when `new` rows are the reason for a window's
+downloads (`new_total > 0 and normal_total == 0`).
 
 The Qt-free report uses only the Python standard library and local HTML/CSS/JavaScript,
 with no CDN, browser API calls or app telemetry. Website text uses complete English/German/Spanish
 catalogs (`messages.json`, checked by report tests), independent of desktop Qt catalogs.
 Language follows the browser; appearance follows the system with light/dark overrides.
-Bars have accessible descriptions, Left/Right, Home/End and Escape navigation, and
-tooltips with observation times. Daily JSON is downloadable. Rebuild without fetching
+Bars have accessible `role="img"` + `aria-label` descriptions, Left/Right, Home/End and Escape
+navigation, and a single HTML `#tooltip` overlay (no duplicate SVG `<title>`) showing observation
+windows or `{count} observation windows` when more than three windows fall in a bucket. Daily
+JSON is downloadable. Rebuild without fetching
 GitHub or advancing counters:
 
 ```bash

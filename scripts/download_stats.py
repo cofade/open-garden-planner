@@ -335,6 +335,9 @@ def render_summary(
         "Generated from GitHub's per-asset download counters; no data comes from the app.",
         "These are downloads, not users: bots, virus scanners and retries are included.",
         "Each line is the window between two snapshots (not a calendar day).",
+        "The chart counts only the release that is current at each snapshot (older releases",
+        "are closed once a newer regular release is published); the tables below report the",
+        "raw per-asset counters across all releases, so the chart total and **All** differ by design.",
         "",
         "`SHA256SUMS.txt` is fetched by in-app updates from v1.30.3 on *and* by web users who",
         "follow the install instructions; older apps download the installer only. The two",
@@ -402,7 +405,9 @@ def _summary_row(taken_at: str, previous: str | None, deltas: list[Delta]) -> st
     longer = sum(1 for d in deltas if (d.hours or 0.0) > window + 0.05)
     if longer:
         notes.append(f"{longer} assets span a longer window (missing from an earlier snapshot)")
-    if any(d.kind == KIND_NEW for d in deltas):
+    new_total = sum(d.delta or 0 for d in deltas if d.kind == KIND_NEW)
+    normal_total = sum(d.delta or 0 for d in deltas if d.kind == KIND_NORMAL)
+    if new_total > 0 and normal_total == 0:
         notes.append("new release or asset")
     if any(d.kind == KIND_RESET for d in deltas):
         notes.append("counter reset")

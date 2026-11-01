@@ -38,26 +38,9 @@
       total: keys.reduce((sum, key) => sum + group[key], 0),
       windows: [...group.windows.values()]}));
   }
-  globalThis.DownloadChart = {aggregate, selectRange, bounds};
-  if (typeof document === "undefined") return;
-
-  const data = globalThis.DOWNLOAD_DATA;
-  const catalogs = globalThis.DOWNLOAD_MESSAGES;
-  const get = id => document.getElementById(id);
-  const svg = get("chart"), tooltip = get("tooltip"), container = get("chart-container");
-  const preferred = navigator.language.toLowerCase().split("-")[0];
-  let language = Object.hasOwn(catalogs, preferred) ? preferred : "en";
-  let active = 0;
-  const t = key => catalogs[language][key];
-  const number = value => new Intl.NumberFormat(language, {maximumFractionDigits: 6}).format(value);
-  const ns = "http://www.w3.org/2000/svg";
-  function element(tag, attributes, text) {
-    const node = document.createElementNS(ns, tag);
-    for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
-    if (text !== undefined) node.textContent = text;
-    return node;
-  }
-  function description(group) {
+  function describe(group, catalog, locale = "en") {
+    const t = key => catalog[key];
+    const number = value => new Intl.NumberFormat(locale, {maximumFractionDigits: 6}).format(value);
     const lines = [`${group.first} – ${group.last} (UTC)`, `${t("title")}: ${number(group.total)}`];
     for (const key of keys) lines.push(`${t(key)}: ${number(group[key])}`);
     if (group.partial) lines.push(t("partial"));
@@ -69,10 +52,30 @@
         const from = group.windows.map(window => window.from).sort()[0];
         const to = group.windows.map(window => window.to).sort().at(-1);
         lines.push(`${from} → ${to}`);
-        lines.push(`${number(group.windows.length)} · ${[...new Set(group.windows.map(window => t(window.kind)))].join(', ')}`);
+        lines.push(t("windowCount").replace("{count}", number(group.windows.length)));
       }
     }
     return lines.join("\n");
+  }
+  globalThis.DownloadChart = {aggregate, selectRange, bounds, describe};
+  if (typeof document === "undefined") return;
+
+  const data = globalThis.DOWNLOAD_DATA;
+  const catalogs = globalThis.DOWNLOAD_MESSAGES;
+  const get = id => document.getElementById(id);
+  const svg = get("chart"), tooltip = get("tooltip"), container = get("chart-container");
+  const preferred = navigator.language.toLowerCase().split("-")[0];
+  let language = Object.hasOwn(catalogs, preferred) ? preferred : "en";
+  let active = 0;
+  const t = key => catalogs[language][key];
+  const number = value => new Intl.NumberFormat(language, {maximumFractionDigits: 6}).format(value);
+  const description = group => describe(group, catalogs[language], language);
+  const ns = "http://www.w3.org/2000/svg";
+  function element(tag, attributes, text) {
+    const node = document.createElementNS(ns, tag);
+    for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+    if (text !== undefined) node.textContent = text;
+    return node;
   }
   function show(group, node) {
     tooltip.textContent = description(group);
@@ -95,7 +98,6 @@
     get("empty").hidden = !!groups.length;
     svg.replaceChildren();
     svg.setAttribute("aria-label", t("title"));
-    svg.append(element("title", {}, t("title")));
     const canvasWidth = Math.max(300, container.clientWidth);
     svg.setAttribute("viewBox", `0 0 ${canvasWidth} 350`);
     const left = 48, top = 12, width = canvasWidth - left - 14, height = 280;
@@ -111,7 +113,6 @@
       const x = left + index * step;
       const node = element("g", {class: "bar", tabindex: index === active ? "0" : "-1",
         role: "img", "aria-label": description(group)});
-      node.append(element("title", {}, description(group)));
       node.append(element("rect", {class: "hit", x, y: top, width: step, height,
         fill: "transparent"}));
       let y = top + height;

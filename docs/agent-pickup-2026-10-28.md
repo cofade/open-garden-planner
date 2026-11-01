@@ -2,6 +2,8 @@
 
 ## Where to Pick Up After Restart
 
+- **Epic #392: remaining audit packages A4/A6/A7/A9/A12/A13 (#456/#458/#459/#461/#464/#465) shipped in v1.34.5 (PR #640, ADR-068).** The bugfix package for #641 (elevated sun exposure), #643 (properties dropdown icons), #623 (selftest crash diagnostics), and #605 (paved path corner joins and acute bend trimming) shipped in v1.34.6 (PR #645).
+
 - **Download chart accepted by the owner on 28 October 2026 ("perfect").** ADR-067 addendum / FR-STATS / deployment §7.4 own frozen historical estimates, UTC day/week/month/year sums and Pages setup. Tooling-only chore; deployment follows protected merge.
 
 - **Batch #444/#481/#620/#628/#629 shipped on 2026-10-28 as v1.34.3 ([PR #627](https://github.com/cofade/open-garden-planner/pull/627)) after the owner's manual pass ("Manual testing is perfect").** A closed fence's shadow is its stroke, a crossing outline its lobes, the sun estimate spares the bed a plant stands in, a plant draws above its bed, any footprint can take a height and the raised object keeps its fill — on its TOP (tinted sides, no smear) with a raised lawn's blades and a raised pool's water picture intact — and a plant dropped into a bed is ONE undo step, as is a bed dragged with its plant; a bed dragged alone carries its child with no lag. ADR-037/043/056 addenda, FR-SUN-02/09, FR-STACK-10, FR-3D-BUILT-09, FR-EDIT-21, PF-DOM-28, PF-CAN-28/29, PF-UI-29, PF-L3D-17. Follow-up #635 (an agent move that reparents a plant still records two undo steps) — fixed in #443/#485, where the move command reconciles membership in the same step.

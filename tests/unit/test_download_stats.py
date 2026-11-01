@@ -196,8 +196,25 @@ def test_summary_reports_the_raw_counters_and_claims_no_in_app_web_split() -> No
     assert "| v1.0.0 | 517 | 44 |" in summary
     assert "| **All** | 517 | 44 |" in summary
     assert "not split into in-app and web" in summary
+    assert "current at each snapshot" in summary
+    assert "differ by design" in summary
     assert "(est.)" not in summary
     assert "v1.30.3" in summary, "the version floor of the checksum fetch is disclosed"
+
+
+def test_summary_note_labels_new_release_only_when_it_explains_the_numbers() -> None:
+    base = [_release(f"v1.0.{n}", 1, 1) for n in range(193)]
+    only_new = [*base, _release("v1.1.0", 2, 1)]
+    crawled = [
+        *[_release(f"v1.0.{n}", 2, 2) for n in range(193)],
+        _release("v1.1.0", 3, 2),
+        *[_release(f"v1.2.{n}", 2, 1) for n in range(4)],
+    ]
+    summary = _summary((T1, base), (T2, only_new), (T3, crawled))
+    line_t2 = next(r for r in summary.splitlines() if r.startswith("| 2026-10-02"))
+    line_t3 = next(r for r in summary.splitlines() if r.startswith("| 2026-10-03"))
+    assert line_t2 == "| 2026-10-02 03:17 | 24 | 2 | 1 | new release or asset |"
+    assert line_t3 == "| 2026-10-03 03:17 | 24 | 202 | 198 |  |"
 
 
 def test_summary_flags_windows_that_are_not_a_day_and_resets() -> None:

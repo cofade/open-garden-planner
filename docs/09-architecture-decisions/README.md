@@ -9242,6 +9242,56 @@ The CLI integration test produces a complete site from existing snapshots. Tests
 the real browser aggregation with Node for all four grains, ISO boundaries and leap day.
 Browser look/interaction evidence and the manual acceptance checklist accompany the PR.
 
+### Addendum — current-release observation basis and single tooltip (1 November 2026, #677)
+
+**Context.** In the `2026-10-30T05:51:20Z` snapshot window, 386 of 408 tracked assets across
+every historical release moved by `+1` (204 installer rows summing to 218 and 204 checksum rows
+summing to 217) — the fingerprint of a release-history crawl. Because `_history()` distributed
+baseline counters across each release's tenure as the latest release while `calendar_series()`
+summed post-seed increments across all ~200 installer assets, the `2026-10-29` bar reached 218
+(24 % of the chart total), forcing the Y-axis maximum to 250 and compressing every normal day
+(1–8 downloads) to a hairline. In addition, `SUMMARY.md` labelled that 386-row `normal` window
+`new release or asset` because 4 new releases were also present, `chart.js` appended an SVG
+`<title>` alongside the HTML `#tooltip` overlay (producing a doubled tooltip on hover in
+Chromium), and multi-window tooltips concatenated distinct `kind` labels after a bare count
+(`5 · Zählerdifferenz, Neuer Release, neues Asset oder Freigabe`).
+
+**Owner decision (2026-11-01, #677).** An older release is **closed** the moment a newer
+non-prerelease release is published. Only the counter of the release that is current at a
+snapshot contributes to the observed/gap chart series.
+
+**Decision.**
+1. **Per-snapshot current-release resolution (`scripts/download_stats_report.py`).**
+   `current_release(snapshot_rows)` selects the non-prerelease installer row (`*-Setup.exe`)
+   with the highest `(instant(published_at), asset_id)` present in that snapshot.
+   `calendar_series()` accumulates `observed` and `gap` increments only for that asset and
+   closes superseded regular releases at each snapshot so crawls of older releases never enter
+   the chart. `_history()` is unchanged, so historical and observed components now share one
+   definition. `timeline.json` emits `"version": 2` and `"basis": "current_release"`.
+2. **Auditable raw tables and tightened window note (`scripts/download_stats.py`).**
+   `snapshots/`, `daily/`, and `SUMMARY.md` per-release totals remain raw across all releases
+   so bulk crawls stay auditable. The `SUMMARY.md` preamble states why the chart total and the
+   `**All**` row differ by design. `_summary_row()` appends `new release or asset` only when
+   `KIND_NEW` deltas are the reason for the window's numbers (`new_total > 0 and normal_total == 0`).
+3. **Single tooltip and unmixed window summary (`scripts/download_stats_web/`).**
+   `chart.js` removes the SVG `<title>` nodes (retaining `role="img"` and `aria-label` on each
+   bar `<g>`) so hovering displays only the HTML `#tooltip` overlay. `describe()` is exported on
+   `globalThis.DownloadChart` and formats multi-window buckets (`windows.length > 3`) with the
+   localized `windowCount` key (`{count} observation windows` / `{count} Messfenster` /
+   `{count} intervalos de medición`) instead of joining distinct `kind` strings behind a bare
+   count. `messages.json` updates the `observed` legend to `Increment of the current release`
+   (and its German/Spanish equivalents) and documents the current-release basis and release-cadence
+   effect in `method`.
+
+**Trade-offs and consequences.** On the stored snapshots, `2026-10-29` drops from 218 to 2 and
+the year maximum is the historical ~19.7 on `2026-07-23`. Real downloads of older releases are
+deliberately excluded from the chart (the chart is a floor for current-release uptake, while
+`SUMMARY.md` retains all-release counters); mid-window releases attribute their initial counter
+to the window ending at the next snapshot; and with roughly daily releases each bar reflects
+uptake while a release is current. This is not a bot filter and is not described as one. Pinned
+by `tests/unit/test_download_stats_report.py`, `tests/unit/test_download_stats.py`, and
+`tests/integration/test_download_stats_report.py`.
+
 
 ## ADR-068: Audit boundaries, responsibility extraction and progressive agent context (#392)
 
