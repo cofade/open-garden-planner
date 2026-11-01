@@ -233,12 +233,9 @@ NET_SETTLE_MS: Final = 50
 #: plants at most once per this interval: the first change at once, the last one
 #: when the interval is over (if the date is not the one the last pass read). Every
 #: step still moves the light (a light-only pass, no snapshot). Why: a regrowth
-#: replaces every dated plant's geometry, which was a new Model per plant before
-#: #531 (each Model Qt Quick 3D destroys leaves 15 to 20 kB behind that no cache
-#: release returns: 20 dated plants at 30 steps a second were an estimated 0.7 GB a
-#: minute). The Models are reused now, and the throttle stays: a regrowth is still a
-#: rebuild of every dated plant's meshes, and the recorded measurement was taken
-#: with it in place; at two a second the cost is a fifteenth of that.
+#: replaces the Models of every dated plant, and each Model Qt Quick 3D destroys
+#: leaves 15 to 20 kB behind that no cache release returns (#531) — 20 dated plants
+#: at 30 steps a second were an estimated 0.7 GB a minute; at two a second it is a
 #: fifteenth of that (the measured numbers are in §8.29.9).
 DATE_REGROW_MIN_MS: Final = 500
 #: CONTEXT PLAYBACK (L4, #388). A drag over a lawn changes the lawn's cut-outs (the

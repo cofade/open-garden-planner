@@ -1200,10 +1200,9 @@ class Workspace(QWidget):
             return
         if upgraded:
             self._applied_at = _now()
-            # #531: an upgrade replaces the geometry IN the Models it has, so it
-            # destroys none ? and a release is what Qt's destroyed-Model cache needs,
-            # not what a reloaded geometry does. Counting it here made the release run
-            # for nothing (and every release leaves cached tile textures behind, #532).
+            self._retired += len(upgraded)
+            if self._retired >= RELEASE_NOW_RETIRED:
+                self._release_engine_caches()
         if worker.pending_count > 0 and self._pane_is_showing():
             self._forge_timer.start(10)
 
