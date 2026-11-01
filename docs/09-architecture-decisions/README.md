@@ -2724,7 +2724,7 @@ snapshots (beside the register); this addendum supersedes it: future snapshots g
    - **Projection:** the click pixels come from the engine's `mapFrom3DScene`, so a wrong engine projection could aim and pick consistently wrong. An orthographic projection of our own agrees with it to **0.0 px**, and the picked point lies 0.0 cm from the target, on both backends (container; v6 frozen).
    - **Engine rule found on the way:** Windows v3 picked 0/20, reproduced on OpenGL. Once the Model using a `QQuick3DGeometry` is destroyed, handing that geometry to a new Model renders and picks nothing; the frame equals an empty scene's. `update()` does not restore it; a full re-upload of the data does. A `Repeater3D` over a JS array recreates **every** delegate on any array change, so a model present both before and after the change came back blank too. The spike re-uploads every previously shown geometry, and the probe compares the frame before the detach with the frame after the re-attach: mean absolute difference 0.0 on both backends (container; v6 frozen).
    - **Its texture twin** (caught by `--second-window`, diagnosed in senior review, pass 4): a `QQuick3DTextureData` detached from its `Texture` and attached again renders **white**. The IoU and orientation probes clear `groundTexture` for their measurement, and the restore set the same texture object back, so from then until the next project reload the plan ground drew white: mean difference 13.1 against the frame before the probe, all of it in the ground half (llvmpipe, 640×360). `update()` alone changes nothing; `setTextureData(textureData())` plus `update()`, or a fresh texture object, restores it (0.0). `preserved_state` re-uploads a detached ground, and every run checks the restore in pixels (`probe_restore_frame_diff` < 1, measured 9.83 before the fix and 0.0 after, with the IoU and orientation probes in the run; 0.0 in all three render-tier runs that probe at 479d78c, at 100 % and 150 % display scale, and 0.0 on D3D11 in Windows run v11; the render tier and the Windows driver both assert it).
-   - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array. **Superseded for a changed part by ADR-069 (#531, 2026-11-01):** a Model keeps its identity and receives a new geometry (`update_part_geometry`), because the cost measured here was handing one geometry object to a SECOND Model — which still never happens. A texture is re-uploaded whenever it is re-attached.
+   - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array. **Reuse of a live Model was tried and WITHDRAWN (ADR-069, #531, 2026-11-01):** assigning a new geometry to a Model that is already drawing, or re-loading new data into the geometry it already has, renders NOTHING while the item still picks on both render tiers (0.0 IoU against its own mask). One geometry per Model lifetime therefore stands, and a changed part gets a new Model. (The cost measured here — handing one geometry object to a SECOND Model — still never happens.) A texture is re-uploaded whenever it is re-attached.
 5. *Python geometry path (criterion 6)*: replacing a 100k-vertex geometry (`NumpyGeometry.set_mesh`: frame mapping, interleave, `QByteArray` copy) takes **10.5 ms median** in the container (n = 10, max 25 ms). On the Windows runners the same code took 14.4 ms (v3), 27.3 ms (v4) and 36.4 ms (v6, max 71.5 ms); runner instances differ by up to 2.5×. That is borderline against ≤ 10 ms; the owner's hardware decides, and the interleave copy is the first optimisation target.
    - **Scope of the number** (senior review): `set_mesh` covers the Python side only. The GUI thread also blocks during the next scene-graph sync, and with `QSG_RENDER_LOOP=basic` the whole render runs on it, so the criterion's main-thread budget is larger than this; L1.1 measures the full edit-to-frame path (≤ 50 ms p95).
    - The time to the next presented frame is recorded but is not a criterion number: on a software rasteriser it is the frame's own render cost.
@@ -9365,13 +9365,15 @@ exclusion are required.
 
 ## ADR-069: Native triangulation and off-the-GUI-thread 3D preparation (#452, #531, #598)
 
-**Status**: Accepted; implemented on the Slice A branch of the 3D performance package
-(draft PR) for #452 and #598 (whose hosted-CI measurement is still owed). The decision's
-#531 half — persistent Models with in-place geometry reload — was built, measured on
-both render tiers and WITHDRAWN: a new geometry object assigned to a live Model, and new data
-loaded into the object it already has, both render nothing while still picking. A changed
-part therefore gets a new Model, as before, and #531 stays open. #475 (raster lane, padded tiles) and #534 (wind memory) are NOT covered
-by this decision and stay open.
+**Status**: Accepted; shipped in v1.34.11 (PR #676) for #452: native triangulation, the
+cooperative sliced read and the geometry lane. The decision's #531 half — persistent
+Models with in-place geometry reload — was built, measured on both render tiers and
+WITHDRAWN: a new geometry object assigned to a live Model, and new data loaded into the
+object it already has, both render nothing while still picking. #598's sparse
+seasonal-parts index was built on the same engine files and withdrawn with it, with no
+measurement of its own. A changed part therefore gets a new Model, as before, and both
+issues stay open. #475 (raster lane, padded tiles) and #534 (wind memory)
+are NOT covered by this decision and stay open.
 
 **Date**: 2026-11-01.
 

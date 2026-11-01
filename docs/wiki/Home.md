@@ -135,6 +135,15 @@ survives corner edits, the fillet arc is baked into its host, and constraint inc
 resolver. Follow-ups: a converted raised bed becomes a garden bed with its soil pattern, and
 offsetting an open fence/path creates a parallel line.
 
+The first slice of the 3D performance and stability work (#452) shipped in
+[v1.34.11](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.11) via
+[PR #676](https://github.com/cofade/open-garden-planner/pull/676): whole-plan preparation is
+sliced into 4 ms turns (heartbeat p95 1.7–3.6 ms on the issue's plans, from 4.0–12.6 s in one
+block), heavy mesh builders run on one worker lane, and `mapbox-earcut` replaces the O(n²) ear
+clipper for large regions. The in-place Model experiment (#531) was withdrawn after both
+render tiers drew a replaced geometry as nothing, and the sparse seasonal-index experiment
+went with it on the same files; those issues stay open.
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.
