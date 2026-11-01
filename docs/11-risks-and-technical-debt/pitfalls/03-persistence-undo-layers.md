@@ -196,3 +196,71 @@ Real rendering caught what successful JSON loading did not. Box glyphs in the
 first preview separately required the existing `minimal:enable_fonts` recipe.
 Ground-level forest beds may span semantic layers. Raised parents need plants on
 the same or a higher layer; reciprocal parent/child IDs alone do not ensure this.
+
+
+### PF-PER-20
+
+- **Rule:** A shape is serialized in its **parent's** frame - the local geometry translated by `mapToParent(shape centre) - shape centre` - not by `item.pos()`, because `QGraphicsItemGroup.addToGroup()` folds the old rotation pivot into `pos()`.
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_rotated_grouped_shape_round_trips`; `tests/unit/test_geometry_identity.py::test_grouped_curves_round_trip_in_their_parent_frame`; `tests/unit/test_geometry_identity.py::test_grouped_construction_geometry_round_trips`; `tests/unit/test_geometry_identity.py::test_nested_groups_round_trip`
+- **Source:** #661
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A 30-degree rectangle grouped with a circle saved `x=186.44, y=37.42`
+(`item.pos() + rect.x()`), but the child's frame had already been normalized by
+`addToGroup()`: for a rotated child Qt rewrites `pos` to the parent position of
+the item's local `(0, 0)` and rotates about the item origin, so `pos + local`
+double-counts the compensation. Reload then rotated the shape about a different
+rect centre and its visible scene centre moved from `(160, 130)` to
+`(246.44, 67.42)` - a silently different plan, baked into the file at save time
+and not fixed by moving the group afterwards. `mapToParent(centre)` is invariant
+because `_apply_rotation` always pivots on the shape's own centre, so every
+shape branch (rectangle, ellipse, circle, polygon, polyline), the arc/bezier
+curves and the construction line/circle translate by that offset. The matrix
+covers five shape types x four rotations, a group move before the save, a second
+save/reload that must not drift again, the curves, the construction items and a
+nested group.
+
+### PF-PER-21
+
+- **Rule:** A command that replaces a shape with a rebuilt one gives the replacement the source's UUID and garden bookkeeping (name, metadata copy, parent/child links, layer, stack rank, label flags, transform including the stored rotation angle). When the edit would also change topology (a corner split renumbers indexed vertex and edge anchors) or the object's kind (a trim turns a closed bed into an open line), it is refused instead of silently retargeting anchors or orphaning records.
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_corner_edit_keeps_the_bed_identity`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_a_vertex_constrained_item`; `tests/unit/test_geometry_identity.py::test_corner_edit_refuses_an_edge_constrained_item`; `tests/unit/test_geometry_identity.py::test_rotated_corner_edit_keeps_orientation_and_geometry`; `tests/unit/test_geometry_identity.py::test_trim_refuses_a_referenced_bed`; `tests/unit/test_geometry_identity.py::test_trim_keeps_a_plain_shape_identity`; `tests/unit/test_geometry_identity.py::test_rotated_trim_keeps_orientation`
+- **Source:** #668
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Chamfer and fillet rebuilt a named bed as a fresh `PolygonItem`, copying only the
+visual style: new UUID, empty name and metadata, plants still pointing at the
+old id, soil/pest/harvest records keyed to a UUID no live item owned, and every
+constraint anchored to the old id dangling. Undo restored the original, so the
+loss only surfaced on redo or the next save - and a `.ogp` written afterwards
+kept the orphans forever. `inherit_item_identity()` in `core/item_look.py` is
+the single rule now used by the corner tools and both trim tools; `object_type`
+stays the caller's decision, and the replacement keeps its stack rank so it does
+not jump above its plants. Identity is a property of what the user edited, not
+of the Python object a rebuild happened to construct.
+
+A vertex insert/delete renumbers indexed anchors, so the renumbering lives in
+`AddVertexCommand`/`DeleteVertexCommand`: the command captures the before-state,
+shifts `EDGE_*` anchors alongside vertex indices and drops a reference to an edge
+that a split or delete made disappear, and its undo restores the snapshot. GUI,
+undo/redo and the Agent API therefore share one invariant. A corner edit also
+reconciles bed membership in the same undo step, so a plant left outside the new
+outline is unlinked (and relinked on undo) instead of staying attached to a bed it
+no longer touches.
+
+Keeping the UUID is only half the answer, and the first review round found the
+other half: topology. A chamfer replaces one vertex with two, renumbering every
+later `CORNER`/`ENDPOINT` anchor *and* every later `EDGE_*` midpoint index, and a
+trim reorders the perimeter completely. Version one of the fix kept the UUID
+anyway, so a constrained vertex silently retargeted a different point, and a
+trimmed bed became a `FENCE` polyline that still owned the bed's records and
+plants. The tools now refuse those two edits (corner edit when the item carries
+any indexed anchor; trim when the item is a plant-parent or carries any
+constraint) and say why in the status bar. A plain unconstrained polygon still
+trims with its identity and rotation intact. The second review round found the
+last two gaps: `setRotation()` does not update the stored `rotation_angle` the
+serializers read, so a rotated replacement lost its orientation on the next
+save; and `inherit_item_identity` must be in the module's own contract
+(`__all__`, docstring). Pinned by seven tests covering identity, both refusal
+branches, the plain-shape control, rotation, and a save/reload of the result.

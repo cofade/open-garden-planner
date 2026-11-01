@@ -324,6 +324,9 @@ class CanvasView(QGraphicsView):
 
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
+        # Items whose ItemIsMovable this drag took away because they are FIXED
+        # (#662), with the flag value to restore.
+        self._fixed_drag_flag_restore: dict[QGraphicsItem, bool] = {}
         # Constraint-propagated items' start positions during drag
         self._constraint_propagated_starts: dict[QGraphicsItem, QPointF] = {}
         # Child items moved during bed drag (original positions)
@@ -1134,6 +1137,7 @@ class CanvasView(QGraphicsView):
         if self._rotating_item is None:
             self._constraint_propagated_starts.clear()
         self._child_drag_origins.clear()
+        self._thaw_fixed_drag_items()
 
     def _end_pinch(self) -> None:
         """Forget the active pinch's last values (finished, cancelled or disabled)."""
@@ -1529,7 +1533,7 @@ class CanvasView(QGraphicsView):
         """Trigger a rebuild of all constraint dimension lines."""
         self._canvas_scene.update_dimension_lines()
 
-    def apply_constraint_solver(self) -> None:
+    def apply_constraint_solver(self, item: object | None = None) -> None:
         """Run the constraint solver and move items to satisfy all constraints.
 
         Call this after adding a new constraint (or changing target distances)
@@ -1537,8 +1541,21 @@ class CanvasView(QGraphicsView):
         item moves are NOT recorded on the undo stack; they are folded into
         the subsequent drag or treated as the "initial state" for the newly
         created constraint.
+
+        Args:
+            item: When given, only the connected component that item belongs to
+                is solved.  A size edit must not move an unrelated, broken
+                component (round-2 review P2).
         """
-        moves, vertex_moves = self._compute_constraint_solve_moves()
+        scope_ids = None
+        item_id = getattr(item, "item_id", None)
+        if item_id is not None:
+            scope_ids = self._canvas_scene.constraint_graph.get_connected_component(
+                item_id
+            )
+        moves, vertex_moves = self._compute_constraint_solve_moves(
+            scope_ids=scope_ids
+        )
         for item, _old, new in moves:
             item.setPos(new)
         for item, idx, _old_local, new_local in vertex_moves:
@@ -1546,6 +1563,66 @@ class CanvasView(QGraphicsView):
                 item._move_vertex_to(idx, new_local)
         if moves or vertex_moves:
             self._canvas_scene.update_dimension_lines()
+
+    def _constraint_reference_pins(
+        self, anchor_a: object, anchor_b: object
+    ) -> set:
+        """Item IDs a new constraint must treat as immovable (CAD convention).
+
+        "A is constrained to B" means A moves and B stays — unless A is always
+        pinned (construction geometry, or a FIXED constraint: the solver's
+        pre-pass pins it, so B must remain free) or both anchors share an item.
+        A same-item constraint may only leave the item free when the item is
+        VERTEX-DEFORMABLE (polygon/polyline); a rigid rectangle handed to the
+        positional solver as a free variable translates instead of changing its
+        own edge length (round-4 review P0).
+
+        ONE rule, used by every application surface.
+        """
+        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.measure_snapper import is_vertex_deformable
+
+        graph = self._canvas_scene.constraint_graph
+        anchor_a_id = anchor_a.item_id  # type: ignore[attr-defined]
+        anchor_b_id = anchor_b.item_id  # type: ignore[attr-defined]
+        a_item = self._find_any_item(anchor_a_id)
+        from open_garden_planner.ui.canvas.items.construction_item import (
+            ConstructionCircleItem,
+            ConstructionLineItem,
+        )
+
+        if isinstance(a_item, (ConstructionLineItem, ConstructionCircleItem)):
+            # Construction geometry is ALWAYS pinned by every solve; pinning B as
+            # well would make a satisfiable garden-to-construction link
+            # unsatisfiable (round-2 review).
+            return set()
+        a_is_fixed = any(
+            c.constraint_type == ConstraintType.FIXED
+            and c.anchor_a.item_id == anchor_a_id
+            for c in graph.constraints.values()
+        )
+        if a_is_fixed:
+            return set()
+        if anchor_a_id == anchor_b_id:
+            if a_item is None or not is_vertex_deformable(a_item):
+                return {anchor_a_id}
+            return set()
+        return {anchor_b_id}
+
+    def _find_any_item(self, item_id: object) -> object | None:
+        """Find any scene item (garden OR construction) by UUID.
+
+        ``CanvasScene.find_item_by_id`` only returns ``GardenItemMixin`` items,
+        so using it here made the construction branch above dead code
+        (round-3 review P1).
+        """
+        scene = self.scene()
+        if scene is None:
+            return None
+        for item in scene.items():
+            if getattr(item, "item_id", None) == item_id:
+                return item
+        return None
 
     def _execute_constraint_with_solve(
         self, command: AddConstraintCommand, *, conflicts_checked: bool = False
@@ -1576,28 +1653,24 @@ class CanvasView(QGraphicsView):
             return
 
         # CAD convention: A is constrained to B → A moves, B stays (reference).
-        # Exception: if A already has a FIXED constraint the FIXED pre-pass
-        # inside solve_anchored will pin A, so B must remain free to move.
-        graph = self._canvas_scene.constraint_graph
-        anchor_a_id = command._anchor_a.item_id
-        anchor_b_id = command._anchor_b.item_id
-        a_is_fixed = any(
-            c.constraint_type == _CT.FIXED and c.anchor_a.item_id == anchor_a_id
-            for c in graph.constraints.values()
+        # The same rule decides what the feasibility trial pins.
+        extra_pinned = (
+            self._constraint_reference_pins(command._anchor_a, command._anchor_b)
+            or None
         )
-        # Intra-object constraints (e.g. ANGLE on a polygon vertex) have both
-        # anchors on the same item.  Pinning B would pin the item itself and
-        # prevent the solver from deforming any of its vertices.
-        intra_object = anchor_a_id == anchor_b_id
-        extra_pinned: set | None = None if (a_is_fixed or intra_object) else {anchor_b_id}
 
         # 1. Add the constraint temporarily so the solver can compute moves.
         command.execute()
+        # #670 review P0: the application solve must be scoped to the same
+        # component the feasibility trial answered for.  Solving the whole plan
+        # here let an accepted link move items in an unrelated, broken component.
+        graph = self._canvas_scene.constraint_graph
+        component = graph.get_connected_component(command._anchor_a.item_id)
         if command._constraint_type == _CT.EDGE_LENGTH:
             moves, vertex_moves = self._compute_edge_length_constraint_moves(command)
         else:
             moves, vertex_moves = self._compute_constraint_solve_moves(
-                extra_pinned=extra_pinned
+                extra_pinned=extra_pinned, scope_ids=component
             )
         # 2. Remove temporarily — we want the official execute() below to do it.
         command.undo()
@@ -1625,7 +1698,7 @@ class CanvasView(QGraphicsView):
             ConstraintType,
         )
         from open_garden_planner.core.measure_snapper import (
-            get_anchor_points,
+            anchor_offset_table,
         )
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
@@ -1654,6 +1727,7 @@ class CanvasView(QGraphicsView):
         item_positions: dict = {}
         item_map: dict = {}
         anchor_offsets: dict = {}
+        construction_ids: set = set()
         for item in self.scene().items():
             is_garden = isinstance(item, GardenItemMixin)
             is_construction = isinstance(
@@ -1665,11 +1739,10 @@ class CanvasView(QGraphicsView):
             item_map[uid] = item
             pos = item.pos()
             item_positions[uid] = (pos.x(), pos.y())
-            for anchor in get_anchor_points(item):
-                anchor_offsets[(uid, anchor.anchor_type, anchor.anchor_index)] = (
-                    anchor.point.x() - pos.x(),
-                    anchor.point.y() - pos.y(),
-                )
+            for (anchor_type, anchor_index), offset in anchor_offset_table(item).items():
+                anchor_offsets[(uid, anchor_type, anchor_index)] = offset
+            if is_construction:
+                construction_ids.add(uid)
 
         deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
 
@@ -1681,6 +1754,10 @@ class CanvasView(QGraphicsView):
                 deformable_items=deformable_items,
                 deformable_vertices=deformable_vertices,
                 tolerance=1.0,
+                # #670 review P1: the scan must pin what the application pins,
+                # or it reports a conflict the applied solve would not create.
+                pinned_items=construction_ids
+                | self._constraint_reference_pins(command._anchor_a, command._anchor_b),
             )
         except Exception:
             return allow_override  # A non-interactive size probe fails closed.
@@ -1764,7 +1841,7 @@ class CanvasView(QGraphicsView):
             True  — the constraint is compatible with the existing system.
             False — adding it would create an irresolvable conflict.
         """
-        from open_garden_planner.core.measure_snapper import get_anchor_points
+        from open_garden_planner.core.measure_snapper import anchor_offset_table
         from open_garden_planner.ui.canvas.items import GardenItemMixin
         from open_garden_planner.ui.canvas.items.construction_item import (
             ConstructionCircleItem,
@@ -1798,17 +1875,12 @@ class CanvasView(QGraphicsView):
                 item_map[uid] = item
                 pos = item.pos()
                 item_positions[uid] = (pos.x(), pos.y())
-                for anchor in get_anchor_points(item):
-                    key = (uid, anchor.anchor_type, anchor.anchor_index)
-                    anchor_offsets[key] = (
-                        anchor.point.x() - pos.x(),
-                        anchor.point.y() - pos.y(),
-                    )
+                for (anchor_type, anchor_index), offset in anchor_offset_table(
+                    item
+                ).items():
+                    anchor_offsets[(uid, anchor_type, anchor_index)] = offset
                 if is_construction:
                     construction_ids.add(uid)
-
-        if len(item_positions) < 2:
-            return True  # Not enough items to form a conflict — optimistically allow
 
         deformable_items, deformable_vertices = self._gather_deformable_info(item_map)
 
@@ -1822,6 +1894,9 @@ class CanvasView(QGraphicsView):
             anchor_c=anchor_c,  # type: ignore[arg-type]
             deformable_items=deformable_items,
             deformable_vertices=deformable_vertices,
+            # #670 cause 2: the trial must pin what the application pins.
+            pinned_items=construction_ids
+            | self._constraint_reference_pins(anchor_a, anchor_b),
         )
 
     # Coordinate conversion
@@ -2419,6 +2494,63 @@ class CanvasView(QGraphicsView):
             self._drag_start_positions = {
                 item: item.pos() for item in self.scene().selectedItems()
             }
+            self._freeze_fixed_drag_items()
+
+    def _freeze_fixed_drag_items(self) -> None:
+        """Take ``ItemIsMovable`` away from FIXED items for this drag (#662).
+
+        Qt's own drag handler moves every selected movable item *before* the view
+        gets a chance to reset a locked one, so every listener of
+        ``ItemPositionHasChanged`` — constraint propagation, snapping, the
+        shadow/3D refresh, bed membership, undo watchers — saw positions the
+        object never really had.  A locked datum must be inert, not merely
+        restored afterwards.
+
+        The flag is put back on release (and on a cancelled/pinched gesture), so
+        unlocking keeps working and layer-lock interplay is unchanged.
+        """
+        from PyQt6.QtWidgets import QGraphicsItem
+
+        from open_garden_planner.core.constraints import ConstraintType
+
+        self._thaw_fixed_drag_items()
+        graph = self._canvas_scene.constraint_graph
+        fixed_ids = {
+            c.anchor_a.item_id
+            for c in graph.constraints.values()
+            if c.constraint_type == ConstraintType.FIXED
+        }
+        if not fixed_ids:
+            return
+        movable = QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+        for item in self._drag_start_positions:
+            if getattr(item, "item_id", None) not in fixed_ids:
+                continue
+            if item.flags() & movable:
+                self._fixed_drag_flag_restore[item] = True
+                item.setFlag(movable, False)
+
+    def _thaw_fixed_drag_items(self) -> None:
+        """Give a drag-frozen FIXED item its ``ItemIsMovable`` flag back (#662)."""
+        from PyQt6.QtWidgets import QGraphicsItem
+
+        movable = QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+        for item, was_movable in self._fixed_drag_flag_restore.items():
+            # Restore the recorded value even when the item left the scene
+            # during the gesture (delete + undo must not come back frozen), but
+            # never overrule a layer that became locked in the meantime.
+            allowed = was_movable and not self._layer_is_locked_for(item)
+            item.setFlag(movable, allowed)
+        self._fixed_drag_flag_restore.clear()
+
+    def _layer_is_locked_for(self, item: QGraphicsItem) -> bool:
+        """Whether *item*'s current layer is locked (the scene's movable rule)."""
+        layer_id = getattr(item, "layer_id", None)
+        get_layer = getattr(self._canvas_scene, "get_layer_by_id", None)
+        if layer_id is None or not callable(get_layer):
+            return False
+        layer = get_layer(layer_id)
+        return bool(getattr(layer, "locked", False))
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """Handle mouse move for panning, tool operations, and coordinate updates."""
@@ -2800,6 +2932,7 @@ class CanvasView(QGraphicsView):
                 self._rotation_vertex_starts.clear()
                 if was_vertex_drag:
                     self._deferring_vertex_undo = False
+                self._thaw_fixed_drag_items()
                 return
 
         super().mouseReleaseEvent(event)
@@ -2815,6 +2948,7 @@ class CanvasView(QGraphicsView):
         # Check if items were dragged and create undo command
         if event.button() == Qt.MouseButton.LeftButton and self._drag_start_positions:
             self._finalize_drag_move()
+        self._thaw_fixed_drag_items()
 
     def _enforce_after_vertex_drag(self) -> None:
         return self._drag_constraints._enforce_after_vertex_drag()
@@ -3036,6 +3170,22 @@ class CanvasView(QGraphicsView):
         constraint = graph.constraints.get(constraint_id)
         if constraint is None:
             return
+        if constraint.constraint_type == ConstraintType.EDGE_LENGTH:
+            # A rigid shape cannot change its own edge length through the
+            # positional solver: moving one corner translates the whole item
+            # (round-4 review P0).  A rectangle's edge length is changed by
+            # resizing it, which the edge-length tool does through the canonical
+            # rect-resize command — this dialog would fight that path.
+            from open_garden_planner.core.measure_snapper import is_vertex_deformable
+
+            item = self._find_any_item(constraint.anchor_a.item_id)
+            if item is None or not is_vertex_deformable(item):
+                self.set_status_message(
+                    self.tr(
+                        "This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead."
+                    )
+                )
+                return
         if constraint.constraint_type not in {
             ConstraintType.DISTANCE,
             ConstraintType.EDGE_LENGTH,
@@ -3050,23 +3200,26 @@ class CanvasView(QGraphicsView):
             if abs(new_distance - constraint.target_distance) > 0.01:
                 old_distance = constraint.target_distance
 
-                # CAD convention: A moves, B stays.  If A is already FIXED the
-                # pre-pass in solve_anchored pins it, so B must remain free.
-                a_is_fixed = any(
-                    c.constraint_type == ConstraintType.FIXED
-                    and c.anchor_a.item_id == constraint.anchor_a.item_id
-                    for c in graph.constraints.values()
+                # #670 round-3 P1: this is an application surface too — scope it
+                # to the edited constraint's component and use the ONE pin rule.
+                extra_pinned = (
+                    self._constraint_reference_pins(
+                        constraint.anchor_a, constraint.anchor_b
+                    )
+                    or None
                 )
-                extra_pinned: set | None = (
-                    None if a_is_fixed else {constraint.anchor_b.item_id}
+                scope_ids = graph.get_connected_component(
+                    constraint.anchor_a.item_id
                 )
 
                 # Temporarily apply new distance so solver can compute moves
                 constraint.target_distance = new_distance
-                item_moves, vertex_moves = self._compute_constraint_solve_moves(
-                    extra_pinned=extra_pinned
-                )
-                constraint.target_distance = old_distance  # command will set it
+                try:
+                    item_moves, vertex_moves = self._compute_constraint_solve_moves(
+                        extra_pinned=extra_pinned, scope_ids=scope_ids
+                    )
+                finally:
+                    constraint.target_distance = old_distance  # command will set it
 
                 command = EditConstraintDistanceCommand(
                     graph=graph,
@@ -3123,8 +3276,11 @@ class CanvasView(QGraphicsView):
     def _compute_constraint_solve_moves(
         self,
         extra_pinned: set | None = None,
+        scope_ids: set | None = None,
     ) -> tuple[list[tuple[QGraphicsItem, QPointF, QPointF]], list[tuple[QGraphicsItem, int, QPointF, QPointF]]]:
-        return self._drag_constraints._compute_constraint_solve_moves(extra_pinned)
+        return self._drag_constraints._compute_constraint_solve_moves(
+            extra_pinned, scope_ids=scope_ids
+        )
 
     def _delete_selected_items(self) -> None:
         """Delete all selected items from the scene with undo support.
@@ -3382,6 +3538,7 @@ class CanvasView(QGraphicsView):
             if command_is(last_cmd, (ResizeItemCommand, RotateItemCommand)):
                 self._drag_start_positions.clear()
                 self._constraint_propagated_starts.clear()
+                self._thaw_fixed_drag_items()
                 return
 
         # Collect per-item deltas for both dragged and propagated items

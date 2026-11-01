@@ -83,6 +83,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Created grid array of {count} items ({rows}×{cols})': 'Creada matriz en cuadrícula de {count} elementos ({rows}×{cols})',
         'Created linear array of {count} items': 'Creada matriz lineal de {count} elementos',
         'Created {dir} offset of {dist:.1f} cm': 'Creado desplazamiento {dir} de {dist:.1f} cm',
+        'Created a parallel line at {dist:.1f} cm': 'Línea paralela creada a {dist:.1f} cm',
         'Cut {count} item(s)': 'Cortado(s) {count} elemento(s)',
         'Delete Bed': 'Eliminar bancal',
         'Delete bed and plants': 'Eliminar bancal y plantas',
@@ -182,6 +183,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Chamfer distance too large for this corner': 'Distancia de chaflán demasiado grande para esta esquina',
         'Chamfer distance: {distance:.1f} cm — press D to change': 'Distancia de chaflán: {distance:.1f} cm — pulse D para cambiar',
         'Distance (cm):': 'Distancia (cm):',
+        'Cannot edit this corner: the object is inside a group': 'No se puede editar esta esquina: el objeto forma parte de un grupo',
+        'Cannot edit this corner: this object type has no polygonal form': 'No se puede editar esta esquina: este tipo de objeto no tiene forma poligonal',
+        'Cannot edit this corner: a constraint is attached to it or to its edges': 'No se puede editar esta esquina: tiene una restricción en ella o en sus aristas',
     },
     'CircleItem': {
         'Array Along Path...': 'Matriz a lo largo de trayectoria...',
@@ -273,6 +277,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Fillet radius too large for this corner': 'Radio de redondeo demasiado grande para esta esquina',
         'Fillet radius: {radius:.1f} cm — press R to change': 'Radio de redondeo: {radius:.1f} cm — pulse R para cambiar',
         'Radius (cm):': 'Radio (cm):',
+        'Cannot edit this corner: the object is inside a group': 'No se puede editar esta esquina: el objeto forma parte de un grupo',
+        'Cannot edit this corner: this object type has no polygonal form': 'No se puede editar esta esquina: este tipo de objeto no tiene forma poligonal',
+        'Cannot edit this corner: a constraint is attached to it or to its edges': 'No se puede editar esta esquina: tiene una restricción en ella o en sus aristas',
     },
     'FixedConstraintTool': {
         'Fix in Place': 'Fijar en posición',

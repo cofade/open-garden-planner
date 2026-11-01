@@ -1388,7 +1388,7 @@
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/008-6-curves-and-arcs-adr-022-025-core-cad-geometry-py.md",
           "sha256": "41efc1e84a9a469208ecc47ca7776cdb084e0133e20f0ec5b083cf6ee722d015",
-          "current_sha256": "41efc1e84a9a469208ecc47ca7776cdb084e0133e20f0ec5b083cf6ee722d015"
+          "current_sha256": "206400e6fd351a6c203250627b3e7107c9f491f7e01e3e56a34f54094f8489f0"
         },
         {
           "path": ".agents/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",
@@ -2788,7 +2788,7 @@
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/008-6-curves-and-arcs-adr-022-025-core-cad-geometry-py.md",
           "sha256": "41efc1e84a9a469208ecc47ca7776cdb084e0133e20f0ec5b083cf6ee722d015",
-          "current_sha256": "41efc1e84a9a469208ecc47ca7776cdb084e0133e20f0ec5b083cf6ee722d015"
+          "current_sha256": "206400e6fd351a6c203250627b3e7107c9f491f7e01e3e56a34f54094f8489f0"
         },
         {
           "path": ".claude/skills/ogp-qt-cad-reference/references/009-7-driving-events-in-tests-two-tiers-one-hard-rule.md",

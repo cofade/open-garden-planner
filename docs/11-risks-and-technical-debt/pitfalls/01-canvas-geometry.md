@@ -362,3 +362,77 @@ execute a command with no drag-release handler at all. Test the real entry
 point, not the command a caller builds. It also proved the scoping rule: a
 scene-wide recompute on a bed edit unlinked a plant from a far-away bed it had
 been deliberately linked to.
+
+
+### PF-CAN-33
+
+- **Rule:** An item's derived centre is `rect().center()`, never `width/2, height/2`: a circle's rect is built at `centre - radius`, so its local origin is not `(0, 0)` and the half-size value names a different point.
+- **Pinned by:** `tests/unit/test_geometry_identity.py::test_circle_handle_resize_keeps_centre_and_rect_in_step`; `tests/unit/test_geometry_identity.py::test_circle_handle_resize_survives_save_and_reload`
+- **Source:** #657
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`CircleItem._after_resize_geometry()` recomputed `_center` as `QPointF(width/2, height/2)`.
+The shared resize primitive preserves the rect's local origin (the handle path
+rebuilds `QRectF(init_rect.x(), init_rect.y(), w, h)`), and a circle's rect
+normally starts at `centre - radius`, so an interactive resize stored a centre
+the visible drawing did not share: measured 150/150 stored against 550/550
+visible on master `f4e5060`. The canvas still looked right because the primitive
+anchors the scene geometry; the serializer writes `pos + centre`, so the object
+jumped on reload and every consumer of `item.center` (shadow, 3D footprint) read
+the wrong point. The 4-rotation x 8-handle matrix is what exposes it: at
+rotation 0 the visual anchor masks the error. `EllipseItem` is the control - it
+reads the rect directly and never kept a derived centre.
+
+
+### PF-CAN-34
+
+- **Rule:** A derived visual belongs to the item that owns it: bake it into that item's geometry (or its own serialized state), never add a second free scene item. A separate decoration does not follow the host when it moves or groups, is not deleted with it, and is not part of its undo/save.
+- **Pinned by:** `tests/integration/test_fillet_chamfer.py::test_fillet_polyline_bakes_the_arc_into_the_host`; `tests/unit/test_geometry_identity.py::test_a_raised_bed_converts_to_a_garden_bed_polygon`; `tests/unit/test_fillet_geometry.py::test_sample_arc_points_lie_on_the_arc_between_the_tangent_points`
+- **Source:** #668 manual-test follow-up, PR #672
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The fillet tool built two objects: a polygon whose corner was cut straight (the
+old "5-vertex polygon") and a free-standing `ArcItem` drawn between the tangent
+points. The fill therefore never followed the arc, and the moment the owner moved
+the bed the arc stayed at its old scene position while the polygon moved: the
+"rounded" corner came apart into an unfilleted chamfer, exactly what the manual
+test reported. The same rebuild copied the rectangle's `object_type` blindly, so
+a raised bed became a `PolygonItem` that still said `RAISED_BED` — the Properties
+panel showed "Polygon" (its dropdown does not offer that type for polygons)
+while the bed kept its soil depth, plants and records, and the wooden frame was
+gone.
+
+Bake the derived geometry into the item: the tangent points and the sampled arc
+are vertices of the host (`FILLET_ARC_TOLERANCE_CM = 0.02 cm`), so one move,
+group, save, delete or undo carries the whole picture. When a shape changes class
+(rectangle → polygon), map its type to a legal member of the new class (raised bed
+→ garden bed, generic rectangle → generic polygon) and refuse the edit when no
+legal mapping exists; never leave an item in a type/shape combination the panel
+cannot represent. A real type change also takes the new type's fill pattern (a
+converted raised bed shows the garden bed's soil, not the raised bed's solid
+fill) while keeping the user's colour; a same-type edit keeps the user's pattern.
+
+
+### PF-CAN-35
+
+- **Rule:** An open path has no inside: offsetting a polyline creates a parallel LINE on the cursor's side, never a filled polygon. Clipper-1 returns the stroked band outline for an open path; take the outline as an area only after proving the source is closed.
+- **Pinned by:** `tests/integration/test_offset_tool.py::test_offset_polyline_result_is_a_parallel_line`; `tests/integration/test_offset_tool.py::test_offset_polyline_miters_a_right_angle_corner`
+- **Source:** manual-test follow-up 2026-11-01, PR #672
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The owner offset a fence, clicked, and asked what the rounded brown band on the
+ground was supposed to be. Nothing: pyclipper's open-path offset returns the
+outline of the stroked band (both sides joined at the ends), and the tool wrapped
+that contour in a `PolygonItem`, filled it with the fence's style and left it in
+the scene. A line has no inward/outward side to choose by containment either —
+`shape().contains()` is only true inside the stroked band, never on one side of
+the line — so the "inward" rule was meaningless.
+
+Offset a polyline segment by segment on one side, with miter joins (bevelled past
+a 4× distance limit), and choose the side whose points are nearest the cursor.
+The result keeps the source's type and line look (`capture_line_look` /
+`apply_line_look`) and is a `PolylineItem`, so it reads as a second fence/path
+and exports as a line. Closed shapes continue to use the area offset.

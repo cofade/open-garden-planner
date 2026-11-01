@@ -9,13 +9,18 @@ logic; this module factors it out.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QMouseEvent, QPen
 from PyQt6.QtWidgets import QGraphicsItem, QGraphicsPathItem
 
+from open_garden_planner.core.object_types import (
+    polygon_equivalent_object_type,
+)
 from open_garden_planner.core.tools.base_tool import BaseTool
 
 if TYPE_CHECKING:
@@ -45,12 +50,34 @@ class CornerTarget:
     p_next_scene: QPointF
 
 
+class CornerEditRefusal(Enum):
+    """Why a corner edit cannot proceed (translated by the tool)."""
+
+    GROUPED = "grouped"
+    UNSUPPORTED_TYPE = "unsupported_type"
+    CONSTRAINT = "constraint"
+
+
 def _is_corner_editable(item: object) -> bool:
     from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
-    return isinstance(item, (PolylineItem, PolygonItem, RectangleItem))
+    # A grouped child is not a top-level shape: the replacement commands add the
+    # new item to the scene's top level, which would move it out of its group
+    # (round-3 review P2).  Group members are not individually selectable, so
+    # this only closes a programmatic path, but it must not be silent.
+    if getattr(item, "parentItem", lambda: None)() is not None:
+        return False
+    if isinstance(item, PolylineItem):
+        return True
+    if isinstance(item, (PolygonItem, RectangleItem)):
+        # An item whose type has no polygonal form must not even highlight: the
+        # click could only be refused (#owner manual test 2026-10-31).
+        return polygon_equivalent_object_type(
+            getattr(item, "object_type", None)
+        ) is not None
+    return False
 
 
 def _item_corners_scene(
@@ -242,77 +269,163 @@ class CornerEditTool(BaseTool):
         raise NotImplementedError
 
 
+def corner_edit_refusal(target: CornerTarget) -> CornerEditRefusal | None:
+    """The reason ``target`` cannot be edited, or ``None`` when it can.
+
+    This is checked before any geometry is computed so the user gets the right
+    message.  The constraint check is deliberately CORNER-SCOPED: replacing one
+    vertex only renumbers anchors after it, and the vertex itself plus its two
+    incident edges are the only references that cannot be preserved.  The old
+    item-wide rule refused every corner of a rectangle as soon as one unrelated
+    corner carried a constraint (owner manual test 2026-10-31).
+    """
+    from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+    from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+    from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+    item = target.item
+    if getattr(item, "parentItem", lambda: None)() is not None:
+        return CornerEditRefusal.GROUPED
+
+    if isinstance(item, PolylineItem):
+        is_rectangle = False
+        closed = False
+        vertex_count = len(item.points)
+    elif isinstance(item, PolygonItem):
+        is_rectangle = False
+        closed = True
+        vertex_count = item.polygon().count()
+    elif isinstance(item, RectangleItem):
+        is_rectangle = True
+        closed = True
+        vertex_count = 4
+    else:
+        return CornerEditRefusal.UNSUPPORTED_TYPE
+
+    # Only the items that become a polygon (or already are one) need a
+    # polygon-valid type; a polyline keeps its fence/path type unchanged.
+    if not isinstance(item, PolylineItem) and polygon_equivalent_object_type(
+        getattr(item, "object_type", None)
+    ) is None:
+        return CornerEditRefusal.UNSUPPORTED_TYPE
+
+    vertex_index = target.vertex_index
+    if is_rectangle:
+        # The picker walks TL,TR,BR,BL; a rectangle's anchors are TL,TR,BL,BR.
+        from open_garden_planner.core.measure_snapper import (
+            RECT_CORNER_POLYGON_ORDER,
+        )
+
+        vertex_index = RECT_CORNER_POLYGON_ORDER[vertex_index]
+
+    scene = item.scene()
+    graph = getattr(scene, "constraint_graph", None) if scene is not None else None
+    item_id = getattr(item, "item_id", None)
+    if (
+        graph is not None
+        and item_id is not None
+        and graph.corner_edit_is_blocked(
+            item_id,
+            vertex_index,
+            closed=closed,
+            rectangle=is_rectangle,
+            vertex_count=vertex_count,
+        )
+    ):
+        return CornerEditRefusal.CONSTRAINT
+    return None
+
+
+def _insert_replacement_vertices(
+    original: Sequence[QPointF],
+    index: int,
+    replacement: Sequence[QPointF],
+) -> list[QPointF]:
+    """Replace ``original[index]`` with ``replacement``, keeping the rest in order."""
+    return [
+        *original[:index],
+        *replacement,
+        *original[index + 1 :],
+    ]
+
+
 def rebuild_with_corner_replaced(
     target: CornerTarget,
-    point_in_scene: QPointF,
-    point_out_scene: QPointF,
+    replacement_points_scene: Sequence[QPointF],
 ) -> QGraphicsItem | None:
-    """Return a copy of the host item with one corner split into two new vertices.
+    """Return a copy of the host item with one corner replaced by new vertices.
 
-    Used by both fillet (where the arc is created separately by the
-    tool) and chamfer (where the two new vertices alone form the
-    bevelled corner). Polyline / polygon copies preserve their type and
-    styling; rectangles are destructively converted to a 5-vertex
-    polygon because rectangles have no slot for per-corner geometry —
-    the undo command keeps a reference to the original rectangle so
-    "undo" restores it whole (see ADR-022).
+    Used by both fillet (an arc sampled into vertices, baked into the host) and
+    chamfer (two vertices and a straight cut).  Polyline / polygon copies keep
+    their styling; rectangles are destructively converted to a polygon because
+    rectangles have no slot for per-corner geometry — the undo command keeps a
+    reference to the original rectangle so "undo" restores it whole
+    (ADR-022).  A rectangle's object type is mapped to its polygonal equivalent
+    (raised bed → garden bed); types with no polygonal form are refused.
     """
-    from open_garden_planner.core.item_look import copy_visual_style
+    from open_garden_planner.core.item_look import (
+        adopt_type_fill,
+        copy_visual_style,
+        inherit_item_identity,
+    )
     from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
     from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
     from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 
     item = target.item
 
+    # A grouped member's replacement is added to the scene's top level, which
+    # would move it out of its group; the picker already skips groups, and this
+    # guard closes the programmatic path too (round-4 review P2).
+    if getattr(item, "parentItem", lambda: None)() is not None:
+        return None
+
+    if not replacement_points_scene:
+        return None
+
     if isinstance(item, PolylineItem):
         pts_local = item.points
-        p_in_local = item.mapFromScene(point_in_scene)
-        p_out_local = item.mapFromScene(point_out_scene)
-        new_pts = (
-            pts_local[: target.vertex_index]
-            + [p_in_local, p_out_local]
-            + pts_local[target.vertex_index + 1 :]
+        replacement_local = [
+            item.mapFromScene(point) for point in replacement_points_scene
+        ]
+        new_pts = _insert_replacement_vertices(
+            pts_local, target.vertex_index, replacement_local
         )
-        return item.clone_with_points(new_pts)
-
-    if isinstance(item, PolygonItem):
-        poly = item.polygon()
-        n = poly.count()
-        verts_local = [poly.at(j) for j in range(n)]
-        p_in_local = item.mapFromScene(point_in_scene)
-        p_out_local = item.mapFromScene(point_out_scene)
-        new_verts = (
-            verts_local[: target.vertex_index]
-            + [p_in_local, p_out_local]
-            + verts_local[target.vertex_index + 1 :]
-        )
-        clone = PolygonItem(
-            vertices=new_verts,
-            object_type=item.object_type,
-            layer_id=item.layer_id,
-        )
-        copy_visual_style(item, clone)
-        clone.setPos(item.pos())
-        clone.setRotation(item.rotation())
+        clone = item.clone_with_points(new_pts)
+        # #668: the corner edit replaces the item; it must not replace its UUID
+        # (constraints, garden records and plant links are keyed by it).
+        inherit_item_identity(item, clone)
         return clone
 
-    if isinstance(item, RectangleItem):
-        corners_local = rectangle_corners_local(item)
-        p_in_local = item.mapFromScene(point_in_scene)
-        p_out_local = item.mapFromScene(point_out_scene)
-        new_verts = (
-            corners_local[: target.vertex_index]
-            + [p_in_local, p_out_local]
-            + corners_local[target.vertex_index + 1 :]
+    if isinstance(item, (PolygonItem, RectangleItem)):
+        mapped_type = polygon_equivalent_object_type(
+            getattr(item, "object_type", None)
         )
-        clone = PolygonItem(
+        if mapped_type is None:
+            return None
+        if isinstance(item, PolygonItem):
+            poly = item.polygon()
+            verts_local = [poly.at(j) for j in range(poly.count())]
+        else:
+            verts_local = rectangle_corners_local(item)
+        replacement_local = [
+            item.mapFromScene(point) for point in replacement_points_scene
+        ]
+        new_verts = _insert_replacement_vertices(
+            verts_local, target.vertex_index, replacement_local
+        )
+        polygon_clone = PolygonItem(
             vertices=new_verts,
-            object_type=item.object_type,
+            object_type=mapped_type,
             layer_id=item.layer_id,
         )
-        copy_visual_style(item, clone)
-        clone.setPos(item.pos())
-        clone.setRotation(item.rotation())
-        return clone
+        copy_visual_style(item, polygon_clone)
+        adopt_type_fill(
+            polygon_clone,
+            getattr(item, "object_type", None),
+            mapped_type,
+        )
+        inherit_item_identity(item, polygon_clone)
+        return polygon_clone
 
     return None

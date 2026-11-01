@@ -2463,6 +2463,8 @@ Every `solve_anchored` call runs in two phases:
 
 Convergence criterion: `max|F| ≤ tolerance`. `solve` defaults to 0.1 cm and 20 warm-start iterations; `solve_anchored` defaults to 1.0 cm and 10. Newton defaults to 25 iterations and 15 backtracks. Caller tolerances govern the final physical error. With no movable variables, evaluate the fixed-state residual before reporting feasibility (#457).
 
+A **self-constraint on a rigid item** (a rectangle's own edge length, coincidence or symmetry) is measured but never moved: both anchors translate with the item, so a correction can never change the distance and would repeat every iteration. Its residual still counts towards `max|F|` (so `validate_constraint()` refuses it and the conflict dialog fires), but Newton does not receive it — a translation-invariant residual would sit as a constant floor and stop Armijo from refining the other constraints. The predicate is "neither anchor resolves to a deformable vertex", which is broader than "rigid item".
+
 ### 8.12.3 Why two phases
 
 Gauss-Seidel alone fails on coupled systems — the canonical case is two `EDGE_LENGTH` constraints sharing a vertex. The feasible vertex position is the intersection of two circles, which cannot be reached by alternating 1D projections. Newton handles the 2D move. In the non-coupled majority case, Newton returns immediately because Gauss-Seidel already hit tolerance.
@@ -2496,8 +2498,28 @@ Before executing an `AddConstraintCommand`, the canvas view trial-runs the solve
 | `SYMMETRY_HORIZONTAL` | `(b_x − a_x, a_y + b_y − 2·axis_y)` |
 | `SYMMETRY_VERTICAL` | `(b_y − a_y, a_x + b_x − 2·axis_x)` |
 | `POINT_ON_EDGE` | perpendicular distance from point to edge |
+| `TANGENT` | radius `B−A` projected on the unit edge `A→C` |
 | `ANGLE` | `(acos(ba·bc / (|ba|·|bc|)) − θ_target) · min(|ba|, |bc|)` |
 | `PARALLEL`, `PERPENDICULAR`, `EQUAL`, `FIXED` | handled in warm-start; Newton skips |
+
+The three incidence types are computed by **one** function,
+`core.constraints.incidence_error()`, which the Gauss-Seidel pass, the
+`find_conflicting_constraints` scan and `ConstraintsPanel._is_satisfied` all call
+— the panel used to fall through to an anchor-to-anchor distance and painted a
+satisfied `POINT_ON_EDGE` red (#669). A committed application solves to
+`APPLY_TOLERANCE_CM` (0.05 cm) so the result meets the `DISPLAY_TOLERANCE_CM`
+(0.1 cm, 1 mm) the panel reports; live drags keep the coarser cm-scale
+tolerance (#670 cause 4). Feasibility trials are scoped to the connected
+component the new link joins and pin the same references the application will
+(#670 causes 1–2).
+
+**Edge references.** Polygon and polyline edge anchors are typed by their
+current dominant axis, so an `EDGE_*` reference is matched by `anchor_index`
+alone for those items (`core.measure_snapper.resolve_anchor_point()` and
+`anchor_offset_table()`); every other shape matches type *and* index. One
+resolver serves the dimension lines, drag enforcement and the solver's offset
+table (#670 cause 6). A rectangle is not vertex-backed: all four of its edge
+midpoints share index 0, so it must keep type+index matching (#649).
 
 **Adding new checks:** If a feature introduces a new code pattern that warrants attention (e.g. cryptography, XML parsing, network server code), review the relevant Bandit rule IDs and verify the CI job covers them.
 

@@ -81,29 +81,14 @@ ANNOTATION_EDGE_OFFSET = 8.0  # pixels offset from edge midpoint
 MINIMUM_VERTICES = 3  # Cannot delete below this count
 
 
-def _shift_constraint_indices_after_insert(item: Any, insert_index: int) -> None:
-    """Shift constraint anchor indices on ``item`` after a vertex is inserted.
-
-    Without this, an edge-length / angle constraint silently retargets a
-    different vertex once an earlier vertex is added — the visible symptom is
-    geometry suddenly snapping to the wrong place on the next solver pass.
-    """
+def _topology_context(item: Any) -> tuple[Any, Any] | None:
+    """Return ``(graph, item_id)`` for the item's constraint graph, or None."""
     scene = item.scene() if hasattr(item, "scene") else None
     item_id = getattr(item, "item_id", None)
-    if scene is None or item_id is None or not hasattr(scene, "constraint_graph"):
-        return
-    scene.constraint_graph.shift_vertex_indices(item_id, insert_index, +1)
-
-
-def _shift_constraint_indices_after_delete(item: Any, deleted_index: int) -> None:
-    """Drop constraints on the deleted vertex, then shift higher indices down."""
-    scene = item.scene() if hasattr(item, "scene") else None
-    item_id = getattr(item, "item_id", None)
-    if scene is None or item_id is None or not hasattr(scene, "constraint_graph"):
-        return
-    graph = scene.constraint_graph
-    graph.remove_vertex_constraints(item_id, deleted_index)
-    graph.shift_vertex_indices(item_id, deleted_index + 1, -1)
+    graph = getattr(scene, "constraint_graph", None) if scene is not None else None
+    if graph is None or item_id is None:
+        return None
+    return graph, item_id
 
 
 class VertexHandle(QGraphicsRectItem):
@@ -1066,6 +1051,16 @@ class VertexEditMixin:
         from PyQt6.QtGui import QPolygonF
 
         polygon = self.polygon()
+        context = _topology_context(self)
+        graph = context[0] if context is not None else None
+        item_id = context[1] if context is not None else None
+        topology = None
+        if graph is not None and item_id is not None:
+            topology = (
+                graph.capture_topology_state(item_id),
+                True,
+                polygon.count(),
+            )
 
         # Insert after edge_index
         insert_index = edge_index + 1
@@ -1076,8 +1071,14 @@ class VertexEditMixin:
         self.setPolygon(QPolygonF(vertices))
         self._after_vertex_topology_change()
 
-        # Shift any constraint anchor indices that now point past the insert.
-        _shift_constraint_indices_after_insert(self, insert_index)
+        # Renumber indexed constraint anchors; the command reverses this on undo.
+        if topology is not None and graph is not None and item_id is not None:
+            graph.apply_vertex_insert(
+                item_id,
+                insert_index,
+                closed=topology[1],
+                vertex_count_before=topology[2],
+            )
 
         # Recreate handles and annotations (indices changed)
         self._create_vertex_handles()
@@ -1089,7 +1090,7 @@ class VertexEditMixin:
             self._position_label()
 
         # Register undo command
-        self._on_vertex_add(insert_index, pos)
+        self._on_vertex_add(insert_index, pos, topology=topology)
 
     def _delete_vertex(self, index: int) -> None:
         """Delete a vertex from the polygon.
@@ -1111,8 +1112,25 @@ class VertexEditMixin:
         # Store position for undo
         deleted_pos = polygon.at(index)
 
-        # Drop constraints on the deleted vertex and shift higher indices down.
-        _shift_constraint_indices_after_delete(self, index)
+        context = _topology_context(self)
+        graph = context[0] if context is not None else None
+        item_id = context[1] if context is not None else None
+        topology = None
+        if graph is not None and item_id is not None:
+            topology = (
+                graph.capture_topology_state(item_id),
+                True,
+                polygon.count(),
+            )
+
+        # Drop the vanishing vertex/edge anchors and shift higher indices down.
+        if topology is not None and graph is not None and item_id is not None:
+            graph.apply_vertex_delete(
+                item_id,
+                index,
+                closed=topology[1],
+                vertex_count_before=topology[2],
+            )
 
         # Remove vertex
         vertices = [polygon.at(i) for i in range(polygon.count()) if i != index]
@@ -1131,7 +1149,7 @@ class VertexEditMixin:
             self._position_label()
 
         # Register undo command
-        self._on_vertex_delete(index, deleted_pos)
+        self._on_vertex_delete(index, deleted_pos, topology=topology)
 
     def _on_vertex_move_end(
         self,
@@ -1181,7 +1199,9 @@ class VertexEditMixin:
 
         register_applied_with_membership(scene, command_manager, command, self)
 
-    def _on_vertex_add(self, vertex_index: int, pos: QPointF) -> None:
+    def _on_vertex_add(
+        self, vertex_index: int, pos: QPointF, topology: object | None = None
+    ) -> None:
         """Called when a vertex is added. Registers undo command.
 
         Args:
@@ -1204,6 +1224,7 @@ class VertexEditMixin:
             self,  # type: ignore[arg-type]
             vertex_index,
             pos,
+            topology=topology,
         )
 
         # Add to undo stack without executing (add already applied)
@@ -1211,7 +1232,9 @@ class VertexEditMixin:
 
         register_applied_with_membership(scene, command_manager, command, self)
 
-    def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
+    def _on_vertex_delete(
+        self, vertex_index: int, pos: QPointF, topology: object | None = None
+    ) -> None:
         """Called when a vertex is deleted. Registers undo command.
 
         Args:
@@ -1234,6 +1257,7 @@ class VertexEditMixin:
             self,  # type: ignore[arg-type]
             vertex_index,
             pos,
+            topology=topology,
         )
 
         # Add to undo stack without executing (delete already applied)
@@ -2167,11 +2191,23 @@ class PolylineVertexEditMixin:
             return
 
         points = self._points
+        context = _topology_context(self)
+        graph = context[0] if context is not None else None
+        item_id = context[1] if context is not None else None
+        topology = None
+        if graph is not None and item_id is not None:
+            topology = (graph.capture_topology_state(item_id), False, len(points))
         insert_index = edge_index + 1
         points.insert(insert_index, pos)
 
-        # Shift any constraint anchor indices that now point past the insert.
-        _shift_constraint_indices_after_insert(self, insert_index)
+        # Renumber indexed anchors; the command reverses this on undo.
+        if topology is not None and graph is not None and item_id is not None:
+            graph.apply_vertex_insert(
+                item_id,
+                insert_index,
+                closed=topology[1],
+                vertex_count_before=topology[2],
+            )
 
         self._rebuild_path()
         self._after_vertex_topology_change()
@@ -2182,7 +2218,7 @@ class PolylineVertexEditMixin:
         if hasattr(self, '_position_label'):
             self._position_label()
 
-        self._on_vertex_add(insert_index, pos)
+        self._on_vertex_add(insert_index, pos, topology=topology)
 
     def _delete_vertex(self, index: int) -> None:
         """Delete a vertex from the polyline."""
@@ -2194,9 +2230,21 @@ class PolylineVertexEditMixin:
             return
 
         deleted_pos = QPointF(points[index])
+        context = _topology_context(self)
+        graph = context[0] if context is not None else None
+        item_id = context[1] if context is not None else None
+        topology = None
+        if graph is not None and item_id is not None:
+            topology = (graph.capture_topology_state(item_id), False, len(points))
 
-        # Drop constraints on the deleted vertex and shift higher indices down.
-        _shift_constraint_indices_after_delete(self, index)
+        # Drop the vanishing vertex/edge anchors and shift higher indices down.
+        if topology is not None and graph is not None and item_id is not None:
+            graph.apply_vertex_delete(
+                item_id,
+                index,
+                closed=topology[1],
+                vertex_count_before=topology[2],
+            )
 
         del points[index]
 
@@ -2209,7 +2257,7 @@ class PolylineVertexEditMixin:
         if hasattr(self, '_position_label'):
             self._position_label()
 
-        self._on_vertex_delete(index, deleted_pos)
+        self._on_vertex_delete(index, deleted_pos, topology=topology)
 
     def _on_vertex_move_end(
         self,
@@ -2251,7 +2299,9 @@ class PolylineVertexEditMixin:
 
         register_applied_with_membership(scene, command_manager, command, self)
 
-    def _on_vertex_add(self, vertex_index: int, pos: QPointF) -> None:
+    def _on_vertex_add(
+        self, vertex_index: int, pos: QPointF, topology: object | None = None
+    ) -> None:
         """Called when a vertex is added. Registers undo command."""
         scene = getattr(self, 'scene', lambda: None)()
         if scene is None or not hasattr(scene, 'get_command_manager'):
@@ -2269,13 +2319,16 @@ class PolylineVertexEditMixin:
             self,  # type: ignore[arg-type]
             vertex_index,
             pos,
+            topology=topology,
         )
 
         from open_garden_planner.core.commands import register_applied_with_membership
 
         register_applied_with_membership(scene, command_manager, command, self)
 
-    def _on_vertex_delete(self, vertex_index: int, pos: QPointF) -> None:
+    def _on_vertex_delete(
+        self, vertex_index: int, pos: QPointF, topology: object | None = None
+    ) -> None:
         """Called when a vertex is deleted. Registers undo command."""
         scene = getattr(self, 'scene', lambda: None)()
         if scene is None or not hasattr(scene, 'get_command_manager'):
@@ -2293,6 +2346,7 @@ class PolylineVertexEditMixin:
             self,  # type: ignore[arg-type]
             vertex_index,
             pos,
+            topology=topology,
         )
 
         from open_garden_planner.core.commands import register_applied_with_membership

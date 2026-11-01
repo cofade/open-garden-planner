@@ -418,9 +418,18 @@ def build_move_vertex_command(
 
 
 def build_add_vertex_command(
-    item: QGraphicsItem, index: int, pos: QPointF
+    item: QGraphicsItem,
+    index: int,
+    pos: QPointF,
+    topology: object | None = None,
 ) -> Any:
-    """Build the one ``AddVertexCommand`` used by GUI and Agent API callers."""
+    """Build the one ``AddVertexCommand`` used by GUI and Agent API callers.
+
+    ``topology`` is the ``(before_snapshot, closed, vertex_count_before)`` tuple
+    the interactive path captured before mutating the geometry.  When omitted
+    (the Agent API builds before executing), the command captures the snapshot
+    itself and derives the count and shape kind from the item.
+    """
     from open_garden_planner.core.commands import AddVertexCommand
 
     _require_vertex_editable(item)
@@ -433,11 +442,15 @@ def build_add_vertex_command(
         QPointF(pos),
         _apply_insert_vertex,
         _apply_remove_vertex,
+        topology=topology,  # type: ignore[arg-type]
     )
 
 
 def build_delete_vertex_command(
-    item: QGraphicsItem, index: int, pos: QPointF | None = None
+    item: QGraphicsItem,
+    index: int,
+    pos: QPointF | None = None,
+    topology: object | None = None,
 ) -> Any:
     """Build the one ``DeleteVertexCommand`` used by GUI and Agent API callers.
 
@@ -446,6 +459,8 @@ def build_delete_vertex_command(
     this before executing and therefore omits ``pos``, which is read here while
     the vertex still exists. Reading after an interactive deletion would record
     whatever vertex shifted into that index (or fall off the end).
+
+    ``topology`` follows ``build_add_vertex_command``.
     """
     from open_garden_planner.core.commands import DeleteVertexCommand
 
@@ -467,6 +482,7 @@ def build_delete_vertex_command(
         deleted_pos,
         _apply_insert_vertex,
         _apply_remove_vertex,
+        topology=topology,  # type: ignore[arg-type]
     )
 
 

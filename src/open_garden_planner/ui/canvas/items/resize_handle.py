@@ -210,12 +210,6 @@ from .vertex_handles import (
     _remember_dense_sample as _remember_dense_sample,
 )
 from .vertex_handles import (
-    _shift_constraint_indices_after_delete as _shift_constraint_indices_after_delete,
-)
-from .vertex_handles import (
-    _shift_constraint_indices_after_insert as _shift_constraint_indices_after_insert,
-)
-from .vertex_handles import (
     _visible_scene_rect as _visible_scene_rect,
 )
 from .vertex_handles import (

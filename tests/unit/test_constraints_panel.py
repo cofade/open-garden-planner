@@ -17,7 +17,9 @@ from open_garden_planner.ui.panels.constraints_panel import (
 class _FakeDLM:
     """Fake DimensionLineManager — always returns None for anchor positions."""
 
-    def _resolve_anchor_position(self, _item_id, _anchor_type, _anchor_index):
+    def _resolve_anchor_position(
+        self, _item_id, _anchor_type, _anchor_index, **_kwargs
+    ):
         return None
 
 

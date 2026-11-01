@@ -1679,7 +1679,7 @@ Icon designs per tool:
 
 ### US-11.15: Offset Tool
 
-**Description**: Offset a shape inward or outward by a specified distance, creating a parallel copy.
+**Description**: Offset a shape inward or outward by a specified distance, creating a parallel copy. Closed shapes get an inward/outward area copy; an open polyline (fence, wall, path) gets a parallel **line** on the cursor's side.
 
 **Acceptance Criteria**:
 - Select a shape, activate Offset tool, click inside (inward) or outside (outward)
@@ -1688,6 +1688,7 @@ Icon designs per tool:
 - Creates a new shape (the offset copy), original unchanged
 - Preview during cursor movement (shows offset direction)
 - Undo support
+- **Revised 2026-11-01 (owner manual test):** offsetting an open polyline creates a parallel line of the same type/look, never a filled polygon. The side follows the cursor; corners use a miter join, bevelled past a 4× distance miter limit. The old open-path result was a rounded band on the ground (no garden meaning). See PR #672.
 
 **Technical Notes**:
 - Use `QPainterPath.toSubpathPolygons()` after `QPainterPathStroker` for polygon offset
@@ -2381,7 +2382,7 @@ Manual testing of PR #191 surfaced follow-up gaps, closed in later PRs:
 ### Acceptance highlights
 - `SnapProvider.candidates()` extended with `reference_point: QPointF | None = None`; all in-tree providers updated atomically; existing tests still green.
 - File format `FILE_VERSION` bumped 1.3 → 1.4 to register the new `arc` / `bezier` item types. v1.3 files load unchanged — regression test in place.
-- Filleted rectangles convert destructively to polygon-with-arc; undo restores the rectangle (ADR-022).
+- Filleted rectangles convert destructively to a polygon whose rounded corner is baked in as sampled vertices; undo restores the rectangle (ADR-022, including its 2026-10-31 addendum).
 - Shared `services/scene_rendering.render_scene_region()` helper consolidates PNG export's overlay-hiding / Y-flip / text-scaling bookkeeping into one place. PNG export refactored to use it; SVG export + print dialog migration tracked as follow-up.
 
 ### Out of scope (deferred)
@@ -3769,3 +3770,75 @@ Shipped in **v1.34.8** (PR #650) after owner acceptance. The owner accepted the 
 path on the automated evidence (15 integration tests + review) because no physical touch
 device was available; the hardware checklist is recorded in the PR. #451's ordinary-plan
 check and #540's CI rows passed.
+
+### CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669, #670) — **draft PR, awaiting owner manual testing**
+
+Nine reproduced defects sharing one shape: a value the user's plan depends on was
+recomputed somewhere else, and the two answers drifted apart.
+
+1. **#655 — a saved position lock stayed a lock.** `ConstraintGraph.from_list()` rebuilt
+   FIXED constraints without their `target_x`/`target_y`, so a reopened lock kept only its
+   badge and could be dragged; the next save wrote the loss into the file. The targets now
+   round-trip, a legacy file is repaired from the loaded item's own frame, and a
+   target-less FIXED pins instead of falling through the solver.
+2. **#656 — undoing a removed constraint restored every anchor.** `RemoveConstraintCommand.undo()`
+   omitted `anchor_c`, leaving ANGLE / POINT_ON_EDGE / TANGENT structurally different.
+3. **#657 — an interactive circle resize kept the stored centre.** `_after_resize_geometry`
+   used `width/2, height/2` although a circle's rect starts at `centre - radius`; the
+   canvas looked right, the serializer wrote a displaced centre, and the object jumped on
+   reload.
+4. **#658 — the Properties panel's Layer combo survived its own signal.** A hidden/locked
+   destination deselects the item, and the synchronous rebuild called `removeRow`, which
+   deleted the combo inside its `currentIndexChanged` (SIGSEGV on macOS, a dropped signal
+   on Windows). The rebuild now detaches and `deleteLater()`s its rows.
+5. **#661 — a rotated shape inside a group kept its frame.** Children were saved with
+   `pos() + local`, but `addToGroup()` folds the old rotation pivot into `pos()`; a grouped
+   30-degree rectangle moved on reload. Every shape branch now serializes through
+   `mapToParent(shape centre) - shape centre`; arc, bezier and construction items use the
+   same frame, and a nested group round-trips too.
+6. **#662 — a FIXED item was inert, not merely restored.** Qt moved it before the view reset
+   it, so one drag emitted four phantom positions to snapping, propagation, the 3D refresh
+   and undo watchers. The drag takes `ItemIsMovable` away for its duration.
+7. **#668 — a corner edit kept the bed's identity.** Chamfer/fillet/trim replaced a named bed
+   with a fresh UUID, orphaning its name, metadata, plant links and garden records.
+   `inherit_item_identity()` gives the replacement the source's UUID, bookkeeping, stack rank,
+   stored rotation angle and transform; an edit that would renumber a constrained vertex or
+   edge anchor, and a trim that would turn a bed or a constrained object into an open line,
+   is refused with a status message instead.
+8. **#669 — the Constraints panel agreed with the geometry.** It had no incidence branch and
+   compared a point-on-edge with the edge's first endpoint, painting satisfied constraints
+   red. One shared `incidence_error()` now serves the solver, the conflict scan and the panel.
+9. **#670 — the incidence pipeline's six causes.** Component-scoped feasibility trials, pins
+   that match the application, symmetric vertex reconstruction, a 0.05 cm application
+   tolerance inside the 0.1 cm indicator, `anchor_c` resolved through deformed vertices, and
+   edge identity kept by index after a direction change (ADR-012 addendum). The conflict
+   scan and all four application surfaces use the same component and pins as the trial —
+   including a trial that joins two existing components — one resolver
+   (`resolve_anchor_point`/`anchor_offset_table`) serves dimension lines, drag enforcement
+   and the solver, and vertex insert/delete renumber indexed anchors in the undoable command
+   so GUI and Agent API agree. A rigid shape's edge length is measured but never solved (the
+   conflict dialog still refuses an unsatisfiable one), and both edit surfaces ask the user
+   to remove the constraint before resizing.
+
+No `.ogp` format change. Tests: `tests/unit/test_constraint_integrity.py`,
+`tests/unit/test_geometry_identity.py`, `tests/unit/test_incidence_consistency.py` and
+`tests/integration/test_cad_precision_integrity.py`, each observed failing first; the
+integration file drives the real Lock / viewport-drag / Properties-panel / add-constraint
+paths.
+
+**Manual-test follow-up (2026-10-31, PR #672).** The owner's acceptance pass found three
+things this package made visible. (a) A fillet built a chamfered polygon plus a free-standing
+`ArcItem`: the fill never followed the arc, and moving the bed left the arc behind. The arc is
+now sampled into the host's own vertices (0.02 cm maximum chord deviation), so the rounded
+corner is one item that moves, groups, saves and undoes with the shape. (b) A rectangle whose
+corner was replaced kept its `RAISED_BED` type on a `PolygonItem`, so the Properties panel
+showed "Polygon" while the bed kept its soil depth, plants and records but lost the wooden
+frame. A rectangle now takes its polygonal equivalent (raised bed → **garden bed**, generic
+rectangle → generic polygon, hedge section → hedge polygon); a type with no polygonal form
+(furniture, containers, trellis) is refused, and a plan saved with the old polygon/raised-bed
+pair loads as a garden bed. (c) The #668 refusal was item-wide: one constrained corner rejected
+every corner of the rectangle. The refusal is now corner-scoped (the edited vertex and its two
+incident edges), and later indexed anchors renumber inside the same undo step. The constraint
+toolbar's tooltips also shed a duplicated, half-English shortcut ("Anfasen (Umschalt+C) —
+Ecke abschrägen (Shift+C)") and now append one localized shortcut. New pitfalls:
+PF-CAN-34, PF-DOM-33, PF-UI-32; ADR-022 addendum.

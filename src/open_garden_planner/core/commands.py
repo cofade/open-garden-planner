@@ -1740,6 +1740,7 @@ class AddVertexCommand(Command):
         position: QPointF,
         apply_add_func: Callable[[QGraphicsItem, int, QPointF], None],
         apply_remove_func: Callable[[QGraphicsItem, int], None],
+        topology: tuple[object, bool, int] | None = None,
     ) -> None:
         """Initialize the add vertex command.
 
@@ -1749,25 +1750,73 @@ class AddVertexCommand(Command):
             position: Position of the new vertex
             apply_add_func: Function to add a vertex to the item
             apply_remove_func: Function to remove a vertex from the item
+            topology: ``(before_snapshot, closed, vertex_count_before)`` captured
+                before the interactive mutation.  The command owns the
+                constraint renumbering so GUI undo, redo and the Agent API share
+                one invariant (round-4 review P1); when omitted it captures the
+                snapshot itself (the Agent API builds before executing).
         """
         self._item = item
         self._vertex_index = vertex_index
         self._position = position
         self._apply_add_func = apply_add_func
         self._apply_remove_func = apply_remove_func
+        self._topology = topology
+        self._before: object | None = topology[0] if topology else None
 
     @property
     def description(self) -> str:
         """Human-readable description."""
         return QCoreApplication.translate("Commands", "Add vertex")
 
+    def _graph(self) -> object | None:
+        scene = self._item.scene()
+        return getattr(scene, "constraint_graph", None)
+
+    def _ensure_topology(self) -> tuple[object, bool, int] | None:
+        """The ``(before_snapshot, closed, count)`` this command applies."""
+        if self._topology is not None:
+            return self._topology
+        graph = self._graph()
+        item_id = getattr(self._item, "item_id", None)
+        if graph is None or item_id is None:
+            return None
+        from open_garden_planner.ui.canvas.items import PolygonItem
+
+        count = int(self._item._get_vertex_count())  # type: ignore[attr-defined]
+        self._topology = (
+            graph.capture_topology_state(item_id),  # type: ignore[attr-defined]
+            isinstance(self._item, PolygonItem),
+            count,
+        )
+        self._before = self._topology[0]
+        return self._topology
+
     def execute(self) -> None:
         """Add the vertex."""
+        # Resolve the pre-mutation state BEFORE the geometry changes: the Agent
+        # API builds this command before executing, so this is the only place
+        # the old vertex count is still observable (#670 review).
+        graph = self._graph()
+        topology = self._ensure_topology()
         self._apply_add_func(self._item, self._vertex_index, self._position)
+        if graph is not None and topology is not None:
+            before, closed, count_before = topology
+            del before
+            graph.apply_vertex_insert(  # type: ignore[attr-defined]
+                self._item.item_id,  # type: ignore[attr-defined]
+                self._vertex_index,
+                closed=closed,
+                vertex_count_before=count_before,
+            )
 
     def undo(self) -> None:
-        """Remove the vertex."""
+        """Remove the vertex and restore the constraint anchors it renumbered."""
         self._apply_remove_func(self._item, self._vertex_index)
+        graph = self._graph()
+        self._ensure_topology()
+        if graph is not None and self._before is not None:
+            graph.restore_topology_state(self._before)  # type: ignore[attr-defined]
 
 
 class AlignItemsCommand(Command):
@@ -1832,6 +1881,7 @@ class DeleteVertexCommand(Command):
         position: QPointF,
         apply_add_func: Callable[[QGraphicsItem, int, QPointF], None],
         apply_remove_func: Callable[[QGraphicsItem, int], None],
+        topology: tuple[object, bool, int] | None = None,
     ) -> None:
         """Initialize the delete vertex command.
 
@@ -1841,25 +1891,67 @@ class DeleteVertexCommand(Command):
             position: Position of the vertex (for undo)
             apply_add_func: Function to add a vertex to the item (for undo)
             apply_remove_func: Function to remove a vertex from the item
+            topology: ``(before_snapshot, closed, vertex_count_before)`` captured
+                before the interactive mutation (see ``AddVertexCommand``).
         """
         self._item = item
         self._vertex_index = vertex_index
         self._position = position
         self._apply_add_func = apply_add_func
         self._apply_remove_func = apply_remove_func
+        self._topology = topology
+        self._before: object | None = topology[0] if topology else None
 
     @property
     def description(self) -> str:
         """Human-readable description."""
         return QCoreApplication.translate("Commands", "Delete vertex")
 
+    def _graph(self) -> object | None:
+        scene = self._item.scene()
+        return getattr(scene, "constraint_graph", None)
+
+    def _ensure_topology(self) -> tuple[object, bool, int] | None:
+        """The ``(before_snapshot, closed, count)`` this command applies."""
+        if self._topology is not None:
+            return self._topology
+        graph = self._graph()
+        item_id = getattr(self._item, "item_id", None)
+        if graph is None or item_id is None:
+            return None
+        from open_garden_planner.ui.canvas.items import PolygonItem
+
+        count = int(self._item._get_vertex_count())  # type: ignore[attr-defined]
+        self._topology = (
+            graph.capture_topology_state(item_id),  # type: ignore[attr-defined]
+            isinstance(self._item, PolygonItem),
+            count,
+        )
+        self._before = self._topology[0]
+        return self._topology
+
     def execute(self) -> None:
         """Remove the vertex."""
+        graph = self._graph()
+        topology = self._ensure_topology()
         self._apply_remove_func(self._item, self._vertex_index)
+        if graph is not None and topology is not None:
+            before, closed, count_before = topology
+            del before
+            graph.apply_vertex_delete(  # type: ignore[attr-defined]
+                self._item.item_id,  # type: ignore[attr-defined]
+                self._vertex_index,
+                closed=closed,
+                vertex_count_before=count_before,
+            )
 
     def undo(self) -> None:
-        """Restore the vertex."""
+        """Restore the vertex and the constraint anchors it renumbered."""
         self._apply_add_func(self._item, self._vertex_index, self._position)
+        graph = self._graph()
+        self._ensure_topology()
+        if graph is not None and self._before is not None:
+            graph.restore_topology_state(self._before)  # type: ignore[attr-defined]
 
 
 class MultiVertexMoveCommand(Command):
@@ -2073,6 +2165,10 @@ class RemoveConstraintCommand(Command):
             visible=self._constraint.visible,
             constraint_id=self._constraint.constraint_id,
             constraint_type=self._constraint.constraint_type,
+            # #656: the third anchor is part of the removed constraint.  Dropping
+            # it left an ANGLE / POINT_ON_EDGE / TANGENT constraint structurally
+            # different after undo (a broken relation the panel cannot describe).
+            anchor_c=self._constraint.anchor_c,
             target_x=self._constraint.target_x,
             target_y=self._constraint.target_y,
         )
@@ -3223,19 +3319,16 @@ class ExtendPolylineCommand(Command):
 # ────────────────────────────────────────────────────────────────────────────
 
 
-class FilletCornerCommand(Command):
-    """Round one corner of a polyline / polygon / rectangle with a tangent arc.
+class _CornerReplacementCommand(Command):
+    """Swap a corner-edited item and keep indexed constraint anchors honest.
 
-    Execute:
-        - Polyline / polygon: replace the corner vertex with the two tangent
-          points; spawn a separate ``ArcItem`` for the rounded fillet.
-        - Rectangle: convert to a 5-vertex polygon (one corner becomes two
-          tangent points); spawn the arc. On undo the rectangle is restored
-          unchanged.
-
-    The arc itself is created externally and passed in already-built so the
-    command stays pure-Python and doesn't depend on Qt geometry calls during
-    undo/redo.
+    Both fillet and chamfer replace one vertex with several.  The replacement
+    keeps the source UUID (``inherit_item_identity``), so the graph still finds
+    its constraints; the later indexed anchors must shift by the inserted count.
+    Capturing the topology state before the first application makes undo an
+    exact restore, and redo re-applies the same shift (round-5/6 reviews of
+    #668/#670; the old item-wide refusal that avoided this shift is replaced by
+    the corner-scoped check in ``corner_edit_base``).
     """
 
     def __init__(
@@ -3243,78 +3336,76 @@ class FilletCornerCommand(Command):
         scene: QGraphicsScene,
         original_item: QGraphicsItem,
         new_item: QGraphicsItem,
-        arc_item: QGraphicsItem,
+        *,
+        vertex_index: int,
+        inserted_count: int,
     ) -> None:
-        """Initialize.
-
-        Args:
-            scene: Canvas scene.
-            original_item: The polyline / polygon / rectangle being modified.
-            new_item: Replacement item carrying the corner-split vertex list.
-                For polylines / polygons this is a fresh ``PolylineItem`` /
-                ``PolygonItem`` with the same styling. For rectangles it is
-                a ``PolygonItem`` (the destructive rect→polygon conversion).
-            arc_item: Pre-built ``ArcItem`` representing the fillet arc.
-        """
         self._scene = scene
         self._original = original_item
         self._new = new_item
-        self._arc = arc_item
+        self._vertex_index = vertex_index
+        self._inserted_count = inserted_count
+        from open_garden_planner.ui.canvas.items.rectangle_item import (
+            RectangleItem,
+        )
+
+        self._rectangle = isinstance(original_item, RectangleItem)
+        graph = getattr(scene, "constraint_graph", None)
+        item_id = getattr(original_item, "item_id", None)
+        self._graph = graph
+        self._item_id = item_id
+        self._topology = (
+            graph.capture_topology_state(item_id)
+            if graph is not None and item_id is not None
+            else None
+        )
+
+    def execute(self) -> None:
+        if self._original.scene() is not None:
+            self._scene.removeItem(self._original)
+        if self._new.scene() is None:
+            self._scene.addItem(self._new)
+        if self._graph is not None and self._topology is not None:
+            self._graph.apply_corner_edit(
+                self._item_id,
+                self._vertex_index,
+                self._inserted_count,
+                rectangle=self._rectangle,
+            )
+
+    def undo(self) -> None:
+        if self._new.scene() is not None:
+            self._scene.removeItem(self._new)
+        if self._original.scene() is None:
+            self._scene.addItem(self._original)
+        if self._graph is not None and self._topology is not None:
+            self._graph.restore_topology_state(self._topology)
+
+
+class FilletCornerCommand(_CornerReplacementCommand):
+    """Round one corner of a polyline / polygon / rectangle.
+
+    The arc is baked into the host's vertex list (sampled at
+    ``cad_geometry.FILLET_ARC_TOLERANCE_CM``); the host is replaced whole so a
+    rectangle can become a polygon, and undo restores the original object.
+    There is no second item to leave behind when the host moves (owner manual
+    test 2026-10-31).
+    """
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Fillet corner")
 
-    def execute(self) -> None:
-        if self._original.scene() is not None:
-            self._scene.removeItem(self._original)
-        if self._new.scene() is None:
-            self._scene.addItem(self._new)
-        if self._arc.scene() is None:
-            self._scene.addItem(self._arc)
 
-    def undo(self) -> None:
-        if self._arc.scene() is not None:
-            self._scene.removeItem(self._arc)
-        if self._new.scene() is not None:
-            self._scene.removeItem(self._new)
-        if self._original.scene() is None:
-            self._scene.addItem(self._original)
-
-
-class ChamferCornerCommand(Command):
+class ChamferCornerCommand(_CornerReplacementCommand):
     """Bevel one corner of a polyline / polygon / rectangle with a straight cut.
 
-    Like ``FilletCornerCommand`` but without an arc — the corner vertex is
-    simply replaced by two cut-points so the two adjacent edges keep their
-    direction and a new straight segment bridges them.
+    Like ``FilletCornerCommand`` with the two cut-points as the replacement.
     """
-
-    def __init__(
-        self,
-        scene: QGraphicsScene,
-        original_item: QGraphicsItem,
-        new_item: QGraphicsItem,
-    ) -> None:
-        self._scene = scene
-        self._original = original_item
-        self._new = new_item
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Chamfer corner")
-
-    def execute(self) -> None:
-        if self._original.scene() is not None:
-            self._scene.removeItem(self._original)
-        if self._new.scene() is None:
-            self._scene.addItem(self._new)
-
-    def undo(self) -> None:
-        if self._new.scene() is not None:
-            self._scene.removeItem(self._new)
-        if self._original.scene() is None:
-            self._scene.addItem(self._original)
 
 
 class AddSoilTestCommand(Command):

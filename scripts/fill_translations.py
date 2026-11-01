@@ -259,7 +259,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
     "CanvasView": {
         "Created {dir} offset of {dist:.1f} cm": "{dir}-Versatz von {dist:.1f} cm erstellt",
+        "Created a parallel line at {dist:.1f} cm":
+            "Parallele Linie mit Abstand {dist:.1f} cm erstellt",
         "Distance in cm": "Abstand in cm",
+        "This edge length belongs to a rigid shape. Remove the constraint and resize the shape instead.":
+            "Diese Kantenlänge gehört zu einer starren Form. Entfernen Sie die "
+            "Randbedingung und ändern Sie dann die Größe der Form.",
         # #550: boolean union over a selection.
         "All shapes must be on the same layer": "Alle Formen müssen auf derselben Ebene liegen",
         "Select at least two shapes (intersection and subtraction need exactly two)": (
@@ -483,6 +488,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Abrundungsradius zu groß für diese Ecke",
         "Fillet radius: {radius:.1f} cm — press R to change":
             "Abrundungsradius: {radius:.1f} cm — R drücken zum Ändern",
+        "Cannot edit this corner: the object is inside a group":
+            "Diese Ecke kann nicht bearbeitet werden: Das Objekt ist Teil einer Gruppe",
+        "Cannot edit this corner: this object type has no polygonal form":
+            "Diese Ecke kann nicht bearbeitet werden: Dieser Objekttyp hat keine Polygonform",
+        "Cannot edit this corner: a constraint is attached to it or to its edges":
+            "Diese Ecke kann nicht bearbeitet werden: An ihr oder ihren Kanten "
+            "hängt eine Randbedingung",
     },
     "ChamferTool": {
         "Chamfer": "Anfasen",
@@ -491,6 +503,20 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Anfasabstand zu groß für diese Ecke",
         "Chamfer distance: {distance:.1f} cm — press D to change":
             "Anfasabstand: {distance:.1f} cm — D drücken zum Ändern",
+        "Cannot edit this corner: the object is inside a group":
+            "Diese Ecke kann nicht bearbeitet werden: Das Objekt ist Teil einer Gruppe",
+        "Cannot edit this corner: this object type has no polygonal form":
+            "Diese Ecke kann nicht bearbeitet werden: Dieser Objekttyp hat keine Polygonform",
+        "Cannot edit this corner: a constraint is attached to it or to its edges":
+            "Diese Ecke kann nicht bearbeitet werden: An ihr oder ihren Kanten "
+            "hängt eine Randbedingung",
+    },
+    "TrimExtendTool": {
+        "Cannot trim this object: beds and group members cannot become an open "
+        "line, and a constrained object must be unconstrained first.":
+            "Dieses Objekt kann nicht gekürzt werden: Beete und Gruppenelemente "
+            "können keine offene Linie werden, und ein Objekt mit Randbedingungen "
+            "muss zuerst von ihnen befreit werden.",
     },
 
     # ── EdgeLengthConstraintTool ──
@@ -1800,14 +1826,13 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     # ── ConstraintToolbar (button tooltips for CAD-editing tools) ──
     "ConstraintToolbar": {
         "Constraints": "Randbedingungen",
-        "Trim/Extend (I) — X toggles mode": "Trimmen/Erweitern (I) — X wechselt Modus",
-        "Offset (O) — parallel copy inward/outward":
-            "Versatz (O) — parallele Kopie nach innen/außen",
-        "Fillet (Shift+F) — round a corner": "Abrunden (Umschalt+F) — Ecke abrunden",
-        "Chamfer (Shift+C) — bevel a corner":
-            "Anfasen (Umschalt+C) — Ecke abschrägen",
-        "Mirror (Shift+M) — reflect selection across an axis":
-            "Spiegeln (Umschalt+M) — Auswahl an einer Achse spiegeln",
+        "Trim/Extend — X toggles mode": "Trimmen/Erweitern — X wechselt Modus",
+        "Offset — parallel copy or parallel line":
+            "Versatz — parallele Kopie oder parallele Linie",
+        "Fillet — round a corner": "Abrunden — Ecke abrunden",
+        "Chamfer — bevel a corner": "Anfasen — Ecke abschrägen",
+        "Mirror — reflect selection across an axis":
+            "Spiegeln — Auswahl an einer Achse spiegeln",
     },
 
     # ── MirrorTool (US-B4) ──
@@ -3065,6 +3090,9 @@ _ARRANGE_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Bring Forward": "Weiter nach vorn",
         "Send Backward": "Weiter nach hinten",
         "Send to Back": "Ganz nach hinten",
+        "Cannot resize this shape: its edge length is constrained. Remove the constraint first.":
+            "Diese Form kann nicht skaliert werden: Ihre Kantenlänge ist durch "
+            "eine Randbedingung festgelegt. Entfernen Sie zuerst die Randbedingung.",
     },
 }
 

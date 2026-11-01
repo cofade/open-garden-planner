@@ -362,11 +362,40 @@ class PropertiesPanel(QWidget):
 
         Also drops the field refreshers: they reference the widgets being
         destroyed here, and the rebuild re-registers fresh ones (#206).
+
+        The widgets are **detached and deleted later**, never destroyed inside
+        ``QFormLayout.removeRow`` (#658).  A rebuild can be triggered from a
+        widget's own signal — the Layer combo moving its item to a hidden or
+        locked layer deselects the item, and the selection change rebuilds the
+        panel synchronously — and ``removeRow`` deleted the combo box while Qt
+        was still delivering its ``currentIndexChanged``.  On macOS that aborted
+        the process (exit 139); on Windows the signal was silently dropped.
         """
         self._field_refreshers = []
         self._pending_text_commits = []
         while self._form_layout.rowCount() > 0:
-            self._form_layout.removeRow(0)
+            row = self._form_layout.takeRow(0)
+            for item in (row.labelItem, row.fieldItem):
+                self._dispose_form_item(item)
+
+    @staticmethod
+    def _dispose_form_item(item: object) -> None:
+        """Hide, detach and schedule deletion of one taken form row item."""
+        if item is None:
+            return
+        layout = item.layout() if hasattr(item, "layout") else None  # type: ignore[attr-defined]
+        if layout is not None:
+            while layout.count():
+                child = layout.takeAt(0)
+                PropertiesPanel._dispose_form_item(child)
+            layout.deleteLater()
+            return
+        widget = item.widget() if hasattr(item, "widget") else None  # type: ignore[attr-defined]
+        if widget is None:
+            return
+        widget.hide()
+        widget.setParent(None)
+        widget.deleteLater()
 
     def _show_no_selection(self) -> None:
         """Show message when nothing is selected."""
@@ -2545,6 +2574,101 @@ class PropertiesPanel(QWidget):
         if self._command_manager:
             self._command_manager.execute(command)
 
+    def _refuse_rigid_edge_length_resize(
+        self,
+        item: QGraphicsItem,
+        dimension_type: str,
+        value: float | None,  # noqa: ARG002 - part of the shared signature
+        width_spin: QDoubleSpinBox | None,
+        height_spin: QDoubleSpinBox | None,
+    ) -> bool:
+        """Refuse only a resize that would change a rigid self edge length.
+
+        The solver cannot enforce a rigid item's self edge length (its anchors
+        translate together), and silently moving the item outside the resize
+        command was the #670 round-5 P0.  A resize that leaves the constrained
+        edge's own length untouched is still allowed: a TOP/BOTTOM edge survives
+        a height-only change, a LEFT/RIGHT edge survives a width-only change, and
+        a circle's diameter edit is refused.  The edge's axis is classified in
+        the ITEM's local frame, because a rotated rectangle's scene-space edges
+        are not axis-aligned (round-7 review P1).
+        """
+        from open_garden_planner.core.constraints import ConstraintType
+        from open_garden_planner.core.measure_snapper import is_vertex_deformable
+
+        scene = item.scene()
+        graph = getattr(scene, "constraint_graph", None)
+        item_id = getattr(item, "item_id", None)
+        if graph is None or item_id is None or is_vertex_deformable(item):
+            return False
+        constraints = [
+            constraint
+            for constraint in graph.get_item_constraints(item_id)
+            if constraint.constraint_type == ConstraintType.EDGE_LENGTH
+            and constraint.anchor_a.item_id == item_id
+            and constraint.anchor_b.item_id == item_id
+        ]
+        if not constraints:
+            return False
+
+        if dimension_type != "rect_size" or width_spin is None or height_spin is None:
+            changes_any = True
+        else:
+            current = item.rect()  # type: ignore[attr-defined]
+            changes_width = abs(float(width_spin.value()) - current.width()) > 1e-6
+            changes_height = abs(float(height_spin.value()) - current.height()) > 1e-6
+            changes_any = False
+            from open_garden_planner.core.measure_snapper import resolve_anchor_point
+
+            for constraint in constraints:
+                first = resolve_anchor_point(
+                    item,
+                    constraint.anchor_a.anchor_type,
+                    constraint.anchor_a.anchor_index,
+                )
+                second = resolve_anchor_point(
+                    item,
+                    constraint.anchor_b.anchor_type,
+                    constraint.anchor_b.anchor_index,
+                )
+                if first is None or second is None:
+                    changes_any = True  # unknown geometry → keep the refusal
+                    break
+                # Local frame: a rotated rectangle's scene-space edge is not
+                # axis-aligned, so width/height must be judged before the item
+                # transform (round-7 review P1).
+                first_local = item.mapFromScene(first)
+                second_local = item.mapFromScene(second)
+                edge_is_horizontal = abs(first_local.x() - second_local.x()) >= abs(
+                    first_local.y() - second_local.y()
+                )
+                if (changes_width if edge_is_horizontal else changes_height):
+                    changes_any = True
+                    break
+
+        if not changes_any:
+            return False
+        self._show_status_message(
+            self.tr(
+                "Cannot resize this shape: its edge length is constrained. "
+                "Remove the constraint first."
+            ),
+            item,
+        )
+        # The typed value was never applied; put the field back on the model.
+        self._refresh_field_values()
+        return True
+
+    def _show_status_message(self, message: str, item: QGraphicsItem) -> None:
+        """Show *message* in the canvas view's status bar, if one is attached."""
+        scene = item.scene()
+        if scene is None:
+            return
+        views = scene.views()
+        target = views[0] if views else None
+        if target is not None and hasattr(target, "set_status_message"):
+            target.set_status_message(message)
+
     def _on_dimension_changed(
         self,
         item: QGraphicsItem,
@@ -2563,6 +2687,10 @@ class PropertiesPanel(QWidget):
             height_spin: Height spin box (for rectangles)
         """
         if self._updating:
+            return
+        if self._refuse_rigid_edge_length_resize(
+            item, dimension_type, value, width_spin, height_spin
+        ):
             return
 
         from open_garden_planner.core.commands import ResizeItemCommand
@@ -2643,7 +2771,7 @@ class PropertiesPanel(QWidget):
             scene.update()
             views = scene.views()
             if views and hasattr(views[0], 'apply_constraint_solver'):
-                views[0].apply_constraint_solver()
+                views[0].apply_constraint_solver(item)
 
     def _attach_commit_timer(self, edit: QWidget, on_commit: Callable[[], None]) -> None:
         """Attach a single-shot debounce timer that commits a free-text edit.

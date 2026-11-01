@@ -206,7 +206,9 @@ def _corner(item: Any) -> Any:
 
     target = CornerTarget(item=item, vertex_index=1, p_prev_scene=before, p_corner_scene=corner,
                           p_next_scene=after)
-    return rebuild_with_corner_replaced(target, toward(corner, before), toward(corner, after))
+    return rebuild_with_corner_replaced(
+        target, [toward(corner, before), toward(corner, after)]
+    )
 
 
 def _re_pointed(item: Any) -> Any:

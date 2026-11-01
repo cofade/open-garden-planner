@@ -667,6 +667,14 @@ variable is pinned, Newton evaluates the residual on that fixed state and return
 its actual error; it cannot overwrite an incompatible warm-start error with zero.
 The probe preserves graph, input geometry and history. See ADR-012 and the A5 evidence.
 
+**Scope (round-2 review).** A trial is restricted to the connected component the
+proposed link joins, and it pins the same references the application will
+(construction geometry, FIXED items, and B for the "A moves, B stays" rule). The
+conflict dialog and the applied solve use that same scope, so an unrelated broken
+component neither refuses a compatible link nor moves when the link is applied.
+Reported satisfaction and the 0.1 cm coincidence/incidence band come from one
+residual function (`incidence_error`).
+
 ### Constraint edge-length creation (#406)
 
 A single click picks an edge, then the distance modal supplies the target. Polygon/polyline

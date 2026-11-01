@@ -34,3 +34,46 @@ Omitting mappings in `_get_object_type_icon()` for newly added or specialized ty
 (such as `CONTAINER`, `CONTAINER_ROUND`, `WALL_PLANTER`, `TRELLIS`, `GENERIC_ELLIPSE`,
 and `HEDGE_POLYGON`) resulted in null icons and missing visual cues. All enum values
 must map to appropriate category or tool icons.
+
+
+### PF-UI-31
+
+- **Rule:** A re-entrant form rebuild detaches its widgets and `deleteLater()`s them; never call `QFormLayout.removeRow()` from a handler that can run inside one of those widgets' own signals.
+- **Pinned by:** `tests/integration/test_cad_precision_integrity.py::test_layer_combo_change_does_not_destroy_the_sender`
+- **Source:** #658
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Choosing a hidden or locked layer in the Properties panel moves the item and
+deselects it. The selection change rebuilds the panel synchronously, and
+`_clear_form()` called `removeRow(0)` in a loop - which deletes the field
+widgets immediately, including the `QComboBox` whose `currentIndexChanged` was
+still being delivered. On the source fork's macOS host that aborted the process
+with exit 139; on Windows/Qt 6.11 it survived but the signal was silently
+dropped, so the panel cleared while the layer edit's own notification never ran.
+The rebuild now takes each row, hides and detaches its widgets and schedules
+`deleteLater()`, which is safe to do from inside the sender's handler and keeps
+the widget alive for the rest of the delivery. The test wires the real
+selection-to-panel path and asserts through `sip.isdeleted` that the sender is
+alive while its signal runs.
+
+
+### PF-UI-32
+
+- **Rule:** A tooltip shows a shortcut once, in the user's own spelling. Keep shortcuts out of the translated tooltip text and append `ui.shortcut_text.localized_shortcut()`: Qt's key name plus the app's translated modifier tokens (`ShortcutsDialog` context: Strg/Umschalt/Auf). A baked literal is untranslated and duplicates the shortcut when the builder appends it; `QKeySequence.toString(NativeText)` alone stays English because Qt's own catalogs are not installed.
+- **Pinned by:** `tests/unit/test_toolbar.py::test_the_constraint_toolbars_shortcut_is_native_and_appears_once`; `tests/unit/test_toolbar.py::test_the_constraint_toolbars_shortcut_is_german_in_a_german_ui`
+- **Source:** manual-test follow-up 2026-10-31, PR #672
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The constraint toolbar's entries already read "Chamfer (Shift+C) — bevel a
+corner" and `ConstraintToolbar` appended `({shortcut})` itself. In German the
+chamfer button therefore read "Anfasen (Umschalt+C) — Ecke abschrägen
+(Shift+C)": the shortcut twice, and the second one in English because the
+appended literal was not translated. The tooltip keys now carry no shortcut; the
+builder appends `localized_shortcut()`, which renders the Qt key name and then
+translates the modifier tokens through the shortcuts dialog's existing
+`ShortcutsDialog` strings ("Umschalt+C", "Mayús+C"). Qt's own `NativeText` alone
+was measured to stay English here: the app installs its own catalog, not Qt's.
+The test asserts one parenthesised group and pins the complete German tooltip, so
+a future entry cannot reintroduce either half.
