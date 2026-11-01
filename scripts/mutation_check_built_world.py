@@ -141,8 +141,8 @@ MUTANTS: tuple[Mutant, ...] = (
            (STACKING,), "one_point_in_bed_predicate"),
     Mutant("a plant keeps its base when its parent got no record (38 cm over nothing)",
            SRC + "ui/view3d/snapshot.py",
-           "    _ground_items_without_a_parent_record(records)\n    with_context(records)",
-           "    with_context(records)",
+           "        _ground_items_without_a_parent_record(records)\n        with_context(records)",
+           "        with_context(records)",
            (STACKING,), "without_a_record or stacked_higher"),
     # ── the shared 2D caster ────────────────────────────────────────────────
     Mutant("a bare 3-tuple is a caster again (round 0)",

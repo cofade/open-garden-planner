@@ -1939,9 +1939,9 @@ class TestOutlinesTooLargeToCut:
         assert snapshot_module._stroke_regions(path, 10.0, whole) == ((teeth, ()),)
         floor, spent = region_work(teeth), cut_work(teeth)
         before_the_cut = whole.spent - spent
-        assert before_the_cut > 0 and before_the_cut + floor < spent
+        assert before_the_cut > 0 and floor < spent  # the sweep's pairs come on top of the floor
         polygon_module._examined.cache_clear()
-        monkeypatch.setattr(polygon_module, "MAX_REGION_WORK", (before_the_cut + floor + spent) // 2)
+        monkeypatch.setattr(polygon_module, "MAX_REGION_WORK", (floor + spent) // 2)
         monkeypatch.setattr(snapshot_module, "_resolved_regions", _never("the outline was resolved"))
         assert snapshot_module._polyline_regions(path, 10.0) is snapshot_module._TOO_LARGE
         with pytest.raises(RegionTooLargeError):  # … whatever is left in the item's own budget
@@ -2180,14 +2180,14 @@ class TestTheInputIsBoundedBeforeTheWork:
         self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
     ) -> None:
         """The bound sat on the LARGEST outer ring. A stroke that comes back as
-        540 outer rings of 30 vertices — the clipper's answer is not ours to
+        160 outer rings of 100 vertices — the clipper's answer is not ours to
         choose, so it is handed in here — has no large ring at all."""
         from open_garden_planner.core.scene3d import polygon as polygon_module
         from open_garden_planner.core.scene3d.polygon import MAX_REGION_WORK, region_work
 
-        made = self._discs(540, 30)
+        made = self._discs(160, 100)  # (an item holds at most MAX_ITEM_VERTICES: 163 of these)
         each = region_work(snapshot_module._quantized(made[0]))
-        assert 300 * each < MAX_REGION_WORK < 540 * each  # each one a 360th of the bound; all of them beyond it
+        assert 40 * each < MAX_REGION_WORK < 160 * each  # each one a 70th of the bound; all of them beyond it
         monkeypatch.setattr(snapshot_module, "polyline_footprint", lambda _path, _width: made)
         cuts = 0
         real = polygon_module._cut
@@ -2206,8 +2206,8 @@ class TestTheInputIsBoundedBeforeTheWork:
         snapshot, skipped = snapshot_with_report(scene)
         assert list(snapshot) == [str(shed.item_id)]
         assert [(s.item_id, s.reason) for s in skipped] == [(str(fence.item_id), SkipReason.OUTLINE_TOO_LARGE)]
-        # it stopped when the budget was gone: 300-odd of the 540 were cut (and the shed)
-        assert 300 < cuts <= MAX_REGION_WORK // each + 1
+        # it stopped when the budget was gone: 60-odd of the 160 were cut (and the shed)
+        assert 40 < cuts <= MAX_REGION_WORK // each + 1
 
     def test_what_fits_together_is_built(
         self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
@@ -2280,18 +2280,14 @@ class TestTheInputIsBoundedBeforeTheWork:
         with pytest.raises(AssertionError, match="a reading was read"):
             snapshot_module._outline_regions(outline, WorkBudget(budget=reached[0]))
 
-    def test_a_625_crossing_grid_is_refused_from_its_size_after_the_reprice(
+    def test_a_625_crossing_grid_is_resolved_since_the_cut_is_native(
         self, fresh_outlines: None
     ) -> None:
-        """The stated cost of #451's higher block price: a 25 x 25 line grid (625
-        crossings) resolved before the re-price and is now refused from its size —
-        the least its resolution can cost is over ``MAX_REGION_WORK``. It is
-        refused early (8.5 M units, not the bound), and the 2D plan is untouched."""
-        from open_garden_planner.core.scene3d.polygon import (
-            MAX_REGION_WORK,
-            RegionTooLargeError,
-            WorkBudget,
-        )
+        """#451's higher block price made a 25 x 25 line grid (625 crossings) a refusal from
+        its size: the bridge search of its cut was dear. With the native cut (#452) the least
+        its resolution can cost is far inside ``MAX_REGION_WORK`` and the grid is resolved —
+        within the bound, whatever it spends."""
+        from open_garden_planner.core.scene3d.polygon import MAX_REGION_WORK, WorkBudget
 
         path: list[tuple[float, float]] = []
         for row in range(25):
@@ -2300,9 +2296,8 @@ class TestTheInputIsBoundedBeforeTheWork:
             x = column * 50.0 + 25.0
             path += [(x, -50.0), (x, 1250.0)][::1 if column % 2 == 0 else -1]
         budget = WorkBudget(budget=10**12)
-        with pytest.raises(RegionTooLargeError, match=f"MAX_REGION_WORK = {MAX_REGION_WORK:,}"):
-            snapshot_module._outline_regions(tuple(path), budget)
-        assert budget.spent < MAX_REGION_WORK // 10, "refused before the bound was burned"
+        regions, _resolved = snapshot_module._outline_regions(tuple(path), budget)
+        assert regions and budget.spent < MAX_REGION_WORK, "resolved inside the bound"
 
     def test_sorting_what_came_back_is_paid_for_too(
         self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
@@ -2352,9 +2347,12 @@ class TestTheInputIsBoundedBeforeTheWork:
         self, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
     ) -> None:
         """StrictlySimple compares every vertex of a ring with every other. A traced
-        outline of 4,400 vertices that crosses itself ONCE can pay for the plain
-        union; the 58 M units of that comparison it cannot — so the strict union
-        is never asked."""
+        outline that crosses itself ONCE can pay for the plain union; the
+        comparison it cannot — so the strict union is never asked. (Since #452
+        the cut of its region costs about what the comparison does, so no real
+        outline is refused for the comparison alone: the price is raised here to
+        pin the guard itself.)"""
+        monkeypatch.setattr(snapshot_module, "_STRICT_SQUARE_UNITS", 100)
         count = 4_400
         ring = [(round(3000.0 * math.cos(2.0 * math.pi * k / count), 7),
                  round(3000.0 * math.sin(2.0 * math.pi * k / count), 7)) for k in range(count)]
@@ -2400,7 +2398,7 @@ class TestTheInputIsBoundedBeforeTheWork:
         # their squares; the comparison on the lattice; two triangles cut
         assert stack == 4
         assert whole.spent == (20_000 + 6_000 + 480 + 3_100 + 10_000 + 54 + 10_000
-                               + 2_304 * 110 + 2 * 7_050) == 317_174
+                               + 2_304 * 110 + 2 * 7_440) == 317_954
 
         # no reading holds: both bands are cut and read as well (the regions are not looked at here)
         answers.clear()
@@ -3415,53 +3413,60 @@ class TestOneRingWithManyHoles:
         assert questions == [("list", pyclipper.CT_UNION, False), ("list", pyclipper.CT_UNION, True),
                              ("tree", pyclipper.CT_DIFFERENCE, False)]
 
-    def test_more_touching_holes_than_the_budget_covers_are_refused_before_any_band(
+    def test_110_touching_holes_are_built_since_the_cut_is_native(
         self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
     ) -> None:
-        """110 of them, 444 vertices: the bridge search for the strict reading's
-        region runs the budget out. Since #451 re-priced a block of candidates
-        (``polygon._BRIDGE_UNITS``) the budget stops the search after a few dozen
-        holes instead of every one of them. Refused; no band, no tree."""
+        """110 of them, 444 vertices: refused until #452 (the bridge search of the strict
+        reading's region ran the budget out), read off a band now like 45 are."""
         asked = _watch_clipper(monkeypatch)
         house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(110)], object_type=ObjectType.HOUSE)
         canvas.scene().addItem(house)
         snapshot, skipped = snapshot_with_report(canvas.scene())
-        assert snapshot == {} and [s.reason for s in skipped] == [SkipReason.OUTLINE_TOO_LARGE]
-        assert asked == ["plain", "strict"]
+        assert skipped == [] and asked == ["plain", "strict", "band"]
+        assert len(snapshot[str(house.item_id)].footprints) == 1
 
-    def test_the_bridge_search_is_priced_at_what_it_costs(
+    def test_more_touching_holes_than_the_budget_covers_are_refused_before_any_band(
         self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
     ) -> None:
-        """#451: the touching-holes family was the one row of the work table above
-        its price (3.6 to 8.1), because a block of bridge candidates was charged
-        60 units per edge. At 600 a block that finds nothing — the usual one for a
-        hole touching the wall — is paid for, and the budget stops the search
-        early: measured 30 calls for 110 holes (110 at the old price, when the
-        item held the GUI thread for up to 1.5 s). No clock is read here; the
-        script measures the time."""
+        """1,200 of them, 4,804 vertices: the strict reading's region is beyond the budget.
+        Refused; no band, no tree."""
+        asked = _watch_clipper(monkeypatch)
+        house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(1200)], object_type=ObjectType.HOUSE)
+        canvas.scene().addItem(house)
+        snapshot, skipped = snapshot_with_report(canvas.scene())
+        assert snapshot == {} and [s.reason for s in skipped] == [SkipReason.OUTLINE_TOO_LARGE]
+        assert "band" not in asked
+
+    def test_the_edge_sweep_is_priced_at_what_it_costs(
+        self, canvas: CanvasView, monkeypatch: pytest.MonkeyPatch, fresh_outlines: None
+    ) -> None:
+        """#452: the touching-holes family used to be the row of the work table above its
+        price because of the bridge search. Now a region is judged by ONE sweep of all its
+        rings and cut by ONE native call, however many holes touch the wall: counted here
+        (no clock): a handful of sweeps for 110 holes, none for a ring refused from its size."""
         import open_garden_planner.core.scene3d.polygon as polygon_module
 
         calls = 0
-        original = polygon_module._bridge_position
+        original = polygon_module.ring_conflict
 
-        def counted(*args: object, **kwargs: object) -> int:
+        def counted(*args: object, **kwargs: object) -> object:
             nonlocal calls
             calls += 1
             return original(*args, **kwargs)  # type: ignore[arg-type]
 
-        monkeypatch.setattr(polygon_module, "_bridge_position", counted)
+        monkeypatch.setattr(polygon_module, "ring_conflict", counted)
         house = PolygonItem([QPointF(x, y) for x, y in _touching_holes(110)], object_type=ObjectType.HOUSE)
         canvas.scene().addItem(house)
         snapshot_with_report(canvas.scene())
-        assert 0 < calls <= 40  # 30 measured; one per hole for a search that runs to the end
+        assert 0 < calls <= 8  # 3 measured: one per reading, not one per hole
 
         calls = 0
         canvas.scene().removeItem(house)
-        huge = PolygonItem([QPointF(x, y) for x, y in _touching_holes(200)], object_type=ObjectType.HOUSE)
+        huge = PolygonItem([QPointF(x, y) for x, y in _touching_holes(3200)], object_type=ObjectType.HOUSE)
         canvas.scene().addItem(huge)
         snapshot, skipped = snapshot_with_report(canvas.scene())
         assert snapshot == {} and [s.reason for s in skipped] == [SkipReason.OUTLINE_TOO_LARGE]
-        assert calls == 0  # refused from its size alone: not one bridge is searched
+        assert calls == 0  # refused from its size alone: not one sweep is made
 
 
 class TestTheOrderOfARecordsRegions:

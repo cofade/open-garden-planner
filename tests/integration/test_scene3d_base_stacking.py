@@ -1481,12 +1481,14 @@ class TestTheParentShapeIsBuiltOncePerWalk:
                                                    ("collect_identified_casters", "call")],
             "ui/view3d/snapshot.py": [("<module>", "import"),
                                       ("_record_of", "parameter annotation"),
-                                      ("snapshot_records", "call")],
+                                      # #452: the cooperative read is the walk that
+                                      # constructs it; ``snapshot_records`` drives that
+                                      ("snapshot_steps", "call")],
         }
         assert constructed == {
             "ui/canvas/sun_exposure_snapshot.py": {"collect_exposure_snapshot"},  # the sun receivers
             "ui/canvas/sun_shadow_controller.py": {"collect_identified_casters"},  # the 2D caster walk
-            "ui/view3d/snapshot.py": {"snapshot_records"},                      # the 3D record walk
+            "ui/view3d/snapshot.py": {"snapshot_steps"},                        # the 3D record walk
         }
         assert kept == []
         assert takers == {name: [] for name in sorted(LOOKUP_TAKERS)}

@@ -15,6 +15,7 @@ snapshot). The same in the real main window: ``test_view3d_plan_revision.py``.
 from __future__ import annotations
 
 import logging
+import math
 import time as time_module
 from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
@@ -22,7 +23,7 @@ from typing import Any
 
 import pytest
 from PyQt6 import sip
-from PyQt6.QtCore import QPointF, QRectF
+from PyQt6.QtCore import QPointF, QRectF, QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QApplication, QGraphicsRectItem, QGraphicsScene
 
@@ -132,6 +133,306 @@ class Rig:
 @pytest.fixture()
 def rig(canvas: CanvasView, qtbot) -> Rig:
     return Rig(canvas, qtbot)
+
+
+
+# ── #452: a whole-plan read in slices, between turns of the event loop ───────
+
+
+def _fan(rig: Rig, count: int = 6, vertices: int = 40) -> list[PolygonItem]:
+    """``count`` separate polygons ? one item per step of a cooperative read."""
+    made: list[PolygonItem] = []
+    for index in range(count):
+        cx = 300.0 + index * 260.0
+        ring = [QPointF(cx + 60.0 * math.cos(i * 2.0 * math.pi / vertices),
+                        cx + 60.0 * math.sin(i * 2.0 * math.pi / vertices))
+                for i in range(vertices)]
+        item = PolygonItem(ring, object_type=ObjectType.GENERIC_POLYGON,
+                           layer_id=rig.scene.active_layer.id)
+        rig.commands.execute(CreateItemCommand(rig.scene, item, "fan"))
+        made.append(item)
+    return made
+
+
+def _one_item_per_slice(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A slice short enough that exactly one item is read per turn: the read is then
+    observable step by step, instead of finishing inside its first 4 ms."""
+    monkeypatch.setattr(sync_controller, "CAPTURE_SLICE_MS", 0.0)
+
+
+def test_a_whole_plan_read_runs_in_slices_and_lands_whole(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#452: the read is sliced, nothing is applied by half of it, and what lands is
+    the whole plan ? identical to a synchronous snapshot (no budget across items)."""
+    _one_item_per_slice(monkeypatch)
+    items = _fan(rig, 6)
+    started: list[int] = []
+    ticks: list[int] = []
+    rig.controller.capturing_changed.connect(lambda reading: started.append(reading))
+    timer = QTimer()
+    timer.setInterval(0)
+    timer.timeout.connect(lambda: ticks.append(rig.controller.capture_slices))
+    timer.start()
+    rig.controller.set_active(True)
+    rig.settle()
+    timer.stop()
+    assert started == [True, False], "the read announced its start and its end"
+    assert rig.controller.capture_slices > 1, "one item per slice: the read was sliced"
+    assert rig.controller.apply_count == 1
+    assert set(rig.controller.sync.records) == {str(item.item_id) for item in items}
+    rig.assert_equals_a_from_scratch_apply()
+    assert any(0 < tick < rig.controller.capture_slices for tick in ticks), (
+        "the event loop got its turn while the read was still running")
+
+
+def test_a_change_during_the_read_is_read_again_and_converges(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A snapshot of an earlier moment is applied ? a coherent one, not a mixture ?
+    and the read it leaves owed applies the change: a coherent-later, converging."""
+    _one_item_per_slice(monkeypatch)
+    items = _fan(rig, 6)
+    moved: list[bool] = []
+
+    def move_now(reading: bool) -> None:
+        if reading and not moved:
+            moved.append(True)
+            rig.commands.execute(MoveItemsCommand([items[0]], QPointF(35.5, -12.25)))
+
+    rig.controller.capturing_changed.connect(move_now)
+    rig.controller.set_active(True)
+    rig.settle()
+    assert moved == [True]
+    assert rig.controller.apply_count == 2, "the read, then the read the change owed"
+    rig.assert_equals_a_from_scratch_apply()
+    truth = snapshot_records(rig.scene, rig.clock.plan_date)
+    assert rig.controller.sync.records[str(items[0].item_id)].transform == truth[
+        str(items[0].item_id)].transform
+
+
+def test_an_item_deleted_during_the_read_is_not_shown_again(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The item was read before it was deleted: the apply drops it (it is in the
+    scene no more), and it is not reported as a problem either."""
+    _one_item_per_slice(monkeypatch)
+    items = _fan(rig, 6)
+    doomed = items[0]   # the read's first item (bottom of the paint order)
+    deleted: list[bool] = []
+
+    def delete_now(reading: bool) -> None:
+        if reading and not deleted:
+            deleted.append(True)
+            rig.commands.execute(DeleteItemsCommand(rig.scene, [doomed]))
+
+    rig.controller.capturing_changed.connect(delete_now)
+    rig.controller.set_active(True)
+    rig.settle()
+    assert deleted == [True]
+    ids = set(rig.controller.sync.records)
+    assert str(doomed.item_id) not in ids, "deleted: never shown again"
+    assert ids == {str(item.item_id) for item in items[1:]}
+    assert rig.controller.skipped == (), "a deletion is not a problem"
+
+
+def test_a_document_change_drops_the_read_in_progress(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A new plan's read must never be assembled from the old plan's items."""
+    _one_item_per_slice(monkeypatch)
+    _fan(rig, 6)
+    replaced: list[bool] = []
+
+    def replace_now(reading: bool) -> None:
+        if reading and not replaced:
+            replaced.append(True)
+            rig.controller.document_changed()
+
+    rig.controller.capturing_changed.connect(replace_now)
+    rig.controller.set_active(True)
+    rig.settle()
+    assert replaced == [True]
+    assert rig.controller.capturing is False, "the old plan's read was closed"
+    assert rig.controller.apply_count == 1, "only the new plan's read applied"
+    assert rig.controller.snapshot_count == 1
+    rig.assert_equals_a_from_scratch_apply()
+
+
+def test_hiding_drops_the_read_and_the_return_reads_the_plan_again(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    _one_item_per_slice(monkeypatch)
+    items = _fan(rig, 6)
+    hidden: list[bool] = []
+
+    def hide_now(reading: bool) -> None:
+        if reading and not hidden:
+            hidden.append(True)
+            rig.controller.set_active(False)
+
+    rig.controller.capturing_changed.connect(hide_now)
+    rig.controller.set_active(True)
+    rig.settle()
+    assert hidden == [True]
+    assert rig.controller.capturing is False and rig.controller.apply_count == 0
+    assert rig.controller.dirty, "the plan was never sent: the catch-up pass owes it"
+    rig.controller.set_active(True)
+    rig.settle()
+    assert rig.controller.apply_count == 1
+    assert set(rig.controller.sync.records) == {str(item.item_id) for item in items}
+
+
+def test_flush_finishes_a_read_in_one_call(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A caller that needs the scene current is not made to wait for the event loop."""
+    _one_item_per_slice(monkeypatch)
+    items = _fan(rig, 6)
+    rig.controller.set_active(True)
+    rig.controller.flush()
+    assert rig.controller.capturing is False and rig.controller.capture_slices > 1
+    assert rig.controller.apply_count == 1
+    assert set(rig.controller.sync.records) == {str(item.item_id) for item in items}
+    rig.assert_equals_a_from_scratch_apply()
+
+
+def test_a_heavy_build_is_prepared_on_the_geometry_lane(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#452: a pass whose builders would hold the GUI thread hands them to the worker
+    and applies what comes back. The records, the sink calls and the state are the
+    same as the synchronous path's."""
+    monkeypatch.setattr(sync_controller, "PREPARE_OFF_THREAD_VERTICES", 0)
+    items = _fan(rig, 6)
+    rig.controller.set_active(True)
+    rig.settle()
+    assert rig.controller.prepared_count == 1, "the pass asked the lane"
+    assert rig.controller.apply_count == 1, "and its answer was one apply"
+    assert set(rig.controller.sync.records) == {str(item.item_id) for item in items}
+    rig.assert_equals_a_from_scratch_apply()
+
+
+def test_a_small_change_is_built_in_the_pass_itself(rig: Rig, qtbot) -> None:
+    """A millisecond build does not wait for a worker: the edit lands in its own pass."""
+    rig.bed()
+    rig.controller.set_active(True)
+    rig.settle()
+    assert rig.controller.prepared_count == 0
+    assert rig.controller.apply_count == 1 and len(rig.controller.sync.records) == 1
+    rig.assert_equals_a_from_scratch_apply()
+
+
+def test_flush_waits_for_the_geometry_lane(rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A caller that needs the scene current blocks on the lane instead of polling."""
+    monkeypatch.setattr(sync_controller, "PREPARE_OFF_THREAD_VERTICES", 0)
+    items = _fan(rig, 6)
+    rig.controller.set_active(True)
+    rig.controller.flush()
+    assert rig.controller.prepared_count == 1 and rig.controller.apply_count == 1
+    assert rig.controller.dirty is False
+    assert set(rig.controller.sync.records) == {str(item.item_id) for item in items}
+    rig.assert_equals_a_from_scratch_apply()
+
+
+
+def test_an_item_deleted_after_it_was_read_is_dropped_by_the_same_pass(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The epoch is the READ's: an item read before the deletion is in the read's
+    records, and the apply must still not show it (review P1).
+
+    The deletion is hooked between two SLICES of the real read ? after the item was
+    read (it is first in the paint order) and before the read ends."""
+    _one_item_per_slice(monkeypatch)
+    items = _fan(rig, 6)
+    doomed = items[0]
+    deleted: list[bool] = []
+    first_apply: list[tuple[str, ...]] = []
+    controller_class = type(rig.controller)
+    real_slice = controller_class._capture_slice  # noqa: SLF001
+
+    def slice_then_delete(self: Any, *, synchronous: bool = False) -> None:
+        real_slice(self, synchronous=synchronous)
+        if self._capture is not None and not deleted:  # noqa: SLF001
+            deleted.append(True)
+            rig.commands.execute(DeleteItemsCommand(rig.scene, [doomed]))
+
+    monkeypatch.setattr(controller_class, "_capture_slice", slice_then_delete)
+    rig.controller.applied.connect(lambda report: first_apply.append(report.changes.added)
+                                   if report.snapshot else None)
+    rig.controller.set_active(True)
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    assert deleted == [True] and first_apply
+    assert str(doomed.item_id) not in first_apply[0], "dropped by the pass that read it"
+    assert str(doomed.item_id) not in rig.controller.sync.records
+
+
+def _slow_prepare(monkeypatch: pytest.MonkeyPatch, rig: Rig, seconds: float = 0.15) -> None:
+    """Make the lane's build take long enough to change the plan while it runs."""
+    real = type(rig.controller.sync).prepare
+
+    def prepare(self: Any, records: Any) -> Any:
+        time_module.sleep(seconds)
+        return real(self, records)
+
+    monkeypatch.setattr(type(rig.controller.sync), "prepare", prepare)
+    monkeypatch.setattr(sync_controller, "PREPARE_OFF_THREAD_VERTICES", 0)
+
+
+def test_a_light_change_during_the_build_is_not_overwritten(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ticket carries the sun of its read; a LIGHT-ONLY change during the build must
+    win, not be replaced by the older sun (review P1)."""
+    _slow_prepare(monkeypatch, rig)
+    _fan(rig, 3)
+    rig.controller.set_active(True)
+    rig.settle()                      # the first build, with the noon sun
+    before = rig.controller.sync.sun
+    started: list[bool] = []
+
+    rig.bed(400.0, 400.0)   # a new item: a heavy pass, built on the lane
+    qtbot.waitUntil(lambda: rig.controller._flight is not None, timeout=5000)  # noqa: SLF001
+    started.append(True)
+    rig.clock.set_time_of_day(time(9, 0))   # ? while its geometry is being built
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    assert started and rig.controller.sync.sun != before, "the new light was sent"
+    assert rig.controller.sync.sun == rig.controller._sun(), (  # noqa: SLF001
+        "a light change during the build is the one that lands")
+
+
+def test_hiding_drops_a_build_in_progress(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    _slow_prepare(monkeypatch, rig)
+    _fan(rig, 3)
+    hidden: list[bool] = []
+
+    rig.controller.set_active(True)
+    qtbot.waitUntil(lambda: rig.controller._flight is not None, timeout=5000)  # noqa: SLF001
+    hidden.append(True)
+    rig.controller.set_active(False)   # the build is in flight: drop it
+    assert rig.controller._flight is None and rig.controller._flight_pending is None
+    assert rig.controller.apply_count == 0 and rig.controller.dirty
+    rig.controller.set_active(True)
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    assert rig.controller.apply_count == 1, "one pass of the plan, no stale one"
+
+
+def test_a_document_change_drops_a_build_in_progress(
+        rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The build is for a DOCUMENT: a new plan must not receive its records."""
+    _slow_prepare(monkeypatch, rig)
+    _fan(rig, 3)
+    replaced: list[bool] = []
+    controller_class = type(rig.controller)
+    real_submit = controller_class._submit  # noqa: SLF001
+
+    def submit_then_replace(self: Any, ticket: Any, *, synchronous: bool = False) -> None:
+        real_submit(self, ticket, synchronous=synchronous)
+        if not replaced:
+            replaced.append(True)
+            self.document_changed()   # ? while the build runs
+
+    monkeypatch.setattr(controller_class, "_submit", submit_then_replace)
+    rig.controller.set_active(True)
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    assert replaced == [True]
+    assert rig.controller._flight is None and rig.controller._flight_pending is None
+    assert rig.controller.apply_count >= 1
+    assert len(rig.controller.sync.records) == 3
+    rig.assert_equals_a_from_scratch_apply()
 
 
 # ── G4: paused while hidden, one catch-up pass ───────────────────────────────
@@ -398,6 +699,33 @@ def test_a_repaint_takes_no_snapshot_and_one_reconciliation_once_the_scene_is_qu
     assert controller.unannounced_changes == 0
     qtbot.wait(QUIET * 3)
     assert controller.snapshot_count == snapshots + 1, "and then nothing: no timer spins"
+
+
+def test_a_quiet_timer_that_fired_after_a_blocked_loop_waits_for_a_settle(
+        canvas: CanvasView, qtbot) -> None:
+    """#452, the CI finding: a quiet timer can fire LATE — the 2D side held the GUI
+    thread for longer than ``NET_QUIET_MS`` — and the repaint from before that block is
+    the next thing the loop delivers. Reconciling on the late fire read the whole plan
+    for a preview that changed nothing, and slicing that read put it into the turns
+    that followed (the preview-move gate measured 4.6x Plan on the runner).
+
+    The fire therefore starts a settle (``NET_SETTLE_MS``); the queued repaint restarts
+    the quiet time, and only a scene that stays still settles into the pass."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    snapshots = controller.snapshot_count
+    bed.metadata[METADATA_KEY] = 75.0        # no announcement, no command
+    bed.update()
+    _turns()                                 # the repaint arms the net's quiet timer
+    time_module.sleep(QUIET / 1000.0 * 2.5)  # the GUI thread blocked: the timer is late
+    QApplication.processEvents()             # ... and fires now, with nothing to paint
+    assert controller.snapshot_count == snapshots, "the late fire settled, it did not read"
+    bed.setSelected(True)                    # the repaint the block kept from the loop
+    _turns()
+    assert controller.snapshot_count == snapshots, "the repaint restarted the quiet time"
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots + 1, "a scene that really settled reads ONCE"
+    assert controller.unannounced_changes == 1, "and the write nobody announced was found"
 
 
 def test_the_apps_quiet_time_is_twice_the_sun_animations_tick() -> None:
@@ -1318,7 +1646,7 @@ def test_a_plan_that_cannot_be_read_is_one_log_line(
     def unreadable(*_arguments: Any, **_options: Any) -> dict:
         raise RuntimeError("item 'x'" + FORGED)
 
-    monkeypatch.setattr(sync_controller, "snapshot_records", unreadable)
+    monkeypatch.setattr(sync_controller, "snapshot_steps", unreadable)
     errors: list[str] = []
     rig.controller.failed.connect(errors.append)
     with caplog.at_level(logging.DEBUG, logger=LOGGER):

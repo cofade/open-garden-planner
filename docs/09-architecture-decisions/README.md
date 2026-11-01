@@ -2724,7 +2724,7 @@ snapshots (beside the register); this addendum supersedes it: future snapshots g
    - **Projection:** the click pixels come from the engine's `mapFrom3DScene`, so a wrong engine projection could aim and pick consistently wrong. An orthographic projection of our own agrees with it to **0.0 px**, and the picked point lies 0.0 cm from the target, on both backends (container; v6 frozen).
    - **Engine rule found on the way:** Windows v3 picked 0/20, reproduced on OpenGL. Once the Model using a `QQuick3DGeometry` is destroyed, handing that geometry to a new Model renders and picks nothing; the frame equals an empty scene's. `update()` does not restore it; a full re-upload of the data does. A `Repeater3D` over a JS array recreates **every** delegate on any array change, so a model present both before and after the change came back blank too. The spike re-uploads every previously shown geometry, and the probe compares the frame before the detach with the frame after the re-attach: mean absolute difference 0.0 on both backends (container; v6 frozen).
    - **Its texture twin** (caught by `--second-window`, diagnosed in senior review, pass 4): a `QQuick3DTextureData` detached from its `Texture` and attached again renders **white**. The IoU and orientation probes clear `groundTexture` for their measurement, and the restore set the same texture object back, so from then until the next project reload the plan ground drew white: mean difference 13.1 against the frame before the probe, all of it in the ground half (llvmpipe, 640×360). `update()` alone changes nothing; `setTextureData(textureData())` plus `update()`, or a fresh texture object, restores it (0.0). `preserved_state` re-uploads a detached ground, and every run checks the restore in pixels (`probe_restore_frame_diff` < 1, measured 9.83 before the fix and 0.0 after, with the IoU and orientation probes in the run; 0.0 in all three render-tier runs that probe at 479d78c, at 100 % and 150 % display scale, and 0.0 on D3D11 in Windows run v11; the render tier and the Windows driver both assert it).
-   - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array. A texture is re-uploaded whenever it is re-attached.
+   - **For L1.1/L1.3:** one geometry per Model lifetime, and per-item Model creation (or a list model with incremental inserts and removes) instead of re-assigning one array. **Superseded for a changed part by ADR-069 (#531, 2026-11-01):** a Model keeps its identity and receives a new geometry (`update_part_geometry`), because the cost measured here was handing one geometry object to a SECOND Model — which still never happens. A texture is re-uploaded whenever it is re-attached.
 5. *Python geometry path (criterion 6)*: replacing a 100k-vertex geometry (`NumpyGeometry.set_mesh`: frame mapping, interleave, `QByteArray` copy) takes **10.5 ms median** in the container (n = 10, max 25 ms). On the Windows runners the same code took 14.4 ms (v3), 27.3 ms (v4) and 36.4 ms (v6, max 71.5 ms); runner instances differ by up to 2.5×. That is borderline against ≤ 10 ms; the owner's hardware decides, and the interleave copy is the first optimisation target.
    - **Scope of the number** (senior review): `set_mesh` covers the Python side only. The GUI thread also blocks during the next scene-graph sync, and with `QSG_RENDER_LOOP=basic` the whole render runs on it, so the criterion's main-thread budget is larger than this; L1.1 measures the full edit-to-frame path (≤ 50 ms p95).
    - The time to the next presented frame is recorded but is not a criterion number: on a software rasteriser it is the frame's own render cost.
@@ -9362,3 +9362,119 @@ legs, duplicates, self-crossings and loops in
 `tests/integration/test_gravel_rim_relief.py`. A chord can fit the nominal
 footprint while visibly crossing the gravel interior; both coverage and
 exclusion are required.
+
+## ADR-069: Native triangulation and off-the-GUI-thread 3D preparation (#452, #531, #598)
+
+**Status**: Accepted; implemented on the Slice A branch of the 3D performance package
+(draft PR) for #452 and #598 (whose hosted-CI measurement is still owed). The decision's
+#531 half — persistent Models with in-place geometry reload — was built, measured on
+both render tiers and WITHDRAWN: a new geometry object assigned to a live Model, and new data
+loaded into the object it already has, both render nothing while still picking. A changed
+part therefore gets a new Model, as before, and #531 stays open. #475 (raster lane, padded tiles) and #534 (wind memory) are NOT covered
+by this decision and stay open.
+
+**Date**: 2026-11-01.
+
+**Context.** The 3D view reads a whole plan on the GUI thread and builds every
+changed item's meshes there. Both halves cost the sum of the plan: the issue measured
+4.0 s, 5.4 s and 12.6 s for three deliberately huge plans, 33-40 s for two hundred
+items at the per-item work bound, and a plan of 160 beds of 1,000 vertices paid about
+two seconds in the builders alone. The shared pure-Python ear clipper priced a region
+at O(n²) and verified each triangle against every edge — 0.75 s for one 1,000-vertex
+bed cap — and its admission bound left a real 900-point drawn path out of 3D. The
+budget was per item; the plan had none. A plan-wide budget was rejected earlier
+because it would make one item's record depend on what else is on the plan.
+
+**Decision.**
+
+1. **One production triangulator: `mapbox-earcut` (ISC).** `polygon.cut_region` — the
+   region cutter the record layer proves a buildable region with — now cuts a region
+   with holes, or a hole-free ring of 256 vertices or more, in ONE native call. The
+   shared ear clipper remains the cut for small hole-free rings (its triangles are
+   pinned by the golden meshes and it is faster below that size) and, in
+   `polygon.triangulate_polygon`, as the test reference and the builders' fallback for
+   a ring the native cut refuses. The native answer is not trusted for being an answer:
+   flat triangles are dropped, every remaining triangle must face up, and areas must
+   add up before the cut is used.
+2. **`polygon_triangles` uses the same cutter for big caps.** A cap of 256 vertices or
+   more goes through `cut_region`, so the cut the record layer already proved is the
+   one the builder gets (the memory is shared). A 1,000-vertex bed's cap fell from
+   0.75 s to under a millisecond; 160 of them from 37 s to 2.1 s.
+3. **The work bound is repriced, not removed.** `MAX_REGION_WORK` stays 150 M units,
+   now priced from the measured native cost (`_earcut_work`: 2,000 units per vertex
+   plus 3 per vertex squared — the worst case measured on a 16,000-vertex spiral,
+   611 ms). `MAX_ITEM_VERTICES` stays 16,384. A 16,384-vertex circle is still refused;
+   a 4,096-vertex ring and a slab of 200 touching holes are now buildable.
+4. **The whole-plan read is cooperative.** `snapshot.snapshot_steps` is a generator
+   that yields before every item; `snapshot_records` is the loop that drives it to the
+   end (the synchronous API — exports, tests, the offscreen renderer).
+   `SceneSyncController` drives it in `CAPTURE_SLICE_MS` (4 ms) slices, one item
+   minimum per slice, between turns of the event loop, and applies the whole read once.
+   Ownership: only the GUI thread reads Qt items; the records are plain immutable data.
+   A change during the read does NOT restart it (a drag would starve it forever): the
+   pass applies the coherent earlier snapshot, an item deleted since is dropped, and
+   the read the change leaves owed follows at once. A document change, a reset, hiding
+   3D or shutdown DROP it — a new plan is never assembled from the old plan's items.
+5. **Heavy geometry goes to one worker lane.** When a pass's changed items hold
+   `PREPARE_OFF_THREAD_VERTICES` (20,000) outline vertices or more, the controller hands
+   those records to `SceneSync.prepare` on a single-worker `ThreadPoolExecutor` — the
+   same builder path, no sink — and applies its answer through
+   `SceneSync.apply(prepared=...)`, which uses the parts instead of building them.
+   One flight at a time; a newer pass waits in one slot and replaces the one waiting.
+   Below the threshold the pass builds its own items (a thread hop would only make an
+   edit later). The builder memories are `ring_keyed` (safe from several threads, like
+   `lru_cache`), and records are immutable.
+6. **No second implementation.** `apply` still diffs, transacts, contains builder and
+   sink failures, reports skips and recovers through the reset; the lane only moves the
+   build. A failure on the lane is left out of the prepared map and paid again — and
+   reported — by the apply.
+
+**Rejected.**
+- *A plan-wide work budget:* one item's record would depend on what else is on the plan
+  (the issue's own objection).
+- *Simplifying traced boundaries approximately:* the outline is the user's data.
+- *Smaller native triangulation for everything:* below 256 vertices the shared clipper
+  is faster (measured 2.3 ms against 4.0 ms at 100 vertices), and its triangles are
+  what the golden meshes pin.
+- *Moving the Qt reads off the GUI thread:* QGraphicsItem access is GUI-thread only.
+  The split is therefore records (GUI thread, sliced) and meshes (worker, whole).
+- *A signal per completed build:* a future's cross-thread signal needs a receiver in the
+  worker's affinity; one 10 ms poll of one flight costs nothing and keeps the state on
+  the GUI thread.
+- *A per-item incremental apply:* `SceneSync.apply` takes the whole snapshot and diffs
+  it; batching records would have meant a second apply path.
+
+**Consequences and limits.** The GUI heartbeat (a 1 ms precise timer on the main
+thread) while the three issue plans are read: p95 1.7-3.6 ms, max 8-20 ms, against
+4.0/5.4/12.6 s in one block before (`scripts/measure_capture_heartbeat.py`; engine not
+started — this is the pipeline's own GUI work). The read is still wall-clock slower than
+a single block in total (2.3 s against 4.0 s for the first plan only because the builder
+fix removed two minutes of the old cost). A plan whose builder is slow but whose
+outlines are small stays on the GUI thread by design: the threshold is vertices, not
+measured time. The cooperative read holds `snapshot_generation` open across event-loop
+turns, so a synchronous snapshot taken meanwhile advances the generation — correct, but
+it makes the next slice recompute more than it would alone. Ground tiles (#475) are
+still painted on the GUI thread by the controller's ground passes; they are already
+sliced by a 10 ms budget, and moving them to a raster lane is #475's remaining work.
+
+Slicing moved a net reconciliation's cost from one turn into the turns that follow it,
+and the preview-move gate noticed (`test_a_preview_mouse_move_costs_in_split_what_it_
+costs_in_plan`): on the hosted runner a whole-plan read of the 424-record bench plan
+takes 114 ms, and 16 of them landed inside 160 measured preview moves — ratios 4.61,
+5.83 and 4.78 against the 2.0 bound, while the same test on a quiet machine reads 1.00.
+The passes were not the preview's: each was the net reconciling after a quiet timer that
+fired LATE, because the 2D side had held the GUI thread for about a second and the
+preview's repaint was still queued. A timer that fires proves the loop is alive now, not
+that the scene was still for the quiet time. The net therefore waits `NET_SETTLE_MS`
+(50 ms) after its quiet timer, and a repaint inside that window restarts the whole quiet
+time (`_net_quiet`/`_arm_net`); the bounded `NET_MAX_WAIT_S` path still reconciles a
+scene that never quiets. On a probe with a 600 ms block inside every tenth preview turn,
+the mid-round reads fall from 4 to 1 (the one after the tool stops).
+
+**Verification.** `tests/integration/test_view3d_sync_controller.py` pins the slicing,
+the stale-read policy, deleted items, document replacement, hiding, `flush` and the
+lane, and the late-timer settle
+(`test_a_quiet_timer_that_fired_after_a_blocked_loop_waits_for_a_settle`);
+`tests/unit/test_scene3d_polygon.py` pins the pricing, the capacity
+and the refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget.
+The golden meshes still match below the threshold.
