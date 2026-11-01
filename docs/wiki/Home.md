@@ -127,6 +127,14 @@ Bed membership reconciliation and atomic constrained rotations (#443, #485) ship
 [v1.34.9](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.9) via [PR #649](https://github.com/cofade/open-garden-planner/pull/649) after full owner manual acceptance.
 Parallel/Perpendicular creation preserves locked objects and marks the selected edge.
 
+The CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669, #670)
+shipped in [v1.34.10](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.10) via
+[PR #672](https://github.com/cofade/open-garden-planner/pull/672) after full owner manual
+acceptance: FIXED locks round-trip, grouped rotated shapes keep their frame, bed identity
+survives corner edits, the fillet arc is baked into its host, and constraint incidence has one
+resolver. Follow-ups: a converted raised bed becomes a garden bed with its soil pattern, and
+offsetting an open fence/path creates a parallel line.
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

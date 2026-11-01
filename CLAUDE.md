@@ -270,8 +270,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   and the `render3d` job's G5 close + G6 compatibility workspace rows. The owner accepted
   the touch evidence without a physical device; the hardware checklist stays in PR #650.
 - CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669,
-  #670) is on branch `fix/655-670-cad-precision-integrity` as a draft PR awaiting
-  owner manual testing. FIXED locks round-trip and are inert during a drag; a grouped
+  #670) shipped in **v1.34.10 (PR #672)** after owner manual acceptance on
+  2026-11-01. FIXED locks round-trip and are inert during a drag; a grouped
   rotated shape serializes in its parent frame; a replaced bed keeps its UUID and
   records; the Properties panel detaches rather than destroys form rows; incidence has
   one residual and one anchor resolver (ADR-012 addendum; PF-CAN-33, PF-PER-20/21,

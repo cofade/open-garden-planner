@@ -1066,48 +1066,53 @@
   },
   "655": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "FIXED position lock loses its target coordinates on save/reload - the badge stays but the object can be dragged"
   },
   "656": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "RemoveConstraintCommand.undo drops anchor_c - undoing a removed three-anchor constraint leaves it broken"
   },
   "657": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Circle handle resize corrupts the stored centre - the circle jumps on save/reload and its shadow/3D footprint is displaced"
   },
   "658": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Properties panel destroys the Layer combo inside its own click event - macOS SIGSEGV, Windows drops the change signal"
   },
   "661": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "A rotated shape inside a group is saved with the wrong coordinates and jumps on reload"
   },
   "662": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "FIXED items still move transiently during a drag - Qt moves them before the view resets them"
   },
   "668": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Chamfer/fillet on a named bed replaces it with a new UUID and loses its name, metadata, plant links and garden records"
   },
   "669": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "POINT_ON_EDGE and TANGENT constraints are shown as violated in the Constraints panel when they are satisfied"
   },
   "670": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Incidence consistency: compatible POINT_ON_EDGE/COINCIDENT links are rejected or left broken (six reproduced cases)"
+  },
+  "672": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#655, #656, #657, #658, #661, #662, #668, #669, #670): CAD-precision and data-integrity package"
   },
   "675": {
     "is_pr": false,
