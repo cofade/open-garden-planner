@@ -136,7 +136,7 @@ def rig(canvas: CanvasView, qtbot) -> Rig:
 
 
 
-# ?? #452: a whole-plan read in slices, between turns of the event loop ???????
+# ── #452: a whole-plan read in slices, between turns of the event loop ───────
 
 
 def _fan(rig: Rig, count: int = 6, vertices: int = 40) -> list[PolygonItem]:
@@ -332,24 +332,30 @@ def test_flush_waits_for_the_geometry_lane(rig: Rig, qtbot, monkeypatch: pytest.
 def test_an_item_deleted_after_it_was_read_is_dropped_by_the_same_pass(
         rig: Rig, qtbot, monkeypatch: pytest.MonkeyPatch) -> None:
     """The epoch is the READ's: an item read before the deletion is in the read's
-    records, and the apply must still not show it (review P1)."""
+    records, and the apply must still not show it (review P1).
+
+    The deletion is hooked between two SLICES of the real read ? after the item was
+    read (it is first in the paint order) and before the read ends."""
     _one_item_per_slice(monkeypatch)
     items = _fan(rig, 6)
-    doomed = items[0]   # read first (bottom of the paint order)
+    doomed = items[0]
     deleted: list[bool] = []
     first_apply: list[tuple[str, ...]] = []
+    controller_class = type(rig.controller)
+    real_slice = controller_class._capture_slice  # noqa: SLF001
 
-    def delete_when_it_was_read(reading: bool) -> None:
-        if reading and not deleted:
+    def slice_then_delete(self: Any, *, synchronous: bool = False) -> None:
+        real_slice(self, synchronous=synchronous)
+        if self._capture is not None and not deleted:  # noqa: SLF001
             deleted.append(True)
             rig.commands.execute(DeleteItemsCommand(rig.scene, [doomed]))
 
-    rig.controller.capturing_changed.connect(delete_when_it_was_read)
+    monkeypatch.setattr(controller_class, "_capture_slice", slice_then_delete)
     rig.controller.applied.connect(lambda report: first_apply.append(report.changes.added)
                                    if report.snapshot else None)
     rig.controller.set_active(True)
-    rig.settle()
-    assert deleted == [True]
+    qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
+    assert deleted == [True] and first_apply
     assert str(doomed.item_id) not in first_apply[0], "dropped by the pass that read it"
     assert str(doomed.item_id) not in rig.controller.sync.records
 
@@ -377,13 +383,10 @@ def test_a_light_change_during_the_build_is_not_overwritten(
     before = rig.controller.sync.sun
     started: list[bool] = []
 
-    def move_the_sun(reading: bool) -> None:
-        if reading:
-            started.append(True)
-            rig.clock.set_time_of_day(time(9, 0))
-
-    rig.controller.capturing_changed.connect(move_the_sun)
     rig.bed(400.0, 400.0)   # a new item: a heavy pass, built on the lane
+    qtbot.waitUntil(lambda: rig.controller._flight is not None, timeout=5000)  # noqa: SLF001
+    started.append(True)
+    rig.clock.set_time_of_day(time(9, 0))   # ? while its geometry is being built
     qtbot.waitUntil(lambda: rig.controller.idle, timeout=5000)
     assert started and rig.controller.sync.sun != before, "the new light was sent"
     assert rig.controller.sync.sun == rig.controller._sun(), (  # noqa: SLF001
@@ -396,15 +399,10 @@ def test_hiding_drops_a_build_in_progress(
     _fan(rig, 3)
     hidden: list[bool] = []
 
-    def hide_now(reading: bool) -> None:
-        if reading and not hidden:
-            hidden.append(True)
-            rig.controller.set_active(False)
-
-    rig.controller.capturing_changed.connect(hide_now)
     rig.controller.set_active(True)
-    qtbot.waitUntil(lambda: bool(hidden), timeout=5000)
-    rig.settle()
+    qtbot.waitUntil(lambda: rig.controller._flight is not None, timeout=5000)  # noqa: SLF001
+    hidden.append(True)
+    rig.controller.set_active(False)   # the build is in flight: drop it
     assert rig.controller._flight is None and rig.controller._flight_pending is None
     assert rig.controller.apply_count == 0 and rig.controller.dirty
     rig.controller.set_active(True)

@@ -149,6 +149,7 @@ from PyQt6.QtCore import QCoreApplication, QEvent, QObject, QTimer, pyqtSignal
 from PyQt6.QtWidgets import QGraphicsScene
 
 from open_garden_planner.core.plain_text import log_text
+from open_garden_planner.core.plant_art import PLANT_KINDS
 from open_garden_planner.core.scene3d import (
     BuilderRegistry,
     BuildFailure,
@@ -220,9 +221,12 @@ NET_MAX_WAIT_S: Final = 5.0
 #: plants at most once per this interval: the first change at once, the last one
 #: when the interval is over (if the date is not the one the last pass read). Every
 #: step still moves the light (a light-only pass, no snapshot). Why: a regrowth
-#: replaces the Models of every dated plant, and each Model Qt Quick 3D destroys
-#: leaves 15 to 20 kB behind that no cache release returns (#531) — 20 dated plants
-#: at 30 steps a second were an estimated 0.7 GB a minute; at two a second it is a
+#: replaces every dated plant's geometry, which was a new Model per plant before
+#: #531 (each Model Qt Quick 3D destroys leaves 15 to 20 kB behind that no cache
+#: release returns: 20 dated plants at 30 steps a second were an estimated 0.7 GB a
+#: minute). The Models are reused now, and the throttle stays: a regrowth is still a
+#: rebuild of every dated plant's meshes, and the recorded measurement was taken
+#: with it in place; at two a second the cost is a fifteenth of that.
 #: fifteenth of that (the measured numbers are in §8.29.9).
 DATE_REGROW_MIN_MS: Final = 500
 #: CONTEXT PLAYBACK (L4, #388). A drag over a lawn changes the lawn's cut-outs (the
@@ -308,9 +312,10 @@ class TickReport:
     apply_ms: float
     #: True when this pass had to reset the sync first (a sink failure before it).
     recovered: bool = False
-    #: Items whose engine Models were DESTROYED since the pass before: removed
-    #: items, items whose geometry was replaced (new geometry is a new Model), and
-    #: everything a reset cleared. Qt keeps graphics state for every Model it once
+    #: Items whose engine Models were DESTROYED since the pass before: removed items
+    #: and everything a reset cleared. A geometry change destroys NONE since #531 —
+    #: the parts are reconciled into the Models they have — so it is not counted. Qt
+    #: keeps graphics state for every Model it once
     #: drew until it is told to let go; the workspace counts these to know when
     #: (ADR-060, "what a destroyed Model leaves behind").
     retired: int = 0
@@ -725,6 +730,8 @@ class Scene3DController(QObject):
             self._sync.reset()
         except Exception as error:  # noqa: BLE001 - a dead engine must not take the app down
             self._log_failure("reset failed; the next pass tries again", error)
+        self._abandon_capture()  # the rebuilt engine reads the plan again anyway
+        self._drop_flight()
         self._records_dirty = self._sun_dirty = True
         self._change_came(plan=True)
         self._schedule(self._tick_ms)
@@ -751,6 +758,10 @@ class Scene3DController(QObject):
                 self._tick()
             else:
                 break
+        if self._records_dirty or self._flight is not None:
+            # the cap was reached with work still owed: book it, do not leave the scene
+            # silently behind the plan (a caller may flush again, or the loop runs it)
+            self._schedule(0)
         # a slice may have left its follow-up event in the queue; its work is done
         # here, so it must not keep the controller "not idle" for a turn nobody needs
         self._posted = False
@@ -797,7 +808,7 @@ class Scene3DController(QObject):
         from .snapshot import clear_outline_cache
 
         self._abandon_capture()  # a read of the old plan must never reach the new one
-        self._drop_flight()      # ? and neither may a build of it
+        self._drop_flight()      # — and neither may a build of it
         clear_shape_cache()    # the plant builder's shapes
         clear_lawn_cache()     # the lawns' blades (L4)
         clear_outline_cache()  # the record layer's outlines: regions, cuts, ring facts
@@ -914,6 +925,11 @@ class Scene3DController(QObject):
         if not self._active or self._records_dirty:
             # paused; or a pass is owed and will read everything — also a pass that
             # FAILED: a repaint is no reason to try a failing pass again
+            return
+        if self._capture is not None:
+            # a read is running: a repaint is no reason to restart it (#452 review
+            # round 2 — that restarted it every NET_MAX_WAIT_S on a busy canvas)
+            self._net_owed = True
             return
         self._failed_in_pass = False
         self._pass_records(reconciling=True)
@@ -1185,6 +1201,8 @@ class Scene3DController(QObject):
         self._capture = None
         self.capturing_changed.emit(False)
         self._finish_records(records, synchronous=synchronous)
+        if self._net_owed and not self.dirty:
+            self._arm_net()   # the repaint the read deferred: looked at, once quiet
 
     def _abandon_capture(self) -> None:
         """Drop the whole-plan read in progress, if any: its generation ends with
@@ -1228,9 +1246,10 @@ class Scene3DController(QObject):
         ticket = _Ticket(records, snapshot, self._sun(), width, depth, tuple(skipped),
                          snapshot_ms, self._capture_epoch, self._light_epoch,
                          self._capture_reconciling, build_ids)
-        if (build_ids and self._lane is not None and not self._sync.poisoned
-                and sum(_outline_vertices(ticket.records[i]) for i in build_ids)
-                >= PREPARE_OFF_THREAD_VERTICES):
+        lane_work = sum(_outline_vertices(ticket.records[i]) for i in build_ids
+                        if ticket.records[i].kind not in PLANT_KINDS)
+        if (lane_work >= PREPARE_OFF_THREAD_VERTICES and self._lane is not None
+                and not self._sync.poisoned):
             self._submit(ticket, synchronous=synchronous)
             return
         self._apply_ticket(ticket, synchronous=synchronous)

@@ -2741,8 +2741,9 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 ### 3D performance and stability (Slice A) — **draft PR on `feature/3d-performance-stability`, 2026-11-01**
 
 Five issues from the 3D follow-up cluster (#452, #475, #531, #534, #598), delivered in
-one branch with ADR-069. Three are complete with measured evidence; two stay open and
-are NOT closed by the pull request.
+one branch with ADR-069. Two are complete with measured evidence (#531, #452); #598 is
+implemented with its own measurement still owed; #475 and #534 are open and are NOT
+closed by the pull request.
 
 | Issue | State | Evidence |
 |---|---|---|

@@ -148,7 +148,7 @@ def measure(name: str, kind: str, count: int, vertices: int, *, deadline_s: floa
     if beats:
         # the TAIL matters as much as any gap: the last block (the lane's answer being
         # applied) is one nobody ticked through, and it is the one a user feels as a
-        # frozen window ? a gap list that stops at the last beat would hide it
+        # frozen window — a gap list that stops at the last beat would hide it
         gaps.append(read_s * 1000.0 - (beats[-1] - started) * 1000.0)
     if not applied:
         raise SystemExit(f"{name}: nothing was applied ? the deadline ({deadline_s:g} s) "

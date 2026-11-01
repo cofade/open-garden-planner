@@ -629,9 +629,9 @@ class Quick3DHost:
         _set(model, "partName", spec.name)
         _set(model, "castsShadows", spec.casts_shadow)
         _set(model, "groundDetail", spec.ground_detail)
-        fade = float(_get(model, "fade"))
-        dormant = bool(_get(model, "dormant"))
-        _set(model, "pickable", not dormant and not spec.ground_detail and fade >= 1.0)
+        # pickability belongs to the QML binding (`!dormant && fade >= 1.0 && ?`):
+        # writing it here would REMOVE the binding, and a later X-ray or Cutaway would
+        # no longer change it (#452 review round 2)
         self._call("applyPlantSeason", model)
 
     def set_part_dormant(self, handle: object, dormant: bool = True) -> None:
@@ -641,16 +641,13 @@ class Quick3DHost:
         model = part.model
         if model is None:
             raise EngineError(f"not a live part of this host: {handle!r}")
-        _set(model, "dormant", bool(dormant))
-        if dormant:
-            _set(model, "visible", False)
-            _set(model, "pickable", False)
-        else:
+        _set(model, "dormant", bool(dormant))   # the QML binding hides and unpicks it
+        if not dormant:
+            # the component's own visible binding does not exist on every part kind
+            # (foliage and grass set `visible` from the seasonal state instead), so a
+            # returning slot is shown here; pickability stays the binding's
             _set(model, "visible", True)
             self._call("applyPlantSeason", model)
-            ground_detail = bool(_get(model, "groundDetail"))
-            fade = float(_get(model, "fade"))
-            _set(model, "pickable", not ground_detail and fade >= 1.0)
 
     @property
     def active_model_count(self) -> int:
@@ -1415,8 +1412,10 @@ class Quick3DHost:
         return float(result["x"]), float(result["y"])
 
     def engine_parts(self, include_dormant: bool = False) -> list[EnginePart]:
-        """Every Model of the QML scene that was not destroyed — what the engine holds,
-        read from it (a Model a later story hides is still listed, ``visible=False``)."""
+        """Every ACTIVE Model of the QML scene that was not destroyed — what the
+        engine draws, read from it (a Model a later story hides is still listed,
+        ``visible=False``). Dormant slots (#531) are spare Models with no item: they
+        are listed only with ``include_dormant=True``."""
         self._open("engine_parts")
         rows = self._call("listParts")
         parts = [EnginePart(

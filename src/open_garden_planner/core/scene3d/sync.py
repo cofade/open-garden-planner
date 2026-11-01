@@ -91,6 +91,7 @@ from functools import lru_cache
 from types import MappingProxyType
 
 from open_garden_planner.core.plain_text import log_text
+from open_garden_planner.core.plant_art import PLANT_KINDS
 
 from .build import Builder, BuilderRegistry, checked_parts
 from .ground import GroundBaking
@@ -394,6 +395,10 @@ class SceneSync:
         """
         prepared: dict[str, tuple[MeshPart, ...]] = {}
         for item_id, record in records.items():
+            if record.kind in PLANT_KINDS:
+                # the plant builder's own docstring says it is GUI-thread code and has
+                # never been tested under threads: it stays on the GUI thread (#452)
+                continue
             try:
                 prepared[item_id] = self._build(self._registry.builder_for(record.kind), record)
             except Exception:  # noqa: BLE001,S112 - apply reports it, on the thread that may log
