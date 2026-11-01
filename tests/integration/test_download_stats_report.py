@@ -25,6 +25,8 @@ def test_saved_snapshot_to_static_site_and_rebuild(tmp_path: Path) -> None:
     subprocess.run([*args, "--releases-json", str(listing), "--now", "2026-08-04T00:17:00Z"],
                    cwd=root, check=True, capture_output=True, text=True)
     payload = json.loads((data / "site/timeline.json").read_text())
+    assert payload["version"] == 2
+    assert payload["basis"] == "current_release"
     assert sum(d[k] for d in payload["days"] for k in report.COMPONENTS) == 8
     assert payload["days"][-1]["observed"] == 3
     assert json.loads((data / report.BASELINE_FILE).read_text())["assets"][0]["download_count"] == 5

@@ -253,11 +253,6 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Runtime/geometry contracts: [ADRs](docs/09-architecture-decisions/README.md)
   and the `ogp-architecture-contract` skill. Consult the relevant subsystem
   reference before changing an implementation that looks unusual.
-- Epic #392: remaining audit packages A4/A6/A7/A9/A12/A13 (#456/#458/#459/#461/
-  #464/#465) shipped in v1.34.5 (PR #640, ADR-068). The bugfix package for #641
-  (elevated sun exposure), #643 (properties dropdown icons), #623 (selftest crash
-  diagnostics), and #605 (paved path corner joins and acute bend trimming) shipped
-  in v1.34.6 (PR #645).
 - 3D Visual & Engine Hardening (#535, #578, #576, #619, #589, #582, #615) shipped
   in v1.34.7 (PR #647): Software adapter detection (`adapter_info.py`), sun-path
   arc 25% near-half fade & constant width, ground slope clamp 0.22, interior wood
@@ -293,6 +288,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   (in-place Model reuse) and #598 (sparse seasonal index) were built and WITHDRAWN:
   both render tiers draw a replaced geometry as nothing while still picking it. #475
   (raster lane, padded tiles) and #534 (wind memory) are open.
+- Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
+  `calendar_series` resolves `current_release` per snapshot (`"version": 2`,
+  `"basis": "current_release"`), `_summary_row` notes `new release or asset` only
+  when `new` deltas explain the window, and `chart.js` removes duplicate SVG `<title>`
+  tooltips and formats `>3` windows via localized `windowCount`.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
