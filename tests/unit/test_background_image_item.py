@@ -399,6 +399,39 @@ class TestDecodeAllocationBudget:
                 str(tmp_path / "bg.png"), _pixmap_data=_png_bytes(2000, 2000)
             )
 
+    def test_an_oversized_file_is_refused_without_decoding_it(
+        self, qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The header probe must run before the pixmap is allocated.
+
+        A decode-first implementation would allocate 16 MB here (800 MB for a
+        200 MP file) before refusing; the stub makes that ordering observable.
+        """
+        monkeypatch.setattr(bg_module, "MAX_BACKGROUND_PIXELS", 1_000_000)
+
+        class NoDecode:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
+                raise AssertionError("the image was decoded before its size was checked")
+
+        monkeypatch.setattr(bg_module, "QPixmap", NoDecode)
+        with pytest.raises(ValueError, match="megapixels"):
+            BackgroundImageItem(str(_write_png(tmp_path / "huge.png", 2000, 2000)))
+
+    def test_an_oversized_embedded_image_is_refused_without_decoding_it(
+        self, qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(bg_module, "MAX_BACKGROUND_PIXELS", 1_000_000)
+
+        class NoDecode:
+            def __init__(self, *_args: object, **_kwargs: object) -> None:
+                raise AssertionError("the image was decoded before its size was checked")
+
+        monkeypatch.setattr(bg_module, "QPixmap", NoDecode)
+        with pytest.raises(ValueError, match="megapixels"):
+            BackgroundImageItem(
+                str(tmp_path / "bg.png"), _pixmap_data=_png_bytes(2000, 2000)
+            )
+
 
 class TestEncodedPngCache:
     """#660: an unchanged background is encoded once, not once per snapshot."""

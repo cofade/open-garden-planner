@@ -21,6 +21,7 @@ background costs about 1.2 s of main-thread time per read for unchanged bytes.
 
 import base64
 import logging
+import math
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -74,7 +75,8 @@ def _decode_budget(limit_mb: int = DECODE_ALLOCATION_LIMIT_MB) -> Iterator[None]
     ``QImageReader.setAllocationLimit`` is a process-wide static, not a per-reader
     setting, so the previous value is restored in ``finally``. A raise that leaked
     would let every later decode in the application allocate more than it should.
-    Zero means *disabled* (Qt normalises ``-1`` to it too), so a budget that is
+    Zero means *disabled*; Qt ignores a negative argument and ``allocationLimit()``
+    never returns one, so 0 is the only sentinel to special-case. A budget that is
     already disabled or already larger is left untouched rather than narrowed.
     Every caller runs on the GUI thread — the import action, plan load and the
     satellite import — so the widened window is not observable by another decode.
@@ -102,13 +104,17 @@ def _check_image_size(size: QSize) -> None:
     pixels = size.width() * size.height()
     if pixels <= MAX_BACKGROUND_PIXELS:
         return
+    # Round the measured size UP: a 120.05 MP image formatted with one decimal
+    # would otherwise read "120.0 megapixels ... limited to 120", i.e. refused
+    # for exceeding a limit it appears to equal.
+    megapixels = math.ceil(pixels / 100_000) / 10
     raise ValueError(
         QCoreApplication.translate(
             "BackgroundImageItem",
             "This image is {megapixels} megapixels and needs about {megabytes} MB "
             "of memory. Background images are limited to {limit} megapixels.",
         ).format(
-            megapixels=f"{pixels / 1_000_000:.1f}",
+            megapixels=f"{megapixels:.1f}",
             # The item keeps the decoded pixmap twice (original + flipped copy);
             # reporting one copy would understate the cost of what is being refused.
             megabytes=pixels * 8 // 1_000_000,
@@ -164,7 +170,7 @@ def _encode_png_base64(pixmap: QPixmap) -> str:
         # Internal invariant, not user input: an unencodable pixmap must fail the
         # save loudly rather than write an empty image_data that reloads as a
         # placeholder (the data-loss shape AUD-043 exists to prevent). Translated
-        # because ProjectManager.save shows str(error) in a dialog.
+        # because the app's save-error dialog shows str(error) (application.py).
         raise RuntimeError(
             QCoreApplication.translate(
                 "BackgroundImageItem",

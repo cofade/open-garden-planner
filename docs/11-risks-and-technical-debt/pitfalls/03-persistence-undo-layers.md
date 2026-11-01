@@ -268,7 +268,7 @@ branches, the plain-shape control, rotation, and a save/reload of the result.
 ### PF-PER-22
 
 - **Rule:** A decode of a large background image raises `QImageReader`'s **process-wide** allocation limit around that decode only and restores it in `finally`, because Qt's 256 MB default is measured on the *decoded* image and rejects a site-plan-sized PNG that is a few hundred kB on disk.
-- **Pinned by:** `tests/unit/test_background_image_item.py::test_an_image_above_the_process_limit_loads`; `tests/unit/test_background_image_item.py::test_an_embedded_image_above_the_process_limit_loads`; `tests/unit/test_background_image_item.py::test_the_limit_is_restored_after_loading`; `tests/unit/test_background_image_item.py::test_a_larger_existing_budget_is_left_alone`; `tests/unit/test_background_image_item.py::test_the_limit_is_restored_after_a_refusal`; `tests/unit/test_background_image_item.py::test_an_oversized_file_is_refused_before_decoding`; `tests/unit/test_background_image_item.py::test_an_oversized_embedded_image_is_refused`; `tests/integration/test_background_image_portable.py::test_a_background_above_the_process_decode_budget_reloads`
+- **Pinned by:** `tests/unit/test_background_image_item.py::test_an_image_above_the_process_limit_loads`; `tests/unit/test_background_image_item.py::test_an_embedded_image_above_the_process_limit_loads`; `tests/unit/test_background_image_item.py::test_the_limit_is_restored_after_loading`; `tests/unit/test_background_image_item.py::test_a_larger_existing_budget_is_left_alone`; `tests/unit/test_background_image_item.py::test_a_disabled_budget_is_not_narrowed`; `tests/unit/test_background_image_item.py::test_the_limit_is_restored_after_a_refusal`; `tests/unit/test_background_image_item.py::test_an_oversized_file_is_refused_before_decoding`; `tests/unit/test_background_image_item.py::test_an_oversized_file_is_refused_without_decoding_it`; `tests/unit/test_background_image_item.py::test_an_oversized_embedded_image_is_refused_without_decoding_it`; `tests/unit/test_background_image_item.py::test_the_refusal_reports_the_memory_of_both_copies`; `tests/integration/test_background_image_portable.py::test_a_background_above_the_process_decode_budget_reloads`
 - **Source:** #659
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -287,10 +287,19 @@ process-wide, so a raise that leaked would let every later decode in the
 application allocate more than it should, including ones the user never asked
 for; the helper raises only when the current budget is a positive number below
 its own, so an environment that already permits more — or has disabled the check
-outright, which Qt spells **0** (it normalises `-1` to 0) — keeps its own budget
-rather than being narrowed to 512 MB. Second, the decoder budget is not the whole
-cost: `BackgroundImageItem` keeps the pixmap twice (the original it serializes
-plus the vertically flipped copy it paints), so the pixel cap
+outright — keeps its own budget rather than being narrowed to 512 MB. The
+disabled value is **0**, and it is the only sentinel: Qt ignores a negative
+argument (`setAllocationLimit(-1)` leaves the previous value in place) and
+`allocationLimit()` never returns one, so a condition like `previous < wanted`
+that accepts 0 silently changes a user's deliberate choice. Separately, the
+environment variable `QT_IMAGEIO_MAXALLOC` wins over the static: Qt reads it once
+and `allocationLimit()` prefers it, so `setAllocationLimit(512)` cannot raise a
+limit that variable has pinned lower. A user who sets it will see the #659
+symptom again with no explanation unless the log is read — the placeholder is now
+logged (see PF-PER-03), which is the trail to follow.
+
+Second, **the decoder budget is not the whole cost**: `BackgroundImageItem` keeps the pixmap twice
+(the original it serializes plus the vertically flipped copy it paints), so the pixel cap
 (`MAX_BACKGROUND_PIXELS`, 120 MP) bounds the pair and is checked from the
 **header** — `QImageReader(path).size()` and a `QImageReader` over the embedded
 bytes both report the size without decoding — so an oversized file is refused

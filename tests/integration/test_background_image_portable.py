@@ -8,6 +8,7 @@ Verifies that:
 """
 
 
+import base64
 import json
 from pathlib import Path
 
@@ -183,6 +184,18 @@ class TestLargeBackgroundImages:
         previous = QImageReader.allocationLimit()
         QImageReader.setAllocationLimit(4)
         try:
+            # Plain Qt refuses the embedded payload at this budget: without that
+            # precondition the test would pass even if the limit were never in force.
+            embedded = base64.b64decode(
+                next(
+                    obj["image_data"]
+                    for obj in json.loads(save_path.read_text(encoding="utf-8"))["objects"]
+                    if obj.get("type") == "background_image"
+                )
+            )
+            assert QPixmap().loadFromData(embedded) is False, (
+                "precondition: plain Qt refuses this payload at a 4 MB budget"
+            )
             fresh_scene = CanvasScene(width_cm=5000, height_cm=3000)
             ProjectManager().load(fresh_scene, save_path)
         finally:
