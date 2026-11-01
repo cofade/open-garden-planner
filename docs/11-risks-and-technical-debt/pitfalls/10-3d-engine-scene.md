@@ -103,3 +103,21 @@ measurement: driving it with `QApplication.processEvents()` in a loop lets a cha
 posted events drain inside one call, so the slices never yield. The script that owns
 this measurement — `scripts/measure_capture_heartbeat.py` — runs a real `QEventLoop`
 and appends the tail; the test above pins the behaviour without timing.
+
+### PF-E3D-12
+
+- **Rule:** A quiet timer that fires proves the GUI thread is alive NOW, not that the scene was still for the whole quiet time; a pass after it must wait for a settle in which a repaint can restart the quiet time.
+- **Pinned by:** `tests/integration/test_view3d_sync_controller.py::test_a_quiet_timer_that_fired_after_a_blocked_loop_waits_for_a_settle`
+- **Source:** #452, ADR-069, ADR-060.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+On hosted CI the preview-move gate read 4.6-5.8x Plan while the same test read 1.0 on a
+quiet machine. The net was reconciling after quiet timers that fired LATE: the 2D side
+held the GUI thread for about a second, the 400 ms quiet time elapsed inside the block,
+and the preview's repaint was still queued. Each reconciliation read 424 records (114 ms
+on the runner), and slicing that read put its cost into the moves that followed (16 reads
+inside 160 measured moves). A timer's expiry is not an idle signal: `NET_SETTLE_MS` waits
+50 ms after it, and a repaint in that window restarts the whole quiet time. Probe with a
+600 ms block in every tenth preview turn: 4 mid-round reads before, 1 after (the net's
+pass once the tool stops).

@@ -13,3 +13,4 @@
 | PF-E3D-09 | Measure the unchanged code before crediting a change with a difference, and after merging into a removal scan the whole merged tree for every removed name, not only the files that conflicted. | standing | [10](../10-3d-engine-scene.md#pf-e3d-09) | 11.4.20 |
 | PF-E3D-10 | Derived lifetime visibility must preserve the existing throttled 3D clock path while real plan edits still announce revisions. | standing | [10](../10-3d-engine-scene.md#pf-e3d-10) |  |
 | PF-E3D-11 | A GUI-heartbeat measurement must include the time from the last tick to the end of the work, and it must run the real event loop, not `processEvents()`. | standing | [10](../10-3d-engine-scene.md#pf-e3d-11) |  |
+| PF-E3D-12 | A quiet timer that fires proves the GUI thread is alive NOW, not that the scene was still for the whole quiet time; a pass after it must wait for a settle in which a repaint can restart the quiet time. | standing | [10](../10-3d-engine-scene.md#pf-e3d-12) |  |

@@ -24,9 +24,12 @@ no pass. Two layers instead:
 - **the net — what is not.** A ``changed`` that no announcement explains (the
   revision did not move since the ``changed`` before it) snapshots nothing; it
   (re)starts ONE single-shot timer, ``NET_QUIET_MS``. When the scene has been
-  quiet for that long, ONE reconciliation pass runs. It normally finds nothing.
+  quiet for that long, ONE reconciliation pass runs after a short settle
+  (``NET_SETTLE_MS``: the quiet time can pass while the 2D side holds the GUI
+  thread, and a repaint from before that block is still queued — a repaint in the
+  settle restarts the quiet time). It normally finds nothing.
   If it finds a difference, an edit path is missing its announcement: the pass
-  applies it — so no edit stays out of 3D for longer than the quiet time,
+  applies it — so no edit stays out of 3D for much longer than the quiet time,
   whatever wrote it — counts it (``unannounced_changes``) and logs one DEBUG line
   with the kinds that differed. No ``changed``, no timer: an idle scene costs
   nothing. A scene that is NEVER quiet (the sun animated for minutes) is
@@ -216,6 +219,15 @@ PREPARE_POLL_MS: Final = 10
 NET_QUIET_MS: Final = 400
 #: … and a scene that is never still for that long is reconciled this often anyway.
 NET_MAX_WAIT_S: Final = 5.0
+#: The net's SETTLE time (#452 CI): a quiet timer that fires proves only that the GUI
+#: thread is alive NOW — the quiet time may have elapsed while the 2D side held the
+#: thread for a second, and a repaint from before that block is still in the queue.
+#: Firing then reconciles a preview that changed nothing (and on a slow machine that
+#: is a whole-plan read right after a freeze). So the timer's fire starts this short
+#: settle timer instead: a repaint arriving before it fires restarts the quiet time as
+#: usual, and only a real quiet settles into the pass. The net's latency grows by this
+#: much; ``NET_MAX_WAIT_S`` still forces a pass in a scene that never quiets.
+NET_SETTLE_MS: Final = 50
 #: DATE PLAYBACK (L1.9, #531). A plan date that keeps changing — an arrow key held in
 #: the toolbar's date field steps it about 30 times a second — regrows the dated
 #: plants at most once per this interval: the first change at once, the last one
@@ -523,8 +535,12 @@ class Scene3DController(QObject):
         self._quiet_ms = NET_QUIET_MS if quiet_ms is None else quiet_ms
         self._net = QTimer(self)
         self._net.setSingleShot(True)
-        self._net.timeout.connect(self._reconcile)
+        self._net.timeout.connect(self._net_quiet)
+        self._net_settle = QTimer(self)
+        self._net_settle.setSingleShot(True)
+        self._net_settle.timeout.connect(self._reconcile)
         self._net_since = 0.0     # when the timer was first started in this run of repaints
+        self._net_forced = False  # this fire is the NET_MAX_WAIT_S bound: no settle
         self._net_owed = False    # a repaint arrived while 3D was hidden
         # DATE PLAYBACK (#531): when the date last asked for a regrowth, the date the
         # last records pass read, and the one timer that books the trailing regrowth
@@ -586,6 +602,7 @@ class Scene3DController(QObject):
             owed = (self.dirty or self._ground_owed or self._selection_dirty) and not self._given_up
             return not (owed or self._posted or self._net_owed
                         or self._timer.isActive() or self._net.isActive()
+                        or self._net_settle.isActive()
                         or self._date_timer.isActive())
         return True
 
@@ -659,8 +676,9 @@ class Scene3DController(QObject):
                 self._records_dirty = True
             with contextlib.suppress(RuntimeError):  # the #230 teardown guard
                 self._timer.stop()
-                if self._net.isActive():
+                if self._net.isActive() or self._net_settle.isActive():
                     self._net.stop()
+                    self._net_settle.stop()
                     self._net_owed = True  # looked at when 3D comes back
                 if self._date_timer.isActive():
                     self._date_timer.stop()
@@ -782,6 +800,7 @@ class Scene3DController(QObject):
         with contextlib.suppress(RuntimeError):
             self._timer.stop()
             self._net.stop()
+            self._net_settle.stop()
             self._date_timer.stop()
             self._prepared_timer.stop()
         scene = self._scene
@@ -911,19 +930,41 @@ class Scene3DController(QObject):
 
     def _arm_net(self) -> None:
         """(Re)start the quiet timer — and bound the wait in a scene that is never
-        quiet: after ``NET_MAX_WAIT_S`` of repaints the pass runs with the next turn."""
+        quiet: after ``NET_MAX_WAIT_S`` of repaints the pass runs with the next turn.
+
+        A repaint also ENDS a settle that was running (#452): the scene it was waiting
+        to see quiet has just painted, so the whole quiet time starts again."""
         self._net_owed = False
+        with contextlib.suppress(RuntimeError):  # the #230 teardown guard
+            self._net_settle.stop()
         now = time.monotonic()
         with contextlib.suppress(RuntimeError):  # the #230 teardown guard
             if not self._net.isActive():
                 self._net_since = now
             waited_out = now - self._net_since >= NET_MAX_WAIT_S
+            self._net_forced = waited_out
             self._net.start(0 if waited_out else self._quiet_ms)
+
+    def _net_quiet(self) -> None:
+        """The net's quiet time elapsed. That is not proof the scene was still: a GUI
+        thread blocked by the 2D side lets the quiet time pass, and the repaint from
+        before the block is still queued (``NET_SETTLE_MS``). Start the settle timer;
+        a repaint before it fires restarts the quiet time (``_arm_net``)."""
+        if self._net_forced:
+            self._net_forced = False
+            self._reconcile()  # the NET_MAX_WAIT_S bound: a busy scene has no quiet
+            return
+        if not self._active or self._records_dirty:
+            return
+        if self._capture is not None:
+            self._net_owed = True  # a read is running: look again when it ends
+            return
+        self._net_settle.start(NET_SETTLE_MS)
 
     def _reconcile(self) -> None:
         """THE NET's pass: the scene was repainted, nobody announced a change, and it
-        has been quiet since. Read the plan once and apply what differs (normally
-        nothing)."""
+        has stayed quiet through the settle time. Read the plan once and apply what
+        differs (normally nothing)."""
         if not self._active or self._records_dirty:
             # paused; or a pass is owed and will read everything — also a pass that
             # FAILED: a repaint is no reason to try a failing pass again
@@ -1144,6 +1185,7 @@ class Scene3DController(QObject):
         self._net_owed = False
         with contextlib.suppress(RuntimeError):  # the #230 teardown guard
             self._net.stop()
+            self._net_settle.stop()
         self._abandon_capture()  # a read still running is superseded by this one
         # THE ONE snapshotting scene of the process. The record layer's outline
         # memories ride a process-wide generation clock: one scene snapshotted

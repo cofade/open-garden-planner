@@ -701,6 +701,33 @@ def test_a_repaint_takes_no_snapshot_and_one_reconciliation_once_the_scene_is_qu
     assert controller.snapshot_count == snapshots + 1, "and then nothing: no timer spins"
 
 
+def test_a_quiet_timer_that_fired_after_a_blocked_loop_waits_for_a_settle(
+        canvas: CanvasView, qtbot) -> None:
+    """#452, the CI finding: a quiet timer can fire LATE — the 2D side held the GUI
+    thread for longer than ``NET_QUIET_MS`` — and the repaint from before that block is
+    the next thing the loop delivers. Reconciling on the late fire read the whole plan
+    for a preview that changed nothing, and slicing that read put it into the turns
+    that followed (the preview-move gate measured 4.6x Plan on the runner).
+
+    The fire therefore starts a settle (``NET_SETTLE_MS``); the queued repaint restarts
+    the quiet time, and only a scene that stays still settles into the pass."""
+    rig = _net_rig(canvas, qtbot)
+    controller, bed = rig.controller, rig.item
+    snapshots = controller.snapshot_count
+    bed.metadata[METADATA_KEY] = 75.0        # no announcement, no command
+    bed.update()
+    _turns()                                 # the repaint arms the net's quiet timer
+    time_module.sleep(QUIET / 1000.0 * 2.5)  # the GUI thread blocked: the timer is late
+    QApplication.processEvents()             # ... and fires now, with nothing to paint
+    assert controller.snapshot_count == snapshots, "the late fire settled, it did not read"
+    bed.setSelected(True)                    # the repaint the block kept from the loop
+    _turns()
+    assert controller.snapshot_count == snapshots, "the repaint restarted the quiet time"
+    qtbot.wait(QUIET * 3)
+    assert controller.snapshot_count == snapshots + 1, "a scene that really settled reads ONCE"
+    assert controller.unannounced_changes == 1, "and the write nobody announced was found"
+
+
 def test_the_apps_quiet_time_is_twice_the_sun_animations_tick() -> None:
     """While "Animate" runs, the shadows repaint every tick. A quiet time below the tick
     would reconcile BETWEEN two ticks — a snapshot per tick again."""

@@ -9457,8 +9457,24 @@ it makes the next slice recompute more than it would alone. Ground tiles (#475) 
 still painted on the GUI thread by the controller's ground passes; they are already
 sliced by a 10 ms budget, and moving them to a raster lane is #475's remaining work.
 
+Slicing moved a net reconciliation's cost from one turn into the turns that follow it,
+and the preview-move gate noticed (`test_a_preview_mouse_move_costs_in_split_what_it_
+costs_in_plan`): on the hosted runner a whole-plan read of the 424-record bench plan
+takes 114 ms, and 16 of them landed inside 160 measured preview moves — ratios 4.61,
+5.83 and 4.78 against the 2.0 bound, while the same test on a quiet machine reads 1.00.
+The passes were not the preview's: each was the net reconciling after a quiet timer that
+fired LATE, because the 2D side had held the GUI thread for about a second and the
+preview's repaint was still queued. A timer that fires proves the loop is alive now, not
+that the scene was still for the quiet time. The net therefore waits `NET_SETTLE_MS`
+(50 ms) after its quiet timer, and a repaint inside that window restarts the whole quiet
+time (`_net_quiet`/`_arm_net`); the bounded `NET_MAX_WAIT_S` path still reconciles a
+scene that never quiets. On a probe with a 600 ms block inside every tenth preview turn,
+the mid-round reads fall from 4 to 1 (the one after the tool stops).
+
 **Verification.** `tests/integration/test_view3d_sync_controller.py` pins the slicing,
 the stale-read policy, deleted items, document replacement, hiding, `flush` and the
-lane; `tests/unit/test_scene3d_polygon.py` pins the pricing, the capacity and the
-refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget. The
-golden meshes still match below the threshold.
+lane, and the late-timer settle
+(`test_a_quiet_timer_that_fired_after_a_blocked_loop_waits_for_a_settle`);
+`tests/unit/test_scene3d_polygon.py` pins the pricing, the capacity
+and the refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget.
+The golden meshes still match below the threshold.
