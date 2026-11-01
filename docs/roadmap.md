@@ -3861,3 +3861,36 @@ Ecke abschrägen (Shift+C)") and now append one localized shortcut. (d) A conver
 bed takes the garden bed's soil pattern (colour preserved); (e) offsetting an open fence/path
 now creates a parallel line on the cursor's side, not a filled polygon. The 3D curved-fence
 fillet is issue #675. New pitfalls: PF-CAN-34/35, PF-DOM-33, PF-UI-32; ADR-022 addendum.
+
+### Site-plan-sized backgrounds (#659, #660) — **delivered 2026-11-01, package PR (awaiting owner manual acceptance)**
+
+Two defects in one file (`ui/canvas/items/background_image_item.py`) that made each other
+worse: Qt would not decode a large background, and once it could, every plan read would
+re-encode it.
+
+- **#659 — the 256 MB decode budget.** `QImageReader`'s allocation limit is a **process-wide
+  static**, 256 MB by default, measured on the *decoded* image, so a 9000 x 8000 RGBA PNG
+  (294 kB on disk, 275 MiB decoded) failed to import and a plan that embedded it reopened as an
+  AUD-043 placeholder. Reproduced on master `c48e4624`: `null` in 0.01 s at the default limit,
+  `9000x8000` in 0.20 s at 512 MB. The item now raises the limit to
+  `DECODE_ALLOCATION_LIMIT_MB` (512) for that decode only, in a context manager that restores
+  the previous value in `finally`, and refuses an image above `MAX_BACKGROUND_PIXELS` (120 MP)
+  from its **header** with a translated message before anything is allocated. The pixel cap —
+  not the decoder budget — is what bounds memory, because the item keeps the pixmap twice (the
+  original it serializes plus the vertically flipped copy it paints).
+- **#660 — the encode per snapshot.** `to_dict()` re-encoded the pixmap as PNG + base64 on
+  every call, and `snapshot_dict()` runs on every Agent API read *and* every autosave (default
+  interval five minutes). Reproduced through the real item on master `c48e4624`:
+  **1.16 / 1.21 / 1.18 s** per call at 9000 x 8000, each producing the identical
+  307,004-character payload (0.48 s at 6000 x 5000 — the cost is linear in pixels). The encoded
+  string is now built once and reused, keyed on `QPixmap.cacheKey()` so any pixmap change
+  invalidates it; the placeholder path still returns its raw dictionary untouched.
+- **Evidence.** 11 tests observed failing first on the pre-fix tree
+  (`tests/unit/test_background_image_item.py`, `tests/integration/test_background_image_portable.py`),
+  including a save → source-file-deleted → reload at a lowered process budget (the placeholder
+  regression) and a two-read snapshot that must encode once. The 1:1 275 MiB case is an
+  owner manual test; the automated tests lower the process budget to 4 MB and use a
+  2000 x 2000 image, which is the same code path with no CI memory spike.
+- **Docs.** FR-IMG-12/13; §8.7 (error handling) extended; new pitfalls PF-PER-22/23;
+  no `.ogp` change and no `FILE_VERSION` bump (the embedded key already existed).
+

@@ -151,6 +151,15 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Lock Image": "Bild sperren",
         "Unlock Image": "Bild entsperren",
         "Remove Image": "Bild entfernen",
+        "Failed to load image: {path}": "Bild konnte nicht geladen werden: {path}",
+        "Failed to load image from embedded data": (
+            "Bild konnte nicht aus eingebetteten Daten geladen werden"
+        ),
+        "This image is {megapixels} megapixels and needs about {megabytes} MB "
+        "of memory. Background images are limited to {limit} megapixels.": (
+            "Dieses Bild hat {megapixels} Megapixel und benötigt etwa {megabytes} MB "
+            "Arbeitsspeicher. Hintergrundbilder sind auf {limit} Megapixel begrenzt."
+        ),
     },
 
     # ── CalibrationDialog ──

@@ -264,3 +264,63 @@ serializers read, so a rotated replacement lost its orientation on the next
 save; and `inherit_item_identity` must be in the module's own contract
 (`__all__`, docstring). Pinned by seven tests covering identity, both refusal
 branches, the plain-shape control, rotation, and a save/reload of the result.
+
+### PF-PER-22
+
+- **Rule:** A decode of a large background image raises `QImageReader`'s **process-wide** allocation limit around that decode only and restores it in `finally`, because Qt's 256 MB default is measured on the *decoded* image and rejects a site-plan-sized PNG that is a few hundred kB on disk.
+- **Pinned by:** `tests/unit/test_background_image_item.py::test_an_image_above_the_process_limit_loads`; `tests/unit/test_background_image_item.py::test_an_embedded_image_above_the_process_limit_loads`; `tests/unit/test_background_image_item.py::test_the_limit_is_restored_after_loading`; `tests/unit/test_background_image_item.py::test_a_larger_existing_budget_is_left_alone`; `tests/unit/test_background_image_item.py::test_the_limit_is_restored_after_a_refusal`; `tests/unit/test_background_image_item.py::test_an_oversized_file_is_refused_before_decoding`; `tests/unit/test_background_image_item.py::test_an_oversized_embedded_image_is_refused`; `tests/integration/test_background_image_portable.py::test_a_background_above_the_process_decode_budget_reloads`
+- **Source:** #659
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+A user's 9917 x 7009 cadastral plan is a 2.8 MB PNG and 278 MiB decoded. Qt's
+allocation limit is 256 MB by default, and it is a **static** on `QImageReader`,
+not a per-reader setting: `QPixmap(path)` and `loadFromData()` both honour it, so
+the import failed, and a plan that embedded the same image reopened as an
+AUD-043 placeholder — visibly missing, no error the user could act on. Measured
+on master `c48e4624` (reproducing the issue's numbers from `f4e5060`): at the default limit a 9000 x 8000 PNG (294 kB) decodes to
+`null` in 0.01 s; at 512 MB it loads in 0.20 s.
+
+Two details are the actual lesson. First, **restore in `finally`**: the value is
+process-wide, so a raise that leaked would let every later decode in the
+application allocate more than it should, including ones the user never asked
+for; the helper takes `max(previous, limit)` so an environment that already
+permits more keeps its own budget. Second, the decoder budget is not the whole
+cost: `BackgroundImageItem` keeps the pixmap twice (the original it serializes
+plus the vertically flipped copy it paints), so the pixel cap
+(`MAX_BACKGROUND_PIXELS`, 120 MP) bounds the pair and is checked from the
+**header** — `QImageReader(path).size()` and a `QImageReader` over the embedded
+bytes both report the size without decoding — so an oversized file is refused
+with a translated message before anything is allocated. A format that cannot
+report its size falls through to the decoder's own limit as the backstop. A 1:1
+regression test would need 275 MiB per copy, so the tests lower the process
+budget to 4 MB and use a 2000 x 2000 image: same code path, same failure mode,
+no CI memory spike.
+
+### PF-PER-23
+
+- **Rule:** An embedded background PNG is encoded once per pixmap revision, not once per snapshot: `to_dict()` is called on every Agent API read and every autosave, and a 72-megapixel background cost 1.2 s of main-thread encoding per call.
+- **Pinned by:** `tests/unit/test_background_image_item.py::test_a_snapshot_payload_is_reused_not_re_encoded`; `tests/unit/test_background_image_item.py::test_to_dict_encodes_the_png_once`; `tests/unit/test_background_image_item.py::test_replacing_the_image_invalidates_the_cache`; `tests/unit/test_background_image_item.py::test_a_placeholder_is_never_encoded`; `tests/unit/test_background_image_item.py::test_an_unencodable_pixmap_raises_instead_of_writing_nothing`; `tests/integration/test_background_image_portable.py::test_repeated_plan_reads_encode_the_background_once`
+- **Source:** #660
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`BackgroundImageItem.to_dict()` re-encoded the whole pixmap as PNG and base64 on
+every call, and a snapshot (`ProjectManager.snapshot_dict`) is taken on every
+Agent API plan read *and* every autosave — autosave is on by default every five
+minutes, so a large plan paid the cost forever for bytes that had not changed.
+Measured on master `c48e4624` through the real item: 1.16 / 1.21 / 1.18 s per
+call at 9000 x 8000, each producing the identical 307,004-character payload
+(0.48 s at 6000 x 5000, so the cost is linear in pixels).
+
+The cache key is `QPixmap.cacheKey()`, not a hand-rolled "dirty" flag: Qt bumps
+it whenever the pixmap's contents change, so an in-place edit can never leave a
+stale payload behind, and a future "replace image" action inherits the rule for
+free. No production mutation path exists today (the image is fixed at
+construction and `calibrate`/`opacity`/`locked` do not touch pixels), which is
+why the invalidation test assigns the pixmap directly — that assignment *is* the
+seam such an action would use. The assertion is deliberately two-sided: the
+counting wrapper documents the call count, and `payload is payload` pins the
+behaviour without depending on the helper's name, so a re-implementation that
+drops the cache fails for the right reason.
+
