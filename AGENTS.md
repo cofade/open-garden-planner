@@ -33,6 +33,10 @@ venv/Scripts/python.exe -m bandit -r src/ --severity-level high
 # PyInstaller can still bundle it (#538).
 $env:UV_PROJECT_ENVIRONMENT='venv'  # PowerShell (Git Bash: UV_PROJECT_ENVIRONMENT=venv)
 uv sync --locked --python 3.11 --all-extras --group build --no-install-project
+# Reinstall the project editable, or `python -m open_garden_planner` dies with
+# "No module named open_garden_planner": `--no-install-project` leaves the
+# project itself out of the exact sync set, so uv removes it (docs/07 §7.6).
+uv pip install --python venv/Scripts/python.exe --no-deps --no-build-isolation --editable .
 venv/Scripts/python.exe -m installer.build_environment --strict
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -PassThru; Start-Sleep -Seconds 8; if ($p.HasExited) { exit $p.ExitCode } else { Stop-Process -Id $p.Id; exit 124 }'
