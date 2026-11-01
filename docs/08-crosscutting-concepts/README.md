@@ -5502,8 +5502,8 @@ small bench plan, 18.3 against 0.7 on the large one). Now:
   runs after a short settle (`NET_SETTLE_MS` = 50 ms: the quiet time can pass while the 2D
   side holds the GUI thread, and a repaint from before that block is still queued — a repaint
   in the settle restarts the whole quiet time, #452). It normally finds nothing; if it finds
-  a difference, an edit path forgot its
-  announcement: the pass applies it, `Scene3DController.unannounced_changes` counts it, one
+  a difference, an edit path forgot its announcement: the pass applies it,
+  `Scene3DController.unannounced_changes` counts it, one
   DEBUG line names the kinds that differed. So no edit stays out of 3D for much longer than the
   quiet time, whatever writes it. No `changed`, no timer; a scene that is never quiet is
   reconciled every `NET_MAX_WAIT_S` (5 s) all the same. An announcement explains repaints for
