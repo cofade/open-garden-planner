@@ -433,14 +433,17 @@ class PaintLog(QObject):
 
 
 def _note_each_snapshot(monkeypatch: pytest.MonkeyPatch, note: Any) -> None:
-    """Call ``note()`` at the START of every whole-plan snapshot the pipeline takes."""
-    real = sync_controller.snapshot_records
+    """Call ``note()`` at the START of every whole-plan read the pipeline takes.
+
+    The read is a generator since #452, but it is STARTED here, in the pass that owes
+    it ? the moment the note is about (the item reads that follow are slices)."""
+    real = sync_controller.snapshot_steps
 
     def watched(*arguments: Any, **options: Any) -> Any:
         note()
         return real(*arguments, **options)
 
-    monkeypatch.setattr(sync_controller, "snapshot_records", watched)
+    monkeypatch.setattr(sync_controller, "snapshot_steps", watched)
 
 
 def test_the_building_notice_is_painted_before_the_first_snapshot_starts(
@@ -502,6 +505,31 @@ def test_hiding_3d_before_the_notice_was_painted_starts_nothing(
     bench.settle(150)
     assert bench.sink.item_ids() == () and workspace.controller is not None
     assert workspace.controller.active is False and workspace.controller.snapshot_count == 0
+
+
+def test_a_read_that_outlasts_the_wait_says_it_is_updating(
+        bench: Bench, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#452: the translated note appears only after ``BUILD_NOTICE_WAIT_MS`` of reading
+    (a small plan's milliseconds must not flicker the status line) and is withdrawn
+    the moment the read ends ? whichever way it ends."""
+    workspace = bench.workspace
+    bench.bed()
+    monkeypatch.setattr(workspace_module, "BUILD_NOTICE_WAIT_MS", 10)
+    workspace.set_mode(SPLIT)
+    bench.settle()
+    controller = workspace.controller
+    assert controller is not None
+    controller.capturing_changed.emit(True)      # a read started
+    bench.qtbot.wait(30)
+    assert workspace.status_text() == "Updating the 3D view\u2026"
+    controller.capturing_changed.emit(False)     # ? and ended
+    assert workspace.status_text() == ""
+
+    controller.capturing_changed.emit(True)      # a read hidden mid-way
+    bench.qtbot.wait(30)
+    assert workspace.status_text() == "Updating the 3D view\u2026"
+    workspace.set_mode(WorkspaceMode.PLAN)   # the user leaves 3D while it reads
+    assert workspace.status_text() == "", "the note goes with the read it described"
 
 
 def test_a_new_document_is_announced_before_its_first_snapshot_too(

@@ -5162,9 +5162,9 @@ engine `Model` per `MeshPart` (a part without triangles gets none), each with it
 object and its own material instance. `remove` destroys them; `replace_geometry` destroys and
 creates; `clear()` destroys everything. A geometry is never handed to a second Model and never
 re-filled — `BufferGeometry` has no method to do it — because the spike measured what reuse
-costs: a blank frame and 0 of 20 picks. There is no `Repeater3D` over a list: any change of the
-list recreates every delegate. The render tier pins the consequence: an item removed and added
-again, and the whole scene cleared and re-sent, come back pixel-identical and pickable.
+costs: a blank frame and 0 of 20 picks. (Reusing the Model with a new geometry, or with new data
+in the same geometry, was measured on both render tiers in 2026-11: the item still picks and
+draws NOTHING. #531 is open; ADR-069 records the finding.)
 
 **A move or a recolour uploads nothing.** `update_transform` sets the Models' `position` and
 `eulerRotation.y`; `update_material` sets their tint. The upload counter (`BufferGeometry.uploads`,
@@ -5499,9 +5499,12 @@ small bench plan, 18.3 against 0.7 on the large one). Now:
 - **The net — what is not.** A `changed` with no revision move snapshots nothing; it (re)starts
   ONE single-shot timer (`NET_QUIET_MS` = 400 ms — twice the sun animation's tick, pinned),
   only while 3D is visible. Once the scene has been quiet that long, ONE reconciliation pass
-  runs. It normally finds nothing; if it finds a difference, an edit path forgot its
-  announcement: the pass applies it, `Scene3DController.unannounced_changes` counts it, one
-  DEBUG line names the kinds that differed. So no edit stays out of 3D for longer than the
+  runs after a short settle (`NET_SETTLE_MS` = 50 ms: the quiet time can pass while the 2D
+  side holds the GUI thread, and a repaint from before that block is still queued — a repaint
+  in the settle restarts the whole quiet time, #452). It normally finds nothing; if it finds
+  a difference, an edit path forgot its announcement: the pass applies it,
+  `Scene3DController.unannounced_changes` counts it, one
+  DEBUG line names the kinds that differed. So no edit stays out of 3D for much longer than the
   quiet time, whatever writes it. No `changed`, no timer; a scene that is never quiet is
   reconciled every `NET_MAX_WAIT_S` (5 s) all the same. An announcement explains repaints for
   ONE turn after its pass, no longer: without that expiry an announcement that repaints nothing
@@ -5519,7 +5522,11 @@ small bench plan, 18.3 against 0.7 on the large one). Now:
   0 snapshots while each happens, 1 after the quiet time, finding nothing; 31 edit paths, each
   announced (`unannounced_changes == 0`). A preview mouse-move turn costs the same in Split as
   in Plan: median ratio 0.94 (small bench plan) and 0.98 (large) on a quiet machine, 1.01 beside
-  other suites (gate: ≤ 2.0, a `perf` test).
+  other suites (gate: ≤ 2.0, a `perf` test). Hosted CI found the other half of slicing: a quiet
+  timer that fires late after a 2D-side block reconciled a preview that changed nothing, and
+  its 114 ms whole-plan read was sliced into the following moves (16 reads inside 160 moves,
+  ratios 4.6–5.8). The settle above restarts the quiet time on the queued repaint instead; the
+  one pass that remains is the net's after the round.
 
 - **Hidden means paused**: with the pane hidden or the window minimised the controller keeps two
   flags and does nothing else. Showing 3D runs ONE catch-up pass — a plain `apply` of the current

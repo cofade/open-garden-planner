@@ -2740,6 +2740,21 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
+### 3D performance and stability (Slice A) — **#452 shipped in v1.34.11 ([PR #676](https://github.com/cofade/open-garden-planner/pull/676)), 2026-11-01**
+
+Five issues from the 3D follow-up cluster (#452, #475, #531, #534, #598), delivered in
+one branch with ADR-069. #452 shipped in v1.34.11 with measured evidence. #531 and #598 were built and WITHDRAWN
+(both touched the same engine files; the render tier showed the in-place geometry path
+drawing nothing). #475 and #534 are open. Only #452 is closed.
+
+| Issue | State | Evidence |
+|---|---|---|
+| [#531](https://github.com/cofade/open-garden-planner/issues/531) | **open — reverted** | the in-place Model reconciliation was built and then withdrawn: both render tiers show a replaced geometry drawn as nothing (pickable, zero pixels), so a changed part still gets a new Model | the render tier's `test_replace_geometry_changes_the_silhouette` is green on the restored path; the failure is recorded in ADR-069 |
+| [#598](https://github.com/cofade/open-garden-planner/issues/598) | **open — not shipped** | the seasonal-parts index was built with #531 on the same QML/host files and was withdrawn with it; its engine half is not in the shipped change | the issue stays open |
+| [#452](https://github.com/cofade/open-garden-planner/issues/452) | **done — shipped in v1.34.11** — native triangulation (`mapbox-earcut`, ADR-069), a repriced work bound, cooperative 4 ms whole-plan reads and a geometry lane; 4,096-vertex rings and long drawn paths now get solids | heartbeat p95 1.7–3.6 ms / max 8–20 ms on the issue's three plans (4.0/5.4/12.6 s in one block before); `scripts/measure_capture_heartbeat.py` |
+| [#475](https://github.com/cofade/open-garden-planner/issues/475) | **open** — ground tiles are still painted by the controller's sliced ground passes; the global pixel grid and padded tiles are not implemented | the #615 two-/four-tile contracts still pass unchanged |
+| [#534](https://github.com/cofade/open-garden-planner/issues/534) | **open** — the wind-memory growth is not fixed; no closing keyword | the xfail stays |
+
 ### Test lifecycle, popup focus, release classification, and 3D workspace modularization — **shipped 2026-10-28 as v1.34.2, PR #632**
 
 One package covers #561, #515, #460, #463, #583, and #580 (closing #447).

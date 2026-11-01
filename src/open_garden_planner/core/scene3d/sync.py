@@ -91,6 +91,7 @@ from functools import lru_cache
 from types import MappingProxyType
 
 from open_garden_planner.core.plain_text import log_text
+from open_garden_planner.core.plant_art import PLANT_KINDS
 
 from .build import Builder, BuilderRegistry, checked_parts
 from .ground import GroundBaking
@@ -290,6 +291,8 @@ class SceneSync:
         *,
         sun: SunState | None = None,
         ground: GroundSpec | None = None,
+        prepared: Mapping[str, tuple[MeshPart, ...]] | None = None,
+        changes: SceneDiff | None = None,
     ) -> SceneDiff:
         """Bring the sink to ``records`` (bottom-to-top) with the fewest calls.
 
@@ -303,10 +306,23 @@ class SceneSync:
         snapshot; an item rebuilt only because its builder changed is not in it
         (its record did not change). See the module docstring for what happens
         when a builder or the sink raises.
+
+        ``changes`` (#452): the diff of ``records`` against the snapshot last applied,
+        when the caller already made it (the controller's pass, which needs it to know
+        which items the geometry lane should build). It must describe ``records``
+        against exactly what this sync last applied.
+
+        ``prepared`` (#452): parts for items of THIS snapshot whose meshes a caller
+        built ahead — the geometry lane — so this call does not build them again on
+        the GUI thread. ``prepare(records)`` is the same builder path; an item the
+        caller could not build, or did not offer, is built here as usual.
         """
         self._require_usable()
         new = dict(records)
-        changes = diff(self._records, new)
+        if changes is None:
+            changes = diff(self._records, new)
+        # a caller that already diffed (the geometry lane's pass, #452) hands it in:
+        # the same records, the same answer, paid once
         fresh = (*changes.added, *changes.geometry)
         builder_for = self._registry.builder_for
         version = getattr(self._registry, "version", None)
@@ -327,6 +343,9 @@ class SceneSync:
             record = new[item_id]
             builder = builder_for(record.kind)
             builders[item_id] = builder
+            if prepared is not None and item_id in prepared:
+                built[item_id] = prepared[item_id]  # the geometry lane's answer (#452)
+                continue
             try:
                 built[item_id] = self._build(builder, record)
             except Exception as error:  # any builder defect is contained (module docstring)
@@ -372,6 +391,28 @@ class SceneSync:
         if send_ground:
             self._ground = ground
         return changes
+
+    def prepare(self, records: Mapping[str, Record]) -> dict[str, tuple[MeshPart, ...]]:
+        """What ``apply`` would build for ``records``, built WITHOUT the sink (#452).
+
+        For the geometry lane: the caller runs this off the GUI thread, then hands the
+        answer back as ``apply(..., prepared=...)``. Records are plain immutable data
+        and every builder is Qt-free, so this is safe on a worker. The builders'
+        memories are ``ring_keyed`` (safe from several threads: the same thread-safety
+        ``lru_cache`` has). An item whose build raises is left out — ``apply`` builds
+        it again and reports the failure, as it always did.
+        """
+        prepared: dict[str, tuple[MeshPart, ...]] = {}
+        for item_id, record in records.items():
+            if record.kind in PLANT_KINDS:
+                # the plant builder's own docstring says it is GUI-thread code and has
+                # never been tested under threads: it stays on the GUI thread (#452)
+                continue
+            try:
+                prepared[item_id] = self._build(self._registry.builder_for(record.kind), record)
+            except Exception:  # noqa: BLE001,S112 - apply reports it, on the thread that may log
+                continue
+        return prepared
 
     def set_sun(self, sun: SunState) -> bool:
         """Tell the sink where the sun is, in a transaction of its own; a repeat of

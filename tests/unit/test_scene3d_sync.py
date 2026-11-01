@@ -1152,3 +1152,65 @@ def test_the_documented_builder_workflow() -> None:
     sync.apply(moved_records)  # a move …
     assert sink.ops() == [("begin", None), ("update_transform", house_id), ("commit", None)]
     assert sync.build_count == len(records)  # … built nothing
+
+
+# ?? the geometry lane's seam (#452): prepare on a worker, apply what came back ??
+
+
+def _square_record(item_id: str, x: float = 0.0) -> Record:
+    return record(item_id, transform=Transform(x, 0.0, 0.0))
+
+
+def test_prepare_builds_what_apply_would_and_apply_uses_it_without_building_again() -> None:
+    record = _square_record("a")
+    builder = default_builder
+    sync = SceneSync(RecordingSink(), BuilderRegistry(builder))
+    prepared = sync.prepare({record.item_id: record})
+    assert set(prepared) == {record.item_id} and prepared[record.item_id]
+
+    builds_before = sync.build_count
+    sync.apply({record.item_id: record}, prepared=prepared)
+    assert sync.build_count == builds_before, "the prepared parts were used, not rebuilt"
+    assert sync.failures == {}
+
+
+def test_apply_builds_an_item_the_prepared_map_does_not_have() -> None:
+    one, two = _square_record("a"), _square_record("b", 400.0)
+    sync = SceneSync(RecordingSink(), BuilderRegistry(default_builder))
+    prepared = sync.prepare({one.item_id: one})
+    sync.apply({one.item_id: one, two.item_id: two}, prepared=prepared)
+    assert sync.build_count == 2, "the one that was not prepared was built here"
+    assert sync.failures == {}
+
+
+def test_a_lane_failure_is_left_out_and_the_apply_builds_it() -> None:
+    record = _square_record("a")
+    calls = {"n": 0}
+
+    def flaky(built: Record) -> tuple[MeshPart, ...]:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("the lane's build failed")
+        return default_builder(built)
+
+    sync = SceneSync(RecordingSink(), BuilderRegistry(flaky))
+    prepared = sync.prepare({record.item_id: record})
+    assert prepared == {}, "a failed build is not offered"
+    sync.apply({record.item_id: record}, prepared=prepared)
+    # two ATTEMPTS ? the lane's (which raised) and the apply's (which worked) ? and a
+    # solid, because the apply built the item its prepared map did not have
+    assert sync.build_count == 2 and sync.failures == {}
+
+
+def test_prepare_reports_nothing_and_apply_reports_the_failure() -> None:
+    """A builder that always raises: ``prepare`` leaves it out silently, ``apply``
+    contains and reports it, as it always did."""
+    record = _square_record("a")
+
+    def broken(_record: Record) -> tuple[MeshPart, ...]:
+        raise ValueError("no solid for you")
+
+    sync = SceneSync(RecordingSink(), BuilderRegistry(broken))
+    assert sync.prepare({record.item_id: record}) == {}
+    sync.apply({record.item_id: record})
+    assert record.item_id in sync.failures

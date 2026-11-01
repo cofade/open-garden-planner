@@ -1057,13 +1057,13 @@ class TestFlatItemsTheSolidPathRefuses:
         painted = bake.baker.records_painted
         assert bake.step().is_empty and bake.baker.records_painted == painted  # idle: no work
 
-    def test_a_5000_vertex_lawn_is_on_the_ground_as_the_canvas_paints_it(self, qtbot: Any) -> None:
+    def test_a_10000_vertex_lawn_is_on_the_ground_as_the_canvas_paints_it(self, qtbot: Any) -> None:
         scene = CanvasScene(width_cm=1100.0, height_cm=800.0)
-        item = _traced_lawn(5000)
+        item = _traced_lawn(10_000)
         scene.addItem(item)
         mean, worst, bake = compare(scene, production_registry())
         record = bake.records[str(item.item_id)]
-        assert record.footprints == () and len(record.outline) == 5000
+        assert record.footprints == () and len(record.outline) == 10_000
         assert "outline_resolved" not in record.params
         assert (mean, worst) == (0.0, 0)
         # bounded by counts: all six tiles painted, the lawn into the four it reaches
@@ -1076,14 +1076,14 @@ class TestFlatItemsTheSolidPathRefuses:
     def test_an_idle_tick_asks_nothing_again_about_a_refused_flat_item(
             self, qtbot: Any, work_done: dict[str, int]) -> None:  # noqa: F811 - the fixture
         """The contract's rule (L1.1, fix round 4), held on the flat path too: a refusal
-        is remembered while the item lives. A 3,000-point path and a 5,000-vertex lawn
+        is remembered while the item lives. A 3,000-point path and a 10,000-vertex lawn
         — kept for the ground, refused for cutting — cost the FIRST snapshot the
         pricing of their refusal, and an idle tick nothing: no cut, no stroke
         inflated, no outline resolved, and the same records again."""
         from open_garden_planner.ui.view3d import snapshot
 
         scene = CanvasScene(width_cm=3000.0, height_cm=1100.0)
-        path, lawn = _long_path(3000), _traced_lawn(5000)
+        path, lawn = _long_path(3000), _traced_lawn(10_000)
         scene.addItem(path)
         scene.addItem(lawn)
         bake = Bake(scene, registry=production_registry())
@@ -1109,7 +1109,7 @@ class TestFlatItemsTheSolidPathRefuses:
 
     def test_with_a_height_such_an_item_is_left_out_and_reported_as_before(self, qtbot: Any) -> None:
         scene = CanvasScene(width_cm=1100.0, height_cm=800.0)
-        item = _traced_lawn(5000)
+        item = _traced_lawn(10_000)
         item.metadata["object_height_cm"] = 30.0
         scene.addItem(item)
         bake = Bake(scene, registry=production_registry())

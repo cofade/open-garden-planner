@@ -35,6 +35,7 @@ the tallest is a deck's boards, 6 cm.
 from __future__ import annotations
 
 import math
+import threading
 from collections import OrderedDict
 from typing import Final, NamedTuple
 
@@ -772,31 +773,38 @@ def _grow(roots: F64, height: F64, heading: F64, lean: F64, width: F64, shade: F
 SWARD_CACHE_BYTES: Final = 64 * 1024 * 1024
 _SWARDS: OrderedDict[tuple[object, ...], _Sward] = OrderedDict()
 _SWARD_STATS: dict[str, int] = {"hits": 0, "misses": 0}
+#: #452: the geometry lane builds on a worker while the GUI thread may clear this
+#: memory (a document change, closing the view). Every read and write of the two
+#: dicts above is under this lock.
+_SWARD_LOCK = threading.Lock()
 
 
 def _sward(footprints: tuple[Ring, ...], holes: tuple[tuple[Ring, ...], ...], seed: str,
            wanted: int | None) -> _Sward:
     """The lawn's blades before any cut-out, remembered (``SWARD_CACHE_BYTES``)."""
     key = (footprints, holes, seed, wanted)
-    held = _SWARDS.get(key)
-    if held is not None:
-        _SWARDS.move_to_end(key)
-        _SWARD_STATS["hits"] += 1
-        return held
-    _SWARD_STATS["misses"] += 1
-    grown = _grow(*_blades(footprints, holes, seed, wanted))
-    _SWARDS[key] = grown
-    total = sum(sward.nbytes for sward in _SWARDS.values())
-    while total > SWARD_CACHE_BYTES and len(_SWARDS) > 1:
-        _key, dropped = _SWARDS.popitem(last=False)
-        total -= dropped.nbytes
+    with _SWARD_LOCK:
+        held = _SWARDS.get(key)
+        if held is not None:
+            _SWARDS.move_to_end(key)
+            _SWARD_STATS["hits"] += 1
+            return held
+        _SWARD_STATS["misses"] += 1
+    grown = _grow(*_blades(footprints, holes, seed, wanted))   # outside the lock: it is slow
+    with _SWARD_LOCK:
+        _SWARDS[key] = grown
+        total = sum(sward.nbytes for sward in _SWARDS.values())
+        while total > SWARD_CACHE_BYTES and len(_SWARDS) > 1:
+            _key, dropped = _SWARDS.popitem(last=False)
+            total -= dropped.nbytes
     return grown
 
 
 def sward_cache_info() -> dict[str, int]:
     """How the sward memory has done: hits, misses, entries and bytes held."""
-    return {**_SWARD_STATS, "entries": len(_SWARDS),
-            "bytes": sum(sward.nbytes for sward in _SWARDS.values())}
+    with _SWARD_LOCK:
+        return {**_SWARD_STATS, "entries": len(_SWARDS),
+                "bytes": sum(sward.nbytes for sward in _SWARDS.values())}
 
 
 def _cutouts(record: Record) -> list[F64]:
@@ -852,8 +860,9 @@ def _lawn(record: Record) -> tuple[MeshPart, ...]:
 
 def clear_lawn_cache() -> None:
     """Forget every lawn's blades (a plan was closed, the 3D view closed)."""
-    _SWARDS.clear()
-    _SWARD_STATS.update(hits=0, misses=0)
+    with _SWARD_LOCK:
+        _SWARDS.clear()
+        _SWARD_STATS.update(hits=0, misses=0)
 
 
 BUILDERS: Final = {

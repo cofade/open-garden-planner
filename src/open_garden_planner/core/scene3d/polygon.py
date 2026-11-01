@@ -8,12 +8,15 @@ clockwise (signed area < 0). That is the orientation pyclipper emits and the one
 load-bearing — its stroke comes back as two rings, and extruding the inner one
 as a solid turns a 3.6 m² fence into an 80 m² slab (senior review, fix round 1).
 
-Plain Python on float pairs, except where a test is quadratic and runs on every
-edit of a ring — the simplicity test of a large ring and the triangulation of a
-region with holes run on numpy. ``triangulate_polygon`` is the ear clipper the
-Qt 3D view of US-E6 used, moved here unchanged from the pre-L1.1 module that L1.10
-deleted with that view; ``triangulate_region`` adds holes by bridging each hole to the
-boundary and clipping ears of the merged ring.
+Plain Python on float pairs, except where a test is superlinear and runs on every
+edit of a ring — the simplicity test of a large ring and the ring-conflict sweep
+run on numpy. ``triangulate_polygon`` is the ear clipper the Qt 3D view of US-E6
+used, moved here unchanged from the pre-L1.1 module that L1.10 deleted with that
+view; it remains the test reference and the builders' fallback for small rings.
+``triangulate_region`` cuts a region with holes, or a hole-free ring of
+``ARRAY_EAR_CLIP_FROM`` vertices or more, with ONE native call (``mapbox-earcut``,
+ADR-069); below that size it clips ears of the shared clipper, whose triangles the
+golden meshes pin.
 
 ONE predicate says whether a region may be handed to a builder:
 ``is_buildable_region`` — true exactly when ``cut_region``, the triangulation
@@ -24,12 +27,13 @@ region's area. The snapshot asks it for every outline it turns into rings, so
 Two bounds hold for everything here, because the rings come out of a plan file
 and a plan file can be written by anybody (security review of fix round 3):
 
-- WORK. Whatever is superlinear — the simplicity test, sorting rings into
-  regions, a bridge, the ear clipping, counting the pairs of a path — is paid
-  for in work units out of a ``WorkBudget`` BEFORE it runs, and refused
-  (``RegionTooLargeError``) when the budget does not cover it. One region may
-  cost ``MAX_REGION_WORK``; so may everything ONE item's outline needs, which
-  ``ui.view3d.snapshot`` pays into one budget.
+- WORK. Whatever is superlinear — the simplicity test, the ring-conflict sweep,
+  sorting rings into regions, a bridge, the native triangulation (worst case),
+  counting the pairs of a path — is paid for in work units out of a
+  ``WorkBudget`` BEFORE it runs, and refused (``RegionTooLargeError``) when the
+  budget does not cover it. One region may cost ``MAX_REGION_WORK``; so may
+  everything ONE item's outline needs, which ``ui.view3d.snapshot`` pays into one
+  budget.
 - MEMORY. What is remembered about rings (``ring_keyed``: ``ring_area``, the
   verdict and the cut of a region) is bounded by the VERTICES it holds, not by
   the number of answers, and a ring of more than ``MAX_ITEM_VERTICES`` vertices
@@ -44,6 +48,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any, Final, Generic, NamedTuple, NoReturn, ParamSpec, TypeAlias, TypeVar
 
+import mapbox_earcut
 import numpy as np
 from numpy.typing import NDArray
 
@@ -60,10 +65,11 @@ _Floats: TypeAlias = "NDArray[np.float64] | float"
 #: DRAWN (a polygon's ring, the points of a path) and as it is MADE (every ring
 #: the clipper returns for it, together). The first is asked of the item before
 #: one vertex is read, the second of the clipper's answer before one ring of it
-#: is. Far above what the work bound lets through (a plain outline of about
-#: 3,500 vertices; a straight path of about 6,600 points, whose pairs alone are
-#: the bound), so it never refuses what could be built — it is what makes the
-#: answer for 200,000 points ONE comparison, and what bounds a key.
+#: is. Above what the work bound lets through (a plain outline of about 7,000
+#: vertices with the native cut's pricing, fewer for a ring whose shape makes the
+#: sweep pay; a straight path of about 6,600 points, whose pairs alone are the
+#: bound), so it refuses only what could not be built anyway — it is what
+#: makes the answer for 200,000 points ONE comparison, and what bounds a key.
 MAX_ITEM_VERTICES: Final = 16_384
 #: How many vertices of STALE answers ONE ``ring_keyed`` function holds at most,
 #: keys and answers together — answers the plan no longer asks for: the ring an
@@ -774,6 +780,20 @@ _EAR_NEAR_UNITS: Final = 400  # … and per vertex near, when they are few (one 
 _EAR_MANY_UNITS: Final = 15_000  # … or, when they are many (arrays): this …
 _EAR_MANY_NEAR_UNITS: Final = 40  # … and this per vertex near
 _SHARED_CLIP_UNITS: Final = 200  # triangulate_polygon (small rings without holes): per n²
+#: The native triangulation (``mapbox_earcut``, ISC; ADR-069) of a loop of n vertices costs
+#: ``_EARCUT_VERTEX_UNITS * n + _EARCUT_SQUARE_UNITS * n²`` AT MOST. Linear for the usual
+#: outline (a comb of 16,003 vertices 1.4 ms, a traced one 15 ms), quadratic for the worst
+#: ring it has been measured on — a spiral of 16,000 vertices, 611 ms, 2.4 ns per n² — so it
+#: is priced by that worst case: 3 units per n², and paid for BEFORE the native call.
+_EARCUT_VERTEX_UNITS: Final = 2_000  # per vertex: the arrays in and out, the flat-corner filter
+#: The joint edge test of a region's rings (``ring_conflict``): two sorts per edge …
+_SWEEP_EDGE_UNITS: Final = 800
+#: … and per candidate pair — two edges whose spans overlap on the axis it sweeps: counted, and
+#: paid for, BEFORE the pairs are made (circle of 16,384 edges: 34,610 of them, 5.7 ms; a
+#: spiral of 16,000: 2.8 M, 139 ms)
+_SWEEP_CANDIDATE_UNITS: Final = 80
+_SWEEP_BLOCK: Final = 1 << 20  # candidate pairs made at once: bounds the temporaries
+_EARCUT_SQUARE_UNITS: Final = 3  # per vertex squared: the worst case measured
 
 #: From this many vertices on, a ring WITHOUT holes is cut by the array ear clipper
 #: as well. Below it ``triangulate_polygon`` — the clipper the Qt 3D view uses —
@@ -899,6 +919,150 @@ def touching_pairs(points: Sequence[Sequence[float]], work: WorkBudget, *, close
     return near_pairs, touching
 
 
+def _hard_contact(ax: _Floats, ay: _Floats, bx: _Floats, by: _Floats,
+                  cx: _Floats, cy: _Floats, dx: _Floats, dy: _Floats) -> NDArray[np.bool_]:
+    """The segments a–b and c–d CROSS (each passes through the other's interior) or lie along
+    each other for more than a point. What a touch that is no more than a point is not."""
+    d1 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx)
+    d2 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx)
+    d3 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+    d4 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax)
+    crossing = (((d1 > 0) != (d2 > 0)) & (d1 != 0) & (d2 != 0)
+                & ((d3 > 0) != (d4 > 0)) & (d3 != 0) & (d4 != 0))
+    along_x = (np.minimum(np.maximum(ax, bx), np.maximum(cx, dx))
+               - np.maximum(np.minimum(ax, bx), np.minimum(cx, dx))) > 0
+    along_y = (np.minimum(np.maximum(ay, by), np.maximum(cy, dy))
+               - np.maximum(np.minimum(ay, by), np.minimum(cy, dy))) > 0
+    return np.asarray(crossing | ((d1 == 0) & (d2 == 0) & (along_x | along_y)))
+
+
+def _shared_corner(a: NDArray[np.float64], b: NDArray[np.float64], c: NDArray[np.float64],
+                   d: NDArray[np.float64]) -> NDArray[np.bool_]:
+    """Segments a–b and c–d have an END in common: the two rings meet corner to corner.
+    (A hole that touches the outer ring with a corner on the middle of one of its edges is
+    a pinch the cut handles; one that meets a corner of it is read apart by the snapshot.)"""
+    def same(p: NDArray[np.float64], q: NDArray[np.float64]) -> NDArray[np.bool_]:
+        return np.asarray((p[:, 0] == q[:, 0]) & (p[:, 1] == q[:, 1]))
+
+    return same(a, c) | same(a, d) | same(b, c) | same(b, d)
+
+
+def _contact_points(a: NDArray[np.float64], b: NDArray[np.float64], c: NDArray[np.float64],
+                    d: NDArray[np.float64], tag: NDArray[np.intp]) -> NDArray[np.float64]:
+    """Where segments a–b and c–d, which touch in no more than a point, touch: the end of one
+    that lies on the other. Rows of ``(tag, x, y)``."""
+    def on(p: NDArray[np.float64], s: NDArray[np.float64], e: NDArray[np.float64]) -> NDArray[np.bool_]:
+        cross = (e[:, 0] - s[:, 0]) * (p[:, 1] - s[:, 1]) - (e[:, 1] - s[:, 1]) * (p[:, 0] - s[:, 0])
+        return np.asarray((cross == 0) & _within(p[:, 0], p[:, 1], s[:, 0], s[:, 1], e[:, 0], e[:, 1]))
+
+    point = np.where(on(a, c, d)[:, None], a, np.where(on(b, c, d)[:, None], b, np.where(
+        on(c, a, b)[:, None], c, d)))
+    return np.column_stack([tag.astype(np.float64), point])
+
+
+def ring_conflict(rings: Sequence[Sequence[Sequence[float]]], work: WorkBudget) -> tuple[int, int] | None:
+    """The first pair of rings of a region that cannot be cut together — ``(a, b)``,
+    ``a <= b``, the smallest such pair, ring 0 being the outer one; ``(a, a)`` is a ring
+    that crosses or touches ITSELF — or None. What conflicts:
+
+    - a ring whose non-adjacent edges meet at all (it is not simple);
+    - two holes whose edges meet at all (they overlap, or share a point);
+    - a hole and the outer ring whose edges CROSS or run along each other. A hole
+      that touches the outer ring in a point is not a conflict: it is a region with a
+      pinch, and the cut handles it (``test_touching_is_not_refused_for_its_own_sake``).
+
+    This one test stands in for the quadratic simplicity test per ring AND for the
+    bridge search that used to find a hole on its outer ring.
+
+    A sweep, not every pair. Both axes are sorted; on the one with fewer candidates
+    an edge is paired with the edges that begin before it ends (counted with a
+    binary search, and paid for before one pair is made), then those whose spans
+    meet on the other axis are tested exactly (``_touch``, the same four cross
+    products as ``segments_touch``). An outline has a few candidates per edge: a
+    circle of 16,384 edges 34,610 against 134 million pairs. Every touching pair is
+    among them — two segments that share a point have spans that meet on both axes.
+    """
+    sizes = [len(ring) for ring in rings]
+    edges = sum(sizes)
+    if edges < 3:
+        return None
+    work.spend(_SWEEP_EDGE_UNITS * edges)
+    xy = [np.asarray(ring, dtype=np.float64).reshape(-1, 2) for ring in rings]
+    first = np.concatenate(xy)
+    second = np.concatenate([np.roll(points, -1, axis=0) for points in xy])
+    ring_of = np.repeat(np.arange(len(sizes)), sizes)
+    size_of = np.repeat(np.asarray(sizes), sizes)
+    place = np.concatenate([np.arange(size) for size in sizes])
+    low, high = np.minimum(first, second), np.maximum(first, second)
+    best: tuple[int, int, NDArray[np.intp], NDArray[np.intp]] | None = None
+    for axis in (0, 1):
+        order = np.argsort(low[:, axis], kind="stable")
+        ends = np.searchsorted(low[order, axis], high[order, axis], side="right")
+        counts = ends - np.arange(1, edges + 1)
+        total = int(counts.sum())
+        if best is None or total < best[0]:
+            best = (total, axis, order, counts)
+    assert best is not None
+    candidates, axis, order, counts = best
+    work.spend(_SWEEP_CANDIDATE_UNITS * candidates)
+    other = 1 - axis
+    found: list[tuple[NDArray[np.intp], NDArray[np.intp]]] = []
+    ahead = np.cumsum(counts)
+    start = 0
+    while start < edges:
+        stop = max(start + 1, int(np.searchsorted(ahead, (ahead[start - 1] if start else 0) + _SWEEP_BLOCK,
+                                                  side="right")))
+        block = counts[start:stop]
+        total = int(block.sum())
+        if total:
+            i = np.repeat(np.arange(start, stop), block)
+            j = i + 1 + (np.arange(total) - np.repeat(np.cumsum(block) - block, block))
+            p, q = order[i], order[j]
+            gap = np.abs(place[p] - place[q])
+            keep = ((low[p, other] <= high[q, other]) & (low[q, other] <= high[p, other])
+                    & ~((ring_of[p] == ring_of[q]) & ((gap == 1) | (gap == size_of[p] - 1))))
+            if keep.any():
+                work.spend(_NEAR_PAIR_UNITS * int(np.count_nonzero(keep)))
+                found.append((p[keep], q[keep]))
+        start = stop
+    # … and only now, with ALL of them paid for, is the first one tested
+    meet: int | None = None
+    pinches: list[NDArray[np.float64]] = []
+    count = len(sizes)
+    for p, q in found:
+        touching = _touch(first[p, 0], first[p, 1], second[p, 0], second[p, 1],
+                          first[q, 0], first[q, 1], second[q, 0], second[q, 1])
+        if not touching.any():
+            continue
+        p, q = p[touching], q[touching]
+        a, b = ring_of[p], ring_of[q]
+        low_ring, high_ring = np.minimum(a, b), np.maximum(a, b)
+        pinch = (low_ring == 0) & (high_ring != 0)  # a hole and the outer ring: a point is no conflict
+        bad = ~pinch
+        if pinch.any():
+            bad |= pinch & (_hard_contact(first[p, 0], first[p, 1], second[p, 0], second[p, 1],
+                                          first[q, 0], first[q, 1], second[q, 0], second[q, 1])
+                            | _shared_corner(first[p], second[p], first[q], second[q]))
+        if bad.any():
+            key = int((low_ring[bad] * count + high_ring[bad]).min())
+            meet = key if meet is None else min(meet, key)
+        kept = pinch & ~bad
+        if kept.any():
+            pinches.append(_contact_points(first[p[kept]], second[p[kept]], first[q[kept]], second[q[kept]],
+                                           high_ring[kept]))
+    if pinches:
+        # a hole that touches the outer ring in ONE point is a pinch the cut handles; in two it
+        # splits the region in two, which is no region of one cut (the snapshot reads it apart)
+        points = np.unique(np.concatenate(pinches), axis=0)
+        holes_touching, touches = np.unique(points[:, 0], return_counts=True)
+        if (touches > 1).any():
+            key = int(holes_touching[touches > 1].min())  # (0, hole): the outer ring and that hole
+            meet = key if meet is None else min(meet, key)
+    if meet is None:
+        return None
+    return meet // count, meet % count
+
+
 def stack_height(rings: Sequence[Sequence[Sequence[float]]], *, closed: bool, reach: float = 0.0,
                  flat: bool = True) -> int:
     """The most segments of ``rings`` — of paths when not ``closed`` — that ONE
@@ -935,20 +1099,20 @@ def stack_height(rings: Sequence[Sequence[Sequence[float]]], *, closed: bool, re
     return int((np.arange(1, len(low) + 1) - np.searchsorted(high, low, side="left")).max())
 
 
+def _earcut_work(vertices: int) -> int:
+    """What the native triangulation of a loop of that many vertices is priced at."""
+    return _EARCUT_VERTEX_UNITS * vertices + _EARCUT_SQUARE_UNITS * vertices * vertices
+
+
 def _triangulation_floor(outer_vertices: int, hole_sizes: Sequence[int]) -> int:
-    """The LEAST ``triangulate_region`` can cost for rings of these sizes: every
-    hole bridged at its first block, every corner an ear at first sight."""
-    holes = len(hole_sizes)
-    if not holes and outer_vertices < ARRAY_EAR_CLIP_FROM:
+    """The LEAST ``triangulate_region`` can cost for rings of these sizes. A ring
+    without holes of fewer than ``ARRAY_EAR_CLIP_FROM`` vertices keeps the shared ear
+    clipper (the Qt-free builders' own, whose triangles the golden meshes pin); every
+    other region is ONE native call, paid for in full BEFORE it runs, from the sizes
+    alone — so the floor is the price (``_earcut_work``): there is no cheaper case."""
+    if not hole_sizes and outer_vertices < ARRAY_EAR_CLIP_FROM:
         return _SHARED_CLIP_UNITS * outer_vertices * outer_vertices
-    vertices = outer_vertices + sum(hole_sizes)
-    loop = vertices + 2 * holes
-    # every ear but the last triangle is tested once at least, and its own three
-    # corners are always near it
-    ear = _EAR_TEST_UNITS + 3 * _EAR_NEAR_UNITS + _EAR_VERTEX_UNITS * loop
-    bridge = (_HOLE_UNITS + _HOLE_VERTEX_UNITS * outer_vertices
-              + (_HOLE_EDGE_UNITS + _BRIDGE_UNITS) * vertices)
-    return holes * bridge + max(loop - 3, 0) * ear
+    return _earcut_work(outer_vertices + sum(hole_sizes))
 
 
 def region_work(outer: Sequence[Sequence[float]], holes: Sequence[Sequence[Sequence[float]]] = ()) -> int:
@@ -958,7 +1122,7 @@ def region_work(outer: Sequence[Sequence[float]], holes: Sequence[Sequence[Seque
     is refused before any test runs; one below may still be refused while it is
     cut, when its shape makes the bridges or the ears cost more than the least."""
     sizes = [len(hole) for hole in holes]
-    return (_REGION_UNITS + _simplicity_work(len(outer)) + sum(_simplicity_work(size) for size in sizes)
+    return (_REGION_UNITS + _SWEEP_EDGE_UNITS * (len(outer) + sum(sizes))
             + _triangulation_floor(len(outer), sizes))
 
 
@@ -1118,7 +1282,55 @@ def _described(outer: Sequence[object], holes: Sequence[Sequence[object]]) -> st
 
 
 def _triangulate(outer: Ring, holes: Sequence[Ring], work: WorkBudget) -> tuple[tuple[Point, ...], list[Triangle]]:
-    """``triangulate_region``, paying into ``work``."""
+    """``triangulate_region``, paying into ``work``: ONE native call (``mapbox_earcut``).
+
+    The rings are judged first (``ring_conflict``: simple, clear of each other,
+    each hole inside the outer ring) — earcut is only asked about a region it can
+    cut — and the native call is paid for before it runs (``_earcut_work``), from
+    the sizes alone. The answer is not trusted for being an answer: flat triangles (three vertices on one line,
+    which round to either winding in the engine's float32) are dropped here, and
+    ``_cut`` proves what is left — every triangle faces up, the areas add up.
+    """
+    rings = (outer, *holes)
+    for number, ring in enumerate(rings):
+        n = len(ring)
+        if n < 3 or any(ring[i] == ring[(i + 1) % n] for i in range(n)):
+            raise ValueError(_not_simple(number, n))  # fewer than three corners, or an edge without a length
+    met = ring_conflict(rings, work)
+    if met is not None:
+        a, b = met
+        if a == b:
+            raise ValueError(_not_simple(a, len(rings[a])))
+        raise ValueError(f"two rings of a region ({len(rings[a])} and {len(rings[b])} vertices) "
+                         "cross, overlap or touch each other")
+    for hole in holes:  # each one inside the outer ring (it touches nothing: one point decides)
+        if not _ring_holds(outer)(*_point_inside(hole)):
+            raise ValueError(f"a hole ring of {len(hole)} vertices does not lie inside its outer ring")
+    points: tuple[Point, ...] = tuple(outer) + tuple(p for hole in holes for p in hole)
+    if not holes and len(outer) < ARRAY_EAR_CLIP_FROM:
+        work.spend(_SHARED_CLIP_UNITS * len(outer) * len(outer))
+        return points, triangulate_polygon(outer)
+    work.spend(_earcut_work(len(points)))
+    xy = np.asarray(points, dtype=np.float64)
+    ends = np.cumsum([len(outer), *(len(hole) for hole in holes)]).astype(np.uint32)
+    found = np.asarray(mapbox_earcut.triangulate_float64(xy, ends), dtype=np.int64).reshape(-1, 3)
+    if not len(found):
+        return points, []
+    va, vb, vc = xy[found[:, 0]], xy[found[:, 1]], xy[found[:, 2]]
+    doubled = ((vb[:, 0] - va[:, 0]) * (vc[:, 1] - va[:, 1])
+               - (vb[:, 1] - va[:, 1]) * (vc[:, 0] - va[:, 0]))
+    reach = np.max(np.abs(np.stack([va, vb, vc])), axis=(0, 2))
+    edges = (np.abs(vb[:, 0] - va[:, 0]) + np.abs(vb[:, 1] - va[:, 1])
+             + np.abs(vc[:, 0] - va[:, 0]) + np.abs(vc[:, 1] - va[:, 1]))
+    kept = found[doubled > _FLAT_CORNER * reach * edges]
+    return points, [(int(i), int(j), int(k)) for i, j, k in kept.tolist()]
+
+
+def _triangulate_reference(outer: Ring, holes: Sequence[Ring],
+                           work: WorkBudget) -> tuple[tuple[Point, ...], list[Triangle]]:
+    """The pure-Python triangulation ``_triangulate`` replaced (bridges and an
+    ear clipper, priced per step). No production path calls it: it is the
+    independent REFERENCE the tests hold the native answer against."""
     points: tuple[Point, ...] = tuple(outer) + tuple(p for hole in holes for p in hole)
     if not holes:
         if len(outer) >= ARRAY_EAR_CLIP_FROM and ring_area(outer) > 0.0:
@@ -1301,21 +1513,18 @@ def pay_for_region(outer: Ring, holes: tuple[Ring, ...], work: WorkBudget) -> bo
     return examined.verdict == _BUILDABLE
 
 
+def _not_simple(number: int, vertices: int) -> str:
+    what = "a footprint" if number == 0 else "a hole"
+    return f"{what} ring of {vertices} vertices is not a simple polygon (it crosses or touches itself)"
+
+
 def _cut(outer: Ring, holes: tuple[Ring, ...], work: WorkBudget) -> _Cut:
     if exceeds_work_bound(outer, holes):
         _refuse(work.what)
     work.spend(_REGION_UNITS)
-    if not _is_simple(outer, work) or not ring_area(outer) > 0.0:
-        raise ValueError(
-            f"a footprint ring of {len(outer)} vertices is not a simple polygon "
-            "(it crosses or touches itself)"
-        )
-    for hole in holes:
-        if not _is_simple(hole, work) or not ring_area(hole) < 0.0:
-            raise ValueError(
-                f"a hole ring of {len(hole)} vertices is not a simple polygon "
-                "(it crosses or touches itself)"
-            )
+    for number, ring in enumerate((outer, *holes)):
+        if not (ring_area(ring) > 0.0 if number == 0 else ring_area(ring) < 0.0):
+            raise ValueError(_not_simple(number, len(ring)))  # the wrong way round, or no area
     vertices, triangles = _triangulate(outer, holes, work)
     doubled = [
         (vertices[b][0] - vertices[a][0]) * (vertices[c][1] - vertices[a][1])

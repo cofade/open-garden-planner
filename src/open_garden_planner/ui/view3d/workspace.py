@@ -169,7 +169,11 @@ _SPLITTER_KEY: Final = "workspace"
 _NOTICE_BUILDING: Final = "building"
 _NOTICE_SYNC: Final = "sync"
 _NOTICE_ENGINE: Final = "engine"
-_NOTICE_ORDER: Final = (_NOTICE_BUILDING, _NOTICE_SYNC, _NOTICE_ENGINE)
+#: A whole-plan read that outlasts ``BUILD_NOTICE_WAIT_MS`` (#452): the plan in 3D is
+#: a moment behind the canvas while the read runs. Least pressing — the first frame,
+#: a failed update and the engine's own trouble are said first.
+_NOTICE_UPDATING: Final = "updating"
+_NOTICE_ORDER: Final = (_NOTICE_BUILDING, _NOTICE_SYNC, _NOTICE_ENGINE, _NOTICE_UPDATING)
 #: The problems list shows at most this many rows (and says how many more there are):
 #: a plan can refuse thousands of items — a duplicated id is a reason — and the list
 #: is filled on the GUI thread, again whenever the problems change while it is open.
@@ -473,6 +477,11 @@ class Workspace(QWidget):
         self._forge_timer = QTimer(self)
         self._forge_timer.setSingleShot(True)
         self._forge_timer.timeout.connect(self._step_forge)
+        # #452: a whole-plan read that outlasts the build notice's wait says so — one
+        # notice for a read of a big plan, none for the milliseconds of a small one
+        self._updating_timer = QTimer(self)
+        self._updating_timer.setSingleShot(True)
+        self._updating_timer.timeout.connect(self._show_updating)
 
         self._build_actions()
         self._init_coordinators()
@@ -867,6 +876,7 @@ class Workspace(QWidget):
         self._wire_selection(host, orbit, controller)  # L1.8: the click, the ring, the card
         self._wire_analysis(host, orbit, controller)   # L2: drapes, sun path, probe, jumps
         controller.applied.connect(self._on_applied)
+        controller.capturing_changed.connect(self._on_capturing_changed)
         controller.problems_changed.connect(self._update_problems)
         controller.document_shown.connect(self._on_document_shown)
         controller.failed.connect(self._on_sync_failed)
@@ -904,6 +914,9 @@ class Workspace(QWidget):
         if not showing:
             self._drop_held_build()
             self._forge_timer.stop()
+            # a hidden view is not "updating" anything: the read is dropped with it
+            self._updating_timer.stop()
+            self._say(_NOTICE_UPDATING, "")
             controller.set_active(False)
             self._health_timer.stop()
             self._camera_timer.stop()
@@ -955,6 +968,21 @@ class Workspace(QWidget):
     def _drop_held_build(self) -> None:
         self._build_pending = False
         self._build_timer.stop()
+
+    def _on_capturing_changed(self, reading: bool) -> None:
+        """#452: a whole-plan read started or ended. Its note appears only if the read
+        outlasts ``BUILD_NOTICE_WAIT_MS`` — the milliseconds of a normal plan's read
+        must not flicker the status line."""
+        if reading:
+            self._updating_timer.start(BUILD_NOTICE_WAIT_MS)
+            return
+        self._updating_timer.stop()
+        self._say(_NOTICE_UPDATING, "")
+
+    def _show_updating(self) -> None:
+        # the timer is stopped by the read's end (``_on_capturing_changed``), so if it
+        # fired the read is still running: say it
+        self._say(_NOTICE_UPDATING, self.tr("Updating the 3D view…"))
 
     # ── the status line: one notice at a time, each until what it says is over ──
 

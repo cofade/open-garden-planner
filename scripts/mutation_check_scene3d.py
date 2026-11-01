@@ -87,7 +87,6 @@ class Mutant:
     tests: tuple[str, ...]
 
 
-_SNAPSHOT_LOOP = "    for item in reversed(items):\n        if not item.isVisible():\n            continue\n"
 
 MUTANTS: tuple[Mutant, ...] = (
     # ── the record and its signatures ────────────────────────────────────────
@@ -195,7 +194,7 @@ MUTANTS: tuple[Mutant, ...] = (
            (MESH,)),
     Mutant("a ring that crosses itself is extruded anyway (review P2-6)",
            SRC + "core/scene3d/polygon.py",
-           "    if not _is_simple(outer, work) or not ring_area(outer) > 0.0:\n", "    if False:\n",
+           "    met = ring_conflict(rings, work)\n", "    met = None\n",
            (MESH + "::TestDefaultBuilder::test_a_bow_tie_is_refused_not_built_wrong",)),
     Mutant("verify_builder does not look at holes from above",
            SRC + "core/scene3d/build.py",
@@ -376,11 +375,11 @@ MUTANTS: tuple[Mutant, ...] = (
            (SNAPSHOT,)),
     Mutant("invisible items are snapshotted",
            SRC + "ui/view3d/snapshot.py",
-           _SNAPSHOT_LOOP, "    for item in reversed(items):\n",
+           "            if not visible:\n                continue\n", "",
            (SNAPSHOT,)),
     Mutant("the snapshot is ordered top to bottom",
            SRC + "ui/view3d/snapshot.py",
-           _SNAPSHOT_LOOP, _SNAPSHOT_LOOP.replace("reversed(items)", "items"),
+           "enumerate(reversed(items))", "enumerate(items)",
            (SNAPSHOT,)),
     Mutant("the snapshot drops the holes of a stroke",
            SRC + "ui/view3d/snapshot.py",
@@ -406,9 +405,9 @@ MUTANTS: tuple[Mutant, ...] = (
            (SNAPSHOT, PIPELINE, EDGE_PLAN)),
     Mutant("of two items with one id the upper one wins, silently (review P2-5)",
            SRC + "ui/view3d/snapshot.py",
-           "        if item_id in records:\n"
-           "            _report(SkippedItem(item_id, kind, SkipReason.DUPLICATE_ID), skipped)\n"
-           "            continue\n",
+           "            if item_id in records:\n"
+           "                _report(SkippedItem(item_id, kind, SkipReason.DUPLICATE_ID), skipped)\n"
+           "                continue\n",
            "",
            (SNAPSHOT,)),
     Mutant("a skipped item is logged but never handed to the caller's list",
@@ -454,10 +453,10 @@ MUTANTS: tuple[Mutant, ...] = (
            "            if areas[index] > size and holds[index](x, y) and (\n",
            "            if holds[index](x, y) and (\n",
            (POLYGON,)),
-    Mutant("an ear without an area yields a triangle (wound either way in float32)",
+    Mutant("a triangle without an area is kept (wound either way in float32)",
            SRC + "core/scene3d/polygon.py",
-           "            if (bx - ax) * (cy - ay) - (by - ay) * (cx - ax) > _FLAT_CORNER * reach * edges:\n",
-           "            if True:\n",
+           "    kept = found[doubled > _FLAT_CORNER * reach * edges]\n",
+           "    kept = found\n",
            (POLYGON,)),
     # ── fix round 3: one work bound for every region, judged first ───────────
     Mutant("a region is tested and cut whatever its size (the bound is not asked first)",
@@ -472,17 +471,19 @@ MUTANTS: tuple[Mutant, ...] = (
            SRC + "core/scene3d/polygon.py",
            "    work.spend(_simplicity_work(n))\n", "",
            (POLYGON,)),
-    Mutant("a tested ear is free",
+    Mutant("the sweep's edges are free",
            SRC + "core/scene3d/polygon.py",
-           "            work.spend(test)\n", "",
+           "    work.spend(_SWEEP_EDGE_UNITS * edges)\n", "",
            (POLYGON,)),
-    Mutant("a block of bridge candidates is free",
+    Mutant("the sweep's candidate pairs are free",
            SRC + "core/scene3d/polygon.py",
-           "        work.spend(block)\n", "",
+           "    work.spend(_SWEEP_CANDIDATE_UNITS * candidates)\n", "",
            (POLYGON,)),
     Mutant("a small ring without holes is free (the shared clipper)",
            SRC + "core/scene3d/polygon.py",
-           "        work.spend(_SHARED_CLIP_UNITS * len(outer) * len(outer))\n", "",
+           "    if not holes and len(outer) < ARRAY_EAR_CLIP_FROM:\n"
+           "        work.spend(_SHARED_CLIP_UNITS * len(outer) * len(outer))\n",
+           "    if not holes and len(outer) < ARRAY_EAR_CLIP_FROM:\n",
            (POLYGON,)),
     Mutant("triangulate_region alone has no bound",
            SRC + "core/scene3d/polygon.py",
@@ -490,10 +491,10 @@ MUTANTS: tuple[Mutant, ...] = (
            "        _refuse(what)\n",
            "",
            (POLYGON,)),
-    Mutant("the few vertices near an ear are never inside it",
+    Mutant("a hole that touches the outer ring in two points is read as one region",
            SRC + "core/scene3d/polygon.py",
-           "                    if not ((e1 < 0 or e2 < 0 or e3 < 0) and (e1 > 0 or e2 > 0 or e3 > 0)):\n",
-           "                    if False:\n",
+           "        if (touches > 1).any():\n",
+           "        if False:\n",
            (POLYGON,)),
     # (Not "the wrong edges": the test file sorts a ladder's rings while it is COLLECTED, so
     # that mutant broke the collection — exit code 2, BROKEN, which is no kill.)
@@ -706,8 +707,7 @@ MUTANTS: tuple[Mutant, ...] = (
            MEMORY),
     Mutant("the snapshot is no generation",
            SRC + "ui/view3d/snapshot.py",
-           "@snapshot_generation()  # what a snapshot asks for stays remembered while the plan keeps asking\n",
-           "",
+           "    with snapshot_generation():\n", "    if True:\n",
            (SNAPSHOT + "::TestAnUnchangedPlanIsAnsweredFromMemory",)),
     Mutant("a live answer can be dropped to make room for a stale one",
            SRC + "core/scene3d/polygon.py",
@@ -873,10 +873,9 @@ MUTANTS: tuple[Mutant, ...] = (
            "    if not _convex_region(outer):  # … and judged like every other shape: a sliver of\n",
            "    if False:\n",
            (SNAPSHOT,)),
-    Mutant("a large ring without holes is cut by the plain loop (272 ms at 1,000 vertices)",
+    Mutant("the native call is not paid for",
            SRC + "core/scene3d/polygon.py",
-           "        if len(outer) >= ARRAY_EAR_CLIP_FROM and ring_area(outer) > 0.0:\n",
-           "        if False:\n",
+           "    work.spend(_earcut_work(len(points)))\n", "",
            (POLYGON,)),
     Mutant("a cut is handed out without its proof",
            SRC + "core/scene3d/polygon.py",
@@ -1000,10 +999,10 @@ MUTANTS: tuple[Mutant, ...] = (
            (MESH,)),
     Mutant("an item with a length out of range is reported as a failed record",
            SRC + "ui/view3d/snapshot.py",
-           "        except RecordRangeError as error:  # a length beyond what a plan can hold\n"
-           "            _report(SkippedItem(item_id, kind, SkipReason.OUT_OF_RANGE,\n"
-           "                                type(error).__name__, str(error)), skipped)\n"
-           "            continue\n",
+           "            except RecordRangeError as error:  # a length beyond what a plan can hold\n"
+           "                _report(SkippedItem(item_id, kind, SkipReason.OUT_OF_RANGE,\n"
+           "                                    type(error).__name__, str(error)), skipped)\n"
+           "                continue\n",
            "",
            (SNAPSHOT,)),
     Mutant("an infinite height is silently no height again",

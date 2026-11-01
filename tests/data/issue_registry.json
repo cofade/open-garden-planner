@@ -639,6 +639,11 @@
     "state": "CLOSED",
     "title": "3D: a polygon whose holes touch its outer ring can hold the GUI thread for 0.6–1.5 s before it is refused"
   },
+  "452": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "3D: the first build of a plan costs the sum of its items on the GUI thread (no plan-wide budget), and very long outlines are left out of 3D"
+  },
   "453": {
     "is_pr": false,
     "state": "CLOSED",
@@ -668,6 +673,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "One polygon of a plan file can freeze the 2D canvas for minutes"
+  },
+  "475": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D ground: one ground tile is not bounded in time, and hairlines / dashed round outlines differ from the canvas at tile borders"
   },
   "480": {
     "is_pr": false,
@@ -738,6 +748,11 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "perf-marker guard misses a median kept in an attribute and flags a test that times nothing"
+  },
+  "531": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D: about 15-20 kB per destroyed Qt Quick 3D Model is never returned (date playback churns Models)"
   },
   "532": {
     "is_pr": false,
@@ -893,6 +908,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "chore: sync version to v1.32.0 after PR #593"
+  },
+  "598": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "FU-L3: Seasonal callback budget has limited headroom across Windows/WARP runners"
   },
   "600": {
     "is_pr": false,
@@ -1083,6 +1103,11 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "3D: a filleted fence/wall corner renders as a solid curved block (posts must follow the arc at straight-run spacing)"
+  },
+  "676": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#452): sliced whole-plan preparation, a geometry lane, and native triangulation"
   },
   "677": {
     "is_pr": false,

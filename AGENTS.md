@@ -33,6 +33,10 @@ venv/Scripts/python.exe -m bandit -r src/ --severity-level high
 # PyInstaller can still bundle it (#538).
 $env:UV_PROJECT_ENVIRONMENT='venv'  # PowerShell (Git Bash: UV_PROJECT_ENVIRONMENT=venv)
 uv sync --locked --python 3.11 --all-extras --group build --no-install-project
+# Reinstall the project editable, or `python -m open_garden_planner` dies with
+# "No module named open_garden_planner": `--no-install-project` leaves the
+# project itself out of the exact sync set, so uv removes it (docs/07 §7.6).
+uv pip install --python venv/Scripts/python.exe --no-deps --no-build-isolation --editable .
 venv/Scripts/python.exe -m installer.build_environment --strict
 venv/Scripts/python.exe -m PyInstaller installer/ogp.spec --noconfirm
 powershell -Command '$p = Start-Process "dist/OpenGardenPlanner/OpenGardenPlanner.exe" -PassThru; Start-Sleep -Seconds 8; if ($p.HasExited) { exit $p.ExitCode } else { Stop-Process -Id $p.Id; exit 124 }'
@@ -278,6 +282,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   tooltip's shortcut is appended once in the UI language (ADR-022 addendum;
   PF-CAN-33/34/35, PF-DOM-31/32/33, PF-UI-31/32). An offset of an open fence/path
   is now a parallel line (not a polygon); the 3D curved-fence fillet is issue #675.
+- 3D performance and stability, Slice A (ADR-069): #452 shipped in v1.34.11 (PR #676)
+  — a whole-plan read is sliced at 4 ms with heavy builders on one worker lane
+  (heartbeat p95 1.7–3.6 ms on the issue's plans, was 4.0–12.6 s in one block). #531
+  (in-place Model reuse) and #598 (sparse seasonal index) were built and WITHDRAWN:
+  both render tiers draw a replaced geometry as nothing while still picking it. #475
+  (raster lane, padded tiles) and #534 (wind memory) are open.
 - Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
   `calendar_series` resolves `current_release` per snapshot (`"version": 2`,
   `"basis": "current_release"`), `_summary_row` notes `new release or asset` only
