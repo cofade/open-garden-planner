@@ -3771,7 +3771,7 @@ path on the automated evidence (15 integration tests + review) because no physic
 device was available; the hardware checklist is recorded in the PR. #451's ordinary-plan
 check and #540's CI rows passed.
 
-### CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669, #670) — **draft PR, awaiting owner manual testing**
+### CAD-precision integrity package (#655, #656, #657, #658, #661, #662, #668, #669, #670) — **shipped 2026-11-01 as v1.34.10, PR #672**
 
 Nine reproduced defects sharing one shape: a value the user's plan depends on was
 recomputed somewhere else, and the two answers drifted apart.
@@ -3840,5 +3840,7 @@ pair loads as a garden bed. (c) The #668 refusal was item-wide: one constrained 
 every corner of the rectangle. The refusal is now corner-scoped (the edited vertex and its two
 incident edges), and later indexed anchors renumber inside the same undo step. The constraint
 toolbar's tooltips also shed a duplicated, half-English shortcut ("Anfasen (Umschalt+C) —
-Ecke abschrägen (Shift+C)") and now append one localized shortcut. New pitfalls:
-PF-CAN-34, PF-DOM-33, PF-UI-32; ADR-022 addendum.
+Ecke abschrägen (Shift+C)") and now append one localized shortcut. (d) A converted raised
+bed takes the garden bed's soil pattern (colour preserved); (e) offsetting an open fence/path
+now creates a parallel line on the cursor's side, not a filled polygon. The 3D curved-fence
+fillet is issue #675. New pitfalls: PF-CAN-34/35, PF-DOM-33, PF-UI-32; ADR-022 addendum.
