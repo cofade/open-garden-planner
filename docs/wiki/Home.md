@@ -153,6 +153,17 @@ refused with a translated message before the image is decoded, and the embedded 
 once and re-encoded only when the image itself changes, instead of about 1.2 s on every plan
 read and autosave.
 
+Symbol and shadow correctness, Slice B (#599, #440) shipped in
+[v1.34.13](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.13) via
+[PR #686](https://github.com/cofade/open-garden-planner/pull/686): smart symbols now instantiate
+typed objects (`ObjectType.RAISED_BED`, `ObjectType.GREENHOUSE`, `ObjectType.COMPOST`,
+`ObjectType.FENCE`) via canonical items with stable deterministic UUIDs (`uuid5`), preserving child
+plant parenting across parameter edits, with atomic single-command undo and versioned definition fallback;
+and the 2D overlay, heatmap, plant exposure, and 3D drape consume unified geometry-aware caster
+representations with structural roof/wall triangle projection for ridged buildings (`gable`, `hip`, `shed`),
+angle-dependent structural fence porosity (`WOODEN_FENCE`, `METAL_FENCE`, `CHAIN_LINK`), owner-grouped
+casting, and independent multiplicative overlap ($T_1 \times T_2$).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.
