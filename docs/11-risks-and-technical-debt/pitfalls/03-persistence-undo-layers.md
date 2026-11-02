@@ -359,7 +359,7 @@ value crosses the persistence boundary.
 
 ### PF-PER-25
 
-- **Rule:** A derived sibling's **metadata link** is part of a command's undo state, not just its scene membership. When a command removes or creates a linked item (a HOUSE's `ROOF_RIDGE`), it must capture the owner's pre-command id key and restore it on undo — and clear it when the owner stops being the kind that owns one — or undo leaves a dangling id that silently disables other features. Every path that removes the owner (menu/key Delete, agent delete, trim, group delete) must also remove the live ridge; a tree walk is required for groups, and a copy must strip the inherited key because its fresh UUID cannot own the source's ridge.
+- **Rule:** A derived sibling's **metadata link** is part of a command's undo state, not just its scene membership. When a command removes or creates a linked item (a HOUSE's `ROOF_RIDGE`), it must capture the owner's pre-command id key and restore it on undo — and clear it when the owner stops being the kind that owns one — or undo leaves a dangling id that silently disables other features. Every path that removes the owner (menu/key Delete, agent delete, trim, group delete) must also remove the live ridge; a tree walk is required for groups, and a copy must strip the inherited key because its fresh UUID cannot own the source's ridge. Constraints anchored to the removed ridge are part of the same step: remove them and restore them on undo.
 - **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_leaving_house_drops_the_link_and_undo_restores_it`; `tests/integration/test_house_roof_ridge.py::test_a_non_house_type_change_never_leaves_a_stale_ridge_link`; `tests/integration/test_house_roof_ridge.py::test_context_menu_delete_removes_the_ridge_in_the_same_undo_step`; `tests/integration/test_house_roof_ridge.py::test_undo_of_a_same_type_house_change_removes_the_created_ridge`; `tests/integration/test_house_roof_ridge.py::test_undo_restores_a_legacy_ridge_link_on_a_non_house`; `tests/integration/test_trim_extend_tool.py::test_trimming_a_house_removes_its_ridge_and_undo_restores_it`; `tests/integration/test_agent_api_default_on.py::test_delete_object_removes_a_grouped_houses_linked_ridge`; `tests/integration/test_mirror_tool.py::test_copy_strips_a_house_ridge_link_and_does_not_clone_the_ridge`
 - **Source:** #690
 - **Status:** standing
@@ -379,7 +379,7 @@ two-conversion undo test is the regression pin.
 ### PF-PER-26
 
 - **Rule:** A selection filtered to top-level items must still walk each item's subtree for DERIVED references — constraints, metadata links, journal notes — before deleting it. A group is one selectable object, but its children can own rows in another store; deleting only the filtered names leaves a dangling UUID in the saved plan.
-- **Pinned by:** `tests/integration/test_group_context_menu.py::test_deleting_a_group_removes_a_childs_constraint`; `tests/integration/test_agent_api_default_on.py::test_delete_object_removes_a_group_childs_constraint`
+- **Pinned by:** `tests/integration/test_group_context_menu.py::test_deleting_a_group_removes_a_childs_constraint`; `tests/integration/test_agent_api_default_on.py::test_delete_object_removes_a_group_childs_constraint`; `tests/integration/test_house_roof_ridge.py::test_deleting_a_group_removes_its_nested_house_ridge`; `tests/integration/test_garden_journal.py::test_delete_key_prunes_notes_for_pins_inside_a_group`
 - **Source:** #674, #690
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -389,8 +389,9 @@ two-conversion undo test is the regression pin.
 filtered list, so a constraint anchored to a group CHILD stayed in the graph after
 the child was gone: a phantom row in the Constraints panel and a dead anchor
 written into `.ogp`. The agent's `delete_object` had the same hole for a group
-argument. Both paths now walk `group_item.selection_tree()` — the same subtree
-walk used for a nested HOUSE's ridge and a grouped journal pin — and the undo
-stack removes the constraints before the items, so restoring the group restores
-both sides.
+argument. Both paths now walk `group_item.selection_tree()`; the ridge walk
+(`linked_ridges_under`) is built on the same helper, and a grouped pin's note
+commands are wrapped with the item delete in ONE `CompoundCommand`. The undo
+stack removes the constraints before the items, and a single undo restores the
+group, its pin and the note together.
 

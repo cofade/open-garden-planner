@@ -921,7 +921,7 @@ class AgentHost:
         # A group's children can own constraints too; the GUI delete walks the
         # same subtree, so the two receipts cannot disagree (round-7 review P1).
         constraints: list[Any] = []
-        for member in selection_tree([item]):
+        for member in selection_tree([item, *linked_ridge]):
             if getattr(member, "item_id", None) is None:
                 continue
             for constraint in host._agent_item_constraints(member):

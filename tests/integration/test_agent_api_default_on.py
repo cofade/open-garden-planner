@@ -848,6 +848,8 @@ def test_delete_object_removes_a_grouped_houses_linked_ridge(
     from PyQt6.QtCore import QPointF
 
     from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
     from open_garden_planner.core.object_types import ObjectType
     from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
     from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
@@ -861,11 +863,19 @@ def test_delete_object_removes_a_grouped_houses_linked_ridge(
             object_type=ObjectType.HOUSE,
         )
         other = RectangleItem(600, 0, 50, 50)
+        peer = RectangleItem(900, 0, 50, 50)
         win.canvas_scene.addItem(house)
         win.canvas_scene.addItem(other)
+        win.canvas_scene.addItem(peer)
         ridge = build_linked_ridge(house, house.layer_id)
         assert ridge is not None
         win.canvas_scene.addItem(ridge)
+        graph = win.canvas_scene.constraint_graph
+        graph.add_constraint(
+            AnchorRef(item_id=ridge.item_id, anchor_type=AnchorType.CENTER),
+            AnchorRef(item_id=peer.item_id, anchor_type=AnchorType.CENTER),
+            50.0,
+        )
         GroupCommand(win.canvas_scene, [house, other]).execute()
         group = house.parentItem()
         assert group is not None
@@ -874,11 +884,15 @@ def test_delete_object_removes_a_grouped_houses_linked_ridge(
 
         assert win.canvas_scene.find_item_by_id(house.item_id) is None
         assert win.canvas_scene.find_item_by_id(ridge.item_id) is None
+        assert graph.constraints == {}
         assert result["linked_items_deleted"] == 1
+        assert result["constraints_removed"] == 1
 
+        win.canvas_view.command_manager.undo()
         win.canvas_view.command_manager.undo()
         assert win.canvas_scene.find_item_by_id(group.item_id) is not None
         assert win.canvas_scene.find_item_by_id(ridge.item_id) is not None
+        assert len(graph.constraints) == 1
     finally:
         win._stop_agent_api()
 

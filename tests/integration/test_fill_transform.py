@@ -114,6 +114,21 @@ def test_panel_edits_the_three_values_and_one_undo_step_each(qtbot) -> None:
     assert item.brush().transform().isIdentity()
 
 
+def test_a_sprite_gets_no_pattern_transform_rows(qtbot) -> None:
+    """A sprite paints its own art and ignores the brush, so the four rows are
+    inert there — do not offer them (round-8 review P2)."""
+    scene = QGraphicsScene()
+    tree = CircleItem(0, 0, 30, object_type=ObjectType.TREE)
+    scene.addItem(tree)
+    assert tree.paints_sprite
+    panel = _panel(CommandManager())
+    panel.set_selected_items([tree])
+
+    assert not [
+        spin for spin in panel.findChildren(QDoubleSpinBox) if spin.suffix() == "°"
+    ], "a sprite must not offer an inert Pattern Angle"
+
+
 def test_a_textured_path_shows_and_edits_the_transform(qtbot) -> None:
     """Gravel/dirt paths paint a pattern stroke, so they need the controls too.
 

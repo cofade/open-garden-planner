@@ -217,6 +217,41 @@ def test_moving_a_house_to_another_layer_moves_its_ridge(qtbot) -> None:
     assert ridge.layer_id == original_layer
 
 
+def test_converting_away_removes_a_ridge_constraint_and_undo_restores_it(qtbot) -> None:
+    """A ridge is constrainable; removing it must remove its graph anchors too."""
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(400, 0), QPointF(400, 200), QPointF(0, 200)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    peer = RectangleItem(600, 0, 50, 50, layer_id=scene.active_layer.id)
+    scene.addItem(house)
+    scene.addItem(peer)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    graph = scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(item_id=ridge.item_id, anchor_type=AnchorType.CENTER),
+        AnchorRef(item_id=peer.item_id, anchor_type=AnchorType.CENTER),
+        50.0,
+    )
+
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    panel._on_property_changed(house, "object_type", ObjectType.GARDEN_BED)
+
+    assert graph.constraints == {}
+    assert ridge.scene() is None
+
+    view.command_manager.undo()
+    assert ridge.scene() is scene
+    assert len(graph.constraints) == 1
+
+
 def test_moving_a_group_to_another_layer_moves_a_nested_houses_ridge(qtbot) -> None:
     from open_garden_planner.core.commands import GroupCommand, MoveToLayerCommand
     from open_garden_planner.models.layer import Layer
@@ -341,6 +376,33 @@ def test_undo_restores_a_legacy_ridge_link_on_a_non_house(qtbot) -> None:
         [i for i in scene.items() if isinstance(i, PolylineItem)
          and i.object_type == ObjectType.ROOF_RIDGE]
     ) == 1, "redo built a second ridge"
+
+
+def test_deleting_a_ridge_directly_clears_its_owners_link(qtbot) -> None:
+    """A free-standing ridge is selectable; deleting it must clear the owner's
+    ``ridge_item_id`` in the same step, or the house claims a missing ridge."""
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(400, 0), QPointF(400, 200), QPointF(0, 200)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    scene.addItem(house)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    assert house.metadata.get("ridge_item_id") == str(ridge.item_id)
+
+    ridge.setSelected(True)
+    house.setSelected(False)
+    view._delete_selected_items()
+
+    assert ridge.scene() is None
+    assert "ridge_item_id" not in house.metadata
+
+    view.command_manager.undo()
+    assert ridge.scene() is scene
+    assert house.metadata.get("ridge_item_id") == str(ridge.item_id)
 
 
 def test_a_grouped_house_carries_its_ridge_on_a_group_move(qtbot) -> None:

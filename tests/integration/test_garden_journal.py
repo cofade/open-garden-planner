@@ -209,42 +209,37 @@ class TestReviewerRegressions:
         group = pin.parentItem()
         assert group is not None
 
-        captured: list[list[str]] = []
         view = CanvasView(scene=scene)
 
-        def delete_notes(note_ids: list[str]) -> None:
-            # The application's slot, reduced to its command execution.
+        def journal_commands(note_ids: list[str]) -> list[DeleteJournalNoteCommand]:
+            # The application's factory, reduced to its command construction.
             pins = {
                 item.note_id: item
                 for item in scene.items()
                 if isinstance(item, JournalPinItem)
             }
-            for note_id in note_ids:
-                found = pins.get(note_id)
-                if found is not None:
-                    view.command_manager.execute(
-                        DeleteJournalNoteCommand(
-                            project_manager,
-                            scene,
-                            found,
-                            remove_pin=found.parentItem() is None,
-                        )
-                    )
+            return [
+                DeleteJournalNoteCommand(
+                    project_manager,
+                    scene,
+                    pins[note_id],
+                    remove_pin=pins[note_id].parentItem() is None,
+                )
+                for note_id in note_ids
+                if note_id in pins
+            ]
 
-        view.journal_notes_batch_delete_requested.connect(captured.append)
-        view.journal_notes_batch_delete_requested.connect(delete_notes)
+        view.journal_note_command_factory = journal_commands
         group.setSelected(True)
         view._delete_selected_items()
 
-        assert captured == [[note.id]]
         assert note.id not in project_manager.garden_journal_notes
         assert group.scene() is None
 
-        # Two commands: the note delete and the group delete.
+        # ONE compound step: the note and the group's pin undo together.
         view.command_manager.undo()
         assert group.scene() is scene
         assert pin.parentItem() is group, "undo lost the pin's group membership"
-        view.command_manager.undo()
         assert note.id in project_manager.garden_journal_notes
 
     def test_save_syncs_pin_pos_into_note_dict(

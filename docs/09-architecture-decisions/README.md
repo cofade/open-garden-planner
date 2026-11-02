@@ -2639,11 +2639,14 @@ user selected:
   a child's constraint and a grouped pin's note. The GUI's Delete key, every
   shape's context-menu Delete (routed through
   `CanvasView._delete_selected_items`, so it is undoable) and the Agent API's
-  `delete_object` share it.
+  `delete_object` share it. A grouped pin's ProjectData note command is bundled
+  with the item delete in ONE `CompoundCommand`, so the first undo restores pin
+  and note together (never a pin without its note).
 - **A trim that opens a house removes its roof.** Trimming a HOUSE polygon or
-  rectangle produces an open FENCE; the old closed-shape ridge is removed and
-  restored by `TrimPolygonCommand`'s `linked_ridge` parameter, and the
-  replacement does not inherit `ridge_item_id`.
+  rectangle produces an open FENCE; the old closed-shape ridge and any
+  constraint anchored to it are removed and restored by `TrimPolygonCommand`'s
+  `linked_ridge` parameter, and the replacement does not inherit
+  `ridge_item_id`.
 - **A corner edit re-derives.** Fillet/chamfer replace the host shape, so
   `_CornerReplacementCommand` re-derives the ridge on execute, undo and redo
   (a converted rectangle's corner drag has its own hook in `_move_corner_to`,

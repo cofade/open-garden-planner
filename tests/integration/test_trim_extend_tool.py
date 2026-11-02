@@ -359,6 +359,16 @@ class TestTrimPolygon:
         ridge = build_linked_ridge(house, house.layer_id)
         assert ridge is not None
         canvas.scene().addItem(ridge)
+        from open_garden_planner.core.constraints import AnchorRef
+        from open_garden_planner.core.measure_snapper import AnchorType
+
+        peer = _add_rectangle(canvas, 2000, 0, 50, 50)
+        graph = canvas.scene().constraint_graph
+        graph.add_constraint(
+            AnchorRef(item_id=ridge.item_id, anchor_type=AnchorType.CENTER),
+            AnchorRef(item_id=peer.item_id, anchor_type=AnchorType.CENTER),
+            50.0,
+        )
         _add_polyline(canvas, [QPointF(300, 0), QPointF(300, 200)])
         _add_polyline(canvas, [QPointF(700, 0), QPointF(700, 200)])
 
@@ -371,6 +381,7 @@ class TestTrimPolygon:
 
         assert house.scene() is None
         assert ridge.scene() is None, "the trimmed house left an orphaned ridge"
+        assert graph.constraints == {}, "the ridge constraint outlived the ridge"
         replacement = next(
             item
             for item in _items_of(canvas, PolylineItem)
@@ -382,6 +393,7 @@ class TestTrimPolygon:
         assert house.scene() is canvas.scene()
         assert ridge.scene() is canvas.scene()
         assert linked_ridge(house) is ridge
+        assert len(graph.constraints) == 1
 
 
 # ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext, suppress
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
@@ -807,6 +807,29 @@ class DeleteItemsCommand(Command):
         self._scene = scene
         self._items = list(items)  # Copy the list
 
+        # Deleting a derived ROOF_RIDGE directly must clear its owner's link in
+        # the same step (and restore it on undo), or the house claims a ridge
+        # that is no longer in the plan (round-8 review P2).
+        from open_garden_planner.core.object_types import ObjectType
+
+        self._ridge_owners: list[tuple[Any, str]] = []
+        finder = getattr(scene, "find_item_by_id", None)
+        for candidate in self._items:
+            if getattr(candidate, "object_type", None) is not ObjectType.ROOF_RIDGE:
+                continue
+            meta = getattr(candidate, "metadata", None)
+            owner_id = meta.get("owner_polygon_id") if isinstance(meta, dict) else None
+            if not owner_id or not callable(finder):
+                continue
+            try:
+                owner = finder(UUID(str(owner_id)))
+            except (TypeError, ValueError):
+                continue
+            owner_meta = getattr(owner, "metadata", None) if owner is not None else None
+            link = owner_meta.get("ridge_item_id") if isinstance(owner_meta, dict) else None
+            if link and str(link) == str(getattr(candidate, "item_id", "")):
+                self._ridge_owners.append((cast(Any, owner), str(link)))
+
         # Snapshot parent-child relationships for undo restoration.
         # bed UUID → list of child UUIDs (including plant-parent children inside groups)
         self._bed_children: dict[UUID, list[UUID]] = {}
@@ -882,6 +905,9 @@ class DeleteItemsCommand(Command):
                         child.parent_bed_id = None
             item._child_item_ids.clear()
 
+        for owner, _link in self._ridge_owners:
+            if isinstance(getattr(owner, "metadata", None), dict):
+                owner.metadata.pop("ridge_item_id", None)
         for item in self._items:
             if item.scene() is not None:
                 self._scene.removeItem(item)
@@ -896,6 +922,9 @@ class DeleteItemsCommand(Command):
             for item in self._items:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        for owner, link in self._ridge_owners:
+            if isinstance(getattr(owner, "metadata", None), dict):
+                owner.set_metadata("ridge_item_id", link)
         # Restore parent-child relationships from snapshot
         all_restored = list(self._items) + iter_plant_parents(self._items)
         seen_restored: set[UUID] = set()
@@ -1265,6 +1294,39 @@ class ChangePropertyCommand(Command):
             setattr(self._item, self._property_name, self._old_value)
 
 
+def _capture_and_remove_constraints(
+    scene: QGraphicsScene | None,
+    item: QGraphicsItem | None,
+    cache: list[Command],
+) -> None:
+    """Remove a derived item's constraints and remember the exact commands.
+
+    A ROOF_RIDGE is constrainable like any polyline. When another command
+    removes it (type change, trim) or the agent deletes it, leaving its graph
+    anchors behind writes a dead UUID into the plan. On a redo the captured
+    commands are re-executed; undo restores them in reverse.
+    """
+    if cache:
+        for command in cache:
+            command.execute()
+        return
+    graph = getattr(scene, "constraint_graph", None)
+    if graph is None or item is None:
+        return
+    item_id = getattr(item, "item_id", None)
+    if item_id is None:
+        return
+    for constraint in graph.get_item_constraints(item_id):
+        cache.append(RemoveConstraintCommand(graph, constraint))
+    for command in cache:
+        command.execute()
+
+
+def _restore_constraints(commands: list[Command]) -> None:
+    for command in reversed(commands):
+        command.undo()
+
+
 class ChangeObjectTypeCommand(Command):
     """Change an item's type/style and keep a HOUSE's roof ridge in step (#690).
 
@@ -1297,6 +1359,8 @@ class ChangeObjectTypeCommand(Command):
         self._apply_func = apply_func
         self._created_ridge: QGraphicsItem | None = None
         self._removed_ridge: QGraphicsItem | None = None
+        # Constraints anchored to a removed ridge are part of this undo step.
+        self._ridge_constraints: list[Command] = []
         # The item's link BEFORE the command ran. Qt-level scene membership
         # alone is not enough: a save/3D read follows the metadata key, so undo
         # must restore the link itself (review P0 of this package).
@@ -1372,6 +1436,9 @@ class ChangeObjectTypeCommand(Command):
                 if ridge.scene() is not None:
                     scene = ridge.scene()
                     if scene is not None:
+                        _capture_and_remove_constraints(
+                            scene, ridge, self._ridge_constraints
+                        )
                         scene.removeItem(ridge)
         else:
             # A shape that was never a HOUSE must not keep a stale link (a
@@ -1396,6 +1463,7 @@ class ChangeObjectTypeCommand(Command):
             if self._removed_ridge.scene() is None and scene is not None:
                 scene.addItem(self._removed_ridge)
             self._link(self._removed_ridge)
+            _restore_constraints(self._ridge_constraints)
             return
         if self._created_ridge is not None:
             # The pre-command HOUSE had NO ridge; execute created one because a
@@ -3486,6 +3554,7 @@ class TrimPolygonCommand(Command):
         self._polygon = original_polygon
         self._polyline = result_polyline
         self._linked_ridge = linked_ridge
+        self._ridge_constraints: list[Command] = []
 
     @property
     def description(self) -> str:
@@ -3495,6 +3564,9 @@ class TrimPolygonCommand(Command):
         if self._polygon.scene() is not None:
             self._scene.removeItem(self._polygon)
         if self._linked_ridge is not None and self._linked_ridge.scene() is not None:
+            _capture_and_remove_constraints(
+                self._scene, self._linked_ridge, self._ridge_constraints
+            )
             self._scene.removeItem(self._linked_ridge)
         if self._polyline.scene() is None:
             self._scene.addItem(self._polyline)
@@ -3506,6 +3578,7 @@ class TrimPolygonCommand(Command):
             self._scene.addItem(self._polygon)
         if self._linked_ridge is not None and self._linked_ridge.scene() is None:
             self._scene.addItem(self._linked_ridge)
+            _restore_constraints(self._ridge_constraints)
 
 
 class TrimRectangleCommand(TrimPolygonCommand):

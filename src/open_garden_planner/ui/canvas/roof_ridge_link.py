@@ -125,15 +125,14 @@ def linked_ridges_under(item: QGraphicsItem) -> list[QGraphicsItem]:
     (``CanvasView._delete_selected_items``) and the Agent API
     (``_do_agent_delete_object``) so the two cannot drift.
     """
+    from open_garden_planner.ui.canvas.items.group_item import selection_tree
+
     ridges: list[QGraphicsItem] = []
-    pending = [item]
-    while pending:
-        candidate = pending.pop()
+    for candidate in selection_tree([item]):
         if getattr(candidate, "object_type", None) == ObjectType.HOUSE:
             ridge = linked_ridge(candidate)
             if ridge is not None and ridge not in ridges:
                 ridges.append(ridge)
-        pending.extend(candidate.childItems())
     return ridges
 
 

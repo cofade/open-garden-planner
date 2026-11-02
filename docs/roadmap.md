@@ -3944,8 +3944,9 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   same undo step; converting away removes it and its metadata link, and undo restores the
   original link. Geometry is the canonical `compute_roof_ridge_endpoints`, mapped through the
   item's transform, through one shared `build_linked_ridge` seam (`PolygonTool`, the agent and
-  the type change all call it); a converted rectangle's ridge follows move/resize/rotate, and
-  delete/trim/fillet/mirror/layer-move all keep the derived-ridge invariant. Pinned by
+  the type change all call it); a converted rectangle's ridge follows move/resize/rotate;
+  delete/trim/fillet/layer-move keep the derived-ridge invariant, Mirror Move re-derives it,
+  and Mirror Copy deliberately does not build one yet (documented follow-up). Pinned by
   `tests/integration/test_house_roof_ridge.py` (plus the trim, fillet, mirror, journal and
   agent-delete suites).
 

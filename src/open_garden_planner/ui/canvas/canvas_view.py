@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+from collections.abc import Callable
 from datetime import date
 from typing import TYPE_CHECKING, Any, cast
 
@@ -224,6 +225,10 @@ class CanvasView(QGraphicsView):
     journal_notes_batch_delete_requested = pyqtSignal(list)
     # US-12.9: emitted when the sidebar requests viewport centering on a pin.
     journal_note_focus_requested = pyqtSignal(str)
+    #: Set by ``GardenPlannerApp``: note ids -> the ProjectData-linked note
+    #: commands. The view wraps them with the item delete in ONE compound so a
+    #: grouped pin's note and pin survive the first undo together.
+    journal_note_command_factory: Callable[[list[str]], list[Any]] | None = None
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -3408,15 +3413,29 @@ class CanvasView(QGraphicsView):
         journal_pin_ids = [pin.note_id for pin in journal_pins]
         regular_items = [i for i in selected if not isinstance(i, JournalPinItem)]
 
-        # Emit BEFORE the group delete so the application can still find a
-        # nested pin by note id. DeleteJournalNoteCommand sees the pin's parent
-        # and leaves placement to the group's own restore (PF-PER-25).
-        if journal_pin_ids:
-            self.journal_notes_batch_delete_requested.emit(journal_pin_ids)
-
+        commands: list[Any] = []
         if regular_items:
-            command = DeleteItemsCommand(self.scene(), regular_items)
-            self._command_manager.execute(command)
+            commands.append(DeleteItemsCommand(self.scene(), regular_items))
+
+        # The note commands join the item delete in ONE compound. Emitting a
+        # separate command left a zombie: one undo restored the group and pin
+        # but not the note (round-8 review P1). The app provides the commands
+        # through the factory; a bare view falls back to the signal.
+        note_commands: list[Any] = []
+        if journal_pin_ids:
+            factory = self.journal_note_command_factory
+            if callable(factory):
+                note_commands = list(factory(journal_pin_ids))
+                commands.extend(note_commands)
+            else:
+                self.journal_notes_batch_delete_requested.emit(journal_pin_ids)
+
+        if len(commands) == 1:
+            self._command_manager.execute(commands[0])
+        elif commands:
+            from open_garden_planner.core.commands import CompoundCommand
+
+            self._command_manager.execute(CompoundCommand(commands))
 
     def _move_selected_items(self, event: QKeyEvent) -> None:
         """Move selected items based on arrow key with undo support.

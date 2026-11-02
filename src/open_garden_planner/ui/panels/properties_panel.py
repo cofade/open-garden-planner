@@ -2407,7 +2407,10 @@ class PropertiesPanel(QWidget):
                 ),
             )
 
-            self._add_pattern_transform_rows(item)
+            # A sprite paints its own art and ignores the brush, so the four
+            # pattern controls are inert there (round-8 review P2).
+            if not getattr(item, "paints_sprite", False):
+                self._add_pattern_transform_rows(item)
 
         # Stroke color
         def _read_stroke(it=item) -> QColor:
