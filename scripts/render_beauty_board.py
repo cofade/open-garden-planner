@@ -218,6 +218,9 @@ SKY_MAX_ERROR_DEG = 6.0
 HORIZON_SHOTS = ("noon", "golden_hour", "sunset", "night")
 HORIZON_DISTANCES_M = (67, 202, 403, 600)
 HORIZON_STEP_BOUND = 3.0
+#: The weathers whose sky is not the clear one (L5): ``--living`` runs the horizon
+#: probe under each — an overcast sky draws its horizon otherwise (3D review of L5).
+HORIZON_WEATHERS = ("overcast", "rain", "snow")
 
 
 def distant_horizon_cameras(width: float, depth: float, size: tuple[int, int], bearing_deg: float
@@ -863,14 +866,25 @@ class Board:
         self.log("sky", ok=self.metrics["sky"]["ok"], max_error=self.metrics["sky"]["max_abs_error_deg"])
         self.write()
 
-    def horizon(self, shots: list[BoardShot], presets: list[str]) -> None:
+    def horizon(self, shots: list[BoardShot], presets: list[str], weather: str = "clear") -> None:
         """Gate G5: the fogged meadow meets the sky — per mood, per preset, looking away
-        from the sun and across it (the sun itself is never in the bands)."""
+        from the sun and across it (the sun itself is never in the bands). ``weather``
+        (L5): under ``living_look`` of that weather, its rain or snow left out (the
+        probe reads the fog against the sky, not the streaks)."""
+        from open_garden_planner.core.scene3d.weather import living_look
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
+        def look_of(sun: Any, preset: str) -> LookSpec:
+            if weather == "clear":
+                return look_for(sun, preset)
+            look = living_look(sun, preset, weather)
+            return replace(look, atmosphere=replace(look.atmosphere, precipitation="none",
+                                                    precip_density=0.0))
+
+        tag = "" if weather == "clear" else f"_{weather}"
         by_name = {shot.name: shot for shot in shots}
         out: dict[str, Any] = {}
-        self.metrics["horizon"] = out
+        self.metrics[f"horizon{tag}"] = out
         worst = {"step": 0.0, "dip": 0.0, "ridge": 0.0}
         for preset in presets:
             out[preset] = {}
@@ -887,14 +901,14 @@ class Board:
                                 self.depth / 2.0 + math.cos(bearing) * 1000.0, 165.0),
                         fov_deg=40.0, size=self.size)
                     rgb, _frame, info = self.frame(
-                        f"horizon_{mood}_{label}_{preset}", {}, sun=sun, look=look_for(sun, preset),
+                        f"horizon{tag}_{mood}_{label}_{preset}", {}, sun=sun, look=look_of(sun, preset),
                         ground=self.plan_ground(),
                         shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), baked=True)
                     row[label] = {**probes.horizon_step(rgb, camera), "file": info["file"]}
                     for key in worst:
                         worst[key] = max(worst[key], row[label][key])
                 out[preset][mood] = row
-                self.log("horizon", preset=preset, mood=mood,
+                self.log("horizon", weather=weather, preset=preset, mood=mood,
                          **{f"{label}_{key}": row[label][key] for label in row for key in worst})
             self.write()
         out["max"] = {key: round(value, 2) for key, value in worst.items()}
@@ -907,14 +921,14 @@ class Board:
             for distance_m, pitch, camera in distant_horizon_cameras(
                     self.width, self.depth, self.size, sun.azimuth_deg + 180.0):
                 rgb, _frame, info = self.frame(
-                    f"horizon_far_{distance_m}m_{pitch:.1f}deg_{preset}", {},
-                    sun=sun, look=look_for(sun, preset), ground=self.plan_ground(),
+                    f"horizon{tag}_far_{distance_m}m_{pitch:.1f}deg_{preset}", {},
+                    sun=sun, look=look_of(sun, preset), ground=self.plan_ground(),
                     shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), baked=True)
                 row = {"distance_m": distance_m, "pitch_deg": pitch,
                        **probes.outer_row_step(rgb), "file": info["file"]}
                 row["ok"] = row["step"] <= HORIZON_STEP_BOUND
                 rows.append(row)
-                self.log("horizon_far", preset=preset, **row)
+                self.log("horizon_far", weather=weather, preset=preset, **row)
                 self.write()
         self.write()
         if any(not row["ok"] for rows in distant.values() for row in rows):
@@ -1329,6 +1343,9 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
         board.shoot(shots, presets)
     if args.living:
         board.living(presets)
+        if args.horizon:     # the cloudy skies' horizon, gated like the clear one
+            for weather in HORIZON_WEATHERS:
+                board.horizon(default_shots(board.width, board.depth), presets, weather)
     if args.analysis:
         board.analysis(shots, presets)
     if args.moods:

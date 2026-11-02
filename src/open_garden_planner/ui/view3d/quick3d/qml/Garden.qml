@@ -124,7 +124,10 @@ Item {
     readonly property int lampSlots: 6
     property var lamps: []
     property color lampColor: "#ffc98a"
-    property real lampBrightness: 7.0
+    // constantFade lampNear with brightness 9.4: the same pool at 1.5 m as 1.0 with 7.0,
+    // a third of the light in the lantern's own glass (its specular saturated to white)
+    property real lampBrightness: 9.4
+    property real lampNear: 4.0
     property real lampFade: 3.5
     // centimetres per pixel per centimetre of depth: a particle is never thinner than a
     // pixel or so, near or far (the selection ring's measure)
@@ -1178,7 +1181,7 @@ Item {
                 color: root.lampColor
                 brightness: spot ? spot.w * root.lampGlow * root.lampBrightness : 0.0
                 castsShadow: false
-                constantFade: 1.0
+                constantFade: root.lampNear
                 linearFade: 0.0
                 quadraticFade: root.lampFade
             }

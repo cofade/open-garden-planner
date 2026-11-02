@@ -20,6 +20,7 @@ from open_garden_planner.core.scene3d.builders.lights import (
     MAX_BULBS_PER_STRING,
     build_garden_light,
     build_string_lights,
+    lamp_light,
     lantern_bulb,
     string_bulbs,
 )
@@ -239,7 +240,7 @@ def test_the_light_kinds_are_registered_objects() -> None:
     for record in (lantern(), string()):
         parts = registry.build(record) if hasattr(registry, "build") else registry.builder_for(record.kind)(record)
         assert parts, record.kind
-        assert {part.name for part in parts} >= ({"bulb", "glass"} if record.kind == "GARDEN_LIGHT" else {"bulbs"})
+        assert {part.name for part in parts} >= ({"bulb"} if record.kind == "GARDEN_LIGHT" else {"bulbs"})
 
 
 def test_a_lantern_glows_where_its_bulb_is() -> None:
@@ -251,10 +252,36 @@ def test_a_lantern_glows_where_its_bulb_is() -> None:
     expected = pose_points(record.transform, np.array([local]))[0]
     assert np.allclose(source.bulb_points[0], expected)
     assert source.light[:2] == pytest.approx(tuple(expected[:2]))
-    assert 35.0 < source.light[2] < 35.0 + 110.0, "the light hangs in the lantern, on its soil"
+    assert 35.0 < source.light[2] < 35.0 + 110.0, "the light hangs at the lantern, on its soil"
     bulb_part = next(part for part in build_garden_light(record) if part.name == "bulb")
     centre = bulb_part.mesh.positions.mean(axis=0)
     assert np.allclose(centre, local, atol=0.5), "the builder's bulb is where the glow is"
+
+
+@pytest.mark.parametrize("kind", ["GARDEN_LIGHT", "STRING_LIGHTS"])
+def test_the_point_light_stands_below_the_lamp(kind: str) -> None:
+    """Inside the bulb the point light lit its ball from within — it drew dark (3D review
+    of L5): it stands under the lantern's frame, and under a string's middle bulb."""
+    record = lantern(rotation=40.0, base=35.0) if kind == "GARDEN_LIGHT" else string()
+    height = 110.0 if kind == "GARDEN_LIGHT" else 250.0
+    (source,) = lamp_sources([record])
+    local = lamp_light(record, height)
+    assert local is not None
+    expected = pose_points(record.transform, np.array([local]))[0]
+    assert source.light[:3] == pytest.approx(tuple(expected))
+    parts = production_registry().builder_for(kind)(record)
+    if kind == "GARDEN_LIGHT":
+        bulb = next(part for part in parts if part.name == "bulb").mesh.positions
+        assert local[2] < bulb[:, 2].min() - 10.0, "below the lantern"
+        assert not any(part.material_kind == "glass" for part in parts), (
+            "no pane: lit by its own lamp it drew a white box at night")
+    else:
+        bulbs = string_bulbs(record, height)
+        assert bulbs is not None
+        middle = bulbs[len(bulbs) // 2]
+        mesh = next(part for part in parts if part.name == "bulbs").mesh.positions
+        near = mesh[np.hypot(mesh[:, 0] - middle[0], mesh[:, 1] - middle[1]) < 4.0]
+        assert len(near) and local[2] < near[:, 2].min(), "below the middle bulb"
 
 
 def test_a_strings_bulbs_hang_between_its_posts_and_sag() -> None:
@@ -315,6 +342,7 @@ def test_a_hostile_outline_has_no_bulb_and_breaks_nothing(kind: str) -> None:
     assert lamp_sources(hostile) == ()
     for record in hostile:
         assert lantern_bulb(record, 250.0) is None and string_bulbs(record, 250.0) is None
+        assert lamp_light(record, 250.0) is None
         parts = production_registry().builder_for(kind)(record)
         assert parts and not any(part.name in ("bulb", "bulbs") for part in parts), record.item_id
 

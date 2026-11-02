@@ -298,6 +298,51 @@ def test_while_the_sky_lags_the_fog_meets_the_sky_on_screen(qtbot) -> None:
     assert host.named("look")[-1] == wanted, "with the sky rebuilt the fog is the look's own"
 
 
+def test_while_a_cloudy_sky_lags_the_fog_is_corrected_for_the_cloud_on_screen(qtbot) -> None:
+    """The lagging sky's fog takes the cloud of the sky SHOWN (``SkySpec.cloud``) — the
+    overcast correction of ``weather.weather_fog``, not the clear sky's formula."""
+    from open_garden_planner.core.scene3d.weather import weather_fog
+
+    host = Host()
+    look = make(qtbot, host)
+    look.set_showing(True)
+    look.set_weather("overcast")
+    look.set_sun(sun(4.0, 290.0))
+    shown = living_look(sun(4.0, 290.0), "high", "overcast").sky
+    assert shown.cloud == 1.0
+    host.take()
+    look.set_sun(sun(9.0, 285.0))
+    wanted = living_look(sun(9.0, 285.0), "high", "overcast")
+    sent = host.named("look")[-1]
+    assert sent.fog_linear == weather_fog(shown.horizon, wanted.mood.probe_exposure,
+                                          shown.sky_energy, shown.cloud, wanted.mood.twilight)
+
+
+def test_an_analyze_drape_pauses_the_weather_and_the_dew(qtbot) -> None:
+    """While a drape lies on the ground the look is the sun's own — no weather, no dew —
+    so the drape's colours read as its legend's (the 3D review measured a 59° hue shift
+    under snow); taking it off brings the weather back."""
+    host = Host()
+    look = make(qtbot, host)
+    dawn = sun(3.0, 70.0)                      # a dewy morning
+    look.set_weather("snow")
+    look.set_sun(dawn)
+    assert host.named("look")[-1] == living_look(dawn, "high", "snow")
+    assert not look.weather_paused and look.weather == "snow"
+    look.set_analysing(True)
+    assert look.analysing and look.weather_paused
+    assert look.weather == "clear" and look.weather_wanted == "snow"
+    paused = host.named("look")[-1]
+    assert paused == living_look(dawn, "high", "clear", dew=False)
+    assert paused.atmosphere.dew == 0.0 and paused.atmosphere.snow_cover == 0.0
+    look.set_weather("clear")
+    assert not look.weather_paused, "a clear choice holds nothing back"
+    look.set_weather("rain")
+    assert host.named("look")[-1] == paused, "a weather picked under a drape waits"
+    look.set_analysing(False)
+    assert host.named("look")[-1] == living_look(dawn, "high", "rain")
+
+
 def test_a_hidden_view_builds_no_sky_until_it_is_seen_again(qtbot) -> None:
     host = Host()
     look = make(qtbot, host)

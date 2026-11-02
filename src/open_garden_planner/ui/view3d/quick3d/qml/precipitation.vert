@@ -55,12 +55,12 @@ void MAIN()
     if (snow) {   // a flake faces the camera
         across = normalize(cross(vec3(0.0, 1.0, 0.0), toCamera));
         along = cross(toCamera, across);
-        wide = max(mix(1.4, 2.6, NORMAL.z), 1.6 * pixel);
+        wide = max(mix(1.4, 2.6, NORMAL.z), 2.6 * pixel);   // 1.6 px read as specks
         tall = wide;
     } else {      // a streak along its fall, turned to face the camera
         along = normalize(vec3(-drift.x, fall, -drift.y));
         across = normalize(cross(along, toCamera));
-        wide = max(0.5, 0.9 * pixel);
+        wide = max(0.5, 1.3 * pixel);   // 0.9 px broke into dashes
         tall = max(mix(28.0, 52.0, NORMAL.z), 6.0 * pixel);
     }
     vec3 world = center + across * (c.x * wide) + along * (c.y * tall);

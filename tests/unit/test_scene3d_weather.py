@@ -25,6 +25,7 @@ from open_garden_planner.core.scene3d.look import (
 )
 from open_garden_planner.core.scene3d.weather import (
     DEW_GONE_DEG,
+    DEW_RISE_DEG,
     MOODS,
     TODAY,
     WEATHER_CHOICES,
@@ -37,6 +38,7 @@ from open_garden_planner.core.scene3d.weather import (
     mood_of,
     normalise_weather,
     todays_weather,
+    weather_fog,
     weather_from_wmo,
 )
 
@@ -108,13 +110,30 @@ def test_an_overcast_horizon_is_as_bright_as_the_clear_one(at: SunState) -> None
 
 
 @pytest.mark.parametrize("weather", WEATHERS)
-def test_the_fog_meets_the_weathered_horizon(weather: str) -> None:
+@pytest.mark.parametrize("at", SUNS)
+def test_the_fog_meets_the_weathered_horizon(weather: str, at: SunState) -> None:
+    look = living_look(at, "high", weather)
+    assert look.fog_linear == weather_fog(look.sky.horizon, look.mood.probe_exposure,
+                                          look.sky.sky_energy, look.atmosphere.cloud,
+                                          look.mood.twilight)
+    assert look.plain_sky_linear == look.fog_linear
+
+
+def test_the_fog_under_a_cloud_is_calibrated_by_day_and_by_night() -> None:
+    """The overcast sky draws its horizon otherwise than the clear one: the clear sky's
+    fog drew 4 luma above the overcast noon horizon and 3.6 under its night — a seam in
+    every cloudy weather (the 3D review's horizon probe per weather). Clear is untouched."""
     from open_garden_planner.core.scene3d.look import fog_linear
 
-    look = living_look(AFTERNOON, "high", weather)
-    assert look.fog_linear == fog_linear(look.sky.horizon, look.mood.probe_exposure,
-                                         look.sky.sky_energy)
-    assert look.plain_sky_linear == look.fog_linear
+    plain = fog_linear("#a0b4c8", 1.2, 1.0)
+    assert weather_fog("#a0b4c8", 1.2, 1.0, 0.0, 0.0) == plain
+    assert weather_fog("#a0b4c8", 1.2, 1.0, 0.0, 1.0) == plain
+    day = weather_fog("#a0b4c8", 1.2, 1.0, 1.0, 0.0)
+    night = weather_fog("#a0b4c8", 1.2, 1.0, 1.0, 1.0)
+    assert day[1] == pytest.approx(plain[1] * 0.955)
+    assert night[1] == pytest.approx(plain[1] * 1.23)
+    half = weather_fog("#a0b4c8", 1.2, 1.0, 0.5, 1.0)
+    assert plain[1] < half[1] < night[1], "a thinner layer, a smaller correction"
 
 
 def test_a_weather_spec_refuses_what_it_cannot_be() -> None:
@@ -159,11 +178,30 @@ def test_morning_and_evening_are_the_sides_of_the_meridian() -> None:
 
 
 @pytest.mark.parametrize(("elevation", "expected"), [
-    (TWILIGHT_DEG - 0.1, 0.0), (TWILIGHT_DEG, 1.0), (0.0, 1.0), (6.0, 1.0), (12.0, 0.5),
+    (TWILIGHT_DEG - 0.1, 0.0), (TWILIGHT_DEG, 0.0), (TWILIGHT_DEG + DEW_RISE_DEG / 2, 0.5),
+    (TWILIGHT_DEG + DEW_RISE_DEG, 1.0), (0.0, 1.0), (6.0, 1.0), (12.0, 0.5),
     (DEW_GONE_DEG, 0.0), (40.0, 0.0)])
 def test_the_dew_lies_from_dawn_until_the_sun_is_up_a_while(elevation: float, expected: float) -> None:
     assert dew_amount(sun(elevation, 90.0)) == pytest.approx(expected)
     assert dew_amount(sun(elevation, 270.0)) == 0.0          # never in the evening
+
+
+def test_the_dew_comes_and_goes_without_a_step() -> None:
+    """A dawn is no switch: from the end of civil twilight to the sun 18° up the dew
+    never moves by more than 0.03 per tenth of a degree (the first cut jumped from 0 to
+    1 at -6°: 3D review of L5)."""
+    elevations = [TWILIGHT_DEG - 1.0 + 0.1 * i for i in range(260)]
+    amounts = [dew_amount(sun(e, 90.0)) for e in elevations]
+    assert max(abs(b - a) for a, b in zip(amounts, amounts[1:], strict=False)) <= 0.03
+    assert max(amounts) == 1.0
+
+
+def test_no_dew_while_a_drape_lies_on_the_ground() -> None:
+    """``dew=False`` (an Analyze drape on the ground): a clear morning is the sun's own
+    look, field for field but its atmosphere — the drape's colours read as its legend's."""
+    paused, plain = living_look(MORNING, "high", "clear", dew=False), look_for(MORNING, "high")
+    assert paused.atmosphere.dew == 0.0 and paused.atmosphere.wetness == 0.0
+    assert replace(paused, atmosphere=plain.atmosphere) == plain
 
 
 @pytest.mark.parametrize("weather", ["rain", "snow"])
@@ -213,6 +251,20 @@ def test_life_keeps_the_time_of_day() -> None:
     wet = living_look(sun(40.0, 180.0), "high", "rain").atmosphere
     assert wet.butterflies == 0.0 and wet.fireflies == 0.0
     assert living_look(sun(40.0, 180.0), "high", "snow").atmosphere.leaves == 0.0
+
+
+@pytest.mark.parametrize("midnight", [0.0, 180.0], ids=["north", "south"])
+def test_the_fireflies_fade_towards_solar_midnight(midnight: float) -> None:
+    """They go out over the last 25° of azimuth before the sun crosses the meridian below
+    the horizon — due north in the northern hemisphere, due south in the southern — not
+    all at once (3D review of L5)."""
+    def fireflies(azimuth: float) -> float:
+        return living_look(sun(-12.0, azimuth % 360.0), "high", "clear").atmosphere.fireflies
+
+    towards = -1.0 if midnight == 0.0 else 1.0     # the evening side of that midnight
+    far, near = fireflies(midnight + towards * 40.0), fireflies(midnight + towards * 12.5)
+    assert far > 0.5 and 0.0 < near < far
+    assert fireflies(midnight + towards * 0.5) < 0.05
 
 
 @pytest.mark.parametrize("weather", WEATHERS)

@@ -20,7 +20,18 @@ What the ENGINE taught (RTX 4070, Direct3D 11, 2026-11-02):
 - **Six point lights made once** (`Component.createObject` at load — the scene forbids a
   `Repeater3D`): only filled slots are visible, and only after dusk; `quadraticFade` 3.5 with
   brightness 7 gave a lantern a pool of a few metres at night exposure 2.4 (1.0 lit the whole
-  lawn).
+  lawn). The 3D review then found the lantern heads white with dark cores: the light stood
+  INSIDE the bulb's ball (a closed, culled sphere lit from within renders dark) and 4–11 cm
+  from glass. Fix: the light 3 cm under the lantern, `constantFade` 4 with brightness 9.4
+  (same pool at 1.5 m, near field a third), and the bulb's glow particle drawn 6 cm towards
+  `CAMERA_POSITION` — a depth-tested quad through a ball's centre is half hidden by the
+  ball. A pane round a lamp is still lit at the near-field strength (the constant fade is a
+  floor, so moving the light does not help): × night exposure 2.4 through Filmic it drew
+  cream (hue ~50°) whatever its tint — the lantern lost its pane, and the glow is a small
+  hot centre in a warm halo (1.0, 0.48, 0.13) kept under the shoulder.
+- **A particle share is a count, not an alpha.** Blending happens in linear HDR before the
+  tone curve: a quad at 9 % opacity lifted a dark lawn by 39 luma. Collapse the particles
+  whose seed `fract(phase * 7.919)` lies above the share instead.
 - **Cost of a weather** (bench_small, 1280 × 720, Medium, a finished frame read back,
   interleaved 40 rounds): no L5 7.02 ms, clear with life 7.06, snow 7.15, rain 7.28. Blocks of
   seconds per look drifted 24 % with nothing changed — interleave (PF-L3D-18).

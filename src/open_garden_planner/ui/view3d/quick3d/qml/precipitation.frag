@@ -15,7 +15,7 @@ void MAIN()
         albedo = vec3(0.92, 0.94, 0.97);
     } else {             // a thin streak, faint at both ends
         float across = 1.0 - abs(vUV.x - 0.5) * 2.0;
-        alpha = across * sin(vUV.y * 3.14159) * 0.38;
+        alpha = across * sin(vUV.y * 3.14159) * 0.27;   // as bright as 0.38 at 0.9 px
         albedo = vec3(0.62, 0.68, 0.76);
     }
     FRAGCOLOR = vec4(albedo * vColor.rgb * uLight, alpha * vFade);

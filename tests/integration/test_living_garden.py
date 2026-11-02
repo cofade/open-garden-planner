@@ -10,6 +10,8 @@ What a user does, through the real widgets:
   once, and the "Wildlife and Falling Leaves" switch reaches the engine;
 - L5.3: "Today's Weather" follows the app's own forecast, ONLY while the plan date is
   today, and says why it shows clear otherwise;
+- an Analyze drape on the ground pauses the weather (its colours read as its legend's),
+  and the Weather button says so;
 - L5.4: Garden Light and String Lights are tools and gallery objects; in 3D their bulbs
   glow and the nearest lamps light (the host is told where).
 
@@ -193,6 +195,28 @@ def test_todays_weather_follows_the_forecast_only_on_today(bench: LivingBench) -
     bench.settle()
     assert look.weather == "clear" and bench.host.looks[-1].atmosphere.weather == "clear"
     assert "No forecast for the plan date" in bench.workspace.living.button.toolTip()
+
+
+@pytest.mark.parametrize("drape", ["SHADOWS", "SUN_HOURS"])
+def test_an_analyze_drape_pauses_the_weather(bench: LivingBench, drape: str) -> None:
+    """Weather > Snow, then Analyze > a drape: the engine is told the sun's own look and
+    the button says the weather is paused; Analyze > Nothing on the Ground brings the
+    snow back (3D review of L5: snow washed the hours of sun to a pale lavender)."""
+    from open_garden_planner.ui.view3d.analysis_modes import DrapeMode
+
+    host, look, workspace = bench.host, bench.workspace.look, bench.workspace
+    sun = workspace.controller.sync.sun
+    _menu_actions(bench)["Snow"].trigger()
+    assert host.looks[-1] == living_look(sun, look.preset, "snow")
+    workspace.drape_actions[DrapeMode[drape]].trigger()
+    assert workspace.living.analysing and look.weather_paused
+    assert host.looks[-1] == living_look(sun, look.preset, "clear", dew=False)
+    assert "Snow" in workspace.living.button.text()
+    assert "(paused while analysing)" in workspace.living.button.text()
+    workspace.drape_actions[DrapeMode.NONE].trigger()
+    assert not workspace.living.analysing and not look.weather_paused
+    assert host.looks[-1] == living_look(sun, look.preset, "snow")
+    assert "paused" not in workspace.living.button.text()
 
 
 def test_every_weather_choice_has_its_menu_entry(bench: LivingBench) -> None:

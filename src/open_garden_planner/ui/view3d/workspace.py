@@ -105,6 +105,7 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.plain_text import clip_text, log_text
 from open_garden_planner.core.scene3d.camera import FOV_DEG, OrbitCamera
 
+from .analysis_modes import DrapeMode
 from .init_guard import Init3DGuard, ModeReason, RenderMode, default_directory
 from .workspace_analysis import XRAY_DELAY_MS as XRAY_DELAY_MS
 from .workspace_analysis import WorkspaceAnalysisCoordinator
@@ -1867,6 +1868,17 @@ class Workspace(QWidget):
     def _wire_analysis(self, host: EngineHost, orbit: OrbitInput,
                        controller: Scene3DController) -> None:
         self._analysis_coordinator.wire(host, orbit, controller)
+        analysis = self._analysis_coordinator.analysis
+        if analysis is not None:
+            analysis.changed.connect(self._drape_changed)   # L5: the weather pauses
+        self._drape_changed()
+
+    def _drape_changed(self) -> None:
+        """L5: while an Analyze drape lies on the ground the weather pauses, so the
+        drape's colours read as its legend's (``LookController.set_analysing``)."""
+        analysis = self._analysis_coordinator.analysis
+        self._living.set_analysing(analysis is not None
+                                   and analysis.drape_mode is not DrapeMode.NONE)
 
     def _unwire_analysis(self) -> None:
         self._analysis_coordinator.unwire()

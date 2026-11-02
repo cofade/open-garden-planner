@@ -11,7 +11,8 @@ pixel and changes every lit material's shader.
 WHERE: the bulbs are the builder's own (``builders.lights.lantern_bulb`` /
 ``string_bulbs``), placed into the scene by the record's pose — the same pose the
 engine gives the item's Model (``Transform``: east, north, rotation counter-clockwise
-seen from above, base). A glow can never hang beside its bulb.
+seen from above, base). A glow can never hang beside its bulb; the point light stands
+just below the glass (``builders.lights.lamp_light``).
 """
 
 from __future__ import annotations
@@ -24,8 +25,8 @@ from typing import TYPE_CHECKING, Final
 import numpy as np
 
 from .builders.lights import (
-    BULB_RADIUS_CM,
     KINDS,
+    lamp_light,
     lantern_bulb,
     light_height_cm,
     string_bulbs,
@@ -87,11 +88,12 @@ def lamp_sources(records: Iterable[Record]) -> tuple[LampSource, ...]:
         else:
             points = string_bulbs(record, height)
             glow, strength = _STRING_GLOW_CM, _STRING_STRENGTH
-        if points is None or not len(points):
+        anchor = lamp_light(record, height)
+        if points is None or not len(points) or anchor is None:
             continue
         scene = pose_points(record.transform, points)   # the pose the Model gets
-        middle = scene[len(scene) // 2]
-        light = (float(middle[0]), float(middle[1]), float(middle[2]) - BULB_RADIUS_CM, strength)
+        at = pose_points(record.transform, np.array([anchor], dtype=np.float64))[0]
+        light = (float(at[0]), float(at[1]), float(at[2]), strength)
         shown = scene[:max(0, budget)]
         budget -= len(shown)
         out.append(LampSource(record.item_id, record.kind, light,

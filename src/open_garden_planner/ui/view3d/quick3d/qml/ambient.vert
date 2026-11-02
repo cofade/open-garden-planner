@@ -11,7 +11,10 @@
 //   UV0      (the corner - 0..3, a butterfly's 0..7 -, the soil's height: engine y)
 //
 // WHICH plants have life is the plan's (the buffer); WHEN it shows is the look's
-// (uLeaves, uButterflies, uFireflies, uLamps): a kind at 0 is collapsed to nothing.
+// (uLeaves, uButterflies, uFireflies, uLamps): a kind at 0 is collapsed to nothing. A
+// share between is HOW MANY show (a leaf, a butterfly, a firefly whose seed lies above
+// it is collapsed) - never how transparent: blended in linear light, a wing at 9 %
+// still lifted a dark lawn by 39 luma (3D review of L5). Glows also fade by it.
 VARYING vec4 vColor;
 VARYING vec2 vUV;
 VARYING float vKind;
@@ -30,12 +33,12 @@ void MAIN()
     vKind = float(kind);
     vColor = vec4(COLOR.rgb, 1.0);
     vGlow = 0.0;
-    if (life <= 0.001) {
+    float phase = NORMAL.x;
+    if (life <= 0.001 || (kind != 3 && fract(phase * 7.919) >= life)) {
         vUV = vec2(0.0);
         POSITION = vec4(0.0, 0.0, 2.0, 1.0);    // beyond the far plane on every backend: clipped
         return;
     }
-    float phase = NORMAL.x;
     float speed = NORMAL.y;
     float radius = NORMAL.z;
     float ground = UV0.y;
@@ -54,8 +57,8 @@ void MAIN()
                                sin(a) * orbit);
         vec3 heading = normalize(vec3(-sin(a) * turn, 0.0, cos(a) * turn));
         vec3 lateral = normalize(cross(vec3(0.0, 1.0, 0.0), heading));
-        // at rest the wings are open; running, they beat
-        float beat = uTime > 0.0 ? sin(t * 15.0 + phase * 30.0) : 0.0;
+        // at rest the wings stand in a V (a flat pair read as a sliver); running, they beat
+        float beat = uTime > 0.0 ? sin(t * 15.0 + phase * 30.0) : 0.68;
         float flap = 0.25 + 0.95 * beat;
         float side = corner < 4 ? -1.0 : 1.0;
         int c = corner - (corner < 4 ? 0 : 4);
@@ -86,15 +89,17 @@ void MAIN()
                     + vec2(sin(t * 2.1 + phase * 40.0), cos(t * 1.7 + phase * 31.0)) * (14.0 * s);
             center = vec3(xz.x, mix(top.y - 0.2 * drop * fract(phase * 7.0), ground + 1.5, s), xz.y);
             float spin = t * mix(2.0, 4.0, speed) + phase * 20.0;
-            across = normalize(vec3(cos(spin), 0.35 * sin(spin * 0.7), sin(spin)));
-            along = normalize(cross(across, vec3(0.3 * sin(spin * 1.3), 1.0, 0.3 * cos(spin))));
+            // tumbling well out of the horizontal: a flat leaf seen from the side is a dash
+            across = normalize(vec3(cos(spin), 0.9 * sin(spin * 0.7), sin(spin)));
+            along = normalize(cross(across, vec3(0.8 * sin(spin * 1.3), 1.0, 0.8 * cos(spin))));
             size = mix(7.0, 11.0, speed);
         } else {
             vec3 toCamera;
             if (kind == 2) {
-                // a firefly: drifting low among the plants, blinking
+                // a firefly: drifting low among the plants, blinking - never higher than
+                // 2.5 m (a tall tree's swarm hung among the stars)
                 float wide = radius * 0.9 + 40.0;
-                float lift = mix(25.0, max(top.y - ground, 60.0) * 0.9, fract(phase * 3.7));
+                float lift = mix(25.0, min(max(top.y - ground, 60.0) * 0.9, 250.0), fract(phase * 3.7));
                 center = vec3(top.x + sin(t * mix(0.15, 0.3, speed) + phase * 40.0) * wide,
                               ground + lift + sin(t * 0.6 + phase * 8.0) * 15.0,
                               top.z + cos(t * mix(0.12, 0.25, speed) + phase * 23.0) * wide);
@@ -103,8 +108,9 @@ void MAIN()
                     vGlow = fract(phase * 7.3) > 0.55 ? 1.0 : 0.0;   // a photograph: some lit
                 size = 3.0;
             } else {
-                // a bulb of a garden light: where it hangs, glowing
-                center = top;
+                // a bulb of a garden light: where it hangs, glowing - drawn a little towards
+                // the camera, or the bulb's own ball hides the glow's core
+                center = top + normalize(CAMERA_POSITION - top) * 6.0;
                 vGlow = 1.0;
                 size = radius;
             }
@@ -117,7 +123,13 @@ void MAIN()
         world = center + across * (c.x * size) + along * (c.y * size);
         vUV = c + 0.5;
     }
-    vGlow *= life;
-    vColor.a = life;
+    if (kind >= 2)
+        vGlow *= life;
+    // a leaf or a butterfly within 2 m of the camera is not drawn: there it fills the frame
+    // as a blade (3D review of L5: a 1,278-px white wing in front of the low camera)
+    if (kind <= 1 && dot(world - CAMERA_POSITION, CAMERA_DIRECTION) < 200.0) {
+        POSITION = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+    }
     POSITION = VIEWPROJECTION_MATRIX * vec4(world, 1.0);
 }

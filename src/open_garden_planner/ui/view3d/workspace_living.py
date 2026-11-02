@@ -10,6 +10,9 @@ coordinators of the workspace it is told the host and the look controller by
   (``weather.todays_weather``). The choice goes to ``LookController.set_weather``;
   the look, the sky, the particles and the wind follow from it there. The button
   names the weather shown; its tooltip names the frame's mood (``weather.mood_of``).
+  While an Analyze drape lies on the ground (``set_analysing``, from the workspace)
+  the weather pauses — the drape's colours must read as its legend's — and the button
+  says so.
 - **The garden's life** — falling leaves, butterflies at the plants in flower,
   fireflies on summer evenings (``particles.ambient_emitters``, from the records the
   engine holds and the phenology the Plant Forge evaluated — ``season_sink``) and the
@@ -94,6 +97,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._clock: SimClock | None = None
         self._weather = "clear"
         self._life = True
+        self._analysing = False
         self._forecast: tuple[tuple[str, int], ...] = ()
         self._seasons: Mapping[str, PhenologyState] = {}
         self._sources: tuple[LampSource, ...] = ()
@@ -183,6 +187,7 @@ class WorkspaceLivingCoordinator(QObject):
         """A new engine: give its look the session's weather, and listen to its mood."""
         look.mood_changed.connect(self._on_mood)
         look.set_weather(self._weather)
+        look.set_analysing(self._analysing)
         self._update_todays()
         host = self._get_host()
         if host is not None:
@@ -192,7 +197,9 @@ class WorkspaceLivingCoordinator(QObject):
         self._refresh_button()
 
     def unwire(self) -> None:
-        """The engine goes: forget what the host was given."""
+        """The engine goes: forget what the host was given (and the drape: the next
+        engine's analysis says again what lies on its ground)."""
+        self._analysing = False
         self._seasons = {}
         self._sources = ()
         self._lit = None
@@ -216,6 +223,19 @@ class WorkspaceLivingCoordinator(QObject):
         if look is not None:
             look.set_weather(weather)
         self._refresh_button()
+
+    def set_analysing(self, analysing: bool) -> None:
+        """An Analyze drape lies on the ground (True) or not: the weather pauses while it
+        does (``LookController.set_analysing``)."""
+        self._analysing = bool(analysing)
+        look = self._get_look()
+        if look is not None:
+            look.set_analysing(self._analysing)
+        self._refresh_button()
+
+    @property
+    def analysing(self) -> bool:
+        return self._analysing
 
     def set_life_enabled(self, enabled: bool) -> None:
         self._life = bool(enabled)
@@ -333,15 +353,22 @@ class WorkspaceLivingCoordinator(QObject):
         if button is None:
             return
         look = self._get_look()
-        shown = look.weather if look is not None else (
+        wanted = look.weather_wanted if look is not None else (
             "clear" if self._weather == TODAY else self._weather)
+        paused = look.weather_paused if look is not None else (
+            self._analysing and wanted != "clear")
         names = weather_names()
         if self._weather == TODAY:
-            text = _tr("Weather: Today ({weather})").format(weather=names[shown])
+            text = _tr("Weather: Today ({weather})").format(weather=names[wanted])
         else:
-            text = _tr("Weather: {weather}").format(weather=names[shown])
+            text = _tr("Weather: {weather}").format(weather=names[wanted])
+        if paused:
+            text = _tr("{weather} (paused while analysing)").format(weather=text)
         button.setText(text)
         tip = [text]
+        if paused:
+            tip.append(_tr("The analysis on the ground shows the clear sun's colours; the "
+                           "weather returns when the ground shows nothing."))
         mood = look.mood if look is not None else ""
         if mood:
             tip.append(_tr("Mood: {mood}").format(mood=mood_names().get(mood, mood)))

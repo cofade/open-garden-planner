@@ -24,7 +24,11 @@ void MAIN()
     } else {                  // a firefly or a bulb: a soft glow
         float r = length(p) * 2.0;
         float core = smoothstep(1.0, 0.0, r);
-        vec3 light = kind == 2 ? vec3(1.3, 1.9, 0.35) * 2.2 : vec3(2.6, 1.7, 0.75) * 1.6;
+        // a bulb: a small hot centre in a warm halo that stays under the tone curve's
+        // shoulder - one bright colour all over drew the lantern heads white at night
+        // exposure (3D review of L5)
+        vec3 light = kind == 2 ? vec3(1.3, 1.9, 0.35) * 2.2
+                   : mix(vec3(1.0, 0.48, 0.13), vec3(2.6, 1.7, 0.75) * 1.6, smoothstep(0.35, 0.0, r));
         float alpha = core * core * vGlow;
         if (alpha <= 0.002)
             discard;

@@ -2736,7 +2736,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **✅ shipped v1.31.0 ([PR #584](https://github.com/cofade/open-garden-planner/pull/584)) after owner acceptance (ADR-063, FR-3D-ANALYZE-01 … 08)** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | ✅ | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **✅ shipped v1.34.0 ([PR #613](https://github.com/cofade/open-garden-planner/pull/613)) after owner acceptance (ADR-065, FR-3D-BUILT-01 … 08)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
-| 🔄 | L5 | **Living garden** — year/day playback through the SimClock, moods, weather presets as a look, shader particles (rain, snow, leaves, butterflies, fireflies) on the wind's clock, Today's Weather, Garden Light / String Lights. **In review: draft PR (ADR-070, FR-3D-LIVE-01 … 08)** — see below | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
+| 🔄 | L5 | **Living garden** — year/day playback through the SimClock, moods, weather presets as a look, shader particles (rain, snow, leaves, butterflies, fireflies) on the wind's clock, Today's Weather, Garden Light / String Lights. **In review: draft PR (ADR-070, FR-3D-LIVE-01 … 09)** — see below | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
@@ -2797,7 +2797,13 @@ All four slices of the issue, the optional L5.3 and L5.4 included:
   and the light. `bench_built.ogp` gained one of each (appended last).
 - Reviews: the `ogp-3d-reviewer` and `senior-reviewer` passes are recorded in the PR; an
   automated security review found a hostile outline typed a light could raise out of the
-  workspace's pass — fixed (the bulbs follow the builder's plain-block rule) and pinned.
+  workspace's pass — fixed (the bulbs follow the builder's plain-block rule) and pinned. The
+  first 3D review rejected the board (ADR-070 addendum): a weather recoloured the Analyze
+  drapes — the weather now PAUSES while a drape lies on the ground (FR-3D-LIVE-09) —, the
+  fog drew a seam on every cloudy horizon (recalibrated, and the board's horizon probe now
+  runs per weather), lantern heads drew white with dark cores (the light moved under the
+  lantern, the pane went, a warm glow in front of the bulb) and butterflies drew as ghosts (a life share is a
+  count, not an opacity). Deferred polish: #687.
 
 ### Out of scope (deferred)
 - Snow on roofs and on a bed's soil (principled `vc` parts take no snow cover).
@@ -2809,7 +2815,7 @@ All four slices of the issue, the optional L5.3 and L5.4 included:
 | Document | Section |
 |----------|---------|
 | `docs/09-architecture-decisions/` | ADR-070; ADR-059 builders addendum (two shadow rows) |
-| `docs/functional-requirements.md` | FR-3D-LIVE-01 … 08 |
+| `docs/functional-requirements.md` | FR-3D-LIVE-01 … 09 |
 | `docs/08-crosscutting-concepts/` | §8.29.13, §8.10.16, §8.23.1 (26 artifacts) |
 | `docs/05-building-block-view/` | weather, particles, lights, playback, workspace_living |
 | `docs/11-risks-and-technical-debt/pitfalls/` | PF-L3D-18 |

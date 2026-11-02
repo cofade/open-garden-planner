@@ -7577,7 +7577,7 @@ frozen self-test, whose High-preset frame compiles `ground.frag` from the bundle
 
 ### 8.29.13 The living garden — playback, weather, particles, garden lights (L5, #389, ADR-070)
 
-The decisions and the measurements are **ADR-070**; the requirements FR-3D-LIVE-01 … 08; the
+The decisions and the measurements are **ADR-070**; the requirements FR-3D-LIVE-01 … 09; the
 test patterns §8.10.16; the lesson PF-L3D-18.
 
 | Part | Engine? | What it does |
@@ -7588,7 +7588,7 @@ test patterns §8.10.16; the lesson PF-L3D-18.
 | `core/scene3d/look.py` | Qt-free | `AtmosphereSpec` (`CLEAR_STILL` is every look of L1–L4), `SkySpec.cloud`, `sky_must_build_now`, `sky_phase` by elevation |
 | `core/scene3d/particles.py` | Qt-free | the two buffers (`precipitation_buffers`, `ambient_buffers`), `ambient_emitters`, `precipitation_volume`, the caps |
 | `core/scene3d/lights.py`, `builders/lights.py` | Qt-free | the two light kinds' builders, their bulbs (ONE function each), `lamp_sources`, `nearest_lamps` |
-| `ui/view3d/look_controller.py` | no | `set_weather`, `set_todays_weather`, `mood` / `mood_changed`: the look is `living_look` |
+| `ui/view3d/look_controller.py` | no | `set_weather`, `set_todays_weather`, `set_analysing`, `mood` / `mood_changed`: the look is `living_look` |
 | `ui/view3d/workspace_living.py` | no | the Weather button and menu, the life switch, the plants' life from the Plant Forge's phenology, the nearest lamps, the forecast |
 | `ui/view3d/quick3d/host.py` | **yes** | `set_ambient`, `set_life_enabled`, `set_lamps`, the precipitation's one load, the rain's volume with every `set_camera` |
 | `qml/Garden.qml`, `precipitation.*`, `ambient.*` | **yes** | the two particle Models, the lamp pool (`lampSlots` point lights made once), the weather's ground and foliage values |
@@ -7598,7 +7598,11 @@ and energy, the key light's strength, the shadows' darkness and softness, the gr
 the wind and the atmosphere — never a direction. The pipeline's sun aims the key light as
 before (`Quick3DHost._apply_light`); the 2D study, the drapes, the board's truth probes run on
 clear looks. A clear look outside the morning equals `look_for`'s but for its `atmosphere`
-(pinned field for field).
+(pinned field for field). And while an Analyze drape lies on the ground the weather and the
+dew PAUSE (`LookController.set_analysing`, told by the workspace on every drape change): a
+weather recolours the ground under the alpha-blended drape — snow washed the hours of sun to a
+pale lavender, a hue shift of up to 59° — so the frame shows `living_look(sun, preset,
+"clear", dew=False)`, the sun's own look, and the Weather button says it is paused.
 
 **The particles are on the wind's clock.** Both particle Models are declared once and fed
 through a `ReloadableGeometry` — no weather, date or time creates or destroys a Model. The
@@ -7606,7 +7610,9 @@ vertex shaders compute each particle's place from its seeds and `windTime`, so t
 is theirs: hidden, the clock stops; reduced motion rests it at 0 (a photograph; an idle view
 presents no frame — the render tier's gate); compatibility mode never runs it. A particle
 whose kind is off this instant (`uButterflies` 0 at night) is moved beyond the far plane by its
-vertex shader, so a time-of-day step costs a uniform, not a buffer. Rain and snow wrap inside a
+vertex shader, so a time-of-day step costs a uniform, not a buffer. A share between 0 and 1 is
+a COUNT — the particles whose seed lies above it are moved away — never an opacity: blended
+in linear light, a butterfly at 9 % still lifted a dark lawn by 39 luma. Rain and snow wrap inside a
 box around the camera's target, world-anchored: the box slides, the drops do not. In the
 top-down truth view no particle is drawn.
 
@@ -7618,8 +7624,14 @@ garden lights; never for a time of day. Equal emitters are not sent again.
 one slot of `root.lamps`; only filled slots are visible, and only after dusk. Which lamps fill
 them follows the camera's target (`nearest_lamps`), so a large plan's lights are lit where one
 looks. The foliage and lawn shaders light leaves from a point light as from the sun
-(`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampFade` 3.5,
-`lampBrightness` 7 at `#ffc98a`.
+(`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampNear` (the constant
+fade) 4, `lampFade` 3.5, `lampBrightness` 9.4 at `#ffc98a` — the pool of the first cut's
+1 / 3.5 / 7 at 1.5 m with a third of its light in the lantern's own glass. The light stands
+3 cm under the lantern or a string's middle bulb (`builders.lights.lamp_light`): inside the
+bulb it lit the ball from within. A bulb's glow is drawn 6 cm towards the camera, in front of
+its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder; the
+lantern has no glass pane — lit by its own lamp at the near-field strength, a pane drew a
+cream-white box at night exposure whatever its tint.
 
 **What a weather costs.** Measured on the RTX 4070 (bench_small, 1280 × 720, Medium, the cost of
 a finished frame read back, interleaved round by round): the look without L5 7.02 ms, clear

@@ -208,7 +208,8 @@ _FLOWER_HEIGHT_MAX_CM: Final = 350.0
 LEAF_PALETTE: Final = ((0.62, 0.27, 0.04), (0.45, 0.11, 0.03), (0.52, 0.38, 0.07),
                        (0.30, 0.33, 0.06))
 #: The butterflies' wings (linear): a white, a brimstone yellow, a peacock orange, a blue.
-BUTTERFLY_PALETTE: Final = ((0.86, 0.86, 0.80), (0.90, 0.80, 0.18), (0.80, 0.30, 0.05),
+#: The white is a cabbage white's cream — at 0.86 a wing in the key light drew near-white.
+BUTTERFLY_PALETTE: Final = ((0.70, 0.70, 0.64), (0.90, 0.80, 0.18), (0.80, 0.30, 0.05),
                             (0.20, 0.36, 0.85))
 
 

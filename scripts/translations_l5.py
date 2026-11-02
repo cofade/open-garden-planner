@@ -55,6 +55,11 @@ DE = {
         "Twilight": "Dämmerung",
         "Weather": "Wetter",
         "Weather: Today ({weather})": "Wetter: Heute ({weather})",
+        "{weather} (paused while analysing)": "{weather} (pausiert während der Analyse)",
+        "The analysis on the ground shows the clear sun's colours; the weather returns "
+        "when the ground shows nothing.":
+            "Die Analyse auf dem Boden zeigt die Farben der klaren Sonne; das Wetter kehrt "
+            "zurück, sobald der Boden nichts zeigt.",
         "Weather: {weather}": "Wetter: {weather}",
         "Wildlife and Falling Leaves": "Tiere und fallendes Laub",
     },
@@ -112,6 +117,11 @@ ES = {
         "Twilight": "Crepúsculo",
         "Weather": "Tiempo",
         "Weather: Today ({weather})": "Tiempo: hoy ({weather})",
+        "{weather} (paused while analysing)": "{weather} (en pausa durante el análisis)",
+        "The analysis on the ground shows the clear sun's colours; the weather returns "
+        "when the ground shows nothing.":
+            "El análisis sobre el suelo muestra los colores del sol despejado; el tiempo "
+            "vuelve cuando el suelo no muestra nada.",
         "Weather: {weather}": "Tiempo: {weather}",
         "Wildlife and Falling Leaves": "Fauna y hojas que caen",
     },

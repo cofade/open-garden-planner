@@ -918,6 +918,11 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   the six lights nearest to the point the camera looks at **light** the garden around them
   (leaves, lawn and ground included); the lights go off at sunrise. In 2D they cast the
   usual solid-footprint shadow; their 3D shadow is their posts' (ADR-059's table).
+- **FR-3D-LIVE-09** (L5.2): While an Analyze drape lies on the 3D ground (2D Shadows on the
+  Ground, or Hours of Sun on the Ground — Sweep the Day included), the weather and the
+  morning dew **pause**: the garden shows the clear sun's look, so the drape's colours read
+  as its legend's. The Weather button keeps the chosen weather's name and adds "(paused
+  while analysing)"; with Nothing on the Ground the chosen weather returns.
 
 Acceptance (L5): `tests/integration/test_living_garden.py` (§8.10 — the toolbar's day and
 year playback through the real app and its clock; the Weather menu, the life switch and

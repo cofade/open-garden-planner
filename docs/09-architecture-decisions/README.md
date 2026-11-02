@@ -9651,5 +9651,58 @@ fence-like overstatement) — the shadow table of ADR-059's builders addendum. T
 Beauty Board's `--living` shots, and the frozen `--selftest`: a second small frame — a rainy
 night with one garden light, in perspective — compiles the particle shaders and the point-light
 path from the bundle and must show the lamp's warm glow (`selftest.judge_living_frame`; a broken
-particle shader fails it, `test_quick3d_selftest.py`). Cross-refs: FR-3D-LIVE-01 … 08, §8.29.13, §8.10.16,
+particle shader fails it, `test_quick3d_selftest.py`). Cross-refs: FR-3D-LIVE-01 … 09, §8.29.13, §8.10.16,
 PF-L3D-18.
+
+**Addendum (3D review of the L5 board, before the draft PR)**: The `ogp-3d-reviewer`'s first
+pass rejected the board: one P0 and three P1s. Truth was intact (38 truth frames bit-identical
+to the merge base but two pixels by 1 luma; no weather moved a shadow centroid by more than
+3.3 cm). The fixes:
+1. **A weather pauses under an Analyze drape (P0).** The drapes are alpha-blended over a
+   ground the weather recolours: under snow the hours-of-sun drape's saturation fell to 0.31
+   of the clear look's and its hue moved by up to 59° (p90), so its colour key no longer read
+   as its legend. Decision 2's "the drapes are untouched" must hold for their PIXELS: while a
+   drape lies on the ground (2D shadows or hours of sun; Sweep the Day included) the look is
+   `living_look(sun, preset, "clear", dew=False)` — the sun's own look (`LookController.
+   set_analysing`, told by the workspace on every drape change). The Weather button keeps the
+   chosen weather and adds "(paused while analysing)"; Nothing on the Ground brings it back
+   (FR-3D-LIVE-09). The drape frames are then the clear frames, so the review's hue gate (≤ 2.7°)
+   holds by construction. Rejected: opaque drapes under a weather (they would hide the ground
+   the analysis is about).
+2. **The fog under a cloud (P1).** `FOG_OF_HORIZON` was calibrated on the clear sky's texture;
+   an overcast sky draws its horizon row otherwise, so the fog drew 4 luma above the overcast
+   noon horizon and 3.6 under its night — a seam in every cloudy weather that the board's
+   distant-horizon gate raised. `weather.weather_fog` scales the fog by 1 + cloud × (−0.045 by
+   day … +0.23 at night, by `twilight`); the look controller's lagging-sky fog uses it with the
+   SHOWN sky's `cloud`. The board's `--living --horizon` now runs the horizon probe under
+   overcast, rain and snow too (`HORIZON_WEATHERS`). Measured (high, 1280 × 720): near steps at
+   most 1.86 luma in every cloudy mood (night 4.08 → 0.56), every distant row ≤ 2.87; clear
+   unchanged (max 3.0).
+3. **Lanterns and bulbs (P1).** The heads drew as neutral white boxes with dark cores: the
+   point light stood inside the bulb's ball (a culled sphere lit from within renders dark) and
+   lit the lantern's glossy pane at full strength. The light now stands `LIGHT_BELOW_CM` (3 cm)
+   under the lantern or a string's middle bulb (`builders.lights.lamp_light` — the one function
+   the light reads); `constantFade` 4 with brightness 9.4 keeps the 1.5-m pool of 1 / 3.5 / 7
+   while the near field drops to a third; the glow is drawn 6 cm towards the camera, in front of
+   its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder. The
+   pane went: the constant fade is a floor, so a pane round its lamp is lit at the near-field
+   strength wherever the light stands, and through Filmic at night exposure it drew cream
+   (hue ~50°) whatever its tint. Isolated dark pixels of the night frame 41 → 1; the glow adds
+   light of hue 12–31° (the head with the lamp-lit wall behind it: hue 46–53°, saturation 0.27,
+   was a neutral white).
+4. **Life is a count (P1).** The look's life shares were opacities; blended in linear HDR a
+   wing at 9 % still lifted a dark lawn by 39 luma (80 ghost butterflies under overcast, 67 at
+   dawn → 25 and 3, every one opaque). A share now collapses the particles whose seed lies
+   above it; glows (fireflies, bulbs) also dim by it. Wings stand in a 0.9-rad V at rest (flat
+   they read as slivers), the white wing is a cream (0.70, 0.70, 0.64), and a
+   leaf or butterfly within 2 m of the camera is not drawn (the 1,278-px white blade; largest
+   butterfly blob now 403 px).
+
+Smaller fixes of the same review: the dew rises over 4° from dawn instead of switching on;
+fireflies stay under 2.5 m and fade over the last 25° of azimuth before solar midnight (either
+hemisphere); falling leaves tumble well out of the horizontal; rain streaks are at least
+1.3 px wide (alpha 0.27, the same total brightness) and flakes at least 2.6 px; the wet ground's
+specular is 0.25 (0.40 drew the plan edge as a 1.8-luma step at a golden hour). Deferred to
+#687: overcast contact shade, fading lamp pools, snow on roofs and bed soil, a dew ground mist,
+the leaf colour from the tree. Left to the owner (the PR): how far a weather may fade a shadow
+(rain keeps IoU 0.24 at 15°), the rain sky's brightness, whether snow may fall on any date.
