@@ -16,8 +16,7 @@ import inspect
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPoint, QPointF
-from PyQt6.QtGui import QColor, QImage
+from PyQt6.QtCore import QPoint, QPointF
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
 from open_garden_planner.core.commands import GroupCommand
@@ -25,7 +24,6 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.arc_item import ArcItem
-from open_garden_planner.ui.canvas.items.background_image_item import BackgroundImageItem
 from open_garden_planner.ui.canvas.items.bezier_item import BezierItem
 from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
@@ -117,15 +115,7 @@ def _smart_symbol(layer_id=None) -> SmartSymbolItem:
     return SmartSymbolItem("raised_bed_rows", 1, {"rows": 4}, layer_id=layer_id)
 
 
-def _background_image(layer_id=None) -> BackgroundImageItem:
-    image = QImage(4, 4, QImage.Format.Format_ARGB32)
-    image.fill(QColor("white"))
-    array = QByteArray()
-    buffer = QBuffer(array)
-    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-    assert image.save(buffer, "PNG")
-    buffer.close()
-    return BackgroundImageItem("bg.png", _pixmap_data=bytes(array))
+
 
 
 #: Every item type whose context menu must offer the entries.
@@ -144,7 +134,6 @@ FACTORIES = [
     _construction_circle,
     _group,
     _smart_symbol,
-    _background_image,
 ]
 
 # (factory, labels with one foreign object also selected, labels when alone)
@@ -163,7 +152,6 @@ ITEM_CASES = [
     pytest.param(_construction_circle, {GROUP}, set(), id="ConstructionCircleItem"),
     pytest.param(_group, {GROUP, UNGROUP}, {UNGROUP}, id="GroupItem"),
     pytest.param(_smart_symbol, {GROUP}, set(), id="SmartSymbolItem"),
-    pytest.param(_background_image, {GROUP}, set(), id="BackgroundImageItem"),
 ]
 
 
@@ -402,6 +390,32 @@ def test_nested_groups_ungroup_one_level_at_a_time(qtbot, monkeypatch) -> None:
     assert inner.scene() is None
 
 
+def test_a_just_grouped_selection_offers_ungroup_only(qtbot, monkeypatch) -> None:
+    """The state every user is in right after Ctrl+G: Qt leaves the members
+    flagged selected, so the menu must still see ONE top-level object (#674
+    review P0; PF-CAN-36)."""
+    view = _canvas(qtbot)
+    scene = view.scene()
+    first = _rectangle(layer_id=scene.active_layer.id)
+    second = _rectangle(layer_id=scene.active_layer.id)
+    scene.addItem(first)
+    scene.addItem(second)
+    first.setSelected(True)
+    second.setSelected(True)
+
+    view.group_selected()
+    group = first.parentItem()
+    assert isinstance(group, GroupItem)
+    # The members are still reported as selected by Qt — that is the trap.
+    assert set(scene.selectedItems()) != {group}
+
+    labels = _labels(_open_menu(group, monkeypatch))
+    assert labels & {GROUP, UNGROUP} == {UNGROUP}
+
+    _open_menu(group, monkeypatch, choose=UNGROUP)
+    assert first.parentItem() is None and second.parentItem() is None
+
+
 def test_two_groups_ungroup_in_one_undo_step(qtbot, monkeypatch) -> None:
     view = _canvas(qtbot)
     scene = view.scene()
@@ -443,12 +457,12 @@ def test_the_shortcut_path_is_the_same_implementation(qtbot) -> None:
     first.setSelected(True)
     second.setSelected(True)
 
-    view._group_selected()  # compatibility alias used by older call sites
+    view.group_selected()
     group = first.parentItem()
     assert isinstance(group, GroupItem)
 
     group.setSelected(True)
-    view._ungroup_selected()
+    view.ungroup_selected()
     assert first.parentItem() is None
     assert group.scene() is None
 

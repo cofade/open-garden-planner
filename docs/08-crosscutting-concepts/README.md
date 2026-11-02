@@ -4590,7 +4590,7 @@ The map's calibration, crop/mosaic math and existing cancellation outcomes are u
 
 The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
 
-An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug (#441); the L1 branch routes chamfer and fillet copies and `PolylineItem.clone_with_points` through the same helper, and gives a trim result its pen through `adopt_pen`, the module's pen writer (§8.29.5).
+An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `fill_transform`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug (#441); the L1 branch routes chamfer and fillet copies and `PolylineItem.clone_with_points` through the same helper, and gives a trim result its pen through `adopt_pen`, the module's pen writer (§8.29.5).
 
 ## 8.29 3D scene pipeline (Phase 17 L1, #385, ADR-059)
 
@@ -7828,6 +7828,9 @@ Ctrl+G / Ctrl+Shift+G — so the menu can never offer a row the shortcut would
 refuse. `ungroupable_groups` keeps only TOP-LEVEL groups (`parentItem() is
 None`; Qt reports a group child as selected when its parent is, PF-CAN-36) and
 excludes `SmartSymbolItem`; a multi-group ungroup is one `CompoundCommand` (one
-undo step). Every menu calls `normalize_context_menu_selection` first. The
-15-type matrix (including the selectable background image) and the nested
-one-level rule are pinned by `tests/integration/test_group_context_menu.py`.
+undo step). Every menu normalises the selection first — through
+`normalize_context_menu_selection`, except the two construction-item menus, which
+already did the same two lines inline. The background image is deliberately NOT
+groupable (a backdrop grouped with ground surfaces re-bands it above them). The
+14-type matrix and the nested one-level rule are pinned by
+`tests/integration/test_group_context_menu.py`.

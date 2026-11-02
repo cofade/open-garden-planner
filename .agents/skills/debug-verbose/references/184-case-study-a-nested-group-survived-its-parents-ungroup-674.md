@@ -39,9 +39,14 @@ selection set is not the user's intent set when Qt's own selection propagation
 adds entries.
 
 **Fix.** `ungroupable_groups()` now keeps only `parentItem() is None` (and still
-excludes `SmartSymbolItem`); `groupable_selection()` already filtered children
-of groups. The nested test pins the one-level rule, and the two-group test pins
-that the whole gesture is one undo step (`CompoundCommand`).
+excludes `SmartSymbolItem`). A round-2 review then found the same trap on the
+Group side: `groupable_selection()` filtered only `GroupItem` children, so the
+plain members Qt reports as selected right after grouping made the new group's
+menu offer Group for a single group. Both filters now apply
+`parentItem() is None` to every item. The nested test pins the one-level rule,
+the just-grouped test pins the menu matrix in the real post-gesture state, and
+the two-group test pins that the whole gesture is one undo step
+(`CompoundCommand`).
 
 **Lesson.** When an operation acts on "the selection", filter to the *level* the
 operation is defined at (top-level groups) before it decides how many steps to

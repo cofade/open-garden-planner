@@ -70,12 +70,18 @@ def linked_ridge(item: QGraphicsItem) -> QGraphicsItem | None:
         )
     from open_garden_planner.ui.canvas.items import PolylineItem
 
-    if (
+    if not (
         isinstance(ridge, PolylineItem)
         and getattr(ridge, "object_type", None) == ObjectType.ROOF_RIDGE
     ):
-        return ridge
-    return None
+        return None
+    # The reverse link is the ownership proof: a copied/stale id must never let
+    # one house adopt another's ridge (review P1 of this package).
+    ridge_meta = getattr(ridge, "metadata", None)
+    owner = ridge_meta.get("owner_polygon_id") if isinstance(ridge_meta, dict) else None
+    if owner and str(owner) != str(getattr(item, "item_id", "")):
+        return None
+    return ridge
 
 
 def build_linked_ridge(
@@ -100,6 +106,20 @@ def build_linked_ridge(
     ridge.set_metadata("owner_polygon_id", str(owner_id))
     item.set_metadata("ridge_item_id", str(ridge.item_id))
     return ridge
+
+
+def update_house_ridges_under(item: QGraphicsItem) -> None:
+    """Re-derive the ridge of every HOUSE inside *item*'s child tree.
+
+    A group move/rotate changes each child's SCENE transform without changing
+    its local ``pos()``, so a HOUSE nested in a moved group would otherwise
+    leave its free-standing ridge behind (PF-CAN-34). Called from
+    ``GroupItem.itemChange`` for position/transform changes.
+    """
+    for child in item.childItems():
+        if getattr(child, "object_type", None) == ObjectType.HOUSE:
+            update_linked_ridge(child)
+        update_house_ridges_under(child)
 
 
 def update_linked_ridge(item: QGraphicsItem) -> None:

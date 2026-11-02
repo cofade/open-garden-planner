@@ -211,6 +211,33 @@ def test_the_command_does_not_mint_a_second_ridge_on_repeat_execute(qtbot) -> No
     assert len([i for i in scene.items() if isinstance(i, PolylineItem)]) == 1
 
 
+def test_a_grouped_house_carries_its_ridge_on_a_group_move(qtbot) -> None:
+    from open_garden_planner.core.commands import GroupCommand
+
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    other = RectangleItem(0, 0, 50, 50, layer_id=scene.active_layer.id)
+    scene.addItem(other)
+    scene.addItem(house)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    GroupCommand(scene, [house, other]).execute()
+    group = house.parentItem()
+    assert group is not None
+
+    before = [QPointF(p) for p in ridge.points]
+    group.setPos(group.pos() + QPointF(600.0, 250.0))
+
+    delta_x = ridge.points[0].x() - before[0].x()
+    delta_y = ridge.points[0].y() - before[0].y()
+    assert (delta_x, delta_y) == (600.0, 250.0)
+
+
 def test_a_converted_rectangle_ridge_follows_move_resize_and_rotation(qtbot) -> None:
     from open_garden_planner.ui.canvas.geometry_apply import apply_rect_like_geometry
 
@@ -279,6 +306,18 @@ def test_leaving_house_drops_the_link_and_undo_restores_it(qtbot) -> None:
     assert first.scene() is scene
 
 
+def test_a_dangling_link_is_cleared_when_the_house_stops_being_one(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    rect.object_type = ObjectType.HOUSE
+    rect.set_metadata("ridge_item_id", str(uuid.uuid4()))  # names nothing
+    panel = PropertiesPanel(command_manager=view.command_manager)
+
+    panel._on_property_changed(rect, "object_type", ObjectType.GARDEN_BED)
+
+    assert "ridge_item_id" not in rect.metadata
+
+
 def test_a_non_house_type_change_never_leaves_a_stale_ridge_link(qtbot) -> None:
     scene, view = _scene_view(qtbot)
     rect = _house_rect(scene)
@@ -287,6 +326,37 @@ def test_a_non_house_type_change_never_leaves_a_stale_ridge_link(qtbot) -> None:
     panel._on_property_changed(rect, "object_type", ObjectType.GARDEN_BED)
     panel._on_property_changed(rect, "object_type", ObjectType.LAWN)
     assert "ridge_item_id" not in rect.metadata
+
+
+def test_duplicating_a_house_gets_its_own_ridge(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    original = _house_rect(scene)
+    original._dispatch_change_type(ObjectType.HOUSE)
+    original_ridge = _ridge_of(original)
+    assert original_ridge is not None
+
+    original.setSelected(True)
+    view.duplicate_selected()
+    copies = [
+        item
+        for item in scene.items()
+        if isinstance(item, RectangleItem) and item is not original
+    ]
+    assert len(copies) == 1
+    copy = copies[0]
+    copy_ridge = _ridge_of(copy)
+    assert copy_ridge is not None and copy_ridge is not original_ridge
+    assert copy_ridge.metadata["owner_polygon_id"] == str(copy.item_id)
+
+    before = [QPointF(p) for p in original_ridge.points]
+    copy.setPos(copy.pos() + QPointF(900.0, 0.0))
+    assert original_ridge.points == before, "the copy re-targeted the original's ridge"
+
+    copy.setSelected(True)
+    original.setSelected(False)
+    view._delete_selected_items()
+    assert original_ridge.scene() is scene
+    assert linked_ridge(original) is original_ridge
 
 
 def test_ridge_metadata_is_a_stable_uuid_pair(qtbot) -> None:

@@ -87,11 +87,13 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   dissolves every selected top-level group in **one undo step**. A smart symbol may be grouped but
   never ungrouped (its members are generated from its parameters). Right-clicking an unselected
   object replaces the selection first, on every item type including group, smart symbol, callout,
-  text, journal pin, construction geometry and the background image. The menu never offers a row
-  the shortcut would refuse: both read `group_item.groupable_selection` / `ungroupable_groups`, and
-  dispatch calls the view's `group_selected` / `ungroup_selected`. No new persisted field.
-  Acceptance: `tests/integration/test_group_context_menu.py` (15 item types, real `contextMenuEvent`,
-  menu matrix, nested one-level rule, one-step multi-group undo, selection normalisation).
+  text, journal pin and construction geometry. The background image is deliberately **not**
+  groupable (it is a plan backdrop; grouping it would re-band it above ground surfaces). The menu
+  never offers a row the shortcut would refuse: both read `group_item.groupable_selection` /
+  `ungroupable_groups`, and dispatch calls the view's `group_selected` / `ungroup_selected`. No new
+  persisted field. Acceptance: `tests/integration/test_group_context_menu.py` (14 item types, real
+  `contextMenuEvent`, menu matrix, the just-grouped state, nested one-level rule, one-step
+  multi-group undo, selection normalisation).
 - **FR-EDIT-23** *(issue #665)*: A filled object's texture can be **turned, scaled and shifted**
   independently of its geometry from the Properties panel: **Pattern Angle** (degrees clockwise,
   0 = as authored), **Pattern Scale** (multiplier, 1.0 = authored tile), and **Pattern Offset X/Y**

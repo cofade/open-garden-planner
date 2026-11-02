@@ -523,15 +523,8 @@ class BackgroundImageItem(QGraphicsPixmapItem):
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu for background image options."""
-        from .group_menu import build_group_context_menu, normalize_context_menu_selection
-
-        normalize_context_menu_selection(self)
         _ = QCoreApplication.translate
         menu = QMenu()
-
-        group_actions = build_group_context_menu(menu, self)
-        if group_actions.offered:
-            menu.addSeparator()
 
         # Calibrate action
         calibrate_action = menu.addAction(_("BackgroundImageItem", "Calibrate Scale..."))
@@ -561,10 +554,7 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         remove_action = menu.addAction(_("BackgroundImageItem", "Remove Image"))
         remove_action.triggered.connect(self._remove_self)
 
-        chosen = menu.exec(event.screenPos())
-        # Group/Ungroup act on the whole selection through the view; the other
-        # entries are wired to ``triggered`` and have already run.
-        group_actions.dispatch(chosen, self.scene())
+        menu.exec(event.screenPos())
 
     def _show_calibration_dialog(self) -> None:
         """Start inline calibration mode."""

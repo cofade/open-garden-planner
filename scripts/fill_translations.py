@@ -3564,8 +3564,8 @@ _DRAWING_TOOLS_TRANSLATIONS: dict[str, dict[str, str]] = {
         "Reset Pattern": "Muster zurücksetzen",
         "Restore the pattern's original angle, scale and offset":
             "Ursprünglichen Winkel, Maßstab und Versatz des Musters wiederherstellen",
-        "Turns the texture only; the object's geometry and measurements stay unchanged":
-            "Dreht nur die Textur; Geometrie und Maße des Objekts bleiben unverändert",
+        "Turns the 2D texture only; the object's geometry and measurements stay unchanged":
+            "Dreht nur die 2D-Textur; Geometrie und Maße des Objekts bleiben unverändert",
     },
 }
 for _ctx, _strings in _DRAWING_TOOLS_TRANSLATIONS.items():

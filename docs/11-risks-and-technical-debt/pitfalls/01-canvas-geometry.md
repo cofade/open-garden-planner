@@ -452,7 +452,10 @@ version filtered `scene.selectedItems()` for `GroupItem` and built one
 shape into an outer group, the inner group still reported selected (Qt mirrors a
 group's selection state on its children, even though `GroupCommand` had called
 `setSelected(False)` on it), so one click dissolved the outer *and* the inner
-group. The menu's availability logic already filtered top-level groups
-(`groupable_selection`); the dispatch did not. `ungroupable_groups()` now keeps only
-`parentItem() is None` and still excludes a smart symbol. A child's `isSelected()`
-is a fact about its group, not evidence that the user chose the child.
+group. The first fix filtered only GroupItem children, not every child, so the
+menu still counted the plain members Qt reports as selected and offered Group on a
+single selected group; a second grouping then emptied the first. Both filters now
+keep only `parentItem() is None` for EVERY item (`groupable_selection` and
+`ungroupable_groups`), and `ungroupable_groups` still excludes a smart symbol. A
+child's `isSelected()` is a fact about its group, not evidence that the user chose
+the child.

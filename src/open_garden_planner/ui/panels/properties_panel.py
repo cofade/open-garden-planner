@@ -2409,7 +2409,7 @@ class PropertiesPanel(QWidget):
             angle_spin.setSuffix("°")  # a unit symbol, not translated (cf. " cm")
             angle_spin.setToolTip(
                 self.tr(
-                    "Turns the texture only; the object's geometry and "
+                    "Turns the 2D texture only; the object's geometry and "
                     "measurements stay unchanged"
                 )
             )

@@ -4343,10 +4343,6 @@ class CanvasView(QGraphicsView):
         self._command_manager.execute(command)
         self.set_status_message(self.tr("Grouped {n} items").format(n=len(selected)))
 
-    def _group_selected(self) -> None:
-        """Compatibility alias for :meth:`group_selected` (kept for callers)."""
-        self.group_selected()
-
     def ungroup_selected(self) -> None:
         """Ungroup all selected groups in ONE undo step (Ctrl+Shift+G).
 
@@ -4378,10 +4374,6 @@ class CanvasView(QGraphicsView):
             if len(commands) == 1
             else self.tr("Ungrouped {n} groups").format(n=len(commands))
         )
-
-    def _ungroup_selected(self) -> None:
-        """Compatibility alias for :meth:`ungroup_selected` (kept for callers)."""
-        self.ungroup_selected()
 
     def copy_selected(self) -> None:
         return self._clipboard_operations.copy_selected()

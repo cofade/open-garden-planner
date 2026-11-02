@@ -487,8 +487,8 @@ TRANSLATIONS = {
         "Reset Pattern": "Restablecer patrón",
         "Restore the pattern's original angle, scale and offset":
             "Restaurar el ángulo, la escala y el desplazamiento originales del patrón",
-        "Turns the texture only; the object's geometry and measurements stay unchanged":
-            "Gira solo la textura; la geometría y las medidas del objeto no cambian",
+        "Turns the 2D texture only; the object's geometry and measurements stay unchanged":
+            "Gira solo la textura 2D; la geometría y las medidas del objeto no cambian",
         "Unlink": "Desvincular",
         "Water": "Agua",
         "Wildflower Meadow": "Pradera silvestre",

@@ -2335,6 +2335,14 @@ class ProjectManager(QObject):
                 hedge_item.setBrush(
                     fill_brush(hedge_item, ProjectManager._stored_fill_color(hedge_item))
                 )
+                if "stroke_color" in obj:
+                    pen = hedge_item.pen()
+                    pen.setColor(QColor(obj["stroke_color"]))
+                    if "stroke_width" in obj:
+                        pen.setWidthF(obj["stroke_width"])
+                    if stroke_style:
+                        pen.setStyle(stroke_style.to_qt_pen_style())
+                    adopt_pen(hedge_item, pen)
                 if "rotation_angle" in obj:
                     hedge_item._apply_rotation(obj["rotation_angle"])
                 return hedge_item

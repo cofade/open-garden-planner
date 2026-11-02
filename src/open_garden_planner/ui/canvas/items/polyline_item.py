@@ -265,7 +265,12 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 if clip is not None:
                     budget = current_render_walk_cap() or budget
             if clip is None:
-                path_paint = PathStylePaint(self._points, self.pen(), self.path())
+                path_paint = PathStylePaint(
+                    self._points,
+                    self.pen(),
+                    self.path(),
+                    fill_transform=getattr(self, "fill_transform", None),
+                )
             else:
                 path_paint = PathStylePaint(
                     self._points,
@@ -273,6 +278,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     self.path(),
                     clip=clip,
                     budget=budget,
+                    fill_transform=getattr(self, "fill_transform", None),
                 )
             path_paint.paint(painter, style)
             self._paint_selection(painter, option)

@@ -22,16 +22,20 @@ from .garden_item import GardenItemMixin
 def groupable_selection(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
     """The selection ``Ctrl+G`` acts on (issue #674).
 
-    A group's members are not selectable, so every selected item is top-level;
-    the one exception the shortcut has always made is a *selected* GroupItem
-    whose ``parentItem()`` is not None (defensive: it cannot happen through the
-    canvas). Both the shortcut and every context menu use this one filter, so
-    the menu can never offer Group for a selection the shortcut would refuse.
+    Only TOP-LEVEL items are group members. Qt keeps a group's children flagged
+    selected while the group is selected, so ``scene.selectedItems()`` right
+    after a grouping gesture returns the new group *and its members*; counting
+    the members would offer Group on a single selected group and a second
+    grouping would empty the first (PF-CAN-36). The background image is a
+    backdrop, not a plan object: grouping it re-bands it above ground surfaces
+    and breaks the z-order, so it is deliberately not groupable.
     """
+    from .background_image_item import BackgroundImageItem
+
     return [
         item
         for item in items
-        if not isinstance(item, GroupItem) or item.parentItem() is None
+        if item.parentItem() is None and not isinstance(item, BackgroundImageItem)
     ]
 
 
@@ -92,6 +96,16 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         members — and Qt tells THEM nothing (their own position did not change):
         the group announces it (``garden_item.handle_item_change``)."""
         self.handle_item_change(change, value)
+        if change in (
+            QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
+            QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
+        ):
+            # A member's local pos does not change when the group moves, so its
+            # free-standing ridge has to be re-derived from the new scene
+            # transform (PF-CAN-34; review P2 of #690).
+            from ..roof_ridge_link import update_house_ridges_under
+
+            update_house_ridges_under(self)
         return super().itemChange(change, value)
 
     # ------------------------------------------------------------------

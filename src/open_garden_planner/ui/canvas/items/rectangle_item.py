@@ -384,14 +384,14 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     self.exit_vertex_edit_mode()
                 self.hide_resize_handles()
                 self.hide_rotation_handle()
-        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged and self.is_vertex_edit_mode:
-            self._update_rect_annotations()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            if self.is_vertex_edit_mode:
+                self._update_rect_annotations()
+            self._update_area_label()
+            self._update_house_ridge()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
-        elif change in (
-            QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
-            QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
-        ):
+        elif change == QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged:
             self._update_area_label()
             self._update_house_ridge()
 

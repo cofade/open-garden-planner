@@ -1349,9 +1349,11 @@ class ChangeObjectTypeCommand(Command):
             return
         if was_house:
             ridge = linked_ridge(self._item) or self._created_ridge or self._removed_ridge
+            # Clear the link even when the named ridge is gone: a dangling id
+            # would keep the scene treating this item as a ridge owner (PF-PER-25).
+            self._link(None)
             if ridge is not None:
                 self._removed_ridge = ridge
-                self._link(None)
                 if ridge.scene() is not None:
                     scene = ridge.scene()
                     if scene is not None:
@@ -2927,11 +2929,27 @@ class MoveToLayerCommand(Command):
                 (used in the undo description only; not looked up at undo time).
         """
         # Snapshot (item, original_layer_id, original_stack_order) at
-        # construction — before any move.
-        self._moves: list[tuple[QGraphicsItem, UUID | None, int | None]] = [
+        # construction - before any move.
+        moves: list[tuple[QGraphicsItem, UUID | None, int | None]] = [
             (item, item.layer_id, getattr(item, "stack_order", None))
             for item in items
         ]
+        # A linked ROOF_RIDGE is a sibling, not a child: without this it stays
+        # on the house's old layer and can be hidden with it (review P2 of #690).
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
+
+        known = {id(item) for item, _, _ in moves}
+        for item, _layer, _rank in list(moves):
+            if getattr(item, "object_type", None) is None:
+                continue
+            if getattr(item.object_type, "name", "") != "HOUSE":  # type: ignore[attr-defined]
+                continue
+            ridge = linked_ridge(item)
+            if ridge is not None and id(ridge) not in known:
+                moves.append((ridge, getattr(ridge, "layer_id", None),
+                              getattr(ridge, "stack_order", None)))
+                known.add(id(ridge))
+        self._moves = moves
         self._target_layer_id = target_layer_id
         self._scene = scene
         self._target_layer_name = target_layer_name
