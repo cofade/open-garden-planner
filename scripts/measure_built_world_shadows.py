@@ -11,7 +11,9 @@ What is compared, for one item at a sun elevation:
 
 * **2D** — what the sun & shade overlay and the hours-of-sun map cast for it:
   ``core.shadow_geometry.compute_scene_shadows`` of its footprint (for a line item
-  the STROKE strip, ``polyline_footprint``) extruded to its height. A solid prism.
+  the STROKE strip, ``polyline_footprint``) extruded to its height — a solid prism,
+  except a pitched building (its roof and wall triangles, #440) and a styled fence
+  (the strip weighted by its transmittance: the ratio column, #440).
 * **3D** — the ground shadow of the mesh its production builder makes: every
   triangle projected along the sun ray onto the ground, united. What a shadow map
   of that mesh shows, without the map's resolution.
@@ -21,19 +23,17 @@ union (IoU) of the two, and the REACH difference — how much further (+) or les
 far (-) the 3D shadow extends along the shadow direction than the 2D one, in cm:
 where the shadow's TIP is. The truth gate "Shadows" (``ogp-lush-cinematic`` §1,
 IoU >= 0.85) is defined on a solid box caster, where both models are the same
-solid. The built world departs from the prism in four stated ways, and this table
-is what each costs:
+solid. The built world's 3D bodies differ from the 2D model in these stated ways,
+and this table is what each costs today (the history before #440: ADR-059):
 
 * a LINE has no thickness in the plan (its stroke is a line weight), so the 3D
   body has a nominal section: wider than the stroke for a wall, a stone-wall or
   hedge fence — a wider shadow, more so at a high sun;
 * a PICKET, METAL or CHAIN-LINK fence is mostly air: its 3D shadow is the bars'
-  and wires', a fraction of the solid strip the 2D model casts;
-* a HOUSE or shed has a gable roof: before #440 the 2D model extruded a flat-topped
-  prism to the ridge height (its top edge at the FAR WALL, the gable's ridge
-  mid-house: the 3D tip was short by up to half the depth minus the overhang, 270 cm
-  less 30 on a 5.4 m deep house); #440 projects the roof and its walls, and the
-  pitched houses read a reach of 0.0;
+  and wires', a fraction of the strip — the 2D model weights the strip by that
+  transmittance (ratio ~1.0, IoU against the unweighted strip low);
+* a HOUSE or shed with a pitched roof is projected as its roof and walls in both
+  models (reach 0.0); a FLAT roof is still the prism (its row: "house, flat roof");
 * a POT tapers and a hedge is a leaf shell drawn in from its outline.
 
 A raised bed and a box are prisms in both: IoU 1.00, reach equal. A plain panel

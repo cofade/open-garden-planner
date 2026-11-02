@@ -159,4 +159,6 @@ def test_the_living_board_renders_every_shot(tmp_path: Path) -> None:
         assert dusk["monotone"], (weather, dusk["rises"])
         assert dusk["sunset_step"] <= dusk["day_ramp_max_step"], (weather, dusk)
         evening = metrics[f"moods_{weather}"]["medium"]["sunset_over_noon"]
-        assert evening["luminance"] < 0.85, (weather, evening)   # 0.68-0.79; 0.98 before
+        # measured at medium: 0.761 / 0.781 / 0.674 (ADR-070's high-preset figures: 0.77 /
+        # 0.79 / 0.68); 0.98 before the round-3 fix
+        assert evening["luminance"] < 0.85, (weather, evening)

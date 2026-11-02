@@ -6061,13 +6061,14 @@ only, and correct their heights with a fit after the fact.
   wall 4–5 cm, hedge 8 cm), the 2D model extrudes that strip, and the 3D bodies use the L0
   board's sections (a wall `max(stroke, 30)` cm, a hedge `max(stroke, 40)` cm): a WIDER shadow,
   more so the higher the sun — fine at 15° (IoU ≥ 0.94), under the box gate at 60° (0.73–0.81);
-  **(2) porosity** — a picket, metal or chain-link fence is mostly air, so its 3D shadow lies
-  INSIDE the 2D strip's and is 67 %, 19–24 % and 13–19 % of it: the hours-of-sun map shows full
-  shade behind a chain-link fence where the 3D fence lets more than four fifths of the sun
-  through; **(3) gable against prism** — 2D extrudes a building's footprint flat-topped to its
-  ridge height; **(4) taper and leaf shell** — a pot narrows to its foot, a hedge's block is its
+  **(2) porosity** (until #440) — a picket, metal or chain-link fence is mostly air, so its 3D
+  shadow lies INSIDE the unweighted 2D strip's and was 67 %, 19–24 % and 13–19 % of it
+  (cc2b3eb7's ratio column): the hours-of-sun map showed full shade behind a chain-link fence;
+  **(3) gable against prism** (until #440) — 2D extruded a building's footprint flat-topped to
+  its ridge height; **(4) taper and leaf shell** — a pot narrows to its foot, a hedge's block is its
   footprint drawn in by 4 cm. Which rows meet IoU 0.85 is the table's to say, not a sentence's.
-  Since #440 reasons (2) and (3) no longer hold for the analysis: a styled fence is weighted by its transmittance, and a pitched building's roof and
+  Since #440 reasons (2) and (3) no longer hold for the analysis: a styled fence is weighted
+  by its transmittance, and a pitched building's roof and
   walls are projected — the gabled, hip and single-slope houses in the table above read IoU 1.00
   and a reach of 0.0. The analysis — overlay and heatmap — stays the 2D
   model's, draped onto the 3D ground (ADR-048, the scope note of criterion 8); the 3D shadow is
@@ -6088,7 +6089,8 @@ only, and correct their heights with a fit after the fact.
   shrank to 108 cm and 21 cm at 60°. The roof was right; the difference was the 2D model's
   flat-topped prism, which #440 replaced. **(b) The same building with the sun along its
   ridge:** the 30 cm overhang carried the ridge height past the gable wall, +30 cm. *Still do
-  not agree:* **(c) Nominal sections:** a wall's coping edge stands 17 cm from the centre line
+  not agree, among these L0 builder rows (the open objects of L4/L5 — a parasol, a swing, the
+  garden lights — and the flat-roofed house are in the table):* **(c) Nominal sections:** a wall's coping edge stands 17 cm from the centre line
   where the 4 cm stroke's edge stands at 2, so its tip lies 15 cm further (stone-wall fence
   +14.5, hedge fence +19.5). An earlier version of
   this paragraph claimed the opposite of (a)–(c) in one universal sentence; **no sentence about
@@ -9815,8 +9817,9 @@ past midnight, the firefly season's date, one life assembly for the product and 
    hour) makes up for a clear key light; under cloud it made a sunset 98 % as bright as noon.
    The cloudy day now holds NOON's exposure in the share of its cloud (in stops, like
    `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon
-   (rain 0.79, snow 0.68; a clear one 0.57; in luma 0.84 / 0.85 / 0.81, clear 0.67) — mean
-   LINEAR luminance of the board's mood
+   (rain 0.79, snow 0.68; a clear one 0.57; in luma 0.84 / 0.85 / 0.81, clear 0.67; the
+   high preset — the render tier's medium run reads 0.76 / 0.78 / 0.67) — mean LINEAR
+   luminance of the board's mood
    camera, `render_beauty_board.py --living --moods --dusk` (`moods_<weather>` /
    `sunset_over_noon`), re-measured at the final head with the stop blend and the matched set
    sun; every dusk monotone (`dusk_<weather>`).
