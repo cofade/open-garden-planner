@@ -185,6 +185,36 @@ def test_ridge_geometry_follows_a_rotated_shape(qtbot) -> None:
     assert abs(p1.y() - p2.y()) > 300.0
 
 
+def test_moving_a_house_to_another_layer_moves_its_ridge(qtbot) -> None:
+    from open_garden_planner.core.commands import MoveToLayerCommand
+    from open_garden_planner.models.layer import Layer
+
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    scene.addItem(house)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    original_layer = ridge.layer_id
+
+    target = Layer(name="Target", z_order=99)
+    scene.add_layer(target)
+    command = MoveToLayerCommand([house], target.id, scene, target.name)
+    view.command_manager.execute(command)
+
+    assert house.layer_id == target.id
+    assert ridge.layer_id == target.id
+    assert command.description == "Move 1 item(s) to layer 'Target'"
+
+    view.command_manager.undo()
+    assert house.layer_id == original_layer
+    assert ridge.layer_id == original_layer
+
+
 def test_the_command_does_not_mint_a_second_ridge_on_repeat_execute(qtbot) -> None:
     scene, view = _scene_view(qtbot)
     rect = _house_rect(scene)
@@ -326,6 +356,35 @@ def test_a_non_house_type_change_never_leaves_a_stale_ridge_link(qtbot) -> None:
     panel._on_property_changed(rect, "object_type", ObjectType.GARDEN_BED)
     panel._on_property_changed(rect, "object_type", ObjectType.LAWN)
     assert "ridge_item_id" not in rect.metadata
+
+
+def test_a_copied_link_cannot_adopt_the_source_ridge(qtbot) -> None:
+    """A mirror/legacy copy carries the metadata verbatim; the reverse link
+    refuses it, so moving or deleting the copy never touches the source."""
+    scene, view = _scene_view(qtbot)
+    source = _house_rect(scene)
+    source._dispatch_change_type(ObjectType.HOUSE)
+    source_ridge = _ridge_of(source)
+    assert source_ridge is not None
+
+    clone = PolygonItem(
+        [QPointF(0, 0), QPointF(400, 0), QPointF(400, 200), QPointF(0, 200)],
+        object_type=ObjectType.HOUSE,
+        metadata=dict(source.metadata),
+        layer_id=scene.active_layer.id,
+    )
+    scene.addItem(clone)
+    assert _ridge_of(clone) is None  # the reverse owner link does not match
+
+    before = [QPointF(p) for p in source_ridge.points]
+    clone.setPos(900.0, 900.0)
+    assert source_ridge.points == before
+
+    clone.setSelected(True)
+    source.setSelected(False)
+    view._delete_selected_items()
+    assert source_ridge.scene() is scene
+    assert linked_ridge(source) is source_ridge
 
 
 def test_duplicating_a_house_gets_its_own_ridge(qtbot) -> None:

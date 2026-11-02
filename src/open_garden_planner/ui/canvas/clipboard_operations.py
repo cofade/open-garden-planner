@@ -63,8 +63,18 @@ def _with_house_ridges(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
         for child in item.childItems():
             yield from houses_of(child)
 
-    result = list(items)
-    for item in items:
+    # A copied ridge whose owner was stripped is an orphan; the fresh ridge
+    # built below replaces it. (Selecting a house and its ridge together used
+    # to paste both, leaving one unowned line behind.)
+    result = [
+        item
+        for item in items
+        if not (
+            getattr(getattr(item, "object_type", None), "name", "") == "ROOF_RIDGE"
+            and not getattr(item, "metadata", {}).get("owner_polygon_id")
+        )
+    ]
+    for item in list(result):
         for house in houses_of(item):
             ridge = build_linked_ridge(house, getattr(house, "layer_id", None))
             if ridge is not None:

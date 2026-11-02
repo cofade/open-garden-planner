@@ -1740,6 +1740,12 @@ class ProjectManager(QObject):
             dash = stroke_style_of(item.pen())
             if dash is not None and dash is not StrokeStyle.SOLID:
                 data["stroke_style"] = dash.name
+            # A textured path/fence fill can carry the additive pattern
+            # transform too (#665); without this a copy's transform would be
+            # lost on save while the loader already reads it.
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             # Save path/fence style preset
             if hasattr(item, "path_fence_style") and item.path_fence_style and item.path_fence_style.name != "NONE":
                 data["path_fence_style"] = item.path_fence_style.name

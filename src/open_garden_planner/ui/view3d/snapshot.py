@@ -1072,9 +1072,18 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
     if kind == "HOUSE" and not resolved:  # a drawn ridge belongs to the DRAWN outline
         ridge_id = metadata.get("ridge_item_id")
         if ridge_id:
-            ridge = _ridge_param(frame, lookup.get(ridge_id))
-            if ridge is not None:
-                params[PARAM_RIDGE] = ridge
+            candidate = lookup.get(ridge_id)
+            owner = (
+                candidate.get_metadata("owner_polygon_id")
+                if candidate is not None and hasattr(candidate, "get_metadata")
+                else None
+            )
+            # A missing reverse link is tolerated (older/hand-authored plans);
+            # a mismatched one is a copied or stale id and never adopted.
+            if not owner or str(owner) == str(getattr(item, "item_id", "")):
+                ridge = _ridge_param(frame, candidate)
+                if ridge is not None:
+                    params[PARAM_RIDGE] = ridge
     stroke = getattr(item, "stroke_color", None)
     if stroke is None and shape == OUTLINE_POLYLINE:
         stroke = item.pen().color()  # the line's visible colour: a preset-less polyline

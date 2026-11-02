@@ -11,7 +11,7 @@ import json
 
 import pytest
 from PyQt6.QtCore import QPointF, QRectF
-from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPixmap
+from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QGraphicsScene,
@@ -281,6 +281,34 @@ def test_save_and_reload_preserve_the_values(manager, scene, tmp_path) -> None:
     assert again_transform == stored_transform
 
 
+def test_the_legacy_hedge_migration_keeps_the_saved_look(manager, scene, tmp_path) -> None:
+    """A HEDGE_SECTION rectangle becomes a polygon; its appearance must survive."""
+    hedge = RectangleItem(
+        0,
+        0,
+        200,
+        40,
+        object_type=ObjectType.HEDGE_SECTION,
+        fill_pattern=FillPattern.HEDGE,
+    )
+    hedge.fill_transform = FillTransform(angle_deg=12, scale=1.25, offset_y_cm=3)
+    hedge.stroke_color = QColor("#ffabcdef")
+    hedge.stroke_width = 4.0
+    hedge.setPen(QPen(QColor("#ffabcdef"), 4.0))
+    scene.addItem(hedge)
+    path = tmp_path / "hedge.ogp"
+    manager.save(scene, path)
+
+    scene.clear()
+    manager.load(scene, path)
+    loaded = next(i for i in scene.items() if isinstance(i, PolygonItem))
+    assert loaded.object_type is ObjectType.HEDGE_POLYGON
+    assert loaded.fill_transform == FillTransform(12, 1.25, 0, 3)
+    assert loaded.pen().color() == QColor("#ffabcdef")
+    assert loaded.pen().widthF() == 4.0
+    assert style_gaps(loaded) == []
+
+
 def test_untouched_plan_writes_no_transform_key(manager, scene, tmp_path) -> None:
     _rect(scene)
     path = tmp_path / "plain.ogp"
@@ -292,6 +320,27 @@ def test_untouched_plan_writes_no_transform_key(manager, scene, tmp_path) -> Non
     manager.load(scene, path)
     loaded = next(i for i in scene.items() if isinstance(i, RectangleItem))
     assert loaded.fill_transform.is_identity
+
+
+def test_a_polyline_transform_round_trips(manager, scene, tmp_path) -> None:
+    """A textured path/fence can carry the transform through a save too (#665)."""
+    item = PolylineItem(
+        [QPointF(0, 0), QPointF(300, 0)],
+        object_type=ObjectType.PATH,
+    )
+    item.fill_pattern = FillPattern.GRAVEL
+    item.fill_transform = FillTransform(angle_deg=18, scale=0.75, offset_x_cm=4)
+    scene.addItem(item)
+    path = tmp_path / "path.ogp"
+    manager.save(scene, path)
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    assert any("fill_transform" in obj for obj in raw["objects"])
+
+    scene.clear()
+    manager.load(scene, path)
+    loaded = next(i for i in scene.items() if isinstance(i, PolylineItem))
+    assert loaded.fill_transform == FillTransform(18, 0.75, 4, 0)
 
 
 def test_old_file_without_the_key_loads_identity(manager, scene, tmp_path) -> None:

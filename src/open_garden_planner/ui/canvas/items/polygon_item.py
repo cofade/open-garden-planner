@@ -377,16 +377,15 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         return base
 
     def _find_ridge(self) -> "QGraphicsItem | None":
-        """Look up the associated roof ridge item in the scene by metadata ID."""
-        rid = self.get_metadata("ridge_item_id")
-        if not rid:
-            return None
-        scene = self.scene()
-        if scene is None:
-            return None
-        for item in scene.items():
-            if hasattr(item, "item_id") and str(item.item_id) == rid:
-                return item
+        """Look up the associated roof ridge through the one validated lookup.
+
+        ``linked_ridge`` checks the reverse ``owner_polygon_id``, so a copied
+        or stale id can never make this house adopt (and then move/delete)
+        another house's ridge.
+        """
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
+
+        return linked_ridge(self)
         return None
 
     def _update_ridge_on_boundary(self) -> None:

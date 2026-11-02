@@ -492,6 +492,52 @@ def test_right_click_on_an_unselected_object_replaces_the_selection(
     assert labels & {GROUP, UNGROUP} == alone
 
 
+def test_deleting_a_group_restores_its_membership_on_undo(qtbot) -> None:
+    view = _canvas(qtbot)
+    scene = view.scene()
+    first = _rectangle(layer_id=scene.active_layer.id)
+    second = _rectangle(layer_id=scene.active_layer.id)
+    scene.addItem(first)
+    scene.addItem(second)
+    first.setSelected(True)
+    second.setSelected(True)
+    view.group_selected()
+    group = first.parentItem()
+    assert isinstance(group, GroupItem)
+
+    view._delete_selected_items()
+    assert group.scene() is None
+    view.command_manager.undo()
+    assert group.scene() is scene
+    assert first.parentItem() is group and second.parentItem() is group
+
+
+def test_the_background_image_is_deliberately_not_groupable(qtbot) -> None:
+    """A backdrop grouped with ground surfaces re-bands it above them."""
+    from PyQt6.QtCore import QBuffer, QByteArray, QIODevice
+    from PyQt6.QtGui import QColor, QImage
+
+    from open_garden_planner.ui.canvas.items.background_image_item import (
+        BackgroundImageItem,
+    )
+    from open_garden_planner.ui.canvas.items.group_item import (
+        groupable_selection,
+        top_level_selection,
+    )
+
+    image = QImage(2, 2, QImage.Format.Format_ARGB32)
+    image.fill(QColor("white"))
+    array = QByteArray()
+    buffer = QBuffer(array)
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    assert image.save(buffer, "PNG")
+    buffer.close()
+    background = BackgroundImageItem("bg.png", _pixmap_data=bytes(array))
+    rect = _rectangle()
+    assert groupable_selection([background, rect]) == [rect]
+    assert top_level_selection([background, rect]) == [background, rect]
+
+
 def test_right_click_inside_a_multi_selection_keeps_it(qtbot, monkeypatch) -> None:
     view = _canvas(qtbot)
     scene = view.scene()

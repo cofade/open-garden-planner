@@ -477,6 +477,17 @@ def collect_identified_casters(
             if kind in BUILDING_KINDS and len(footprints) == 1:
                 ridge_id = meta_dict.get("ridge_item_id") if kind == "HOUSE" else None
                 ridge_item = lookup.get(ridge_id) if ridge_id else None
+                # A copied/stale link must not let this house use another's ridge.
+                if ridge_item is not None:
+                    owner = (
+                        ridge_item.get_metadata("owner_polygon_id")
+                        if hasattr(ridge_item, "get_metadata")
+                        else None
+                    )
+                    # Missing owner: older/hand-authored plan, accepted.
+                    # Mismatched owner: a copied/stale link, never adopted.
+                    if owner and str(owner) != str(getattr(item, "item_id", "")):
+                        ridge_item = None
                 roof_tris = _building_roof_triangles(
                     item, kind, meta_dict, height, ridge_item, at_date
                 )

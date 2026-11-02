@@ -39,6 +39,18 @@ def groupable_selection(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
     ]
 
 
+def top_level_selection(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
+    """The selection with every group child removed.
+
+    Qt keeps a group's children flagged selected while the group is selected, so
+    a bulk action that asks ``scene.selectedItems()`` would move or delete the
+    group AND each member again (a member moved twice; a delete/undo that
+    restores children as top-level items and empties the group). Every
+    selection-wide action filters here first (PF-CAN-36).
+    """
+    return [item for item in items if item.parentItem() is None]
+
+
 def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
     """The selected groups ``Ctrl+Shift+G`` may dissolve.
 
@@ -99,6 +111,7 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         if change in (
             QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
             QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
+            QGraphicsItem.GraphicsItemChange.ItemRotationHasChanged,
         ):
             # A member's local pos does not change when the group moves, so its
             # free-standing ridge has to be re-derived from the new scene

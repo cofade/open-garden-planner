@@ -2618,11 +2618,15 @@ construction path and one geometry computation
 (`compute_roof_ridge_endpoints`, mapped through the item's own transform). A
 converted rectangle's ridge follows the host on move, resize and rotation via
 `update_linked_ridge` (the same derivation `PolygonItem` uses; called from the
-item hooks and the canonical `apply_rect_like_geometry`, so undo/redo follows
-too). The ridge is always created for a HOUSE, matching what drawing one
-produces; this codebase has no `roof_shape` property (the issue's wording
-predates the current `roof_style` metadata, which is 3D-only and does not suppress
-the 2D ridge). Pinned by `tests/integration/test_house_roof_ridge.py`.
+item hooks, the group-move hook and the canonical `apply_rect_like_geometry`, so
+undo/redo follows too). A ridge is created on every path that creates or converts
+a HOUSE — drawing, `create_object`, the type change, paste and duplicate. Mirror,
+offset and array copies do not build one yet (follow-up); they can never adopt the
+source's, because every lookup (`linked_ridge`, `PolygonItem._find_ridge`, delete,
+3D snapshot, sun/shadow) validates the reverse `owner_polygon_id`. This codebase
+has no `roof_shape` property (the issue's wording predates the current
+`roof_style` metadata, which is 3D-only and does not suppress the 2D ridge).
+Pinned by `tests/integration/test_house_roof_ridge.py`.
 
 ## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
 

@@ -391,7 +391,10 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             self._update_house_ridge()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
-        elif change == QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged:
+        elif change in (
+            QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
+            QGraphicsItem.GraphicsItemChange.ItemRotationHasChanged,
+        ):
             self._update_area_label()
             self._update_house_ridge()
 

@@ -3290,7 +3290,9 @@ class CanvasView(QGraphicsView):
         Also removes any distance constraints involving the deleted items.
         If a bed with children is selected, prompts the user.
         """
-        selected = list(self.scene().selectedItems())
+        from open_garden_planner.ui.canvas.items.group_item import top_level_selection
+
+        selected = top_level_selection(list(self.scene().selectedItems()))
         if not selected:
             return
 
@@ -3351,10 +3353,11 @@ class CanvasView(QGraphicsView):
                 # children on execute and reattaching on undo.
                 pass
 
-        # Expand deletion to include associated roof ridges (metadata-linked, not Qt children)
-        from uuid import UUID as _UUID
-
+        # Expand deletion to include associated roof ridges (metadata-linked, not
+        # Qt children). The validated lookup refuses a copied/stale link, so
+        # deleting a mirrored house never deletes its source's ridge.
         from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
 
         _sel_ids = {item.item_id for item in selected if isinstance(item, GardenItemMixin)}
         for _item in list(selected):
@@ -3362,15 +3365,10 @@ class CanvasView(QGraphicsView):
                 continue
             if _item.object_type != ObjectType.HOUSE:
                 continue
-            ridge_id_str = _item.metadata.get("ridge_item_id")
-            if ridge_id_str and hasattr(self._canvas_scene, "find_item_by_id"):
-                try:
-                    ridge = self._canvas_scene.find_item_by_id(_UUID(ridge_id_str))
-                except ValueError:
-                    continue
-                if ridge is not None and ridge.item_id not in _sel_ids:
-                    selected.append(ridge)
-                    _sel_ids.add(ridge.item_id)
+            ridge = linked_ridge(_item)
+            if ridge is not None and ridge.item_id not in _sel_ids:
+                selected.append(ridge)
+                _sel_ids.add(ridge.item_id)
 
         # Collect constraints to remove for deleted items (garden + construction)
         graph = self._canvas_scene.constraint_graph
@@ -3424,7 +3422,9 @@ class CanvasView(QGraphicsView):
         ``keyPressEvent`` is even called. Only bare and Shift+arrow ever
         reach this function's ``event.modifiers()`` check below.
         """
-        selected = self.scene().selectedItems()
+        from open_garden_planner.ui.canvas.items.group_item import top_level_selection
+
+        selected = top_level_selection(list(self.scene().selectedItems()))
         if not selected:
             return
 

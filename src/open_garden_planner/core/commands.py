@@ -2934,6 +2934,9 @@ class MoveToLayerCommand(Command):
             (item, item.layer_id, getattr(item, "stack_order", None))
             for item in items
         ]
+        # The description names what the user selected, not the derived ridge
+        # appended below (otherwise moving one house reads "Move 2 items").
+        self._user_move_count = len(moves)
         # A linked ROOF_RIDGE is a sibling, not a child: without this it stays
         # on the house's old layer and can be hidden with it (review P2 of #690).
         from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
@@ -2956,7 +2959,7 @@ class MoveToLayerCommand(Command):
 
     @property
     def description(self) -> str:
-        n = len(self._moves)
+        n = self._user_move_count
         return QCoreApplication.translate(
             "Commands", "Move {count} item(s) to layer '{name}'"
         ).format(count=n, name=self._target_layer_name)
