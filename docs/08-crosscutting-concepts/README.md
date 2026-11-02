@@ -7621,8 +7621,10 @@ is theirs: hidden, the clock stops; reduced motion rests it at 0 (a photograph; 
 presents no frame — the render tier's gate); compatibility mode never runs it. A particle
 whose kind is off this instant (`uButterflies` 0 at night) is moved beyond the far plane by its
 vertex shader, so a time-of-day step costs a uniform, not a buffer. A share between 0 and 1 is
-a COUNT — the particles whose seed lies above it are moved away — never an opacity: blended
-in linear light, a butterfly at 9 % still lifted a dark lawn by 39 luma. Rain and snow wrap inside a
+a COUNT — the particles whose seed lies above it shrink away — never an opacity: blended
+in linear light, a butterfly at 9 % still lifted a dark lawn by 39 luma. Near the camera a
+leaf or butterfly shrinks to nothing by its anchor's depth (2.5 → 1.5 m); a quad is never cut
+per vertex (some corners beyond the far plane tear it into a sliver). Rain and snow wrap inside a
 box around the camera's target, world-anchored: the box slides, the drops do not. In the
 top-down truth view no particle is drawn.
 

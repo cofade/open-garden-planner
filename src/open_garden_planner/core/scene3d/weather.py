@@ -166,6 +166,11 @@ def is_evening(sun: SunState) -> bool:
 DEW_RISE_DEG: Final = 4.0
 DEW_FULL_DEG: Final = GOLDEN_DEG
 DEW_GONE_DEG: Final = 18.0
+#: ... and fades over this many degrees of azimuth before the meridian: on a winter day
+#: whose sun never reaches ``DEW_GONE_DEG`` it lay until solar noon and then went out at
+#: once (3D review of L5, round 2: 0.33 at noon in Berlin on 21 December, 0.97 in
+#: Helsinki).
+_DEW_NOON_FADE_DEG: Final = 25.0
 
 
 def dew_amount(sun: SunState, weather: str = "clear") -> float:
@@ -178,8 +183,12 @@ def dew_amount(sun: SunState, weather: str = "clear") -> float:
     if elevation < TWILIGHT_DEG or elevation >= DEW_GONE_DEG:
         return 0.0
     if elevation <= DEW_FULL_DEG:
-        return _ramp(elevation, TWILIGHT_DEG, TWILIGHT_DEG + DEW_RISE_DEG)
-    return (DEW_GONE_DEG - elevation) / (DEW_GONE_DEG - DEW_FULL_DEG)
+        amount = _ramp(elevation, TWILIGHT_DEG, TWILIGHT_DEG + DEW_RISE_DEG)
+    else:
+        amount = (DEW_GONE_DEG - elevation) / (DEW_GONE_DEG - DEW_FULL_DEG)
+    # the meridian is noon (due south north of the tropics, due north south of them)
+    azimuth = float(sun.azimuth_deg) % 360.0
+    return amount * _ramp(min(azimuth, 180.0 - azimuth), 0.0, _DEW_NOON_FADE_DEG)
 
 
 def _ramp(value: float, low: float, high: float) -> float:
@@ -207,10 +216,13 @@ _PCF_UNDER_CLOUD: Final = 8.0
 _PROBE_UNDER_CLOUD: Final = 1.45
 _EXPOSURE_UNDER_CLOUD_EV: Final = 0.15
 _SATURATION_UNDER_CLOUD: Final = 0.80
-#: The ground in the rain: darker (wet earth and stone) and shinier — at 0.40 the
-#: specular drew the plan's edge as a 1.8-luma step at a golden hour (3D review of L5).
+#: The ground in the rain: darker (wet earth and stone) and a little shinier. Roughness
+#: is the lever, not specular: at 0.55 the dimmed key light still left a crisp lobe on
+#: the wet meadow at a low sun — a cream glint carved by the shadows, a sunlit look in
+#: the rain — and drew the plan's edge as a 1.75-luma step; at 0.8 the step is 0.32 and
+#: the glint is gone (3D review of L5, round 2).
 _WET_GROUND_DARKEN: Final = 0.22
-_WET_GROUND_ROUGHNESS: Final = 0.55
+_WET_GROUND_ROUGHNESS: Final = 0.8
 _WET_GROUND_SPECULAR: Final = 0.25
 #: Snow on the ground (linear): a cool white — ``ground.frag`` mixes the same (pinned).
 SNOW_LINEAR: Final = (0.80, 0.84, 0.89)
@@ -303,9 +315,13 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     mood, sky, shadow = look.mood, look.sky, look.shadow
     if cloud > 0.0:
         top, horizon = _overcast(sky.top, sky.horizon, cloud)
+        # the disc fades INTO the cloud — its colour towards the horizon's; its energy
+        # stays: Qt's procedural sky blends the disc and its falloff towards sun colour x
+        # sun energy, so energy 0 drew a BLACK sun with a dark halo (3D review of L5,
+        # round 2: luma 0 at the sun, 150 around it, under overcast and rain)
         sky = replace(sky, top=top, horizon=horizon,
                       ground_bottom=mix_linear(sky.ground_bottom, "#5a5f62", cloud * 0.6),
-                      sun_energy=sky.sun_energy * (1.0 - cloud), cloud=cloud)
+                      sun_disc=mix_linear(sky.sun_disc, horizon, cloud), cloud=cloud)
         mood = replace(
             mood,
             sun_brightness=mood.sun_brightness * (1.0 + (_KEY_UNDER_CLOUD - 1.0) * cloud),

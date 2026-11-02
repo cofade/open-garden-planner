@@ -9688,25 +9688,49 @@ to the merge base but two pixels by 1 luma; no weather moved a shadow centroid b
    its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder. The
    pane went: the constant fade is a floor, so a pane round its lamp is lit at the near-field
    strength wherever the light stands, and through Filmic at night exposure it drew cream
-   (hue ~50°) whatever its tint. Isolated dark pixels of the night frame 41 → 1; the glow adds
-   light of hue 12–31° (the head with the lamp-lit wall behind it: hue 46–53°, saturation 0.27,
-   was a neutral white).
+   (hue ~50°) whatever its tint. Dark speckles in the lantern heads (luma < 40 inside a ring
+   > 110, the review's speckle probe) 41 → 1 — the board's `isolated_dark_px` reads 41 → 36,
+   the lantern's black post and bars against its own glow; clipped pixels in the heads 55 % →
+   6.6 % (round 2). The glow adds light of hue 12–31° (the head with the lamp-lit wall behind
+   it: hue 46–53°, saturation 0.27, was a neutral white).
 4. **Life is a count (P1).** The look's life shares were opacities; blended in linear HDR a
    wing at 9 % still lifted a dark lawn by 39 luma (80 ghost butterflies under overcast, 67 at
    dawn → 25 and 3, every one opaque). A share now collapses the particles whose seed lies
-   above it; glows (fireflies, bulbs) also dim by it. Wings stand in a 0.9-rad V at rest (flat
-   they read as slivers), the white wing is a cream (0.70, 0.70, 0.64), and a
-   leaf or butterfly within 2 m of the camera is not drawn (the 1,278-px white blade; largest
-   butterfly blob now 403 px).
+   above it. Wings stand in a 0.9-rad V at rest (flat they read as slivers), the white wing
+   is a cream (0.70, 0.70, 0.64), and a leaf or butterfly near the camera is not drawn (the
+   1,278-px white blade; largest butterfly blob now 403 px) — round 2 made both a SIZE ramp.
 
 Smaller fixes of the same review: the dew rises over 4° from dawn instead of switching on;
 fireflies stay under 2.5 m and fade over the last 25° of azimuth before solar midnight (either
 hemisphere); falling leaves tumble well out of the horizontal; rain streaks are at least
-1.3 px wide (alpha 0.27, the same total brightness) and flakes at least 2.6 px; the wet ground's
-specular is 0.25 (0.40 drew the plan edge as a 1.8-luma step at a golden hour). Deferred to
+1.3 px wide (alpha 0.27, the same total brightness) and flakes at least 2.6 px. Deferred to
 #687: overcast contact shade, fading lamp pools, snow on roofs and bed soil, a dew ground mist,
-the leaf colour from the tree. Left to the owner (the PR): how far a weather may fade a shadow
-(rain keeps IoU 0.24 at 15°), the rain sky's brightness, whether snow may fall on any date.
+the leaf colour from the tree. Left to the owner (the PR): how far a weather may fade a shadow,
+the rain sky's brightness, whether snow may fall on any date.
+
+**Addendum (3D review, round 2)**: The round-1 fixes held (drape pause, cloudy horizon,
+lantern heads, ghost wings), and the round-2 review looked where round 1 had not — a cloudy
+sky facing the sun, a rainy low sun, a moving walk view, a winter noon:
+1. **No black sun.** The overcast sky set `sun_energy` × (1 − cloud); Qt's
+   `ProceduralSkyTextureData` blends the disc and its falloff towards sun colour × energy, so
+   energy 0 drew a BLACK disc with a dark halo (luma 0 at the sun, 150 around it, under
+   overcast and rain). The energy stays; the disc's COLOUR fades into the horizon by cloud.
+2. **No sun glint on wet ground.** At roughness 0.55 the dimmed key light still left a crisp
+   specular lobe on the wet meadow at a low sun — a cream glint carved by the shadows — and a
+   1.75-luma plan-edge step; the round-1 specular change (0.40 → 0.25) did not move it.
+   Roughness is the lever: 0.8 (specular 0.25) gives an edge step of 0.32, no glint, and rain
+   shadows of IoU 0.65 / 0.95 / 0.94 at 15 / 35 / 60° (0.24 / 0.66 / 0.93 before: most of the
+   "rain fades the shadow" was the glint).
+3. **A whole particle shrinks; none is cut.** Round 1 cut leaves and butterflies within 2 m
+   PER VERTEX: a wing straddling the line sent some corners beyond the far plane and tore
+   into a sliver (40 % of animated walk frames). The size now ramps to zero by the ANCHOR's
+   depth (`smoothstep(150, 250, depth)` — closer bands read a cabbage white as a 728-px
+   blade). The same for the life share: a particle whose seed lies above it shrinks away over
+   a narrow band instead of popping; and a firefly is no longer dimmed on top of its count
+   (its light faded as the share squared).
+4. **The dew fades before noon.** On a winter day whose sun never reaches 18° the dew lay until
+   solar noon and went out at once (0.33 at noon in Berlin on 21 December, 0.97 in Helsinki);
+   it now fades over the last 25° of azimuth before the meridian, in either hemisphere.
 
 **Addendum (senior review, round 1)**: The garden's life had no end-to-end path under test:
 the test bench builds no Plant Forge, so `season_sink` never ran, and the tooling assembles

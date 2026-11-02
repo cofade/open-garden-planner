@@ -29,6 +29,13 @@ What the ENGINE taught (RTX 4070, Direct3D 11, 2026-11-02):
   floor, so moving the light does not help): × night exposure 2.4 through Filmic it drew
   cream (hue ~50°) whatever its tint — the lantern lost its pane, and the glow is a small
   hot centre in a warm halo (1.0, 0.48, 0.13) kept under the shoulder.
+- **`ProceduralSkyTextureData` with `sunEnergy` 0 draws a BLACK sun.** The disc and its
+  falloff are blended towards sun colour × sun energy, so a "hidden" sun is a black disc with
+  a dark halo (luma 0 against 150, measured under overcast). Hide a sun by its COLOUR (the
+  horizon's), never by its energy.
+- **Never cut a quad per vertex.** Sending some corners of a quad to `vec4(0, 0, 2, 1)` (beyond
+  the far plane) and not the others draws a torn sliver towards the screen centre. Collapse a
+  particle as a whole (every corner, decided by its anchor) or scale its size to 0.
 - **A particle share is a count, not an alpha.** Blending happens in linear HDR before the
   tone curve: a quad at 9 % opacity lifted a dark lawn by 39 luma. Collapse the particles
   whose seed `fract(phase * 7.919)` lies above the share instead.

@@ -13,8 +13,9 @@
 // WHICH plants have life is the plan's (the buffer); WHEN it shows is the look's
 // (uLeaves, uButterflies, uFireflies, uLamps): a kind at 0 is collapsed to nothing. A
 // share between is HOW MANY show (a leaf, a butterfly, a firefly whose seed lies above
-// it is collapsed) - never how transparent: blended in linear light, a wing at 9 %
-// still lifted a dark lawn by 39 luma (3D review of L5). Glows also fade by it.
+// it shrinks away over a narrow band - no pop) - never how transparent: blended in
+// linear light, a wing at 9 % still lifted a dark lawn by 39 luma (3D review of L5).
+// A bulb has no count: its glow fades by the share.
 VARYING vec4 vColor;
 VARYING vec2 vUV;
 VARYING float vKind;
@@ -34,7 +35,9 @@ void MAIN()
     vColor = vec4(COLOR.rgb, 1.0);
     vGlow = 0.0;
     float phase = NORMAL.x;
-    if (life <= 0.001 || (kind != 3 && fract(phase * 7.919) >= life)) {
+    // how far this particle is into the share: 0 collapsed, 1 full size (a bulb: always)
+    float grow = kind == 3 ? 1.0 : clamp((life - fract(phase * 7.919)) * 12.0, 0.0, 1.0);
+    if (life <= 0.001 || grow <= 0.0) {
         vUV = vec2(0.0);
         POSITION = vec4(0.0, 0.0, 2.0, 1.0);    // beyond the far plane on every backend: clipped
         return;
@@ -66,7 +69,9 @@ void MAIN()
                : c == 2 ? vec2(0.5, 1.0) : vec2(-0.5, 1.0);
         float size = mix(5.0, 7.5, speed);
         float depth = max(dot(body - CAMERA_POSITION, CAMERA_DIRECTION), 1.0);
-        size = max(size, 2.0 * depth * uPerDepth);
+        // near the camera the whole butterfly shrinks away (by its body, not per corner:
+        // a cut per vertex tore the wings - 3D review of L5, round 2)
+        size = max(size, 2.0 * depth * uPerDepth) * smoothstep(150.0, 250.0, depth) * grow;
         vec3 outward = lateral * side * cos(flap) + vec3(0.0, 1.0, 0.0) * sin(flap);
         world = body + heading * (q.x * size * 0.8) + outward * (q.y * size);
         vUV = vec2(q.x + 0.5, q.y);
@@ -119,17 +124,13 @@ void MAIN()
             along = cross(toCamera, across);
         }
         float depth = max(dot(center - CAMERA_POSITION, CAMERA_DIRECTION), 1.0);
-        size = max(size, (kind == 0 ? 3.0 : 2.5) * depth * uPerDepth);
+        size = max(size, (kind == 0 ? 3.0 : 2.5) * depth * uPerDepth) * grow;
+        if (kind == 0)
+            size *= smoothstep(150.0, 250.0, depth);   // a leaf near the lens shrinks away
         world = center + across * (c.x * size) + along * (c.y * size);
         vUV = c + 0.5;
     }
-    if (kind >= 2)
-        vGlow *= life;
-    // a leaf or a butterfly within 2 m of the camera is not drawn: there it fills the frame
-    // as a blade (3D review of L5: a 1,278-px white wing in front of the low camera)
-    if (kind <= 1 && dot(world - CAMERA_POSITION, CAMERA_DIRECTION) < 200.0) {
-        POSITION = vec4(0.0, 0.0, 2.0, 1.0);
-        return;
-    }
+    if (kind == 3)
+        vGlow *= life;   // a firefly is counted already; dimmed too it faded as life squared
     POSITION = VIEWPROJECTION_MATRIX * vec4(world, 1.0);
 }

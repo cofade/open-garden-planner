@@ -86,7 +86,9 @@ def test_a_cloudy_sky_dims_the_key_and_fades_the_shadows_never_the_other_way(
     assert cloudy.mood.sun_brightness < clear.mood.sun_brightness or clear.mood.sun_brightness == 0
     assert cloudy.shadow.factor < clear.shadow.factor
     assert cloudy.shadow.pcf_factor >= clear.shadow.pcf_factor
-    assert cloudy.sky.sun_energy <= clear.sky.sun_energy
+    # the disc fades into the cloud by its COLOUR; its energy stays (energy 0 drew a black
+    # sun with a dark halo in Qt's procedural sky: 3D review of L5, round 2)
+    assert cloudy.sky.sun_energy == clear.sky.sun_energy
     assert cloudy.sky.cloud == WEATHER_SPECS[weather].cloud > 0.0
     # the preset's cost is never the weather's business
     assert cloudy.preset == clear.preset
@@ -159,10 +161,10 @@ def test_a_new_weather_builds_its_sky_at_once(weather: str) -> None:
 
 
 def test_an_overcast_day_is_still_day() -> None:
-    """The phase is the sun's elevation, not the disc's energy: an overcast sky with
-    no disc is no twilight (else sunset would not be built at once)."""
+    """The phase is the sun's elevation, not the disc: an overcast sky whose disc has
+    faded into the cloud is no twilight (else sunset would not be built at once)."""
     noon = living_look(sun(40.0), "high", "overcast").sky
-    assert noon.sun_energy == 0.0 and sky_phase(noon) == "day"
+    assert noon.sun_disc == noon.horizon and sky_phase(noon) == "day"
     assert sky_phase(living_look(sun(-2.0), "high", "overcast").sky) == "twilight"
     assert sky_phase(living_look(sun(-12.0), "high", "overcast").sky) == "night"
 
@@ -194,6 +196,20 @@ def test_the_dew_comes_and_goes_without_a_step() -> None:
     amounts = [dew_amount(sun(e, 90.0)) for e in elevations]
     assert max(abs(b - a) for a, b in zip(amounts, amounts[1:], strict=False)) <= 0.03
     assert max(amounts) == 1.0
+
+
+@pytest.mark.parametrize("latitude_like", [(4.0, 150.0), (10.0, 160.0), (14.0, 175.0)])
+def test_a_winter_dew_fades_before_noon_not_at_it(latitude_like: tuple[float, float]) -> None:
+    """A winter sun that never reaches 18°: the dew fades over the last 25° of azimuth
+    before the meridian instead of lying until solar noon and going out at once (3D
+    review of L5, round 2) — in both hemispheres (noon due south, or due north)."""
+    elevation, _azimuth = latitude_like
+    for noon in (180.0, 0.0):
+        towards = -1.0 if noon == 180.0 else 1.0           # the morning side of that noon
+        just_before = dew_amount(sun(elevation, (noon + towards * 0.1) % 360.0))
+        assert just_before < 0.01, "no step at the meridian"
+        hour_before = dew_amount(sun(elevation, (noon + towards * 40.0) % 360.0))
+        assert hour_before > 0.0 or elevation >= DEW_GONE_DEG
 
 
 def test_no_dew_while_a_drape_lies_on_the_ground() -> None:
