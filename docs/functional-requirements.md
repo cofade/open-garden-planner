@@ -926,7 +926,8 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   tooltip says which. A new location or document forgets the old forecast.
 - **FR-3D-LIVE-07** (L5.4): **Garden Light** (a lantern on a post; circle tool) and **String
   Lights** (a LINE drawn like a fence: a post at every click, the wire hanging between two
-  posts with a bulb every 40 cm along it, never closer than 6 cm to a post) are placeable objects with a gallery entry,
+  posts with a bulb every 40 cm along it, kept 6 cm from the posts of its span where the span
+  is longer than 12 cm) are placeable objects with a gallery entry,
   translated name, Change Type membership for their shape (circles; lines), default height
   (110 cm / 250 cm) and 3D model. The lantern has a sprite; a string is drawn ALONG its line —
   its wire, glowing bulbs and a post at every point, the bulbs where its 3D model hangs them,

@@ -288,19 +288,32 @@ def test_the_point_light_stands_below_the_lamp(kind: str) -> None:
         mesh = next(part for part in parts if part.name == "bulbs").mesh.positions
         near = mesh[np.hypot(mesh[:, 0] - middle[0], mesh[:, 1] - middle[1]) < 4.0]
         assert len(near) and local[2] < near[:, 2].min(), "below the middle bulb"
-        assert local[:2] == pytest.approx(tuple(bulbs[:, :2].mean(axis=0))), "amid its bulbs"
 
 
-def test_a_looped_string_lights_the_space_it_hangs_round() -> None:
-    """Under its middle bulb a loop lit one corner (3D review of the line): the light
-    stands amid the bulbs — inside the loop — and under none of them."""
+@pytest.mark.parametrize("path", [
+    ((0.0, 0.0), (200.0, 0.0), (400.0, 0.0)),                         # straight, 3 posts, 10 bulbs
+    ((0.0, 0.0), (220.0, 0.0), (440.0, 0.0)),                         # straight, 3 posts, 11 bulbs
+    tuple((200.0 * i, 0.0) for i in range(5)),                        # straight, 5 posts
+    ((0.0, 0.0), (210.0, 40.0), (420.0, 0.0)),                        # a symmetric V, 11 bulbs
+    ((0.0, 0.0), (400.0, 0.0), (400.0, 400.0), (0.0, 400.0), (0.0, 0.0)),  # a closed square
+], ids=["straight-3-even", "straight-3-odd", "straight-5", "v", "loop"])
+def test_a_strings_point_light_stands_outside_every_post(path) -> None:
+    """Senior review round 12: the bulbs' centroid put the light INSIDE the middle post
+    of a straight string, and before ``POST_CLEAR_CM`` the middle bulb hung on the
+    middle post of a symmetric one. Under the middle bulb, kept clear of the posts, the
+    light is outside every post's box, and under a bulb."""
     from tests.unit.scene3d_builder_cases import line_record
 
-    square = ((0.0, 0.0), (400.0, 0.0), (400.0, 400.0), (0.0, 400.0), (0.0, 0.0))
-    record = line_record("STRING_LIGHTS", square, 250.0, width=12.0)
+    record = line_record("STRING_LIGHTS", path, 250.0, width=12.0)
     local = lamp_light(record, 250.0)
-    assert local is not None
-    assert local[:2] == pytest.approx((200.0, 200.0), abs=15.0)
+    lay = string_layout(record)
+    assert local is not None and lay is not None
+    half = STRING_POST_CM / 2.0
+    for px, py in lay.posts:
+        assert max(abs(local[0] - px), abs(local[1] - py)) > half + 2.0, (px, py, local)
+    bulbs = string_bulbs(record, 250.0)
+    assert bulbs is not None
+    assert np.hypot(bulbs[:, 0] - local[0], bulbs[:, 1] - local[1]).min() < 1e-6, "under a bulb"
 
 
 def test_a_strings_bulbs_hang_between_its_posts_and_sag() -> None:

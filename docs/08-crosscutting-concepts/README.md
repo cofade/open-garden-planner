@@ -2497,6 +2497,29 @@ Pinned by `tests/unit/test_quick3d_selftest.py`
 (`test_nothing_in_the_engine_package_writes_into_the_temp_directory`,
 `test_the_selftest_writes_its_log_beside_the_apps_logs_not_into_temp`).
 
+### A plan file sets the size of the work: bound it, and never redo it on a paint (Phase 17 L5, #389)
+
+Two findings of PR #699's automated security review, both about what a crafted `.ogp` can make
+the app do:
+
+- **A hostile outline given a light's type.** A self-crossing polygon typed `STRING_LIGHTS`
+  made the bulb lookup raise out of the 3D workspace's pass. The bulbs now follow the
+  builder's own plain-block rule (`builders.lights._box_of`: not ONE plain ring → no bulbs),
+  and the workspace's coordinator contains a failure instead of letting it escape.
+- **A line of any length.** A string of lights is drawn and built from its points, and a file
+  can hold millions of them. The layout stands it on at most `MAX_POSTS` (512) posts, evenly
+  chosen with the first and last kept (`core/string_lights._posts`), which bounds the picture,
+  the 3D model (about 77,000 triangles) and the lights. `PolylineItem` keeps the layout keyed
+  on its `QPainterPath`, a value Qt compares in C++, so a paint never repeats the O(points)
+  Python walk: a scene repaints far more often than a line changes. The walk itself is still
+  O(points) once per change. A cap at load, for every line, is the real bound (#703); a cap
+  per type is a patch.
+
+Rule: what a file's numbers multiply, bound where it is consumed, and cache whatever a paint
+would recompute. Pinned by `tests/unit/test_string_lights.py::test_a_line_of_twenty_thousand_points_stands_on_max_posts`
+and `tests/integration/test_string_lights_line.py::test_a_crafted_line_of_twenty_thousand_points_is_bounded`
+(one walk for two paints; a moved point lays it out again).
+
 ## 8.12 Constraint Solver Architecture
 
 The constraint solver lives in [`core/constraints.py`](../../src/open_garden_planner/core/constraints.py) and [`core/constraint_solver_newton.py`](../../src/open_garden_planner/core/constraint_solver_newton.py). It supports 17 constraint types and runs in two phases.
@@ -7685,9 +7708,8 @@ looks. The foliage and lawn shaders light leaves from a point light as from the 
 (`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampNear` (the constant
 fade) 4, `lampFade` 3.5, `lampBrightness` 9.4 at `#ffc98a` — the pool of the first cut's
 1 / 3.5 / 7 at 1.5 m with a third of its light within the lantern's first centimetres. The light stands
-3 cm under the lantern, or for a string amid its bulbs under its middle bulb's height
-(`builders.lights.lamp_light`): inside the bulb it lit the ball from within, and under the
-middle bulb a loop lit one corner. A bulb's glow is drawn 6 cm towards the camera, in front of
+3 cm under the lantern or a string's middle bulb (`builders.lights.lamp_light`), which the
+6 cm post clearance keeps off every post: inside the bulb it lit the ball from within. A bulb's glow is drawn 6 cm towards the camera, in front of
 its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder; the
 lantern has no glass pane — lit by its own lamp at the near-field strength, a pane drew a
 cream-white box at night exposure whatever its tint.

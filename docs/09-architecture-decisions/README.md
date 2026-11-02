@@ -9726,7 +9726,7 @@ to the merge base but two pixels by 1 luma; no weather moved a shadow centroid b
 3. **Lanterns and bulbs (P1).** The heads drew as neutral white boxes with dark cores: the
    point light stood inside the bulb's ball (a culled sphere lit from within renders dark) and
    lit the lantern's glossy pane at full strength. The light now stands `LIGHT_BELOW_CM` (3 cm)
-   under the lantern or a string's bulbs, amid them (`builders.lights.lamp_light` — the one function
+   under the lantern or a string's middle bulb (`builders.lights.lamp_light` — the one function
    the light reads); `constantFade` 4 with brightness 9.4 keeps the 1.5-m pool of 1 / 3.5 / 7
    while the near field drops to a third; the glow is drawn 6 cm towards the camera, in front of
    its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder. The
@@ -9907,9 +9907,10 @@ the garden's life, a new plan's forecast and the 3D lights, and changed two thin
 Its reviews then settled what the line left open. **A bulb keeps 6 cm from its span's posts**
 (`string_lights.POST_CLEAR_CM`): arc-length spacing put the middle bulb of every symmetric
 string with an odd count ON its middle post — a 2.6 cm ball inside a 4 cm post (3D review);
-no bulb moves further. **A string's point light stands amid its bulbs** (their centroid seen
-from above, under the middle bulb's height): under the middle bulb it stood on a V's middle
-post and lit none of the post beside it, and a loop lit one corner. The wire is 0.5 cm thick
+no bulb moves further. A string's point light stays under its middle bulb, which the clearance
+now keeps off every post: the bulbs' centroid, tried in round 11, stood inside the middle post
+of a straight string (senior review round 12). Where a loop's or an L's light should stand is
+a follow-up. The wire is 0.5 cm thick
 (0.35 broke into dashes at 7 m on Low). **The line's width sizes the 2D symbol only**, as a
 fence's stroke does: the 3D model builds real 4 cm posts and 2.6 cm bulbs at the same places;
 a width of 0, which a file may hold, is drawn at 12 cm by the bounds and the paint alike

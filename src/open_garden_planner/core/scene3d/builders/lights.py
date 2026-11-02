@@ -21,9 +21,9 @@ WHERE THE LIGHT IS — the bulb of a lantern, the bulbs of a string — is ONE f
 each (``lantern_bulb``, ``string_bulbs``), read by the builder that puts a bulb there
 and by ``core/scene3d/lights.py`` that makes it glow and light the garden at night:
 a light can never hang somewhere else than its bulb (one canonical path). The point
-light that lights the garden stands just BELOW the lantern or a string's bulbs, amid
-them (``lamp_light``): inside the bulb it lit the ball from within — the ball drew dark
-(3D review of L5).
+light that lights the garden stands just BELOW the lantern or a string's middle bulb
+(``lamp_light``): inside the bulb it lit the ball from within — the ball drew dark (3D
+review of L5).
 """
 
 from __future__ import annotations
@@ -104,11 +104,11 @@ def lantern_bulb(record: Record, height_cm: float) -> tuple[float, float, float]
 
 def lamp_light(record: Record, height_cm: float) -> tuple[float, float, float] | None:
     """Where the point light of a garden light or a string stands, item-local (cm; z up
-    from its soil): ``LIGHT_BELOW_CM`` under the lantern's floor; for a string, amid its
-    bulbs seen from above (their centroid) and below its middle bulb — under the middle
-    bulb itself it stood on the axis of the middle post of a V and lit none of the post
-    beside it, and a loop lit one corner instead of the space it hangs round (3D review
-    of the line). None for a record the builder builds as a plain block."""
+    from its soil): ``LIGHT_BELOW_CM`` under the lantern's floor, or under the middle
+    bulb of a string — which ``POST_CLEAR_CM`` keeps off every post (before it, that bulb
+    hung on the middle post of a symmetric string; the bulbs' centroid, tried in review,
+    stood inside the middle post of a straight one). None for a record the builder
+    builds as a plain block."""
     if record.kind == "GARDEN_LIGHT":
         box = _box_of(record)
         if box is None:
@@ -118,8 +118,7 @@ def lamp_light(record: Record, height_cm: float) -> tuple[float, float, float] |
     bulbs = string_bulbs(record, height_cm)
     if bulbs is None or not len(bulbs):
         return None
-    x, y = bulbs[:, :2].mean(axis=0)
-    z = bulbs[len(bulbs) // 2, 2]
+    x, y, z = bulbs[len(bulbs) // 2]
     return (float(x), float(y), float(z) - BULB_RADIUS_CM * BULB_SQUASH - LIGHT_BELOW_CM)
 
 
