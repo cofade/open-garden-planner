@@ -184,3 +184,6 @@
 | Case study: the pane that destroyed the widget talking to it, and a group frame that moved on reload (#658, #661) | [Read](181-case-study-panel-destroyed-its-own-sender-and-group-frame.md) |
 | Case study: a heartbeat that never saw its longest block (#452) | [Read](182-case-study-heartbeat-never-saw-its-longest-block-452.md) |
 | Case study: a site plan too big to decode, and a snapshot that re-encoded it (#659, #660) | [Read](183-case-study-a-site-plan-too-big-to-decode-659-660.md) |
+| Case study: an idle gate that counted the first picture (#389) | [Read](184-case-study-an-idle-gate-that-counted-the-first-picture-389.md) |
+| Case study: the old place's forecast on a new plan (#389) | [Read](185-case-study-the-old-places-forecast-on-a-new-plan-389.md) |
+| Case study: a menu button that read as a label (#389) | [Read](186-case-study-a-menu-button-that-read-as-a-label-389.md) |

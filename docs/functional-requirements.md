@@ -783,7 +783,9 @@ The built world complete (L4, #388, ADR-065).
   (250 cm), fire pit (30), planter pot (50), cold frame (45), rain barrel (100),
   water tap (80), swing (220), hammock (110) and pergola (250), which had none
   before L4's owner passes. In 2D an open frame (swing, hammock, pergola) shades its
-  whole footprint, as a fence casts a solid strip. A house is drawn in 2D in the terracotta of its 3D roof
+  whole footprint (a picket, metal or chain-link fence is weighted by its transmittance
+  since #440; the open
+  frames' and the garden light's is #698; a string of lights casts none, FR-3D-LIVE-08). A house is drawn in 2D in the terracotta of its 3D roof
   tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
   recoloured in 2D before L4 no longer shows that colour on its walls).
 - **FR-3D-BUILT-02** (L4.1): A house, garage or tool shed has **Roof style**
@@ -881,6 +883,79 @@ path's width in cm and its stones; an object without a height), the unit suites
 input), `tests/integration/test_bench_plans.py` (`bench_built.ogp`), the render
 tier `tests/integration/test_scene3d_ground_render.py` and the frozen
 `--selftest` (`ground.frag` compiled from the bundle).
+
+### The living garden (Phase 17 L5, #389, ADR-070)
+
+- **FR-3D-LIVE-01** (L5.1): The Plan & Sun toolbar's **Animate** plays either **the day**
+  (the time of day advances and wraps at midnight onto the same plan date — plant presence
+  and growth never change while it plays) or **the year** (the plan date advances at the
+  same time of day and wraps inside the plan's year), chosen in the menu beside the button,
+  at **Slow / Normal / Fast** (day: 5 / 10 / 30 minutes per step; year: 1 / 2 / 7 days per
+  step; a step every 0.2 s; "Normal" day is Phase 14's Animate). Every step is a write of
+  the one simulation clock: the 2D shadows, the hours of sun, the 3D light and the 3D
+  growth follow it (3D regrowth at most twice a second). Not stored: every session starts
+  with the day at Normal.
+- **FR-3D-LIVE-02** (L5.1): The 3D view names its **mood** in the Weather button's
+  tooltip — Night, Twilight, Rain, Snow, Overcast, Morning dew (a morning, from the end of
+  civil twilight until the sun is 18° up: a mist and a wet sheen on the leaves), Golden hour
+  (a clear sun at or below 12°) or Day — read from the frame's own look.
+- **FR-3D-LIVE-03** (L5.2): The 3D strip's **Weather** menu picks **Clear**, **Overcast**,
+  **Rain** or **Snow**. Weather changes how the garden LOOKS and nothing else: the sun's
+  position, the shadows' places, the 2D sun study and the hours-of-sun map stay as they
+  are. Overcast: a grey sky, no sun disc, soft and faint shadows. Rain: overcast, wet
+  leaves and ground, a nearer haze, stronger wind and falling rain. Snow: a pale sky, snow
+  on the ground and the leaves, falling snow, little wind. A new weather shows at once.
+  Not stored: every session starts clear.
+- **FR-3D-LIVE-04** (L5.2): Particles: rain and snow around the point the camera looks at;
+  **falling leaves** under trees and shrubs that are dropping their leaves on the plan
+  date; **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
+  **fireflies** among the plants on summer evenings (the hemisphere's June–August or
+  December–February, from dusk). At most **5,000** particles at once. "Wildlife and Falling
+  Leaves" in the Weather menu switches the leaves, butterflies and fireflies off and on.
+  The wind is a shader value the weather sets (sway and drift), not a simulation.
+- **FR-3D-LIVE-05** (L5.2): With **reduced motion** (Preferences → 3D View) nothing moves:
+  rain, snow and the garden's life are drawn still where they are, and an idle 3D view
+  presents no frame. While the 3D pane is hidden nothing ticks. In compatibility mode
+  (software rendering) they are drawn still. On the graphics card at Medium the particles
+  cost at most 15 % of a frame (measured: rain +3.7 %, snow +1.9 %).
+- **FR-3D-LIVE-06** (L5.3): **Today's Weather** follows the forecast the app shows in the
+  Planting Calendar (Open-Meteo, one fetch path: choosing Today's Weather asks the calendar's
+  weather widget for it, also while that tab is hidden) — clear, overcast, rain or snow from
+  the day's weather code — **only while the plan date is today**; on any other date, or
+  without a forecast (no garden location, offline, not loaded yet), it shows clear and its
+  tooltip says which. A new location or document forgets the old forecast.
+- **FR-3D-LIVE-07** (L5.4): **Garden Light** (a lantern on a post; circle tool) and **String
+  Lights** (a LINE drawn like a fence: a post at every click, the wire hanging between two
+  posts with a bulb every 40 cm along it, kept 6 cm from the posts of its span where the
+  span is longer than 12 cm) are placeable objects with a gallery entry, translated name,
+  Change Type membership for their shape (circles; lines), default height (110 cm / 250 cm)
+  and 3D model. The lantern has a sprite; a string is drawn ALONG its line — its wire,
+  glowing bulbs and a post at every point, the bulbs where its 3D model hangs them, sized by
+  the line's width (the 2D symbol only; the 3D posts and bulbs keep their real size) — and
+  has no path or fence style. No file-format change: an older version loads a garden light
+  as a generic shape, but a string as a **fence** — its loader turns every line of an
+  unknown type into one — standing 120 cm high, casting a 2D shadow and built as a fence in
+  3D; saved there, it stays a fence.
+- **FR-3D-LIVE-08** (L5.4): From dusk on, every bulb of a garden light **glows** in 3D and
+  the six lights nearest to the point the camera looks at **light** the garden around them
+  (leaves, lawn and ground included); the lights go off at sunrise. In 2D a garden light
+  casts the usual solid-footprint shadow (ADR-059's table); a **string of lights casts no 2D
+  shadow** — not in the overlay, the hours-of-sun map or a plant's sun estimate (the owner's
+  decision: the shade of a wire is no planning fact). In 3D both cast their own thin
+  shadows.
+- **FR-3D-LIVE-09** (L5.2): While an Analyze drape lies on the 3D ground (2D Shadows on the
+  Ground, or Hours of Sun on the Ground — Sweep the Day included), the weather and the
+  morning dew **pause**: the garden shows the clear sun's look, so the drape's colours read
+  as its legend's. The Weather button keeps the chosen weather's name and adds "(paused
+  while analysing)"; with Nothing on the Ground the chosen weather returns.
+
+Acceptance (L5): `tests/integration/test_living_garden.py` (§8.10 — the toolbar's day and
+year playback through the real app and its clock; the Weather menu, the life switch and
+Today's Weather through the workspace; the lamps drawn with their tools and told to the
+engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py` and
+`test_scene3d_particles.py`, the render tier `tests/integration/test_living_garden_render.py`
+(the reduced-motion idle gate, the 15 % frame-cost gate and the board's `--living` shots) and
+`tests/integration/test_object_sprite_rendering.py` (the two tools draw items that paint).
 
 
 ## FR-34: Plan timeline and plant lifetimes (US-F4, #315)

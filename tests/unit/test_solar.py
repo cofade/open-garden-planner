@@ -26,7 +26,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from open_garden_planner.core.solar import SolarPosition, solar_position
+from open_garden_planner.core.solar import SolarPosition, plan_place, solar_position
 
 BERLIN = (52.52, 13.405)
 EQUATOR = (0.0, 0.0)
@@ -197,3 +197,30 @@ def test_dataclass_is_frozen():
     pos = _at(BERLIN, 2026, 6, 21, 12, 0)
     with pytest.raises(AttributeError):
         pos.elevation_deg = 0.0  # type: ignore[misc]
+
+
+# ── a plan's place (L5, ADR-070) — a validity rule, not a solar number ────────
+
+
+@pytest.mark.parametrize(("location", "expected"), [
+    ({"latitude": 52.52, "longitude": 13.405}, (52.52, 13.405)),
+    ({"latitude": -33, "longitude": 151}, (-33.0, 151.0)),
+    ({"latitude": 90.0, "longitude": -180.0}, (90.0, -180.0)),
+    (None, None),
+    ({}, None),
+    ({"latitude": 52.5}, None),
+    ({"latitude": "52.5", "longitude": "13.4"}, None),
+    ({"latitude": True, "longitude": 13.4}, None),
+    ({"latitude": float("nan"), "longitude": 13.4}, None),
+    ({"latitude": 10 ** 400, "longitude": 13.4}, None),
+    ({"latitude": 1000.0, "longitude": 13.4}, None),
+    ({"latitude": 52.5, "longitude": 181.0}, None),
+    ("not a location", None),
+], ids=["floats", "ints", "edges", "none", "empty", "half", "text", "bool", "nan", "overflow",
+        "latitude-beyond", "longitude-beyond", "hostile"])
+def test_one_validity_rule_for_a_plans_place(location: object, expected: object) -> None:
+    """The forecast's reader and the latitude's applied OPPOSITE rules (senior review of
+    L5: a hand-edited plan fetched Sydney's weather under a northern sky, and latitude
+    1000 went to Open-Meteo). One rule now: real numbers, finite, in range — else no
+    place, never an exception in a ``location_changed`` slot."""
+    assert plan_place(location) == expected   # plan_latitude's default: test_phenology.py

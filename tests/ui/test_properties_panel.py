@@ -691,3 +691,30 @@ class TestObjectTypeDropdownIcons:
             icon = PropertiesPanel._get_object_type_icon(obj_type)
             assert icon is not None, f"ObjectType '{obj_type.name}' has no icon"
             assert not icon.isNull(), f"ObjectType '{obj_type.name}' produced a null icon"
+
+    def test_no_object_type_shows_the_warning_fallback(self, qtbot) -> None:
+        """A non-null icon is not enough: the last resort is the warning triangle, which
+        on a valid type reads as an error. String Lights lost its sprite when it became a
+        line (L5.4, #389) and fell through to it in every fence's Type dropdown — the
+        null check above passed (senior review round 11)."""
+        from open_garden_planner.ui.icons import get_icon
+
+        warning = get_icon("warning").pixmap(32, 32).toImage()
+        fallback = [obj_type.name for obj_type in ObjectType
+                    if PropertiesPanel._get_object_type_icon(obj_type).pixmap(32, 32).toImage()
+                    == warning]
+        assert fallback == []
+
+    def test_the_string_lights_icon_is_a_painted_picture_not_a_blank(self, qtbot) -> None:
+        """Not-the-warning is not enough either: a blank icon passes the test above.
+        Every icon must carry painted pixels, and the string's must carry its bulbs'
+        cream (senior review round 12)."""
+        image = PropertiesPanel._get_object_type_icon(
+            ObjectType.STRING_LIGHTS).pixmap(32, 32).toImage()
+        painted = [image.pixelColor(x, y) for y in range(image.height())
+                   for x in range(image.width()) if image.pixelColor(x, y).alpha() > 200]
+        assert len(painted) > 20, "the Type dropdown shows a picture, not a blank icon"
+        # cream (238, 225, 198), not plain white: red - blue = 40 on the bulbs, 0 on white
+        assert any(c.red() > 200 and c.green() > 190 and 150 < c.blue() < 215
+                   and c.red() - c.blue() > 25 for c in painted), \
+            "its cream bulbs are in the picture"

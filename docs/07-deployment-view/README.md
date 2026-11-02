@@ -337,8 +337,12 @@ a GitHub job.
 **The 3D render tier (`render3d`, Phase 17 L1.2).** The `test` job cannot render 3D: under the
 offscreen platform Qt Quick uses the software scene graph. The `render3d` job runs
 `tests/integration/test_quick3d_render.py`, `test_quick3d_engine.py`,
-`test_quick3d_selftest.py`, `test_quick3d_lifecycle.py` and — the baked ground, L1.5 —
-`test_scene3d_ground_render.py` with a driver process on a real Qt platform (§8.10.8, §8.10.10).
+`test_quick3d_selftest.py`, `test_quick3d_lifecycle.py`, — the baked ground, L1.5 —
+`test_scene3d_ground_render.py`, `test_plant_forge_workspace.py` and — one node of the living
+garden, L5 — `test_living_garden_render.py::test_a_second_ambient_load_on_a_live_host_draws`
+(the ambient buffer reloaded into a live host: ADR-069's withdrawn reload drew a replaced
+geometry as nothing; the node id, not the file, keeps the slow board test local) with a driver
+process on a real Qt platform (§8.10.8, §8.10.10).
 Since **#540** it also runs the **default workspace's** real-host lifecycle gates —
 `test_view3d_workspace_render.py` in a **separate pytest invocation** (a `-k` filter applies
 to the whole session, so it must not sit on the engine command), filtered to the G5 close rows

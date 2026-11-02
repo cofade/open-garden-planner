@@ -39,7 +39,17 @@ What it owns:
 - **The animation policy.** Wind runs only while the 3D pane is shown, the
   reduced-motion setting is off and the adapter is not a software one. Hidden:
   the clock stops where it is and nothing ticks. Reduced motion: the clock rests
-  at 0 — every vertex where its mesh puts it.
+  at 0 — every vertex where its mesh puts it. The particles of L5 (rain, snow,
+  leaves, butterflies, fireflies) move on the SAME clock: reduced motion makes them
+  a photograph and an idle view presents no frame (issue #389's gate).
+- **The weather (L5, ADR-070).** ``set_weather``: clear, overcast, rain, snow — or
+  ``today`` (L5.3), which shows the weather ``set_todays_weather`` was given (the
+  forecast's, only while the plan date is today; else clear). The look is
+  ``weather.living_look(sun, preset, weather)``; a new weather builds its sky at once
+  (``look.sky_must_build_now``). ``mood`` names what the frame shows. While an Analyze
+  drape lies on the ground (``set_analysing``) the weather PAUSES: the look is the sun's
+  own — clear, no dew — so the drape's colours read against its legend (a snow cover
+  washed the hours of sun to a pale lavender: 3D review of L5).
 
 NOTHING HERE TAKES A FRAME (ADR-060 decision 17): the host is told things and
 asked for ``health()``; ``grab`` / ``wait_ready`` / ``pick`` / ``project`` are not
@@ -68,11 +78,17 @@ from open_garden_planner.core.scene3d.look import (
     AutoPreset,
     LookSpec,
     SkySpec,
-    fog_linear,
-    look_for,
     normalise_quality,
     sky_is_stale,
-    sky_phase,
+    sky_must_build_now,
+)
+from open_garden_planner.core.scene3d.weather import (
+    TODAY,
+    WEATHERS,
+    living_look,
+    mood_of,
+    normalise_weather,
+    weather_fog,
 )
 
 _LOG: Final = logging.getLogger(__name__)
@@ -101,6 +117,8 @@ class LookController(QObject):
 
     #: The preset in use changed (a setting, or a step of the automatic one).
     preset_changed = pyqtSignal(str)
+    #: The mood of the frame changed (``core.scene3d.weather.MOODS``) — L5.
+    mood_changed = pyqtSignal(str)
     #: A sky texture was built — and, from the second one on, an old one retired
     #: with it. Nobody has to count them: a retired sky leaves nothing behind
     #: without a cache release (measured, the sky soak: 0.0 MB per sun change in
@@ -135,6 +153,12 @@ class LookController(QObject):
         self._auto = AutoPreset(auto_level, policy, bars={
             level: (until - now, retry) for level, (until, retry) in (auto_bars or {}).items()})
         self._sky_failed = False
+        #: L5: the weather picked (``WEATHER_CHOICES``) and what ``today`` stands for.
+        self._weather = "clear"
+        self._todays: str | None = None
+        self._analysing = False
+        self._southern = False   # the place lies south of the equator (noon due north)
+        self._mood = ""
         self._sun: SunState | None = None
         self._look: LookSpec | None = None       # the look the host was last given
         self._sky_shown: SkySpec | None = None   # the sky the host shows
@@ -222,6 +246,45 @@ class LookController(QObject):
     def auto(self) -> AutoPreset:
         return self._auto
 
+    @property
+    def weather_choice(self) -> str:
+        """The weather picked: one of ``weather.WEATHER_CHOICES`` (``today`` included)."""
+        return self._weather
+
+    @property
+    def weather(self) -> str:
+        """The weather shown (``weather.WEATHERS``): ``weather_wanted`` — or clear while
+        an Analyze drape lies on the ground (``set_analysing``)."""
+        return "clear" if self._analysing else self.weather_wanted
+
+    @property
+    def weather_wanted(self) -> str:
+        """The weather picked, resolved (``weather.WEATHERS``): the choice — or for
+        ``today`` what the forecast says while the plan date is today, else clear."""
+        if self._weather == TODAY:
+            return self._todays if self._todays in WEATHERS else "clear"
+        return self._weather
+
+    @property
+    def analysing(self) -> bool:
+        """An Analyze drape lies on the ground: the weather (and the dew) pause."""
+        return self._analysing
+
+    @property
+    def weather_paused(self) -> bool:
+        """A weather was picked that the drape on the ground holds back."""
+        return self._analysing and self.weather_wanted != "clear"
+
+    @property
+    def todays_weather(self) -> str | None:
+        """What ``today`` stands for right now (None: no forecast for the plan date)."""
+        return self._todays
+
+    @property
+    def mood(self) -> str:
+        """The mood of the look on screen (``weather.MOODS``; ``""`` before a sun)."""
+        return self._mood
+
     # ── what the workspace tells it ──────────────────────────────────────────
 
     def set_sun(self, sun: SunState | None) -> None:
@@ -243,6 +306,47 @@ class LookController(QObject):
         self._update_wind()
         if showing and self._sun is not None:
             self._apply()            # also builds the sky that went stale while hidden
+
+    def set_weather(self, weather: str) -> None:
+        """Pick the weather (``weather.WEATHER_CHOICES``; anything else: clear). A new
+        weather is applied at once — its sky too."""
+        weather = normalise_weather(weather)
+        if weather == self._weather or self._closed:
+            return
+        self._weather = weather
+        self._apply()
+
+    def set_analysing(self, analysing: bool) -> None:
+        """An Analyze drape (2D shadows, hours of sun) lies on the ground (True) or not.
+        While it does, the look is the sun's own — no weather, no dew: a weather
+        recolours the ground under the drape, and its colour key no longer reads as the
+        legend's (the 3D review measured a 59° hue shift under snow)."""
+        if bool(analysing) == self._analysing or self._closed:
+            return
+        self._analysing = bool(analysing)
+        self._apply()
+
+    def set_southern(self, southern: bool) -> None:
+        """The garden lies south of the equator (True): its noon stands due north —
+        where the morning dew fades and the fireflies' midnight is (``living_look``)."""
+        if bool(southern) == self._southern or self._closed:
+            return
+        self._southern = bool(southern)
+        self._apply()
+
+    @property
+    def southern(self) -> bool:
+        return self._southern
+
+    def set_todays_weather(self, weather: str | None) -> None:
+        """What ``today`` stands for: the forecast's preset for the plan date — given
+        only while the plan date is today (``weather.todays_weather``), else None."""
+        weather = weather if weather in WEATHERS else None
+        if weather == self._todays or self._closed:
+            return
+        self._todays = weather
+        if self._weather == TODAY:
+            self._apply()
 
     def set_quality(self, quality: str) -> None:
         """``auto`` or a preset (anything else: ``auto``)."""
@@ -287,11 +391,11 @@ class LookController(QObject):
         sun = self._sun
         if sun is None:
             return
-        look = look_for(sun, self.preset)
+        look = self._living_look(sun)
         if self._sky_light:
             shown = self._sky_shown
-            if shown is None or sky_phase(shown) != sky_phase(look.sky):
-                self._build_sky(look.sky)       # the first sky; sunset, nightfall: at once
+            if sky_must_build_now(shown, look.sky):
+                self._build_sky(look.sky)       # the first sky; sunset, nightfall, a weather: at once
             elif sky_is_stale(shown, look.sky):
                 if self._showing:
                     self._sky_timer.start()     # (re)started: built when the sun rests
@@ -300,8 +404,13 @@ class LookController(QObject):
             shown = self._sky_shown
             if shown is not None and shown.horizon != look.sky.horizon:
                 # the sky on screen is an older one: the fog must meet THAT horizon
-                look = replace(look, fog_linear=fog_linear(
-                    shown.horizon, look.mood.probe_exposure, shown.sky_energy))
+                look = replace(look, fog_linear=weather_fog(
+                    shown.horizon, look.mood.probe_exposure, shown.sky_energy, shown.cloud,
+                    look.mood.twilight))
+        mood = mood_of(look, sun)
+        if mood != self._mood:
+            self._mood = mood
+            self.mood_changed.emit(mood)
         if look == self._look:
             return
         try:
@@ -313,6 +422,12 @@ class LookController(QObject):
             return
         self._look = look
         self.look_calls += 1
+
+    def _living_look(self, sun: SunState) -> LookSpec:
+        """The look to show at ``sun``: the weather shown, and the dew unless a drape
+        lies on the ground."""
+        return living_look(sun, self.preset, self.weather, dew=not self._analysing,
+                           southern=self._southern)
 
     def _build_sky(self, sky: SkySpec) -> None:
         """Build ``sky`` — or, when the engine cannot, log it ONCE and go on for the rest
@@ -340,7 +455,7 @@ class LookController(QObject):
         sun = self._sun
         if sun is None or self._closed or not self._showing or not self._sky_light:
             return
-        wanted = look_for(sun, self.preset).sky
+        wanted = self._living_look(sun).sky
         if not sky_is_stale(self._sky_shown, wanted):
             return
         self._build_sky(wanted)

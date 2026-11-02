@@ -77,6 +77,25 @@ Item {
     property bool lawnBlades: true
     // L4.5: the ground's detail normals (0 = flat), see the groundTile component
     property real detailNormals: 3.0
+    // ---- the living garden (Phase 17 L5, ADR-070; look.AtmosphereSpec) ----
+    // A LOOK and nothing else: no property here moves the sun, a shadow or a plant.
+    // The defaults are look.CLEAR_STILL: clear, dry and still.
+    property real wetness: 0.0              // leaves, blades: rain 1, morning dew up to 0.6
+    property real snowCover: 0.0            // snow on the ground and the leaves
+    property real fogHaze: 1.0              // the depth fog's distances x this
+    // the ground's (meadow, bare plan, baked tiles) ONE multiplier, roughness and
+    // specular: the plan meets the meadow without a step in every weather
+    property color groundTint: "#ffffff"
+    property real groundRoughness: 1.0
+    property real groundSpecular: 0.15
+    property int precipKind: 0              // 0 none, 1 rain, 2 snow
+    property real precipDensity: 0.0        // the share of the precipitation's particles drawn
+    property vector3d windDrift: Qt.vector3d(0, 0, 0)       // cm/s, engine frame
+    property vector3d particleLight: Qt.vector3d(1, 1, 1)   // linear: what lights an unlit particle
+    property real leafLife: 0.0             // falling leaves, butterflies, fireflies: when (0..1)
+    property real butterflyLife: 0.0
+    property real fireflyLife: 0.0
+    property real lampGlow: 0.0             // the garden lights: off by day, on at night
 
     // ---- key light (Quick3DHost: the sun the pipeline sent, or a night look's moon) ----
     property bool sunUp: false              // false until the first sun, and whenever there is no key light
@@ -90,6 +109,30 @@ Item {
     // true while baked tiles lie on the plan (quick3d/ground_tiles.py, L1.5): the bare
     // rectangle below is then not drawn — two coplanar surfaces would fight for the depth
     property bool groundTiled: false
+
+    // ---- the living garden's host side (Quick3DHost, L5) ----
+    // where the precipitation falls: a box around the camera's target, engine frame
+    // (particles.precipitation_volume, set with every set_camera)
+    property vector3d volumeCenter: Qt.vector3d(0, 0, 0)
+    property real volumeSize: 4000
+    property real volumeHeight: 2000
+    // the "Wildlife and Falling Leaves" switch of the 3D strip (Quick3DHost.set_life_enabled)
+    property bool lifeEnabled: true
+    property bool ambientVisible: false     // the ambient buffer holds something
+    // the garden lights that light (Quick3DHost.set_lamps): up to lampSlots of
+    // {x, y, z, w} in the engine frame (w = strength), the nearest to the camera's target
+    readonly property int lampSlots: 6
+    property var lamps: []
+    property color lampColor: "#ffc98a"
+    // constantFade lampNear with brightness 9.4: the same pool at 1.5 m as 1.0 with 7.0,
+    // a third of the light in the lantern's own glass (its specular saturated to white)
+    property real lampBrightness: 9.4
+    property real lampNear: 4.0
+    property real lampFade: 3.5
+    // centimetres per pixel per centimetre of depth: a particle is never thinner than a
+    // pixel or so, near or far (the selection ring's measure)
+    readonly property real particlePerDepth: 2.0 * Math.tan(camFov * Math.PI / 360.0)
+                                             / Math.max(view.height, 1.0)
 
     // ---- camera (Quick3DHost.set_shot) ----
     property bool topDown: false
@@ -398,6 +441,22 @@ Item {
              : layer === "lines" ? linesOverlay : null
     }
 
+    // ---- the living garden (L5): one geometry per Model, loaded by Python ----
+    function precipitationModel() {
+        return precipitation
+    }
+    function setPrecipitationGeometry(geometry) {
+        precipitation.geometry = geometry
+        return true
+    }
+    function ambientModel() {
+        return ambientLife
+    }
+    function setAmbientGeometry(geometry) {
+        ambientLife.geometry = geometry
+        return true
+    }
+
     function setOverlayGeometry(layer, geometry) {
         var model = overlayModel(layer)
         if (!model)
@@ -624,21 +683,30 @@ Item {
             }
             // L4.5: from the Medium preset up the ground shades with detail normals of its
             // own picture (ground.frag); Low and the compatibility mode keep the flat look
-            materials: root.detailNormals > 0.0 ? [tileDetail] : [tileFlat]
+            // — unless snow lies on it (L5): a texture is only multiplied by a principled
+            // material, and snow is a mix
+            materials: root.detailNormals > 0.0 || root.snowCover > 0.0 ? [tileDetail] : [tileFlat]
             PrincipledMaterial {
                 id: tileFlat
                 baseColorMap: tileTexture
+                baseColor: root.groundTint     // L5: the rain darkens the ground (white: as it is)
                 // the endless meadow's values (below): PrincipledMaterial scales the
                 // sky's diffuse light by (1 - specularAmount), so any other pair puts a
                 // luma step where a baked lawn meets the meadow at the plan's edge
-                // (the L1.4 look review measured 2-8 luma for 0.92 / 0.2)
-                roughness: 1.0
-                specularAmount: 0.15
+                // (the L1.4 look review measured 2-8 luma for 0.92 / 0.2). L5: the
+                // weather changes them for every piece of ground at once
+                roughness: root.groundRoughness
+                specularAmount: root.groundSpecular
             }
             CustomMaterial {
                 id: tileDetail
                 property TextureInput uBaseMap: TextureInput { texture: tileTexture }
                 property real uDetail: root.detailNormals
+                // L5: the weather (ground.frag) - the same values the meadow takes
+                property vector3d uGroundTint: Qt.vector3d(root.groundTint.r, root.groundTint.g, root.groundTint.b)
+                property real uRough: root.groundRoughness
+                property real uSpecular: root.groundSpecular
+                property real uSnowCover: root.snowCover
                 shadingMode: CustomMaterial.Shaded
                 fragmentShader: "ground.frag"
             }
@@ -667,7 +735,8 @@ Item {
                 id: foliageLook
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
                 property real uLeafDensity: seasonDensity
-                property real uSnow: seasonSnow
+                property real uSnow: Math.max(seasonSnow, root.snowCover)
+                property real uWet: root.wetness
                 property real uTime: root.windTime
                 property real uWind: root.windStrength * 0.35
                 shadingMode: CustomMaterial.Shaded
@@ -679,7 +748,8 @@ Item {
                 id: foliageDoor
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
                 property real uLeafDensity: seasonDensity
-                property real uSnow: seasonSnow
+                property real uSnow: Math.max(seasonSnow, root.snowCover)
+                property real uWet: root.wetness
                 property real uTime: root.windTime
                 property real uWind: root.windStrength * 0.35
                 property real uOpacity: fade
@@ -713,7 +783,8 @@ Item {
                 id: grassLook
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
                 property real uLeafDensity: seasonDensity
-                property real uSnow: seasonSnow
+                property real uSnow: Math.max(seasonSnow, root.snowCover)
+                property real uWet: root.wetness
                 property real uTime: root.windTime
                 property real uWind: root.windStrength
                 shadingMode: CustomMaterial.Shaded
@@ -725,7 +796,8 @@ Item {
                 id: grassDoor
                 property vector3d uTint: Qt.vector3d(tintLinear.x * seasonTint.x, tintLinear.y * seasonTint.y, tintLinear.z * seasonTint.z)
                 property real uLeafDensity: seasonDensity
-                property real uSnow: seasonSnow
+                property real uSnow: Math.max(seasonSnow, root.snowCover)
+                property real uWet: root.wetness
                 property real uTime: root.windTime
                 property real uWind: root.windStrength
                 property real uOpacity: fade
@@ -795,8 +867,9 @@ Item {
                 enabled: !root.topDown && root.fog
                 color: root.fogColor
                 depthEnabled: true
-                depthNear: root.fogNear
-                depthFar: root.fogFar
+                // a rain haze or a morning mist brings it nearer (L5: fogHaze)
+                depthNear: root.fogNear * root.fogHaze
+                depthFar: root.fogFar * root.fogHaze
                 depthCurve: 1.4
                 density: 1.0
             }
@@ -893,8 +966,8 @@ Item {
             castsShadows: false
             materials: PrincipledMaterial {
                 baseColor: root.meadowColor
-                roughness: 1.0
-                specularAmount: 0.15
+                roughness: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
+                specularAmount: root.groundSpecular // 0.15 dry
             }
         }
 
@@ -913,8 +986,8 @@ Item {
             visible: root.groundVisible && !root.groundTiled
             materials: PrincipledMaterial {
                 baseColor: root.meadowColor
-                roughness: 1.0
-                specularAmount: 0.15
+                roughness: root.groundRoughness     // 1.0 dry; wet in the rain (L5)
+                specularAmount: root.groundSpecular // 0.15 dry
             }
         }
 
@@ -1030,6 +1103,97 @@ Item {
             }
         }
 
+        // ---- the living garden (Phase 17 L5, #389, ADR-070) ----
+        // Two Models for the life of the scene, like the overlays: Python loads each
+        // one's geometry (core/scene3d/particles.py) and the look says what shows. No
+        // weather change, no date and no time of day creates or destroys a Model. The
+        // wind's clock moves both (windTime): reduced motion rests it at 0, and a
+        // still frame is a photograph. Unlit, blended, no depth written, never picked,
+        // no shadows - and never in the top-down truth view.
+        Model {
+            id: precipitation
+            visible: root.precipKind > 0 && root.precipDensity > 0.0 && !root.topDown
+                     && geometry !== null
+            pickable: false
+            castsShadows: false
+            receivesShadows: false
+            materials: CustomMaterial {
+                property real uTime: root.windTime
+                property real uKind: root.precipKind
+                property real uDensity: root.precipDensity
+                property vector3d uCenter: root.volumeCenter
+                property real uSize: root.volumeSize
+                property real uHeight: root.volumeHeight
+                property vector3d uDrift: root.windDrift
+                property vector3d uLight: root.particleLight
+                property real uPerDepth: root.particlePerDepth
+                shadingMode: CustomMaterial.Unshaded
+                cullMode: Material.NoCulling
+                depthDrawMode: Material.NeverDepthDraw
+                sourceBlend: CustomMaterial.SrcAlpha
+                destinationBlend: CustomMaterial.OneMinusSrcAlpha
+                sourceAlphaBlend: CustomMaterial.Zero
+                destinationAlphaBlend: CustomMaterial.One
+                vertexShader: "precipitation.vert"
+                fragmentShader: "precipitation.frag"
+            }
+        }
+        Model {
+            id: ambientLife
+            visible: root.ambientVisible && !root.topDown && geometry !== null
+            pickable: false
+            castsShadows: false
+            receivesShadows: false
+            materials: CustomMaterial {
+                property real uTime: root.windTime
+                property vector3d uDrift: root.windDrift
+                property vector3d uLight: root.particleLight
+                property real uPerDepth: root.particlePerDepth
+                // the life is switched off with the strip's switch; the bulbs are not life
+                property real uLeaves: root.lifeEnabled ? root.leafLife : 0.0
+                property real uButterflies: root.lifeEnabled ? root.butterflyLife : 0.0
+                property real uFireflies: root.lifeEnabled ? root.fireflyLife : 0.0
+                property real uLamps: root.lampGlow
+                shadingMode: CustomMaterial.Unshaded
+                cullMode: Material.NoCulling
+                depthDrawMode: Material.NeverDepthDraw
+                sourceBlend: CustomMaterial.SrcAlpha
+                destinationBlend: CustomMaterial.OneMinusSrcAlpha
+                sourceAlphaBlend: CustomMaterial.Zero
+                destinationAlphaBlend: CustomMaterial.One
+                vertexShader: "ambient.vert"
+                fragmentShader: "ambient.frag"
+            }
+        }
+        // The garden lights that LIGHT (L5.4): a fixed pool of lampSlots point lights,
+        // made once when the scene loads (lampPool, below) - a light that comes and goes
+        // changes every lit material's shader, so only the lamps the plan has are
+        // visible, and only after dusk. Their places come from Python
+        // (Quick3DHost.set_lamps): the nearest lamps to the camera's target. No shadows
+        // (a point light's shadow is six maps). Not a Repeater3D: its slots are fixed.
+        Component {
+            id: lampLight
+            PointLight {
+                property int slot: 0
+                readonly property var spot: slot < root.lamps.length ? root.lamps[slot] : null
+                visible: spot !== null && root.lampGlow > 0.0 && !root.topDown
+                position: spot ? Qt.vector3d(spot.x, spot.y, spot.z) : Qt.vector3d(0, 0, 0)
+                color: root.lampColor
+                brightness: spot ? spot.w * root.lampGlow * root.lampBrightness : 0.0
+                castsShadow: false
+                constantFade: root.lampNear
+                linearFade: 0.0
+                quadraticFade: root.lampFade
+            }
+        }
+        Node {
+            id: lampPool
+            Component.onCompleted: {
+                for (var i = 0; i < root.lampSlots; ++i)
+                    lampLight.createObject(lampPool, {"slot": i})
+            }
+        }
+
         // Pre-warm screen-door shader pipelines (Issue #582): compile PSOs on
         // initial load so the first Cutaway / X-ray toggle does not freeze the GUI thread.
         // uOpacity: 0.0 discards all fragments, casting and receiving no shadows,
@@ -1064,6 +1228,7 @@ Item {
                     property vector3d uTint: Qt.vector3d(1, 1, 1)
                     property real uLeafDensity: 1.0
                     property real uSnow: 0.0
+                    property real uWet: 0.0
                     property real uTime: 0.0
                     property real uWind: 0.0
                     property real uOpacity: 0.0
@@ -1082,6 +1247,7 @@ Item {
                     property vector3d uTint: Qt.vector3d(1, 1, 1)
                     property real uLeafDensity: 1.0
                     property real uSnow: 0.0
+                    property real uWet: 0.0
                     property real uTime: 0.0
                     property real uWind: 0.0
                     property real uOpacity: 0.0

@@ -77,7 +77,8 @@ def test_the_measurement_matches_the_documented_table() -> None:
     assert script.TOLERANCE == 0.05 and script.ELEVATIONS_DEG == (15.0, 35.0, 60.0)
     assert script.REACH_TOLERANCE_CM == 1.0
     assert script.drift(tuple(_rows().values())) == []
-    assert set(_rows()) == set(script.DOCUMENTED) and len(script.DOCUMENTED) == 43
+    # L5.4: +1, the garden light (a string of lights casts no 2D shadow: no row)
+    assert set(_rows()) == set(script.DOCUMENTED) and len(script.DOCUMENTED) == 44
     for ratio, iou, reach in script.DOCUMENTED.values():
         assert len(ratio) == len(iou) == len(reach) == 3
 
@@ -312,7 +313,7 @@ def test_the_adr_s_table_is_the_documented_one() -> None:
     script = _script()
     text = ADR.read_text(encoding="utf-8")
     text = text[text.index("**The built world's 3D shadows are not the 2D model's shadows"):]
-    text = text[:text.index("**Open owner question (porous fences):**")]
+    text = text[:text.index("**Porous fences (answered by #440):**")]
     for name, (ratio, iou, reach) in script.DOCUMENTED.items():
         rows = _table_cells(text, name)
         assert len(rows) == 1, (name, rows)

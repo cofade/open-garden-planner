@@ -29,6 +29,7 @@ from open_garden_planner.core.scene3d.builders import (
     OBJECT_KINDS,
     OBJECT_TRIANGLE_BUDGET,
     furniture,
+    lights,
     palette,
     play,
     production_registry,
@@ -39,7 +40,16 @@ from open_garden_planner.core.scene3d.builders import (
 from open_garden_planner.core.scene3d.builders.common import BuiltBuilder
 from open_garden_planner.core.scene3d.builders.kit import MAX_REPEATS, object_box
 from open_garden_planner.core.scene3d.color import srgb8_to_linear
-from tests.unit.scene3d_builder_cases import circle_record, polygon_record, rectangle, turned
+from tests.unit.scene3d_builder_cases import (
+    BENT_PATH,
+    CLOSED_PATH,
+    STRAIGHT_PATH,
+    circle_record,
+    line_record,
+    polygon_record,
+    rectangle,
+    turned,
+)
 
 REGISTRY = production_registry()
 
@@ -48,6 +58,7 @@ ROUND: dict[str, list[float]] = {
     "TABLE_ROUND": [50.0, 30.0, 80.0], "PARASOL": [150.0, 60.0, 220.0], "BBQ_GRILL": [40.0, 25.0, 60.0],
     "FIRE_PIT": [50.0, 30.0, 90.0], "PLANTER_POT": [25.0, 12.0, 50.0], "TRAMPOLINE": [150.0, 90.0, 220.0],
     "RAIN_BARREL": [30.0, 20.0, 45.0], "WATER_TAP": [10.0, 6.0, 15.0], "BIRD_BATH": [25.0, 15.0, 40.0],
+    "GARDEN_LIGHT": [20.0, 12.0, 35.0],                                  # L5.4 (#389)
 }
 #: The rectangle kinds, each with its sprite's own size first.
 BOXED: dict[str, list[tuple[float, float]]] = {
@@ -60,6 +71,11 @@ BOXED: dict[str, list[tuple[float, float]]] = {
     "PERGOLA": [(300, 300), (400, 250), (150, 150)], "TRELLIS": [(200, 20), (30, 200), (300, 60)],
     "GREENHOUSE": [(300, 200), (200, 300), (500, 300)],
 }
+#: The kinds drawn with the line tool: a string of lights (L5.4, #389 — a line since the
+#: owner's manual test). Their record is a polyline's: the centre line in ``path``.
+LINES: dict[str, list[tuple[tuple[float, float], ...]]] = {
+    "STRING_LIGHTS": [STRAIGHT_PATH, BENT_PATH, CLOSED_PATH],
+}
 HEIGHTS: list[float | None] = [None, 30.0, 75.0, 250.0]
 
 
@@ -68,6 +84,8 @@ def record_of(kind: str, size: object, height: float | None, *, angle: float = 0
     the builder builds at the kind's default (the snapshot always writes the height)."""
     if kind in ROUND:
         return circle_record(kind, float(size), height)  # type: ignore[arg-type]
+    if kind in LINES:
+        return line_record(kind, size, height, width=12.0)  # type: ignore[arg-type]
     w, d = size  # type: ignore[misc]
     return polygon_record(kind, turned(rectangle(w, d), angle) if angle else rectangle(w, d), height,
                           shape="rectangle")
@@ -75,7 +93,7 @@ def record_of(kind: str, size: object, height: float | None, *, angle: float = 0
 
 def matrix() -> list[tuple[str, object, float | None]]:
     cases = []
-    for kind, sizes in {**ROUND, **BOXED}.items():
+    for kind, sizes in {**ROUND, **BOXED, **LINES}.items():
         for size in sizes:
             for height in HEIGHTS:
                 cases.append((kind, size, height))
@@ -83,9 +101,10 @@ def matrix() -> list[tuple[str, object, float | None]]:
 
 
 def test_the_matrix_is_every_object_kind() -> None:
-    assert set(ROUND) | set(BOXED) == OBJECT_KINDS
-    assert len(OBJECT_KINDS) == 24
-    assert set(furniture.KINDS) | set(play.KINDS) | set(utility.KINDS) | set(structures.KINDS) == OBJECT_KINDS
+    assert set(ROUND) | set(BOXED) | set(LINES) == OBJECT_KINDS
+    assert len(OBJECT_KINDS) == 26   # L4's 24 and the garden lights of L5.4 (#389)
+    assert (set(furniture.KINDS) | set(play.KINDS) | set(utility.KINDS) | set(structures.KINDS)
+            | set(lights.KINDS)) == OBJECT_KINDS
 
 
 @pytest.mark.parametrize("kind", sorted(OBJECT_KINDS))
@@ -93,7 +112,8 @@ def test_the_matrix_is_every_object_kind() -> None:
 @pytest.mark.parametrize("height_cm", [0.5, 1.0, 75.0])
 def test_tiny_objects_keep_valid_normals_and_their_actual_height(kind, size_cm, height_cm) -> None:
     """#607: a tiny footprint must never turn a lathe's faces inside out."""
-    size = size_cm / 2.0 if kind in ROUND else (size_cm, size_cm)
+    size: object = (size_cm / 2.0 if kind in ROUND
+                    else ((0.0, 0.0), (size_cm, 0.0)) if kind in LINES else (size_cm, size_cm))
     record = record_of(kind, size, height_cm)
     parts = verify_builder(REGISTRY.builder_for(kind), record, plan_margin_cm=10.0)
     assert parts
@@ -118,7 +138,9 @@ def test_the_truth_gate_of_issue_388(kind: str, size: object, height: float | No
     # (3D review of #388)
     assert min(float(part.mesh.positions[:, 2].min()) for part in parts) >= -0.01  # 0.1 mm
     triangles = sum(part.mesh.triangle_count for part in parts)
-    assert triangles <= OBJECT_TRIANGLE_BUDGET == triangle_budget(record)
+    assert triangles <= triangle_budget(record)
+    if kind not in LINES:   # a line's budget grows with it (``lights.string_triangle_budget``)
+        assert triangle_budget(record) == OBJECT_TRIANGLE_BUDGET
 
 
 def test_the_gate_catches_a_builder_that_reaches_too_far() -> None:
@@ -153,7 +175,7 @@ def test_every_object_kind_has_a_default_height() -> None:
 def test_a_record_without_a_height_is_built_at_the_default_and_casts(kind: str) -> None:
     """A hand-made record without a height is built at the kind's default and casts,
     as one that carries the default does."""
-    sizes = ROUND.get(kind) or BOXED[kind]
+    sizes = ROUND.get(kind) or BOXED.get(kind) or LINES[kind]
     parts = REGISTRY.build(record_of(kind, sizes[0], None))
     assert parts and any(part.casts_shadow for part in parts)
     top = max(float(part.mesh.positions[:, 2].max()) for part in parts)
@@ -243,7 +265,7 @@ def test_every_colour_is_a_2d_table_entry_or_a_shade_of_the_item_s(kind: str) ->
     """Untinted parts take every vertex colour from the palette (the sprites'
     ``MATERIALS``); tinted parts carry a grey shading weight of at most 1 that the
     sink multiplies with the item's own colour."""
-    sizes = ROUND.get(kind) or BOXED[kind]
+    sizes = ROUND.get(kind) or BOXED.get(kind) or LINES[kind]
     for part in REGISTRY.build(record_of(kind, sizes[0], 150.0)):
         colors = part.mesh.colors.astype(np.float64)
         assert np.all(colors[:, 3] == 1.0)
@@ -275,6 +297,11 @@ def test_a_footprint_of_nine_kilometres_is_still_a_bounded_mesh(kind: str) -> No
     than made in their millions."""
     assert MAX_REPEATS == 240
     for size, height in ((900_000.0, 300.0), (300.0, 900_000.0)):
+        if kind in LINES:   # 9 km of string: two posts, ``MAX_BULBS_PER_STRING`` bulbs spaced far apart
+            record = line_record(kind, ((0.0, 0.0), (size, 0.0)), height, width=12.0)
+            triangles = sum(part.mesh.triangle_count for part in REGISTRY.build(record))
+            assert triangles <= triangle_budget(record) <= 10_000, (kind, size, height, triangles)
+            continue
         record = (circle_record(kind, size / 2.0, height) if kind in ROUND
                   else polygon_record(kind, rectangle(size, size / 3.0), height, shape="rectangle"))
         triangles = sum(part.mesh.triangle_count for part in REGISTRY.build(record))

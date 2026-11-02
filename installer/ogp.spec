@@ -207,6 +207,7 @@ a = Analysis(
         "open_garden_planner.ui.view3d.workspace",
         "open_garden_planner.ui.view3d.workspace_analysis",
         "open_garden_planner.ui.view3d.workspace_legend",
+        "open_garden_planner.ui.view3d.workspace_living",
         "open_garden_planner.ui.view3d.workspace_protocols",
         "open_garden_planner.ui.view3d.workspace_selection",
         "open_garden_planner.ui.view3d.workspace_walk",
@@ -221,6 +222,13 @@ a = Analysis(
         # The look of the 3D view (L1.4): imported with the first switch to 3D.
         "open_garden_planner.ui.view3d.look_controller",
         "open_garden_planner.core.scene3d.look",
+        # The living garden (ADR-070, L5): the weather, the particles and the garden
+        # lights — imported with the workspace; the playback with the sun toolbar.
+        "open_garden_planner.core.scene3d.weather",
+        "open_garden_planner.core.scene3d.particles",
+        "open_garden_planner.core.scene3d.lights",
+        "open_garden_planner.core.scene3d.builders.lights",
+        "open_garden_planner.core.playback",
         # Selection, the info card and walk mode (ADR-060 addendum, L1.8): the
         # card and the bridge are imported when the 3D pane is first built, walk
         # mode when it is first entered.

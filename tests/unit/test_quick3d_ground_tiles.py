@@ -150,18 +150,25 @@ class TestTheTileComponent:
         (1 - specularAmount), so a tile of other values than the endless meadow's puts
         a luma step where a baked lawn meets the meadow at the plan's edge (0.92 / 0.2
         measured 2-8 luma darker). The tile takes the meadow's roughness and
-        specular amount, whatever they are."""
+        specular amount, whatever they are — since L5 (#389) the weather's, ONE pair of
+        scene properties every piece of ground binds (1.0 / 0.15 dry, ``look.CLEAR_STILL``)."""
         # the endless meadow: the Model with id meadow (comments are stripped from CODE)
         (meadow,) = [block for found in re.finditer(r"Model\s*\{", CODE)
                      if re.search(r"\bid:\s*meadow\b",
                                   block := _block(CODE[found.start():], r"Model\s*\{"))]
         values = {}
         for name, block in (("tile", TILE), ("meadow", meadow)):
-            roughness = re.search(r"roughness:\s*([0-9.]+)", block)
-            specular = re.search(r"specularAmount:\s*([0-9.]+)", block)
+            roughness = re.search(r"roughness:\s*([\w.]+)", block)
+            specular = re.search(r"specularAmount:\s*([\w.]+)", block)
             assert roughness and specular, name
-            values[name] = (float(roughness.group(1)), float(specular.group(1)))
-        assert values["tile"] == values["meadow"] == (1.0, 0.15)
+            values[name] = (roughness.group(1), specular.group(1))
+        assert values["tile"] == values["meadow"] == ("root.groundRoughness", "root.groundSpecular")
+        # … the custom tile shader takes the same two (ground.frag)
+        assert "property real uRough: root.groundRoughness" in TILE
+        assert "property real uSpecular: root.groundSpecular" in TILE
+        dry = re.search(r"property real groundRoughness:\s*([0-9.]+)", CODE)
+        shiny = re.search(r"property real groundSpecular:\s*([0-9.]+)", CODE)
+        assert dry and shiny and (float(dry.group(1)), float(shiny.group(1))) == (1.0, 0.15)
 
     def test_the_tiles_are_drawn_instead_of_the_bare_rectangle_never_with_it(self) -> None:
         """Two coplanar surfaces fight for the depth buffer: while tiles lie on the

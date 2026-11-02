@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+<defs><radialGradient id="gl12_r1" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7c2" stop-opacity="0.75"/><stop offset="35%" stop-color="#ffc23a" stop-opacity="0.4125"/><stop offset="100%" stop-color="#ffc23a" stop-opacity="0"/></radialGradient><radialGradient id="gl12_r2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#70757a"/><stop offset="55%" stop-color="#313538"/><stop offset="100%" stop-color="#131517"/></radialGradient><radialGradient id="gl12_r3" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.6"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs>
+<circle cx="20.0" cy="20.0" r="19.5" fill="url(#gl12_r1)"/>
+<rect x="8.8" y="8.8" width="22.4" height="22.4" rx="2.7" fill="#050506" opacity="0.55"/>
+<rect x="10.0" y="10.0" width="20.0" height="20.0" rx="1.5" fill="#82accb"/>
+<g transform="rotate(0.0 20.0 20.0)"><path d="M 20.0 20.0 L 10.8 10.8 L 29.2 10.8 Z" fill="#70757a"/></g>
+<g transform="rotate(90.0 20.0 20.0)"><path d="M 20.0 20.0 L 10.8 10.8 L 29.2 10.8 Z" fill="#313538"/></g>
+<g transform="rotate(180.0 20.0 20.0)"><path d="M 20.0 20.0 L 10.8 10.8 L 29.2 10.8 Z" fill="#131517"/></g>
+<g transform="rotate(270.0 20.0 20.0)"><path d="M 20.0 20.0 L 10.8 10.8 L 29.2 10.8 Z" fill="#313538"/></g>
+<circle cx="20.0" cy="20.0" r="1.8" fill="url(#gl12_r2)"/>
+<circle cx="19.6" cy="19.6" r="1.0" fill="url(#gl12_r3)"/>
+</svg>

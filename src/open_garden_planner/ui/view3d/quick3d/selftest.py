@@ -32,6 +32,11 @@ the artifact it runs in: can THIS build render the garden? It
    ``foliage_door.frag`` / ``.vert``, ``grass_door.vert``, ``water_door.frag``) is
    compiled from the bundle as well: some, but not most, of each cube's pixels must be
    its colour.
+7. renders a SECOND small frame, the living garden (L5, #389): the same scene in
+   perspective on a rainy night with one garden light — so the particle shaders
+   (``precipitation.vert`` / ``.frag``, ``ambient.vert`` / ``.frag``) and every lit
+   material's point-light path (``POINT_LIGHT`` in the foliage and lawn shaders) are
+   compiled from the bundle: the lamp's warm glow must show (``judge_living_frame``).
 
 A QML error, a shader that does not compile, a frame that fails the judge or an
 exception fails the self-test. So does a hang: a watchdog dumps every thread's
@@ -167,6 +172,16 @@ FADED: Final = tuple(FADED_CUBES)
 #: cube drawn whole (no screen door: all of them) or not at all fails.
 FADED_SHARE: Final = (0.08, 0.5)
 FORGE_PATCH: Final = Region(285.0, 105.0, 20.0, 20.0)
+#: The living frame (point 7): a perspective view from the south of the plan's middle,
+#: a rainy night (the moon's key, rain, the lamps on) and one garden light in the lit
+#: ground west of the box — its glow (a bulb particle) and its point light.
+LIVING_EYE: Final = (_CENTER[0] - 60.0, _CENTER[1] - 420.0, 260.0)
+LIVING_TARGET: Final = (_CENTER[0], _CENTER[1], 20.0)
+LIVING_SUN: Final = SunState(elevation_deg=-14.0, azimuth_deg=320.0)
+LIVING_LAMP: Final = (_CENTER[0] - 60.0, _CENTER[1] - 40.0, 90.0)
+#: At least this many pixels of the lamp's warm glow (red and green bright, blue well
+#: below green). Nothing else in a rainy night frame is that warm and that bright.
+LIVING_GLOW_PIXELS: Final = 4
 
 #: Where the judge looks. Each patch lies well inside what it samples; the shadow
 #: patch is inside the analytic 2D shadow of the box for ``SUN`` and outside the
@@ -323,6 +338,18 @@ def _shown(rgb: NDArray[np.float64]) -> str:
     return f"rgb({rgb[0]:.0f}, {rgb[1]:.0f}, {rgb[2]:.0f})"
 
 
+def judge_living_frame(rgba: NDArray[np.uint8]) -> list[str]:
+    """What is wrong with the living frame (point 7) — an empty list for a good one: the
+    garden light's glow must show as warm, bright pixels."""
+    rgb = rgba[..., :3].astype(np.int32)
+    warm = (rgb[..., 0] >= 170) & (rgb[..., 1] >= 110) & (rgb[..., 2] + 30 < rgb[..., 1])
+    count = int(warm.sum())
+    if count < LIVING_GLOW_PIXELS:
+        return [f"the living frame shows {count} warm lamp-glow pixels, expected at least "
+                f"{LIVING_GLOW_PIXELS}: the ambient particles or the lamp did not draw"]
+    return []
+
+
 def judge_frame(rgba: NDArray[np.uint8], device_pixel_ratio: float = 1.0) -> list[str]:
     """What is wrong with a self-test frame — an empty list for a good one.
 
@@ -456,6 +483,24 @@ def _render(log: RenderLog, qml_dir: Path | None) -> Rendered:
                     int(frame.sky_builds))
 
 
+def _render_living(log: RenderLog, qml_dir: Path | None) -> NDArray[np.uint8]:
+    """The living frame (module docstring, point 7): no sky (the probe would cost tens of
+    seconds on WARP), the plain night background."""
+    from open_garden_planner.core.scene3d.particles import Emitter, ambient_buffers
+    from open_garden_planner.core.scene3d.weather import living_look
+
+    from .offscreen import render_records
+    from .shots import PerspectiveShot
+
+    east, north, up = LIVING_LAMP
+    glow = ambient_buffers([Emitter("bulb", "lamp", east, north, up, up, 30.0, 1)])
+    frame = render_records(records(), shot=PerspectiveShot(LIVING_EYE, LIVING_TARGET, 50.0),
+                           sun=LIVING_SUN, ground=GROUND, size=SIZE, registry=registry(),
+                           look=living_look(LIVING_SUN, "low", "rain"), qml_dir=qml_dir, log=log,
+                           ambient=glow, lamps=[(east, north, up, 1.0)])
+    return frame.rgba()
+
+
 def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WATCHDOG_S,
                  qml_dir: Path | None = None, log: RenderLog | None = None) -> SelftestResult:
     """Import the engine, render the self-test frame, judge it (module docstring).
@@ -492,9 +537,11 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
         try:
             if watchdog_s is None:  # the caller bounds the whole run
                 rendered = _render(log, qml_dir)
+                living = _render_living(log, qml_dir)
             else:
                 with watchdog(watchdog_s, log, what="the 3D self-test frame"):
                     rendered = _render(log, qml_dir)
+                    living = _render_living(log, qml_dir)
             problems = [f"the builder of {failure} failed: the item has no solid"
                         for failure in rendered.build_failures]
             if rendered.other_threads:
@@ -512,6 +559,7 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                     f"the self-test built {rendered.sky_builds} sky texture(s): on a machine "
                     "without a GPU its light probe alone takes longer than the whole test may")
             problems += judge_frame(rendered.rgba, rendered.device_pixel_ratio)
+            problems += judge_living_frame(living)
             where = f"{rendered.graphics_api} / {rendered.adapter or 'adapter unknown'}"
             if problems:
                 for problem in problems:
@@ -522,7 +570,8 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                           f"{rendered.open_ms:.0f} ms (Garden.qml, {len(SWATCH_KINDS) + 1} materials, "
                           f"a baked ground of {rendered.ground_tiles} tiles in "
                           f"{rendered.ground_tiles_painted} tile paints, the selection ring, "
-                          f"the shade and the lines overlays, four screen doors)")
+                          f"the shade and the lines overlays, four screen doors; a rainy "
+                          f"night with a garden light)")
         except Exception as exc:  # noqa: BLE001 - a QML or shader error arrives here
             say(False, f"Qt Quick 3D render -> {type(exc).__name__}: {exc}")
     ok = all(line.startswith("  OK  ") for line in lines)

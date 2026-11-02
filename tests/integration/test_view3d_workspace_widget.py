@@ -103,6 +103,24 @@ class FakeHost:
         self.overlay_calls: list[tuple[str, bool]] = []
         self.roofs_hidden = False
         self.faded: frozenset[str] = frozenset()
+        #: The living garden (L5): the ambient buffers, the lamps, the life switch and
+        #: the plants' seasons, in order.
+        self.ambient: list[Any] = []
+        self.lamps: list[list[tuple[float, float, float, float]]] = []
+        self.life: list[bool] = []
+        self.seasons: list[Any] = []
+
+    def set_ambient(self, buffers: Any) -> None:
+        self.ambient.append(buffers)
+
+    def set_lamps(self, lamps: Any) -> None:
+        self.lamps.append(list(lamps))
+
+    def set_life_enabled(self, enabled: bool) -> None:
+        self.life.append(bool(enabled))
+
+    def set_plant_seasons(self, states: Any) -> None:
+        self.seasons.append(states)
 
     def set_overlay(self, layer: str, mesh: Any) -> None:
         self.overlays[layer] = mesh

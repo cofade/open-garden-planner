@@ -59,6 +59,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Final, TypeAlias
 
+from ..object_height import casts_2d_shadow
 from .color import Rgba, srgb8_to_linear
 from .polygon import (
     Point as Point,  # re-exported: `from .record import Point, Ring` predates polygon.py
@@ -634,9 +635,11 @@ class Record:
 
     @property
     def has_2d_caster(self) -> bool:
-        """True when the plan gives the item a height: the 2D sun study casts it. Not
-        a 3D rule — a 3D solid casts whenever it is built (L4's owner pass)."""
-        return self.height_cm is not None
+        """True when the 2D sun study casts the item: the plan gives it a height, and
+        it is no kind the study never casts (``object_height.casts_2d_shadow``: a string
+        of lights). Not a 3D rule — a 3D solid casts whenever it is built (L4's owner
+        pass)."""
+        return self.height_cm is not None and casts_2d_shadow(self.kind)
 
     @property
     def regions(self) -> tuple[Region, ...]:

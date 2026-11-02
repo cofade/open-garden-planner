@@ -1325,6 +1325,31 @@ def build_bird_bath(sp: Sprite) -> None:
 # conformance gate cross-checks it against get_valid_types_for_shape(), so the art's
 # aspect (square for circle-tool objects) and the "Change Type" menu can't drift.
 # --------------------------------------------------------------------------- #
+def lamp_glow(sp: Sprite, cx: float, cy: float, r: float, strength: float = 0.8) -> None:
+    """The warm light of a garden lamp's bulb (Phase 17 L5.4): the flame's pale yellow
+    fading to nothing — a lamp, not a fire (``glow`` is the embers')."""
+    g = sp.rad([(0, FLAME[0], strength), (35, FLAME[1], strength * 0.55), (100, FLAME[1], 0.0)])
+    sp.add(circ_s(cx, cy, r, f"url(#{g})"))
+
+
+def build_garden_light(sp: Sprite) -> None:
+    """A garden lantern on a post, from above (L5.4): its black four-sided cap over the
+    glass, the warm bulb's light showing round it."""
+    W = sp.w  # 40
+    cx = cy = W / 2
+    iron = MATERIALS["enamel_black"]
+    glass = MATERIALS["glass"]
+    lamp_glow(sp, cx, cy, W / 2 - 0.5, 0.75)
+    halo_rect(sp, cx - 10, cy - 10, 20, 20, iron, pad=1.2, rx=1.5)
+    sp.add(rect_s(cx - 10, cy - 10, 20, 20, glass["dark"], rx=1.5))
+    # the cap: four facets, lit from the top-left edge, darker to the bottom-right
+    for k, tone in enumerate((iron["light"], iron["mid"], iron["dark"], iron["mid"])):
+        a = 90 * k
+        d = (f"M {f1(cx)} {f1(cy)} L {f1(cx - 9.2)} {f1(cy - 9.2)} L {f1(cx + 9.2)} {f1(cy - 9.2)} Z")
+        sp.add(rot(a, cx, cy, path_s(d, tone)))
+    disc(sp, cx, cy, 1.8, iron, halo=False, gloss=0.6)
+
+
 _KNOWN_KEYS = frozenset({"view", "dir", "build", "shape"})
 
 OBJECTS: dict[str, dict] = {
@@ -1355,6 +1380,8 @@ OBJECTS: dict[str, dict] = {
     "wheelbarrow": dict(view=(60, 140), dir="infrastructure", build=build_wheelbarrow, shape="rect"),
     "pergola": dict(view=(300, 300), dir="infrastructure", build=build_pergola, shape="rect"),
     "bird_bath": dict(view=(50, 50), dir="infrastructure", build=build_bird_bath, shape="circle"),
+    # garden lights (Phase 17 L5.4, #389)
+    "garden_light": dict(view=(40, 40), dir="furniture", build=build_garden_light, shape="circle"),
 }
 
 

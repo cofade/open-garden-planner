@@ -99,8 +99,9 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     # barrel, a standpipe tap, an A-frame swing's top beam, a hammock stand's hooks,
     # a pergola's rafters. The 2D model extrudes the whole footprint as a solid
     # prism (`ui/canvas/footprints.item_footprints`), so an open frame — a swing,
-    # a hammock, a pergola — shades its whole footprint in 2D, as a picket fence
-    # casts a solid strip: accepted by the owner, ADR-042's #308 note superseded.
+    # a hammock, a pergola — shades its whole footprint in 2D: accepted by the owner,
+    # ADR-042's #308 note superseded. (A picket fence did too, until #440 weighted
+    # fences by their transmittance; the open frames' is #698.)
     "PARASOL": 250.0,
     "FIRE_PIT": 30.0,
     "PLANTER_POT": 50.0,
@@ -110,7 +111,20 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     "SWING": 220.0,
     "HAMMOCK": 110.0,
     "PERGOLA": 250.0,
+    # Garden lights (Phase 17 L5.4, #389): a lantern's cap on its post, and the tops
+    # of a string's posts. A string casts no 2D shadow at all (``casts_2d_shadow``).
+    "GARDEN_LIGHT": 110.0,
+    "STRING_LIGHTS": 250.0,
 }
+
+#: Kinds the 2D sun study never casts, whatever their height (the owner's decision in
+#: the manual test of L5, #389): a string of lights is a wire on posts — the shade it
+#: throws is no fact a plan needs, and the solid 2D strip of its first footprint was
+#: some 50 times its real shadow. Its 3D model still casts its own thin shadow. This
+#: list is for a kind whose shade is negligible, NOT for an open frame that overstates
+#: its shade (a pergola, a swing): that is cast honestly through #440's transmittance
+#: (#698), never by leaving it out.
+NO_2D_SHADOW_TYPE_NAMES: frozenset[str] = frozenset({"STRING_LIGHTS"})
 
 # Mirrors CONTAINER_TYPES in core/object_types.py (pinned by unit test).
 _CONTAINER_TYPE_NAMES = frozenset({"CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"})
@@ -263,6 +277,14 @@ def resolve_height(
             return mature, SOURCE_SPECIES
     default = DEFAULT_HEIGHTS_CM.get(name)
     return default, SOURCE_DEFAULT if default is not None else SOURCE_NONE
+
+
+def casts_2d_shadow(object_type: Any) -> bool:
+    """False for a kind the 2D sun study never casts (``NO_2D_SHADOW_TYPE_NAMES``) —
+    the rule of the one 2D caster walk (``sun_shadow_controller.
+    collect_identified_casters``), which every 2D shadow and sun-hours consumer reads.
+    The 3D record reports it as ``Record.has_2d_caster`` for the 2D/3D agreement tests."""
+    return _type_name(object_type) not in NO_2D_SHADOW_TYPE_NAMES
 
 
 def effective_height_cm(

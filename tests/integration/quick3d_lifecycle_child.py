@@ -102,6 +102,10 @@ def _register_calls() -> None:
         "set_roofs_hidden": lambda host, _part: host.set_roofs_hidden(True),
         "set_faded_items": lambda host, _part: host.set_faded_items(frozenset()),
         "set_plant_seasons": lambda host, _part: host.set_plant_seasons({}),
+        # the living garden (L5, #389): the garden's life, its switch and the lamps
+        "set_ambient": lambda host, _part: host.set_ambient(None),
+        "set_life_enabled": lambda host, _part: host.set_life_enabled(True),
+        "set_lamps": lambda host, _part: host.set_lamps([]),
         "focus": lambda host, _part: host.focus(),
         "has_focus": lambda host, _part: host.has_focus(),
         # the three releases: legal on a closed host, and they do nothing there

@@ -11,10 +11,12 @@ from pathlib import Path
 import pytest
 
 from open_garden_planner.core.phenology import (
+    DEFAULT_LATITUDE_DEG,
     PhenologyState,
     evaluate_phenology,
     evaluate_phenology_batch,
     evaluate_phenology_for_records,
+    plan_latitude,
     seasonal_day_of_year,
     seasonal_month,
 )
@@ -399,3 +401,26 @@ def test_fruit_ripeness_tint_changes_while_the_plant_is_also_flowering():
     assert early.bloom > 0 and late.bloom > 0
     assert early.accent_tint_linear != late.accent_tint_linear
 
+
+@pytest.mark.parametrize(("location", "expected"), [
+    ({"latitude": -33.87, "longitude": 151.21}, -33.87),
+    ({"latitude": 0, "longitude": 0}, 0.0),
+    ({"latitude": 64.1, "longitude": 18.9}, 64.1),
+    ({"latitude": 64.1}, DEFAULT_LATITUDE_DEG),
+    (None, DEFAULT_LATITUDE_DEG),
+    ({}, DEFAULT_LATITUDE_DEG),
+    ({"latitude": "52.5", "longitude": 13.4}, DEFAULT_LATITUDE_DEG),
+    ({"latitude": True, "longitude": 13.4}, DEFAULT_LATITUDE_DEG),
+    ({"latitude": float("nan"), "longitude": 13.4}, DEFAULT_LATITUDE_DEG),
+    ({"latitude": float("-inf"), "longitude": 13.4}, DEFAULT_LATITUDE_DEG),
+    ({"latitude": -91.0, "longitude": 13.4}, DEFAULT_LATITUDE_DEG),
+    ("not a location", DEFAULT_LATITUDE_DEG),
+    ({"latitude": 10 ** 400, "longitude": 13.4}, DEFAULT_LATITUDE_DEG),
+], ids=["south", "equator", "north", "no-longitude", "none", "empty", "text", "bool", "nan",
+        "inf", "beyond", "hostile", "overflow"])
+def test_one_latitude_reader_for_the_3d_view(location: object, expected: float) -> None:
+    """The plan latitude the 3D view's phenology, the garden's life and the look's
+    hemisphere read (senior review of L5: three readers, one checking for NaN): the
+    latitude of a valid ``plan_place`` — both coordinates real, finite, in range — else
+    the default (so a location without a longitude is no place either)."""
+    assert plan_latitude(location) == expected

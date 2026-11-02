@@ -1143,5 +1143,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#599, #440): typed smart-symbol members and geometry-aware sun/shade model"
+  },
+  "695": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
   }
 }

@@ -48,7 +48,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.object_height import effective_height_cm
+from open_garden_planner.core.object_height import casts_2d_shadow, effective_height_cm
 from open_garden_planner.core.object_types import PathFenceStyle
 from open_garden_planner.core.roof_style import (
     BUILDING_KINDS,
@@ -453,8 +453,8 @@ def collect_identified_casters(
         if not item.isVisible():
             continue
         object_type = getattr(item, "object_type", None)
-        if object_type is None:
-            continue
+        if object_type is None or not casts_2d_shadow(object_type):
+            continue   # a string of lights casts no 2D shadow (L5.4, owner's decision)
         metadata = getattr(item, "metadata", None)
         meta_dict = metadata if isinstance(metadata, dict) else {}
         if meta_dict.get("smart_symbol_guide"):

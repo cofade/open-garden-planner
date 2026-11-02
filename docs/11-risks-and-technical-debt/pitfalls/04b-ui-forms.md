@@ -77,3 +77,21 @@ translates the modifier tokens through the shortcuts dialog's existing
 was measured to stay English here: the app installs its own catalog, not Qt's.
 The test asserts one parenthesised group and pins the complete German tooltip, so
 a future entry cannot reintroduce either half.
+
+### PF-UI-33
+
+- **Rule:** A text-only `QToolButton` whose only job is to open a menu (`InstantPopup`) sets the `menuChevron` property: the app's style draws its menu arrow UNDER the last letter, and the button then reads as a label. The theme's chevron rule (`ui/theme.py`, shared with the plan strip's hidden-plants button) gives the arrow 16 px of its own beside the text.
+- **Pinned by:** `tests/integration/test_living_garden.py::test_the_strip_s_menu_buttons_read_as_buttons`
+- **Source:** #389 (owner's manual test of PR #699)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The owner could not find how to set the 3D weather: the 3D strip's "Wetter: Klar" button, an
+auto-raised text-only `QToolButton` with `InstantPopup`, drew its `menu-indicator` squeezed
+under the "r", and looked like a status label — as "Analyse" had since L2. A probe of the
+real window showed the menu itself worked and held every choice. "Rundgang" did not look
+broken because it is a `MenuButtonPopup` (its arrow has a section of its own), and the plan
+strip's "0 ausgeblendet ⌄" because `QToolButton#PlanDateHiddenPlants` had a rule for it. The
+rule now also matches `QToolButton[menuChevron="true"]`; set the property before the button
+is first polished. The test checks both strip buttons carry it and that the rule gives the
+arrow room (a probe button with the property is wider than one without, light and dark).
