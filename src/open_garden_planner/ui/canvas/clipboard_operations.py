@@ -41,7 +41,13 @@ def _strip_item_ids(data: dict[str, Any]) -> dict[str, Any]:
         else:
             copy_d.pop("metadata", None)
     if "children" in copy_d:
-        copy_d["children"] = [_strip_item_ids(child) for child in copy_d["children"]]
+        copy_d["children"] = [
+            _strip_item_ids(child)
+            for child in copy_d["children"]
+            # A ridge nested in a copied group is replaced by the fresh ridge
+            # built for its HOUSE; keeping it would draw two ridge lines.
+            if child.get("object_type") != "ROOF_RIDGE"
+        ]
     return copy_d
 
 

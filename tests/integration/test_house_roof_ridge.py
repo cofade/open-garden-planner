@@ -268,6 +268,60 @@ def test_a_grouped_house_carries_its_ridge_on_a_group_move(qtbot) -> None:
     assert (delta_x, delta_y) == (600.0, 250.0)
 
 
+def test_ungrouping_a_moved_group_does_not_double_the_ridge(qtbot) -> None:
+    from open_garden_planner.core.commands import GroupCommand
+
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    other = RectangleItem(0, 0, 50, 50, layer_id=scene.active_layer.id)
+    scene.addItem(house)
+    scene.addItem(other)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    GroupCommand(scene, [house, other]).execute()
+    group = house.parentItem()
+    assert group is not None
+    group.setPos(group.pos() + QPointF(300.0, 200.0))
+    after_move = [QPointF(p) for p in ridge.points]
+
+    group.setSelected(True)
+    view.ungroup_selected()
+
+    assert [QPointF(p) for p in ridge.points] == after_move
+    assert house.pos() == QPointF(300.0, 200.0)
+
+
+def test_deleting_a_group_removes_its_nested_house_ridge(qtbot) -> None:
+    from open_garden_planner.core.commands import GroupCommand
+
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    other = RectangleItem(0, 0, 50, 50, layer_id=scene.active_layer.id)
+    scene.addItem(house)
+    scene.addItem(other)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    GroupCommand(scene, [house, other]).execute()
+    group = house.parentItem()
+    assert group is not None
+
+    group.setSelected(True)
+    view._delete_selected_items()
+
+    assert group.scene() is None
+    assert ridge.scene() is None, "the ridge of a grouped house was left in the plan"
+
+
 def test_a_converted_rectangle_ridge_follows_move_resize_and_rotation(qtbot) -> None:
     from open_garden_planner.ui.canvas.geometry_apply import apply_rect_like_geometry
 

@@ -2248,21 +2248,15 @@ class AgentHost:
         """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
         ``CanvasView._delete_selected_items``'s ``ridge_item_id`` expansion so
         deleting a house doesn't orphan its ridge polyline."""
-        host = self._host
-        from uuid import UUID
-
         from open_garden_planner.core.object_types import ObjectType
         from open_garden_planner.ui.canvas.items import GardenItemMixin
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
 
         if not isinstance(item, GardenItemMixin) or item.object_type != ObjectType.HOUSE:
             return []
-        ridge_id_str = item.metadata.get("ridge_item_id")
-        if not ridge_id_str:
-            return []
-        try:
-            ridge = host.canvas_scene.find_item_by_id(UUID(ridge_id_str))
-        except ValueError:
-            return []
+        # The validated lookup refuses a copied/stale link, so the agent's
+        # delete_object never removes another house's ridge.
+        ridge = linked_ridge(cast(Any, item))
         return [ridge] if ridge is not None else []
 
 

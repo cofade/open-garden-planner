@@ -2592,6 +2592,15 @@ class MirrorItemsCommand(Command):
             for item in self._mirrored:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        if not self._copy:
+            # Move mode reuses the source id, so the existing ridge legitimately
+            # belongs to the reflected shape; re-derive it on the new outline.
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                update_linked_ridge,
+            )
+
+            for item in self._mirrored:
+                update_linked_ridge(item)
         if self._membership is not None:
             self._membership.reconcile()
 
@@ -2605,6 +2614,12 @@ class MirrorItemsCommand(Command):
                 for item in self._originals:
                     if item.scene() is None:
                         self._scene.addItem(item)
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                update_linked_ridge,
+            )
+
+            for item in self._originals:
+                update_linked_ridge(item)
         if self._membership is not None:
             self._membership.restore()
 

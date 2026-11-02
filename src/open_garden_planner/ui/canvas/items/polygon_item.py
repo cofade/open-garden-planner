@@ -386,7 +386,6 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
 
         return linked_ridge(self)
-        return None
 
     def _update_ridge_on_boundary(self) -> None:
         """Recompute the linked roof ridge from the current polygon (issue #364).
@@ -746,14 +745,13 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
                     self.exit_vertex_edit_mode()
                 self.hide_resize_handles()
                 self.hide_rotation_handle()
-        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
-            # Record old pos BEFORE it changes so we can compute the delta
-            self._pre_move_pos = QPointF(self.pos())
         elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             if self.is_vertex_edit_mode:
                 self._update_annotations()
-            # Move attached ridge by the same delta
-            self._move_ridge_by_delta()
+            # Re-derive instead of translating by a delta: a reparent (ungroup)
+            # also changes the local pos, and a delta would move the ridge twice
+            # (review round 4). The derivation is self-healing and exact.
+            self._update_ridge_on_boundary()
             self._update_area_label()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
@@ -771,35 +769,6 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
             area += poly.at(i).x() * poly.at(j).y()
             area -= poly.at(j).x() * poly.at(i).y()
         return abs(area) / 2.0
-
-    def _move_ridge_by_delta(self) -> None:
-        """Translate the attached ridge by the same delta as this polygon moved."""
-        old_pos = getattr(self, "_pre_move_pos", None)
-        if old_pos is None:
-            return
-        new_pos = self.pos()
-        dx = new_pos.x() - old_pos.x()
-        dy = new_pos.y() - old_pos.y()
-        if abs(dx) < 1e-6 and abs(dy) < 1e-6:
-            return
-
-        ridge = self._find_ridge()
-        if ridge is None:
-            return
-
-        from open_garden_planner.ui.canvas.items import PolylineItem
-
-        if not isinstance(ridge, PolylineItem):
-            return
-
-        # Shift every ridge point by the same delta (both are scene-space items)
-        new_pts = [QPointF(pt.x() + dx, pt.y() + dy) for pt in ridge._points]
-        ridge._points = new_pts
-        ridge._rebuild_path()
-        if hasattr(ridge, "_update_vertex_handles") and ridge.is_vertex_edit_mode:
-            ridge._update_vertex_handles()
-        if hasattr(ridge, "_position_label"):
-            ridge._position_label()
 
     def _move_vertex_to(self, index: int, pos: QPointF) -> None:
         """Move a polygon vertex and keep the attached ridge on the boundary."""

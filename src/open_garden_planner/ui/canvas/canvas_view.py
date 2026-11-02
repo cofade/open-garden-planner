@@ -3360,15 +3360,24 @@ class CanvasView(QGraphicsView):
         from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
 
         _sel_ids = {item.item_id for item in selected if isinstance(item, GardenItemMixin)}
-        for _item in list(selected):
-            if not isinstance(_item, GardenItemMixin):
-                continue
-            if _item.object_type != ObjectType.HOUSE:
-                continue
-            ridge = linked_ridge(_item)
-            if ridge is not None and ridge.item_id not in _sel_ids:
-                selected.append(ridge)
-                _sel_ids.add(ridge.item_id)
+
+        def _houses_in(item: QGraphicsItem):
+            if (
+                isinstance(item, GardenItemMixin)
+                and item.object_type == ObjectType.HOUSE
+            ):
+                yield item
+            for child in item.childItems():
+                yield from _houses_in(child)
+
+        for _root in list(selected):
+            # A group's HOUSE is a child, not a selected sibling: walk the tree
+            # or deleting the group leaves the ridge behind.
+            for _item in _houses_in(_root):
+                ridge = linked_ridge(_item)
+                if ridge is not None and ridge.item_id not in _sel_ids:
+                    selected.append(ridge)
+                    _sel_ids.add(ridge.item_id)
 
         # Collect constraints to remove for deleted items (garden + construction)
         graph = self._canvas_scene.constraint_graph
