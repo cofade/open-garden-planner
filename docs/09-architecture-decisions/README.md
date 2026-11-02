@@ -9648,5 +9648,8 @@ fence-like overstatement) — the shadow table of ADR-059's builders addendum. T
 `tests/unit/test_playback.py`, `test_scene3d_weather.py`, `test_scene3d_particles.py`,
 `tests/integration/test_living_garden.py` (§8.10), the render tier
 `tests/integration/test_living_garden_render.py` (the two issue gates and the board), the
-Beauty Board's `--living` shots. Cross-refs: FR-3D-LIVE-01 … 08, §8.29.13, §8.10.16,
+Beauty Board's `--living` shots, and the frozen `--selftest`: a second small frame — a rainy
+night with one garden light, in perspective — compiles the particle shaders and the point-light
+path from the bundle and must show the lamp's warm glow (`selftest.judge_living_frame`; a broken
+particle shader fails it, `test_quick3d_selftest.py`). Cross-refs: FR-3D-LIVE-01 … 08, §8.29.13, §8.10.16,
 PF-L3D-18.

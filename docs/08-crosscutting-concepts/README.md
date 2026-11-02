@@ -7626,6 +7626,11 @@ a finished frame read back, interleaved round by round): the look without L5 7.0
 with the garden's life 7.06 ms, snow 7.15 ms, rain 7.28 ms. A new weather builds one sky (as a
 sunset does); the precipitation's buffer is loaded once per host.
 
+**In the frozen exe.** `--selftest` renders a second 160 × 120 frame — the self-test scene in
+perspective on a rainy night with one garden light — so the particle shaders and the lit
+materials' point-light path are compiled from the bundle before every release; the judge needs
+the lamp's warm glow (`judge_living_frame`). No sky is built in it (WARP's probe cost).
+
 **Limitations (stated).** Roofs and a bed's soil are not snow-covered (principled parts); the
 wind's direction is a look (from the west-south-west), not the forecast's; Today's Weather is
 the forecast's daily code, not the hour's.
