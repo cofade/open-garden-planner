@@ -9534,3 +9534,119 @@ lane, and the late-timer settle
 `tests/unit/test_scene3d_polygon.py` pins the pricing, the capacity
 and the refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget.
 The golden meshes still match below the threshold.
+
+## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
+
+**Status**: Accepted (issue #389, epic #383) — all four slices, the two optional ones included.
+
+**Context**: After L4 the 3D view showed the plan's garden in a mood that followed the sun's
+height alone (`core/scene3d/look.py`, ADR-059 addendum L1.4), with wind as a shader clock and a
+reduced-motion setting. Issue #389 asked for year and day playback through the shared
+`SimClock` (ADR-053), named moods (morning dew, golden hour, overcast, night), weather presets
+and particles (rain, snow, autumn leaves, butterflies at flowering plants, fireflies on summer
+evenings) with three gates — at most 5,000 particles, at most 15 % of the frame at Medium,
+and with reduced motion an idle frame counter of 0 — and, optionally, "today's weather" only
+when the plan date is today and garden lights as a new object type (2D sprite, §8.23
+registration, 3D light). The forces: truth before beauty (no weather may move a sun or a
+shadow), the engine rules L1–L4 paid for (a destroyed Model leaves graphics state behind —
+ADR-060; a light that comes and goes recompiles every lit material), the software adapter's
+cost (nothing animates there), and one canonical path per behaviour.
+
+**Decision**:
+1. **Playback is a writer of the one clock.** `core/playback.py` is the Qt-free arithmetic of
+   one step: the DAY mode advances the time of day and wraps at midnight onto the SAME date (no
+   `date_changed`); the YEAR mode advances the plan date at the same time and wraps inside the
+   plan's year. Three speeds (5 / 10 / 30 minutes, 1 / 2 / 7 days per 200 ms step; "normal"
+   day = Phase 14's Animate). The Plan & Sun toolbar's Animate button carries the choice
+   (`SunSimToolbar`, a menu on the button) and writes through its existing paths — the slider
+   (time) and `date_requested` (date) — so the 2D overlay, the hours-of-sun map, the 3D light
+   and the 3D growth follow on their own subscriptions; the 3D regrowth stays throttled by
+   `DATE_REGROW_MIN_MS`. Session state only, like the sim moment (FR-SUN-04).
+2. **Weather is a LOOK.** `core/scene3d/weather.py`: `living_look(sun, preset, weather) =
+   apply_weather(look_for(sun, preset), weather, sun)`. Overcast greys the sky towards a hue
+   whose horizon is as bright as the clear one (a cloudy night stays a night), hides the disc,
+   cuts the key light to 22 % and its shadows to 30 % darkness with a softer filter, raises the
+   probe and the exposure a little and lowers saturation; rain adds wetness, a nearer haze and
+   more wind; snow a snow cover. The sun's direction is not in a look and the moon is unchanged;
+   a clear look outside the morning is `look_for`'s field for field except the new
+   `LookSpec.atmosphere` (pinned). The 2D sun study, the hours-of-sun map and every truth gate
+   read clear geometry and are unaffected. A new weather's sky is built at once
+   (`look.sky_must_build_now`, `SkySpec.cloud`); `sky_phase` is now read from the sun's
+   elevation, not the disc's energy, so an overcast day is still day.
+3. **Moods are names of the look.** `weather.mood_of(look, sun)` — night, twilight, rain, snow,
+   overcast, morning dew, golden hour (a clear sun at or below 12°), day — read from the look so
+   the name can never disagree with the picture. Morning dew is east of the meridian (azimuth in
+   (0°, 180°) at every latitude) from the end of civil twilight until the sun is 18° up: a
+   nearer mist, a wet sheen on leaves and blades, a little less colour.
+4. **Particles are geometry a shader moves.** No CPU simulation and no Qt Quick 3D particle
+   module: `core/scene3d/particles.py` builds two buffers — the precipitation (3,600 seeded
+   quads, the same for every plan) and the ambient life (falling leaves under turned trees and
+   shrubs that are dropping them, butterflies at plants in flower up to 3.5 m tall, fireflies in
+   the hemisphere's midsummer, and the bulbs of the garden lights) — each loaded into ONE
+   declared Model for the scene's life (`ReloadableGeometry`, like the selection ring).
+   `precipitation.vert` / `ambient.vert` place every particle from its seeds and the WIND'S
+   CLOCK (`windTime`). So the L1.4 animation policy runs them: hidden, nothing ticks; reduced
+   motion rests the clock at 0 — every particle stands where its seed puts it, a photograph,
+   and an idle view presents no frame; the compatibility mode draws them still. Rain and snow
+   are world-anchored in a box around the camera's target (`precipitation_volume`), so an orbit
+   never drags them. WHICH plants have life is the buffer's (rebuilt with the plants'
+   phenology, i.e. at most twice a second during a date playback); WHEN it shows — by day, dry,
+   at dusk — is the look's (`AtmosphereSpec.leaves / butterflies / fireflies / lamps`), a
+   uniform, so a time-of-day step rebuilds nothing. Budget: precipitation 3,600 + leaves 560 +
+   butterflies 80 + fireflies 360 + bulbs 360 = 4,960 ≤ 5,000 (pinned).
+5. **Wind is a shader value the weather sets.** `LookSpec.wind_strength` (clear 2.5 — L1.4's —,
+   overcast 3.5, rain 5, snow 1.5) sways foliage and grass; `AtmosphereSpec.wind_drift_scene`
+   carries rain, snow and leaves (from the west-south-west). No meteorology is claimed.
+6. **Wet and snowy ground is ONE set of values.** The meadow, the bare plan and both tile
+   materials bind the same `groundRoughness` / `groundSpecular` / `groundTint` (and the tile
+   shader `snowCover`), so the plan meets the meadow without a step in every weather (the L1.4
+   plan-edge rule). Roofs and a bed's soil (principled `vc` parts) are not snow-covered — an
+   accepted limitation.
+7. **Today's weather follows the app's forecast, only on today.** The Planting Calendar's
+   weather widget already fetches Open-Meteo's daily forecast; `forecast_days_ready` fans its
+   `(ISO date, WMO code)` days out to the workspace (no second fetch, nothing from the 3D view to
+   the network). `weather.todays_weather` maps the plan date's code — only when the plan date is
+   today — onto a preset (`weather_from_wmo`: 0–2 clear, 3/45/48 overcast, drizzle/rain/showers/
+   storms rain, snow and snow showers snow); on any other date "Today's Weather" shows clear and
+   its tooltip says why.
+8. **Garden lights are objects, their light a fixed pool.** `GARDEN_LIGHT` (circle tool, a
+   lantern on a post) and `STRING_LIGHTS` (rectangle tool, a string between two posts) are
+   registered on every §8.23 surface (sprites from `scripts/generate_object_sprites.py`,
+   default heights 110 / 250 cm) and built by `builders/lights.py`. Where a bulb is is ONE
+   function per kind (`lantern_bulb`, `string_bulbs`), read by the builder that places the bulb
+   and by `core/scene3d/lights.py` that makes it glow (an ambient `bulb` particle) and light
+   (`pose_points`, the Model's own pose). The scene declares `lampSlots` (6) point lights once;
+   the nearest six lamps to the camera's target light the garden after dusk
+   (`AtmosphereSpec.lamps` ramps in over twilight), the rest glow. No point-light shadows.
+   `foliage.frag`, `foliage_door.frag` and `lawn.frag` gain a `POINT_LIGHT` that lights leaves
+   the way their `DIRECTIONAL_LIGHT` does.
+
+**Alternatives considered**:
+- *Qt Quick 3D's `ParticleSystem3D`.* A CPU simulation per frame, a further QML module to
+  bundle and pin in the frozen exe, and particles that tick on their own clock — a second
+  animation policy to keep in step with reduced motion and with a hidden pane. The shader route
+  reuses the clock the policy already owns.
+- *Weather in the sun study.* Rejected by the truth principle: shading in 2D is a geometric
+  analysis of where the sun's direct light falls; a cloudy day does not move a shadow.
+- *A light per lamp.* Every visible light is computed for every lit pixel and changes the shader
+  of every lit material; a plan with dozens of lamps would recompile and slow the view. Six
+  nearest, the rest glowing, keeps the cost bounded.
+- *Persisting the weather.* The sim moment is not persisted (FR-SUN-04); the weather is part of
+  that simulated moment, so every session starts clear.
+
+**Consequences**: New modules `core/playback.py`, `core/scene3d/weather.py`, `particles.py`,
+`lights.py`, `builders/lights.py`, `ui/view3d/workspace_living.py`; shaders
+`precipitation.vert/.frag`, `ambient.vert/.frag`; two object types appended to
+`ObjectType`/`ToolType` (names serialized: older versions load them as generic shapes — no
+`FILE_VERSION` bump); two sprites (§8.23 now 26 artifacts); `bench_built.ogp` gained one of
+each (appended last, every earlier id and seed kept). `LookSpec` gained `atmosphere`
+(`CLEAR_STILL` by default), `SkySpec` `cloud`. Measured (RTX 4070, Direct3D 11, bench_small at
+1280 × 720, Medium, interleaved readbacks): clear with life +0.6 %, snow +1.9 %, rain +3.7 % of a
+frame; with reduced motion 0 frames over 2.5 s after the first build. The two garden lights'
+3D shadows are a small share of their solid 2D prisms (string lights 2 %: the 2D strip is a
+fence-like overstatement) — the shadow table of ADR-059's builders addendum. Tests:
+`tests/unit/test_playback.py`, `test_scene3d_weather.py`, `test_scene3d_particles.py`,
+`tests/integration/test_living_garden.py` (§8.10), the render tier
+`tests/integration/test_living_garden_render.py` (the two issue gates and the board), the
+Beauty Board's `--living` shots. Cross-refs: FR-3D-LIVE-01 … 08, §8.29.13, §8.10.16,
+PF-L3D-18.

@@ -247,7 +247,12 @@ class WorkspaceLivingCoordinator(QObject):
         """A pass went through: the lights may have moved, come or gone."""
         if report.ground_pass or not report.snapshot:
             return
-        sources = lamp_sources(self._get_records().values())
+        try:
+            sources = lamp_sources(self._get_records().values())
+        except Exception as error:  # noqa: BLE001 - a plan's lights never take 3D down
+            _LOG.warning("3D living garden: the garden lights could not be read (%s)",
+                         log_text(error))
+            return
         if sources != self._sources:
             self._sources = sources
             self._refresh_ambient()

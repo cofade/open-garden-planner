@@ -289,5 +289,35 @@ def test_the_lamp_pool_is_the_scenes() -> None:
     assert match and int(match.group(1)) == LAMP_SLOTS
 
 
+@pytest.mark.parametrize("kind", ["STRING_LIGHTS", "GARDEN_LIGHT"])
+def test_a_hostile_outline_has_no_bulb_and_breaks_nothing(kind: str) -> None:
+    """A file can type any polygon a light: one drawn crossing itself (the snapshot's
+    ``outline_resolved``), two rings, a ring with a hole. The builder builds those as the
+    plain block; the bulbs follow the same rule — no light, and no exception that could
+    reach the workspace's pass (security review of #389)."""
+    from open_garden_planner.core.scene3d.record import PARAM_OUTLINE_RESOLVED
+
+    square = ((0.0, 0.0), (400.0, 0.0), (400.0, 30.0), (0.0, 30.0))
+    other = ((500.0, 0.0), (600.0, 0.0), (600.0, 30.0), (500.0, 30.0))
+    hole = ((100.0, 10.0), (100.0, 20.0), (300.0, 20.0), (300.0, 10.0))
+    material = Material(kind, fill_rgba=(238, 225, 198, 255))
+    hostile = [
+        Record(item_id="crossed", kind=kind, shape="polygon", footprints=(square,),
+               transform=Transform(), material=material, height_cm=250.0,
+               params=Params({"seed": "crossed", PARAM_OUTLINE_RESOLVED: True})),
+        Record(item_id="two", kind=kind, shape="polygon", footprints=(square, other),
+               transform=Transform(), material=material, height_cm=250.0,
+               params=Params({"seed": "two"})),
+        Record(item_id="holed", kind=kind, shape="polygon", footprints=(square,), holes=((hole,),),
+               transform=Transform(), material=material, height_cm=250.0,
+               params=Params({"seed": "holed"})),
+    ]
+    assert lamp_sources(hostile) == ()
+    for record in hostile:
+        assert lantern_bulb(record, 250.0) is None and string_bulbs(record, 250.0) is None
+        parts = production_registry().builder_for(kind)(record)
+        assert parts and not any(part.name in ("bulb", "bulbs") for part in parts), record.item_id
+
+
 def test_no_light_without_its_kind() -> None:
     assert lamp_sources([plant("oak")]) == ()

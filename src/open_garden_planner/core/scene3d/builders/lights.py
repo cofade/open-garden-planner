@@ -27,7 +27,7 @@ from ..build import BuilderRegistry
 from ..mesh import Mesh, MeshPart
 from ..record import Record
 from . import palette
-from .common import BuiltBuilder, plain_block
+from .common import BuiltBuilder, has_one_plain_ring, plain_block
 from .kit import ObjectBox, ball, cylinder, object_box, placed, rod, slab
 
 #: The kinds this module builds.
@@ -52,6 +52,17 @@ def _part(meshes: list[Mesh], box: ObjectBox, name: str, kind: str = "vc", *,
 
 # ── where the light is (shared with core/scene3d/lights.py) ─────────────────
 
+
+def _box_of(record: Record) -> ObjectBox | None:
+    """The object's box — or None where the builder builds the plain block instead:
+    a record that is not ONE plain ring (several rings, a hole, an outline drawn
+    crossing itself — a hostile file can type any polygon a string of lights), or
+    whose footprint is no box. The bulbs follow the builder's own rule, so a light
+    never hangs where no bulb was built."""
+    if not has_one_plain_ring(record):
+        return None
+    return object_box(record)
+
 def _lantern(box: ObjectBox, height_cm: float) -> tuple[float, float, float, float]:
     """(post radius, lantern bottom, lantern top, lantern half width) of a lantern."""
     r, h = box.radius, height_cm
@@ -66,7 +77,7 @@ def _lantern(box: ObjectBox, height_cm: float) -> tuple[float, float, float, flo
 def lantern_bulb(record: Record, height_cm: float) -> tuple[float, float, float] | None:
     """The bulb of a garden light, item-local (cm; z up from its soil) — None for a
     record the builder builds as a plain block."""
-    box = object_box(record)
+    box = _box_of(record)
     if box is None:
         return None
     _post, bottom, top, _half = _lantern(box, height_cm)
@@ -97,7 +108,7 @@ def _hang(span: float, height_cm: float, count: int) -> tuple[np.ndarray, np.nda
 def string_bulbs(record: Record, height_cm: float) -> np.ndarray | None:
     """The bulbs of a string of lights, item-local (n, 3) in cm — None for a record the
     builder builds as a plain block."""
-    box = object_box(record)
+    box = _box_of(record)
     if box is None:
         return None
     a, b, span = _string_span(box)

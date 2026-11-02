@@ -2723,7 +2723,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ---
 
-## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L4 complete
+## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L4 complete, L5 in review
 
 **Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 
@@ -2736,7 +2736,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **✅ shipped v1.31.0 ([PR #584](https://github.com/cofade/open-garden-planner/pull/584)) after owner acceptance (ADR-063, FR-3D-ANALYZE-01 … 08)** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | ✅ | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **✅ shipped v1.34.0 ([PR #613](https://github.com/cofade/open-garden-planner/pull/613)) after owner acceptance (ADR-065, FR-3D-BUILT-01 … 08)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
-| 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
+| 🔄 | L5 | **Living garden** — year/day playback through the SimClock, moods, weather presets as a look, shader particles (rain, snow, leaves, butterflies, fireflies) on the wind's clock, Today's Weather, Garden Light / String Lights. **In review: draft PR (ADR-070, FR-3D-LIVE-01 … 08)** — see below | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
@@ -2766,6 +2766,55 @@ elease.yml, documented ADR-050 version derivation evaluation addendum, and enfor
 - **#583:** Split ui/view3d/workspace.py from 2,381 to 1,861 lines by extracting selection, walk, analysis, wipe, and legend coordinators with typed protocols (EngineHost, EngineSink, ShadowsSource, HeatmapSource, SunHoursSource).
 - **#580:** Expanded info card body line budget (BODY_LINES = 8) to keep all fact rows (including harvest window) visible without vertical clipping at the narrowest 455 px split pane width.
 - **#577:** De-scoped for dedicated geometry research; preserved clean ground drape depth occlusion.
+
+### L5 acceptance highlights — Living garden (#389, ADR-070) — **in review (draft PR)**
+
+All four slices of the issue, the optional L5.3 and L5.4 included:
+
+- **L5.1 — year and day playback through the shared `SimClock`.** Animate on the Plan & Sun
+  toolbar plays *The Day* (wraps onto the same date: no `date_changed`) or *The Year* (wraps
+  inside the plan's year, the time kept) at Slow / Normal / Fast (`core/playback.py`); it writes
+  through the toolbar's own paths, so 2D shadows, hours of sun, the 3D light and the 3D growth
+  follow their subscriptions (3D regrowth throttled at 2 Hz). Moods — night, twilight, rain,
+  snow, overcast, morning dew, golden hour, day — are named from the look (`weather.mood_of`);
+  morning dew is a mist and a wet sheen east of the meridian until the sun is 18° up. The
+  reduced-motion setting now also stills the particles.
+- **L5.2 — weather presets and particles; wind as a shader value.** Clear / Overcast / Rain /
+  Snow in the 3D strip's Weather menu, applied as a LOOK (`weather.apply_weather`): the sun's
+  direction, the shadows' places, the 2D study and the drapes are untouched; a clear look
+  outside the morning equals `look_for`'s field for field but its new `atmosphere`. Particles
+  are GPU-shader quads on two Models declared once, moved by the wind's clock: ≤ 5,000 at once
+  (4,960 by construction, pinned); with reduced motion the idle frame counter stays at 0
+  (render tier); rain costs +3.7 % and snow +1.9 % of a Medium frame (gate 15 %, interleaved
+  measurement — PF-L3D-18). Wet and snowy ground share ONE set of ground values, so the plan
+  meets the meadow without a step.
+- **L5.3 — Today's Weather.** Follows the Planting Calendar's own Open-Meteo forecast (WMO
+  code → preset) only while the plan date is today; the 3D view fetches nothing.
+- **L5.4 — garden lights.** `GARDEN_LIGHT` and `STRING_LIGHTS` on every §8.23 surface (sprites,
+  tools, gallery, Change Type, default heights 110 / 250 cm, 3D builders, agent `create_object`);
+  at dusk the bulbs glow and the six lamps nearest the camera's target light the garden (a pool
+  of point lights made once). Bulb positions are ONE function per kind, shared by the builder
+  and the light. `bench_built.ogp` gained one of each (appended last).
+- Reviews: the `ogp-3d-reviewer` and `senior-reviewer` passes are recorded in the PR; an
+  automated security review found a hostile outline typed a light could raise out of the
+  workspace's pass — fixed (the bulbs follow the builder's plain-block rule) and pinned.
+
+### Out of scope (deferred)
+- Snow on roofs and on a bed's soil (principled `vc` parts take no snow cover).
+- The forecast's hour or its wind direction — Today's Weather is the day's code; the wind's
+  direction is a look.
+
+### Docs updated on completion
+
+| Document | Section |
+|----------|---------|
+| `docs/09-architecture-decisions/` | ADR-070; ADR-059 builders addendum (two shadow rows) |
+| `docs/functional-requirements.md` | FR-3D-LIVE-01 … 08 |
+| `docs/08-crosscutting-concepts/` | §8.29.13, §8.10.16, §8.23.1 (26 artifacts) |
+| `docs/05-building-block-view/` | weather, particles, lights, playback, workspace_living |
+| `docs/11-risks-and-technical-debt/pitfalls/` | PF-L3D-18 |
+| `docs/12-glossary/` | Playback, Weather (3D), Today's Weather, Mood (3D), Morning dew, Garden's life, Lamp pool, Garden Light / String Lights |
+| skills | `ogp-3d-renderer` §19, `ogp-lush-cinematic` living-garden values, `debug-verbose` case study 184 |
 
 ### L4 follow-up hardening — **shipped 2026-10-27 as v1.34.1, PR #630**
 

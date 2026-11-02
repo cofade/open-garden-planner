@@ -299,7 +299,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   `BackgroundImageItem` now raises it for one decode only (restored in `finally`) and refuses
   >120 MP from the header. The embedded base64 PNG is encoded once per pixmap revision, not
   1.2 s per Agent API read / autosave. PF-PER-22/23, FR-IMG-12/13.
-- Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
+- Phase 17 L1–L4 and Package F/G are shipped. L5 (#389, ADR-070) is in review as a
+  draft PR: playback through the SimClock, weather as a look (never the sun), shader
+  particles on the wind clock, Today's Weather, Garden Light / String Lights. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).

@@ -1,0 +1,32 @@
+## 19. The living garden on the engine (L5, #389)
+
+Concept: docs §8.29.13; decisions and numbers: ADR-070; tests: §8.10.16; lesson: PF-L3D-18.
+What the ENGINE taught (RTX 4070, Direct3D 11, 2026-11-02):
+
+- **Particles need no particle module.** A `CustomMaterial` vertex shader places a quad from
+  per-vertex seeds and `windTime` (`precipitation.vert`, `ambient.vert`); `CAMERA_POSITION`,
+  `CAMERA_DIRECTION` and `VIEWPROJECTION_MATRIX` billboard it; a particle whose kind is off is
+  written to `POSITION = vec4(0, 0, 2, 1)` — beyond the far plane on every backend, so it is
+  clipped. Two Models, two `ReloadableGeometry`s, loaded once; the buffers are the package's
+  one vertex layout with the slots holding seeds (`core/scene3d/particles.py`). An Unshaded
+  material still goes through exposure and tone curve: a particle multiplied by the look's
+  light (`particleLight`) sits in the frame like a lit surface; a firefly's colour above the
+  glow threshold blooms.
+- **The NORMAL attribute arrives raw** in a custom vertex shader (not normalised): the ambient
+  buffer carries (phase, speed, radius in cm) in it and the shaders read them back.
+- **`POINT_LIGHT` with `LIGHT_ATTENUATION` compiles in a shaded `CustomMaterial`** next to
+  `DIRECTIONAL_LIGHT` (foliage, foliage door, lawn): without it a custom leaf shader would
+  light point lights through Qt's default, not with its translucency.
+- **Six point lights made once** (`Component.createObject` at load — the scene forbids a
+  `Repeater3D`): only filled slots are visible, and only after dusk; `quadraticFade` 3.5 with
+  brightness 7 gave a lantern a pool of a few metres at night exposure 2.4 (1.0 lit the whole
+  lawn).
+- **Cost of a weather** (bench_small, 1280 × 720, Medium, a finished frame read back,
+  interleaved 40 rounds): no L5 7.02 ms, clear with life 7.06, snow 7.15, rain 7.28. Blocks of
+  seconds per look drifted 24 % with nothing changed — interleave (PF-L3D-18).
+- **The first frame of the bench plan came ~3 s after its update requests** under the render
+  tier's environment (pipelines + the sky's probe). "No frame for a second" before it is not
+  idle (PF-L3D-18). With reduced motion and rain: 0 frames over 2.5 s after it; animated: ~60/s.
+- **A presented-frame count stays display-paced with `swapInterval(0)`** under
+  `QT_D3D_NO_VBLANK_THREAD=1` (62.6 fps at every weather): it cannot measure a GPU cost here;
+  the readback can.

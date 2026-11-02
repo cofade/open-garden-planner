@@ -2258,6 +2258,24 @@ all samples and explicit output dimensions; the evidence never substitutes an
 old audit observation for a current result. See the quality requirements and
 audit evidence for the command, machine and measured limitations.
 
+### 8.10.16 Patterns from the living garden (Phase 17 L5, #389)
+
+- **An idle gate waits for the first PRESENTED frame.** "No frame for a second" is not
+  "settled": on the bench plan the scene's update requests came at once and their frame — the
+  plan's pipelines and the sky's probe — was presented about three seconds later. A quiet
+  stretch measured before it counted the first picture as idle frames
+  (`view3d_living_driver._settle`; PF-L3D-18).
+- **An A/B frame cost is interleaved, never in blocks.** Blocks of seconds drifted 24 % on the
+  dev box with nothing changed; one render of each look per round, medians over 40 rounds,
+  measured 0.6–3.7 % (`scenario_frame_cost`). A readback adds the same time to every sample, so
+  the share is a lower bound of the GPU's.
+- **A weather is pinned as data, then as pixels.** The default tier compares the weathered look
+  with `look_for` field by field (truth), the scene's properties with the mapping for every
+  weather and mood (`tests/ui/test_quick3d_host.py`), and the controller's calls; the render
+  tier only answers what needs the engine.
+- **The playback is driven through the real toolbar and the real clock**, the menu's actions
+  triggered, the timer itself run once — not a step function called in isolation.
+
 ## 8.11 Security Scanning (SAST)
 
 **Tool:** [Bandit](https://bandit.readthedocs.io/) — a Python SAST tool that detects common security anti-patterns (subprocess injection, unsafe deserialization, weak cryptography, hardcoded secrets, etc.).
@@ -4067,7 +4085,7 @@ text, which is newline-agnostic.
 
 ## 8.23 Object Sprite Pipeline (#308, ADR-042)
 
-### 8.23.1 One generator, 24 artifacts
+### 8.23.1 One generator, 26 artifacts
 
 Every SVG under `resources/objects/{furniture,infrastructure}/` is produced by
 `scripts/generate_object_sprites.py` — a seeded, deterministic generator whose
@@ -7556,6 +7574,61 @@ hostile input), `tests/integration/test_l4_built_world.py` (panel → undo → s
 context → production registry), the ground-bake and render tiers (the "ground alone"
 gates take the relief off: `ground_bake_render_driver._without_relief`) and the
 frozen self-test, whose High-preset frame compiles `ground.frag` from the bundle.
+
+### 8.29.13 The living garden — playback, weather, particles, garden lights (L5, #389, ADR-070)
+
+The decisions and the measurements are **ADR-070**; the requirements FR-3D-LIVE-01 … 08; the
+test patterns §8.10.16; the lesson PF-L3D-18.
+
+| Part | Engine? | What it does |
+|---|---|---|
+| `core/playback.py` | Qt-free | one step of the day or the year playback (`next_step`): the day wraps onto the same date, the year inside its year |
+| `ui/widgets/sun_sim_toolbar.py` | no | Animate's menu (The Day / The Year, Slow / Normal / Fast); writes the clock through its slider and `date_requested` |
+| `core/scene3d/weather.py` | Qt-free | `WEATHER_SPECS`, `apply_weather`, `living_look`, `dew_amount`, `mood_of`, `weather_from_wmo`, `todays_weather` |
+| `core/scene3d/look.py` | Qt-free | `AtmosphereSpec` (`CLEAR_STILL` is every look of L1–L4), `SkySpec.cloud`, `sky_must_build_now`, `sky_phase` by elevation |
+| `core/scene3d/particles.py` | Qt-free | the two buffers (`precipitation_buffers`, `ambient_buffers`), `ambient_emitters`, `precipitation_volume`, the caps |
+| `core/scene3d/lights.py`, `builders/lights.py` | Qt-free | the two light kinds' builders, their bulbs (ONE function each), `lamp_sources`, `nearest_lamps` |
+| `ui/view3d/look_controller.py` | no | `set_weather`, `set_todays_weather`, `mood` / `mood_changed`: the look is `living_look` |
+| `ui/view3d/workspace_living.py` | no | the Weather button and menu, the life switch, the plants' life from the Plant Forge's phenology, the nearest lamps, the forecast |
+| `ui/view3d/quick3d/host.py` | **yes** | `set_ambient`, `set_life_enabled`, `set_lamps`, the precipitation's one load, the rain's volume with every `set_camera` |
+| `qml/Garden.qml`, `precipitation.*`, `ambient.*` | **yes** | the two particle Models, the lamp pool (`lampSlots` point lights made once), the weather's ground and foliage values |
+
+**Truth stays where it was.** A weather is a look: `apply_weather` changes the sky's colours
+and energy, the key light's strength, the shadows' darkness and softness, the grade, the fog,
+the wind and the atmosphere — never a direction. The pipeline's sun aims the key light as
+before (`Quick3DHost._apply_light`); the 2D study, the drapes, the board's truth probes run on
+clear looks. A clear look outside the morning equals `look_for`'s but for its `atmosphere`
+(pinned field for field).
+
+**The particles are on the wind's clock.** Both particle Models are declared once and fed
+through a `ReloadableGeometry` — no weather, date or time creates or destroys a Model. The
+vertex shaders compute each particle's place from its seeds and `windTime`, so the L1.4 policy
+is theirs: hidden, the clock stops; reduced motion rests it at 0 (a photograph; an idle view
+presents no frame — the render tier's gate); compatibility mode never runs it. A particle
+whose kind is off this instant (`uButterflies` 0 at night) is moved beyond the far plane by its
+vertex shader, so a time-of-day step costs a uniform, not a buffer. Rain and snow wrap inside a
+box around the camera's target, world-anchored: the box slides, the drops do not. In the
+top-down truth view no particle is drawn.
+
+**When the ambient buffer is rebuilt.** On the Plant Forge's phenology (`season_sink`: a plan
+or date change — at most twice a second during the year playback) and when a pass changed the
+garden lights; never for a time of day. Equal emitters are not sent again.
+
+**The lamp pool.** Six `PointLight`s are made once by the scene (`lampSlots`), each bound to
+one slot of `root.lamps`; only filled slots are visible, and only after dusk. Which lamps fill
+them follows the camera's target (`nearest_lamps`), so a large plan's lights are lit where one
+looks. The foliage and lawn shaders light leaves from a point light as from the sun
+(`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampFade` 3.5,
+`lampBrightness` 7 at `#ffc98a`.
+
+**What a weather costs.** Measured on the RTX 4070 (bench_small, 1280 × 720, Medium, the cost of
+a finished frame read back, interleaved round by round): the look without L5 7.02 ms, clear
+with the garden's life 7.06 ms, snow 7.15 ms, rain 7.28 ms. A new weather builds one sky (as a
+sunset does); the precipitation's buffer is loaded once per host.
+
+**Limitations (stated).** Roofs and a bed's soil are not snow-covered (principled parts); the
+wind's direction is a look (from the west-south-west), not the forecast's; Today's Weather is
+the forecast's daily code, not the hour's.
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 
