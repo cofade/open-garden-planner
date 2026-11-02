@@ -455,3 +455,52 @@ class TestTypedMembersAnd3DSnapshot:
         assert len(labels) == 1
         spins = win.properties_panel.findChildren(QAbstractSpinBox)
         assert spins and all(not s.isEnabled() for s in spins)
+
+
+def test_a_light_member_of_a_rotated_symbol_lights_and_survives_save(qtbot, monkeypatch) -> None:
+    """L5's two lights joined #686's typed-member table on the merge: a STRING_LIGHTS and a
+    GARDEN_LIGHT member of a rotated symbol instantiate as their own type, become 3D
+    records that light (``lamp_sources``), and survive save and load (senior review of
+    L5, round 5 — only the table's equality was pinned)."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.core.scene3d.lights import lamp_sources
+    from open_garden_planner.models.smart_symbol import SmartSymbolDefinition
+    from open_garden_planner.services.smart_symbol_library import get_smart_symbol_library
+    from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+    definition = SmartSymbolDefinition.from_dict({
+        "id": "lit_pergola", "version": 1, "name": "Lit", "name_de": "Lit", "category": "c",
+        "parameters": [],
+        "elements": [
+            {"kind": "rect", "x": 0, "y": 0, "w": 400, "h": 300, "object_type": "PERGOLA"},
+            {"kind": "rect", "x": 0, "y": 135, "w": 400, "h": 30, "object_type": "STRING_LIGHTS",
+             "member_key": "string"},
+            {"kind": "circle", "cx": 450, "cy": 150, "r": 20, "object_type": "GARDEN_LIGHT",
+             "member_key": "lamp"},
+        ],
+    })
+    library = get_smart_symbol_library()
+    library._ensure_loaded()
+    monkeypatch.setitem(library._symbols, "lit_pergola", definition)
+
+    def lights(scene: CanvasScene) -> list[tuple[str, int]]:
+        return sorted((source.kind, len(source.bulb_points))
+                      for source in lamp_sources(snapshot_records(scene).values()))
+
+    scene = CanvasScene(width_cm=5000, height_cm=3000)
+    symbol = SmartSymbolItem("lit_pergola", 1, {})
+    scene.addItem(symbol)
+    symbol.regenerate_geometry()
+    symbol.setPos(1000, 1000)
+    symbol.setRotation(30)
+    kinds = {getattr(child, "object_type", None) for child in symbol.childItems()}
+    assert {ObjectType.STRING_LIGHTS, ObjectType.GARDEN_LIGHT} <= kinds
+    before = lights(scene)
+    assert [kind for kind, _bulbs in before] == ["GARDEN_LIGHT", "STRING_LIGHTS"]
+    assert all(bulbs >= 1 for _kind, bulbs in before)
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "lit.ogp"
+        ProjectManager().save(scene, path)
+        scene.clear()
+        ProjectManager().load(scene, path)
+    assert lights(scene) == before, "the same lights after save and load"

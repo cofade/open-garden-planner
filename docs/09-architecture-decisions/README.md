@@ -6099,8 +6099,10 @@ only, and correct their heights with a fit after the fact.
   render must read: a shadow map is judged on solid casters (the box gate), and a member near
   one shadow-map texel — a 0.8 cm chain-link wire, a 1.6 cm bar — can read lower in a render
   through no fault of the builder. Thin members are exempt from a per-pixel IoU.
-  **Open owner question (porous fences):** should the 2D sun study keep treating a chain-link or
-  picket fence as a solid strip? It is the shipped behaviour and deliberately not changed here.
+  **Porous fences (answered by #440):** the 2D sun study no longer treats a chain-link, metal or
+  picket fence as a solid strip — #440 weights it by its angle-dependent structural transmittance
+  (ADR-059's porosity addendum); the other open objects in this table still cast a solid prism
+  (#698).
 - A HOUSE's fill colour tints its WALLS in 3D; in 2D it tints the roof texture (a 31 % overlay).
   And the tint rule is uneven for hedges: a hedge POLYGON is baked in the hedge texture's greens
   and ignores a recolour, while a hedge FENCE is tinted with the item's stroke. Both follow what
@@ -8973,9 +8975,10 @@ paths, the house colours, the camera and the fog, and decided the two open point
      shapes, annotations and plants. A new object kind cannot slip back.
    - This supersedes ADR-042's roster note for swing, pergola and hammock. The 2D
      shadow model extrudes the whole footprint as a solid prism, so in 2D a pergola
-     shades its footprint completely, as a picket fence casts a solid strip. A plant
-     under a pergola reads as shaded in 2D. A footprint-fill factor in the 2D model
-     is still the way to honest frame shadows.
+     shades its footprint completely (a picket fence did too, until #440 gave fences a
+     transmittance). A plant under a pergola reads as shaded in 2D. A footprint-fill
+     factor — #440's caster transmittance — is still the way to honest frame shadows
+     (#698).
    - A plant inside a cold frame or a planter pot now lies in its holder's 2D shadow.
      The per-plant sun estimate spares only a soil parent the plant stands on, and a
      plant cannot be linked to either kind. Measured at 50°N on 21 June: 0 minutes,
@@ -9670,8 +9673,10 @@ each (appended last, every earlier id and seed kept). `LookSpec` gained `atmosph
 (`CLEAR_STILL` by default), `SkySpec` `cloud`. Measured (RTX 4070, Direct3D 11, bench_small at
 1280 × 720, Medium, interleaved readbacks): clear with life +0.6 %, snow +1.9 %, rain +3.7 % of a
 frame; with reduced motion 0 frames over 2.5 s after the first build. The two garden lights'
-3D shadows are a small share of their solid 2D prisms (string lights 2 %: the 2D strip is a
-fence-like overstatement) — the shadow table of ADR-059's builders addendum. Tests:
+3D shadows are a small share of their solid 2D prisms (string lights 2 %: the 2D strip
+overstates it about fiftyfold, like every open object without a porosity model — #440 gave
+fences and buildings one; the lights' is #698) — the shadow table of ADR-059's builders
+addendum. Tests:
 `tests/unit/test_playback.py`, `test_scene3d_weather.py`, `test_scene3d_particles.py`,
 `tests/integration/test_living_garden.py` (§8.10), the render tier
 `tests/integration/test_living_garden_render.py` (the two issue gates and the board), the
@@ -9776,7 +9781,7 @@ the location or the forecast is missing. Smaller: a precipitation that cannot be
 longer skips the moon's handover and is logged once; the lights are read again only when a
 pass touched a light (500 lights cost ~40 ms per pass); the drape's callback is disconnected
 before the analysis shuts down. Left as stated: a string of lights casts the solid 2D prism
-of its footprint (ADR-059's policy; 2 % of it is its 3D shadow) — an owner question. Measured
+of its footprint (ADR-059's policy; 2 % of it is its 3D shadow) — an owner question (#698). Measured
 for the review: a night frame with six lamps lit costs +2.3 % on the GPU and +11.9 % on WARP
 (bench_small, Medium, interleaved readbacks). Deferred to #689: the lamp pool's shader
 permutations at the first dusk, the wind clock's precision in long sessions, Today's Weather
@@ -9805,8 +9810,10 @@ past midnight, the firefly season's date, one life assembly for the product and 
 3. **A cloudy evening is an evening.** The low sun's exposure lift (+0.44 EV at a golden
    hour) makes up for a clear key light; under cloud it made a sunset 98 % as bright as noon.
    The cloudy day now holds NOON's exposure in the share of its cloud (in stops, like
-   `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon (rain 0.79, snow 0.68), every
-   dusk monotone, cloudy horizon steps ≤ 1.82.
+   `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon
+   (rain 0.79, snow 0.68; mean
+   linear luminance of the board's mood camera, re-measured at the final head with the stop
+   blend and the matched set sun — round 3 read the same to 0.01), every dusk monotone.
 4. **Wet leaves are not glossier than 0.6.** At roughness 0.38 a low sun left cream glints
    on the leaves in the rain; at 0.6 the golden hour's cream pixels fall 1,005 → 5, the sunset's
    707 → 38, the sun-facing walk views 413–468 → 0–23 (`foliage.frag`, `foliage_door.frag`,
@@ -9820,3 +9827,29 @@ past midnight, the firefly season's date, one life assembly for the product and 
    with its engine. Filed: #692 (the
    board's access violation at exit, also on the merge base). Owner questions (the PR): a
    cloudy evening darker than a clear one, and a glossier dew than the rain.
+
+**Addendum (3D review, round 4; senior review, rounds 4–5)**:
+1. **A set sun MATCHES the sky.** `look_for` drew no sun below 0.5° by `sun_energy` 0 — master's
+   line, which Qt's procedural sky draws as a BLACK disc with a dark halo: luma 0 against a
+   170–182 sky at +0.4°, through all of twilight, in every weather. The board's dusk camera has
+   the sun behind the poplar, so three reviews missed it (#695: a sky-facing probe). A set sun
+   is now the horizon's colour at the sky's own energy (`look.py`; a weather keeps it matched):
+   dip ≤ 1.6 luma and no halo at +0.4 / 0 / −1 / −3°, clear, overcast and snow, and no glow at
+   night — the energy-1 alternative left 23 luma at −3°. Dusk sunset steps halved
+   (0.011 → 0.006).
+2. **The dew rises from solar midnight.** Round 2's symmetric fade had also been the dew's ramp
+   at the midnight meridian; the hemisphere fix removed it, and north of ~61° in June the dew
+   switched 0 → 1 in one frame. It now rises over 15° of azimuth after solar midnight
+   (Tromsø, 21 June, 2-minute steps: max 0.031, was 1.0).
+3. **The producer says where it fetched** (round 4): the weather widget follows every location
+   change, also with its tab hidden, and `forecast_days_ready(place, days)` carries the
+   coordinates; the 3D view drops another place's forecast (PF-LIF-12).
+4. **One validity rule for a place** (round 5): `phenology.plan_place` — real numbers, finite,
+   in range — for the calendar's forecast, Today's Weather, the Forge's phenology, the
+   garden's life and the hemisphere (older readers: #697).
+5. **String Lights' 2D shadow, stated truly** (round 5): #440, merged from master, made fences
+   porous in 2D, so "a solid strip, as a picket fence's" no longer held. Like every open
+   object without a porosity model, a string casts a solid 2D prism; its 3D shadow is 2 % of
+   it. #440's transmittance hook could make all of them honest — an owner decision (#698).
+   Cloudy horizon steps at the final head: ≤ 1.97 (snow sunset), night 0.56–0.94; the clear
+   horizon unchanged (its low-preset sunset step of 3.13, over the 3.0 bound, is master's: #696).

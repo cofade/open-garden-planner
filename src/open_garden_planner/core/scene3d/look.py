@@ -598,9 +598,13 @@ def look_for(sun: SunState, preset: str = "high") -> LookSpec:
     night = t >= 1.0
     rig = twilight_rig(sun.elevation_deg) if sun_down else day_rig(sun.elevation_deg)
     # the sky dims by its energy (the ground hemisphere at the same energy:
-    # ``SkySpec.ground_energy``); it draws a sun only while the sun is up
+    # ``SkySpec.ground_energy``); it draws a sun only while the sun is up. A set sun is
+    # hidden by MATCHING the sky — the horizon's colour at the sky's own energy — never
+    # by energy 0: Qt's procedural sky blends the disc and its falloff towards sun colour
+    # x sun energy, so energy 0 drew a BLACK sun with a dark halo through twilight (3D
+    # review of L5, round 4: luma 0 against a 173-182 sky at +0.4°, in every weather)
     sky_energy = 1.0 + (NIGHT_SKY_ENERGY - 1.0) * t
-    sun_energy = 0.0 if sun_down else 1.0
+    sun_energy = sky_energy if sun_down else 1.0
     factor, pcf_factor = _NIGHT_SHADOW if sun_down else _DAY_SHADOW   # the moon's, from 0.5°
     fog = fog_linear(rig.sky_horizon, rig.probe_exposure, sky_energy)
     return LookSpec(
@@ -612,7 +616,8 @@ def look_for(sun: SunState, preset: str = "high") -> LookSpec:
         sky=SkySpec(
             sun_elevation_deg=max(float(sun.elevation_deg), SKY_MIN_ELEVATION_DEG),
             sun_azimuth_deg=float(sun.azimuth_deg) % 360.0,
-            top=rig.sky_top, horizon=rig.sky_horizon, sun_disc=rig.sun_disc,
+            top=rig.sky_top, horizon=rig.sky_horizon,
+            sun_disc=rig.sky_horizon if sun_down else rig.sun_disc,
             ground_bottom=mix_linear(_DAY_GROUND_BOTTOM, _NIGHT_GROUND_BOTTOM, t),
             sky_energy=sky_energy, ground_energy=sky_energy, sun_energy=sun_energy,
             night=night),

@@ -174,6 +174,10 @@ DEW_GONE_DEG: Final = 18.0
 #: — which one is the PLACE's, not the sun's: a summer dawn north of ~60° stands near
 #: due north, the other meridian (senior review of L5: faded x0.04 as if it were noon).
 _DEW_NOON_FADE_DEG: Final = 25.0
+#: ... and rises over this many degrees of azimuth after solar MIDNIGHT's meridian: north
+#: of ~61° in June the dawn twilight begins right at midnight, and without a ramp there the
+#: dew switched on in one frame (0 -> 1.0 in Tromsø; 3D review of L5, round 4).
+_DEW_MIDNIGHT_RISE_DEG: Final = 15.0
 
 
 def noon_azimuth(southern: bool) -> float:
@@ -201,7 +205,9 @@ def dew_amount(sun: SunState, weather: str = "clear", *, southern: bool = False)
         amount = _ramp(elevation, TWILIGHT_DEG, TWILIGHT_DEG + DEW_RISE_DEG)
     else:
         amount = (DEW_GONE_DEG - elevation) / (DEW_GONE_DEG - DEW_FULL_DEG)
-    return amount * _ramp(_to_meridian(sun, noon_azimuth(southern)), 0.0, _DEW_NOON_FADE_DEG)
+    noon = noon_azimuth(southern)
+    return (amount * _ramp(_to_meridian(sun, noon), 0.0, _DEW_NOON_FADE_DEG)
+            * _ramp(_to_meridian(sun, (noon + 180.0) % 360.0), 0.0, _DEW_MIDNIGHT_RISE_DEG))
 
 
 def _ramp(value: float, low: float, high: float) -> float:
@@ -338,7 +344,9 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         # round 2: luma 0 at the sun, 150 around it, under overcast and rain)
         sky = replace(sky, top=top, horizon=horizon,
                       ground_bottom=mix_linear(sky.ground_bottom, "#5a5f62", cloud * 0.6),
-                      sun_disc=mix_linear(sky.sun_disc, horizon, cloud), cloud=cloud)
+                      sun_disc=(horizon if sky.sun_disc == sky.horizon       # a set sun stays matched
+                                else mix_linear(sky.sun_disc, horizon, cloud)),
+                      cloud=cloud)
         held = cloud * (1.0 - mood.twilight)           # how much of NOON's exposure holds
         mood = replace(
             mood,

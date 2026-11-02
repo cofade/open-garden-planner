@@ -71,19 +71,35 @@ def _smoothstep(edge0: float, edge1: float, x: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
+def plan_place(location: object) -> tuple[float, float] | None:
+    """A plan location's ``(lat, lon)`` — or None when it is no place: both coordinates
+    real numbers (no bools, no text), finite, the latitude in ``[-90, 90]`` and the
+    longitude in ``[-180, 180]``. ONE validity rule for the readers of the L5 living
+    garden (senior review: the forecast's reader accepted text and bools, the latitude's
+    rejected them — a hand-edited plan fetched Sydney's weather with a northern sky):
+    the Planting Calendar's forecast, Today's Weather, the Plant Forge's phenology, the
+    garden's life and the look's hemisphere. (Older readers elsewhere: #697.)"""
+    if not isinstance(location, Mapping):
+        return None
+    place: list[float] = []
+    for key, bound in (("latitude", 90.0), ("longitude", 180.0)):
+        value = location.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        try:
+            number = float(value)
+        except OverflowError:  # a 400-digit integer in a hostile file
+            return None
+        if not (math.isfinite(number) and -bound <= number <= bound):
+            return None
+        place.append(number)
+    return (place[0], place[1])
+
+
 def plan_latitude(location: object) -> float:
-    """The latitude a plan's location gives — a finite number in ``[-90, 90]`` — or, with
-    no location (or a hostile one), ``DEFAULT_LATITUDE_DEG``. The 3D view's Plant Forge
-    phenology, the garden's life and the look's hemisphere read it here (senior review
-    of L5: three readers, only one checking for NaN)."""
-    latitude = location.get("latitude") if isinstance(location, Mapping) else None
-    if isinstance(latitude, bool) or not isinstance(latitude, (int, float)):
-        return DEFAULT_LATITUDE_DEG
-    try:
-        latitude = float(latitude)
-    except OverflowError:  # a 400-digit integer in a hostile file
-        return DEFAULT_LATITUDE_DEG
-    return latitude if math.isfinite(latitude) and -90.0 <= latitude <= 90.0 else DEFAULT_LATITUDE_DEG
+    """The latitude of ``plan_place`` — or, with no place, ``DEFAULT_LATITUDE_DEG``."""
+    place = plan_place(location)
+    return place[0] if place is not None else DEFAULT_LATITUDE_DEG
 
 
 def seasonal_day_of_year(plan_date: datetime.date, latitude_deg: float = DEFAULT_LATITUDE_DEG) -> float:
@@ -446,6 +462,7 @@ def evaluate_phenology_for_records(
 __all__ = [
     "DEFAULT_LATITUDE_DEG",
     "plan_latitude",
+    "plan_place",
     "SNOW_LINEAR_RGB",
     "PhenologyState",
     "evaluate_phenology",

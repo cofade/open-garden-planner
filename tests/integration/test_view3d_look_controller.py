@@ -249,7 +249,7 @@ def test_sunset_nightfall_and_dawn_rebuild_at_once(qtbot) -> None:
     look.set_sun(sun(0.4, 300.1))       # a move of 0.2 degrees — and the sun has set
     dusk = living_look(sun(0.4, 300.1), "high")
     assert host.calls == [("sky", dusk.sky), ("look", dusk)]
-    assert not dusk.night and dusk.mood.twilight > 0.0 and dusk.sky.sun_energy == 0.0
+    assert not dusk.night and dusk.mood.twilight > 0.0 and dusk.sky.sun_disc == dusk.sky.horizon
     look.set_sun(sun(-30.0, 10.0))      # night: the night sky at once
     assert look.sky_rebuilds == 3 and look.sky is not None and look.sky.night
     look.set_sun(sun(-12.0, 60.0))      # the night goes on: the sky draws no sun
@@ -275,7 +275,7 @@ def test_twilight_rebuilds_the_sky_once_per_degree(qtbot) -> None:
         look.set_sun(sun(0.3 - 1.1 * step, 300.0))          # 1.1° from the shown sky
         qtbot.wait(SKY_SETTLE_MS + 60)
         assert look.sky_rebuilds - built == step, step
-    assert all(not each.night and each.sun_energy == 0.0 for each in host.named("sky")[1:])
+    assert all(not each.night and each.sun_disc == each.horizon for each in host.named("sky")[1:])
 
 
 def test_while_the_sky_lags_the_fog_meets_the_sky_on_screen(qtbot) -> None:

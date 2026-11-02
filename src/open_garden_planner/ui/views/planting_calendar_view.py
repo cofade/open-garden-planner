@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.frost_dates import parse_frost
+from open_garden_planner.core.phenology import plan_place
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan
@@ -47,7 +48,7 @@ from open_garden_planner.services.task_generator import (
     propagate_plans_by_anchor,
 )
 from open_garden_planner.services.task_status import effective_status
-from open_garden_planner.services.weather_service import forecast_place, get_frost_alerts
+from open_garden_planner.services.weather_service import get_frost_alerts
 from open_garden_planner.ui.icons import get_icon, get_pixmap
 from open_garden_planner.ui.theme import URGENCY_TOKENS, set_text_role, theme_qcolor, urgency_dot
 from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
@@ -1340,8 +1341,8 @@ class PlantingCalendarView(QWidget):
             self._weather.set_location(*place)
 
     def _place(self) -> tuple[float, float] | None:
-        """The plan's ``(lat, lon)``, or None without a location (``forecast_place``)."""
-        return forecast_place(getattr(self._project_manager, "location", None))
+        """The plan's ``(lat, lon)``, or None without one (``phenology.plan_place``)."""
+        return plan_place(getattr(self._project_manager, "location", None))
 
     def refresh(self) -> None:
         """Rebuild the chart and dashboard from current canvas + project state."""

@@ -16,7 +16,6 @@ from open_garden_planner.services.weather_service import (
     WeatherService,
     WeatherServiceError,
     _wmo_to_description,
-    forecast_place,
     wmo_to_icon,
 )
 
@@ -288,22 +287,3 @@ class TestSerialization:
         assert len(restored.days) == 2
         assert restored.days[1].max_c == 24.0
         assert restored.fetched_at == original.fetched_at
-
-
-@pytest.mark.parametrize(("location", "expected"), [
-    ({"latitude": 52.52, "longitude": 13.405}, (52.52, 13.405)),
-    ({"latitude": -33, "longitude": 151}, (-33.0, 151.0)),
-    ({"latitude": "52.5", "longitude": "13.4"}, (52.5, 13.4)),
-    (None, None),
-    ({}, None),
-    ({"latitude": 52.5}, None),
-    ({"latitude": "north", "longitude": 13.4}, None),
-    ({"latitude": float("nan"), "longitude": 13.4}, None),
-    ({"latitude": 10 ** 400, "longitude": 13.4}, None),
-    ("not a location", None),
-], ids=["floats", "ints", "text-numbers", "none", "empty", "half", "words", "nan", "overflow", "hostile"])
-def test_one_reader_of_a_plans_forecast_place(location: object, expected: object) -> None:
-    """The producer (the calendar's weather widget) and the consumer (the 3D view's
-    Today's Weather) compare places, so they read them with ONE function — and a
-    hostile location is no place, never an exception in a ``location_changed`` slot."""
-    assert forecast_place(location) == expected

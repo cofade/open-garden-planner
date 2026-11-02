@@ -312,7 +312,7 @@ def test_the_adr_s_table_is_the_documented_one() -> None:
     script = _script()
     text = ADR.read_text(encoding="utf-8")
     text = text[text.index("**The built world's 3D shadows are not the 2D model's shadows"):]
-    text = text[:text.index("**Open owner question (porous fences):**")]
+    text = text[:text.index("**Porous fences (answered by #440):**")]
     for name, (ratio, iou, reach) in script.DOCUMENTED.items():
         rows = _table_cells(text, name)
         assert len(rows) == 1, (name, rows)

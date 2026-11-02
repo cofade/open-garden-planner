@@ -112,7 +112,10 @@ class TestTheRigIsTheSpikes:
         below = look_for(below_sun)
         assert not below_sun.is_up and below.moon_travel_scene is not None
         assert below.mood.sun_brightness < 1e-6, "no key, and no shadow, just below 0.5°"
-        assert below.sky.sun_energy == 0.0 and not below.night
+        # a set sun is hidden by MATCHING the sky, never by energy 0 — Qt's procedural sky
+        # drew that as a black disc with a dark halo (3D review of L5, round 4)
+        assert below.sky.sun_disc == below.sky.horizon and not below.night
+        assert below.sky.sun_energy == below.sky.sky_energy > 0.0
 
     def test_night_begins_at_the_end_of_civil_twilight(self) -> None:
         """Review P1 (truth first): night was a switch at 0.5° — all of civil twilight
@@ -382,7 +385,8 @@ class TestTheRampIsContinuous:
         assert luma(night.sky.top) < luma(noon.sky.top) / 4.0
         assert luma(night.sky.horizon) < luma(noon.sky.horizon) / 4.0
         assert night.mood.saturation == 0.6 < noon.mood.saturation == 1.06
-        assert night.sky.sun_energy == 0.0 and noon.sky.sun_energy == 1.0
+        assert night.sky.sun_disc == night.sky.horizon and noon.sky.sun_energy == 1.0
+        assert night.sky.sun_energy == night.sky.sky_energy > 0.0, "matched, never black"
         assert (night.shadow.factor, night.shadow.pcf_factor) == (25.0, 8.0)
         assert (noon.shadow.factor, noon.shadow.pcf_factor) == (82.0, 2.0)
 

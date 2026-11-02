@@ -42,7 +42,7 @@ from PyQt6.QtCore import QCoreApplication, QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import QMenu, QToolButton, QWidget
 
-from open_garden_planner.core.phenology import plan_latitude
+from open_garden_planner.core.phenology import plan_latitude, plan_place
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.lights import (
     LIGHT_KINDS,
@@ -56,7 +56,6 @@ from open_garden_planner.core.scene3d.particles import (
     ambient_emitters,
 )
 from open_garden_planner.core.scene3d.weather import TODAY, WEATHER_CHOICES, todays_weather
-from open_garden_planner.services.weather_service import forecast_place
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 if TYPE_CHECKING:
@@ -373,9 +372,7 @@ class WorkspaceLivingCoordinator(QObject):
         if clock is not None and clock.plan_date != date.today():
             return _tr("Today's weather follows the forecast only while the plan date is "
                        "today; on any other date the sky is clear.")
-        location = self._get_location()
-        placed = isinstance(location, Mapping) and isinstance(location.get("latitude"), (int, float))
-        if not placed:
+        if self._place() is None:     # the calendar reads the place by the same rule
             return _tr("Today's weather needs a garden location for its forecast.")
         return _tr("The forecast for today is not loaded yet, or could not be fetched.")
 
@@ -384,8 +381,8 @@ class WorkspaceLivingCoordinator(QObject):
 
     def _place(self) -> tuple[float, float] | None:
         """The plan's coordinates, or None without a location — read as the calendar
-        reads them (``forecast_place``): the two compare places."""
-        return forecast_place(self._get_location())
+        reads them (``phenology.plan_place``): the two compare places."""
+        return plan_place(self._get_location())
 
     def _refresh_ambient(self) -> None:
         """Rebuild the ambient buffer when what it holds changed: the plants' life on

@@ -176,13 +176,17 @@ class TestLook:
         # the night ground hemisphere at the sky's energy, 0.25 — the spike's 0.15 left a
         # dark line at the night horizon (L1.4 round 5; ``SkySpec.ground_energy``)
         assert (night["sunLatitude"], night["groundBottomColor"], night["skyEnergy"],
-                night["groundEnergy"], night["sunEnergy"]) == (-6.0, "#0a0f14", 0.25, 0.25, 0.0)
+                night["groundEnergy"], night["sunEnergy"]) == (-6.0, "#0a0f14", 0.25, 0.25, 0.25)
+        # a set sun MATCHES the sky — the horizon's colour at the sky's energy: the spike's
+        # sunEnergy 0 drew a black disc through all of twilight (3D review of L5, round 4)
+        assert night["sunColor"] == night["skyHorizonColor"]
         spike = "\n".join(SPIKE["qml"]["sky_inputs"])   # GardenSpike.qml's lines, frozen
         for line in ('data.groundBottomColor = root.night ? "#0a0f14" : "#3c4d2e"',
                      "data.groundHorizonColor = root.skyHorizon",
                      "data.skyEnergy = root.night ? 0.25 : 1.0",
                      "data.groundEnergy = root.night ? 0.15 : 1.0",   # the one we left
-                     "data.groundCurve = 0.1", "data.sunEnergy = root.night ? 0.0 : 1.0"):
+                     "data.groundCurve = 0.1",
+                     "data.sunEnergy = root.night ? 0.0 : 1.0"):         # ... and so is this one
             assert line in spike, line
 
 

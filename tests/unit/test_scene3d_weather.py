@@ -244,9 +244,37 @@ def test_a_summer_dawn_near_due_north_keeps_its_dew() -> None:
     """North of ~60° a summer dawn stands near due north — solar MIDNIGHT's meridian
     there, not noon's: its dew is not faded as if it were noon (senior review of L5:
     x0.04 at azimuth 1°). South of the equator the same bearing IS noon."""
-    dawn = sun(-1.0, 3.0)                  # 64° N in June, just after the white night
+    dawn = sun(-1.0, 20.0)                 # 64° N in June, after the white night's low point
     assert dew_amount(dawn) == pytest.approx(dew_amount(sun(-1.0, 60.0))) == 1.0
-    assert dew_amount(dawn, southern=True) < 0.15
+    assert dew_amount(sun(-1.0, 20.0), southern=True) < 0.85, "south: noon's fade"
+    assert dew_amount(sun(-1.0, 3.0), southern=True) < 0.15
+
+
+def test_the_dew_rises_from_solar_midnight_without_a_step() -> None:
+    """Tromsø, 21 June: the sun never sets, and the morning begins at solar midnight. The
+    dew rises over 15° of azimuth from there — without that ramp it switched 0 -> 1.0 in
+    one frame (3D review of L5, round 4) — and still reaches its full sheen."""
+    from datetime import UTC, datetime, timedelta
+
+    from open_garden_planner.core.solar import solar_position
+
+    start = datetime(2026, 6, 20, 18, 0, tzinfo=UTC)
+    dews = [dew_amount(SunState.from_solar_position(
+        solar_position(69.65, 18.96, start + timedelta(minutes=2 * k)))) for k in range(540)]
+    steps = [abs(b - a) for a, b in zip(dews, dews[1:], strict=False)]
+    assert max(steps) < 0.1, max(steps)
+    assert max(dews) == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("weather", WEATHERS)
+@pytest.mark.parametrize("elevation", [0.4, 0.0, -1.0, -3.0, -6.0, -20.0])
+def test_a_set_sun_is_hidden_by_matching_the_sky_never_black(weather: str, elevation: float) -> None:
+    """Below 0.5° the sky draws no sun: the disc takes the horizon's colour at the sky's
+    own energy, in every weather — energy 0 drew a BLACK disc with a dark halo through
+    twilight (3D review of L5, round 4: luma 0 against a 173-182 sky at +0.4°)."""
+    sky = living_look(sun(elevation, 300.0), "high", weather).sky
+    assert sky.sun_disc == sky.horizon
+    assert sky.sun_energy == pytest.approx(sky.sky_energy) and sky.sun_energy > 0.0
 
 
 def test_no_dew_while_a_drape_lies_on_the_ground() -> None:

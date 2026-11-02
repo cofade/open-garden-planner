@@ -17,6 +17,7 @@ from open_garden_planner.core.phenology import (
     evaluate_phenology_batch,
     evaluate_phenology_for_records,
     plan_latitude,
+    plan_place,
     seasonal_day_of_year,
     seasonal_month,
 )
@@ -404,8 +405,9 @@ def test_fruit_ripeness_tint_changes_while_the_plant_is_also_flowering():
 
 @pytest.mark.parametrize(("location", "expected"), [
     ({"latitude": -33.87, "longitude": 151.21}, -33.87),
-    ({"latitude": 0}, 0.0),
-    ({"latitude": 64.1}, 64.1),
+    ({"latitude": 0, "longitude": 0}, 0.0),
+    ({"latitude": 64.1, "longitude": 18.9}, 64.1),
+    ({"latitude": 64.1}, DEFAULT_LATITUDE_DEG),
     (None, DEFAULT_LATITUDE_DEG),
     ({}, DEFAULT_LATITUDE_DEG),
     ({"latitude": "52.5"}, DEFAULT_LATITUDE_DEG),
@@ -415,10 +417,36 @@ def test_fruit_ripeness_tint_changes_while_the_plant_is_also_flowering():
     ({"latitude": -91.0}, DEFAULT_LATITUDE_DEG),
     ("not a location", DEFAULT_LATITUDE_DEG),
     ({"latitude": 10 ** 400}, DEFAULT_LATITUDE_DEG),
-], ids=["south", "equator", "north", "none", "empty", "text", "bool", "nan", "inf", "beyond",
-        "hostile", "overflow"])
+], ids=["south", "equator", "north", "no-longitude", "none", "empty", "text", "bool", "nan",
+        "inf", "beyond", "hostile", "overflow"])
 def test_one_latitude_reader_for_the_3d_view(location: object, expected: float) -> None:
     """THE plan latitude the 3D view's phenology, the garden's life and the look's
     hemisphere all read (senior review of L5: three readers, one checking for NaN) —
     a finite latitude in [-90, 90], else the default."""
     assert plan_latitude(location) == expected
+
+
+@pytest.mark.parametrize(("location", "expected"), [
+    ({"latitude": 52.52, "longitude": 13.405}, (52.52, 13.405)),
+    ({"latitude": -33, "longitude": 151}, (-33.0, 151.0)),
+    ({"latitude": 90.0, "longitude": -180.0}, (90.0, -180.0)),
+    (None, None),
+    ({}, None),
+    ({"latitude": 52.5}, None),
+    ({"latitude": "52.5", "longitude": "13.4"}, None),
+    ({"latitude": True, "longitude": 13.4}, None),
+    ({"latitude": float("nan"), "longitude": 13.4}, None),
+    ({"latitude": 10 ** 400, "longitude": 13.4}, None),
+    ({"latitude": 1000.0, "longitude": 13.4}, None),
+    ({"latitude": 52.5, "longitude": 181.0}, None),
+    ("not a location", None),
+], ids=["floats", "ints", "edges", "none", "empty", "half", "text", "bool", "nan", "overflow",
+        "latitude-beyond", "longitude-beyond", "hostile"])
+def test_one_validity_rule_for_a_plans_place(location: object, expected: object) -> None:
+    """The forecast's reader and the latitude's applied OPPOSITE rules (senior review of
+    L5: a hand-edited plan fetched Sydney's weather under a northern sky, and latitude
+    1000 went to Open-Meteo). One rule now: real numbers, finite, in range — else no
+    place, never an exception in a ``location_changed`` slot."""
+    assert plan_place(location) == expected
+    if expected is not None:
+        assert plan_latitude(location) == expected[0]

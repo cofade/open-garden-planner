@@ -127,7 +127,7 @@ asserts that the readiness dialog remains the sole visible progress dialog:
 
 ### PF-LIF-12
 
-- **Rule:** A `CanvasScene.document_replaced` slot only forgets place-dependent state, because the old document's location is still set; every `location_changed` moves the fetching widget at once (cancelling and disconnecting the old place's fetch), and a consumer takes a result only for the place its producer says it was fetched for.
+- **Rule:** A `CanvasScene.document_replaced` slot only forgets place-dependent state, because the old document's location is still set; every `location_changed` moves the fetching widget at once (cancelling and disconnecting the old place's fetch, whose result slots stay UNDECORATED — a `@pyqtSlot` slot still receives a queued result), and a consumer takes a result only for the place its producer says it was fetched for.
 - **Pinned by:** `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_living_garden.py::test_a_place_change_off_todays_weather_cancels_the_old_places_fetch`; `tests/integration/test_weather_widget.py::test_a_result_queued_before_the_place_changed_never_lands`
 - **Source:** #389, ADR-070
 - **Status:** standing

@@ -308,7 +308,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   and 3D drape with structural roof/wall triangles for ridged buildings (`gable`,
   `hip`, `shed`), angle-dependent structural fence porosity (`WOODEN_FENCE`,
   `METAL_FENCE`, `CHAIN_LINK`), owner-grouped casting, multiplicative independent
-  overlap ($T_1 	imes T_2$), and bounded 64 MiB fractional sample allocation.
+  overlap ($T_1 \times T_2$), and bounded 64 MiB fractional sample allocation.
 - Phase 17 L1–L4 and Package F/G are shipped. L5 (#389, ADR-070) is in review as a
   draft PR: playback through the SimClock, weather as a look (never the sun), shader
   particles on the wind clock, Today's Weather, Garden Light / String Lights. Load

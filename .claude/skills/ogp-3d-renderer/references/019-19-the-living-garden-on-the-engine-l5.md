@@ -32,7 +32,11 @@ What the ENGINE taught (RTX 4070, Direct3D 11, 2026-11-02):
 - **`ProceduralSkyTextureData` with `sunEnergy` 0 draws a BLACK sun.** The disc and its
   falloff are blended towards sun colour × sun energy, so a "hidden" sun is a black disc with
   a dark halo (luma 0 against 150, measured under overcast). Hide a sun by its COLOUR (the
-  horizon's), never by its energy.
+  horizon's), never by its energy. A SET sun (below 0.5°) is hidden by MATCHING the sky: the
+  horizon's colour at the sky's own `skyEnergy` — energy 0 drew a black disc through all of
+  twilight (luma 0 against 170-182 at +0.4°, in every weather; the board's dusk camera hid it
+  behind a tree for three reviews, #695), and energy 1 with the horizon's colour leaves a
+  23-luma glow at -3° and a lit spot at night. Matched: dip ≤ 1.6 luma, no halo, no glow.
 - **Never cut a quad per vertex.** Sending some corners of a quad to `vec4(0, 0, 2, 1)` (beyond
   the far plane) and not the others draws a torn sliver towards the screen centre. Collapse a
   particle as a whole (every corner, decided by its anchor) or scale its size to 0.
