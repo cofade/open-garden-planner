@@ -157,6 +157,7 @@ class LookController(QObject):
         self._weather = "clear"
         self._todays: str | None = None
         self._analysing = False
+        self._southern = False   # the place lies south of the equator (noon due north)
         self._mood = ""
         self._sun: SunState | None = None
         self._look: LookSpec | None = None       # the look the host was last given
@@ -325,6 +326,18 @@ class LookController(QObject):
         self._analysing = bool(analysing)
         self._apply()
 
+    def set_southern(self, southern: bool) -> None:
+        """The garden lies south of the equator (True): its noon stands due north —
+        where the morning dew fades and the fireflies' midnight is (``living_look``)."""
+        if bool(southern) == self._southern or self._closed:
+            return
+        self._southern = bool(southern)
+        self._apply()
+
+    @property
+    def southern(self) -> bool:
+        return self._southern
+
     def set_todays_weather(self, weather: str | None) -> None:
         """What ``today`` stands for: the forecast's preset for the plan date — given
         only while the plan date is today (``weather.todays_weather``), else None."""
@@ -413,7 +426,8 @@ class LookController(QObject):
     def _living_look(self, sun: SunState) -> LookSpec:
         """The look to show at ``sun``: the weather shown, and the dew unless a drape
         lies on the ground."""
-        return living_look(sun, self.preset, self.weather, dew=not self._analysing)
+        return living_look(sun, self.preset, self.weather, dew=not self._analysing,
+                           southern=self._southern)
 
     def _build_sky(self, sky: SkySpec) -> None:
         """Build ``sky`` — or, when the engine cannot, log it ONCE and go on for the rest

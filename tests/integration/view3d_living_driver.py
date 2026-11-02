@@ -295,7 +295,8 @@ def _warm(image: Any) -> dict[str, Any]:
 
 
 def scenario_reload(ctx: Context) -> dict[str, Any]:
-    """The ambient buffer reloaded into the same live host: A, nothing, B."""
+    """The ambient buffer reloaded into the same live host: A; while shown, at B (the
+    product's common path: a date step, a lamp moved); nothing; B again after nothing."""
     from open_garden_planner.core.scene3d import SunState
     from open_garden_planner.core.scene3d.particles import Emitter, ambient_buffers
     from open_garden_planner.core.scene3d.weather import living_look
@@ -308,7 +309,7 @@ def scenario_reload(ctx: Context) -> dict[str, Any]:
         host.set_look(living_look(night, "medium", "clear"))
         host.set_lamps([])                        # the glows alone: no pool of light
         frames: dict[str, Any] = {}
-        loads = [("a", RELOAD_AT[0]), ("none", None), ("b", RELOAD_AT[1])]
+        loads = [("a", RELOAD_AT[0]), ("a2", RELOAD_AT[1]), ("none", None), ("b", RELOAD_AT[1])]
         for name, at in loads:
             emitters = () if at is None else (Emitter("bulb", name, at[0], at[1], at[2], at[2], 60.0, 1),)
             host.set_ambient(ambient_buffers(emitters))

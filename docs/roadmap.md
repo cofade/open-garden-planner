@@ -2805,8 +2805,12 @@ All four slices of the issue, the optional L5.3 and L5.4 included:
   lantern, the pane went, a warm glow in front of the bulb) and butterflies drew as ghosts (a life share is a
   count, not an opacity). Deferred polish: #687. The senior review then added the garden's
   life end to end through the production Plant Forge, Today's Weather asking for its
-  forecast (and never following a stale one) and the living host calls in `EngineHost`;
-  engine follow-ups: #689.
+  forecast and the living host calls in `EngineHost`; its second round found that a new or
+  opened plan still received the OLD place's forecast (the ask came before the new location
+  was set) — the ask now waits for the new document's location, and the weather widget
+  cancels and drops another place's fetch. The third 3D review held a cloudy evening's
+  exposure at noon's (an overcast sunset was 98 % as bright as noon) and made wet leaves
+  less glossy (cream glints in the rain at a low sun). Engine follow-ups: #689.
 
 ### Out of scope (deferred)
 - Snow on roofs and on a bed's soil (principled `vc` parts take no snow cover).

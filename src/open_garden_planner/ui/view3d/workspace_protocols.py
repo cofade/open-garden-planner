@@ -8,13 +8,17 @@ Defines the interfaces for:
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any, Protocol, runtime_checkable
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from PyQt6.QtCore import QObject
 from PyQt6.QtWidgets import QWidget
 
 from open_garden_planner.core.scene3d.sink import EngineSink
+
+if TYPE_CHECKING:
+    from open_garden_planner.core.phenology import PhenologyState
+    from open_garden_planner.core.scene3d.interleave import EngineBuffers
 
 __all__ = [
     "EngineHost",
@@ -53,10 +57,10 @@ class EngineHost(Protocol):
     def is_software_adapter(self) -> bool: ...
     # the living garden (L5, ADR-070): the plants' seasons, the ambient life and bulbs,
     # the life switch, the lamps that light
-    def set_plant_seasons(self, states: Any) -> None: ...
-    def set_ambient(self, buffers: Any) -> None: ...
+    def set_plant_seasons(self, states: Mapping[str, PhenologyState]) -> None: ...
+    def set_ambient(self, buffers: EngineBuffers | None) -> None: ...
     def set_life_enabled(self, enabled: bool) -> None: ...
-    def set_lamps(self, lamps: Any) -> None: ...
+    def set_lamps(self, lamps: list[tuple[float, float, float, float]]) -> None: ...
 
 
 @runtime_checkable

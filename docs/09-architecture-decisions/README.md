@@ -9719,8 +9719,8 @@ sky facing the sun, a rainy low sun, a moving walk view, a winter noon:
    specular lobe on the wet meadow at a low sun — a cream glint carved by the shadows — and a
    1.75-luma plan-edge step; the round-1 specular change (0.40 → 0.25) did not move it.
    Roughness is the lever: 0.8 (specular 0.25) gives an edge step of 0.32, no glint, and rain
-   shadows of IoU 0.65 / 0.95 / 0.94 at 15 / 35 / 60° (0.24 / 0.66 / 0.93 before: most of the
-   "rain fades the shadow" was the glint).
+   shadows of IoU 0.64 / 0.94 / 0.94 at 15 / 35 / 60° (overcast 0.77 / 0.95 / 0.94; rain
+   0.24 / 0.66 / 0.93 before: most of the "rain fades the shadow" was the glint).
 3. **A whole particle shrinks; none is cut.** Round 1 cut leaves and butterflies within 2 m
    PER VERTEX: a wing straddling the line sent some corners beyond the far plane and tore
    into a sliver (40 % of animated walk frames). The size now ramps to zero by the ANCHOR's
@@ -9743,9 +9743,9 @@ ADR-069's withdrawn reload drew a replaced geometry as nothing). The living-gard
 `EngineHost` — no silent fallback for a host without them. Today's Weather now works in the
 default flow: the 3D view ASKS for the forecast (`Workspace.forecast_wanted` →
 `PlantingCalendarView.request_forecast`, the weather part of the calendar's refresh, so still
-one fetch path) when Today's Weather is chosen and for a new location or document, which also
-forget the old forecast; the calendar emits an EMPTY forecast without a location or after a
-failed fetch, so no stale forecast is followed; the tooltip names which of the plan date,
+one fetch path) when Today's Weather is chosen and for a new location (a new or opened document
+brings its own; the document itself only forgets the old forecast — round 2); the calendar
+emits an EMPTY forecast without a location or after a failed fetch; the tooltip names which of the plan date,
 the location or the forecast is missing. Smaller: a precipitation that cannot be loaded no
 longer skips the moon's handover and is logged once; the lights are read again only when a
 pass touched a light (500 lights cost ~40 ms per pass); the drape's callback is disconnected
@@ -9755,3 +9755,34 @@ for the review: a night frame with six lamps lit costs +2.3 % on the GPU and +11
 (bench_small, Medium, interleaved readbacks). Deferred to #689: the lamp pool's shader
 permutations at the first dusk, the wind clock's precision in long sessions, Today's Weather
 past midnight, the firefly season's date, one life assembly for the product and the tools.
+
+**Addendum (senior review, round 2; 3D review, round 3)**:
+1. **A new or opened plan never follows the old place's forecast.** `document_replaced`
+   comes while the old document's location is still set, so round 1's ask from that slot
+   fetched the OLD place; the result then reached Today's Weather, the calendar's strip
+   (with no location) and the new plan's frost alerts. The document now only forgets the
+   forecast; the ask waits for the new location's `location_changed`, which always follows.
+   `WeatherWidget.set_location` cancels the old place's fetch and forgets its forecast, and
+   a result whose worker fetched another place is dropped (PF-LIF-12). No zero-timer: a
+   fetch for the same place already on its way is not started again
+   (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693.
+2. **Where noon stands is the place's.** The dew's noon fade and the fireflies' midnight
+   read the meridian from the plan's hemisphere (`noon_azimuth`; `LookController.set_southern`,
+   told by the workspace) — not from both: a summer dawn north of ~60° stands near due north,
+   and round 2's fade dimmed its dew ×0.04 as if it were noon.
+3. **A cloudy evening is an evening.** The low sun's exposure lift (+0.44 EV at a golden
+   hour) makes up for a clear key light; under cloud it made a sunset 98 % as bright as noon.
+   The cloudy day now holds NOON's exposure in the share of its cloud, the mood's own
+   returning with twilight: an overcast sunset is 0.77 of noon (rain 0.79, snow 0.68), every
+   dusk monotone, cloudy horizon steps ≤ 1.82.
+4. **Wet leaves are not glossier than 0.6.** At roughness 0.38 a low sun left cream glints
+   on the leaves in the rain; at 0.6 the golden hour's cream pixels fall 1,005 → 5, the sunset's
+   707 → 38, the sun-facing walk views 413–468 → 0–23 (`foliage.frag`, `foliage_door.frag`,
+   `lawn.frag`).
+5. **Smaller:** a particle's seed spans [0, 11/12), so at a full share every particle is
+   whole (a seed above 11/12 stayed undersized); the reload test adds a reload WHILE SHOWN and
+   runs in CI on OpenGL and Direct3D 11; the host protocol carries the real types; the
+   seasons' host call is contained like every living call; the Forge's default latitude is
+   the phenology's; the Weather button forgets the pause with its engine. Filed: #692 (the
+   board's access violation at exit, also on the merge base). Owner questions (the PR): a
+   cloudy evening darker than a clear one, and a glossier dew than the rain.

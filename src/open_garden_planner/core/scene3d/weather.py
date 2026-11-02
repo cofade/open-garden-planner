@@ -47,6 +47,7 @@ from .color import srgb_to_linear
 from .look import (
     GOLDEN_DEG,
     NIGHT_BELOW_DEG,
+    NOON,
     TWILIGHT_DEG,
     WIND_STRENGTH,
     AtmosphereSpec,
@@ -62,8 +63,8 @@ from .sink import SunState
 __all__ = [
     "DEW_FULL_DEG", "DEW_GONE_DEG", "MOODS", "TODAY", "WEATHERS", "WEATHER_CHOICES",
     "WEATHER_SPECS", "WeatherSpec", "apply_weather", "dew_amount", "is_evening", "is_morning",
-    "living_look", "mood_of", "normalise_weather", "todays_weather", "weather_fog",
-    "weather_from_wmo",
+    "living_look", "mood_of", "noon_azimuth", "normalise_weather", "todays_weather",
+    "weather_fog", "weather_from_wmo",
 ]
 
 WEATHERS: Final = ("clear", "overcast", "rain", "snow")
@@ -166,17 +167,31 @@ def is_evening(sun: SunState) -> bool:
 DEW_RISE_DEG: Final = 4.0
 DEW_FULL_DEG: Final = GOLDEN_DEG
 DEW_GONE_DEG: Final = 18.0
-#: ... and fades over this many degrees of azimuth before the meridian: on a winter day
-#: whose sun never reaches ``DEW_GONE_DEG`` it lay until solar noon and then went out at
-#: once (3D review of L5, round 2: 0.33 at noon in Berlin on 21 December, 0.97 in
-#: Helsinki).
+#: ... and fades over this many degrees of azimuth before NOON's meridian: on a winter
+#: day whose sun never reaches ``DEW_GONE_DEG`` it lay until solar noon and then went out
+#: at once (3D review of L5, round 2: 0.33 at noon in Berlin on 21 December, 0.97 in
+#: Helsinki). Noon is due south in the northern hemisphere and due north in the southern
+#: — which one is the PLACE's, not the sun's: a summer dawn north of ~60° stands near
+#: due north, the other meridian (senior review of L5: faded x0.04 as if it were noon).
 _DEW_NOON_FADE_DEG: Final = 25.0
 
 
-def dew_amount(sun: SunState, weather: str = "clear") -> float:
+def noon_azimuth(southern: bool) -> float:
+    """The compass bearing of solar noon: due south (180°), or due north (0°) in the
+    southern hemisphere — solar midnight is the opposite one."""
+    return 0.0 if southern else 180.0
+
+
+def _to_meridian(sun: SunState, meridian_deg: float) -> float:
+    """Degrees of azimuth between the sun and ``meridian_deg`` (0..180)."""
+    return abs((float(sun.azimuth_deg) - meridian_deg + 180.0) % 360.0 - 180.0)
+
+
+def dew_amount(sun: SunState, weather: str = "clear", *, southern: bool = False) -> float:
     """How much morning dew lies on the garden, 0..1: in the morning only, from the
-    end of civil twilight until the sun stands ``DEW_GONE_DEG`` high; never in rain
-    (wet anyway) or snow."""
+    end of civil twilight until the sun stands ``DEW_GONE_DEG`` high, fading before
+    noon (``southern``: the place lies south of the equator); never in rain (wet
+    anyway) or snow."""
     if weather in ("rain", "snow") or not is_morning(sun):
         return 0.0
     elevation = float(sun.elevation_deg)
@@ -186,9 +201,7 @@ def dew_amount(sun: SunState, weather: str = "clear") -> float:
         amount = _ramp(elevation, TWILIGHT_DEG, TWILIGHT_DEG + DEW_RISE_DEG)
     else:
         amount = (DEW_GONE_DEG - elevation) / (DEW_GONE_DEG - DEW_FULL_DEG)
-    # the meridian is noon (due south north of the tropics, due north south of them)
-    azimuth = float(sun.azimuth_deg) % 360.0
-    return amount * _ramp(min(azimuth, 180.0 - azimuth), 0.0, _DEW_NOON_FADE_DEG)
+    return amount * _ramp(_to_meridian(sun, noon_azimuth(southern)), 0.0, _DEW_NOON_FADE_DEG)
 
 
 def _ramp(value: float, low: float, high: float) -> float:
@@ -214,6 +227,10 @@ _KEY_UNDER_CLOUD: Final = 0.22
 _SHADOW_UNDER_CLOUD: Final = 0.30
 _PCF_UNDER_CLOUD: Final = 8.0
 _PROBE_UNDER_CLOUD: Final = 1.45
+#: The exposure under cloud: NOON's, plus this — never the low sun's lift (0.85 → 1.15 at
+#: a golden hour, +0.44 EV), which makes up for a clear key light that cloud has taken
+#: away: inherited, it made an overcast sunset 98 % as bright as noon (a clear one: 57 %;
+#: 3D review of L5, round 3). Towards night the mood's own exposure returns (twilight).
 _EXPOSURE_UNDER_CLOUD_EV: Final = 0.15
 _SATURATION_UNDER_CLOUD: Final = 0.80
 #: The ground in the rain: darker (wet earth and stone) and a little shinier. Roughness
@@ -278,13 +295,12 @@ def weather_fog(sky_horizon: str, probe_exposure: float, sky_energy: float, clou
     return (fog[0] * gain, fog[1] * gain, fog[2] * gain)
 
 
-def _midnight_fade(sun: SunState) -> float:
-    """1 in the evening, fading to 0 as the sun nears the meridian below the horizon:
-    solar midnight — due north in the northern hemisphere, due south in the southern
-    (an evening is the west side of the meridian there too, ``is_evening``)."""
-    azimuth = float(sun.azimuth_deg) % 360.0
-    to_meridian = min(abs(azimuth - 180.0), abs(360.0 - azimuth))
-    return _ramp(to_meridian, 0.0, _FIREFLY_FADE_DEG)
+def _midnight_fade(sun: SunState, southern: bool = False) -> float:
+    """1 in the evening, fading to 0 as the sun nears solar midnight's meridian — due
+    north in the northern hemisphere, due south in the southern (an evening is the west
+    side of the meridian there too, ``is_evening``)."""
+    midnight = (noon_azimuth(southern) + 180.0) % 360.0
+    return _ramp(_to_meridian(sun, midnight), 0.0, _FIREFLY_FADE_DEG)
 
 
 def _particle_light(look: LookSpec) -> tuple[float, float, float]:
@@ -300,7 +316,7 @@ def _particle_light(look: LookSpec) -> tuple[float, float, float]:
 
 
 def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
-                  dew: bool = True) -> LookSpec:
+                  dew: bool = True, southern: bool = False) -> LookSpec:
     """``look`` (``look_for(sun, …)``) under ``weather`` at ``sun`` — module docstring.
 
     The sun's direction is not touched (it is not in a look); the sky, the light's
@@ -308,10 +324,11 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     wind and the atmosphere are. Clear weather outside the morning changes nothing
     but the atmosphere. ``dew`` False: no morning dew either — clear weather is then
     the sun's own look at any hour (an Analyze drape on the ground: ``LookController``).
+    ``southern``: the place lies south of the equator — where noon and midnight stand.
     """
     spec = weather if isinstance(weather, WeatherSpec) else WEATHER_SPECS[weather]
     cloud = spec.cloud
-    dew_share = dew_amount(sun, spec.name) if dew else 0.0
+    dew_share = dew_amount(sun, spec.name, southern=southern) if dew else 0.0
     mood, sky, shadow = look.mood, look.sky, look.shadow
     if cloud > 0.0:
         top, horizon = _overcast(sky.top, sky.horizon, cloud)
@@ -322,11 +339,13 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         sky = replace(sky, top=top, horizon=horizon,
                       ground_bottom=mix_linear(sky.ground_bottom, "#5a5f62", cloud * 0.6),
                       sun_disc=mix_linear(sky.sun_disc, horizon, cloud), cloud=cloud)
+        held = cloud * (1.0 - mood.twilight)           # how much of NOON's exposure holds
         mood = replace(
             mood,
             sun_brightness=mood.sun_brightness * (1.0 + (_KEY_UNDER_CLOUD - 1.0) * cloud),
             probe_exposure=mood.probe_exposure * (1.0 + (_PROBE_UNDER_CLOUD - 1.0) * cloud),
-            exposure=mood.exposure * 2.0 ** (_EXPOSURE_UNDER_CLOUD_EV * cloud),
+            exposure=((mood.exposure * (1.0 - held) + NOON.exposure * held)
+                      * 2.0 ** (_EXPOSURE_UNDER_CLOUD_EV * cloud)),
             saturation=mood.saturation * (1.0 + (_SATURATION_UNDER_CLOUD - 1.0) * cloud))
         shadow = replace(shadow,
                          factor=shadow.factor * (1.0 + (_SHADOW_UNDER_CLOUD - 1.0) * cloud),
@@ -365,7 +384,7 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         # full overcast; fireflies on dry evenings, from sunset towards solar midnight
         leaves=0.0 if spec.precipitation == "snow" else 1.0,
         butterflies=(_ramp(elevation, GOLDEN_DEG, 14.0) * (1.0 - 0.7 * cloud)) if dry else 0.0,
-        fireflies=(_ramp(twilight, 0.15, 0.6) * _midnight_fade(sun)
+        fireflies=(_ramp(twilight, 0.15, 0.6) * _midnight_fade(sun, southern)
                    if (dry and is_evening(sun)) else 0.0),
         # the lights come on with dusk and stay on through the night
         lamps=_ramp(twilight, 0.05, 0.5) if not sun_up else 0.0)
@@ -381,10 +400,10 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
 
 
 def living_look(sun: SunState, preset: str = "high", weather: str = "clear", *,
-                dew: bool = True) -> LookSpec:
+                dew: bool = True, southern: bool = False) -> LookSpec:
     """THE look of a living frame: ``look_for(sun, preset)`` under ``weather``
-    (``dew``: ``apply_weather``)."""
-    return apply_weather(look_for(sun, preset), weather, sun, dew=dew)
+    (``dew``, ``southern``: ``apply_weather``)."""
+    return apply_weather(look_for(sun, preset), weather, sun, dew=dew, southern=southern)
 
 
 # ── the moods ────────────────────────────────────────────────────────────────

@@ -99,16 +99,23 @@ def test_with_reduced_motion_the_idle_frame_counter_stays_at_zero(tmp_path: Path
 def test_a_second_ambient_load_on_a_live_host_draws(tmp_path: Path) -> None:
     """The product reloads the ambient buffer into the SAME live geometry on every date
     step and every light edit. ADR-069 withdrew an in-place reload (#531) that drew a
-    replaced geometry as nothing while still picking it: here a bulb's glow shows at A,
-    is gone after an empty load, and shows at B — not at A — after the next."""
+    replaced geometry as nothing while still picking it: here a bulb's glow shows at A;
+    reloaded WHILE SHOWN it moves to B (the product's common path — a date step, a lamp
+    moved); it is gone after an empty load, and shows at B again after the next (a load
+    while hidden, then shown). In CI on OpenGL and on Direct3D 11 (``ci.yml``)."""
     data = _ok(*run_scenario(tmp_path / "reload", "reload"))
     frames = data["frames"]
-    assert frames["a"]["pixels"] >= 20, frames
+    for name in ("a", "a2", "b"):
+        assert frames[name]["pixels"] >= 20, (name, frames)
     assert frames["none"]["pixels"] < frames["a"]["pixels"] / 4, frames
-    assert frames["b"]["pixels"] >= 20, frames
-    (ax, ay), (bx, by) = frames["a"]["middle"], frames["b"]["middle"]
-    assert abs(ax - bx) + abs(ay - by) > 40.0, f"the glow moved with the buffer: {frames}"
-    assert data["ambient_loads"] >= 3
+
+    def apart(one: str, other: str) -> float:
+        (x0, y0), (x1, y1) = frames[one]["middle"], frames[other]["middle"]
+        return abs(x0 - x1) + abs(y0 - y1)
+
+    assert apart("a", "a2") > 40.0, f"a reload while shown moved the glow: {frames}"
+    assert apart("a2", "b") < 15.0, f"the same bulb at B, shown either way: {frames}"
+    assert data["ambient_loads"] >= 4
 
 
 @pytest.mark.perf

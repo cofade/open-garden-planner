@@ -446,14 +446,19 @@ weather fetch. Its days reach the 3D view's Today's Weather as `(ISO date, WMO c
 
 ```mermaid
 flowchart LR
-    C([Weather → Today's Weather,<br/>a new location or document])
+    C([Weather → Today's Weather,<br/>a new location — also the one a new or<br/>opened document brings])
     W["Workspace.forecast_wanted"]
     P["PlantingCalendarView.request_forecast<br/>(the weather part of refresh; tab may be hidden)"]
-    F["WeatherWidget fetch (Open-Meteo)"]
+    F["WeatherWidget fetch (Open-Meteo) — another place<br/>cancels the old fetch; a late result for it is dropped"]
     R["forecast_days_ready(days) — EMPTY without a<br/>location or after a failed fetch"]
     L["Workspace.set_weather_forecast →<br/>WorkspaceLivingCoordinator → LookController.set_todays_weather<br/>(the plan date's code, only while the plan date is today)"]
     C --> W --> P --> F --> R --> L
 ```
+
+A replaced document only FORGETS the forecast (`CanvasScene.document_replaced` comes while the
+old document's location is still set: an ask there fetched the old place's forecast, which then
+landed on the new plan — its strip, its frost alerts and Today's Weather). The new document's
+`location_changed`, which always follows a new, opened or recovered document, asks.
 
 A write from inside any listener raises `RuntimeError`: the remaining listeners
 would otherwise receive a stale change. Every listener runs even when one raises,

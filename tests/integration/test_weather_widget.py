@@ -62,6 +62,34 @@ class TestWeatherWidgetEmptyState:
         assert "Set a location" in widget._empty_lbl.text()
 
 
+class TestWeatherWidgetPlaceChange:
+    """Another place (or none) cancels the old place's fetch and forgets its forecast
+    (senior review of L5: after File › New the old plan's strip showed, and its frost
+    alerts were computed against it)."""
+
+    @pytest.mark.parametrize("new_place", [(48.1, 11.6), (None, None)], ids=["moved", "cleared"])
+    def test_another_place_cancels_and_forgets(self, qtbot: object, new_place: tuple) -> None:
+        widget = WeatherWidget()
+        qtbot.addWidget(widget)
+        widget.set_location(52.5, 13.4)
+        widget._on_fetch_success(_make_forecast(days=7))
+        in_flight = widget._worker = MagicMock()
+        widget.set_location(*new_place)
+        in_flight.shutdown.assert_called_once_with(0)   # cancelled, not waited for
+        assert widget._worker is None and widget.forecast() is None
+
+    def test_the_same_place_keeps_its_fetch_and_forecast(self, qtbot: object) -> None:
+        widget = WeatherWidget()
+        qtbot.addWidget(widget)
+        widget.set_location(52.5, 13.4)
+        forecast = _make_forecast(days=7)
+        widget._on_fetch_success(forecast)
+        in_flight = widget._worker = MagicMock()
+        widget.set_location(52.5, 13.4)
+        in_flight.shutdown.assert_not_called()
+        assert widget._worker is in_flight and widget.forecast() is forecast
+
+
 class TestWeatherWidgetForecast:
     def test_set_location_then_inject_forecast_renders_strip(self, qtbot: object) -> None:
         widget = WeatherWidget()

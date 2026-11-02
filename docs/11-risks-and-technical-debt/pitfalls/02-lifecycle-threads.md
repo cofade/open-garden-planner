@@ -124,3 +124,24 @@ QProgressDialog's minimumDuration does not stop its constructor force-show timer
 while its value is -1. A held-worker integration test crosses four seconds and
 asserts that the readiness dialog remains the sole visible progress dialog:
 `tests/integration/test_plan_sun_controls.py::test_pdf_generation_progress_is_created_only_after_map_readiness`.
+
+### PF-LIF-12
+
+- **Rule:** A `CanvasScene.document_replaced` slot only forgets place-dependent state, because the old document's location is still set; the new location's `location_changed` asks again, and a fetch result is applied only to the place it was fetched for.
+- **Pinned by:** `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_weather_widget.py`
+- **Source:** #389, ADR-070
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom as observed: with Today's Weather chosen, File › New left the 3D view on the old plan's
+forecast, the Planting Calendar showed the old strip without a location, and the new plan's
+frost alerts and badge were computed against the old place's weather; an Open at another place
+first fetched for the old one. Root cause: `Workspace.document_changed` (the
+`document_replaced` slot) asked for a forecast, and the signal fires inside
+`CanvasScene.clear()` / `_apply_to_scene`, before `ProjectManager` resets or restores the
+location — so `PlantingCalendarView.request_forecast` fetched for the OLD place, and
+`WeatherWidget.set_location` did not cancel that worker when the place changed. Fix: the slot
+only forgets (`WorkspaceLivingCoordinator.document_changed`); `location_changed`, which always
+follows a new, opened or recovered document, asks (`place_changed`). `WeatherWidget.set_location`
+cancels the in-flight worker and forgets the forecast when the coordinates change, and
+`_on_fetch_success` / `_on_fetch_error` drop a result whose worker fetched another place.

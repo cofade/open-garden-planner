@@ -198,7 +198,13 @@ class WeatherWidget(QFrame):
     # ── public API ──────────────────────────────────────────────────────
 
     def set_location(self, lat: float | None, lon: float | None) -> None:
-        """Set (or clear) the GPS location; reset UI accordingly."""
+        """Set (or clear) the GPS location; reset UI accordingly. Another place (or
+        none): the fetch still on its way for the old one is cancelled and its forecast
+        forgotten — neither may land on the new place (senior review of L5: File › New
+        showed the old plan's strip and computed its frost alerts against it)."""
+        if (lat, lon) != (self._lat, self._lon):
+            self.shutdown(0)  # cancelled and disconnected; it is not waited for
+            self._forecast = None
         self._lat = lat
         self._lon = lon
         if lat is None or lon is None:
@@ -262,12 +268,23 @@ class WeatherWidget(QFrame):
 
     # ── slots ───────────────────────────────────────────────────────────
 
+    def _for_this_place(self) -> bool:
+        """The signalling worker fetched for the location set now: a result queued
+        before its place changed is another place's, and is dropped."""
+        worker = self.sender()  # None when called directly: the place is this one
+        place = (getattr(worker, "_lat", self._lat), getattr(worker, "_lon", self._lon))
+        return place == (self._lat, self._lon)
+
     def _on_fetch_success(self, forecast: WeatherForecast) -> None:
+        if not self._for_this_place():
+            return
         self._forecast = forecast
         self._render_forecast(forecast)
         self.forecast_ready.emit()
 
     def _on_fetch_error(self, message: str) -> None:
+        if not self._for_this_place():
+            return
         self.forecast_failed.emit(message)
         self._show_error(message)
 

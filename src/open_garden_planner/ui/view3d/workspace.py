@@ -75,6 +75,7 @@ from __future__ import annotations
 import contextlib
 import enum
 import logging
+import math
 import time
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Final
@@ -103,6 +104,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.phenology import DEFAULT_LATITUDE_DEG
 from open_garden_planner.core.plain_text import clip_text, log_text
 from open_garden_planner.core.scene3d.camera import FOV_DEG, OrbitCamera
 
@@ -877,6 +879,7 @@ class Workspace(QWidget):
             return
         self._host, self._controller, self._input = host, controller, orbit
         self._look = look
+        look.set_southern(self._southern())  # L5: where the place's noon stands
         self._living.wire(look)  # L5: the session's weather, the life switch
         if self.engine_factory is quick3d_engine:
             from ...core.plant_forge import ForgeCache
@@ -1135,7 +1138,7 @@ class Workspace(QWidget):
         this leaves flags only (the controller is paused). An open that fails its
         validation never gets here: the view, its camera and what it remembers of
         the plan stay as they were."""
-        self._living.place_changed()  # L5: the forecast was the old document's place
+        self._living.document_changed()  # L5: the forecast was the old document's place
         controller = self._controller
         if controller is None:
             return
@@ -1156,6 +1159,8 @@ class Workspace(QWidget):
 
     def location_changed(self, *_arguments: object) -> None:
         self._living.place_changed()  # L5: the forecast was the old place's
+        if self._look is not None:
+            self._look.set_southern(self._southern())  # L5: and so was its noon
         if self._controller is not None:
             self._controller.refresh_sun()
         if self._analysis is not None:
@@ -1192,6 +1197,13 @@ class Workspace(QWidget):
                 worker.invalidate((*report.changes.added, *report.changes.geometry))
             self._refresh_forge()
 
+    def _southern(self) -> bool:
+        """The plan's place lies south of the equator (no location: the phenology's
+        default, a northern one)."""
+        loc = self._location()
+        lat = loc.get("latitude") if isinstance(loc, Mapping) else None
+        return isinstance(lat, (int, float)) and math.isfinite(lat) and lat < 0.0
+
     def _refresh_forge(self) -> None:
         worker, controller = self._forge_worker, self._controller
         if worker is None or controller is None:
@@ -1204,7 +1216,7 @@ class Workspace(QWidget):
         worker.submit_snapshot(
             controller.sync.records.values(), camera_pos=eye, camera_forward=forward,
             plan_date=controller.pass_date,
-            latitude_deg=float(lat) if isinstance(lat, (int, float)) else 52.52,
+            latitude_deg=float(lat) if isinstance(lat, (int, float)) else DEFAULT_LATITUDE_DEG,
             frost_dates=frost if isinstance(frost, Mapping) else None,
         )
         if worker.pending_count and self._pane_is_showing():
@@ -1472,7 +1484,6 @@ class Workspace(QWidget):
     def _stop_engine(self) -> None:
         self._unwire_selection()  # L1.8: walk mode ends, the canvas is let go
         self._unwire_analysis()   # L2: its timers and its sources
-        self._living.unwire()     # L5: what the host was given goes with it
         self._camera_timer.stop()
         self._health_timer.stop()
         self._forge_timer.stop()
@@ -1499,6 +1510,7 @@ class Workspace(QWidget):
             self._pane.drop_engine()
         if host is not None:
             self._close_host(host)
+        self._living.unwire()  # L5: what the host was given goes; the look is gone first
         self._reset_action.setEnabled(False)
 
     def shutdown(self) -> None:

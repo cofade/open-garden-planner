@@ -25,6 +25,7 @@ are the render tier's (``test_living_garden_render.py``).
 
 from __future__ import annotations
 
+import threading
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
@@ -143,6 +144,24 @@ def test_the_weather_menu_paints_the_look_the_engine_is_told(bench: Bench) -> No
     assert "Mood:" in bench.workspace.living.button.toolTip()
 
 
+def test_the_places_hemisphere_reaches_the_look(bench: Bench) -> None:
+    """Where the place's noon stands is the look's to know (senior review of L5): a
+    garden south of the equator fades its morning dew before a noon due north, and its
+    fireflies before a midnight due south (``weather.noon_azimuth``)."""
+    look, host = bench.workspace.look, bench.host
+    assert look is not None and look.southern is False, "Berlin"
+    bench.location = {"latitude": -33.87, "longitude": 151.21}
+    bench.workspace.location_changed(bench.location)
+    bench.settle()
+    assert look.southern is True
+    sun = bench.workspace.controller.sync.sun
+    assert host.looks[-1] == living_look(sun, look.preset, "clear", southern=True)
+    bench.location = None
+    bench.workspace.location_changed(None)
+    bench.settle()
+    assert look.southern is False, "no location: the phenology's northern default"
+
+
 def test_the_life_switch_reaches_the_engine(bench: Bench) -> None:
     host = bench.host
     assert host.life[-1] is True, "a new engine starts with life on"
@@ -168,33 +187,105 @@ def test_todays_weather_follows_the_forecast_only_on_today(bench: Bench) -> None
     assert "only while the plan date is today" in bench.workspace.living.button.toolTip()
 
 
-def test_todays_weather_asks_the_calendar_and_keeps_no_stale_forecast(win, monkeypatch) -> None:
+class FakeWeather:
+    """``WeatherService.fetch_forecast`` without the network — the rest is the app's own:
+    the calendar's weather widget, its worker thread, its signals (the test is marked
+    ``real_weather_worker``: the conftest otherwise replaces that thread with a mock). Each fetch is recorded
+    and answers its own place's forecast (rain north of the equator, overcast south of
+    it) once ``gate`` is open; ``fail`` answers nothing (a failed fetch)."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from open_garden_planner.services.weather_service import (
+            DayForecast,
+            WeatherForecast,
+            WeatherService,
+        )
+
+        self.fetches: list[tuple[float, float]] = []
+        self.gate = threading.Event()
+        self.gate.set()
+        self.fail = False
+
+        def fetch(_service: object, lat: float, lon: float) -> WeatherForecast | None:
+            self.fetches.append((lat, lon))
+            self.gate.wait(10.0)
+            if self.fail:
+                return None
+            code = 63 if lat > 0 else 3
+            return WeatherForecast([DayForecast(date.today().isoformat(), 18.0, 9.0, 4.2, code)],
+                                   "2026-11-02T08:00:00+00:00")
+
+        monkeypatch.setattr(WeatherService, "fetch_forecast", fetch)
+
+
+def _place(location: dict[str, float]) -> tuple[float, float]:
+    return (location["latitude"], location["longitude"])
+
+
+@pytest.mark.real_weather_worker
+def test_todays_weather_asks_the_calendar_and_keeps_no_stale_forecast(win, monkeypatch, qtbot) -> None:
     """The app's seam (senior review of L5): choosing Today's Weather ASKS the Planting
     Calendar's weather widget for the forecast — with the calendar's tab hidden, the
     default —; the forecast it fetched reaches the 3D view; a failed fetch and a plan
     without a location leave no stale forecast behind."""
-    from open_garden_planner.services.weather_service import DayForecast, WeatherForecast
-    from open_garden_planner.ui.widgets.weather_widget import WeatherWidget
-
-    fetches: list[tuple[Any, Any]] = []
-    monkeypatch.setattr(WeatherWidget, "refresh",
-                        lambda self: fetches.append((self._lat, self._lon)))  # no network
-    living, widget = win._workspace.living, win.calendar_view._weather
+    weather = FakeWeather(monkeypatch)
+    living = win._workspace.living
+    today = date.today().isoformat()
     assert win._tab_widget.currentIndex() == 0, "the plan's tab: the calendar is hidden"
     living.actions[TODAY].trigger()
-    assert fetches == [(BERLIN["latitude"], BERLIN["longitude"])], "asked for the forecast"
-    today = date.today().isoformat()
-    widget._forecast = WeatherForecast([DayForecast(today, 18.0, 9.0, 4.2, 63)],
-                                       "2026-11-02T08:00:00+00:00")
-    widget.forecast_ready.emit()
-    assert living.forecast == ((today, 63),), "the fetched forecast reached the 3D view"
-    widget.forecast_failed.emit("offline")
-    assert living.forecast == (), "a failed fetch keeps no old forecast"
-    widget.forecast_ready.emit()
-    assert living.forecast == ((today, 63),)
+    qtbot.waitUntil(lambda: living.forecast == ((today, 63),), timeout=5000)
+    assert weather.fetches == [_place(BERLIN)], "asked for the forecast, once"
+    weather.fail = True
+    living.set_weather(TODAY)                      # asked again: this fetch fails
+    qtbot.waitUntil(lambda: len(weather.fetches) == 2 and living.forecast == (), timeout=5000)
+    weather.fail = False
+    living.set_weather(TODAY)
+    qtbot.waitUntil(lambda: living.forecast == ((today, 63),), timeout=5000)
     win._project_manager.set_location(None)
-    assert living.forecast == (), "another place: the old forecast is forgotten"
-    assert len(fetches) == 1, "no location: nothing to fetch"
+    assert living.forecast == (), "no place: the old forecast is forgotten"
+    qtbot.wait(100)
+    assert len(weather.fetches) == 3, "no location: nothing to fetch"
+
+
+@pytest.mark.real_weather_worker
+def test_a_new_or_opened_plan_never_follows_the_old_places_forecast(win, monkeypatch, qtbot,
+                                                                     tmp_path) -> None:
+    """File > New while the old place's fetch is still on its way, then Open of a plan
+    at another place (senior review of L5, observed: the old place's forecast reached
+    the 3D view, the calendar showed its strip without a location, and the new plan's
+    frost alerts were computed against it). Through the app's own document paths."""
+    sydney = {"latitude": -33.87, "longitude": 151.21}
+    plan = tmp_path / "sydney.ogp"
+    win._project_manager.set_location(dict(sydney))
+    win._project_manager.save(win.canvas_scene, plan)
+    win._project_manager.set_location(dict(BERLIN))
+    weather = FakeWeather(monkeypatch)
+    living, widget = win._workspace.living, win.calendar_view._weather
+    alerts: list[object] = []
+    win.calendar_view.frost_alerts_ready.connect(alerts.append)
+    today = date.today().isoformat()
+    try:
+        weather.gate.clear()                       # Berlin's fetch hangs on the network
+        living.actions[TODAY].trigger()
+        qtbot.waitUntil(lambda: weather.fetches == [_place(BERLIN)], timeout=5000)
+        win._new_project_document(width_cm=2000, height_cm=2000)
+        assert win._project_manager.location is None
+        weather.gate.set()                         # … and answers after File > New
+        qtbot.wait(300)
+        assert living.forecast == (), "the old place's late forecast did not land"
+        assert widget.forecast() is None and widget._strip.isHidden()
+        assert alerts == [], "no frost alerts against another place's weather"
+        assert weather.fetches == [_place(BERLIN)], "a plan without a location fetches nothing"
+
+        win._project_manager.set_location(dict(BERLIN))
+        qtbot.waitUntil(lambda: living.forecast == ((today, 63),), timeout=5000)
+        win._load_project_file(str(plan))
+        qtbot.waitUntil(lambda: living.forecast == ((today, 3),), timeout=5000)
+        assert weather.fetches == [_place(BERLIN), _place(BERLIN), _place(sydney)], (
+            "the open asked once, for the plan's own place — none for the old one first")
+        assert (widget._lat, widget._lon) == _place(sydney)
+    finally:
+        weather.gate.set()
 
 
 @pytest.mark.parametrize("drape", ["SHADOWS", "SUN_HOURS"])
@@ -217,6 +308,11 @@ def test_an_analyze_drape_pauses_the_weather(bench: Bench, drape: str) -> None:
     assert not workspace.living.analysing and not look.weather_paused
     assert host.looks[-1] == living_look(sun, look.preset, "snow")
     assert "paused" not in workspace.living.button.text()
+    workspace.drape_actions[DrapeMode[drape]].trigger()
+    assert "(paused while analysing)" in workspace.living.button.text()
+    workspace.shutdown()            # the engine goes with the drape still on the ground …
+    assert workspace.look is None
+    assert "paused" not in workspace.living.button.text(), "… and so does the pause (P2)"
 
 
 def test_every_weather_choice_has_its_menu_entry(bench: Bench) -> None:
@@ -320,10 +416,13 @@ def test_the_lights_are_read_again_only_when_a_pass_touches_one(qtbot, monkeypat
     assert passed(transform=("oak",)) == 1, "a tree moved: no light touched"
     assert passed() == 1, "an empty pass"
     assert passed(transform=("lamp",)) == 2, "the lamp moved"
-    del records["lamp"]
-    assert passed(removed=("lamp",)) == 3, "the lamp is gone"
-    assert host.lamps[-1] == [], "and so is its light"
-    assert passed(recovered=True) == 4, "a reset sync reads them again"
+    records["lamp2"] = lantern("lamp2", east=900.0)
+    assert passed(added=("lamp2",)) == 3, "a light added after the first read"
+    assert len(host.lamps[-1]) == 2, "and it lights too"
+    del records["lamp"], records["lamp2"]
+    assert passed(removed=("lamp", "lamp2")) == 4, "the lamps are gone"
+    assert host.lamps[-1] == [], "and so is their light"
+    assert passed(recovered=True) == 5, "a reset sync reads them again"
 
 
 # ── L5.4: garden lights ──────────────────────────────────────────────────────

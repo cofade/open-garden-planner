@@ -36,6 +36,7 @@ from open_garden_planner.core.scene3d.weather import (
     is_morning,
     living_look,
     mood_of,
+    noon_azimuth,
     normalise_weather,
     todays_weather,
     weather_fog,
@@ -198,18 +199,53 @@ def test_the_dew_comes_and_goes_without_a_step() -> None:
     assert max(amounts) == 1.0
 
 
-@pytest.mark.parametrize("latitude_like", [(4.0, 150.0), (10.0, 160.0), (14.0, 175.0)])
-def test_a_winter_dew_fades_before_noon_not_at_it(latitude_like: tuple[float, float]) -> None:
+@pytest.mark.parametrize("weather", ["overcast", "rain", "snow"])
+def test_a_cloudy_low_sun_keeps_noons_exposure(weather: str) -> None:
+    """The low sun's exposure lift makes up for a clear key light that cloud takes away:
+    inherited, it made an overcast sunset 98 % as bright as noon (3D review of L5, round
+    3). Under cloud the day holds NOON's exposure — all of it under a full cover, the
+    share of the cloud under snow's 0.85; towards night the mood's own returns — never
+    darker as the sun sinks."""
+    def exposure(elevation: float, weather: str) -> float:
+        return living_look(sun(elevation, 250.0), "high", weather).mood.exposure
+
+    cloud = WEATHER_SPECS[weather].cloud
+    noon, clear_noon = exposure(40.0, weather), exposure(40.0, "clear")
+    lift = noon / clear_noon                               # the cloud's own +EV
+    for elevation in (12.0, 5.9, 2.0, 0.6):
+        clear_lift = exposure(elevation, "clear") - clear_noon
+        assert clear_lift > 0.0, "a clear low sun keeps its lift"
+        assert exposure(elevation, weather) == pytest.approx(
+            noon + clear_lift * (1.0 - cloud) * lift), elevation
+    assert exposure(-20.0, weather) == pytest.approx(exposure(-20.0, "clear") * lift)
+    evening = [exposure(e, weather) for e in (40.0, 5.9, 0.6, -2.0, -4.0, -6.0, -20.0)]
+    assert evening == sorted(evening)
+
+
+@pytest.mark.parametrize("elevation", [4.0, 10.0, 14.0])
+@pytest.mark.parametrize("southern", [False, True], ids=["north", "south"])
+def test_a_winter_dew_fades_before_noon_not_at_it(elevation: float, southern: bool) -> None:
     """A winter sun that never reaches 18°: the dew fades over the last 25° of azimuth
-    before the meridian instead of lying until solar noon and going out at once (3D
-    review of L5, round 2) — in both hemispheres (noon due south, or due north)."""
-    elevation, _azimuth = latitude_like
-    for noon in (180.0, 0.0):
-        towards = -1.0 if noon == 180.0 else 1.0           # the morning side of that noon
-        just_before = dew_amount(sun(elevation, (noon + towards * 0.1) % 360.0))
-        assert just_before < 0.01, "no step at the meridian"
-        hour_before = dew_amount(sun(elevation, (noon + towards * 40.0) % 360.0))
-        assert hour_before > 0.0 or elevation >= DEW_GONE_DEG
+    before the PLACE's noon — due south, or due north in the southern hemisphere —
+    instead of lying until solar noon and going out at once (3D review of L5, round 2)."""
+    noon = noon_azimuth(southern)
+    towards = 1.0 if southern else -1.0                # the morning side of that noon
+
+    def dew(before_noon_deg: float) -> float:
+        return dew_amount(sun(elevation, (noon + towards * before_noon_deg) % 360.0),
+                          southern=southern)
+
+    assert dew(0.1) < 0.01, "no step at the meridian"
+    assert 0.0 < dew(12.5) < dew(40.0)
+
+
+def test_a_summer_dawn_near_due_north_keeps_its_dew() -> None:
+    """North of ~60° a summer dawn stands near due north — solar MIDNIGHT's meridian
+    there, not noon's: its dew is not faded as if it were noon (senior review of L5:
+    x0.04 at azimuth 1°). South of the equator the same bearing IS noon."""
+    dawn = sun(-1.0, 3.0)                  # 64° N in June, just after the white night
+    assert dew_amount(dawn) == pytest.approx(dew_amount(sun(-1.0, 60.0))) == 1.0
+    assert dew_amount(dawn, southern=True) < 0.15
 
 
 def test_no_dew_while_a_drape_lies_on_the_ground() -> None:
@@ -269,13 +305,16 @@ def test_life_keeps_the_time_of_day() -> None:
     assert living_look(sun(40.0, 180.0), "high", "snow").atmosphere.leaves == 0.0
 
 
-@pytest.mark.parametrize("midnight", [0.0, 180.0], ids=["north", "south"])
-def test_the_fireflies_fade_towards_solar_midnight(midnight: float) -> None:
+@pytest.mark.parametrize("southern", [False, True], ids=["north", "south"])
+def test_the_fireflies_fade_towards_solar_midnight(southern: bool) -> None:
     """They go out over the last 25° of azimuth before the sun crosses the meridian below
     the horizon — due north in the northern hemisphere, due south in the southern — not
     all at once (3D review of L5)."""
+    midnight = (noon_azimuth(southern) + 180.0) % 360.0
+
     def fireflies(azimuth: float) -> float:
-        return living_look(sun(-12.0, azimuth % 360.0), "high", "clear").atmosphere.fireflies
+        return living_look(sun(-12.0, azimuth % 360.0), "high", "clear",
+                           southern=southern).atmosphere.fireflies
 
     towards = -1.0 if midnight == 0.0 else 1.0     # the evening side of that midnight
     far, near = fireflies(midnight + towards * 40.0), fireflies(midnight + towards * 12.5)

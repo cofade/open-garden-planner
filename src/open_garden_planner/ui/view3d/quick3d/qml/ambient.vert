@@ -35,8 +35,11 @@ void MAIN()
     vColor = vec4(COLOR.rgb, 1.0);
     vGlow = 0.0;
     float phase = NORMAL.x;
-    // how far this particle is into the share: 0 collapsed, 1 full size (a bulb: always)
-    float grow = kind == 3 ? 1.0 : clamp((life - fract(phase * 7.919)) * 12.0, 0.0, 1.0);
+    // how far this particle is into the share: 0 collapsed, 1 full size (a bulb: always).
+    // The seed spans [0, 11/12): at a share of 1 every particle is whole (a seed above
+    // 11/12 stayed undersized for good - senior review of L5).
+    float seed = fract(phase * 7.919) * (11.0 / 12.0);
+    float grow = kind == 3 ? 1.0 : clamp((life - seed) * 12.0, 0.0, 1.0);
     if (life <= 0.001 || grow <= 0.0) {
         vUV = vec2(0.0);
         POSITION = vec4(0.0, 0.0, 2.0, 1.0);    // beyond the far plane on every backend: clipped

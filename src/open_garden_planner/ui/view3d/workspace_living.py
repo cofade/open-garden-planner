@@ -215,6 +215,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._sources_read = False
         self._lit = None
         self._ambient_key = None
+        self._refresh_button()  # no "(paused while analysing)" left from the old engine
 
     @property
     def weather_choice(self) -> str:
@@ -237,11 +238,19 @@ class WorkspaceLivingCoordinator(QObject):
             self.forecast_wanted.emit()
         self._refresh_button()
 
-    def place_changed(self) -> None:
-        """A new garden location or a new document: the forecast was another place's —
-        forget it, and ask again while Today's Weather is chosen."""
+    def document_changed(self) -> None:
+        """A new, opened or recovered document: the forecast was the old one's place —
+        forget it, and ask NOTHING: the signal comes before the new document's location
+        is set, so an ask here fetched the OLD place's forecast (senior review of L5).
+        Its ``location_changed`` always follows (``place_changed``)."""
         self._forecast = ()
         self._update_todays()
+
+    def place_changed(self) -> None:
+        """The garden location changed (also when a document brings its own): the
+        forecast was another place's — forget it, and ask again while Today's Weather
+        is chosen."""
+        self.document_changed()
         if self._weather == TODAY:
             self.forecast_wanted.emit()
 
@@ -281,7 +290,9 @@ class WorkspaceLivingCoordinator(QObject):
         garden's life (which plants flower, which drop their leaves)."""
 
         def sink(states: Mapping[str, PhenologyState]) -> None:
-            host.set_plant_seasons(states)
+            # contained like every living-garden call: the Forge's own error path calls
+            # this again (``ForgeWorker.clear``), and a second raise there skipped its reset
+            self._send("set_plant_seasons", lambda: host.set_plant_seasons(states))
             self._seasons = dict(states)
             self._refresh_ambient()
 
