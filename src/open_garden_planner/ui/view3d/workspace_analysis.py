@@ -210,6 +210,7 @@ class WorkspaceAnalysisCoordinator:
         self._analyze_button.setAutoRaise(True)
         self._analyze_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._analyze_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._analyze_button.setProperty("menuChevron", True)   # arrow beside the text (ui/theme.py)
         menu = QMenu(self._analyze_button)
         menu.addSection(QCoreApplication.translate("Workspace", "On the ground"))
         menu.addActions(list(self._drape_actions.values()))

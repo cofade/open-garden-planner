@@ -144,6 +144,40 @@ def test_the_weather_menu_paints_the_look_the_engine_is_told(bench: Bench) -> No
     assert "Mood:" in bench.workspace.living.button.toolTip()
 
 
+@pytest.mark.parametrize("mode", ["light", "dark"])
+def test_the_strip_s_menu_buttons_read_as_buttons(bench: Bench, qtbot, mode: str) -> None:
+    """Owner's manual test of L5: "Wetter: Klar" was not found as a button. A text
+    button that only opens a menu got its arrow drawn UNDER its last letter, and read
+    as a label; the Weather and the Analyze buttons now carry ``menuChevron``, and the
+    theme gives that arrow room of its own beside the text."""
+    from PyQt6.QtWidgets import QMenu, QToolButton, QWidget
+
+    from open_garden_planner.ui.theme import ThemeMode, generate_stylesheet
+
+    strip = bench.workspace.living.button.parentWidget()
+    buttons = {b.text(): b for b in strip.findChildren(QToolButton) if b.menu() is not None}
+    weather = bench.workspace.living.button
+    analyze = buttons.get("Analyze")
+    assert analyze is not None, sorted(buttons)
+    for button in (weather, analyze):
+        assert button.property("menuChevron") is True, button.text()
+    # the theme's rule is what makes the property count: the arrow takes room of its own
+    host = QWidget()
+    qtbot.addWidget(host)
+    host.setStyleSheet(generate_stylesheet(ThemeMode(mode)))
+    widths = {}
+    for chevron in (False, True):
+        probe = QToolButton(host)
+        probe.setText("Weather: Clear")
+        probe.setAutoRaise(True)
+        probe.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        probe.setMenu(QMenu(probe))
+        probe.setProperty("menuChevron", chevron)
+        probe.ensurePolished()
+        widths[chevron] = probe.sizeHint().width()
+    assert widths[True] >= widths[False] + 10, widths
+
+
 def test_the_places_hemisphere_reaches_the_look(bench: Bench) -> None:
     """Where the place's noon stands is the look's to know (senior review of L5): a
     garden south of the equator fades its morning dew before a noon due north, and its

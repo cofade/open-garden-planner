@@ -158,6 +158,7 @@ class WorkspaceLivingCoordinator(QObject):
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        button.setProperty("menuChevron", True)   # its arrow beside the text (ui/theme.py)
         menu = QMenu(button)
         menu.addSection(_tr("Weather"))
         for choice in WEATHER_CHOICES:
