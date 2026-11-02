@@ -447,6 +447,7 @@ US-B7 (Paper Space MVP) and the FR-LAYOUT-01 … FR-LAYOUT-06 entries that previ
 - **FR-SYMBOL-05**: `.ogp` persistence is backwards-compatible (no `FILE_VERSION` bump): a symbol is stored as a `group` + a `smart_symbol` metadata key + its generated children as a cached snapshot. An older app loads it as a plain group; a current app regenerates if the live definition's version matches, else uses the cached geometry and logs a warning. A missing/unknown symbol likewise falls back to the cached geometry.
 - **FR-SYMBOL-06**: DXF export emits each symbol as a **BLOCK + INSERT** (block geometry in symbol-local coords; insert at the symbol's position/rotation; identical params reuse a block); the symbol's children are never exported as duplicate flat entities.
 - **FR-SYMBOL-07**: A CI test validates every bundled symbol file (loads, validates, expressions parse, generates ≥1 primitive). Symbol/parameter display names are localized via `name`/`name_de` + `label`/`label_de` data fields; panel chrome is localized via `tr()`.
+- **FR-SYMBOL-08** (issue #599): Typed smart-symbol members and definition versioning. Smart symbol element definitions declare canonical `object_type` names, instantiated as real typed canvas items (e.g. `RAISED_BED`, `GREENHOUSE`, `COMPOST`, `FENCE`). Members marked with `role: "guide"` (or `is_guide: true`) serve as 2D layout references and are excluded from 3D record snapshotting and shadow casting. Generated children receive deterministic stable UUIDs derived from the symbol's UUID and element index/repeat counter, ensuring plant parenting links survive parameter edits. Parameter edits and bed membership reconciliation execute in a single atomic command (`ChangeSmartSymbolParamCommand`). When an instance's definition version in a loaded plan is older than the library version, the instance retains its saved geometry without silent regeneration, and parameters are marked read-only with a translated explanation in the Properties panel.
 
 ## FR-26: Agent API — Embedded MCP Server (Phase 13, Package D, US-D1.1, epic #237)
 
@@ -635,6 +636,17 @@ Acceptance: `tests/unit/test_stacking.py` (the Qt-free arrange algorithm — nor
 ### FR-SUN-10: Document-owned heatmap lifecycle (#428)
 
 `CanvasScene.document_replaced` clears overlays, receiver results, diagnostics, canopy state and the checked toolbar button, cancelling pending work before item teardown. Generation/signature checks reject old queued success. Worker ownership survives until `finished`; a second launch is refused until pending signals complete. This applies to New, validated Open/Recent/Welcome/recovery/direct loads and agent New/Open. Prevalidation failure preserves the active plan and valid exposure. No project-format or version change.
+
+### FR-SUN-12: Pitched-roof and porous-fence analytical shadow model (issue #440)
+
+- The 2D shadow overlay, hours-of-sun heatmap, per-plant sun estimates, and 3D analysis drape consume a shared geometry-aware caster model matching 3D structural profiles.
+- Ridged buildings (HOUSE, GARAGE_SHED, TOOL_SHED with gable, hip, or shed roofs) project 3D roof and wall triangles, preserving height, pitch, ridge axis, rotation, and overhang. Flat-roof buildings remain on the prism path.
+- Porous fences (PathFenceStyle.WOODEN_FENCE, METAL_FENCE, CHAIN_LINK) compute angle-dependent sunlight transmittance in [0.0, 1.0] based on solar azimuth and elevation relative to the fence segment geometry.
+- Casters are grouped by owner first so connected segments of a single fence do not square attenuation. Overlapping independent casters multiply transmittance (T_total = prod(T_i), occlusion = 1 - T_total). Porous shade overlapping opaque shade remains fully opaque (T = 0, occlusion = 1).
+- Direct sunlight accumulates as sample minutes multiplied by transmittance.
+- Per-sample transmittance arrays (sample_transmittance, float32) are retained alongside binary shade masks for progressive day sweeps, subject to MAX_SAMPLE_SHADE_BYTES = 64 MiB.
+- 3D shadow drape consumes WeightedShadowRegion sequences to interpolate linear RGB vertex multipliers in a single persistent "shade" mesh.
+- All 9 built-world families meet the 10% relative-area ratio (0.90 <= area_ratio <= 1.10) and <= 15 cm reach difference across 15°, 35°, and 60° solar elevations.
 
 ## Audit A1 data and download safety (issue #453)
 

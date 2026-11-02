@@ -60,8 +60,11 @@ from ..record import (
     PARAM_DOOR_WALL,
     PARAM_RIDGE,
     SHAPE_RECTANGLE,
+    Material,
+    Params,
     ParamValue,
     Record,
+    Transform,
 )
 from . import palette
 from .common import BuiltBuilder, corner_count, footprint_of, has_one_plain_ring, plain_block
@@ -349,3 +352,84 @@ def triangle_budget(record: Record) -> int:
 def register(registry: BuilderRegistry) -> None:
     registry.register("HOUSE", build_house)
     registry.register_many(("GARAGE_SHED", "TOOL_SHED"), build_shed)
+
+
+RoofTriangle3D = tuple[
+    tuple[float, float, float],
+    tuple[float, float, float],
+    tuple[float, float, float],
+]
+
+
+def pitched_roof_triangles_for_record(
+    record: Record,
+    height_cm: float | None = None,
+) -> tuple[RoofTriangle3D, ...]:
+    """Structural 3D triangles ``(walls + roof)`` for a pitched-roof building (#440).
+
+    Returns ``()`` for non-building kinds, non-plain outlines, or ``FLAT`` roofs (which
+    stay on the prism shadow path). For ``GABLE``, ``HIP``, and ``SHED`` roofs, returns
+    the triangles of ``built.walls`` and ``built.roof`` in the record's local frame so
+    analytical 2D/3D shadow projection matches the 3D ridge and overhang geometry.
+    """
+    if record.kind not in ("HOUSE", "GARAGE_SHED", "TOOL_SHED"):
+        return ()
+    if not has_one_plain_ring(record):
+        return ()
+    h_cm = float(height_cm if height_cm is not None else (record.height_cm or 0.0))
+    if h_cm <= 0.0:
+        return ()
+    chosen = chosen_style(record)
+    has_ridge = record.kind != "HOUSE" or ridge_of(record.params.get(PARAM_RIDGE)) is not None
+    if chosen is None:
+        chosen = GABLE if has_ridge else FLAT
+    if chosen == FLAT:
+        return ()
+    base = HOUSE_ROOF if record.kind == "HOUSE" else SHED_ROOF
+    built = _roof(record, h_cm, base)
+    if built is None or built.wall_top is None:
+        return ()
+    merged = Mesh.merge([built.walls, built.roof])
+    if not merged.vertex_count:
+        return ()
+    pos = merged.positions
+    tris = merged.indices.reshape(-1, 3)
+    out: list[RoofTriangle3D] = []
+    for i0, i1, i2 in tris:
+        p0 = pos[int(i0)]
+        p1 = pos[int(i1)]
+        p2 = pos[int(i2)]
+        out.append(
+            (
+                (float(p0[0]), float(p0[1]), float(p0[2])),
+                (float(p1[0]), float(p1[1]), float(p1[2])),
+                (float(p2[0]), float(p2[1]), float(p2[2])),
+            )
+        )
+    return tuple(out)
+
+
+def pitched_roof_triangles(
+    kind: str,
+    shape: str,
+    local_footprint: tuple[tuple[float, float], ...],
+    height_cm: float,
+    *,
+    holes: tuple[tuple[tuple[float, float], ...], ...] = (),
+    params: dict[str, ParamValue] | None = None,
+) -> tuple[RoofTriangle3D, ...]:
+    """Convenience wrapper constructing a local ``Record`` for ``pitched_roof_triangles_for_record``."""
+    if not local_footprint or height_cm <= 0.0:
+        return ()
+    rec = Record(
+        item_id="shadow-roof",
+        kind=kind,
+        shape=shape,
+        footprints=(local_footprint,),
+        transform=Transform(),
+        material=Material(kind, None, None),
+        holes=(holes,) if holes else (),
+        height_cm=height_cm,
+        params=Params(params or {}),
+    )
+    return pitched_roof_triangles_for_record(rec, height_cm=height_cm)

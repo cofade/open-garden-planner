@@ -75,7 +75,7 @@ def _report_plain(record: Record) -> None:
     follow, and silence."""
     style = record.params.get(PARAM_PATH_STYLE)
     name = repr(style)
-    if style is None or name in _reported_styles:
+    if style is None or style == fences.PLAIN or name in _reported_styles:
         return
     if len(_reported_styles) >= REPORTED_STYLES_MAX:
         if _NO_MORE not in _reported_styles:

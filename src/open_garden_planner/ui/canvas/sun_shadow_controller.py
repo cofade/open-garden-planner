@@ -34,7 +34,8 @@ Design constraints (campaign fences):
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable
+import math
+from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from typing import Any
 
@@ -48,12 +49,40 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.object_height import effective_height_cm
+from open_garden_planner.core.object_types import PathFenceStyle
+from open_garden_planner.core.roof_style import (
+    BUILDING_KINDS,
+    roof_overhang_cm,
+    roof_pitch_deg,
+    roof_style,
+)
+from open_garden_planner.core.scene3d import (
+    PARAM_RIDGE,
+    ccw,
+    is_buildable_region,
+    local_frame,
+    pose_point,
+    quantize_cm,
+    ring_area,
+)
+from open_garden_planner.core.scene3d.builders.buildings import pitched_roof_triangles
+from open_garden_planner.core.scene3d.builders.fences import POROUS_FENCE_STYLES
+from open_garden_planner.core.scene3d.builders.lines import DEFAULT_SOLID
+from open_garden_planner.core.scene3d.record import (
+    PARAM_ROOF_OVERHANG,
+    PARAM_ROOF_PITCH,
+    PARAM_ROOF_STYLE,
+)
 from open_garden_planner.core.shade_aggregation import IdentifiedCaster
 from open_garden_planner.core.shadow_geometry import (
     MIN_SUN_ELEVATION_DEG,
+    Point,
     Polygon,
     ShadowCaster,
+    Triangle3D,
+    WeightedShadowRegion,
     compute_scene_shadows,
+    compute_weighted_shadows,
     shadow_region,
 )
 from open_garden_planner.core.sim_clock import SimChange, SimClock
@@ -61,12 +90,17 @@ from open_garden_planner.core.solar import solar_position
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 from .footprints import (
+    OUTLINE_POLYGON,
+    OUTLINE_POLYLINE,
+    OUTLINE_RECTANGLE,
     ItemLookup,
     footprints_can_self_cross,
     holds_plants,
     item_base_cm,
     item_footprints,
+    item_outline,
 )
+from .items.polyline_item import PolylineItem
 
 # Simulation states (stable identifiers — user-visible hints live in the app).
 STATE_DISABLED = "disabled"
@@ -139,6 +173,8 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         self.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
         self._clip_rect: QRectF | None = None
         self._feather_region: QPainterPath | None = None
+        self._weighted_regions: tuple[WeightedShadowRegion, ...] = ()
+        self._region_paths: tuple[tuple[QPainterPath, QColor], ...] = ()
 
     def set_clip_rect(self, rect: QRectF | None) -> None:
         """Bound all painting to ``rect`` (the canvas); None = unbounded."""
@@ -153,7 +189,33 @@ class SunShadowOverlayItem(QGraphicsPathItem):
     def set_shadow_path(self, path: QPainterPath) -> None:
         """Set the shadow path and refresh the cached feather region."""
         self.setPath(path)  # base path + prepareGeometryChange + update
+        if path.isEmpty():
+            self._weighted_regions = ()
+            self._region_paths = ()
         self._rebuild_feather()
+
+    def set_weighted_regions(self, regions: Sequence[WeightedShadowRegion]) -> None:
+        """Cache pre-partitioned weighted shadow regions for porous/opaque painting."""
+        self._weighted_regions = tuple(regions)
+        built: list[tuple[QPainterPath, QColor]] = []
+        base_alpha = _SHADOW_COLOR.alpha()
+        for reg in self._weighted_regions:
+            if not reg.polygons or reg.occlusion <= 0.0:
+                continue
+            reg_path = QPainterPath()
+            reg_path.setFillRule(Qt.FillRule.OddEvenFill)
+            for polygon in reg.polygons:
+                reg_path.addPolygon(QPolygonF([QPointF(x, y) for x, y in polygon]))
+                reg_path.closeSubpath()
+            color = QColor(_SHADOW_COLOR)
+            color.setAlpha(max(1, min(255, round(base_alpha * reg.occlusion))))
+            built.append((reg_path, color))
+        self._region_paths = tuple(built)
+        self.update()
+
+    def weighted_regions(self) -> tuple[WeightedShadowRegion, ...]:
+        """The weighted shadow regions currently painted on the overlay."""
+        return self._weighted_regions
 
     def _rebuild_feather(self) -> None:
         """Cache the outward-feather clip region (canvas minus shadow).
@@ -186,10 +248,12 @@ class SunShadowOverlayItem(QGraphicsPathItem):
 
     def paint(
         self,
-        painter: QPainter,
-        _option: QStyleOptionGraphicsItem,
+        painter: QPainter | None,
+        _option: QStyleOptionGraphicsItem | None,
         _widget: QWidget | None = None,
     ) -> None:
+        if painter is None:
+            return
         path = self.path()
         if path.isEmpty():
             return
@@ -198,11 +262,19 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         # the interior stays flat and there is no darker ring at the boundary.
         region = self._feather_region
         if region is not None and not region.isEmpty():
+            max_occ = max((r.occlusion for r in self._weighted_regions), default=1.0)
             painter.save()
             painter.setClipPath(region)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             for pen in _FEATHER_PENS:
-                painter.setPen(pen)
+                if max_occ < 0.999:
+                    scaled_pen = QPen(pen)
+                    c = QColor(pen.color())
+                    c.setAlpha(max(1, round(c.alpha() * max_occ)))
+                    scaled_pen.setColor(c)
+                    painter.setPen(scaled_pen)
+                else:
+                    painter.setPen(pen)
                 painter.drawPath(path)
             painter.restore()
         # Solid core, hard-cut at the canvas boundary.
@@ -210,8 +282,16 @@ class SunShadowOverlayItem(QGraphicsPathItem):
         if self._clip_rect is not None:
             painter.setClipRect(self._clip_rect)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(_SHADOW_COLOR))
-        painter.drawPath(path)
+        if self._region_paths and not (
+            len(self._weighted_regions) == 1
+            and abs(self._weighted_regions[0].occlusion - 1.0) < 1e-6
+        ):
+            for reg_path, reg_color in self._region_paths:
+                painter.setBrush(QBrush(reg_color))
+                painter.drawPath(reg_path)
+        else:
+            painter.setBrush(QBrush(_SHADOW_COLOR))
+            painter.drawPath(path)
         painter.restore()
 
 
@@ -234,6 +314,107 @@ def _shadow_footprints(item: Any, at_date: date | None) -> list[Polygon]:
     if len(raw) > 1 or footprints_can_self_cross(item):
         return shadow_region(raw)
     return raw
+
+
+def _fence_porosity_info(
+    item: Any,
+    kind: str,
+    metadata: dict[str, Any],
+    at_date: date | None,
+) -> tuple[str | None, tuple[Point, ...], float]:
+    """Extract porous fence style, scene-space centreline points, and stroke width (#440)."""
+    if kind not in ("FENCE", "WALL") or not isinstance(item, PolylineItem):
+        return None, (), 0.0
+    style_enum = getattr(item, "path_fence_style", PathFenceStyle.NONE)
+    if style_enum is not PathFenceStyle.NONE:
+        raw_style = style_enum.name
+    elif metadata.get("smart_symbol_plain_panel"):
+        raw_style = "PLAIN"
+    else:
+        raw_style = DEFAULT_SOLID.get(kind, "WOODEN_FENCE")
+    if raw_style not in POROUS_FENCE_STYLES:
+        return None, (), 0.0
+    outline = item_outline(item, at_date)
+    if outline is None or outline.shape != OUTLINE_POLYLINE or len(outline.points) < 2:
+        return raw_style, (), 0.0
+    pts: list[Point] = []
+    for lx, ly in outline.points:
+        sp = item.mapToScene(QPointF(lx, ly))
+        pts.append((float(sp.x()), float(sp.y())))
+    return raw_style, tuple(pts), float(outline.width_cm or 1.0)
+
+
+def _building_roof_triangles(
+    item: Any,
+    kind: str,
+    metadata: dict[str, Any],
+    height: float,
+    ridge_item: Any,
+    at_date: date | None,
+) -> tuple[Triangle3D, ...]:
+    """Extract scene-space pitched-roof triangles for a building caster (#440)."""
+    if kind not in BUILDING_KINDS:
+        return ()
+    outline = item_outline(item, at_date)
+    if outline is None or outline.shape not in (OUTLINE_POLYGON, OUTLINE_RECTANGLE):
+        return ()
+    if len(outline.points) < 3:
+        return ()
+    matrix = item.sceneTransform()
+    frame = local_frame(
+        matrix.m11(),
+        matrix.m12(),
+        matrix.m21(),
+        matrix.m22(),
+        matrix.dx(),
+        matrix.dy(),
+        outline.anchor[0],
+        outline.anchor[1],
+        rotatable=True,
+    )
+    if not math.isfinite(frame.east_cm + frame.north_cm):
+        return ()
+    local_ring = ccw(frame.local_ring(outline.points))
+    if len(local_ring) < 3 or ring_area(local_ring) == 0.0:
+        return ()
+    if footprints_can_self_cross(item) and not is_buildable_region(local_ring):
+        return ()
+    params: dict[str, Any] = {}
+    style = roof_style(metadata)
+    if style is not None:
+        params[PARAM_ROOF_STYLE] = style
+    pitch = roof_pitch_deg(metadata)
+    if pitch is not None:
+        params[PARAM_ROOF_PITCH] = pitch
+    overhang = roof_overhang_cm(metadata)
+    if overhang is not None:
+        params[PARAM_ROOF_OVERHANG] = quantize_cm(overhang)
+    if kind == "HOUSE" and isinstance(ridge_item, PolylineItem) and len(ridge_item.points) >= 2:
+        p0 = ridge_item.mapToScene(ridge_item.points[0])
+        p1 = ridge_item.mapToScene(ridge_item.points[-1])
+        e0 = frame.local_from_scene(p0.x(), p0.y())
+        e1 = frame.local_from_scene(p1.x(), p1.y())
+        if math.isfinite(e0[0] + e0[1] + e1[0] + e1[1]):
+            params[PARAM_RIDGE] = (e0, e1)
+    try:
+        local_tris = pitched_roof_triangles(
+            kind, outline.shape, local_ring, height, params=params
+        )
+    except Exception:
+        return ()
+    if not local_tris:
+        return ()
+    tf = frame.transform(0.0)
+    scene_tris: list[Triangle3D] = []
+    for v0, v1, v2 in local_tris:
+        sx0, sy0 = pose_point(tf, v0[0], v0[1])
+        sx1, sy1 = pose_point(tf, v1[0], v1[1])
+        sx2, sy2 = pose_point(tf, v2[0], v2[1])
+        scene_tris.append(((sx0, sy0, v0[2]), (sx1, sy1, v1[2]), (sx2, sy2, v2[2])))
+    return tuple(scene_tris)
+
+
+_last_identified: tuple[int, date | None, list[IdentifiedCaster]] | None = None
 
 
 def collect_identified_casters(
@@ -264,6 +445,7 @@ def collect_identified_casters(
     a solid for a plant inside its outline, because it is under the plant, not
     between it and the sun (#481).
     """
+    global _last_identified
     casters: list[IdentifiedCaster] = []
     items = scene.items()
     lookup = ItemLookup(items)
@@ -273,8 +455,12 @@ def collect_identified_casters(
         object_type = getattr(item, "object_type", None)
         if object_type is None:
             continue
+        metadata = getattr(item, "metadata", None)
+        meta_dict = metadata if isinstance(metadata, dict) else {}
+        if meta_dict.get("smart_symbol_guide"):
+            continue
         height = effective_height_cm(
-            object_type, getattr(item, "metadata", None), at_date=at_date
+            object_type, metadata, at_date=at_date
         )
         if height is None:
             continue
@@ -283,10 +469,27 @@ def collect_identified_casters(
             for footprint in _shadow_footprints(item, at_date)
             if len(footprint) >= 3)
         if footprints:
+            kind = str(getattr(object_type, "name", object_type))
+            fence_style, fence_points, fence_width_cm = _fence_porosity_info(
+                item, kind, meta_dict, at_date
+            )
+            roof_tris: tuple[Triangle3D, ...] = ()
+            if kind in BUILDING_KINDS and len(footprints) == 1:
+                ridge_id = meta_dict.get("ridge_item_id") if kind == "HOUSE" else None
+                ridge_item = lookup.get(ridge_id) if ridge_id else None
+                roof_tris = _building_roof_triangles(
+                    item, kind, meta_dict, height, ridge_item, at_date
+                )
             casters.append(IdentifiedCaster(
                 str(getattr(item, "item_id", id(item))), footprints, height,
                 item_base_cm(item, lookup, at_date),
-                holds_plants=holds_plants(item, at_date)))
+                holds_plants=holds_plants(item, at_date),
+                roof_triangles=roof_tris,
+                fence_style=fence_style,
+                fence_points=fence_points,
+                fence_width_cm=fence_width_cm,
+            ))
+    _last_identified = (id(scene), at_date, casters)
     return casters
 
 
@@ -341,6 +544,8 @@ class SunShadowController(QObject):
         #: What the overlay paints, as plain polygons (scene cm): the shadows' union,
         #: the whole canvas at night, nothing while it shows nothing.
         self._polygons: tuple[tuple[tuple[float, float], ...], ...] = ()
+        #: Weighted shadow regions (with porous fence occlusion weights, #440).
+        self._regions: tuple[WeightedShadowRegion, ...] = ()
         #: Effective overlay rebuilds — the #206-style recompute instrument.
         self.recompute_count = 0
         self._debounce = QTimer(self)
@@ -376,9 +581,18 @@ class SunShadowController(QObject):
         ground (Phase 17 L2.1, ``core.scene3d.drape.shadow_drape``)."""
         return self._polygons
 
-    def _publish(self, polygons: tuple[tuple[tuple[float, float], ...], ...]) -> None:
-        if polygons != self._polygons:
+    def drape_regions(self) -> tuple[WeightedShadowRegion, ...]:
+        """The weighted shadow regions the overlay paints right now (#440)."""
+        return self._regions
+
+    def _publish(
+        self,
+        polygons: tuple[tuple[tuple[float, float], ...], ...],
+        regions: tuple[WeightedShadowRegion, ...] = (),
+    ) -> None:
+        if polygons != self._polygons or regions != self._regions:
             self._polygons = polygons
+            self._regions = regions
             self.shadows_changed.emit()
 
     def set_enabled(self, enabled: bool) -> None:
@@ -411,6 +625,7 @@ class SunShadowController(QObject):
 
     def recompute_now(self) -> None:
         """Recompute the overlay immediately (empty states short-circuit)."""
+        global _last_identified
         if not self._enabled:
             return
         location = self._location_provider()
@@ -431,13 +646,25 @@ class SunShadowController(QObject):
         # US-E8: the sim clock doubles as the growth timeline — dated plants
         # cast their date-projected (grown) shadows. L1.0: grown for the plan's
         # LOCAL date (the heatmap's and 3D's), no longer the instant's UTC date.
+        _last_identified = None
         casters = collect_shadow_casters(
             self._scene, at_date=self._clock.plan_date
+        )
+        identified: list[IdentifiedCaster] = (
+            _last_identified[2]
+            if _last_identified is not None
+            and _last_identified[0] == id(self._scene)
+            and _last_identified[1] == self._clock.plan_date
+            else []
         )
         canvas_key = (
             (round(canvas_rect.width(), 3), round(canvas_rect.height(), 3))
             if canvas_rect is not None
             else None
+        )
+        enriched_key = tuple(
+            (c.roof_triangles, c.fence_style, c.fence_points, c.fence_width_cm, c.transmittance)
+            for c in identified
         )
         key = (
             round(position.elevation_deg, 4),
@@ -446,14 +673,32 @@ class SunShadowController(QObject):
             # the base too: a bed that keeps its footprint but changes what its
             # plants stand on must not be skipped as "nothing changed"
             tuple((tuple(c.footprint), c.height_cm, c.base_cm) for c in casters),
+            enriched_key,
         )
         overlay = self._alive_overlay()
         if key == self._last_key and overlay is not None and overlay.isVisible():
             self._set_state(STATE_ACTIVE)
             return
-        polygons = compute_scene_shadows(
-            casters, position.elevation_deg, position.azimuth_deg
+        has_enriched = any(
+            c.roof_triangles or c.fence_style is not None or c.transmittance is not None
+            for c in identified
         )
+        if has_enriched:
+            weighted = compute_weighted_shadows(
+                identified, position.elevation_deg, position.azimuth_deg
+            )
+            assert weighted is not None
+            polygons = weighted.union_polygons
+            regions = tuple(weighted.weighted_regions)
+        else:
+            polygons = compute_scene_shadows(
+                casters, position.elevation_deg, position.azimuth_deg
+            )
+            regions = (
+                (WeightedShadowRegion(polygons, occlusion=1.0, transmittance=0.0),)
+                if polygons
+                else ()
+            )
         path = QPainterPath()
         path.setFillRule(Qt.FillRule.OddEvenFill)
         for polygon in polygons:
@@ -462,15 +707,19 @@ class SunShadowController(QObject):
         overlay = self._ensure_overlay()
         overlay.set_clip_rect(canvas_rect)
         overlay.set_shadow_path(path)
+        overlay.set_weighted_regions(regions)
         overlay.setVisible(True)
         self._last_key = key
         self.recompute_count += 1
-        self._publish(tuple(tuple((float(x), float(y)) for x, y in polygon) for polygon in polygons))
+        self._publish(
+            tuple(tuple((float(x), float(y)) for x, y in polygon) for polygon in polygons),
+            regions,
+        )
         self._set_state(STATE_ACTIVE)
 
     # ── internals ──────────────────────────────────────────────
 
-    def _on_scene_changed(self, _regions: list | None = None) -> None:
+    def _on_scene_changed(self, _regions: list[QRectF] | None = None) -> None:
         self.schedule_recompute()
 
     def _on_clock_changed(self, _change: SimChange) -> None:
@@ -541,12 +790,15 @@ class SunShadowController(QObject):
         overlay = self._ensure_overlay()
         overlay.set_clip_rect(canvas_rect)
         overlay.set_shadow_path(path)
+        left, top, right, bottom = (canvas_rect.left(), canvas_rect.top(), canvas_rect.right(),
+                                    canvas_rect.bottom())
+        night_poly = ((left, top), (right, top), (right, bottom), (left, bottom))
+        night_regions = (WeightedShadowRegion([list(night_poly)], occlusion=1.0, transmittance=0.0),)
+        overlay.set_weighted_regions(night_regions)
         overlay.setVisible(True)
         self._last_key = night_key
         self.recompute_count += 1
-        left, top, right, bottom = (canvas_rect.left(), canvas_rect.top(), canvas_rect.right(),
-                                    canvas_rect.bottom())
-        self._publish((((left, top), (right, top), (right, bottom), (left, bottom)),))
+        self._publish((night_poly,), night_regions)
 
     def _set_state(self, state: str) -> None:
         if state != self._state:

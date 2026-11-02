@@ -486,6 +486,17 @@ class CanvasScene(QGraphicsScene):
             # a time must not pay 600 full derivations.
             if is_plant_parent_type(object_type):
                 return self._parent_captures_a_plant(item)
+        elif isinstance(item, QGraphicsItemGroup):
+            from open_garden_planner.core.object_types import is_plant_parent_type
+
+            for child in item.childItems():
+                child_type = getattr(child, "object_type", None)
+                if (
+                    child_type is not None
+                    and is_plant_parent_type(child_type)
+                    and self._parent_captures_a_plant(child)
+                ):
+                    return True
         if getattr(object_type, "name", "") == "ROOF_RIDGE":
             return True
         metadata = getattr(item, "metadata", None)
@@ -1203,16 +1214,22 @@ class CanvasScene(QGraphicsScene):
             is_plant_type,
         )
 
-        items_by_id = {self._stack_identity(item): item for item in candidates}
+        items_by_id: dict[object, QGraphicsItem] = {}
         bounds = {id(item): item.sceneBoundingRect() for item in candidates}
-        # The layer's plant-parents, with their rects, for the geometric clamp below
-        # (#629). Built once per call: a plant with no link asks which of them
-        # contains it, and a scan must not ask Qt for a rect per plant.
-        plant_parents = [
-            (bounds[id(item)], item) for item in candidates
-            if getattr(item, "object_type", None) is not None
-            and is_plant_parent_type(item.object_type)
-        ]
+        plant_parents: list[tuple[QRectF, QGraphicsItem]] = []
+        for item in candidates:
+            items_by_id[self._stack_identity(item)] = item
+            item_type = getattr(item, "object_type", None)
+            if item_type is not None and is_plant_parent_type(item_type):
+                plant_parents.append((bounds[id(item)], item))
+            elif isinstance(item, QGraphicsItemGroup):
+                for child in item.childItems():
+                    child_id = getattr(child, "item_id", None)
+                    if child_id is not None:
+                        items_by_id[child_id] = item
+                    child_type = getattr(child, "object_type", None)
+                    if child_type is not None and is_plant_parent_type(child_type):
+                        plant_parents.append((child.sceneBoundingRect(), child))
         shapes: dict[int, Any] = {}
 
         entries: list[stacking.StackEntry] = []
@@ -1306,6 +1323,8 @@ class CanvasScene(QGraphicsScene):
             area = box.width() * box.height()
             if area < best_area:
                 best, best_area = parent, area
+        if best is not None and best.parentItem() is not None:
+            return items_by_id.get(self._stack_identity(best.topLevelItem()))
         return best
 
     def _band_entries(
@@ -1490,7 +1509,21 @@ class CanvasScene(QGraphicsScene):
             layer_id = getattr(item, "layer_id", None)
             # Every band item, as `_stack_entries` indexes them: the link lookup below
             # must resolve exactly what the derivation resolves.
-            items_by_layer.setdefault(layer_id, {})[self._stack_identity(item)] = item
+            layer_map = items_by_layer.setdefault(layer_id, {})
+            layer_map[self._stack_identity(item)] = item
+            if isinstance(item, QGraphicsItemGroup):
+                for child in item.childItems():
+                    child_id = getattr(child, "item_id", None)
+                    if child_id is not None:
+                        layer_map[child_id] = item
+                    child_type = getattr(child, "object_type", None)
+                    if child_type is not None and is_plant_parent_type(child_type):
+                        parents_by_layer.setdefault(layer_id, []).append(
+                            (child.sceneBoundingRect(), child)
+                        )
+                        top_parent_z[layer_id] = max(
+                            top_parent_z.get(layer_id, float("-inf")), item.zValue()
+                        )
             object_type = getattr(item, "object_type", None)
             if object_type is None:
                 continue

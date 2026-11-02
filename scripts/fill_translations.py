@@ -68,6 +68,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "frost protection": "Frostschutz",
         "spacing radius": "Pflanzabstand",
         "object height": "Objekthöhe",
+        "symbol parameter": "Symbolparameter",
         # The seven Properties-panel edits that became undoable commands (#530).
         "grid": "Raster",
         "grid spacing": "Rasterabstand",
@@ -1729,6 +1730,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "{count} objects selected": "{count} Objekte ausgewählt",
         "Symbol definition not found — showing cached geometry.":
             "Symboldefinition nicht gefunden — zwischengespeicherte Geometrie wird angezeigt.",
+        "Symbol definition version mismatch — saved geometry is read-only.":
+            "Symboldefinitions-Version stimmt nicht überein — gespeicherte Geometrie ist schreibgeschützt.",
+        "Invalid symbol parameter value — geometry unchanged.":
+            "Ungültiger Symbolparameter-Wert — Geometrie unverändert.",
         "Multi-selection editing\nnot yet implemented":
             "Mehrfachauswahl-Bearbeitung\nnoch nicht implementiert",
         "Type:": "Typ:",

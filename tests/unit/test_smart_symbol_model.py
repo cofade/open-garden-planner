@@ -189,3 +189,116 @@ class TestUntrustedInputCaps:
         d.elements = [{"kind": "rect", "x": 0, "y": 0, "w": "+".join(["1"] * 5000), "h": 1}]
         with pytest.raises(SmartSymbolError):
             d.generate({})
+
+
+class TestMemberTypingValidation:
+    """Issue #599: Qt-free member-typing, guide, height_cm, and member_key validation."""
+
+    def test_valid_object_types_by_kind_matches_core_shape_table(self) -> None:
+        from open_garden_planner.core.object_types import get_valid_types_for_shape
+        from open_garden_planner.models.smart_symbol import VALID_OBJECT_TYPES_BY_KIND
+
+        shape_map = {
+            "rect": "rectangle",
+            "line": "polyline",
+            "polyline": "polyline",
+            "polygon": "polygon",
+            "circle": "circle",
+        }
+        for kind, shape in shape_map.items():
+            expected = frozenset(t.name for t in get_valid_types_for_shape(shape))
+            assert VALID_OBJECT_TYPES_BY_KIND[kind] == expected
+
+    def test_unknown_object_type_rejected_at_load(self) -> None:
+        with pytest.raises(ValueError, match="unknown object_type"):
+            SmartSymbolDefinition.from_dict(
+                {
+                    "id": "bad_type",
+                    "version": 2,
+                    "parameters": [],
+                    "elements": [
+                        {"kind": "rect", "x": 0, "y": 0, "w": 100, "h": 50, "object_type": "NOT_A_TYPE"}
+                    ],
+                }
+            )
+
+    def test_incompatible_kind_and_object_type_rejected(self) -> None:
+        with pytest.raises(ValueError, match="incompatible with primitive kind"):
+            SmartSymbolDefinition.from_dict(
+                {
+                    "id": "bad_pair",
+                    "version": 2,
+                    "parameters": [],
+                    "elements": [
+                        {"kind": "rect", "x": 0, "y": 0, "w": 100, "h": 50, "object_type": "FENCE"}
+                    ],
+                }
+            )
+
+    def test_guide_with_object_type_rejected(self) -> None:
+        with pytest.raises(ValueError, match="guide element"):
+            SmartSymbolDefinition.from_dict(
+                {
+                    "id": "guide_conflict",
+                    "version": 2,
+                    "parameters": [],
+                    "elements": [
+                        {
+                            "kind": "line",
+                            "x1": 0,
+                            "y1": 0,
+                            "x2": 100,
+                            "y2": 0,
+                            "guide": True,
+                            "object_type": "FENCE",
+                        }
+                    ],
+                }
+            )
+
+    def test_plain_panel_requires_fence_line(self) -> None:
+        with pytest.raises(ValueError, match="plain_panel"):
+            SmartSymbolDefinition.from_dict(
+                {
+                    "id": "bad_panel",
+                    "version": 2,
+                    "parameters": [],
+                    "elements": [
+                        {
+                            "kind": "rect",
+                            "x": 0,
+                            "y": 0,
+                            "w": 100,
+                            "h": 50,
+                            "object_type": "RAISED_BED",
+                            "plain_panel": True,
+                        }
+                    ],
+                }
+            )
+
+    def test_non_positive_height_cm_rejected(self) -> None:
+        with pytest.raises(SmartSymbolError, match="must be positive"):
+            SmartSymbolDefinition.from_dict(
+                {
+                    "id": "bad_h",
+                    "version": 2,
+                    "parameters": [],
+                    "elements": [
+                        {
+                            "kind": "line",
+                            "x1": 0,
+                            "y1": 0,
+                            "x2": 100,
+                            "y2": 0,
+                            "object_type": "FENCE",
+                            "height_cm": 0,
+                        }
+                    ],
+                }
+            )
+
+    def test_member_keys_are_deterministic(self) -> None:
+        d = SmartSymbolDefinition.from_dict(_raised_bed())
+        specs = d.generate({"rows": 4})
+        assert [s.member_key for s in specs] == ["e0", "e1:i=1", "e1:i=2", "e1:i=3"]

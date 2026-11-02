@@ -31,8 +31,12 @@ from .shadow_geometry import (
     CasterLike,
     GroupedCaster,
     Polygon,
+    Triangle3D,
+    _clip_triangle_above_z,
+    caster_transmittance,
     compute_grouped_shadows,
     compute_scene_shadows,
+    compute_weighted_shadows,
 )
 from .sim_clock import SimInstant
 from .solar import solar_position
@@ -126,6 +130,11 @@ class IdentifiedCaster:
     height_cm: float
     base_cm: float = 0.0
     holds_plants: bool = False
+    roof_triangles: tuple[Triangle3D, ...] = ()
+    fence_style: str | None = None
+    fence_points: tuple[tuple[float, float], ...] = ()
+    fence_width_cm: float = 0.0
+    transmittance: float | None = None
 
 
 @dataclass(frozen=True)
@@ -175,6 +184,7 @@ class SunExposureResult:
     receiver_minutes: tuple[tuple[str, float], ...]
     samples: tuple[datetime, ...] = ()
     sample_shade: np.ndarray | None = None
+    sample_transmittance: np.ndarray | None = None
 
 
 #: The per-sample shade masks of one day are kept up to this size (bytes): 1 bit a
@@ -200,6 +210,7 @@ class SunHoursMap:
     step_minutes: int = SAMPLE_STEP_MINUTES
     samples: tuple[datetime, ...] = ()
     sample_shade: np.ndarray | None = None
+    sample_transmittance: np.ndarray | None = None
 
     def minutes_at(self, x_cm: float, y_cm: float) -> float | None:
         """The minutes of the cell a scene point lies in — the cell the canvas draws
@@ -213,7 +224,9 @@ class SunHoursMap:
 
     @property
     def progressive(self) -> bool:
-        """True when the per-sample masks were kept: ``minutes_through`` can answer."""
+        """True when the per-sample masks or transmittances were kept: ``minutes_through`` can answer."""
+        if self.sample_transmittance is not None and len(self.samples) == len(self.sample_transmittance):
+            return True
         return self.sample_shade is not None and len(self.samples) == len(self.sample_shade)
 
     def sample_minutes_of_day(self, tz: tzinfo | None) -> tuple[int, ...]:
@@ -228,11 +241,20 @@ class SunHoursMap:
 
     def sample_sunlit(self, index: int) -> np.ndarray:
         """Sample ``index``'s sunlit cells, ``(rows, cols)`` bool (True = in the sun)."""
+        if self.sample_transmittance is not None:
+            sunlit_f: np.ndarray = self.sample_transmittance[index] > 0.0
+            return sunlit_f
         if self.sample_shade is None:
             raise ValueError("this map kept no per-sample masks")
         shaded = np.unpackbits(self.sample_shade[index], axis=1, count=self.grid.cols)
         sunlit: np.ndarray = shaded == 0
         return sunlit
+
+    def sample_sun_factor(self, index: int) -> np.ndarray:
+        """Sample ``index``'s sunlight transmittance factor ``(rows, cols)`` float32 in ``[0, 1]`` (#440)."""
+        if self.sample_transmittance is not None:
+            return np.asarray(self.sample_transmittance[index], dtype=np.float32)
+        return np.where(self.sample_sunlit(index), 1.0, 0.0).astype(np.float32)
 
     def minutes_through(self, minute_of_day: int, tz: tzinfo | None) -> np.ndarray | None:
         """The minutes of direct sun each cell collected from the morning up to the wall
@@ -244,7 +266,7 @@ class SunHoursMap:
         total = np.zeros((self.grid.rows, self.grid.cols), dtype=np.float32)
         for index, minute in enumerate(self.sample_minutes_of_day(tz)):
             if minute <= minute_of_day:
-                total += np.where(self.sample_sunlit(index), float(self.step_minutes), 0.0)
+                total += float(self.step_minutes) * self.sample_sun_factor(index)
         return total
 
 
@@ -392,6 +414,26 @@ def compute_sun_exposure(
                           progress=progress, should_cancel=should_cancel)
 
 
+def _slice_roof_triangles_for_elevation(
+    roof_triangles: tuple[Triangle3D, ...],
+    base_cm: float,
+    elev_cm: float,
+) -> tuple[Triangle3D, ...]:
+    """Slice 3D roof/wall triangles at ``z >= elev_cm`` and shift down by ``elev_cm`` (#440)."""
+    if not roof_triangles or elev_cm <= 0.0:
+        return roof_triangles
+    sliced: list[Triangle3D] = []
+    for tri in roof_triangles:
+        clipped = _clip_triangle_above_z(tri, base_cm, elev_cm)
+        if len(clipped) < 3:
+            continue
+        shifted = [(x, y, max(0.0, z - elev_cm)) for x, y, z in clipped]
+        sliced.append((shifted[0], shifted[1], shifted[2]))
+        if len(shifted) == 4:
+            sliced.append((shifted[0], shifted[2], shifted[3]))
+    return tuple(sliced)
+
+
 def _aggregate_day(
     casters: Sequence[CasterLike],
     lat_deg: float, lon_deg: float, day: date, grid: HeatmapGrid, rasterize: Rasterizer,
@@ -446,37 +488,105 @@ def _aggregate_day(
         for caster in identified:
             if elev == 0.0:
                 slice_casters.append((caster, GroupedCaster(
-                    caster.footprints, caster.height_cm, caster.base_cm)))
+                    caster.footprints,
+                    caster.height_cm,
+                    caster.base_cm,
+                    caster.roof_triangles,
+                    caster.fence_style,
+                    caster.fence_points,
+                    caster.fence_width_cm,
+                    caster.transmittance,
+                )))
                 continue
             top_cm = caster.base_cm + caster.height_cm
             if top_cm > elev:
                 eff_base = max(0.0, caster.base_cm - elev)
                 eff_height = top_cm - max(caster.base_cm, elev)
-                slice_casters.append((caster, GroupedCaster(caster.footprints, eff_height, eff_base)))
+                sliced_roof = _slice_roof_triangles_for_elevation(
+                    caster.roof_triangles, caster.base_cm, elev
+                )
+                slice_casters.append((caster, GroupedCaster(
+                    caster.footprints,
+                    eff_height,
+                    0.0 if sliced_roof else eff_base,
+                    sliced_roof,
+                    caster.fence_style,
+                    caster.fence_points,
+                    caster.fence_width_cm,
+                    caster.transmittance,
+                )))
         exclusions = {caster.item_id: np.isin(group_indices, spared.get(caster.item_id, []))
                       for caster, _ in slice_casters}
         receiver_groups.append((elev, group_indices, points[group_indices], slice_casters, exclusions))
     exposure = np.zeros(len(valid), dtype=np.float32)
     total = len(samples)
+    has_porous = any(
+        caster.fence_style is not None
+        or (caster.transmittance is not None and 0.0 < caster.transmittance < 1.0)
+        for caster in identified
+    )
     packed_cols = (grid.cols + 7) // 8
-    keep_masks = include_sample_masks and (total * grid.rows * packed_cols <= MAX_SAMPLE_SHADE_BYTES)
+    keep_masks = (
+        include_sample_masks
+        and not has_porous
+        and (total * grid.rows * packed_cols <= MAX_SAMPLE_SHADE_BYTES)
+    )
     masks = np.zeros((total, grid.rows, packed_cols), dtype=np.uint8) if keep_masks else None
+    keep_trans = (
+        include_sample_masks
+        and has_porous
+        and (total * grid.rows * grid.cols * 4 <= MAX_SAMPLE_SHADE_BYTES)
+    )
+    sample_trans = (
+        np.ones((total, grid.rows, grid.cols), dtype=np.float32) if keep_trans else None
+    )
+    ground_grouped = [
+        GroupedCaster(
+            caster.footprints,
+            caster.height_cm,
+            caster.base_cm,
+            caster.roof_triangles,
+            caster.fence_style,
+            caster.fence_points,
+            caster.fence_width_cm,
+            caster.transmittance,
+        )
+        for caster in identified
+    ]
     for index, sample in enumerate(samples):
         if should_cancel is not None and should_cancel():
             return None
+        sample_elev = max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG)
         owned_polygons: list[list[Polygon]] = []
         if identified:
             shadows = compute_grouped_shadows(
-                [GroupedCaster(caster.footprints, caster.height_cm, caster.base_cm)
-                 for caster in identified],
-                max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG), sample.azimuth_deg, should_cancel)
+                ground_grouped,
+                sample_elev, sample.azimuth_deg, should_cancel)
             if shadows is None:
                 return None
             polygons, owned_polygons = shadows
         else:
             polygons = compute_scene_shadows(
-                casters, max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG), sample.azimuth_deg)
-        if polygons:
+                casters, sample_elev, sample.azimuth_deg)
+        if has_porous and identified:
+            weighted = compute_weighted_shadows(
+                ground_grouped, sample_elev, sample.azimuth_deg, should_cancel
+            )
+            if weighted is None:
+                return None
+            sun_factor = np.ones((grid.rows, grid.cols), dtype=np.float32)
+            for region in weighted.weighted_regions:
+                if region.polygons:
+                    reg_shaded = np.asarray(rasterize(region.polygons, grid), dtype=bool)
+                    sun_factor = np.where(
+                        reg_shaded,
+                        np.minimum(sun_factor, np.float32(region.transmittance)),
+                        sun_factor,
+                    )
+            minutes += float(step_minutes) * sun_factor
+            if sample_trans is not None:
+                sample_trans[index] = sun_factor
+        elif polygons:
             shaded = rasterize(polygons, grid)
             minutes += np.where(shaded, 0.0, float(step_minutes))
             if masks is not None:
@@ -484,14 +594,14 @@ def _aggregate_day(
         else:
             minutes += float(step_minutes)
         if len(valid):
-            coverage = np.zeros(len(valid), dtype=np.int32)
+            rx_trans = np.ones(len(valid), dtype=np.float32)
             for elev, group_indices, group_points, slice_casters, exclusions in receiver_groups:
                 if elev == 0.0:
                     group_owned = owned_polygons
                 else:
                     elevated = compute_grouped_shadows(
                         [gc for _, gc in slice_casters],
-                        max(sample.elevation_deg, MIN_SUN_ELEVATION_DEG),
+                        sample_elev,
                         sample.azimuth_deg, should_cancel,
                     )
                     if elevated is None:
@@ -500,16 +610,28 @@ def _aggregate_day(
                 for (caster, _), caster_polygons in zip(slice_casters, group_owned, strict=True):
                     if should_cancel is not None and should_cancel():
                         return None
+                    if not caster_polygons:
+                        continue
                     mask = points_in_polygons(caster_polygons, group_points)
                     mask[exclusions[caster.item_id]] = False
-                    coverage[group_indices] += mask
+                    if np.any(mask):
+                        t_c = (
+                            caster_transmittance(caster, sample_elev, sample.azimuth_deg)
+                            if has_porous
+                            else 0.0
+                        )
+                        rx_trans[group_indices[mask]] *= np.float32(t_c)
 
-            exposure += np.where(coverage == 0, float(step_minutes), 0.0)
+            exposure += float(step_minutes) * rx_trans
         if progress is not None:
             progress(index + 1, total)
     if should_cancel is not None and should_cancel():
         return None
-    return SunExposureResult(minutes, tuple((receiver.item_id, float(value))
-                                           for receiver, value in zip(valid, exposure, strict=True)),
-                             tuple(sample.dt_utc for sample in samples), masks)
+    return SunExposureResult(
+        minutes,
+        tuple((receiver.item_id, float(value)) for receiver, value in zip(valid, exposure, strict=True)),
+        tuple(sample.dt_utc for sample in samples),
+        masks,
+        sample_trans,
+    )
 

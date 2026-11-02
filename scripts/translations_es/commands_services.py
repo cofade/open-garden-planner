@@ -35,6 +35,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'grid': 'Cuadrícula',
         'grid spacing': 'Espaciado de la cuadrícula',
         'soil depth': 'Profundidad del sustrato',
+        'symbol parameter': 'parámetro de símbolo',
         'Create circular array ({count} items)': 'Crear matriz circular ({count} elementos)',
         'Create food-forest layer set': 'Crear conjunto de capas de bosque de alimentos',
         'Create grid array ({count} items)': 'Crear matriz en cuadrícula ({count} elementos)',

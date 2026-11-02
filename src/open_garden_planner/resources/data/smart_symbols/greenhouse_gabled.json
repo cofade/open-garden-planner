@@ -1,6 +1,6 @@
 {
   "id": "greenhouse_gabled",
-  "version": 1,
+  "version": 2,
   "name": "Greenhouse (gabled)",
   "name_de": "Gewächshaus (Giebel)",
   "category": "structures",
@@ -10,6 +10,6 @@
   ],
   "elements": [
     {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W", "object_type": "GREENHOUSE"},
-    {"kind": "line", "x1": 0, "y1": "W / 2", "x2": "L", "y2": "W / 2"}
+    {"kind": "line", "x1": 0, "y1": "W / 2", "x2": "L", "y2": "W / 2", "guide": true}
   ]
 }

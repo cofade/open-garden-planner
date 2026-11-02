@@ -2224,7 +2224,9 @@ class ProjectManager(QObject):
                     for child_data in obj.get("children", []):
                         child = ProjectManager._deserialize_item_core(child_data)
                         if child is not None:
-                            symbol.addToGroup(child)
+                            child.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+                            child.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+                            child.setParentItem(symbol)
                 if "x" in obj and "y" in obj:
                     symbol.setPos(float(obj["x"]), float(obj["y"]))
                 if "rotation" in obj:

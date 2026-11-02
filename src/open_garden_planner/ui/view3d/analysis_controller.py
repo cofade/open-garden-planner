@@ -525,7 +525,10 @@ class AnalysisController(QObject):
         while (self._swept_next < len(self._swept_order)
                and self._swept_minutes[self._swept_next] <= minute):
             index = self._swept_order[self._swept_next]
-            total += np.where(shown.sample_sunlit(index), float(shown.step_minutes), 0.0)
+            if hasattr(shown, "sample_sun_factor"):
+                total += shown.sample_sun_factor(index) * float(shown.step_minutes)
+            else:
+                total += np.where(shown.sample_sunlit(index), float(shown.step_minutes), 0.0)
             self._swept_next += 1
         return total.copy()
 
@@ -645,7 +648,16 @@ class AnalysisController(QObject):
         mode = self._drape_mode
         if mode is DrapeMode.SHADOWS and self._shadows is not None:
             width, depth = self._plan_size()
-            return shadow_drape(self._shadows.drape_polygons(), width, depth)
+            polygons = self._shadows.drape_polygons()
+            if not polygons:
+                return Mesh.empty()
+            regions_fn = getattr(self._shadows, "drape_regions", None)
+            regions = regions_fn() if callable(regions_fn) else ()
+            if regions and not (
+                len(regions) == 1 and abs(regions[0].occlusion - 1.0) < 1e-6
+            ):
+                return shadow_drape(regions, width, depth)
+            return shadow_drape(polygons, width, depth)
         if mode is DrapeMode.SUN_HOURS:
             shown = self._shown_map()
             if shown is None:

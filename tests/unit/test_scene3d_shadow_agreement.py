@@ -115,21 +115,23 @@ def test_a_prism_casts_the_shadow_the_2d_model_casts(name: str) -> None:
 @pytest.mark.parametrize("name", POROUS)
 def test_a_porous_fence_casts_less_in_3d_than_the_2d_model_says(name: str) -> None:
     row = _rows()[name]
-    assert max(row.ratio) < 0.75  # type: ignore[attr-defined]
-    # its 3D shadow lies inside the 2D strip's: the IoU IS the area ratio (the posts,
-    # wider than the stroke, stick out by a hair)
-    for ratio, iou in zip(row.ratio, row.iou, strict=True):  # type: ignore[attr-defined]
-        assert iou <= ratio + 1e-9 and ratio - iou <= 0.03
+    # Unweighted geometric IoU vs the solid 2D strip stays < 0.75, while the
+    # porosity-weighted 2D effective area ratio (#440) agrees within 10% (0.90..1.10).
+    assert max(row.iou) < 0.75  # type: ignore[attr-defined]
+    for ratio in row.ratio:  # type: ignore[attr-defined]
+        assert 0.90 <= ratio <= 1.10
 
 
 def test_the_porous_fences_in_order() -> None:
     chain, metal, picket = (_rows()[name] for name in POROUS)
     for index in range(3):
-        assert chain.ratio[index] < metal.ratio[index] < picket.ratio[index]  # type: ignore[attr-defined]
-    assert max(chain.ratio) < 0.25  # type: ignore[attr-defined]
-    # the number an owner will notice: behind a chain-link fence the hours-of-sun map
-    # shows full shade where the 3D fence lets more than four fifths of the sun through
-    assert 1.0 - max(chain.ratio) > 0.8  # type: ignore[attr-defined]
+        assert chain.iou[index] < metal.iou[index] < picket.iou[index]  # type: ignore[attr-defined]
+    assert max(chain.iou) < 0.25  # type: ignore[attr-defined]
+    # Unweighted solid strip vs 3D wires: the 3D fence lets over four fifths of the sun through,
+    # and the porosity-weighted 2D caster (#440) matches the 3D shaded area within 10%.
+    assert 1.0 - max(chain.iou) > 0.8  # type: ignore[attr-defined]
+    for fence in (chain, metal, picket):
+        assert all(0.90 <= r <= 1.10 for r in fence.ratio)  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize("name", NOMINAL_SECTION)
@@ -148,11 +150,13 @@ BOX_GATE_IOU = 0.85
 
 def test_which_kinds_meet_the_box_gate_at_every_elevation() -> None:
     """The truth gate (IoU >= 0.85) is defined on a solid box caster. Which built-world
-    kinds would meet it at all three elevations is a fact the 3D reviewer needs before
-    measuring: the prisms, the two hedges and the round tub — no building, no terracotta
-    pot, no wall and no styled fence."""
+    kinds meet it at all three elevations: the prisms, the two hedges, the round tub,
+    the buildings (#440 projects pitched roof+wall triangles), fire pit, sandbox,
+    compost bin, and cold frame."""
     meets = {name for name, row in _rows().items() if min(row.iou) >= BOX_GATE_IOU}  # type: ignore[attr-defined]
     assert meets == {*PRISMS, "hedge (polygon)", "hedge (section)", "round tub",
+                     "house, sun square to the ridge", "house, sun along the ridge",
+                     "shed, sun square to the ridge", "house, hip roof",
                      "house, flat roof", "house, single-slope roof", "fire pit", "sandbox",
                      "compost bin", "cold frame"}
     below = {name: min(row.iou) for name, row in _rows().items() if name not in meets}  # type: ignore[attr-defined]
@@ -204,29 +208,73 @@ def test_a_hedge_s_leaves_reach_a_few_centimetres_further(name: str) -> None:
 def test_a_gable_s_tip_is_half_the_depth_short_with_the_sun_square_to_the_ridge(
     name: str, half_depth_cm: float
 ) -> None:
-    """What does NOT agree, and why. The 2D model extrudes the whole footprint to the
-    ridge height: its highest edge is at the FAR WALL. A gable's ridge is mid-house.
-    At a low sun the ridge casts the tip — exactly half the depth short (270 cm on the
-    5.4 m deep house, 150 cm on the 3 m shed). At a high sun the far eave casts it —
-    lower, but half the depth plus the overhang further out — and the miss shrinks."""
+    """With #440 pitched-roof 2D projection, the 2D and 3D building shadows share the
+    same roof+wall triangles (IoU 1.00, reach diff 0.0 cm), whereas the flat-topped
+    prism fallback extends ``half_depth_cm`` further at 15°."""
+    from open_garden_planner.core.shadow_geometry import compute_scene_shadows
+
     script = _script()
     case = next(case for case in script.cases() if case.name == name)
     ys = [y for _x, y in case.record.footprints[0]]
     assert (max(ys) - min(ys)) / 2.0 == half_depth_cm  # the footprint's depth, square to the ridge
     reach = _reach(name)
-    assert reach[0] == pytest.approx(-half_depth_cm, abs=1e-2)  # 15°: the ridge is the tip
-    assert reach[0] <= reach[1] <= reach[2] < -20.0             # the miss shrinks, never closes
-    assert reach[2] > -half_depth_cm + 100.0                     # 60°: the eave has taken over
-    # … and no builder change is asked for: the roof IS on the ridge (gate G2); the
-    # difference is the 2D model's flat-topped prism
+    assert all(abs(v) <= 1e-2 for v in reach)
+    # Compare against the flat-prism fallback at 15°: the ridge is mid-house, half_depth_cm short
+    prism_15 = [
+        script._to_grid(p)
+        for p in compute_scene_shadows(
+            [(list(r), case.record.height_cm) for r in case.record.footprints],
+            15.0,
+            case.azimuth_deg,
+        )
+    ]
+    pitched_15 = script.caster_shadow(case.record, 15.0, case.azimuth_deg)
+    diff_15 = script.reach_cm(pitched_15, case.azimuth_deg) - script.reach_cm(prism_15, case.azimuth_deg)
+    assert diff_15 == pytest.approx(-half_depth_cm, abs=1e-2)
 
 
 def test_along_the_ridge_the_overhang_carries_the_tip_further() -> None:
     from open_garden_planner.core.scene3d.builders import buildings
+    from open_garden_planner.core.shadow_geometry import compute_scene_shadows
 
+    script = _script()
+    case = next(case for case in script.cases() if case.name == "house, sun along the ridge")
     reach = _reach("house, sun along the ridge")
-    assert all(value == pytest.approx(buildings.HOUSE_ROOF.overhang_cm, abs=1e-2) for value in reach)
+    assert all(abs(value) <= 1e-2 for value in reach)
     assert buildings.HOUSE_ROOF.overhang_cm == 30.0
+    for elev in script.ELEVATIONS_DEG:
+        prism = [
+            script._to_grid(p)
+            for p in compute_scene_shadows(
+                [(list(r), case.record.height_cm) for r in case.record.footprints],
+                elev,
+                case.azimuth_deg,
+            )
+        ]
+        pitched = script.caster_shadow(case.record, elev, case.azimuth_deg)
+        diff = script.reach_cm(pitched, case.azimuth_deg) - script.reach_cm(prism, case.azimuth_deg)
+        assert diff == pytest.approx(buildings.HOUSE_ROOF.overhang_cm, abs=1e-2)
+
+
+def test_issue_440_all_nine_families_meet_the_area_and_reach_gate() -> None:
+    """#440 acceptance gate: all 9 porous-fence and building families agree within
+    10% relative shaded area (0.90 <= ratio <= 1.10) and 15 cm reach at 15/35/60 deg."""
+    families = (
+        "picket fence",
+        "metal fence",
+        "chain-link fence",
+        "house, sun square to the ridge",
+        "house, sun along the ridge",
+        "shed, sun square to the ridge",
+        "house, hip roof",
+        "house, single-slope roof",
+        "house, flat roof",
+    )
+    rows = _rows()
+    for name in families:
+        row = rows[name]
+        assert all(0.90 <= r <= 1.10 for r in row.ratio), (name, row.ratio)  # type: ignore[attr-defined]
+        assert all(abs(d) <= 15.0 for d in row.reach_cm), (name, row.reach_cm)  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(("name", "further_cm"), [("wall", 15.0), ("stone-wall fence", 14.5),
