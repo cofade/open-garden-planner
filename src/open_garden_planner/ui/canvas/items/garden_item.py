@@ -570,15 +570,13 @@ class GardenItemMixin(PositionLockMixin):
 
         normalize_context_menu_selection(self)
 
-    def build_group_context_menu(
-        self, menu: "QMenu", *, allow_ungroup: bool = True
-    ) -> Any:
+    def build_group_context_menu(self, menu: "QMenu") -> Any:
         """Add Group / Ungroup for the current selection (issue #674)."""
         from .group_menu import GroupMenuActions, build_group_context_menu
 
         if not isinstance(self, QGraphicsItem):
             return GroupMenuActions()
-        return build_group_context_menu(menu, self, allow_ungroup=allow_ungroup)
+        return build_group_context_menu(menu, self)
 
     def dispatch_group_action(self, action: Any, actions: Any) -> bool:
         """Run a Group/Ungroup entry on the whole selection via the view."""

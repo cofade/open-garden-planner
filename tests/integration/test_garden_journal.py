@@ -274,6 +274,43 @@ class TestReviewerRegressions:
         assert reloaded.scene_x == pytest.approx(150.0)
         assert reloaded.scene_y == pytest.approx(250.0)
 
+    def test_save_stores_a_grouped_pins_scene_position(
+        self,
+        project_manager: ProjectManager,
+        scene: CanvasScene,
+        tmp_path: Path,
+    ) -> None:
+        """A grouped pin's ``pos()`` is group-local, not scene coordinates.
+
+        Pins are groupable since #674; saving ``pos()`` would write a note
+        position missing the group's transform (round-6 review P2).
+        """
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+        note = JournalNote(date="2026-05-13", text="hi", scene_x=0.0, scene_y=0.0)
+        pin = JournalPinItem(x=0.0, y=0.0, note_id=note.id)
+        other = RectangleItem(100, 100, 50, 50, layer_id=scene.active_layer.id)
+        scene.addItem(other)
+        CommandManager().execute(
+            AddJournalNoteCommand(project_manager, scene, pin, note)
+        )
+        GroupCommand(scene, [pin, other]).execute()
+        group = pin.parentItem()
+        assert group is not None
+        group.setPos(300.0, 200.0)
+
+        path = tmp_path / "grouped-pin.ogp"
+        project_manager.save(scene, path)
+
+        pm2 = ProjectManager()
+        scene2 = CanvasScene(width_cm=1000, height_cm=800)
+        pm2.load(scene2, path)
+        reloaded = pm2.get_journal_note(note.id)
+        assert reloaded is not None
+        assert reloaded.scene_x == pytest.approx(300.0)
+        assert reloaded.scene_y == pytest.approx(200.0)
+
     def test_pdf_garden_notes_paginates_long_content(
         self,
         scene: CanvasScene,

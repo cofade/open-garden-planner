@@ -1072,15 +1072,10 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
     if kind == "HOUSE" and not resolved:  # a drawn ridge belongs to the DRAWN outline
         ridge_id = metadata.get("ridge_item_id")
         if ridge_id:
+            from open_garden_planner.ui.canvas.roof_ridge_link import is_owned_ridge
+
             candidate = lookup.get(ridge_id)
-            owner = (
-                candidate.get_metadata("owner_polygon_id")
-                if candidate is not None and hasattr(candidate, "get_metadata")
-                else None
-            )
-            # A missing reverse link is tolerated (older/hand-authored plans);
-            # a mismatched one is a copied or stale id and never adopted.
-            if not owner or str(owner) == str(getattr(item, "item_id", "")):
+            if is_owned_ridge(item, candidate):
                 ridge = _ridge_param(frame, candidate)
                 if ridge is not None:
                     params[PARAM_RIDGE] = ridge

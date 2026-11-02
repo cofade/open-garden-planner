@@ -76,7 +76,7 @@ class SmartSymbolItem(GroupItem):
         menu = QMenu()
         # A smart symbol may be GROUPED with other objects, but it is never an
         # Ungroup target (its members are generated from its parameters).
-        group_actions = self.build_group_context_menu(menu, allow_ungroup=False)
+        group_actions = self.build_group_context_menu(menu)
         if group_actions.offered:
             menu.addSeparator()
         move_layer_menu = self._build_move_to_layer_menu(menu)

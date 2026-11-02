@@ -3935,15 +3935,19 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   unchanged, `FILE_VERSION` stays). The Properties panel offers **Pattern Angle / Scale /
   Offset X, Y** and **Reset Pattern**; Copy appearance, material changes, undo/redo and
   save/reload preserve the values. A HOUSE's roof tiles compose the transform with the ridge
-  frame (both planes stay mirrored). Pinned by `tests/unit/test_fill_transform.py` and
-  `tests/integration/test_fill_transform.py`, including a rendered clockwise-sign probe.
+  frame (both planes stay mirrored); gravel/dirt paths expose the same controls because their
+  pattern stroke samples the same brush. Pinned by `tests/unit/test_fill_transform.py` and
+  `tests/integration/test_fill_transform.py`, including a rendered clockwise-sign probe and the
+  textured-path panel path.
 - **#690 — converting a shape to HOUSE creates its linked roof ridge.** The Properties
   panel and **Change Type** now build the same `ROOF_RIDGE` the polygon tool draws, in the
   same undo step; converting away removes it and its metadata link, and undo restores the
   original link. Geometry is the canonical `compute_roof_ridge_endpoints`, mapped through the
   item's transform, through one shared `build_linked_ridge` seam (`PolygonTool`, the agent and
-  the type change all call it); a converted rectangle's ridge follows move/resize/rotate.
-  Pinned by `tests/integration/test_house_roof_ridge.py`.
+  the type change all call it); a converted rectangle's ridge follows move/resize/rotate, and
+  delete/trim/fillet/mirror/layer-move all keep the derived-ridge invariant. Pinned by
+  `tests/integration/test_house_roof_ridge.py` (plus the trim, fillet, mirror, journal and
+  agent-delete suites).
 
 Docs: FR-EDIT-22/23/24, ADR-070 (the display transform), ADR-046 addendum (type change owns
 the ridge).

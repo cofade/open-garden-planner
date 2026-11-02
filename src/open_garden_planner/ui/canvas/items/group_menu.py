@@ -84,13 +84,13 @@ def normalize_context_menu_selection(item: QGraphicsItem) -> None:
 def build_group_context_menu(
     menu: QMenu,
     item: QGraphicsItem,
-    *,
-    allow_ungroup: bool = True,
 ) -> GroupMenuActions:
     """Append Group / Ungroup according to the scene's current selection.
 
-    ``allow_ungroup=False`` is for a smart symbol's own menu: it may still be
-    grouped with other objects, but never dissolved.
+    A smart symbol is excluded from ``ungroupable_groups`` itself, so it is
+    never dissolved; it does not hide an Ungroup row for ANOTHER selected
+    group (the shortcut would dissolve that group, and the menu must not be
+    stricter than the shortcut).
     """
     scene = item.scene()
     selected = groupable_selection(list(scene.selectedItems())) if scene else []
@@ -101,7 +101,7 @@ def build_group_context_menu(
         group_action = menu.addAction(
             QCoreApplication.translate("GardenItem", "Group")
         )
-    if allow_ungroup and ungroupable_groups(selected):
+    if ungroupable_groups(selected):
         ungroup_action = menu.addAction(
             QCoreApplication.translate("GardenItem", "Ungroup")
         )

@@ -775,11 +775,13 @@ class ProjectManager(QObject):
     def _sync_journal_note_positions(
         self, scene: QGraphicsScene, notes: dict[str, Any] | None = None
     ) -> None:
-        """Copy each ``JournalPinItem.pos()`` into its matching note dict (US-12.9).
+        """Copy each ``JournalPinItem.scenePos()`` into its note dict (US-12.9).
 
         The pin's position is updated by the standard Qt drag pathway, but the
-        ``JournalNote`` model also carries scene coordinates (used at load time
-        to recreate pins, and exposed to headless consumers). Without this
+        ``JournalNote`` model also carries SCENE coordinates (used at load time
+        to recreate pins, and exposed to headless consumers). ``pos()`` would be
+        the parent group's local frame for a grouped pin (pins became groupable
+        in #674), so the note must read the scene position. Without this
         save-time reconciliation, a dragged pin's note would stay stuck at its
         original placement coordinates after save/reload.
         """
@@ -794,8 +796,9 @@ class ProjectManager(QObject):
             raw = target_notes.get(item.note_id)
             if raw is None:
                 continue
-            raw["scene_x"] = item.pos().x()
-            raw["scene_y"] = item.pos().y()
+            scene_pos = item.scenePos()
+            raw["scene_x"] = scene_pos.x()
+            raw["scene_y"] = scene_pos.y()
 
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.

@@ -217,6 +217,39 @@ def test_moving_a_house_to_another_layer_moves_its_ridge(qtbot) -> None:
     assert ridge.layer_id == original_layer
 
 
+def test_moving_a_group_to_another_layer_moves_a_nested_houses_ridge(qtbot) -> None:
+    from open_garden_planner.core.commands import GroupCommand, MoveToLayerCommand
+    from open_garden_planner.models.layer import Layer
+
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    other = RectangleItem(400, 0, 50, 50, layer_id=scene.active_layer.id)
+    scene.addItem(house)
+    scene.addItem(other)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    GroupCommand(scene, [house, other]).execute()
+    group = house.parentItem()
+    assert group is not None
+    original_layer = ridge.layer_id
+
+    target = Layer(name="Target", z_order=99)
+    scene.add_layer(target)
+    command = MoveToLayerCommand([group], target.id, scene, target.name)
+    view.command_manager.execute(command)
+
+    assert ridge.layer_id == target.id
+    assert command.description == "Move 1 item(s) to layer 'Target'"
+
+    view.command_manager.undo()
+    assert ridge.layer_id == original_layer
+
+
 def test_the_command_does_not_mint_a_second_ridge_on_repeat_execute(qtbot) -> None:
     scene, view = _scene_view(qtbot)
     rect = _house_rect(scene)
@@ -241,6 +274,44 @@ def test_the_command_does_not_mint_a_second_ridge_on_repeat_execute(qtbot) -> No
     command.execute()
     assert _ridge_of(rect) is ridge
     assert len([i for i in scene.items() if isinstance(i, PolylineItem)]) == 1
+
+
+def test_undo_of_a_same_type_house_change_removes_the_created_ridge(qtbot) -> None:
+    """A HOUSE with no ridge that is "changed" to HOUSE still gains one.
+
+    Undo must remove it again: the pre-command item had no ridge, so leaving it
+    makes undo asymmetric (round-6 review P2).
+    """
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    rect.object_type = ObjectType.HOUSE  # a legacy/pre-fix HOUSE without a ridge
+    assert "ridge_item_id" not in rect.metadata
+
+    def apply(itm, state):
+        for key, value in state.items():
+            if hasattr(itm, key):
+                setattr(itm, key, value)
+        if hasattr(itm, "_setup_styling"):
+            itm._setup_styling()
+
+    command = ChangeObjectTypeCommand(
+        scene,
+        rect,
+        {"object_type": ObjectType.HOUSE},
+        {"object_type": ObjectType.HOUSE},
+        apply,
+    )
+    command.execute()
+    ridge = _ridge_of(rect)
+    assert ridge is not None and ridge.scene() is scene
+
+    command.undo()
+    assert ridge.scene() is None
+    assert "ridge_item_id" not in rect.metadata
+
+    command.execute()
+    assert ridge.scene() is scene
+    assert linked_ridge(rect) is ridge
 
 
 def test_a_grouped_house_carries_its_ridge_on_a_group_move(qtbot) -> None:

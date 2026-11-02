@@ -1376,12 +1376,22 @@ class ChangeObjectTypeCommand(Command):
                     created_scene.removeItem(self._created_ridge)
             self._link(None)
             return
-        ridge = self._removed_ridge or self._created_ridge
-        if ridge is not None:
-            if ridge.scene() is None and scene is not None:
-                scene.addItem(ridge)
-            self._link(ridge)
+        if self._removed_ridge is not None:
+            # The pre-command HOUSE owned a ridge and execute removed it.
+            if self._removed_ridge.scene() is None and scene is not None:
+                scene.addItem(self._removed_ridge)
+            self._link(self._removed_ridge)
             return
+        if self._created_ridge is not None:
+            # The pre-command HOUSE had NO ridge; execute created one because a
+            # same-type Change Type (or the multi-selection variant) still ran.
+            # Undo must remove it again or the scene gains geometry the user
+            # did not have before (round-6 review P2).
+            if self._created_ridge.scene() is not None:
+                created_scene = self._created_ridge.scene()
+                if created_scene is not None:
+                    created_scene.removeItem(self._created_ridge)
+            self._link(None)
         # A HOUSE whose link predates this command: restore exactly that key.
         if self._old_ridge_id and isinstance(
             getattr(self._item, "metadata", None), dict
@@ -2961,19 +2971,18 @@ class MoveToLayerCommand(Command):
         self._user_move_count = len(moves)
         # A linked ROOF_RIDGE is a sibling, not a child: without this it stays
         # on the house's old layer and can be hidden with it (review P2 of #690).
-        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
+        # The tree walk covers a nested HOUSE when a caller passes the group.
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            linked_ridges_under,
+        )
 
         known = {id(item) for item, _, _ in moves}
         for item, _layer, _rank in list(moves):
-            if getattr(item, "object_type", None) is None:
-                continue
-            if getattr(item.object_type, "name", "") != "HOUSE":  # type: ignore[attr-defined]
-                continue
-            ridge = linked_ridge(item)
-            if ridge is not None and id(ridge) not in known:
-                moves.append((ridge, getattr(ridge, "layer_id", None),
-                              getattr(ridge, "stack_order", None)))
-                known.add(id(ridge))
+            for ridge in linked_ridges_under(item):
+                if id(ridge) not in known:
+                    moves.append((ridge, getattr(ridge, "layer_id", None),
+                                  getattr(ridge, "stack_order", None)))
+                    known.add(id(ridge))
         self._moves = moves
         self._target_layer_id = target_layer_id
         self._scene = scene

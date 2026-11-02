@@ -114,6 +114,34 @@ def test_panel_edits_the_three_values_and_one_undo_step_each(qtbot) -> None:
     assert item.brush().transform().isIdentity()
 
 
+def test_a_textured_path_shows_and_edits_the_transform(qtbot) -> None:
+    """Gravel/dirt paths paint a pattern stroke, so they need the controls too.
+
+    They have no fill-colour/pattern row (``PolylineItem``), which used to hide
+    the whole pattern block — the model and painter supported it, the user
+    could not reach it (round-6 review P2).
+    """
+    from open_garden_planner.core.object_types import PathFenceStyle
+
+    scene = QGraphicsScene()
+    path = PolylineItem(
+        [QPointF(0, 0), QPointF(400, 0)], object_type=ObjectType.PATH
+    )
+    path.path_fence_style = PathFenceStyle.GRAVEL_PATH
+    scene.addItem(path)
+    manager = CommandManager()
+    panel = _panel(manager)
+    panel.set_selected_items([path])
+
+    spins = _spins(panel)
+    spins["angle"].setValue(90.0)
+
+    assert path.fill_transform.angle_deg == 90.0
+    assert len(manager._undo_stack) == 1
+    manager.undo()
+    assert path.fill_transform.is_identity
+
+
 def test_unchanged_value_creates_no_command(qtbot) -> None:
     scene = QGraphicsScene()
     item = _rect(scene)

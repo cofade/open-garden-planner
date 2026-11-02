@@ -85,7 +85,8 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   **Ungroup**; a group plus a foreign object, or 2+ groups, offer both. Group nests the selected
   items (including a group) into a new outer group; Ungroup dissolves **one nesting level** and
   dissolves every selected top-level group in **one undo step**. A smart symbol may be grouped but
-  never ungrouped (its members are generated from its parameters). Right-clicking an unselected
+  never ungrouped (its members are generated from its parameters); its own menu still offers
+  **Ungroup** when another selected group can be dissolved. Right-clicking an unselected
   object replaces the selection first, on every item type including group, smart symbol, callout,
   text, journal pin and construction geometry. The background image is deliberately **not**
   groupable (it is a plan backdrop; grouping it would re-band it above ground surfaces). The menu
@@ -107,7 +108,9 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   composition order, rendered clockwise sign and tile period) and
   `tests/integration/test_fill_transform.py` (panel spins + Reset, one command per change, geometry
   unchanged, save/reload, copy appearance, roof composition). The 3D ground/faces keep their
-  existing untransformed sampling; the control is a 2D display property (ADR-070).
+  existing untransformed sampling; the control is a 2D display property (ADR-070). A textured
+  path/fence (gravel path, dirt path) exposes the same four controls, because its pattern stroke
+  carries the same transform.
 - **FR-EDIT-24** *(issue #690)*: Converting a rectangle or polygon to **HOUSE** through the
   Properties panel's Type field or the context menu's **Change Type** creates the same linked
   `ROOF_RIDGE` the polygon tool draws, in the **same undo step** as the type change; converting

@@ -2649,6 +2649,14 @@ user selected:
   re-derives the ridge; Mirror Copy gets a fresh UUID and strips the inherited
   `ridge_item_id`, and a `ROOF_RIDGE` is never itself a mirror source. Offset
   and array copies still do not build a ridge (documented follow-up).
+- **Same-type changes and layer moves stay symmetric.** A "Change Type" command
+  that finds a HOUSE with no ridge creates one, so its undo removes it again
+  (the pre-command item had none). `MoveToLayerCommand` uses the same
+  `linked_ridges_under` walk as delete, so a nested HOUSE's ridge follows its
+  group to the target layer. One ownership predicate
+  (`roof_ridge_link.is_owned_ridge`, reverse `owner_polygon_id`) is shared by
+  the 2D lookup, the 3D snapshot and the sun/shadow caster; a missing reverse
+  link stays valid for older plans, a mismatched one is never adopted.
 
 Pinned by `tests/integration/test_house_roof_ridge.py`,
 `tests/integration/test_trim_extend_tool.py`,
@@ -9653,10 +9661,12 @@ default transform is byte-identical to the previous roof and a user angle turns
 the tiles relative to the roof while the two planes stay mirror images.
 
 **Scope.** Geometry, area, snapping, selection, DXF/export coordinates and the
-Agent API's centimetre contract are untouched. The 3D ground/face texture
-sampling keeps its existing untransformed tile ruler; this is a 2D display
-property, stated in FR-EDIT-23 and the Properties tooltip. Extending the
-transform into 3D materials is separate work.
+Agent API's centimetre contract are untouched. The Properties panel exposes the
+four controls for filled shapes AND for the patterned path styles (gravel path,
+dirt path), whose stroke samples the same brush; a plain line has no pattern
+row. The 3D ground/face texture sampling keeps its existing untransformed tile
+ruler; this is a 2D display property, stated in FR-EDIT-23 and the Properties
+tooltip. Extending the transform into 3D materials is separate work.
 
 **Consequences.** A new appearance attribute must be added to the one
 copy/restore list (`core/item_look._LOOK_ATTRIBUTES`), the one brush builder

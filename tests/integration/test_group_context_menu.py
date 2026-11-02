@@ -279,12 +279,41 @@ def test_every_menu_routes_through_the_shared_seam(factory, with_peer, alone) ->
     )
 
 
-def test_smart_symbol_never_offers_ungroup() -> None:
-    src = inspect.getsource(SmartSymbolItem.contextMenuEvent)
-    assert "allow_ungroup=False" in src, (
+def test_smart_symbol_never_offers_its_own_ungroup(qtbot, monkeypatch) -> None:
+    view = _canvas(qtbot)
+    smart = _smart_symbol(layer_id=view.scene().active_layer.id)
+    view.scene().addItem(smart)
+    smart.setSelected(True)
+
+    assert UNGROUP not in _labels(_open_menu(smart, monkeypatch)), (
         "a smart symbol may be grouped but never ungrouped: its members are "
         "generated from its parameters"
     )
+
+
+def test_smart_symbol_menu_still_ungroups_another_selected_group(
+    qtbot, monkeypatch
+) -> None:
+    """The smart symbol must not hide Ungroup for a different selected group.
+
+    ``Ctrl+Shift+G`` dissolves that group, so a stricter menu would break the
+    shared-seam promise (round-6 review P2).
+    """
+    view = _canvas(qtbot)
+    scene = view.scene()
+    smart = _smart_symbol(layer_id=scene.active_layer.id)
+    group = _group(layer_id=scene.active_layer.id)
+    child = next(iter(group.childItems()))
+    scene.addItem(smart)
+    scene.addItem(group)
+    smart.setSelected(True)
+    group.setSelected(True)
+
+    assert UNGROUP in _labels(_open_menu(smart, monkeypatch))
+    _open_menu(smart, monkeypatch, choose=UNGROUP)
+
+    assert group.scene() is None
+    assert child.parentItem() is None
 
 
 # ---------------------------------------------------------------------------

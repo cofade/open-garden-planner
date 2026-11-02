@@ -43,6 +43,27 @@ def outline_polygon(item: QGraphicsItem) -> QPolygonF | None:
     return None
 
 
+def is_owned_ridge(item: QGraphicsItem, candidate: QGraphicsItem | None) -> bool:
+    """Whether *candidate* is a ``ROOF_RIDGE`` owned by *item*.
+
+    The reverse ``owner_polygon_id`` is the ownership proof, so a copied or
+    stale ``ridge_item_id`` never lets one house adopt another's ridge. A
+    MISSING reverse link is tolerated: older and hand-authored plans predate
+    it. This is the one predicate every ridge consumer uses (2D lookup, the 3D
+    snapshot, the sun/shadow caster), so the rule cannot drift between them.
+    """
+    from open_garden_planner.ui.canvas.items import PolylineItem
+
+    if not (
+        isinstance(candidate, PolylineItem)
+        and getattr(candidate, "object_type", None) == ObjectType.ROOF_RIDGE
+    ):
+        return False
+    ridge_meta = getattr(candidate, "metadata", None)
+    owner = ridge_meta.get("owner_polygon_id") if isinstance(ridge_meta, dict) else None
+    return not owner or str(owner) == str(getattr(item, "item_id", ""))
+
+
 def linked_ridge(item: QGraphicsItem) -> QGraphicsItem | None:
     """The live ``ROOF_RIDGE`` this item names, if it still exists and is one."""
     metadata = getattr(item, "metadata", None)
@@ -68,20 +89,7 @@ def linked_ridge(item: QGraphicsItem) -> QGraphicsItem | None:
             (i for i in scene.items() if getattr(i, "item_id", None) == wanted),
             None,
         )
-    from open_garden_planner.ui.canvas.items import PolylineItem
-
-    if not (
-        isinstance(ridge, PolylineItem)
-        and getattr(ridge, "object_type", None) == ObjectType.ROOF_RIDGE
-    ):
-        return None
-    # The reverse link is the ownership proof: a copied/stale id must never let
-    # one house adopt another's ridge (review P1 of this package).
-    ridge_meta = getattr(ridge, "metadata", None)
-    owner = ridge_meta.get("owner_polygon_id") if isinstance(ridge_meta, dict) else None
-    if owner and str(owner) != str(getattr(item, "item_id", "")):
-        return None
-    return ridge
+    return ridge if is_owned_ridge(item, ridge) else None
 
 
 def build_linked_ridge(
