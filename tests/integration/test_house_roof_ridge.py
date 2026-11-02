@@ -211,6 +211,84 @@ def test_the_command_does_not_mint_a_second_ridge_on_repeat_execute(qtbot) -> No
     assert len([i for i in scene.items() if isinstance(i, PolylineItem)]) == 1
 
 
+def test_a_converted_rectangle_ridge_follows_move_resize_and_rotation(qtbot) -> None:
+    from open_garden_planner.ui.canvas.geometry_apply import apply_rect_like_geometry
+
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    rect._dispatch_change_type(ObjectType.HOUSE)
+    ridge = _ridge_of(rect)
+    assert ridge is not None
+
+    rect.setPos(rect.pos() + QPointF(250.0, 100.0))
+    p1, p2 = _expected_ridge_endpoints(rect)
+    assert ridge.points[0] == p1 and ridge.points[-1] == p2
+
+    center = rect.mapToScene(rect.rect().center())
+    apply_rect_like_geometry(
+        rect,
+        {
+            "rect_x": 0.0,
+            "rect_y": 0.0,
+            "width": 600.0,
+            "height": 120.0,
+            "pos_x": center.x() - 300.0,
+            "pos_y": center.y() - 60.0,
+        },
+    )
+    p1, p2 = _expected_ridge_endpoints(rect)
+    assert ridge.points[0] == p1 and ridge.points[-1] == p2
+    assert abs(p2.x() - p1.x()) > 500.0  # the ridge spans the new long axis
+
+    rect._apply_rotation(90.0)
+    p1, p2 = _expected_ridge_endpoints(rect)
+    assert ridge.points[0] == p1 and ridge.points[-1] == p2
+    assert abs(p1.x() - p2.x()) < 1e-6  # a quarter turn makes the ridge vertical
+
+
+def test_leaving_house_drops_the_link_and_undo_restores_it(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(400, 0), QPointF(400, 200), QPointF(0, 200)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    scene.addItem(house)
+    first = build_linked_ridge(house, house.layer_id)
+    assert first is not None
+    scene.addItem(first)
+    assert linked_ridge(house) is first
+
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    panel._on_property_changed(house, "object_type", ObjectType.GARDEN_BED)
+    assert "ridge_item_id" not in house.metadata
+    assert first.scene() is None
+
+    panel._on_property_changed(house, "object_type", ObjectType.HOUSE)
+    second = _ridge_of(house)
+    assert second is not None and second is not first
+
+    # Undo the second conversion, then the first: the ORIGINAL link and the
+    # original ridge must come back, not just a ridge in the scene.
+    view.command_manager.undo()
+    assert "ridge_item_id" not in house.metadata
+    assert second.scene() is None
+    view.command_manager.undo()
+    assert house.metadata.get("ridge_item_id") == str(first.item_id)
+    assert linked_ridge(house) is first
+    assert first.scene() is scene
+
+
+def test_a_non_house_type_change_never_leaves_a_stale_ridge_link(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    rect._dispatch_change_type(ObjectType.HOUSE)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    panel._on_property_changed(rect, "object_type", ObjectType.GARDEN_BED)
+    panel._on_property_changed(rect, "object_type", ObjectType.LAWN)
+    assert "ridge_item_id" not in rect.metadata
+
+
 def test_ridge_metadata_is_a_stable_uuid_pair(qtbot) -> None:
     scene, view = _scene_view(qtbot)
     rect = _house_rect(scene)

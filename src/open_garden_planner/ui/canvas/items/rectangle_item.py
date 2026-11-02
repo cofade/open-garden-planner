@@ -393,8 +393,28 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
             QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
         ):
             self._update_area_label()
+            self._update_house_ridge()
 
         return super().itemChange(change, value)
+
+    def _update_house_ridge(self) -> None:
+        """Keep a converted HOUSE's linked ridge on the current outline.
+
+        A rectangle can become a HOUSE (``get_valid_types_for_shape``), and the
+        ridge is a separate scene item, so it must follow the host on a move, a
+        rotation and a resize — otherwise the 2D ridge and the 3D roof keep
+        stale geometry (PF-CAN-34; review P1 of #690).
+        """
+        if self.object_type != ObjectType.HOUSE:
+            return
+        from open_garden_planner.ui.canvas.roof_ridge_link import update_linked_ridge
+
+        update_linked_ridge(self)
+
+    def _apply_rotation(self, angle: float) -> None:
+        """Apply rotation and keep a converted HOUSE's ridge in step."""
+        super()._apply_rotation(angle)
+        self._update_house_ridge()
 
     def _compute_area_cm2(self) -> float | None:
         r = self.rect()
@@ -415,6 +435,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self.update_resize_handles()
         self._position_label()
         self._update_area_label()
+        self._update_house_ridge()
 
     def _on_resize_end(
         self,

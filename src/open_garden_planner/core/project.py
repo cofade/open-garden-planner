@@ -2327,6 +2327,14 @@ class ProjectManager(QObject):
                     hedge_item._item_id = UUID(obj["item_id"])
                 if not label_visible:
                     hedge_item.label_visible = False
+                # Migrated shape keeps its saved look, including the additive
+                # fill transform (#665) — the migration used to drop it.
+                restore_stored_look(
+                    hedge_item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style
+                )
+                hedge_item.setBrush(
+                    fill_brush(hedge_item, ProjectManager._stored_fill_color(hedge_item))
+                )
                 if "rotation_angle" in obj:
                     hedge_item._apply_rotation(obj["rotation_angle"])
                 return hedge_item

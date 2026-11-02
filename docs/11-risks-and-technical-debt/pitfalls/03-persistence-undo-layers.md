@@ -357,3 +357,22 @@ non-finite member (the identity is also `None`, so the key simply disappears), a
 because `QTransform` silently ignores non-finite input; the rule lives where the
 value crosses the persistence boundary.
 
+### PF-PER-25
+
+- **Rule:** A derived sibling's **metadata link** is part of a command's undo state, not just its scene membership. When a command removes or creates a linked item (a HOUSE's `ROOF_RIDGE`), it must capture the owner's pre-command id key and restore it on undo — and clear it when the owner stops being the kind that owns one — or undo leaves a dangling id that silently disables other features.
+- **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_leaving_house_drops_the_link_and_undo_restores_it`; `tests/integration/test_house_roof_ridge.py::test_a_non_house_type_change_never_leaves_a_stale_ridge_link`
+- **Source:** #690
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`ChangeObjectTypeCommand` moved the ridge in and out of the scene but left
+`item.metadata["ridge_item_id"]` untouched. A HOUSE → bed → HOUSE sequence
+followed by two undos therefore restored the *first* ridge in the scene while the
+item still named the second: `PolygonItem._find_ridge()` returned nothing, the 3D
+snapshot lost its ridge parameter (flat roof), delete-with-owner left the ridge
+behind, and a save wrote a dangling id. A bed that had once been a house also
+carried the id permanently, so `CanvasScene` treated it as a ridge owner and
+`CanvasView` refused it for boolean operations. The link is now captured in the
+command's `__init__` and written/cleared by `_link()` on every execute/undo; the
+two-conversion undo test is the regression pin.
+

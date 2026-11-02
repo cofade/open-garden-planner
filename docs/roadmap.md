@@ -3927,7 +3927,7 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   dissolves one nesting level and multiple selected groups in **one** undo step
   (`CompoundCommand`); a smart symbol can be grouped but never ungrouped. Every item type
   now normalises the selection before building its menu. Pinned by
-  `tests/integration/test_group_context_menu.py` (65 tests over 14 item types, including the
+  `tests/integration/test_group_context_menu.py` (69 tests over 15 item types, including the
   nested one-level rule and the two-group one-step undo).
 - **#665 — per-object fill angle / scale / offset.** `core/fill_patterns.FillTransform` is
   an additive `fill_transform` appearance block (identity is never written; old plans load
@@ -3938,9 +3938,11 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   `tests/integration/test_fill_transform.py`, including a rendered clockwise-sign probe.
 - **#690 — converting a shape to HOUSE creates its linked roof ridge.** The Properties
   panel and **Change Type** now build the same `ROOF_RIDGE` the polygon tool draws, in the
-  same undo step; converting away removes it. Geometry is the canonical
-  `compute_roof_ridge_endpoints`, mapped through the item's transform, through one shared
-  `build_linked_ridge` seam. Pinned by `tests/integration/test_house_roof_ridge.py`.
+  same undo step; converting away removes it and its metadata link, and undo restores the
+  original link. Geometry is the canonical `compute_roof_ridge_endpoints`, mapped through the
+  item's transform, through one shared `build_linked_ridge` seam (`PolygonTool`, the agent and
+  the type change all call it); a converted rectangle's ridge follows move/resize/rotate.
+  Pinned by `tests/integration/test_house_roof_ridge.py`.
 
 Docs: FR-EDIT-22/23/24, ADR-070 (the display transform), ADR-046 addendum (type change owns
 the ridge).

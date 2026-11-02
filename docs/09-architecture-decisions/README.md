@@ -2598,6 +2598,32 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 
 **Cross-refs:** §11.4, issue #372, issue #114, ADR-046.
 
+### ADR-046 addendum: a type change into HOUSE owns its ridge (issue #690)
+
+The polygon tool and `create_object` already build the canonical ridge, but a
+rectangle or polygon converted to HOUSE through the Properties panel or
+**Change Type** stayed ridgeless on the canvas (3D still worked from its type).
+A type change is now `ChangeObjectTypeCommand`: it applies the type/style state,
+creates the linked `ROOF_RIDGE` when the new type is HOUSE, and removes it — and
+its `ridge_item_id` link — when the shape leaves HOUSE, all in the type change's
+one undo step. The ridge is built once and re-added on redo. **The link itself is
+part of the undo state**, not just scene membership: the command remembers the
+item's pre-command `ridge_item_id` and restores it on undo, so a HOUSE → bed →
+HOUSE sequence followed by two undos leaves the item naming the *original, live*
+ridge (a stale key would also make the scene treat the bed as a ridge owner and
+refuse it for booleans). Construction goes through
+`ui/canvas/roof_ridge_link.build_linked_ridge`; `PolygonTool`, the agent's
+`create_object` and the type change all use it, so there is exactly one
+construction path and one geometry computation
+(`compute_roof_ridge_endpoints`, mapped through the item's own transform). A
+converted rectangle's ridge follows the host on move, resize and rotation via
+`update_linked_ridge` (the same derivation `PolygonItem` uses; called from the
+item hooks and the canonical `apply_rect_like_geometry`, so undo/redo follows
+too). The ridge is always created for a HOUSE, matching what drawing one
+produces; this codebase has no `roof_shape` property (the issue's wording
+predates the current `roof_style` metadata, which is 3D-only and does not suppress
+the 2D ridge). Pinned by `tests/integration/test_house_roof_ridge.py`.
+
 ## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
 
 **Status**: Accepted (2026-10-04). Introduced by the first whole-repository audit
@@ -9613,21 +9639,3 @@ measurements); *bake one texture per angle/scale* (combinatorial and still not
 user-adjustable); *do nothing* (the status quo the issue documents). A per-object
 key inside `metadata` was also rejected: this is appearance, and the existing
 appearance seams all operate on typed attributes, not free-form metadata.
-
-### ADR-046 addendum: a type change into HOUSE owns its ridge (issue #690)
-
-The polygon tool and `create_object` already build the canonical ridge, but a
-rectangle or polygon converted to HOUSE through the Properties panel or
-**Change Type** stayed ridgeless on the canvas (3D still worked from its type).
-A type change is now `ChangeObjectTypeCommand`: it applies the type/style state,
-creates the linked `ROOF_RIDGE` when the new type is HOUSE, and removes it when
-the shape leaves HOUSE — all in the type change's one undo step. The ridge is
-built once and re-added on redo (stable UUID and both metadata links), through
-`ui/canvas/roof_ridge_link.build_linked_ridge`; `PolygonTool` uses the same seam,
-so there is still exactly one construction path and one geometry computation
-(`compute_roof_ridge_endpoints`, mapped through the item's own transform). The
-ridge is always created for a HOUSE, matching what drawing one produces; this
-codebase has no `roof_shape` property (the issue's wording predates the current
-`roof_style` metadata, which is 3D-only and does not suppress the 2D ridge).
-Pinned by `tests/integration/test_house_roof_ridge.py`.
-

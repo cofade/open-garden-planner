@@ -4383,14 +4383,6 @@ class CanvasView(QGraphicsView):
         """Compatibility alias for :meth:`ungroup_selected` (kept for callers)."""
         self.ungroup_selected()
 
-    def ungroup_item(self, group: QGraphicsItem) -> None:
-        """Ungroup a specific GroupItem."""
-        from open_garden_planner.core.commands import UngroupCommand
-
-        command = UngroupCommand(self.scene(), group)
-        self._command_manager.execute(command)
-        self.set_status_message(self.tr("Ungrouped"))
-
     def copy_selected(self) -> None:
         return self._clipboard_operations.copy_selected()
 

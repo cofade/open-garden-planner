@@ -2407,6 +2407,12 @@ class PropertiesPanel(QWidget):
             angle_spin.setDecimals(1)
             angle_spin.setSingleStep(5.0)
             angle_spin.setSuffix("°")  # a unit symbol, not translated (cf. " cm")
+            angle_spin.setToolTip(
+                self.tr(
+                    "Turns the texture only; the object's geometry and "
+                    "measurements stay unchanged"
+                )
+            )
             angle_spin.setValue(transform.angle_deg)
             self._form_layout.addRow(self.tr("Pattern Angle:"), angle_spin)
 
@@ -2422,12 +2428,14 @@ class PropertiesPanel(QWidget):
             x_spin.setDecimals(1)
             x_spin.setSingleStep(1.0)
             x_spin.setSuffix(" cm")
+            x_spin.setPrefix("X ")  # an axis label, not translated
             x_spin.setValue(transform.offset_x_cm)
             y_spin = QDoubleSpinBox()
             y_spin.setRange(-10000.0, 10000.0)
             y_spin.setDecimals(1)
             y_spin.setSingleStep(1.0)
             y_spin.setSuffix(" cm")
+            y_spin.setPrefix("Y ")  # an axis label, not translated
             y_spin.setValue(transform.offset_y_cm)
             for spin in (angle_spin, scale_spin, x_spin, y_spin):
                 _style_numeric_field(spin)

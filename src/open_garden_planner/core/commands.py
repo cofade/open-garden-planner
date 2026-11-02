@@ -1297,6 +1297,13 @@ class ChangeObjectTypeCommand(Command):
         self._apply_func = apply_func
         self._created_ridge: QGraphicsItem | None = None
         self._removed_ridge: QGraphicsItem | None = None
+        # The item's link BEFORE the command ran. Qt-level scene membership
+        # alone is not enough: a save/3D read follows the metadata key, so undo
+        # must restore the link itself (review P0 of this package).
+        metadata = getattr(item, "metadata", None)
+        self._old_ridge_id = (
+            metadata.get("ridge_item_id") if isinstance(metadata, dict) else None
+        )
 
     @property
     def description(self) -> str:
@@ -1308,6 +1315,16 @@ class ChangeObjectTypeCommand(Command):
         return bool(
             getattr(self._item, "object_type", None) == ObjectType.HOUSE
         )
+
+    def _link(self, ridge: QGraphicsItem | None) -> None:
+        """Name (or unname) the linked ridge on the item — both directions."""
+        if not isinstance(getattr(self._item, "metadata", None), dict):
+            return
+        if ridge is None:
+            self._item.metadata.pop("ridge_item_id", None)  # type: ignore[attr-defined]
+            return
+        self._item.set_metadata("ridge_item_id", str(ridge.item_id))  # type: ignore[attr-defined]
+        ridge.set_metadata("owner_polygon_id", str(self._item.item_id))  # type: ignore[attr-defined]
 
     def execute(self) -> None:
         from open_garden_planner.ui.canvas.roof_ridge_link import (
@@ -1325,36 +1342,49 @@ class ChangeObjectTypeCommand(Command):
                     self._item, getattr(self._item, "layer_id", None)
                 )
                 ridge = self._created_ridge
-            if ridge is not None and ridge.scene() is None and scene is not None:
-                scene.addItem(ridge)
+            if ridge is not None:
+                self._link(ridge)
+                if ridge.scene() is None and scene is not None:
+                    scene.addItem(ridge)
             return
         if was_house:
             ridge = linked_ridge(self._item) or self._created_ridge or self._removed_ridge
-            if ridge is not None and ridge.scene() is not None:
+            if ridge is not None:
                 self._removed_ridge = ridge
-                scene = ridge.scene()
-                if scene is not None:
-                    scene.removeItem(ridge)
+                self._link(None)
+                if ridge.scene() is not None:
+                    scene = ridge.scene()
+                    if scene is not None:
+                        scene.removeItem(ridge)
+        else:
+            # A shape that was never a HOUSE must not keep a stale link (a
+            # leftover key makes the scene treat it as a ridge owner).
+            self._link(None)
 
     def undo(self) -> None:
         from open_garden_planner.core.object_types import ObjectType
 
         scene = self._item.scene() or self._scene
+        old_is_house = self._old_state.get("object_type") == ObjectType.HOUSE
         self._apply_func(self._item, self._old_state)
-        if (
-            self._created_ridge is not None
-            and self._old_state.get("object_type") != ObjectType.HOUSE
-            and self._created_ridge.scene() is not None
+        if not old_is_house:
+            if self._created_ridge is not None and self._created_ridge.scene() is not None:
+                created_scene = self._created_ridge.scene()
+                if created_scene is not None:
+                    created_scene.removeItem(self._created_ridge)
+            self._link(None)
+            return
+        ridge = self._removed_ridge or self._created_ridge
+        if ridge is not None:
+            if ridge.scene() is None and scene is not None:
+                scene.addItem(ridge)
+            self._link(ridge)
+            return
+        # A HOUSE whose link predates this command: restore exactly that key.
+        if self._old_ridge_id and isinstance(
+            getattr(self._item, "metadata", None), dict
         ):
-            created_scene = self._created_ridge.scene()
-            if created_scene is not None:
-                created_scene.removeItem(self._created_ridge)
-        if (
-            self._removed_ridge is not None
-            and self._removed_ridge.scene() is None
-            and scene is not None
-        ):
-            scene.addItem(self._removed_ridge)
+            self._item.set_metadata("ridge_item_id", str(self._old_ridge_id))  # type: ignore[attr-defined]
 
 
 class ChangeSmartSymbolParamCommand(Command):

@@ -15,7 +15,7 @@ from typing import Any
 
 from PyQt6.QtCore import QPointF
 from PyQt6.QtGui import QPolygonF
-from PyQt6.QtWidgets import QGraphicsItem, QGraphicsScene
+from PyQt6.QtWidgets import QGraphicsItem
 
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
@@ -52,13 +52,22 @@ def linked_ridge(item: QGraphicsItem) -> QGraphicsItem | None:
     if not ridge_id:
         return None
     scene = item.scene()
-    finder = getattr(scene, "find_item_by_id", None)
-    if not callable(finder):
+    if scene is None:
         return None
     try:
-        ridge = finder(uuid.UUID(str(ridge_id)))
+        wanted = uuid.UUID(str(ridge_id))
     except (TypeError, ValueError):
         return None
+    finder = getattr(scene, "find_item_by_id", None)
+    if callable(finder):
+        ridge = finder(wanted)
+    else:
+        # A plain QGraphicsScene (unit tests, isolated probes) has no index;
+        # the canonical lookup still has to work there.
+        ridge = next(
+            (i for i in scene.items() if getattr(i, "item_id", None) == wanted),
+            None,
+        )
     from open_garden_planner.ui.canvas.items import PolylineItem
 
     if (
@@ -93,7 +102,29 @@ def build_linked_ridge(
     return ridge
 
 
-def remove_linked_ridge(scene: QGraphicsScene, ridge: QGraphicsItem) -> None:
-    """Take *ridge* out of the scene without forgetting its metadata links."""
-    if ridge.scene() is scene:
-        scene.removeItem(ridge)
+def update_linked_ridge(item: QGraphicsItem) -> None:
+    """Re-derive a HOUSE's linked ridge from its current outline and transform.
+
+    The ridge is *derived* geometry (ADR-046): recomputing it from the item is
+    self-healing and undo-safe, and one function serves every item kind that can
+    be a HOUSE (a polygon and a converted rectangle) instead of one method per
+    class. A no-op when the item has no live linked ridge.
+    """
+    from open_garden_planner.ui.canvas.items import PolylineItem
+
+    ridge = linked_ridge(item)
+    if not isinstance(ridge, PolylineItem):
+        return
+    polygon = outline_polygon(item)
+    if polygon is None:
+        return
+    local_1, local_2 = compute_roof_ridge_endpoints(polygon, QPointF(0.0, 0.0))
+    new_points = [
+        ridge.mapFromScene(item.mapToScene(local_1)),
+        ridge.mapFromScene(item.mapToScene(local_2)),
+    ]
+    ridge._points = new_points
+    ridge._rebuild_path()
+    if getattr(ridge, "is_vertex_edit_mode", False):
+        ridge._update_vertex_handles()
+    ridge._position_label()

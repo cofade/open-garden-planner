@@ -87,11 +87,11 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   dissolves every selected top-level group in **one undo step**. A smart symbol may be grouped but
   never ungrouped (its members are generated from its parameters). Right-clicking an unselected
   object replaces the selection first, on every item type including group, smart symbol, callout,
-  text, journal pin and construction geometry. The menu never offers a row the shortcut would
-  refuse: both read `group_item.groupable_selection` / `ungroupable_groups`, and dispatch calls the
-  view's `group_selected` / `ungroup_selected`. No new persisted field. Acceptance:
-  `tests/integration/test_group_context_menu.py` (real `contextMenuEvent` per item type, menu matrix,
-  nested one-level rule, one-step multi-group undo, selection normalisation).
+  text, journal pin, construction geometry and the background image. The menu never offers a row
+  the shortcut would refuse: both read `group_item.groupable_selection` / `ungroupable_groups`, and
+  dispatch calls the view's `group_selected` / `ungroup_selected`. No new persisted field.
+  Acceptance: `tests/integration/test_group_context_menu.py` (15 item types, real `contextMenuEvent`,
+  menu matrix, nested one-level rule, one-step multi-group undo, selection normalisation).
 - **FR-EDIT-23** *(issue #665)*: A filled object's texture can be **turned, scaled and shifted**
   independently of its geometry from the Properties panel: **Pattern Angle** (degrees clockwise,
   0 = as authored), **Pattern Scale** (multiplier, 1.0 = authored tile), and **Pattern Offset X/Y**
@@ -109,11 +109,16 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-EDIT-24** *(issue #690)*: Converting a rectangle or polygon to **HOUSE** through the
   Properties panel's Type field or the context menu's **Change Type** creates the same linked
   `ROOF_RIDGE` the polygon tool draws, in the **same undo step** as the type change; converting
-  away from HOUSE removes it and undo restores the same ridge (stable UUID and metadata links).
-  Geometry uses `core.roof_ridge.compute_roof_ridge_endpoints` mapped through the item's own
-  transform, and the ridge is built through `ui/canvas/roof_ridge_link.build_linked_ridge` — the
-  same seam `PolygonTool` uses (ADR-046 addendum). Acceptance:
-  `tests/integration/test_house_roof_ridge.py`.
+  away from HOUSE removes it **and its `ridge_item_id` link**, and undo restores the same ridge and
+  the original link (stable UUID) — a save or 3D read after two conversions + two undos still
+  follows the live ridge. Geometry uses `core.roof_ridge.compute_roof_ridge_endpoints` mapped
+  through the item's own transform, and the ridge is built by
+  `ui/canvas/roof_ridge_link.build_linked_ridge` — the same seam `PolygonTool` and the agent's
+  `create_object` use. A converted rectangle's ridge follows the host on move, resize and rotation
+  (`update_linked_ridge`, called from `itemChange`, `_apply_rotation`, the resize hook and
+  `apply_rect_like_geometry` for undo/redo). Acceptance:
+  `tests/integration/test_house_roof_ridge.py` (including the two-conversion undo/redo lineage and
+  rectangle move/resize/rotate).
 
 
 ## FR-3: Layers

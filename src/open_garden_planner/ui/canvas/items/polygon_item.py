@@ -422,32 +422,11 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         next polygon edit returns it to canonical. That is the recorded
         decision — the ridge and the roof texture derived from it must agree.
         """
-        from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
-        from open_garden_planner.ui.canvas.items import PolylineItem
+        from open_garden_planner.ui.canvas.roof_ridge_link import update_linked_ridge
 
-        ridge = self._find_ridge()
-        if ridge is None or not isinstance(ridge, PolylineItem):
-            return
-
-        poly = self.polygon()
-        if poly.count() < 3:
-            return
-
-        # Compute in the LOCAL frame (pos is the origin), then map through this
-        # item's full transform — including rotation and scale.
-        local_1, local_2 = compute_roof_ridge_endpoints(poly, QPointF(0.0, 0.0))
-        new_pts = [
-            ridge.mapFromScene(self.mapToScene(local_1)),
-            ridge.mapFromScene(self.mapToScene(local_2)),
-        ]
-
-        ridge._points = new_pts
-        ridge._rebuild_path()
-        # `ridge` is already known to be a PolylineItem, so these attributes
-        # exist; the old hasattr/getattr guards were dead and are dropped.
-        if ridge.is_vertex_edit_mode:
-            ridge._update_vertex_handles()
-        ridge._position_label()
+        # Shared with RectangleItem (a rectangle converted to HOUSE): one
+        # derivation, one place that knows how any HOUSE outline maps its ridge.
+        update_linked_ridge(self)
 
     def _paint_with_ridge(self, painter: QPainter, ridge: "QGraphicsItem") -> None:
         """Paint HOUSE polygon with tile texture mirrored on each side of the ridge."""

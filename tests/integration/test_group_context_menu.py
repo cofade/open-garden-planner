@@ -16,7 +16,8 @@ import inspect
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QPoint, QPointF
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPoint, QPointF
+from PyQt6.QtGui import QColor, QImage
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
 from open_garden_planner.core.commands import GroupCommand
@@ -24,6 +25,7 @@ from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.arc_item import ArcItem
+from open_garden_planner.ui.canvas.items.background_image_item import BackgroundImageItem
 from open_garden_planner.ui.canvas.items.bezier_item import BezierItem
 from open_garden_planner.ui.canvas.items.callout_item import CalloutItem
 from open_garden_planner.ui.canvas.items.circle_item import CircleItem
@@ -115,6 +117,17 @@ def _smart_symbol(layer_id=None) -> SmartSymbolItem:
     return SmartSymbolItem("raised_bed_rows", 1, {"rows": 4}, layer_id=layer_id)
 
 
+def _background_image(layer_id=None) -> BackgroundImageItem:
+    image = QImage(4, 4, QImage.Format.Format_ARGB32)
+    image.fill(QColor("white"))
+    array = QByteArray()
+    buffer = QBuffer(array)
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    assert image.save(buffer, "PNG")
+    buffer.close()
+    return BackgroundImageItem("bg.png", _pixmap_data=bytes(array))
+
+
 #: Every item type whose context menu must offer the entries.
 FACTORIES = [
     _rectangle,
@@ -131,6 +144,7 @@ FACTORIES = [
     _construction_circle,
     _group,
     _smart_symbol,
+    _background_image,
 ]
 
 # (factory, labels with one foreign object also selected, labels when alone)
@@ -149,6 +163,7 @@ ITEM_CASES = [
     pytest.param(_construction_circle, {GROUP}, set(), id="ConstructionCircleItem"),
     pytest.param(_group, {GROUP, UNGROUP}, {UNGROUP}, id="GroupItem"),
     pytest.param(_smart_symbol, {GROUP}, set(), id="SmartSymbolItem"),
+    pytest.param(_background_image, {GROUP}, set(), id="BackgroundImageItem"),
 ]
 
 

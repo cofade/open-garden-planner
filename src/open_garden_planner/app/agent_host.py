@@ -448,31 +448,18 @@ class AgentHost:
 
         linked_items: list[Any] = []
         if object_type == "HOUSE":
-            from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                build_linked_ridge,
+            )
 
-            p1, p2 = compute_roof_ridge_endpoints(cast(Any, item).polygon(), item.pos())
-            # Keep the derived sibling on the loader path too.  The house and
-            # ridge are both created from the same serialized shape vocabulary
-            # that ProjectManager.load() consumes; CreateItemsCommand still
-            # makes their visible appearance one atomic undo step.
-            ridge_spec = {
-                "type": "polyline",
-                "object_type": "ROOF_RIDGE",
-                "points": [
-                    {"x": p1.x(), "y": p1.y()},
-                    {"x": p2.x(), "y": p2.y()},
-                ],
-                "layer_id": str(getattr(item, "layer_id", None))
-                if getattr(item, "layer_id", None) is not None
-                else None,
-            }
-            if ridge_spec["layer_id"] is None:
-                ridge_spec.pop("layer_id")
-            ridge = host._project_manager._deserialize_item_core(ridge_spec)
+            # One construction path with the polygon tool and a type change:
+            # `build_linked_ridge` computes the canonical geometry in the item's
+            # local frame, maps it through the item's transform and links both
+            # metadata ends. CreateItemsCommand still makes the house and its
+            # ridge one atomic undo step.
+            ridge = build_linked_ridge(item, getattr(item, "layer_id", None))
             if ridge is None:
                 raise ValueError("Could not build the HOUSE roof ridge.")
-            cast(Any, ridge).set_metadata("owner_polygon_id", str(cast(Any, item).item_id))
-            cast(Any, item).set_metadata("ridge_item_id", str(cast(Any, ridge).item_id))
             linked_items.append(ridge)
 
         items = [item, *linked_items]

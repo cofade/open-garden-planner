@@ -1793,7 +1793,9 @@ class GardenItemMixin(PositionLockMixin):
         Mirrors :meth:`_dispatch_move_to_layer`: the change and its style are
         one :class:`ChangeObjectTypeCommand` (which also creates a HOUSE's
         linked ridge, #690), or one compound step for a same-class
-        multi-selection. Only items of the same concrete class as *self* are
+        multi-selection of shapes. Polyline type changes keep their own
+        one-command-per-line path (the line look, not the shape style, is what
+        changes there). Only items of the same concrete class as *self* are
         affected (safe for mixed multi-selections).
         """
         from open_garden_planner.core.commands import (

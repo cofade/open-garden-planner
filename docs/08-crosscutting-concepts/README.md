@@ -7803,3 +7803,31 @@ The same suite also reads the actual dashed connector item. Its endpoints
 must match the selected scene-space edge midpoints. Index-only matching is
 valid for polygon/polyline edges whose classification changes on vertex edits;
 rectangle/ellipse/circle edge types are unique but share index 0.
+
+## 8.34 Shared item context-menu capabilities (bed, lock, arrange, group)
+
+An item's right-click menu is built by the item, but a capability that must
+appear on every item type lives in ONE shared seam so a new type cannot miss
+it. There are four, all reachable from `GardenItemMixin` (and used directly by
+the item classes that do not inherit it):
+
+| Capability | Builder / dispatcher | Contract |
+|---|---|---|
+| Bed-only actions | `build_bed_context_menu` / `dispatch_bed_action` | §8.14, ADR-017; gated by `is_plant_parent_type` |
+| Lock / unlock position | `build_lock_context_menu` / `dispatch_lock_action` | FIXED constraint, FR-EDIT-17 |
+| Arrange | `_build_arrange_menu` / `_dispatch_arrange` | `build_arrange_command`, ADR-043 |
+| Group / Ungroup | `group_menu.build_group_context_menu` / `GroupMenuActions.dispatch` | FR-EDIT-22, ADR-046 addendum |
+
+**Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
+at the moment the menu opens, after normalising the selection: a right-click on
+an unselected item replaces the selection with it. Zero or one non-group object
+offers nothing; 2+ objects offer **Group**; exactly one group offers
+**Ungroup**; groups plus a foreign object, or 2+ groups, offer both. Dispatch
+calls the view's `group_selected` / `ungroup_selected` — the same methods as
+Ctrl+G / Ctrl+Shift+G — so the menu can never offer a row the shortcut would
+refuse. `ungroupable_groups` keeps only TOP-LEVEL groups (`parentItem() is
+None`; Qt reports a group child as selected when its parent is, PF-CAN-36) and
+excludes `SmartSymbolItem`; a multi-group ungroup is one `CompoundCommand` (one
+undo step). Every menu calls `normalize_context_menu_selection` first. The
+15-type matrix (including the selectable background image) and the nested
+one-level rule are pinned by `tests/integration/test_group_context_menu.py`.
