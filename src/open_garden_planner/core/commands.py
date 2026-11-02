@@ -592,20 +592,18 @@ def register_applied_with_membership(
         command_manager.register_applied(command)
         return
 
-    from open_garden_planner.core.object_types import is_plant_parent_type
     from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
-    affects_membership = isinstance(item, GardenItemMixin) and (
-        is_plant_parent_type(item.object_type) or is_plant_type(item.object_type)
-    )
-    if not affects_membership:
+    parent_ids = {p.item_id for p in iter_plant_parents([item])}
+    is_plant = isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
+    if not parent_ids and not is_plant:
         command_manager.register_applied(command)
         return
 
-    if is_plant_parent_type(item.object_type):
+    if parent_ids:
         reconcile = ReconcileBedMembershipCommand(
-            scene, focus_parents={item.item_id}
+            scene, focus_parents=parent_ids
         )
     else:
         reconcile = ReconcileBedMembershipCommand(scene, [item])
@@ -614,6 +612,35 @@ def register_applied_with_membership(
         command_manager.register_applied(CompoundCommand([command, reconcile]))
     else:
         command_manager.register_applied(command)
+
+
+def iter_plant_parents(items: Sequence[QGraphicsItem]) -> list[Any]:
+    """Return all plant-parent items in *items*, descending into item groups.
+
+    A ``SmartSymbolItem`` or ``GroupItem`` may contain typed plant-parent child
+    shapes (e.g. the ``RAISED_BED`` outer frame of ``raised_bed_rows``, #599).
+    Descending into ``QGraphicsItemGroup`` lets creation, movement, rotation,
+    deletion, and parameter regeneration reconcile and carry linked plants
+    through the same command-owned path as a top-level bed.
+    """
+    from PyQt6.QtWidgets import QGraphicsItemGroup
+
+    from open_garden_planner.core.object_types import is_plant_parent_type
+    from open_garden_planner.ui.canvas.items import GardenItemMixin
+
+    result: list[Any] = []
+    seen: set[int] = set()
+    stack = list(items)
+    while stack:
+        current = stack.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, GardenItemMixin) and is_plant_parent_type(current.object_type):
+            result.append(current)
+        if isinstance(current, QGraphicsItemGroup):
+            stack.extend(current.childItems())
+    return result
 
 
 class CreateItemCommand(Command):
@@ -648,18 +675,16 @@ class CreateItemCommand(Command):
         )
 
     def _membership_change(self) -> BedMembershipChange | None:
-        from open_garden_planner.core.object_types import is_plant_parent_type
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
-        if not isinstance(self._item, GardenItemMixin):
-            return None
-        if is_plant_parent_type(self._item.object_type):
+        parent_ids = {p.item_id for p in iter_plant_parents([self._item])}
+        if parent_ids:
             return BedMembershipChange(
                 self._scene,
-                focus_parents={self._item.item_id},
+                focus_parents=parent_ids,
             )
-        if is_plant_type(self._item.object_type):
+        if isinstance(self._item, GardenItemMixin) and is_plant_type(self._item.object_type):
             return BedMembershipChange(self._scene, [self._item])
         return None
 
@@ -707,7 +732,6 @@ class CreateItemsCommand(Command):
         self._membership: BedMembershipChange | None = None
 
     def _membership_change(self) -> BedMembershipChange | None:
-        from open_garden_planner.core.object_types import is_plant_parent_type
         from open_garden_planner.core.plant_renderer import is_plant_type
         from open_garden_planner.ui.canvas.items import GardenItemMixin
 
@@ -716,18 +740,8 @@ class CreateItemsCommand(Command):
             for item in self._items
             if isinstance(item, GardenItemMixin) and is_plant_type(item.object_type)
         ]
-        creates_parent = any(
-            isinstance(item, GardenItemMixin)
-            and is_plant_parent_type(item.object_type)
-            for item in self._items
-        )
-        if creates_parent:
-            parents = {
-                item.item_id
-                for item in self._items
-                if isinstance(item, GardenItemMixin)
-                and is_plant_parent_type(item.object_type)
-            }
+        parents = {p.item_id for p in iter_plant_parents(self._items)}
+        if parents:
             return BedMembershipChange(
                 self._scene,
                 created_plants,
@@ -794,14 +808,17 @@ class DeleteItemsCommand(Command):
         self._items = list(items)  # Copy the list
 
         # Snapshot parent-child relationships for undo restoration.
-        # bed UUID → list of child UUIDs
+        # bed UUID → list of child UUIDs (including plant-parent children inside groups)
         self._bed_children: dict[UUID, list[UUID]] = {}
         # plant UUID → parent bed UUID
         self._plant_parents: dict[UUID, UUID] = {}
+        for parent in iter_plant_parents(self._items):
+            if parent.has_children:
+                self._bed_children[parent.item_id] = list(parent._child_item_ids)
         for item in self._items:
             if not isinstance(item, GardenItemMixin):
                 continue
-            if item.has_children:
+            if item.has_children and item.item_id not in self._bed_children:
                 self._bed_children[item.item_id] = list(item._child_item_ids)
             if item.parent_bed_id is not None:
                 self._plant_parents[item.item_id] = item.parent_bed_id
@@ -844,15 +861,18 @@ class DeleteItemsCommand(Command):
         for item in self._items:
             _detach_from_parent(self._scene, item)
 
-        # Detach surviving children of beds being deleted
+        # Detach surviving children of beds being deleted (including group child beds)
         deleted_ids = {
             item.item_id for item in self._items if isinstance(item, GardenItemMixin)
         }
-        for item in self._items:
+        all_bed_candidates = list(self._items) + iter_plant_parents(self._items)
+        seen_bed_ids: set[UUID] = set()
+        for item in all_bed_candidates:
             if not isinstance(item, GardenItemMixin):
                 continue
-            if item.item_id not in self._bed_children:
+            if item.item_id in seen_bed_ids or item.item_id not in self._bed_children:
                 continue
+            seen_bed_ids.add(item.item_id)
             for child_id in self._bed_children[item.item_id]:
                 if child_id in deleted_ids:
                     continue  # child is also being deleted
@@ -877,10 +897,15 @@ class DeleteItemsCommand(Command):
                 if item.scene() is None:
                     self._scene.addItem(item)
         # Restore parent-child relationships from snapshot
-        for item in self._items:
+        all_restored = list(self._items) + iter_plant_parents(self._items)
+        seen_restored: set[UUID] = set()
+        for item in all_restored:
             if not isinstance(item, GardenItemMixin):
                 continue
             iid = item.item_id
+            if iid in seen_restored:
+                continue
+            seen_restored.add(iid)
             if iid in self._bed_children:
                 item._child_item_ids = list(self._bed_children[iid])
                 # Also restore parent_bed_id on surviving children
@@ -923,15 +948,10 @@ def _membership_change_for_move(
     """
     if scene is None:
         return None
-    from open_garden_planner.core.object_types import is_plant_parent_type
     from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
-    parents = [
-        item
-        for item in items
-        if isinstance(item, GardenItemMixin) and is_plant_parent_type(item.object_type)
-    ]
+    parents = iter_plant_parents(items)
     plants: list[QGraphicsItem] = [
         item
         for item in items
@@ -964,25 +984,22 @@ def _membership_for_added_items(
     array copy stayed linked to the source's bed wherever it landed, while the
     bed's child list did not hold it.
     """
-    from open_garden_planner.core.object_types import is_plant_parent_type
     from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
     plants: list[QGraphicsItem] = []
-    adds_parent = False
+    parents = iter_plant_parents(items)
     # Copies are not in the scene yet, so a copied bed cannot be found through
     # the scene when its plant's inherited link is dropped.
     by_id = {
         item.item_id: item
-        for item in items
+        for item in [*items, *parents]
         if isinstance(item, GardenItemMixin)
     }
     for item in items:
         if not isinstance(item, GardenItemMixin):
             continue
-        if is_plant_parent_type(item.object_type):
-            adds_parent = True
-        elif is_plant_type(item.object_type):
+        if is_plant_type(item.object_type):
             # A copy of a PLANT is a new plant: its source's link must not ride
             # along. Non-plant children keep a deliberate remap (the mirror
             # tool re-parents a copied bed's children onto the copy).
@@ -992,17 +1009,11 @@ def _membership_for_added_items(
                     copied_parent.remove_child_id(item.item_id)
                 set_parent_link(scene, item, None, refresh_soil=False)
             plants.append(item)
-    if adds_parent:
+    if parents:
         # A new bed can change the link of plants that did not move — but only
         # the plants that link to it, not a deliberate link to another bed.
-        parents = [
-            item.item_id
-            for item in items
-            if isinstance(item, GardenItemMixin)
-            and is_plant_parent_type(item.object_type)
-        ]
         return BedMembershipChange(
-            scene, plants, focus_parents=set(parents)
+            scene, plants, focus_parents={p.item_id for p in parents}
         )
     if plants:
         return BedMembershipChange(scene, plants)
@@ -1026,17 +1037,11 @@ def _membership_change_for_geometry(
     """
     if scene is None:
         return None
-    from open_garden_planner.core.object_types import is_plant_parent_type
     from open_garden_planner.core.plant_renderer import is_plant_type
     from open_garden_planner.ui.canvas.items import GardenItemMixin
 
     candidates = [item, *partner_items]
-    parents = [
-        candidate
-        for candidate in candidates
-        if isinstance(candidate, GardenItemMixin)
-        and is_plant_parent_type(candidate.object_type)
-    ]
+    parents = iter_plant_parents(candidates)
     plants = [
         candidate
         for candidate in candidates
@@ -1077,25 +1082,19 @@ def expand_with_bed_children(
     left its plants behind, unlike the drag, arrow-key and agent paths. A plant
     that is itself in ``item_deltas`` keeps its own delta — the user moved it.
     """
-    from open_garden_planner.core.object_types import is_plant_parent_type
-    from open_garden_planner.ui.canvas.items import GardenItemMixin
-
     result = list(item_deltas)
     moved = {item for item, _delta in result}
     finder = getattr(scene, "find_item_by_id", None)
     if not callable(finder):
         return result
     for item, delta in list(item_deltas):
-        if not isinstance(item, GardenItemMixin):
-            continue
-        if not is_plant_parent_type(item.object_type):
-            continue
-        for child_id in item.child_item_ids:
-            child = finder(child_id)
-            if child is None or child in moved or bed_child_has_constraints(scene, child_id):
-                continue
-            moved.add(child)
-            result.append((child, QPointF(delta)))
+        for parent in iter_plant_parents([item]):
+            for child_id in parent.child_item_ids:
+                child = finder(child_id)
+                if child is None or child in moved or bed_child_has_constraints(scene, child_id):
+                    continue
+                moved.add(child)
+                result.append((child, QPointF(delta)))
     return result
 
 
@@ -1264,6 +1263,54 @@ class ChangePropertyCommand(Command):
             self._apply_func(self._item, self._old_value)
         elif hasattr(self._item, self._property_name):
             setattr(self._item, self._property_name, self._old_value)
+
+
+class ChangeSmartSymbolParamCommand(Command):
+    """Command for changing a smart-symbol parameter and regenerating its children (#599).
+
+    Preserves deterministic child UUIDs across regeneration and reconciles bed
+    membership for any plant-parent child (e.g. ``raised_bed_rows``) in the same
+    undo step so plant ``parent_bed_id`` links stay synchronized.
+    """
+
+    changes_containment = True
+
+    def __init__(
+        self,
+        item: Any,
+        param_name: str,
+        old_value: Any,
+        new_value: Any,
+    ) -> None:
+        self._item = item
+        self._param_name = param_name
+        self._old_value = old_value
+        self._new_value = new_value
+        self._membership = _membership_change_for_geometry(item.scene(), item)
+
+    @property
+    def description(self) -> str:
+        prop = QCoreApplication.translate("Commands", "symbol parameter")
+        return QCoreApplication.translate("Commands", "Change {property}").format(
+            property=prop
+        )
+
+    def execute(self) -> None:
+        scene = self._item.scene()
+        if self._membership is None and scene is not None:
+            self._membership = _membership_change_for_geometry(scene, self._item)
+        self._item.params[self._param_name] = self._new_value
+        self._item.regenerate_geometry()
+        if self._membership is None and scene is not None:
+            self._membership = _membership_change_for_geometry(scene, self._item)
+        if self._membership is not None:
+            self._membership.reconcile()
+
+    def undo(self) -> None:
+        self._item.params[self._param_name] = self._old_value
+        self._item.regenerate_geometry()
+        if self._membership is not None:
+            self._membership.restore()
 
 
 class ApplySpeciesCommand(Command):

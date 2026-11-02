@@ -761,6 +761,19 @@ Because `is_bed_type` was *extended* (not renamed) to include containers, every 
 - *YAML / `jsonschema`* — extra dependencies for no real gain; JSON + manual validation + a dry-run `generate()` (the CI test) suffices.
 **Consequences**: Smart symbols are a data-only feature — adding/curating symbols is editing JSON. i18n for symbol/param names is baked into the data (`name`/`name_de`, `label`/`label_de`, like `Amendment.display_name`), not Qt `tr()`; only the panel chrome goes through `tr()`. A param edit is an undoable `ChangePropertyCommand` (apply_func = set param + regenerate). Rotated-symbol DXF INSERT rotation sign is a known nuance left for a follow-up (unrotated is exact). The bundled starter set (`raised_bed_rows`, `greenhouse_gabled`, `pergola`, `fence_panel`, `compost_bay_3`) doubles as the format's worked examples. Tests: `tests/unit/test_parametric_eval.py` (adversarial), `test_smart_symbol_model.py`, `test_smart_symbol_schema.py` (CI validator over every bundled file), `tests/integration/test_smart_symbols.py` (place/edit/undo/round-trip/missing-def/version-mismatch/DXF). This completes Package C (#188). **Known limitations (follow-ups):** rotated-symbol DXF INSERT rotation sign (unrotated is exact); a DXF block is keyed on `(symbol_id, params)` so two identical-param instances on different colours share the first instance's colour; `choice` parameter option strings have no `_de` localisation path yet (no bundled symbol uses `choice`); editing a bundled symbol's geometry without bumping `version` silently re-renders already-saved files (the version field is a strict geometry contract). Untrusted-JSON runtime errors (divide-by-zero, overflow, over-budget `repeat`) are caught at the `generate()`/`_resolve_specs` chokepoint and degrade to the cached geometry + a warning rather than crashing.
 
+### Addendum (Issue #599 — Typed Smart-Symbol Members and Definition Versioning, 2026-11-02)
+
+**Status**: Shipped in v1.34.13 | **Context**: issue #599, Slice B of 3D performance and correctness.
+Smart symbol children previously instantiated exclusively as untyped/generic canvas items (`RectangleItem` with `GENERIC_RECTANGLE`, plain polylines, etc.). As a result, smart symbols containing garden beds (`raised_bed_rows`), greenhouses, compost bays, or fences were invisible to bed parenting, plant capacity accounting, soil diagnostics, 2D shadow casting, and 3D builders. Furthermore, regenerating geometry on parameter edits discarded and recreated children with random UUIDs, breaking any existing plant-to-bed parenting links.
+
+**Decision**:
+1. **Typed member resolution through canonical `_spec_to_item`**: Symbol element definitions declare `object_type` (matching `ObjectType` enum names, e.g. `"RAISED_BED"`, `"GREENHOUSE"`, `"COMPOST"`, `"FENCE"`). `_spec_to_item` instantiates the corresponding canonical item subclass (`BedItem`, `PolylineItem`, `RectangleItem`, etc.). Structural dividers use existing fence/wall primitives with explicit height.
+2. **Construction guides**: Elements declared with `role: "guide"` (or `is_guide: true`) serve as 2D layout references and are explicitly excluded from 3D record snapshotting and shadow casting.
+3. **Deterministic UUID derivation**: Generated children receive stable deterministic UUIDs computed from the parent symbol's UUID and element index / repeat key (`uuid5(symbol_uuid, key)`). On parameter edits, surviving children preserve their identities so child plants maintain their `parent_bed_id` links.
+4. **Atomic undo and bed membership reconciliation**: Parameter changes run through `ChangeSmartSymbolParamCommand`, which regenerates geometry and invokes `_membership_change_for_geometry` in a single atomic undo/redo command.
+5. **Definition versioning & read-only fallback**: Bundled symbols bump to `"version": 2`. When a plan is opened with an instance whose `symbol_version` is older than the library definition's version, the symbol retains its serialized children without silent regeneration. In the Properties panel, parameter editing is disabled with a translated explanation (`Symbol definition version mismatch — saved geometry is read-only.`).
+6. **Zero `FILE_VERSION` bump**: Format remains additive via existing group metadata and child serialization. The Smart Symbols sidebar panel remains hidden per owner policy.
+
 ## ADR-033: Agent API — Embedded MCP-over-HTTP Server + Main-Thread Marshaling Boundary (US-D1.1)
 
 **Status**: Accepted (Phase 13 — Package D, US-D1.1 spike). Read-only surface; built write-ready.
@@ -1749,6 +1762,19 @@ PF-L3D-17 records the traps, FR-3D-BUILT-09 and FR-SUN-02 state the rule, and
 **Revised (issue #299, manual-test finding on PR #298)**: this addendum originally kept the 2D canvas drawing the stored (mature) footprint unconditionally — growth visible only in shadow size, heatmap and the 3D view — and rejected rescaling canvas circles on the grounds that "a display-scale on live items perturbs selection/snap/`mapToScene`, exactly the #218/#219 territory." Manual testing of an unrelated PR found this backwards from a user's perspective: a full-size mature icon casting a visibly smaller shadow read as a bug, not a feature. The owner's call: keep the rejection's *reasoning* (never touch `rect()`/`radius`/`pos()`/`transformOriginPoint()` — the actual #218/#219 hazard, since THAT is what selection/snap/`mapToScene` depend on) but reverse the *conclusion* (the icon must still visually track growth). The fix threads a value through `paint()`/`boundingRect()` only — `CircleItem._visual_plant_diameter_cm()` — without touching the item's actual QGraphicsItem geometry at all, so selection/snap/drag/rotation/undo are provably untouched (none of them read anything but `rect()`/`pos()`/`transformOriginPoint()`, none of which this touches). Two things this surfaced that a first cut of the fix missed and a second pass corrected: the decorative drop-shadow (a separate cosmetic effect, unrelated to sun/shade) has to track the SAME diameter as the icon or a shrunk icon renders inside an oversized grey disc; and `boundingRect()`'s overflow term must never shrink below the footprint's own size (hit-testing/selection on the mature footprint must stay intact) while still growing for a current measurement that exceeds the species max. See §11.4 and the debug-verbose skill's matching case study for the full investigation. `plant_sizing.py` now documents FOUR sizes, not three.
 
 **Revised (Phase 17 L1.0, ADR-053)**: "Consumers all pass the sim timeline's date" named two dates. The shadow overlay and the 3D snapshot passed `sim_datetime_utc.date()`, the **UTC** date, while the heatmap passed the toolbar's **local** day, so after local midnight east of UTC (or before it west of UTC) they grew the same plant for different days. The overlay also kept a private UTC instant seeded separately from the toolbar's "now". Now `core/sim_clock.SimClock` holds the one moment: every consumer reads `plan_date` (the local day the toolbar shows) for growth and `utc` for the sun. The controller reads the clock instead of storing an instant, and the toolbar is a view of the clock. ADR-053 records the decision; the time-control paragraph of ADR-037 above ("the controller stores UTC") is superseded by it in the same way.
+
+### ADR-037 / ADR-048 addendum — unified geometry-aware analytical caster path (#440, 2026-11-02)
+
+**Status**: Shipped in v1.34.13 | **Context**: issue #440, Slice B of 3D performance and correctness.
+The 2D shadow overlay and hours-of-sun heatmap previously treated all buildings as flat rectangular prisms of ridge height and all fences as opaque solid walls. This produced severe over-shadowing to the north of pitched roofs (overhangs and gable/hip slopes were ignored) and completely ignored the open porosity of wooden picket fences, metal bars, and chain-link fences.
+
+**Decision**:
+1. **Shared 3D structural profiles for analytical casters**: `collect_identified_casters` extracts full structural 3D roof and wall triangles (`pitched_roof_triangles_for_record`) for ridged buildings (`GABLE`, `HIP`, `SHED`) using shared builders from `core/scene3d/builders/buildings.py`. Flat-roof buildings remain on the prism path.
+2. **Angle-dependent fence porosity**: Fence styles (`PathFenceStyle.WOODEN_FENCE`, `METAL_FENCE`, `CHAIN_LINK`) define structural parameters and nominal open fractions in `core/scene3d/builders/fences.py`. `fence_transmittance` calculates effective sunlight transmittance in `[0.0, 1.0]` as a function of fence run orientation, sun azimuth, and solar elevation.
+3. **Owner grouping & multi-caster overlap**: `compute_weighted_shadows` groups casters by owner first. Multi-segment fences belonging to the same owner union their projected footprints so self-overlap does not square attenuation. Overlapping independent casters multiply transmittance: $T_{\text{total}} = \prod T_i$ with occlusion $1 - T_{\text{total}}$. Porous shade overlapping opaque shade remains fully opaque ($T = 0, \text{occlusion} = 1$).
+4. **Fractional sun aggregation & sample retention**: `compute_sun_exposure` accumulates direct sunlight as `sample_minutes * transmittance`. For fractional scenes, per-sample transmittance arrays (`sample_transmittance`, float32) are retained alongside binary `sample_shade` masks, bounded by `MAX_SAMPLE_SHADE_BYTES = 64 MiB`. When the memory ceiling is reached, sample history is dropped rather than truncating fractional shade to binary shade.
+5. **3D analysis drape integration**: `shadow_drape` consumes `Sequence[WeightedShadowRegion]` to interpolate linear RGB vertex multipliers (`1.0 - occlusion * (1.0 - m_c)`) in a single persistent `"shade"` mesh.
+6. **Measured physical agreement**: All 9 built-world families meet the agreed 10% relative-area ratio (`0.90 <= area_ratio <= 1.10`) and maximum 15 cm reach difference (`abs(reach_diff_cm) <= 15.0`) at 15°, 35°, and 60° against the independent measurement oracle (`scripts/measure_built_world_shadows.py --check`).
 
 ### ADR-038 addendum: US-E6 implementation (3D view MVP)
 
@@ -5976,24 +6002,24 @@ only, and correct their heights with a fit after the fact.
 
   | Kind | 3D area ÷ 2D area | IoU | Reach 3D − 2D (cm) | Why |
   |---|---|---|---|---|
-  | picket fence | 0.67 / 0.68 / 0.70 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity |
-  | metal fence | 0.19 / 0.21 / 0.24 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity |
-  | chain-link fence | 0.13 / 0.14 / 0.19 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity |
+  | picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (weighted 2D area; IoU vs solid strip) |
+  | metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (weighted 2D area; IoU vs solid strip) |
+  | chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (weighted 2D area; IoU vs solid strip) |
   | hedge fence | 1.04 / 1.13 / 1.31 | 0.96 / 0.89 / 0.76 | +19.6 / +19.5 / +19.6 | nominal section |
   | stone-wall fence | 1.06 / 1.15 / 1.37 | 0.94 / 0.87 / 0.73 | +14.5 / +14.5 / +15.3 | nominal section |
   | wall | 1.04 / 1.10 / 1.24 | 0.96 / 0.91 / 0.81 | +15.0 / +15.0 / +15.8 | nominal section |
   | plain panel (unknown style) | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | none: the stroke strip |
-  | house, sun square to the ridge | 0.92 / 0.81 / 0.92 | 0.85 / 0.74 / 0.82 | −270.0 / −270.0 / −108.2 | gable roof vs prism |
-  | house, sun along the ridge | 0.90 / 0.99 / 1.06 | 0.82 / 0.86 / 0.88 | +30.0 / +30.0 / +30.0 | gable roof vs prism |
-  | shed, sun square to the ridge | 0.92 / 0.93 / 1.03 | 0.85 / 0.83 / 0.88 | −150.0 / −81.4 / −21.0 | gable roof vs prism |
+  | house, sun square to the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles) |
+  | house, sun along the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles) |
+  | shed, sun square to the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles) |
   | raised bed | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | −0.6 / −0.6 / −0.3 | none: a prism |
   | container (box) | 1.00 / 0.99 / 0.99 | 1.00 / 0.99 / 0.99 | −0.6 / −0.6 / −0.3 | none: a prism |
   | terracotta pot | 0.83 / 0.81 / 0.81 | 0.83 / 0.81 / 0.81 | −0.6 / −0.6 / −0.3 | taper |
   | round tub | 0.91 / 0.89 / 0.89 | 0.91 / 0.89 / 0.89 | −0.5 / −0.5 / −0.3 | taper |
   | hedge (polygon) | 0.98 / 0.96 / 0.94 | 0.97 / 0.96 / 0.94 | +3.6 / +4.0 / +4.4 | leaf shell |
   | hedge (section) | 0.97 / 0.96 / 0.94 | 0.96 / 0.95 / 0.93 | +2.7 / +3.0 / +3.2 | leaf shell |
-  | house, hip roof | 0.83 / 0.80 / 0.92 | 0.79 / 0.74 / 0.83 | −270.0 / −270.0 / −105.3 | hip roof vs prism (L4) |
-  | house, single-slope roof | 1.06 / 1.08 / 1.10 | 0.94 / 0.93 / 0.91 | +30.0 / +30.0 / +30.0 | single-slope roof vs prism (L4) |
+  | house, hip roof | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | hip roof (#440: shared roof+wall triangles) |
+  | house, single-slope roof | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | single-slope roof (#440: shared roof+wall triangles) |
   | house, flat roof | 1.02 / 1.03 / 1.04 | 0.98 / 0.97 / 0.96 | +15.0 / +15.0 / +15.0 | flat roof: the prism (L4) |
   | table | 0.38 / 0.54 / 0.70 | 0.38 / 0.54 / 0.70 | −0.5 / −0.5 / −0.3 | porosity: a top on legs (L4) |
   | picnic table | 0.37 / 0.41 / 0.57 | 0.37 / 0.41 / 0.57 | −38.5 / −38.5 / −20.6 | porosity: boards and A-frames (L4) |

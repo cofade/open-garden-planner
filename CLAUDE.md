@@ -299,6 +299,16 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   `BackgroundImageItem` now raises it for one decode only (restored in `finally`) and refuses
   >120 MP from the header. The embedded base64 PNG is encoded once per pixmap revision, not
   1.2 s per Agent API read / autosave. PF-PER-22/23, FR-IMG-12/13.
+- Symbol and shadow correctness, Slice B (#599, #440) shipped in v1.34.13 (PR #686): typed member instantiation
+  (`ObjectType.RAISED_BED`, `ObjectType.GREENHOUSE`, `ObjectType.COMPOST`,
+  `ObjectType.FENCE`) in smart symbols via `_spec_to_item` with `uuid5` stable keys,
+  guide role exclusion from 3D/shadows, single-command undo parameter edits
+  reconciling bed membership, and versioned definition fallback; one unified
+  geometry-aware caster representation across 2D overlay, heatmap, plant exposure,
+  and 3D drape with structural roof/wall triangles for ridged buildings (`gable`,
+  `hip`, `shed`), angle-dependent structural fence porosity (`WOODEN_FENCE`,
+  `METAL_FENCE`, `CHAIN_LINK`), owner-grouped casting, multiplicative independent
+  overlap ($T_1 	imes T_2$), and bounded 64 MiB fractional sample allocation.
 - Phase 17 L1–L4 and Package F/G are shipped. L5 (#389, ADR-070) is in review as a
   draft PR: playback through the SimClock, weather as a look (never the sun), shader
   particles on the wind clock, Today's Weather, Garden Light / String Lights. Load

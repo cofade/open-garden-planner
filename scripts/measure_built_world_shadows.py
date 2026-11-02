@@ -79,10 +79,17 @@ from open_garden_planner.core.scene3d import (
     group_rings,
 )
 from open_garden_planner.core.scene3d.builders import OBJECT_KINDS, production_registry
+from open_garden_planner.core.scene3d.builders.buildings import pitched_roof_triangles_for_record
 from open_garden_planner.core.scene3d.builders.common import nominal_height_cm
+from open_garden_planner.core.scene3d.builders.fences import (
+    POROUS_FENCE_STYLES,
+    fence_transmittance,
+)
 from open_garden_planner.core.shadow_geometry import (
+    GroupedCaster,
     circle_footprint,
     compute_scene_shadows,
+    compute_weighted_shadows,
     polyline_footprint,
     shadow_direction_scene,
 )
@@ -302,10 +309,37 @@ def mesh_shadow(parts: Sequence[MeshPart], elevation_deg: float,
 
 def caster_shadow(record: Record, elevation_deg: float,
                   azimuth_deg: float) -> list[list[tuple[int, int]]]:
-    """The 2D model's shadow of the record: its footprint ring(s) to its height."""
-    polygons = compute_scene_shadows(
-        [(list(ring), record.height_cm) for ring in record.footprints], elevation_deg, azimuth_deg)
+    """The 2D model's shadow of the record: its pitched-roof profile (#440) when
+    applicable, else its footprint ring(s) swept to its height."""
+    roof_tris = pitched_roof_triangles_for_record(record)
+    if roof_tris:
+        res = compute_weighted_shadows(
+            [GroupedCaster(record.footprints, float(record.height_cm or 0.0), roof_triangles=roof_tris)],
+            elevation_deg,
+            azimuth_deg,
+        )
+        polygons = res.union_polygons if res is not None else []
+    else:
+        polygons = compute_scene_shadows(
+            [(list(ring), record.height_cm) for ring in record.footprints], elevation_deg, azimuth_deg)
     return [_to_grid(polygon) for polygon in polygons]
+
+
+def caster_occlusion(record: Record, elevation_deg: float, azimuth_deg: float) -> float:
+    """Analytical 2D shadow occlusion weight ``1.0 - transmittance`` (#440)."""
+    if record.kind in ("FENCE", "WALL") and record.shape == "polyline":
+        style = record.params.get("path_style")
+        if isinstance(style, str) and style in POROUS_FENCE_STYLES:
+            trans = fence_transmittance(
+                style,
+                float(record.height_cm or 0.0),
+                float(record.path_width_cm or 0.0),
+                elevation_deg,
+                azimuth_deg,
+                record.path,
+            )
+            return float(min(1.0, max(0.0, 1.0 - trans)))
+    return 1.0
 
 
 def reach_cm(paths: Sequence[Sequence[tuple[int, int]]], azimuth_deg: float) -> float:
@@ -324,9 +358,10 @@ def measure(selected: Sequence[Case] | None = None) -> tuple[Row, ...]:
         for elevation in ELEVATIONS_DEG:
             in_3d = mesh_shadow(parts, elevation, case.azimuth_deg)
             in_2d = caster_shadow(case.record, elevation, case.azimuth_deg)
+            occ = caster_occlusion(case.record, elevation, case.azimuth_deg)
             both = _area_cm2(_clip(in_3d, in_2d, pyclipper.CT_INTERSECTION))
             either = _area_cm2(_clip(in_3d, in_2d, pyclipper.CT_UNION))
-            ratios.append(_area_cm2(in_3d) / _area_cm2(in_2d))
+            ratios.append(_area_cm2(in_3d) / (_area_cm2(in_2d) * occ))
             ious.append(both / either)
             reaches.append(reach_cm(in_3d, case.azimuth_deg) - reach_cm(in_2d, case.azimuth_deg))
         rows.append(Row(case.name, case.why, tuple(ratios), tuple(ious), tuple(reaches)))
@@ -335,32 +370,30 @@ def measure(selected: Sequence[Case] | None = None) -> tuple[Row, ...]:
 
 #: The table as documented (ADR-059 builders addendum, §8.29.6, ``ogp-lush-cinematic``
 #: §1): name -> (3D / 2D area, IoU, reach 3D - 2D in cm), each at 15 / 35 / 60 degrees.
-#: Measured by this script on 2026-10-11; ``--check`` and the test hold the builders to
+#: Measured by this script; ``--check`` and the test hold the builders to
 #: it within ``TOLERANCE`` (``REACH_TOLERANCE_CM`` for the reach). A builder change that
 #: moves a number updates this table AND the docs.
 Triple = tuple[float, float, float]
 DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
-    "picket fence": ((0.67, 0.68, 0.70), (0.65, 0.66, 0.68), (2.0, 2.0, 2.4)),
-    "metal fence": ((0.19, 0.21, 0.24), (0.19, 0.20, 0.24), (0.8, 0.8, 0.8)),
-    "chain-link fence": ((0.13, 0.14, 0.19), (0.12, 0.13, 0.19), (1.5, 1.5, 1.5)),
+    "picket fence": ((1.00, 1.00, 1.00), (0.65, 0.66, 0.68), (2.0, 2.0, 2.4)),
+    "metal fence": ((0.99, 0.99, 0.98), (0.19, 0.20, 0.24), (0.8, 0.8, 0.8)),
+    "chain-link fence": ((1.09, 1.03, 1.08), (0.12, 0.13, 0.19), (1.5, 1.5, 1.5)),
     "hedge fence": ((1.04, 1.13, 1.31), (0.96, 0.89, 0.76), (19.6, 19.5, 19.6)),
     "stone-wall fence": ((1.06, 1.15, 1.37), (0.94, 0.87, 0.73), (14.5, 14.5, 15.3)),
     "plain panel (unknown style)": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
     "wall": ((1.04, 1.10, 1.24), (0.96, 0.91, 0.81), (15.0, 15.0, 15.8)),
-    "house, sun square to the ridge": ((0.92, 0.81, 0.92), (0.85, 0.74, 0.82),
-                                       (-270.0, -270.0, -108.2)),
-    "house, sun along the ridge": ((0.90, 0.99, 1.06), (0.82, 0.86, 0.88), (30.0, 30.0, 30.0)),
-    "shed, sun square to the ridge": ((0.92, 0.93, 1.03), (0.85, 0.83, 0.88),
-                                      (-150.0, -81.4, -21.0)),
+    "house, sun square to the ridge": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
+    "house, sun along the ridge": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
+    "shed, sun square to the ridge": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
     "raised bed": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (-0.6, -0.6, -0.3)),
     "container (box)": ((1.00, 0.99, 0.99), (1.00, 0.99, 0.99), (-0.6, -0.6, -0.3)),
     "terracotta pot": ((0.83, 0.81, 0.81), (0.83, 0.81, 0.81), (-0.6, -0.6, -0.3)),
     "round tub": ((0.91, 0.89, 0.89), (0.91, 0.89, 0.89), (-0.5, -0.5, -0.3)),
     "hedge (polygon)": ((0.98, 0.96, 0.94), (0.97, 0.96, 0.94), (3.6, 4.0, 4.4)),
     "hedge (section)": ((0.97, 0.96, 0.94), (0.96, 0.95, 0.93), (2.7, 3.0, 3.2)),
-    # Phase 17 L4 (#388), measured 2026-10-26
-    "house, hip roof": ((0.83, 0.80, 0.92), (0.79, 0.74, 0.83), (-270.0, -270.0, -105.3)),
-    "house, single-slope roof": ((1.06, 1.08, 1.10), (0.94, 0.93, 0.91), (30.0, 30.0, 30.0)),
+    # Phase 17 L4 (#388), updated for #440 pitched-roof 2D projection
+    "house, hip roof": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
+    "house, single-slope roof": ((1.00, 1.00, 1.00), (1.00, 1.00, 1.00), (0.0, 0.0, 0.0)),
     "house, flat roof": ((1.02, 1.03, 1.04), (0.98, 0.97, 0.96), (15.0, 15.0, 15.0)),
     "table": ((0.38, 0.54, 0.70), (0.38, 0.54, 0.70), (-0.5, -0.5, -0.3)),
     "picnic table": ((0.37, 0.41, 0.57), (0.37, 0.41, 0.57), (-38.5, -38.5, -20.6)),

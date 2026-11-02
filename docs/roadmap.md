@@ -2755,6 +2755,17 @@ drawing nothing). #475 and #534 are open. Only #452 is closed.
 | [#475](https://github.com/cofade/open-garden-planner/issues/475) | **open** — ground tiles are still painted by the controller's sliced ground passes; the global pixel grid and padded tiles are not implemented | the #615 two-/four-tile contracts still pass unchanged |
 | [#534](https://github.com/cofade/open-garden-planner/issues/534) | **open** — the wind-memory growth is not fixed; no closing keyword | the xfail stays |
 
+### Symbol and shadow correctness (Slice B) — **#599 and #440 shipped in v1.34.13, PR #686, 2026-11-02**
+
+Two issues from the analytical correctness cluster (`261030_PLAN.md` §4), delivered in one branch with Addenda to ADR-032, ADR-037, and ADR-048.
+- **#599 (Typed smart-symbol members):** Canonical `_spec_to_item` instantiating typed `ObjectType` items (`RAISED_BED`, `GREENHOUSE`, `COMPOST`, `FENCE`). Exclude `role: "guide"` elements from 3D records and shadows. Stable deterministic UUIDs (`uuid5`) so child plant-to-bed links survive edits. Atomic undo command (`ChangeSmartSymbolParamCommand`) reconciling bed membership. Definition versioning: older instances retain saved children; incompatible param edits are disabled with a translated explanation. Zero `FILE_VERSION` bump; Smart Symbols sidebar stays hidden per owner policy.
+- **#440 (Geometry-aware analytical caster path):** 2D overlay, heatmap, plant exposure, and 3D drape consume shared plain-data representations. Structural 3D roof/wall profiles for ridged buildings (`gable`, `hip`, `shed`); flat roofs stay on prism path. Angle-dependent structural fence porosity (`WOODEN_FENCE`, `METAL_FENCE`, `CHAIN_LINK`). Casters grouped by owner first; independent overlapping casters multiply transmittance ($T_1 \times T_2$). Fractional sun accumulation (`minutes * transmittance`), float32 `sample_transmittance` bounded by `MAX_SAMPLE_SHADE_BYTES = 64 MiB`. 3D `shadow_drape` accepts `WeightedShadowRegion` sequences for linear RGB multiplier interpolation. Shaded area within 10% relative-area and 15 cm reach across all 9 built-world families at 15°, 35°, 60°.
+
+| Issue | State | Evidence |
+|---|---|---|
+| [#599](https://github.com/cofade/open-garden-planner/issues/599) | **done — shipped in v1.34.13 (PR #686)** | typed member instantiation (`ObjectType.RAISED_BED` etc.), stable `uuid5` UUIDs, plant parenting preserved across param edits, single atomic undo command, definition versioning fallback; `tests/integration/test_smart_symbols.py` (13 passed) |
+| [#440](https://github.com/cofade/open-garden-planner/issues/440) | **done — shipped in v1.34.13 (PR #686)** | pitched roof projection matching 3D envelope, angle-dependent fence porosity, owner-grouped casting, multiplicative independent overlap ($T_1 \times T_2$), 64 MiB memory bound; `scripts/measure_built_world_shadows.py --check` passes with 0 violations across all 9 families |
+
 ### Test lifecycle, popup focus, release classification, and 3D workspace modularization — **shipped 2026-10-28 as v1.34.2, PR #632**
 
 One package covers #561, #515, #460, #463, #583, and #580 (closing #447).

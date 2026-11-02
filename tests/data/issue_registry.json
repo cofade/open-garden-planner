@@ -614,6 +614,11 @@
     "state": "MERGED",
     "title": "feat(US-F3): add sun diagnostics and fix heatmap document ownership"
   },
+  "440": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Limitation: the 2D sun/shade model treats porous fences as solid walls and a gable roof as a flat-topped box"
+  },
   "443": {
     "is_pr": false,
     "state": "CLOSED",
@@ -914,6 +919,11 @@
     "state": "OPEN",
     "title": "FU-L3: Seasonal callback budget has limited headroom across Windows/WARP runners"
   },
+  "599": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Phase 17: smart-symbol builders for 3D (deferred from L4 #388)"
+  },
   "600": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1128,5 +1138,10 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#659, #660): decode site-plan-sized backgrounds and encode them once"
+  },
+  "686": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#599, #440): typed smart-symbol members and geometry-aware sun/shade model"
   }
 }

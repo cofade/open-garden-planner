@@ -1,6 +1,6 @@
 {
   "id": "pergola",
-  "version": 1,
+  "version": 2,
   "name": "Pergola",
   "name_de": "Pergola",
   "category": "structures",
@@ -11,12 +11,12 @@
     {"name": "post", "type": "length", "label": "Post size", "label_de": "Pfostengröße", "default": 12, "min": 5, "max": 30, "unit": "cm"}
   ],
   "elements": [
-    {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W"},
-    {"kind": "rect", "x": 0, "y": 0, "w": "post", "h": "post"},
-    {"kind": "rect", "x": "L - post", "y": 0, "w": "post", "h": "post"},
-    {"kind": "rect", "x": 0, "y": "W - post", "w": "post", "h": "post"},
-    {"kind": "rect", "x": "L - post", "y": "W - post", "w": "post", "h": "post"},
+    {"kind": "rect", "x": 0, "y": 0, "w": "L", "h": "W", "object_type": "PERGOLA"},
+    {"kind": "rect", "x": 0, "y": 0, "w": "post", "h": "post", "guide": true},
+    {"kind": "rect", "x": "L - post", "y": 0, "w": "post", "h": "post", "guide": true},
+    {"kind": "rect", "x": 0, "y": "W - post", "w": "post", "h": "post", "guide": true},
+    {"kind": "rect", "x": "L - post", "y": "W - post", "w": "post", "h": "post", "guide": true},
     {"repeat": {"var": "i", "from": 1, "to": "beams - 2"},
-     "element": {"kind": "line", "x1": "L * i / (beams - 1)", "y1": 0, "x2": "L * i / (beams - 1)", "y2": "W"}}
+     "element": {"kind": "line", "x1": "L * i / (beams - 1)", "y1": 0, "x2": "L * i / (beams - 1)", "y2": "W", "guide": true}}
   ]
 }

@@ -45,7 +45,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ..shade_aggregation import HeatmapGrid, points_in_polygons
-from ..shadow_geometry import clip_to_rect
+from ..shadow_geometry import WeightedShadowRegion, clip_to_rect
 from .color import srgb8_to_linear
 from .mesh import Mesh
 from .polygon import RegionTooLargeError, group_rings, triangulate_region
@@ -112,18 +112,14 @@ def _raster_rings(rings: Sequence[Polygon], step_cm: float) -> tuple[_F64, NDArr
     return positions, triangles
 
 
-def shadow_drape(polygons: Sequence[Polygon], width_cm: float, depth_cm: float,
-                 multiplier: tuple[float, float, float] = SHADE_MULTIPLIER) -> Mesh:
-    """The shadow overlay's polygons as one flat mesh on the plan (module docstring).
-
-    Every region is triangulated exactly (``polygon.triangulate_region``); one the
-    triangulator refuses — a hole that touches its outer ring, a region beyond the
-    work bound — is laid as row runs of a ``FALLBACK_STEP_CM`` raster instead and
-    logged at DEBUG: the drape never loses a shadow it was given.
-    """
+def _triangulate_clipped_polygons(
+    polygons: Sequence[Polygon],
+    width_cm: float,
+    depth_cm: float,
+) -> list[tuple[_F64, NDArray[np.int64]]]:
     clipped = clip_to_rect(polygons, width_cm, depth_cm)
     if not clipped:
-        return Mesh.empty()
+        return []
     rings = [_as_ring(ring) for ring in clipped]
     pieces: list[tuple[_F64, NDArray[np.int64]]] = []
     try:
@@ -142,22 +138,64 @@ def shadow_drape(polygons: Sequence[Polygon], width_cm: float, depth_cm: float,
         except (ValueError, RegionTooLargeError) as error:
             _log.debug("3D drape: a shadow region was raster-cut (%s)", type(error).__name__)
             pieces.append(_raster_rings([outer, *holes], FALLBACK_STEP_CM))
+    return pieces
+
+
+def shadow_drape(
+    polygons: Sequence[Polygon] | Sequence[WeightedShadowRegion],
+    width_cm: float,
+    depth_cm: float,
+    multiplier: tuple[float, float, float] = SHADE_MULTIPLIER,
+) -> Mesh:
+    """The shadow overlay's polygons (or weighted shadow regions) as one flat mesh on the plan.
+
+    Every region is triangulated exactly (``polygon.triangulate_region``); one the
+    triangulator refuses — a hole that touches its outer ring, a region beyond the
+    work bound — is laid as row runs of a ``FALLBACK_STEP_CM`` raster instead and
+    logged at DEBUG: the drape never loses a shadow it was given. When given
+    ``WeightedShadowRegion``s (#440), each region interpolates its linear RGB vertex
+    multiplier between ``1.0`` (unshaded) and ``multiplier`` (opaque) by ``occlusion``.
+    """
+    if not polygons:
+        return Mesh.empty()
+    weighted_inputs: list[tuple[Sequence[Polygon], tuple[float, float, float]]] = []
+    if isinstance(polygons[0], WeightedShadowRegion):
+        for reg in polygons:
+            assert isinstance(reg, WeightedShadowRegion)
+            if not reg.polygons or reg.occlusion <= 0.0:
+                continue
+            occ = min(1.0, max(0.0, float(reg.occlusion)))
+            reg_mult = (
+                1.0 - occ * (1.0 - multiplier[0]),
+                1.0 - occ * (1.0 - multiplier[1]),
+                1.0 - occ * (1.0 - multiplier[2]),
+            )
+            weighted_inputs.append((reg.polygons, reg_mult))
+    else:
+        weighted_inputs.append((polygons, multiplier))  # type: ignore[arg-type]
+
     positions: list[_F64] = []
     triangles: list[NDArray[np.int64]] = []
+    color_blocks: list[_F64] = []
     count = 0
-    for xy, indices in pieces:
-        if not len(indices):
-            continue
-        positions.append(xy)
-        triangles.append(indices + count)
-        count += len(xy)
+    for poly_seq, reg_mult in weighted_inputs:
+        pieces = _triangulate_clipped_polygons(poly_seq, width_cm, depth_cm)
+        for xy, indices in pieces:
+            if not len(indices):
+                continue
+            positions.append(xy)
+            triangles.append(indices + count)
+            color_blocks.append(
+                np.tile(np.asarray((*reg_mult, 1.0), dtype=np.float64), (len(xy), 1))
+            )
+            count += len(xy)
     if not count:
         return Mesh.empty()
     xy = np.concatenate(positions)
     full = np.zeros((count, 3))
     full[:, :2] = xy
     full[:, 2] = DRAPE_LIFT_CM
-    colors = np.tile(np.asarray((*multiplier, 1.0), dtype=np.float64), (count, 1))
+    colors = np.concatenate(color_blocks)
     return Mesh.from_arrays(full, _up_normals(count), colors, np.zeros((count, 2)),
                             np.concatenate(triangles))
 

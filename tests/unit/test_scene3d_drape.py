@@ -37,6 +37,7 @@ from open_garden_planner.core.shade_aggregation import (
     daylight_samples,
     point_rasterizer_reference,
 )
+from open_garden_planner.core.shadow_geometry import WeightedShadowRegion
 from open_garden_planner.models.plant_data import SunRequirement
 from open_garden_planner.services.sun_mismatch_service import band_of
 
@@ -141,6 +142,19 @@ class TestShadowDrape:
         # the vertex colour is the shade layer's MULTIPLIER, linear, opaque
         np.testing.assert_allclose(mesh.colors, np.tile((*SHADE_MULTIPLIER, 1.0), (mesh.vertex_count, 1)),
                                    atol=1e-12)
+        mesh.validate()
+
+    def test_weighted_shadow_region_multiplies_linear_color_by_occlusion(self) -> None:
+        # A weighted region with 40% occlusion (60% transmittance)
+        reg = WeightedShadowRegion([square(100.0, 100.0, 100.0)], occlusion=0.4, transmittance=0.6)
+        mesh = shadow_drape([reg], 1000.0, 800.0)
+        assert mesh.vertex_count > 0
+        expected_mult = tuple(1.0 - 0.4 * (1.0 - c) for c in SHADE_MULTIPLIER) + (1.0,)
+        np.testing.assert_allclose(
+            mesh.colors,
+            np.tile(expected_mult, (mesh.vertex_count, 1)),
+            atol=1e-5,
+        )
         mesh.validate()
 
     def test_a_shadow_is_cut_at_the_plan_edge_as_the_canvas_cuts_it(self) -> None:
@@ -314,6 +328,48 @@ class TestProgressiveMap:
         assert result.sample_shade is None
         sun_map = SunHoursMap(self.day, self.grid, result.minutes, 900.0, samples=result.samples)
         assert not sun_map.progressive and sun_map.minutes_through(1439, self.BERLIN) is None
+
+    def test_fractional_samples_progressive_sweep(self) -> None:
+        fence = IdentifiedCaster(
+            "fence",
+            (((-100.0, 0.0), (500.0, 0.0), (500.0, 10.0), (-100.0, 10.0)),),
+            150.0,
+            fence_style="WOODEN_FENCE",
+            fence_points=((-100.0, 5.0), (500.0, 5.0)),
+        )
+        res = compute_sun_exposure(
+            [fence],
+            (),
+            self.lat,
+            self.lon,
+            self.day,
+            self.grid,
+            point_rasterizer_reference,
+            include_sample_masks=True,
+        )
+        assert res is not None
+        assert res.sample_transmittance is not None
+        sun_map = SunHoursMap(
+            self.day,
+            self.grid,
+            res.minutes,
+            float(len(res.samples) * SAMPLE_STEP_MINUTES),
+            samples=res.samples,
+            sample_shade=res.sample_shade,
+            sample_transmittance=res.sample_transmittance,
+        )
+        assert sun_map.progressive
+        # Sweeping to end of day accumulates to the whole day's fractional minutes
+        np.testing.assert_allclose(
+            sun_map.minutes_through(24 * 60 - 1, self.BERLIN),
+            sun_map.minutes,
+            atol=1e-4,
+        )
+        # sample_sun_factor returns float array in [0, 1]
+        factor = sun_map.sample_sun_factor(0)
+        assert factor.shape == (self.grid.rows, self.grid.cols)
+        assert np.all((factor >= 0.0) & (factor <= 1.0))
+
 
 
 class TestHeatmapMaskCoordination:

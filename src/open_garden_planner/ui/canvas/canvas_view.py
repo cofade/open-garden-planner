@@ -69,12 +69,14 @@ from open_garden_planner.core.alignment import (
     align_items,
     distribute_items,
 )
-from open_garden_planner.core.commands import bed_child_has_constraints
+from open_garden_planner.core.commands import (
+    bed_child_has_constraints,
+    iter_plant_parents,
+)
 from open_garden_planner.core.coordinate_input import CoordinateInputBuffer
 from open_garden_planner.core.object_types import (
     ObjectType,
     is_bed_type,
-    is_plant_parent_type,
 )
 from open_garden_planner.core.snap import (
     PointSnapper,
@@ -3303,10 +3305,8 @@ class CanvasView(QGraphicsView):
         # Check for plant-parents (beds/containers/trellises) with children
         beds_with_children = [
             item
-            for item in selected
-            if isinstance(item, GardenItemMixin)
-            and is_plant_parent_type(item.object_type)
-            and item.has_children
+            for item in iter_plant_parents(selected)
+            if item.has_children
         ]
 
         if beds_with_children:
@@ -3447,22 +3447,19 @@ class CanvasView(QGraphicsView):
         if not selected:
             return
 
-        # Include child plants of any selected beds
+        # Include child plants of any selected beds (including group child beds)
         selected_set = {id(i) for i in selected}
         extra_children: list[QGraphicsItem] = []
-        for item in selected:
-            if isinstance(item, GardenItemMixin) and is_plant_parent_type(
-                item.object_type
-            ):
-                for child_id in item.child_item_ids:
-                    child = self._canvas_scene.find_item_by_id(child_id)
-                    if (
-                        child is not None
-                        and id(child) not in selected_set
-                        and not bed_child_has_constraints(self._canvas_scene, child_id)
-                    ):
-                        extra_children.append(child)
-                        selected_set.add(id(child))
+        for parent in iter_plant_parents(selected):
+            for child_id in parent.child_item_ids:
+                child = self._canvas_scene.find_item_by_id(child_id)
+                if (
+                    child is not None
+                    and id(child) not in selected_set
+                    and not bed_child_has_constraints(self._canvas_scene, child_id)
+                ):
+                    extra_children.append(child)
+                    selected_set.add(id(child))
         selected.extend(extra_children)
 
         # Determine move distance: 1cm precision with Shift, otherwise grid size
@@ -3566,30 +3563,25 @@ class CanvasView(QGraphicsView):
                 item_deltas.append((item, delta))
 
         # Propagate parent (bed/container/trellis) movement to child plants
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
         child_start_positions: dict[QGraphicsItem, QPointF] = {}
         for item, delta in list(item_deltas):
-            if not isinstance(item, GardenItemMixin) or not is_plant_parent_type(
-                item.object_type
-            ):
-                continue
-            for child_id in item.child_item_ids:
-                child = self._canvas_scene.find_item_by_id(child_id)
-                if child is None or bed_child_has_constraints(self._canvas_scene, child_id):
-                    continue
-                # Skip if child is already being dragged independently
-                if child in self._drag_start_positions:
-                    continue
-                if child in self._constraint_propagated_starts:
-                    continue
-                if child in child_start_positions:
-                    continue
-                # Use the original position tracked during drag, not
-                # child.pos() which already includes the visual offset.
-                child_start_pos = self._child_drag_origins.get(child, child.pos())
-                child_start_positions[child] = child_start_pos
-                item_deltas.append((child, delta))
+            for parent in iter_plant_parents([item]):
+                for child_id in parent.child_item_ids:
+                    child = self._canvas_scene.find_item_by_id(child_id)
+                    if child is None or bed_child_has_constraints(self._canvas_scene, child_id):
+                        continue
+                    # Skip if child is already being dragged independently
+                    if child in self._drag_start_positions:
+                        continue
+                    if child in self._constraint_propagated_starts:
+                        continue
+                    if child in child_start_positions:
+                        continue
+                    # Use the original position tracked during drag, not
+                    # child.pos() which already includes the visual offset.
+                    child_start_pos = self._child_drag_origins.get(child, child.pos())
+                    child_start_positions[child] = child_start_pos
+                    item_deltas.append((child, delta))
 
         if item_deltas:
             # Ask the LINK question where the drag left everything - the FINAL
@@ -3640,31 +3632,29 @@ class CanvasView(QGraphicsView):
         if not self._drag_start_positions:
             return
 
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
         for item, start_pos in self._drag_start_positions.items():
-            if not isinstance(item, GardenItemMixin) or not is_plant_parent_type(
-                item.object_type
-            ):
+            parents = iter_plant_parents([item])
+            if not parents:
                 continue
             delta = item.pos() - start_pos
             if delta.x() == 0 and delta.y() == 0:
                 continue
-            for child_id in item.child_item_ids:
-                child = self._canvas_scene.find_item_by_id(child_id)
-                if (
-                    child is None
-                    or child in self._drag_start_positions
-                    or bed_child_has_constraints(self._canvas_scene, child_id)
-                ):
-                    continue
-                # Track the child's original position only once. On the first sighting
-                # it has NOT moved yet, so its position IS that origin - subtracting
-                # the parent's cumulative delta made the child lag the bed by the
-                # first frame's movement and put it back short on undo (#627 review).
-                if child not in self._child_drag_origins:
-                    self._child_drag_origins[child] = child.pos()
-                child.setPos(self._child_drag_origins[child] + delta)
+            for parent in parents:
+                for child_id in parent.child_item_ids:
+                    child = self._canvas_scene.find_item_by_id(child_id)
+                    if (
+                        child is None
+                        or child in self._drag_start_positions
+                        or bed_child_has_constraints(self._canvas_scene, child_id)
+                    ):
+                        continue
+                    # Track the child's original position only once. On the first sighting
+                    # it has NOT moved yet, so its position IS that origin - subtracting
+                    # the parent's cumulative delta made the child lag the bed by the
+                    # first frame's movement and put it back short on undo (#627 review).
+                    if child not in self._child_drag_origins:
+                        self._child_drag_origins[child] = child.pos()
+                    child.setPos(self._child_drag_origins[child] + delta)
 
     def _update_plant_bed_relationships(self) -> None:
         """Re-evaluate parent-child links for all selected plants at their CURRENT

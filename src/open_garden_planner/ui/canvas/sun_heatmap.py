@@ -460,9 +460,15 @@ class SunHeatmapController(QObject):
         self.exposure_changed.emit()
         full = result if isinstance(result, SunExposureResult) else None
         self._shown = SunHoursMap(
-            self._computed_day, grid, minutes, self._daylight_minutes, SAMPLE_STEP_MINUTES,
+            self._computed_day,
+            grid,
+            minutes,
+            self._daylight_minutes,
+            SAMPLE_STEP_MINUTES,
             full.samples if full is not None else (),
-            full.sample_shade if full is not None else None)
+            full.sample_shade if full is not None else None,
+            full.sample_transmittance if full is not None else None,
+        )
         self.computed.emit(self._shown)
 
     def _on_worker_finished(self) -> None:  # GUI thread

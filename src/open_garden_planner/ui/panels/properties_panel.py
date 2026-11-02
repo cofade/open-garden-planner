@@ -1901,6 +1901,20 @@ class PropertiesPanel(QWidget):
             self._form_layout.addRow(note)
             return
 
+        version_mismatch = definition.version != getattr(
+            item, "symbol_version", definition.version
+        )
+        if version_mismatch:
+            note = QLabel(
+                self.tr(
+                    "Symbol definition version mismatch — saved geometry is read-only."
+                )
+            )
+            note.setWordWrap(True)
+            set_text_role(note, color_role="caution")
+            note.setStyleSheet("font-size: 11px;")
+            self._form_layout.addRow(note)
+
         for param in definition.parameters:
             current = item.params.get(param.name, param.default)
             widget: QWidget
@@ -1949,27 +1963,48 @@ class PropertiesPanel(QWidget):
                     ),
                 )
                 widget = spin
+            if version_mismatch:
+                widget.setEnabled(False)
             self._form_layout.addRow(param.display_label(lang) + ":", widget)
 
     def _on_symbol_param_changed(self, item: QGraphicsItem, name: str, value) -> None:
         """Commit an undoable smart-symbol parameter change + regenerate."""
         if self._updating:
             return
+        can_edit = getattr(item, "can_edit_parameters", None)
+        if callable(can_edit) and not can_edit():
+            self._history_refresh = True
+            try:
+                self._refresh_field_values()
+            finally:
+                self._history_refresh = False
+            return
         old = item.params.get(name)
         if old == value:
             return
 
-        def apply(it, val) -> None:
-            it.params[name] = val
-            it.regenerate_geometry()
+        candidate = dict(item.params)
+        candidate[name] = value
+        validate = getattr(item, "validate_params", None)
+        if callable(validate) and not validate(candidate):
+            self._show_status_message(
+                self.tr("Invalid symbol parameter value — geometry unchanged."),
+                item,
+            )
+            self._history_refresh = True
+            try:
+                self._refresh_field_values()
+            finally:
+                self._history_refresh = False
+            return
 
-        from open_garden_planner.core.commands import ChangePropertyCommand
+        from open_garden_planner.core.commands import ChangeSmartSymbolParamCommand
 
-        cmd = ChangePropertyCommand(item, f"param:{name}", old, value, apply_func=apply)
+        cmd = ChangeSmartSymbolParamCommand(item, name, old, value)
         if self._command_manager is not None:
             self._command_manager.execute(cmd)
         else:
-            apply(item, value)
+            cmd.execute()
 
     def _add_spacing_properties(self, item: QGraphicsItem) -> None:
         """Add plant spacing radius control (plant types only)."""
