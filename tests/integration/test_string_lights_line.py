@@ -196,6 +196,37 @@ def test_it_survives_save_and_load_as_a_line(qtbot) -> None:
     assert item.pen().widthF() == pytest.approx(12.0)
 
 
+def test_a_crafted_line_of_twenty_thousand_points_is_bounded(qtbot, monkeypatch) -> None:
+    """Security review of #389: a plan file can hold a string with any number of points.
+    The layout stands it on ``MAX_POSTS`` posts, a paint draws that layout from the
+    item's cache (the line is walked once, not on every paint), and its 3D model stays
+    inside its budget."""
+    from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.core.scene3d.builders.lights import string_triangle_budget
+    from open_garden_planner.core.string_lights import MAX_BULBS, MAX_POSTS
+    from open_garden_planner.ui.canvas.items import polyline_item
+
+    points = [(float(i) * 10.0, 30.0 * (i % 2)) for i in range(20_000)]
+    item = _string(points)
+    walks: list[int] = []
+    real = polyline_item.string_layout
+    monkeypatch.setattr(polyline_item, "string_layout",
+                        lambda pts: (walks.append(len(pts)), real(pts))[1])
+    _render(item)
+    _render(item)
+    assert walks == [20_000], "one walk of the line for two paints"
+    lay = item._lights_layout()
+    assert len(lay.posts) == MAX_POSTS and len(lay.bulbs) == MAX_BULBS
+    item._move_vertex_to(0, QPointF(-50.0, 0.0))
+    item._lights_layout()
+    assert len(walks) == 2, "a moved point lays the string out again"
+    from tests.unit.scene3d_builder_cases import line_record
+
+    record = line_record("STRING_LIGHTS", tuple(points[:4_000]), 250.0, width=12.0)
+    triangles = sum(part.mesh.triangle_count for part in production_registry().build(record))
+    assert triangles <= string_triangle_budget(record) <= 38 * MAX_POSTS + 96 * MAX_POSTS + 72 * MAX_BULBS
+
+
 def test_the_gallery_shows_a_painted_string(qtbot) -> None:
     """A string has no sprite: the gallery's picture is painted by the canvas's painter."""
     from open_garden_planner.ui.widgets.gallery_data import _furniture_items

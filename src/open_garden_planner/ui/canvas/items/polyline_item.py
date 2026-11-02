@@ -26,6 +26,7 @@ from open_garden_planner.core.object_types import (
     PathFenceStyle,
     get_style,
 )
+from open_garden_planner.core.string_lights import Layout
 
 from .garden_item import GardenItemMixin, is_interactive_paint
 from .path_style_paint import (
@@ -36,7 +37,7 @@ from .path_style_paint import (
     style_paint_reach,
 )
 from .resize_handle import PolylineVertexEditMixin, RotationHandleMixin
-from .string_lights_paint import paint_string_lights
+from .string_lights_paint import paint_string_lights, string_layout
 from .string_lights_paint import reach as string_lights_reach
 
 #: The most elements ONE interactive paint of a styled line may generate. A
@@ -88,6 +89,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         QGraphicsPathItem.__init__(self, path)
 
         self._points = points.copy()
+        #: A string of lights' layout and the path it was made for (``_lights_layout``)
+        self._lights_cache: tuple[QPainterPath, Layout] | None = None
 
         # Initialize rotation handle and vertex editing
         self.init_rotation_handle()
@@ -247,7 +250,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # A string of lights (L5.4): its posts, wire and bulbs — no style, no drop
         # shadow (a 12 cm dark band beside a wire; the owner's manual test of #389)
         if self.object_type == ObjectType.STRING_LIGHTS:
-            paint_string_lights(painter, self._points, self.pen().widthF(), self.pen().color())
+            paint_string_lights(painter, self._lights_layout(), self.pen().widthF(),
+                                self.pen().color())
             self._paint_selection(painter, option)
             return
 
@@ -290,6 +294,17 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             self._paint_selection(painter, option)
         else:
             super().paint(painter, option, widget)
+
+    def _lights_layout(self) -> Layout:
+        """The string of lights' layout, made again only when its line changed: the
+        line's path is rebuilt on every change of its points, and Qt compares two paths
+        in C++. A paint never walks a long line in Python (security review of #389)."""
+        path = self.path()
+        cached = self._lights_cache
+        if cached is None or cached[0] != path:
+            cached = (path, string_layout(self._points))
+            self._lights_cache = cached
+        return cached[1]
 
     def _render_walk_clip(self) -> tuple[float, float, float, float] | None:
         """A whole-item clip when a caller has capped a small-surface render.

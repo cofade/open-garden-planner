@@ -33,6 +33,11 @@ BULB_SPACING_CM: Final = 40.0
 MAX_BULBS: Final = 120
 #: Two points of the line closer than this are one post.
 MERGE_CM: Final = 1.0
+#: The most posts one string stands on. A line with more points (a real string has a
+#: few dozen; a crafted plan can hold millions — the security review of #389) keeps
+#: ``MAX_POSTS`` of them, evenly chosen, its first and last among them, and the wire runs
+#: straight between them. This bounds the canvas's picture, the 3D model and the lights.
+MAX_POSTS: Final = 512
 
 Point = tuple[float, float]
 
@@ -82,8 +87,8 @@ EMPTY: Final = Layout((), (), ())
 
 def _posts(points: Sequence[Point]) -> tuple[list[Point], bool]:
     """The posts of a line: its finite points, a point within ``MERGE_CM`` of the
-    previous one merged into it; and whether the line closes on itself (its last
-    point is its first — that post is then not repeated)."""
+    previous one merged into it, at most ``MAX_POSTS`` of them; and whether the line
+    closes on itself (its last point is its first — that post is then not repeated)."""
     posts: list[Point] = []
     for x, y in points:
         x, y = float(x), float(y)
@@ -96,6 +101,9 @@ def _posts(points: Sequence[Point]) -> tuple[list[Point], bool]:
               and math.hypot(posts[0][0] - posts[-1][0], posts[0][1] - posts[-1][1]) < MERGE_CM)
     if closed:
         posts.pop()
+    if len(posts) > MAX_POSTS:
+        last = len(posts) - 1
+        posts = [posts[round(i * last / (MAX_POSTS - 1))] for i in range(MAX_POSTS)]
     return posts, closed
 
 

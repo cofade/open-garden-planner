@@ -50,11 +50,11 @@ def string_layout(points: Sequence[QPointF]) -> Layout:
     return layout([(p.x(), p.y()) for p in points])
 
 
-def paint_string_lights(painter: QPainter, points: Sequence[QPointF], width: float,
-                        wire: QColor) -> None:
-    """Paint a string drawn through ``points`` (item-local cm) with the stroke
-    ``width`` and the wire colour ``wire`` (the line's pen colour)."""
-    lay = string_layout(points)
+def paint_string_lights(painter: QPainter, lay: Layout, width: float, wire: QColor) -> None:
+    """Paint a string laid out as ``lay`` (item-local cm; ``string_layout`` — the item
+    keeps it, a paint never walks the line) with the stroke ``width`` and the wire colour
+    ``wire`` (the line's pen colour). At most ``MAX_POSTS`` posts and ``MAX_BULBS``
+    bulbs: bounded whatever the line."""
     w = width if width > 0.0 else 12.0
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)

@@ -130,7 +130,10 @@ def render_string_lights_thumbnail(size: int = THUMB_SIZE) -> QPixmap:
     thumbnail size."""
     from PyQt6.QtCore import QPointF
 
-    from open_garden_planner.ui.canvas.items.string_lights_paint import paint_string_lights
+    from open_garden_planner.ui.canvas.items.string_lights_paint import (
+        paint_string_lights,
+        string_layout,
+    )
 
     image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.transparent)
@@ -138,7 +141,8 @@ def render_string_lights_thumbnail(size: int = THUMB_SIZE) -> QPixmap:
     painter.scale(size / 160.0, size / 160.0)
     style = OBJECT_STYLES[ObjectType.STRING_LIGHTS]
     points = [QPointF(14.0, 104.0), QPointF(80.0, 60.0), QPointF(146.0, 104.0)]
-    paint_string_lights(painter, points, 2.0 * style.stroke_width, style.stroke_color)
+    paint_string_lights(painter, string_layout(points), 2.0 * style.stroke_width,
+                        style.stroke_color)
     painter.end()
     return QPixmap.fromImage(image)
 
