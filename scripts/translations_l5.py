@@ -33,10 +33,15 @@ DE = {
         "Mood: {mood}": "Stimmung: {mood}",
         "Morning dew": "Morgentau",
         "Night": "Nacht",
-        "No forecast for the plan date: today's weather needs the plan date to be today "
-        "and a garden location with a forecast.":
-            "Keine Vorhersage für das Plandatum: Das heutige Wetter braucht heute als "
-            "Plandatum und einen Gartenstandort mit Vorhersage.",
+        "Today's weather follows the forecast only while the plan date is today; on any "
+        "other date the sky is clear.":
+            "Das heutige Wetter folgt der Vorhersage nur, solange das Plandatum heute ist; an "
+            "jedem anderen Datum ist der Himmel klar.",
+        "Today's weather needs a garden location for its forecast.":
+            "Das heutige Wetter braucht für seine Vorhersage einen Gartenstandort.",
+        "The forecast for today is not loaded yet, or could not be fetched.":
+            "Die Vorhersage für heute ist noch nicht geladen oder konnte nicht abgerufen "
+            "werden.",
         "Overcast": "Bedeckt",
         "Rain": "Regen",
         "Rain: a grey sky, wet leaves and ground, falling rain":
@@ -95,10 +100,14 @@ ES = {
         "Mood: {mood}": "Ambiente: {mood}",
         "Morning dew": "Rocío matinal",
         "Night": "Noche",
-        "No forecast for the plan date: today's weather needs the plan date to be today "
-        "and a garden location with a forecast.":
-            "No hay previsión para la fecha del plano: el tiempo de hoy necesita que la "
-            "fecha del plano sea hoy y una ubicación del jardín con previsión.",
+        "Today's weather follows the forecast only while the plan date is today; on any "
+        "other date the sky is clear.":
+            "El tiempo de hoy sigue la previsión solo mientras la fecha del plano sea hoy; en "
+            "cualquier otra fecha el cielo está despejado.",
+        "Today's weather needs a garden location for its forecast.":
+            "El tiempo de hoy necesita una ubicación del jardín para su previsión.",
+        "The forecast for today is not loaded yet, or could not be fetched.":
+            "La previsión de hoy aún no se ha cargado o no se pudo obtener.",
         "Overcast": "Nublado",
         "Rain": "Lluvia",
         "Rain: a grey sky, wet leaves and ground, falling rain":

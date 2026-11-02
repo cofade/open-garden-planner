@@ -373,6 +373,34 @@ class TestSceneFile:
         host.set_look(NEUTRAL_DAY)
         _assert_look_shown(host, NEUTRAL_DAY)
 
+    def test_rain_that_cannot_load_is_said_once_and_keeps_the_moon(self, host, monkeypatch,
+                                                                  caplog) -> None:
+        """Senior review of L5: a precipitation that cannot be loaded must not keep the key
+        light from changing hands at dusk, nor fail the look again on every pass — it is
+        logged once and the weather shows without it."""
+        from open_garden_planner.core.scene3d.weather import living_look
+        from open_garden_planner.ui.view3d.quick3d.host import EngineError
+
+        tries: list[int] = []
+
+        def broken() -> None:
+            tries.append(1)
+            raise EngineError("no precipitation here")
+
+        monkeypatch.setattr(host, "_load_precipitation", broken)
+        lit: list[int] = []
+        real_light = host._apply_light
+        monkeypatch.setattr(host, "_apply_light", lambda: (lit.append(1), real_light())[1])
+        with caplog.at_level("ERROR"):
+            night = living_look(SunState(-20.0, 10.0), "medium", "rain")
+            host.set_look(night)                          # dusk: the moon takes over
+            host.set_look(living_look(SunState(-21.0, 12.0), "medium", "rain"))
+        assert host.look.atmosphere.precipitation == "rain"
+        assert lit, "the key light changed hands although the rain failed"
+        assert tries == [1], "tried once on this host"
+        errors = [r for r in caplog.records if "rain and snow could not be loaded" in r.getMessage()]
+        assert len(errors) == 1
+
     def test_a_look_builds_no_sky_and_touches_no_model_and_no_camera(self, host) -> None:
         """G6's engine half: a change of look (a preset step) writes look properties and
         nothing else — no geometry, no camera, no sky."""

@@ -292,6 +292,22 @@ def test_the_ground_takes_one_set_of_values() -> None:
         (1.0, 1.0, 1.0), 1.0, 0.15)
 
 
+def test_the_ground_shaders_snow_is_the_weathers() -> None:
+    """Drift guard (senior review of L5): ``ground.frag``'s snow colour is
+    ``weather.SNOW_LINEAR`` — the meadow's snow (``apply_weather``) and the plan's tiles
+    meet without a step only while they are one colour."""
+    import re
+    from pathlib import Path
+
+    from open_garden_planner.core.scene3d.weather import SNOW_LINEAR
+
+    qml = Path(__file__).resolve().parents[2] / "src/open_garden_planner/ui/view3d/quick3d/qml"
+    found = re.search(r"mix\(albedo, vec3\(([^)]*)\), uSnowCover\)",
+                      (qml / "ground.frag").read_text(encoding="utf-8"))
+    assert found, "ground.frag mixes its snow in as it did"
+    assert tuple(float(v) for v in found.group(1).split(",")) == SNOW_LINEAR
+
+
 # ── the moods ────────────────────────────────────────────────────────────────
 
 

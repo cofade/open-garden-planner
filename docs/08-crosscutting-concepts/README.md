@@ -147,7 +147,7 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 - Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
 
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
-- **Generated, never hand-edited**: all 24 furniture + infrastructure sprites are emitted by `scripts/generate_object_sprites.py` in the "Lush Object" style (the man-made sibling of the plant art); committed files must byte-match regeneration (`--check` + determinism test). See §8.23.
+- **Generated, never hand-edited**: all 26 furniture + infrastructure sprites are emitted by `scripts/generate_object_sprites.py` in the "Lush Object" style (the man-made sibling of the plant art); committed files must byte-match regeneration (`--check` + determinism test). See §8.23.
 - Top-down, light from straight above, **no baked shadow** (the item-level painted shadow is the single source — furniture rotation is user-controlled); QtSvg-subset only; viewBox = nominal footprint in cm (gate-read table); contract in `resources/objects/README.md`, provenance in `resources/objects/PROVENANCE.md`
 - Consumed unchanged by `core/furniture_renderer.py` (cached pixmaps, stretched to the item rect); gallery thumbnails letterbox by viewBox aspect
 
@@ -2275,6 +2275,16 @@ audit evidence for the command, machine and measured limitations.
   tier only answers what needs the engine.
 - **The playback is driven through the real toolbar and the real clock**, the menu's actions
   triggered, the timer itself run once — not a step function called in isolation.
+- **A path the stand-in bench does not build is driven through the production seam.** The
+  workspace builds its Plant Forge only for the real engine factory, so a bench never ran the
+  forge → `season_sink` → coordinator → `set_ambient` path the garden's life takes. The test
+  patches the module's `quick3d_engine` to the bench's factory (`test_plant_forge_workspace`'s
+  documented seam), draws real plants and changes the date — and was observed failing with
+  `season_sink` wired past the coordinator.
+- **A reload into a live geometry is judged in pixels.** ADR-069 withdrew an in-place reload
+  that drew a replaced geometry as nothing; `scenario_reload` loads glow A, nothing, glow B into
+  the same host and reads each frame back (GPU and WARP). Place the probes over open ground: the
+  first cut put A behind a tree and read "nothing drawn" for a reload that worked.
 
 ## 8.11 Security Scanning (SAST)
 
@@ -4118,7 +4128,7 @@ each sprite's `viewBox` is `0 0 W H` with `(W, H)` = `FURNITURE_DEFAULT_DIMENSIO
 in cm — a gate-read metadata table (no production code sizes objects from it;
 users size by dragging), pinned by the gate — the canvas stretches the art to
 the user's rect; circle-tool objects (`table_round`, `parasol`, `fire_pit`, `planter_pot`,
-`bbq_grill`, `rain_barrel`, `water_tap`, `trampoline`, `bird_bath`) therefore
+`bbq_grill`, `rain_barrel`, `water_tap`, `trampoline`, `bird_bath`, `garden_light`) therefore
 ship **square** art (a circle item renders into a square footprint — the BBQ's
 old 80×60 art was stretched on every canvas until #308).
 

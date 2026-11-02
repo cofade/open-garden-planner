@@ -133,6 +133,7 @@ from open_garden_planner.core.fill_patterns import (
     pattern_from_name,
     tinted_pattern_pixels,
 )
+from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d import (
     EngineBuffers,
     EnginePose,
@@ -958,6 +959,8 @@ class Quick3DHost:
     #: How often each was loaded (the gates read them).
     precipitation_loads = 0
     ambient_loads = 0
+    #: The precipitation could not be loaded on this host: not tried again.
+    _precipitation_failed = False
 
     def _load_precipitation(self) -> None:
         """Load the precipitation's buffer (the same for every plan) into the scene's
@@ -1355,10 +1358,17 @@ class Quick3DHost:
                 value = QVector3D(float(x), float(y), float(z))
             _set(self._root, name, value)
         previous, self._shown_look = self._shown_look, look
-        if look.atmosphere.precipitation != "none":
-            self._load_precipitation()   # the first rain or snow of this host
         if look.moon_travel_scene != previous.moon_travel_scene:
             self._apply_light()   # dusk or dawn: the key light changes hands
+        if look.atmosphere.precipitation != "none" and not self._precipitation_failed:
+            try:
+                self._load_precipitation()   # the first rain or snow of this host
+            except EngineError as error:
+                # the look is on screen without its rain: said ONCE, not on every pass
+                # (the caller would retry the whole look, senior review of L5)
+                self._precipitation_failed = True
+                _LOG.error("3D view: the rain and snow could not be loaded; the weather "
+                           "shows without them (%s)", log_text(error))
 
     @property
     def look(self) -> LookSpec:

@@ -21,6 +21,11 @@ Scenarios:
                 round (``scenario_frame_cost`` says why), the look without the living
                 garden against clear, rain and snow with the garden's life.
 ``stills``      a frame of each weather on the plan (the reviewer's look, in a window).
+``reload``      the ambient buffer loaded AGAIN into the same live host — a bulb's glow
+                at one place, then nothing, then a glow at another place — each frame
+                read back. ADR-069 withdrew an in-place reload that drew a replaced
+                geometry as nothing; the product reloads this buffer on every date step
+                and every light edit (senior review of L5).
 """
 
 from __future__ import annotations
@@ -268,10 +273,58 @@ def scenario_stills(ctx: Context) -> dict[str, Any]:
         pump(100)
 
 
+#: The two glows of ``reload``, scene cm (east, north, up): over open lawn in the hero
+#: camera's view (its target itself lies behind the poplar).
+RELOAD_AT: tuple[tuple[float, float, float], ...] = ((1300.0, 500.0, 140.0), (2000.0, 800.0, 140.0))
+
+
+def _warm(image: Any) -> dict[str, Any]:
+    """How many pixels of a frame are a bulb's warm glow, and where their middle is (the
+    self-test's own measure: red and green bright, blue well below green)."""
+    import numpy as np
+    from PyQt6.QtGui import QImage
+
+    frame = image.convertToFormat(QImage.Format.Format_RGBA8888)
+    width, height = frame.width(), frame.height()
+    data = np.frombuffer(frame.constBits().asstring(frame.sizeInBytes()), dtype=np.uint8)
+    rgb = data.reshape(height, frame.bytesPerLine() // 4, 4)[:, :width, :3].astype(np.int32)
+    warm = (rgb[..., 0] >= 170) & (rgb[..., 1] >= 110) & (rgb[..., 2] + 30 < rgb[..., 1])
+    ys, xs = np.nonzero(warm)
+    return {"pixels": int(warm.sum()),
+            "middle": [round(float(xs.mean()), 1), round(float(ys.mean()), 1)] if len(xs) else None}
+
+
+def scenario_reload(ctx: Context) -> dict[str, Any]:
+    """The ambient buffer reloaded into the same live host: A, nothing, B."""
+    from open_garden_planner.core.scene3d import SunState
+    from open_garden_planner.core.scene3d.particles import Emitter, ambient_buffers
+    from open_garden_planner.core.scene3d.weather import living_look
+
+    records, seasons, latitude = _plan()
+    host = _host(ctx)
+    try:
+        _scene(host, records, seasons, latitude)
+        night = SunState(-14.0, 320.0)
+        host.set_look(living_look(night, "medium", "clear"))
+        host.set_lamps([])                        # the glows alone: no pool of light
+        frames: dict[str, Any] = {}
+        loads = [("a", RELOAD_AT[0]), ("none", None), ("b", RELOAD_AT[1])]
+        for name, at in loads:
+            emitters = () if at is None else (Emitter("bulb", name, at[0], at[1], at[2], at[2], 60.0, 1),)
+            host.set_ambient(ambient_buffers(emitters))
+            image = host.grab(f"reload_{name}")
+            frames[name] = {**_warm(image), "file": ctx.save(f"reload_{name}", image)}
+        return {"frames": frames, "ambient_loads": host.ambient_loads, "health": _health(host)}
+    finally:
+        host.close()
+        pump(100)
+
+
 SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "idle": scenario_idle,
     "frame_cost": scenario_frame_cost,
     "stills": scenario_stills,
+    "reload": scenario_reload,
 }
 
 

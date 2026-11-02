@@ -904,11 +904,12 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   presents no frame. While the 3D pane is hidden nothing ticks. In compatibility mode
   (software rendering) they are drawn still. On the graphics card at Medium the particles
   cost at most 15 % of a frame (measured: rain +3.7 %, snow +1.9 %).
-- **FR-3D-LIVE-06** (L5.3): **Today's Weather** follows the forecast the app already shows
-  in the Planting Calendar (Open-Meteo; the 3D view fetches nothing) — clear, overcast,
-  rain or snow from the day's weather code — **only while the plan date is today**; on any
-  other date, or without a forecast (no garden location, offline), it shows clear and its
-  tooltip says why.
+- **FR-3D-LIVE-06** (L5.3): **Today's Weather** follows the forecast the app shows in the
+  Planting Calendar (Open-Meteo, one fetch path: choosing Today's Weather asks the calendar's
+  weather widget for it, also while that tab is hidden) — clear, overcast, rain or snow from
+  the day's weather code — **only while the plan date is today**; on any other date, or
+  without a forecast (no garden location, offline, not loaded yet), it shows clear and its
+  tooltip says which. A new location or document forgets the old forecast.
 - **FR-3D-LIVE-07** (L5.4): **Garden Light** (a lantern on a post; circle tool) and **String
   Lights** (a string of bulbs between two posts; rectangle tool) are placeable objects with
   their own sprite, gallery entry, translated name, Change Type membership for their shape,

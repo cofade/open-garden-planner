@@ -5,9 +5,10 @@ coordinators of the workspace it is told the host and the look controller by
 ``Workspace`` and imports no Qt Quick binding.
 
 - **The weather** — Clear, Overcast, Rain, Snow, and Today's Weather (L5.3): the
-  forecast the app already fetched (``set_forecast``; the Planting Calendar's weather
-  widget — the 3D view fetches nothing itself), ONLY while the plan date is today
-  (``weather.todays_weather``). The choice goes to ``LookController.set_weather``;
+  forecast the app fetched (``set_forecast``; the Planting Calendar's weather widget —
+  the 3D view fetches nothing itself, it ASKS: ``forecast_wanted`` when Today's Weather
+  is chosen, and again for a new location or document, which also forget the old
+  forecast), ONLY while the plan date is today (``weather.todays_weather``). The choice goes to ``LookController.set_weather``;
   the look, the sky, the particles and the wind follow from it there. The button
   names the weather shown; its tooltip names the frame's mood (``weather.mood_of``).
   While an Analyze drape lies on the ground (``set_analysing``, from the workspace)
@@ -37,12 +38,18 @@ from collections.abc import Callable, Iterable, Mapping
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
 
-from PyQt6.QtCore import QCoreApplication, QObject, Qt
+from PyQt6.QtCore import QCoreApplication, QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import QMenu, QToolButton, QWidget
 
+from open_garden_planner.core.phenology import DEFAULT_LATITUDE_DEG
 from open_garden_planner.core.plain_text import log_text
-from open_garden_planner.core.scene3d.lights import LampSource, lamp_sources, nearest_lamps
+from open_garden_planner.core.scene3d.lights import (
+    LIGHT_KINDS,
+    LampSource,
+    lamp_sources,
+    nearest_lamps,
+)
 from open_garden_planner.core.scene3d.particles import (
     Emitter,
     ambient_buffers,
@@ -60,8 +67,6 @@ if TYPE_CHECKING:
     from .workspace_protocols import EngineHost
 
 _LOG: Final = logging.getLogger(__name__)
-#: The latitude the Plant Forge assumes for a plan without a location (``workspace``).
-_DEFAULT_LATITUDE: Final = 52.52
 
 
 def _tr(text: str) -> str:
@@ -84,6 +89,10 @@ def mood_names() -> dict[str, str]:
 class WorkspaceLivingCoordinator(QObject):
     """The weather menu, the garden's life and its lights (module docstring)."""
 
+    #: Today's Weather needs a forecast: the app fetches one through the Planting
+    #: Calendar's weather widget (its one fetch path) and hands it to ``set_forecast``.
+    forecast_wanted = pyqtSignal()
+
     def __init__(self, get_host: Callable[[], EngineHost | None],
                  get_look: Callable[[], LookController | None],
                  get_records: Callable[[], Mapping[str, Any]],
@@ -101,6 +110,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._forecast: tuple[tuple[str, int], ...] = ()
         self._seasons: Mapping[str, PhenologyState] = {}
         self._sources: tuple[LampSource, ...] = ()
+        self._sources_read = False   # the lights were read from a full pass of this engine
         self._lit: tuple[tuple[float, float, float, float], ...] | None = None
         self._ambient_key: object = None
         self._target: tuple[float, float, float] = (0.0, 0.0, 0.0)
@@ -191,7 +201,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._update_todays()
         host = self._get_host()
         if host is not None:
-            self._call(host, "set_life_enabled", self._life)
+            self._send("set_life_enabled", lambda: host.set_life_enabled(self._life))
         self._lit = None
         self._ambient_key = None
         self._refresh_button()
@@ -202,6 +212,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._analysing = False
         self._seasons = {}
         self._sources = ()
+        self._sources_read = False
         self._lit = None
         self._ambient_key = None
 
@@ -214,7 +225,7 @@ class WorkspaceLivingCoordinator(QObject):
         return self._life
 
     def set_weather(self, weather: str) -> None:
-        """Pick a weather (``WEATHER_CHOICES``)."""
+        """Pick a weather (``WEATHER_CHOICES``). Today's Weather asks for the forecast."""
         if weather not in WEATHER_CHOICES:
             raise ValueError(f"a weather is one of {WEATHER_CHOICES}, got {weather!r}")
         self._weather = weather
@@ -222,7 +233,22 @@ class WorkspaceLivingCoordinator(QObject):
         look = self._get_look()
         if look is not None:
             look.set_weather(weather)
+        if weather == TODAY:
+            self.forecast_wanted.emit()
         self._refresh_button()
+
+    def place_changed(self) -> None:
+        """A new garden location or a new document: the forecast was another place's —
+        forget it, and ask again while Today's Weather is chosen."""
+        self._forecast = ()
+        self._update_todays()
+        if self._weather == TODAY:
+            self.forecast_wanted.emit()
+
+    @property
+    def forecast(self) -> tuple[tuple[str, int], ...]:
+        """The forecast's days the app last gave, ``(ISO date, WMO code)``."""
+        return self._forecast
 
     def set_analysing(self, analysing: bool) -> None:
         """An Analyze drape lies on the ground (True) or not: the weather pauses while it
@@ -242,7 +268,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._life_action.setChecked(self._life)
         host = self._get_host()
         if host is not None:
-            self._call(host, "set_life_enabled", self._life)
+            self._send("set_life_enabled", lambda: host.set_life_enabled(self._life))
 
     def set_forecast(self, days: Iterable[tuple[str, int]]) -> None:
         """The app's daily forecast: ``(ISO date, WMO code)`` — the Planting Calendar's
@@ -253,21 +279,24 @@ class WorkspaceLivingCoordinator(QObject):
     def season_sink(self, host: EngineHost) -> Callable[[Mapping[str, PhenologyState]], None]:
         """What the Plant Forge hands its phenology to: the host's plant seasons, then the
         garden's life (which plants flower, which drop their leaves)."""
-        forward = getattr(host, "set_plant_seasons", None)
 
         def sink(states: Mapping[str, PhenologyState]) -> None:
-            if callable(forward):
-                forward(states)
+            host.set_plant_seasons(states)
             self._seasons = dict(states)
             self._refresh_ambient()
 
         return sink
 
     def on_applied(self, report: TickReport) -> None:
-        """A pass went through: the lights may have moved, come or gone."""
+        """A pass went through: the lights may have moved, come or gone. They are read
+        again only when the pass touched a light (or the sync was reset): reading every
+        record costs ~40 ms for 500 lights, too much for every pass (ADR-069's slice)."""
         if report.ground_pass or not report.snapshot:
             return
+        if self._sources_read and not report.recovered and not self._touches_a_light(report):
+            return
         try:
+            self._sources_read = True
             sources = lamp_sources(self._get_records().values())
         except Exception as error:  # noqa: BLE001 - a plan's lights never take 3D down
             _LOG.warning("3D living garden: the garden lights could not be read (%s)",
@@ -278,6 +307,17 @@ class WorkspaceLivingCoordinator(QObject):
             self._refresh_ambient()
             self._lit = None
             self._send_lamps()
+
+    def _touches_a_light(self, report: TickReport) -> bool:
+        changes = report.changes
+        touched = {*changes.added, *changes.removed, *changes.transform, *changes.geometry,
+                   *changes.material}
+        if not touched:
+            return False
+        lit = {source.item_id for source in self._sources}
+        records = self._get_records()
+        return any(item_id in lit or getattr(records.get(item_id), "kind", None) in LIGHT_KINDS
+                   for item_id in touched)
 
     def camera_moved(self, target: tuple[float, float, float]) -> None:
         """The camera's target moved: the nearest lamps may be others."""
@@ -300,10 +340,22 @@ class WorkspaceLivingCoordinator(QObject):
         look.set_todays_weather(todays_weather(self._forecast, clock.plan_date, date.today()))
         self._refresh_button()
 
+    def _why_no_forecast(self) -> str:
+        """Why Today's Weather shows clear: the plan date, the location, or the forecast."""
+        clock = self._clock
+        if clock is not None and clock.plan_date != date.today():
+            return _tr("Today's weather follows the forecast only while the plan date is "
+                       "today; on any other date the sky is clear.")
+        location = self._get_location()
+        placed = isinstance(location, Mapping) and isinstance(location.get("latitude"), (int, float))
+        if not placed:
+            return _tr("Today's weather needs a garden location for its forecast.")
+        return _tr("The forecast for today is not loaded yet, or could not be fetched.")
+
     def _latitude(self) -> float:
         location = self._get_location()
         latitude = location.get("latitude") if isinstance(location, Mapping) else None
-        return float(latitude) if isinstance(latitude, (int, float)) else _DEFAULT_LATITUDE
+        return float(latitude) if isinstance(latitude, (int, float)) else DEFAULT_LATITUDE_DEG
 
     def _refresh_ambient(self) -> None:
         """Rebuild the ambient buffer when what it holds changed: the plants' life on
@@ -322,7 +374,8 @@ class WorkspaceLivingCoordinator(QObject):
             if key == self._ambient_key:
                 return
             self._ambient_key = key
-            self._call(host, "set_ambient", ambient_buffers((*emitters, *bulbs)))
+            buffers = ambient_buffers((*emitters, *bulbs))
+            self._send("set_ambient", lambda: host.set_ambient(buffers))
             self.ambient_sent += 1
         except Exception as error:  # noqa: BLE001 - the garden's life never takes 3D down
             _LOG.warning("3D living garden: the garden's life could not be updated (%s)",
@@ -336,15 +389,14 @@ class WorkspaceLivingCoordinator(QObject):
         if lit == self._lit:
             return
         self._lit = lit
-        self._call(host, "set_lamps", list(lit))
+        self._send("set_lamps", lambda: host.set_lamps(list(lit)))
         self.lamps_sent += 1
 
-    def _call(self, host: EngineHost, name: str, *arguments: object) -> None:
-        method = getattr(host, name, None)
-        if not callable(method):
-            return      # a stand-in host of the tests without the living garden
+    def _send(self, name: str, call: Callable[[], None]) -> None:
+        """Tell the host something (``EngineHost``'s living-garden methods): a host that
+        fails is a warning — the garden's life never takes 3D down."""
         try:
-            method(*arguments)
+            call()
         except Exception as error:  # noqa: BLE001 - as above
             _LOG.warning("3D living garden: %s failed (%s)", name, log_text(error))
 
@@ -353,10 +405,10 @@ class WorkspaceLivingCoordinator(QObject):
         if button is None:
             return
         look = self._get_look()
+        # no engine yet: nothing is shown, the choice is (Today's: clear, no forecast)
         wanted = look.weather_wanted if look is not None else (
             "clear" if self._weather == TODAY else self._weather)
-        paused = look.weather_paused if look is not None else (
-            self._analysing and wanted != "clear")
+        paused = look is not None and look.weather_paused
         names = weather_names()
         if self._weather == TODAY:
             text = _tr("Weather: Today ({weather})").format(weather=names[wanted])
@@ -373,6 +425,5 @@ class WorkspaceLivingCoordinator(QObject):
         if mood:
             tip.append(_tr("Mood: {mood}").format(mood=mood_names().get(mood, mood)))
         if self._weather == TODAY and (look is None or look.todays_weather is None):
-            tip.append(_tr("No forecast for the plan date: today's weather needs the plan "
-                           "date to be today and a garden location with a forecast."))
+            tip.append(self._why_no_forecast())
         button.setToolTip("\n".join(tip))

@@ -2383,8 +2383,10 @@ class GardenPlannerApp(QMainWindow):
         self.addAction(tasks_shortcut)
         # Reuse the calendar's single weather fetch for frost tasks.
         self.calendar_view.frost_alerts_ready.connect(self.tasks_view.set_frost_alerts)
-        # ... and for the 3D view's "Today's Weather" (Phase 17 L5.3): no second fetch.
+        # ... and for the 3D view's "Today's Weather" (Phase 17 L5.3): no second fetch —
+        # the 3D view asks the calendar's weather widget, also while its tab is hidden.
         self.calendar_view.forecast_days_ready.connect(self._workspace.set_weather_forecast)
+        self._workspace.forecast_wanted.connect(self.calendar_view.request_forecast)
         # ...and keep an application-owned copy for the agent's PlanState build
         # (US-D3.3). Reading `tasks_view._frost_alerts` from here would couple
         # the agent path to a private attribute of a widget; this is the same

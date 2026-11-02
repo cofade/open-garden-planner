@@ -96,6 +96,21 @@ def test_with_reduced_motion_the_idle_frame_counter_stays_at_zero(tmp_path: Path
     assert animated["wind_time"][1] > animated["wind_time"][0]
 
 
+def test_a_second_ambient_load_on_a_live_host_draws(tmp_path: Path) -> None:
+    """The product reloads the ambient buffer into the SAME live geometry on every date
+    step and every light edit. ADR-069 withdrew an in-place reload (#531) that drew a
+    replaced geometry as nothing while still picking it: here a bulb's glow shows at A,
+    is gone after an empty load, and shows at B — not at A — after the next."""
+    data = _ok(*run_scenario(tmp_path / "reload", "reload"))
+    frames = data["frames"]
+    assert frames["a"]["pixels"] >= 20, frames
+    assert frames["none"]["pixels"] < frames["a"]["pixels"] / 4, frames
+    assert frames["b"]["pixels"] >= 20, frames
+    (ax, ay), (bx, by) = frames["a"]["middle"], frames["b"]["middle"]
+    assert abs(ax - bx) + abs(ay - by) > 40.0, f"the glow moved with the buffer: {frames}"
+    assert data["ambient_loads"] >= 3
+
+
 @pytest.mark.perf
 def test_the_particles_cost_at_most_fifteen_percent_of_a_frame_at_medium(tmp_path: Path) -> None:
     data = _ok(*run_scenario(tmp_path / "cost", "frame_cost"))

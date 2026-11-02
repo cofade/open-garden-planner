@@ -9636,8 +9636,9 @@ cost (nothing animates there), and one canonical path per behaviour.
 
 **Consequences**: New modules `core/playback.py`, `core/scene3d/weather.py`, `particles.py`,
 `lights.py`, `builders/lights.py`, `ui/view3d/workspace_living.py`; shaders
-`precipitation.vert/.frag`, `ambient.vert/.frag`; two object types appended to
-`ObjectType`/`ToolType` (names serialized: older versions load them as generic shapes — no
+`precipitation.vert/.frag`, `ambient.vert/.frag`; two object types added to `ObjectType`
+(appended) and `ToolType` (beside the other furniture tools — `ToolType` values are never
+persisted; `ObjectType` NAMES are serialized: older versions load them as generic shapes — no
 `FILE_VERSION` bump); two sprites (§8.23 now 26 artifacts); `bench_built.ogp` gained one of
 each (appended last, every earlier id and seed kept). `LookSpec` gained `atmosphere`
 (`CLEAR_STILL` by default), `SkySpec` `cloud`. Measured (RTX 4070, Direct3D 11, bench_small at
@@ -9706,3 +9707,27 @@ specular is 0.25 (0.40 drew the plan edge as a 1.8-luma step at a golden hour). 
 #687: overcast contact shade, fading lamp pools, snow on roofs and bed soil, a dew ground mist,
 the leaf colour from the tree. Left to the owner (the PR): how far a weather may fade a shadow
 (rain keeps IoU 0.24 at 15°), the rain sky's brightness, whether snow may fall on any date.
+
+**Addendum (senior review, round 1)**: The garden's life had no end-to-end path under test:
+the test bench builds no Plant Forge, so `season_sink` never ran, and the tooling assembles
+the life by hand. `test_living_garden.py` now drives a lavender in flower and an oak turning
+through the PRODUCTION Plant Forge to the engine (June butterflies, October leaves, January
+nothing; it fails when `season_sink` bypasses the coordinator), and the render tier reloads
+the ambient buffer into the same live host (glow A, nothing, glow B — on the GPU and on WARP:
+ADR-069's withdrawn reload drew a replaced geometry as nothing). The living-garden host calls
+(`set_plant_seasons`, `set_ambient`, `set_life_enabled`, `set_lamps`) are declared in
+`EngineHost` — no silent fallback for a host without them. Today's Weather now works in the
+default flow: the 3D view ASKS for the forecast (`Workspace.forecast_wanted` →
+`PlantingCalendarView.request_forecast`, the weather part of the calendar's refresh, so still
+one fetch path) when Today's Weather is chosen and for a new location or document, which also
+forget the old forecast; the calendar emits an EMPTY forecast without a location or after a
+failed fetch, so no stale forecast is followed; the tooltip names which of the plan date,
+the location or the forecast is missing. Smaller: a precipitation that cannot be loaded no
+longer skips the moon's handover and is logged once; the lights are read again only when a
+pass touched a light (500 lights cost ~40 ms per pass); the drape's callback is disconnected
+before the analysis shuts down. Left as stated: a string of lights casts the solid 2D prism
+of its footprint (ADR-059's policy; 2 % of it is its 3D shadow) — an owner question. Measured
+for the review: a night frame with six lamps lit costs +2.3 % on the GPU and +11.9 % on WARP
+(bench_small, Medium, interleaved readbacks). Deferred to #689: the lamp pool's shader
+permutations at the first dusk, the wind clock's precision in long sessions, Today's Weather
+past midnight, the firefly season's date, one life assembly for the product and the tools.

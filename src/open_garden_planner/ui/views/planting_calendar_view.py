@@ -1119,7 +1119,9 @@ class PlantingCalendarView(QWidget):
     frost_alerts_ready = pyqtSignal(object)
     #: Emitted with the forecast's days as ``(ISO date, WMO code)`` after each weather
     #: fetch — the 3D view's "Today's Weather" (Phase 17 L5.3) follows this single
-    #: forecast and fetches nothing itself.
+    #: forecast and fetches nothing itself. Emitted EMPTY when there is no forecast to
+    #: follow: no location, or a fetch that failed — so no consumer keeps another
+    #: plan's or a stale forecast (senior review of L5).
     forecast_days_ready = pyqtSignal(object)
 
     def __init__(self, canvas_scene: Any, project_manager: Any, parent: QWidget | None = None) -> None:
@@ -1307,20 +1309,25 @@ class PlantingCalendarView(QWidget):
 
     # ── refresh ────────────────────────────────────────────────────────────────
 
-    def refresh(self) -> None:
-        """Rebuild the chart and dashboard from current canvas + project state."""
-        # Trigger weather fetch if location is available (US-12.1)
+    def request_forecast(self) -> None:
+        """Fetch the weather forecast for the plan's location (US-12.1) — or, without a
+        location, clear it (``forecast_days_ready`` empty). The weather part of
+        ``refresh`` alone: the 3D view's Today's Weather asks for it while this tab may
+        be hidden (L5.3). ONE fetch path; a fetch for the same place already on its way
+        is not started again (``WeatherWidget.refresh``)."""
         location = self._project_manager.location if hasattr(self._project_manager, "location") else None
-        if location:
-            lat = location.get("latitude")
-            lon = location.get("longitude")
-            if lat is not None and lon is not None:
-                self._weather.set_location(float(lat), float(lon))
-                self._weather.refresh()
-            else:
-                self._weather.set_location(None, None)
+        lat = location.get("latitude") if location else None
+        lon = location.get("longitude") if location else None
+        if lat is not None and lon is not None:
+            self._weather.set_location(float(lat), float(lon))
+            self._weather.refresh()
         else:
             self._weather.set_location(None, None)
+            self.forecast_days_ready.emit(())
+
+    def refresh(self) -> None:
+        """Rebuild the chart and dashboard from current canvas + project state."""
+        self.request_forecast()   # the weather fetch, if the plan has a location (US-12.1)
 
         rows, last_frost, first_fall, seed_links = self._collect_data()
         self._rows = rows
@@ -1816,8 +1823,10 @@ class PlantingCalendarView(QWidget):
         # verb). soil_mismatch / soil_amendment / manual: title is a full label.
         return task.title
 
-    def _on_weather_failed(self, message: str) -> None:
-        """Weather forecast fetch failed — no frost alerts shown."""
+    def _on_weather_failed(self, _message: str) -> None:
+        """Weather forecast fetch failed — no frost alerts shown, and no forecast for the
+        3D view's Today's Weather to follow (not the previous one)."""
+        self.forecast_days_ready.emit(())
 
     def shutdown(self) -> None:
         """Shut down child background workers and services (#483)."""

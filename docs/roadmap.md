@@ -2803,7 +2803,10 @@ All four slices of the issue, the optional L5.3 and L5.4 included:
   fog drew a seam on every cloudy horizon (recalibrated, and the board's horizon probe now
   runs per weather), lantern heads drew white with dark cores (the light moved under the
   lantern, the pane went, a warm glow in front of the bulb) and butterflies drew as ghosts (a life share is a
-  count, not an opacity). Deferred polish: #687.
+  count, not an opacity). Deferred polish: #687. The senior review then added the garden's
+  life end to end through the production Plant Forge, Today's Weather asking for its
+  forecast (and never following a stale one) and the living host calls in `EngineHost`;
+  engine follow-ups: #689.
 
 ### Out of scope (deferred)
 - Snow on roofs and on a bed's soil (principled `vc` parts take no snow cover).

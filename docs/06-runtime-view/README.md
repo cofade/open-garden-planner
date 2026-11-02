@@ -411,7 +411,12 @@ time-of-day change takes only the right-hand path; a date change takes both, the
 date path first. Since Phase 17 L2 (#386) the 3D view writes the clock in two more
 places, both the user's action: the day sweep (the time of day, sunrise → sunset,
 given back afterwards) and the growth jump (+1/+3/+10 years on the date, and "Back") —
-§6.10.
+§6.10. Since Phase 17 L5 (#389, ADR-070) Animate plays either THE DAY — the time of day,
+through `datetime_changed` as below, wrapping at midnight onto the same date — or THE YEAR:
+the plan date, through the toolbar's `date_requested` → `SimClock.set_date` (the time of
+day kept), so the date path below runs on every step and the 3D regrowth keeps its
+throttle (`core/playback.py` is the arithmetic of one step; the toolbar writes nothing
+else).
 
 ```mermaid
 flowchart TD
@@ -434,6 +439,20 @@ flowchart TD
     D -- yes --> DC --> H --> R --> IC
     D -- no --> IC
     IC --> O --> M
+```
+
+**The forecast fan-out (L5.3).** The Planting Calendar's weather widget is the app's one
+weather fetch. Its days reach the 3D view's Today's Weather as `(ISO date, WMO code)`:
+
+```mermaid
+flowchart LR
+    C([Weather → Today's Weather,<br/>a new location or document])
+    W["Workspace.forecast_wanted"]
+    P["PlantingCalendarView.request_forecast<br/>(the weather part of refresh; tab may be hidden)"]
+    F["WeatherWidget fetch (Open-Meteo)"]
+    R["forecast_days_ready(days) — EMPTY without a<br/>location or after a failed fetch"]
+    L["Workspace.set_weather_forecast →<br/>WorkspaceLivingCoordinator → LookController.set_todays_weather<br/>(the plan date's code, only while the plan date is today)"]
+    C --> W --> P --> F --> R --> L
 ```
 
 A write from inside any listener raises `RuntimeError`: the remaining listeners

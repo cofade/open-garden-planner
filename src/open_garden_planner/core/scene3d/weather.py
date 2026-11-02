@@ -212,7 +212,7 @@ _SATURATION_UNDER_CLOUD: Final = 0.80
 _WET_GROUND_DARKEN: Final = 0.22
 _WET_GROUND_ROUGHNESS: Final = 0.55
 _WET_GROUND_SPECULAR: Final = 0.25
-#: Snow on the ground (linear): a cool white.
+#: Snow on the ground (linear): a cool white — ``ground.frag`` mixes the same (pinned).
 SNOW_LINEAR: Final = (0.80, 0.84, 0.89)
 #: The dew: a morning mist (the haze), and a little less colour in it.
 _DEW_HAZE: Final = 0.62

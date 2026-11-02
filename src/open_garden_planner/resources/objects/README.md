@@ -65,10 +65,12 @@ All SVGs in `furniture/` and `infrastructure/` are **generated** by
 
 | Directory | Sprites |
 |---|---|
-| `furniture/` (15) | table_rectangular, table_round, chair, bench, parasol, lounger, bbq_grill, fire_pit, planter_pot, **sandbox, trampoline, hot_tub, swing, picnic_table, hammock** |
+| `furniture/` (17) | table_rectangular, table_round, chair, bench, parasol, lounger, bbq_grill, fire_pit, planter_pot, **sandbox, trampoline, hot_tub, swing, picnic_table, hammock**, *garden_light, string_lights* |
 | `infrastructure/` (9) | raised_bed, compost_bin, cold_frame, rain_barrel, water_tap, tool_shed, **wheelbarrow, pergola, bird_bath** |
 
-Bold = added in Package 3a (#308). Adding an object type touches eight
+Bold = added in Package 3a (#308); italic = added in Phase 17 L5.4 (#389): the
+lantern from above with its warm bulb's light (`lamp_glow`, the `FLAME` triad — a lamp,
+not a fire) and a string of bulbs between two posts. Adding an object type touches eight
 registration surfaces in six source files (enum + styles + valid-shape list in
 `object_types.py`, ToolType, canvas tool registration, renderer maps + default
 dims, height default (deliberately omitted for the open structures swing /

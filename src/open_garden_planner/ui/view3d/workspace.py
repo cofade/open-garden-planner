@@ -72,6 +72,7 @@ host to let go — when the pipeline has been quiet for a moment
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import logging
 import time
@@ -419,6 +420,9 @@ class Workspace(QWidget):
     mode_changed = pyqtSignal(object)
     #: The 3D pane's state changed (``View3DState``).
     view3d_state_changed = pyqtSignal(object)
+    #: L5.3: Today's Weather needs the forecast (the app fetches it through the
+    #: Planting Calendar's weather widget and answers with ``set_weather_forecast``).
+    forecast_wanted = pyqtSignal()
 
     def __init__(self, canvas_view: QWidget, *, engine_factory: EngineFactory | None = None,
                  guard: Init3DGuard | None = None, parent: QWidget | None = None) -> None:
@@ -1131,6 +1135,7 @@ class Workspace(QWidget):
         this leaves flags only (the controller is paused). An open that fails its
         validation never gets here: the view, its camera and what it remembers of
         the plan stay as they were."""
+        self._living.place_changed()  # L5: the forecast was the old document's place
         controller = self._controller
         if controller is None:
             return
@@ -1150,6 +1155,7 @@ class Workspace(QWidget):
             self._announce_build()
 
     def location_changed(self, *_arguments: object) -> None:
+        self._living.place_changed()  # L5: the forecast was the old place's
         if self._controller is not None:
             self._controller.refresh_sun()
         if self._analysis is not None:
@@ -1564,6 +1570,7 @@ class Workspace(QWidget):
             get_location=lambda: self._location(),
             parent=self,
         )
+        self._living.forecast_wanted.connect(self.forecast_wanted)
         self._analysis_coordinator = WorkspaceAnalysisCoordinator(
             get_host=lambda: self._host,
             get_controller=lambda: self._controller,
@@ -1881,6 +1888,12 @@ class Workspace(QWidget):
                                    and analysis.drape_mode is not DrapeMode.NONE)
 
     def _unwire_analysis(self) -> None:
+        analysis = self._analysis_coordinator.analysis
+        if analysis is not None:
+            # its shutdown stops a sweep and says so: that must not reach a look and a
+            # host being torn down (senior review of L5)
+            with contextlib.suppress(TypeError, RuntimeError):
+                analysis.changed.disconnect(self._drape_changed)
         self._analysis_coordinator.unwire()
 
     def _analysis_document_changed(self) -> None:
