@@ -57,7 +57,6 @@ from .look import (
     linear_to_srgb_hex,
     look_for,
     mix_linear,
-    sky_phase,
 )
 from .sink import SunState
 
@@ -347,7 +346,7 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         # round 2: luma 0 at the sun, 150 around it, under overcast and rain)
         sky = replace(sky, top=top, horizon=horizon,
                       ground_bottom=mix_linear(sky.ground_bottom, "#5a5f62", cloud * 0.6),
-                      sun_disc=(horizon if sky_phase(sky) != "day"           # a set sun stays matched
+                      sun_disc=(horizon if not sun.is_up       # a set sun stays matched (look_for's test)
                                 else mix_linear(sky.sun_disc, horizon, cloud)),
                       cloud=cloud)
         held = cloud * (1.0 - mood.twilight)           # how much of NOON's exposure holds

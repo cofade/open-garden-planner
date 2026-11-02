@@ -9815,7 +9815,8 @@ past midnight, the firefly season's date, one life assembly for the product and 
    hour) makes up for a clear key light; under cloud it made a sunset 98 % as bright as noon.
    The cloudy day now holds NOON's exposure in the share of its cloud (in stops, like
    `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon
-   (rain 0.79, snow 0.68; a clear one 0.57) — mean linear luminance of the board's mood
+   (rain 0.79, snow 0.68; a clear one 0.57; in luma 0.84 / 0.85 / 0.81, clear 0.67) — mean
+   LINEAR luminance of the board's mood
    camera, `render_beauty_board.py --living --moods --dusk` (`moods_<weather>` /
    `sunset_over_noon`), re-measured at the final head with the stop blend and the matched set
    sun; every dusk monotone (`dusk_<weather>`).
