@@ -4116,7 +4116,7 @@ text, which is newline-agnostic.
 
 ## 8.23 Object Sprite Pipeline (#308, ADR-042)
 
-### 8.23.1 One generator, 26 artifacts
+### 8.23.1 One generator, 25 artifacts
 
 Every SVG under `resources/objects/{furniture,infrastructure}/` is produced by
 `scripts/generate_object_sprites.py` — a seeded, deterministic generator whose
@@ -4134,7 +4134,10 @@ gloss on glossy materials. The primitives are reusable building blocks —
 `water_fill`, `granular_fill`, `glow`/`flame`, `frame_box` — so a new object
 is typically 20–40 lines composing them; rings are two-subpath paths (nonzero
 winding) and circle-clipped planks are computed analytically because QtSvg
-has no clipPath.
+has no clipPath. A LINE object has no sprite: a sprite fills a box, and a line has no
+width to fill — the string of lights (L5.4) stretched its 400 × 30 art across a 3 m deep
+rectangle in the owner's manual test. Its picture is painted along the line by the canvas
+(`ui/canvas/items/string_lights_paint.py`), from the same layout as its 3D model.
 
 ### 8.23.2 The three invariants
 
@@ -7659,6 +7662,13 @@ top-down truth view no particle is drawn.
 **When the ambient buffer is rebuilt.** On the Plant Forge's phenology (`season_sink`: a plan
 or date change — at most twice a second during the year playback) and when a pass changed the
 garden lights; never for a time of day. Equal emitters are not sent again.
+
+**A string of lights is a line.** Drawn like a fence — a post at every point, the wire
+hanging between two posts, a bulb every 40 cm along the wire (at most 120) — from ONE
+layout, `core/string_lights.layout`: the canvas paints its posts and bulbs from it, the 3D
+builder builds them, the lamps glow where it hangs them. It casts no 2D shadow
+(`object_height.casts_2d_shadow`, read by the caster walk and the 3D record); its 3D model
+keeps its own thin shadow (ADR-070's owner addendum).
 
 **The lamp pool.** Six `PointLight`s are made once by the scene (`lampSlots`), each bound to
 one slot of `root.lamps`; only filled slots are visible, and only after dusk. Which lamps fill

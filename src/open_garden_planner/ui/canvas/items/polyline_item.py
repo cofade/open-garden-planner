@@ -36,6 +36,8 @@ from .path_style_paint import (
     style_paint_reach,
 )
 from .resize_handle import PolylineVertexEditMixin, RotationHandleMixin
+from .string_lights_paint import paint_string_lights
+from .string_lights_paint import reach as string_lights_reach
 
 #: The most elements ONE interactive paint of a styled line may generate. A
 #: viewport at 100 % zoom holds far fewer (a 1200 x 800 cm window at the
@@ -227,6 +229,9 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
             reach = style_paint_reach(self.pen().widthF())
             painted = self.path().controlPointRect().adjusted(-reach, -reach, reach, reach)
             base = base.united(painted)
+        if self.object_type == ObjectType.STRING_LIGHTS:  # the bulbs' glow and the posts
+            reach = string_lights_reach(self.pen().widthF())
+            base = base.united(self.path().controlPointRect().adjusted(-reach, -reach, reach, reach))
         m = self._shadow_margin()
         if m > 0:
             base = base.adjusted(-m, -m, m, m)
@@ -239,6 +244,13 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         widget: QWidget | None = None,
     ) -> None:
         """Paint the polyline with style-specific rendering and optional shadow."""
+        # A string of lights (L5.4): its posts, wire and bulbs — no style, no drop
+        # shadow (a 12 cm dark band beside a wire; the owner's manual test of #389)
+        if self.object_type == ObjectType.STRING_LIGHTS:
+            paint_string_lights(painter, self._points, self.pen().widthF(), self.pen().color())
+            self._paint_selection(painter, option)
+            return
+
         # Draw shadow first
         if self._shadows_enabled:
             self._paint_shadow(painter)

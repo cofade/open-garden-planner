@@ -531,6 +531,12 @@ class CanvasView(QGraphicsView):
         path_tool.shortcut = "L"
         self._tool_manager.register_tool(path_tool)
 
+        # A string of lights is a line: a post at every click (L5.4, #389)
+        string_tool = PolylineTool(self, object_type=ObjectType.STRING_LIGHTS)
+        string_tool.tool_type = ToolType.STRING_LIGHTS
+        string_tool.display_name = self.tr("String Lights")
+        self._tool_manager.register_tool(string_tool)
+
         # Register plant tools (circle-based)
         tree_tool = CircleTool(self, object_type=ObjectType.TREE)
         tree_tool.tool_type = ToolType.TREE
@@ -571,7 +577,6 @@ class CanvasView(QGraphicsView):
             (ObjectType.SWING, ToolType.SWING, self.tr("Swing")),
             (ObjectType.PICNIC_TABLE, ToolType.PICNIC_TABLE, self.tr("Picnic Table")),
             (ObjectType.HAMMOCK, ToolType.HAMMOCK, self.tr("Hammock")),
-            (ObjectType.STRING_LIGHTS, ToolType.STRING_LIGHTS, self.tr("String Lights")),
         ]
         for obj_type, tool_type, display_name in rect_furniture:
             tool = RectangleTool(self, object_type=obj_type)

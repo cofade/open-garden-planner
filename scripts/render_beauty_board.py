@@ -116,7 +116,10 @@ from open_garden_planner.core.scene3d.look import (  # noqa: E402
     LookSpec,
     look_for,
 )
-from open_garden_planner.core.shadow_geometry import compute_scene_shadows  # noqa: E402
+from open_garden_planner.core.shadow_geometry import (  # noqa: E402
+    compute_scene_shadows,
+    polyline_footprint,
+)
 from open_garden_planner.core.solar import solar_position  # noqa: E402
 
 DEFAULT_PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
@@ -288,12 +291,13 @@ def lamp_records(width: float, depth: float) -> dict[str, Record]:
                            transform=Transform(east_cm=east, north_cm=north),
                            material=Material("GARDEN_LIGHT", fill_rgba=(49, 53, 56, 255)),
                            height_cm=110.0, params=Params({"seed": item, "radius_cm": 20.0}))
-    half_w, half_d = 220.0, 15.0
-    ring = ((-half_w, -half_d), (half_w, -half_d), (half_w, half_d), (-half_w, half_d))
-    out["string_0"] = Record(item_id="string_0", kind="STRING_LIGHTS", shape="rectangle",
-                             footprints=(ring,),
+    # a string is a line (owner's manual test of L5): three posts in a shallow V
+    line = ((-220.0, 0.0), (0.0, 40.0), (220.0, 0.0))
+    strip = tuple(tuple(ring) for ring in polyline_footprint(list(line), 12.0))
+    out["string_0"] = Record(item_id="string_0", kind="STRING_LIGHTS", shape="polyline",
+                             footprints=strip, path=line, path_width_cm=12.0,
                              transform=Transform(east_cm=cx - 0.15 * width, north_cm=cy - 0.32 * depth),
-                             material=Material("STRING_LIGHTS", fill_rgba=(238, 225, 198, 255)),
+                             material=Material("STRING_LIGHTS", stroke_rgba=(48, 51, 54, 255)),
                              height_cm=250.0, params=Params({"seed": "string_0"}))
     return out
 

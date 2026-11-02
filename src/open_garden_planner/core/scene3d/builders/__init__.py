@@ -23,7 +23,7 @@ covers this package).
                    wheelbarrow, bird bath (L4.4)
 ``structures``     PERGOLA, TRELLIS, GREENHOUSE (L4.3)
 ``lights``         GARDEN_LIGHT, STRING_LIGHTS: a lantern on a post, a string of
-                   bulbs between two posts — and where their bulbs are, for the
+                   bulbs on a line of posts — and where their bulbs are, for the
                    lights of the night (L5.4, ``core/scene3d/lights.py``)
 ``surfaces``       PATH, TERRACE_PATIO, DRIVEWAY, POND_POOL, LAWN: relief on
                    the painted ground — ``ground_detail`` parts (L4.2, L4.5)
@@ -118,7 +118,8 @@ def register_surfaces(registry: BuilderRegistry) -> None:
 def triangle_budget(record: Record) -> int | None:
     """The most triangles the built world may make for ``record`` — its family's
     stated budget (``buildings`` / ``lines`` / ``hedges`` / ``beds``
-    ``.triangle_budget``), ``OBJECT_TRIANGLE_BUDGET`` for an L4 object — or None
+    ``.triangle_budget``), ``lights.string_triangle_budget`` for a string of lights (a line),
+    ``OBJECT_TRIANGLE_BUDGET`` for any other L4 object — or None
     for a kind neither builds. A budget is a ceiling the tests hold every builder
     to, not a count."""
     kind = record.kind
@@ -131,6 +132,8 @@ def triangle_budget(record: Record) -> int | None:
     if kind in BUILT_WORLD_KINDS:
         height = record.height_cm if record.height_cm is not None else nominal_height_cm(kind)
         return beds.triangle_budget(record, height or 0.0)
+    if kind == "STRING_LIGHTS":   # a line: its budget grows with it (L5.4)
+        return lights.string_triangle_budget(record)
     if kind in OBJECT_KINDS:
         return OBJECT_TRIANGLE_BUDGET
     return None

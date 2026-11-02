@@ -1350,26 +1350,6 @@ def build_garden_light(sp: Sprite) -> None:
     disc(sp, cx, cy, 1.8, iron, halo=False, gloss=0.6)
 
 
-def build_string_lights(sp: Sprite) -> None:
-    """A string of lights between two posts, from above (L5.4): a dark wire with a warm
-    bulb every so often, each glowing."""
-    W, H = sp.w, sp.h  # 400 x 30
-    cy = H / 2
-    wood = MATERIALS["grey_wood"]
-    rubber = MATERIALS["rubber"]
-    bulb = MATERIALS["canvas_cream"]
-    n = 10
-    xs = [20 + (W - 40) * (i + 0.5) / n for i in range(n)]
-    for x in xs:
-        lamp_glow(sp, x, cy, 11.0, 0.7)
-    sp.add(line_s(10, cy, W - 10, cy, rubber["dark"], 1.4, 0.95))
-    for x in xs:
-        disc(sp, x, cy, 3.2, bulb, halo=True, gloss=0.7)
-    for x in (2, W - 14):
-        halo_rect(sp, x, cy - 6, 12, 12, wood, pad=1.0, rx=2)
-        plank(sp, x, cy - 6, 12, 12, wood, "v", rx=2, knot=False, grain=False)
-
-
 _KNOWN_KEYS = frozenset({"view", "dir", "build", "shape"})
 
 OBJECTS: dict[str, dict] = {
@@ -1402,7 +1382,6 @@ OBJECTS: dict[str, dict] = {
     "bird_bath": dict(view=(50, 50), dir="infrastructure", build=build_bird_bath, shape="circle"),
     # garden lights (Phase 17 L5.4, #389)
     "garden_light": dict(view=(40, 40), dir="furniture", build=build_garden_light, shape="circle"),
-    "string_lights": dict(view=(400, 30), dir="furniture", build=build_string_lights, shape="rect"),
 }
 
 

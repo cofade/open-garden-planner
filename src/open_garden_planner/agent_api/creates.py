@@ -93,7 +93,6 @@ _RECT_TYPE_NAMES = frozenset(
         "TOOL_SHED",
         "WHEELBARROW",
         "PERGOLA",
-        "STRING_LIGHTS",
         "TRELLIS",
     }
 )
@@ -123,7 +122,7 @@ _POLYGON_TYPE_NAMES = frozenset(
 #: Polyline-based (GUI: PolylineTool registrations). A create takes no width: a
 #: line gets its type's default stroke, and a PATH's stroke is its width on the ground
 #: (80 cm by default since Phase 17 L4, ADR-065 decision 10), set in the Properties panel.
-_POLYLINE_TYPE_NAMES = frozenset({"FENCE", "WALL", "PATH"})
+_POLYLINE_TYPE_NAMES = frozenset({"FENCE", "WALL", "PATH", "STRING_LIGHTS"})
 
 #: Text callout with a leader line (GUI: CalloutTool).
 _CALLOUT_TYPE_NAMES = frozenset({"GENERIC_CALLOUT"})

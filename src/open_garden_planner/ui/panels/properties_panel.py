@@ -2283,8 +2283,8 @@ class PropertiesPanel(QWidget):
         if not isinstance(item, (RectangleItem, EllipseItem, PolygonItem, CircleItem, PolylineItem)):
             return
 
-        # Path/fence style preset (only for polylines)
-        if isinstance(item, PolylineItem):
+        # Path/fence style preset (only for polylines; a string of lights has none, L5.4)
+        if isinstance(item, PolylineItem) and item.object_type != ObjectType.STRING_LIGHTS:
             style_combo = QComboBox()
             _style_combo(style_combo)
             # Add "Paths" group

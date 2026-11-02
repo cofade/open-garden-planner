@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-11-02T10:04:26.946331+00:00"
+    "modified": "2026-11-02T19:43:57.266249+00:00"
   },
   "canvas": {
     "width": 2600.0,
@@ -1709,19 +1709,26 @@
       "stack_order": 62464
     },
     {
-      "type": "rectangle",
+      "type": "polyline",
       "item_id": "3f36871f-695d-41b6-b1f5-8607089fb2a0",
-      "x": 240.0,
-      "y": 1235.0,
-      "width": 420.0,
-      "height": 30.0,
+      "points": [
+        {
+          "x": 240.0,
+          "y": 1250.0
+        },
+        {
+          "x": 450.0,
+          "y": 1290.0
+        },
+        {
+          "x": 660.0,
+          "y": 1250.0
+        }
+      ],
       "object_type": "STRING_LIGHTS",
       "name": "String lights",
-      "fill_color": "#ffeee1c6",
-      "stroke_color": "#ff000000",
-      "stroke_width": 1.0,
-      "fill_pattern": "SOLID",
-      "stroke_style": "SOLID",
+      "stroke_color": "#ff303336",
+      "stroke_width": 12.0,
       "stack_order": 63488
     }
   ],

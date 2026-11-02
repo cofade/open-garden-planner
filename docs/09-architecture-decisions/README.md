@@ -6046,11 +6046,10 @@ only, and correct their heights with a fit after the fact.
   | pergola | 0.25 / 0.28 / 0.29 | 0.25 / 0.28 / 0.29 | -1.8 / -1.8 / -1.5 | shape and porosity vs solid 2D prism |
   | trellis | 0.32 / 0.34 / 0.39 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | shape and porosity vs solid 2D prism |
   | garden light | 0.21 / 0.28 / 0.37 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | shape and porosity vs solid 2D prism |
-  | string lights | 0.02 / 0.02 / 0.02 | 0.02 / 0.02 / 0.02 | -13.4 / -13.4 / -13.2 | shape and porosity vs solid 2D prism |
 
   Follow-up #624 extends the analytic reference to all 24 L4 object kinds; Phase 17 L5.4
-  (#389, ADR-070) adds the two garden lights — a string of lights is two posts and a wire,
-  its 2D caster a solid strip, the largest such difference in the table.
+  (#389, ADR-070) adds the garden light. A string of lights casts no 2D shadow (ADR-070's
+  addendum from the owner's manual test), so it has no row.
   The script uses each new case's production default height, its stated footprint
   in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. Swing, hammock
   and pergola shadows are porous geometry; the analytical 2D caster remains a
@@ -9644,12 +9643,14 @@ cost (nothing animates there), and one canonical path per behaviour.
    storms rain, snow and snow showers snow); on any other date "Today's Weather" shows clear and
    its tooltip says why.
 8. **Garden lights are objects, their light a fixed pool.** `GARDEN_LIGHT` (circle tool, a
-   lantern on a post) and `STRING_LIGHTS` (rectangle tool, a string between two posts) are
-   registered on every §8.23 surface (sprites from `scripts/generate_object_sprites.py`,
-   default heights 110 / 250 cm) and built by `builders/lights.py`. Where a bulb is is ONE
-   function per kind (`lantern_bulb`, `string_bulbs`), read by the builder that places the bulb
-   and by `core/scene3d/lights.py` that makes it glow (an ambient `bulb` particle) and light
-   (`pose_points`, the Model's own pose). The scene declares `lampSlots` (6) point lights once;
+   lantern on a post) and `STRING_LIGHTS` (a LINE, drawn like a fence: a post at every point,
+   the wire hanging between them — the owner's addendum below) are registered on every §8.23
+   surface (default heights 110 / 250 cm; the lantern's sprite from
+   `scripts/generate_object_sprites.py`, the string drawn by the canvas) and built by
+   `builders/lights.py`. Where a bulb is is ONE function per kind (`lantern_bulb`,
+   `string_bulbs` — the string's from `core/string_lights.layout`, which the canvas draws
+   too), read by the builder that places the bulb and by `core/scene3d/lights.py` that makes
+   it glow (an ambient `bulb` particle) and light (`pose_points`, the Model's own pose). The scene declares `lampSlots` (6) point lights once;
    the nearest six lamps to the camera's target light the garden after dusk
    (`AtmosphereSpec.lamps` ramps in over twilight), the rest glow. No point-light shadows.
    `foliage.frag`, `foliage_door.frag` and `lawn.frag` gain a `POINT_LIGHT` that lights leaves
@@ -9673,16 +9674,17 @@ cost (nothing animates there), and one canonical path per behaviour.
 `precipitation.vert/.frag`, `ambient.vert/.frag`; two object types added to `ObjectType`
 (appended) and `ToolType` (beside the other furniture tools — `ToolType` values are never
 persisted; `ObjectType` NAMES are serialized: older versions load them as generic shapes — no
-`FILE_VERSION` bump); two sprites (§8.23 now 26 artifacts); `bench_built.ogp` gained one of
-each (appended last, every earlier id and seed kept). `LookSpec` gained `atmosphere`
+`FILE_VERSION` bump); one sprite, the lantern's (§8.23 now 25 artifacts; the string is a
+line drawn by the canvas); `bench_built.ogp` gained one of each (appended last, every earlier
+id and seed kept). `LookSpec` gained `atmosphere`
 (`CLEAR_STILL` by default), `SkySpec` `cloud`. Measured (RTX 4070, Direct3D 11, bench_small at
 1280 × 720, Medium, interleaved readbacks): clear with life +0.6 %, snow +1.9 %, rain +3.7 % of a
-frame; with reduced motion 0 frames over 2.5 s after the first build. The two garden lights'
-3D shadows are a small share of their solid 2D prisms (string lights 2 %: the 2D strip
-overstates their shade about fiftyfold; every open object without a porosity model is
-overstated — a pergola about 4×, a swing about 6× — and #440 gave one to fences only, its
-roof projection to buildings; the open objects' is #698) — the shadow table of ADR-059's
-builders addendum. Tests:
+frame; with reduced motion 0 frames over 2.5 s after the first build. A garden light's
+3D shadow is a small share of its solid 2D prism, as every open object's without a porosity
+model is — a pergola's about a quarter, a swing's about a sixth; #440 gave one to fences
+only, its roof projection to buildings; the open objects' is #698 — the shadow table of
+ADR-059's builders addendum. A string of lights casts no 2D shadow at all (the owner's
+addendum). Tests:
 `tests/unit/test_playback.py`, `test_scene3d_weather.py`, `test_scene3d_particles.py`,
 `tests/integration/test_living_garden.py` (§8.10), the render tier
 `tests/integration/test_living_garden_render.py` (the two issue gates and the board), the
@@ -9787,7 +9789,8 @@ the location or the forecast is missing. Smaller: a precipitation that cannot be
 longer skips the moon's handover and is logged once; the lights are read again only when a
 pass touched a light (500 lights cost ~40 ms per pass); the drape's callback is disconnected
 before the analysis shuts down. Left as stated: a string of lights casts the solid 2D prism
-of its footprint (ADR-059's policy; 2 % of it is its 3D shadow) — an owner question (#698). Measured
+of its footprint (ADR-059's policy; 2 % of it is its 3D shadow) — an owner question (#698),
+answered in the owner's addendum: it casts none. Measured
 for the review: a night frame with six lamps lit costs +2.3 % on the GPU and +11.9 % on WARP
 (bench_small, Medium, interleaved readbacks). Deferred to #689: the lamp pool's shader
 permutations at the first dusk, the wind clock's precision in long sessions, Today's Weather
@@ -9860,6 +9863,38 @@ past midnight, the firefly season's date, one life assembly for the product and 
 5. **String Lights' 2D shadow, stated truly** (round 5): #440, merged from master, made fences
    porous in 2D, so "a solid strip, as a picket fence's" no longer held. Like every open
    object without a porosity model, a string casts a solid 2D prism; its 3D shadow is 2 % of
-   it. #440's transmittance hook could make all of them honest — an owner decision (#698).
-   Cloudy horizon steps at the final head: ≤ 1.97 (snow sunset), night 0.56–0.94; the clear
+   it. #440's transmittance hook could make all of them honest — an owner decision (#698;
+   for the string answered in the owner's addendum: no 2D shadow). Cloudy horizon steps at
+   the final head: ≤ 1.97 (snow sunset), night 0.56–0.94; the clear
    horizon unchanged (its low-preset sunset step of 3.13, over the 3.0 bound, is master's: #696).
+
+**Addendum (the owner's manual test of L5)**: The owner confirmed the day and year playback,
+the garden's life, a new plan's forecast and the 3D lights, and changed two things:
+1. **A string of lights is a LINE.** "A Lichterkette needs to be a 1D object like a fence or
+   wall … it doesn't have an actual width", and its 2D picture, a sprite stretched over the
+   rectangle, was distorted. `STRING_LIGHTS` is drawn with the line tool: every point is a
+   post, the wire hangs between two posts (`SAG_SHARE` of the span), and a bulb hangs every
+   40 cm along the WIRE, not per span — `core/string_lights.layout`, one layout for the
+   canvas's picture (`ui/canvas/items/string_lights_paint.py`: wire, glowing bulbs, a post per
+   point, sized by the line's width, 12 cm by default), the 3D builder and the night's lights.
+   At most 120 bulbs a string; its triangle budget grows with the line as a fence's does
+   (`lights.string_triangle_budget`). The string has no sprite (the gallery's picture is the
+   same painter's) and no path or fence style. Change Type, the smart-symbol member table and
+   the agent's `create_object` offer it with the lines. A string read from a file as a
+   rectangle (a hand-edited plan; no plan with one has shipped) is the line along its long
+   side: two posts.
+2. **A string of lights casts no 2D shadow** — the answer to the open question #698 asked for
+   strings: "Their shadow is not required in 2D sunlight studies, because the shadowed area
+   is basically irrelevant." `object_height.NO_2D_SHADOW_TYPE_NAMES` /
+   `casts_2d_shadow` is the one rule: the caster walk (`collect_identified_casters`, and
+   with it the overlay, the hours of sun and the plants' sun estimates) leaves the string
+   out, and its record says `has_2d_caster` False. Its 3D model keeps the thin shadow of its
+   posts and wire. ADR-059's table has no row for it. #698 stays open for the other open
+   objects.
+3. **The 3D strip's menu buttons read as buttons.** "Wetter: Klar" was not found: a
+   text-only `QToolButton` that only opens a menu has its arrow drawn under its last letter
+   by the app's style, and reads as a label. The Weather and the Analyze buttons carry the
+   `menuChevron` property; the theme's chevron rule gives the arrow room beside the text
+   (PF-UI-33).
+4. Found along the way: the forecast cards' weekday names and the task list's month names
+   are English in every language (`strftime`; #702).

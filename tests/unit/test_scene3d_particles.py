@@ -4,6 +4,7 @@ are."""
 
 from __future__ import annotations
 
+import dataclasses
 import math
 import re
 from datetime import date
@@ -16,13 +17,13 @@ from open_garden_planner.core.phenology import PhenologyState
 from open_garden_planner.core.scene3d import Material, Params, Record, Transform
 from open_garden_planner.core.scene3d.builders import OBJECT_KINDS, production_registry
 from open_garden_planner.core.scene3d.builders.lights import (
-    BULB_SPACING_CM,
-    MAX_BULBS_PER_STRING,
+    STRING_POST_CM,
     build_garden_light,
     build_string_lights,
     lamp_light,
     lantern_bulb,
     string_bulbs,
+    string_layout,
 )
 from open_garden_planner.core.scene3d.frame import pose_points, scene_to_engine_points
 from open_garden_planner.core.scene3d.interleave import VERTEX_STRIDE
@@ -52,6 +53,9 @@ from open_garden_planner.core.scene3d.particles import (
     precipitation_buffers,
     precipitation_volume,
 )
+from open_garden_planner.core.string_lights import BULB_SPACING_CM
+from open_garden_planner.core.string_lights import MAX_BULBS as STRING_MAX_BULBS
+from tests.unit.scene3d_builder_cases import line_record
 
 QML = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "ui" / "view3d" / "quick3d" / "qml"
 
@@ -96,11 +100,8 @@ def test_a_crowded_plan_stays_within_the_caps() -> None:
 
 
 def test_the_lights_bulbs_are_capped_too() -> None:
-    strings = [Record(item_id=f"s{i:03d}", kind="STRING_LIGHTS", shape="rectangle",
-                      footprints=(((-2000.0, -15.0), (2000.0, -15.0), (2000.0, 15.0), (-2000.0, 15.0)),),
-                      transform=Transform(east_cm=0.0, north_cm=i * 100.0),
-                      material=Material("STRING_LIGHTS", fill_rgba=(238, 225, 198, 255)),
-                      height_cm=250.0, params=Params({"seed": f"s{i}"})) for i in range(20)]
+    strings = [string(f"s{i:03d}", length=4000.0, rotation=0.0, north=i * 100.0)
+               for i in range(20)]
     sources = lamp_sources(strings)
     assert sum(len(s.bulb_points) for s in sources) == MAX_BULBS
     assert len(sources) == 20, "a string beyond the cap still lights; it does not glow"
@@ -225,13 +226,15 @@ def lantern(item_id: str = "lamp", *, east: float = 300.0, north: float = 400.0,
                   params=Params({"seed": item_id, "radius_cm": 20.0}))
 
 
-def string(item_id: str = "string", *, length: float = 440.0, rotation: float = 30.0) -> Record:
+def string(item_id: str = "string", *, length: float = 440.0, rotation: float = 30.0,
+           north: float = 500.0, path: tuple[tuple[float, float], ...] | None = None) -> Record:
+    """A string of lights as the line tool draws it (L5.4: a line since the owner's
+    manual test) — by default straight, ``length`` long, about its middle."""
     half = length / 2.0
-    ring = ((-half, -15.0), (half, -15.0), (half, 15.0), (-half, 15.0))
-    return Record(item_id=item_id, kind="STRING_LIGHTS", shape="rectangle", footprints=(ring,),
-                  transform=Transform(east_cm=1000.0, north_cm=500.0, rotation_deg=rotation),
-                  material=Material("STRING_LIGHTS", fill_rgba=(238, 225, 198, 255)), height_cm=250.0,
-                  params=Params({"seed": item_id}))
+    line = path if path is not None else ((-half, 0.0), (half, 0.0))
+    record = line_record("STRING_LIGHTS", line, 250.0, width=12.0, item_id=item_id)
+    return dataclasses.replace(
+        record, transform=Transform(east_cm=1000.0, north_cm=north, rotation_deg=rotation))
 
 
 def test_the_light_kinds_are_registered_objects() -> None:
@@ -288,9 +291,9 @@ def test_a_strings_bulbs_hang_between_its_posts_and_sag() -> None:
     record = string(length=440.0, rotation=0.0)
     bulbs = string_bulbs(record, 250.0)
     assert bulbs is not None
-    assert 2 <= len(bulbs) <= MAX_BULBS_PER_STRING
+    assert len(bulbs) == 11, "a bulb every 40 cm of 440 cm"
     gaps = np.diff(bulbs[:, 0])
-    assert np.allclose(gaps, gaps[0]) and gaps[0] <= BULB_SPACING_CM * 1.2, "a bulb every so often"
+    assert np.allclose(gaps, BULB_SPACING_CM), "a bulb every so often"
     assert (np.abs(bulbs[:, 0]) < 220.0).all() and np.allclose(bulbs[:, 1], 0.0)
     middle, end = bulbs[len(bulbs) // 2, 2], bulbs[0, 2]
     assert middle < end < 250.0, "a wire sags in the middle"
@@ -299,6 +302,96 @@ def test_a_strings_bulbs_hang_between_its_posts_and_sag() -> None:
     assert bulb_meshes.positions[:, 2].max() < 250.0
     top = max(part.mesh.positions[:, 2].max() for part in parts)
     assert top == pytest.approx(250.0, abs=1e-6), "the height is the posts' tops"
+
+
+# ── a string is a line (owner's manual test of L5) ───────────────────────────
+
+
+def _posts_of(record: Record) -> list[tuple[float, float]]:
+    """Where the builder stood a post: the centres of the clusters of the string's body
+    vertices that reach its height (the wire hangs below the tops)."""
+    body = next(part for part in build_string_lights(record) if part.name == "string lights")
+    top = body.mesh.positions[body.mesh.positions[:, 2] > 249.0][:, :2]
+    clusters: list[list[np.ndarray]] = []
+    for point in top:
+        for cluster in clusters:
+            if float(np.hypot(*(point - cluster[0]))) < 3.0 * STRING_POST_CM:
+                cluster.append(point)
+                break
+        else:
+            clusters.append([point])
+    return [(float(np.mean([p[0] for p in c])), float(np.mean([p[1] for p in c]))) for c in clusters]
+
+
+BENT: tuple[tuple[float, float], ...] = ((0.0, 0.0), (300.0, 0.0), (300.0, 200.0), (600.0, 260.0))
+
+
+def test_a_post_stands_at_every_point_of_the_line() -> None:
+    """The owner: a string of lights "needs to be a 1D object like a fence or wall".
+    Every point of the line is a post; the wire runs from post to post."""
+    posts = _posts_of(string(path=BENT, rotation=0.0))
+    assert len(posts) == len(BENT)
+    for drawn in BENT:
+        assert min(math.hypot(px - drawn[0], py - drawn[1]) for px, py in posts) < 0.5, drawn
+
+
+def test_the_bulbs_are_spaced_along_the_wire_not_per_span() -> None:
+    """A real string's bulbs sit evenly on its cable wherever the posts stand: 40 cm
+    apart along the whole line — the layout the canvas draws too."""
+    record = string(path=BENT, rotation=0.0)
+    lay = string_layout(record)
+    assert lay is not None and len(lay.posts) == 4 and len(lay.spans) == 3
+    total = 300.0 + 200.0 + math.hypot(300.0, 60.0)
+    assert len(lay.bulbs) == round(total / BULB_SPACING_CM)
+    walked = [sum(lay.spans[i].length_cm for i in range(b.span)) + b.share * lay.spans[b.span].length_cm
+              for b in lay.bulbs]
+    assert np.allclose(np.diff(walked), total / len(lay.bulbs))
+    bulbs = string_bulbs(record, 250.0)
+    assert bulbs is not None
+    assert np.allclose(bulbs[:, :2], np.array(lay.bulbs_xy()))
+    assert (bulbs[:, 2] < 250.0 - 2.0).all(), "every bulb hangs under the wire"
+
+
+def test_a_closed_string_has_no_second_post_where_it_closes() -> None:
+    loop = ((0.0, 0.0), (400.0, 0.0), (400.0, 300.0), (0.0, 300.0), (0.0, 0.0))
+    lay = string_layout(string(path=loop, rotation=0.0))
+    assert lay is not None and len(lay.posts) == 4 and len(lay.spans) == 4
+    assert len(_posts_of(string(path=loop, rotation=0.0))) == 4
+
+
+def test_a_very_long_string_carries_at_most_max_bulbs() -> None:
+    bulbs = string_bulbs(string(length=60_000.0, rotation=0.0), 250.0)
+    assert bulbs is not None and len(bulbs) == STRING_MAX_BULBS
+
+
+@pytest.mark.parametrize("path", [
+    ((10.0, 10.0), (10.0, 10.0), (10.4, 10.2)),                          # one post
+    ((0.0, 0.0), (0.0, 0.0), (200.0, 0.0), (200.0, 0.0), (200.5, 0.0)),  # repeated points
+], ids=["one post", "repeated points"])
+def test_a_degenerate_line_builds_posts_and_no_stray_bulb(path) -> None:
+    record = string(path=path, rotation=0.0)
+    lay = string_layout(record)
+    assert lay is not None
+    parts = build_string_lights(record)
+    assert parts and parts[0].name == "string lights"
+    if not lay.spans:
+        assert len(lay.posts) == 1 and not lay.bulbs
+        assert all(part.name != "bulbs" for part in parts)
+        assert lamp_sources([record]) == (), "no bulb, no light"
+    else:
+        assert len(lay.posts) == 2, "repeated points are one post"
+
+
+def test_a_string_read_as_a_rectangle_is_the_line_along_its_long_side() -> None:
+    """A hand-edited plan can still type a rectangle a string of lights: two posts at
+    the ends of its long side, as it was built before it became a line."""
+    ring = ((-220.0, -15.0), (220.0, -15.0), (220.0, 15.0), (-220.0, 15.0))
+    record = Record(item_id="rect", kind="STRING_LIGHTS", shape="rectangle", footprints=(ring,),
+                    transform=Transform(), height_cm=250.0, params=Params({"seed": "rect"}),
+                    material=Material("STRING_LIGHTS", fill_rgba=(238, 225, 198, 255)))
+    posts = _posts_of(record)
+    assert len(posts) == 2
+    assert all(abs(y) < 0.5 and abs(abs(x) - 215.0) < 0.5 for x, y in posts), posts
 
 
 def test_the_nearest_lamps_light() -> None:

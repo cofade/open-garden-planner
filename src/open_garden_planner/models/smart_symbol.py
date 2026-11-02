@@ -71,10 +71,9 @@ VALID_OBJECT_TYPES_BY_KIND: dict[str, frozenset[str]] = {
         "CONTAINER",
         "WALL_PLANTER",
         "TRELLIS",
-        "STRING_LIGHTS",
     }),
-    "line": frozenset({"FENCE", "WALL", "PATH"}),
-    "polyline": frozenset({"FENCE", "WALL", "PATH"}),
+    "line": frozenset({"FENCE", "WALL", "PATH", "STRING_LIGHTS"}),
+    "polyline": frozenset({"FENCE", "WALL", "PATH", "STRING_LIGHTS"}),
     "polygon": frozenset({
         "GENERIC_POLYGON",
         "HOUSE",

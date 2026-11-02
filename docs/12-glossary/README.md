@@ -129,7 +129,7 @@
 | **Morning dew** | The morning mood: east of the meridian, from the end of civil twilight until the sun is 18° up — a nearer mist and a wet sheen on leaves and blades |
 | **Garden's life (3D)** | Falling leaves, butterflies at flowering plants and fireflies on summer evenings — particles moved by the wind's clock; "Wildlife and Falling Leaves" switches them |
 | **Lamp pool** | The six point lights the 3D scene declares once (`lampSlots`); the garden lights nearest the camera's target light the garden after dusk, the others only glow |
-| **Garden Light / String Lights** | Placeable objects (ADR-070): a lantern on a post (circle tool, 110 cm) and a string of bulbs between two posts (rectangle tool, 250 cm); at night their bulbs glow in 3D |
+| **Garden Light / String Lights** | Placeable objects (ADR-070): a lantern on a post (circle tool, 110 cm) and a string of bulbs on a line of posts (a line: a post at every click, 250 cm); at night their bulbs glow in 3D. A string casts no 2D shadow |
 | **Canopy Diameter** | The spread/width of a tree or shrub's foliage when viewed from above |
 | **Amendment** | Soil-improving substance (lime, blood meal, compost, etc.) loaded from `resources/data/amendments.json`. Carries application rate (g/m²) and per-fix effect coefficients used by the calculator |
 | **Bundled Species DB** | Curated `resources/data/plant_species.json` shipped with the app (~120 records covering every gallery thumbnail, full pH/NPK/sun/water/calendar fields per species). Looked up on canvas drop and tool draw by scientific name → common name → alias to auto-populate `metadata["plant_species"]`; the long tail still falls through to the on-demand API search (issue #170) |

@@ -112,13 +112,16 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     "HAMMOCK": 110.0,
     "PERGOLA": 250.0,
     # Garden lights (Phase 17 L5.4, #389): a lantern's cap on its post, and the tops
-    # of a string's two posts. The 2D model extrudes a string's whole footprint as a
-    # SOLID strip — like every open object without a porosity model (pergola, swing,
-    # hammock, trellis); #440 gave one to fences only, the lights have none yet: a
-    # string's 3D shadow is 2 % of that strip (ADR-070; owner question, #698).
+    # of a string's posts. A string casts no 2D shadow at all (``casts_2d_shadow``).
     "GARDEN_LIGHT": 110.0,
     "STRING_LIGHTS": 250.0,
 }
+
+#: Kinds the 2D sun study never casts, whatever their height (the owner's decision in
+#: the manual test of L5, #389): a string of lights is a wire on posts — the shade it
+#: throws is no fact a plan needs, and the solid 2D strip of its first footprint was
+#: some 50 times its real shadow. Its 3D model still casts its own thin shadow.
+NO_2D_SHADOW_TYPE_NAMES: frozenset[str] = frozenset({"STRING_LIGHTS"})
 
 # Mirrors CONTAINER_TYPES in core/object_types.py (pinned by unit test).
 _CONTAINER_TYPE_NAMES = frozenset({"CONTAINER", "CONTAINER_ROUND", "WALL_PLANTER"})
@@ -271,6 +274,13 @@ def resolve_height(
             return mature, SOURCE_SPECIES
     default = DEFAULT_HEIGHTS_CM.get(name)
     return default, SOURCE_DEFAULT if default is not None else SOURCE_NONE
+
+
+def casts_2d_shadow(object_type: Any) -> bool:
+    """False for a kind the 2D sun study never casts (``NO_2D_SHADOW_TYPE_NAMES``) —
+    the one rule the 2D caster walk (``sun_shadow_controller.collect_identified_casters``)
+    and the 3D record (``Record.has_2d_caster``) share."""
+    return _type_name(object_type) not in NO_2D_SHADOW_TYPE_NAMES
 
 
 def effective_height_cm(

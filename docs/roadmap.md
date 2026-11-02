@@ -2801,8 +2801,10 @@ All four slices of the issue, the optional L5.3 and L5.4 included:
   meets the meadow without a step.
 - **L5.3 — Today's Weather.** Follows the Planting Calendar's own Open-Meteo forecast (WMO
   code → preset) only while the plan date is today; the 3D view fetches nothing.
-- **L5.4 — garden lights.** `GARDEN_LIGHT` and `STRING_LIGHTS` on every §8.23 surface (sprites,
-  tools, gallery, Change Type, default heights 110 / 250 cm, 3D builders, agent `create_object`);
+- **L5.4 — garden lights.** `GARDEN_LIGHT` and `STRING_LIGHTS` on every §8.23 surface (the
+  lantern's sprite, tools, gallery, Change Type, default heights 110 / 250 cm, 3D builders, agent
+  `create_object`). After the owner's manual test a string is a LINE — a post at every click, its
+  2D picture drawn along it from the layout its 3D model uses — and casts no 2D shadow;
   at dusk the bulbs glow and the six lamps nearest the camera's target light the garden (a pool
   of point lights made once). Bulb positions are ONE function per kind, shared by the builder
   and the light. `bench_built.ogp` gained one of each (appended last).
@@ -2832,13 +2834,13 @@ All four slices of the issue, the optional L5.3 and L5.4 included:
 
 | Document | Section |
 |----------|---------|
-| `docs/09-architecture-decisions/` | ADR-070; ADR-059 builders addendum (two shadow rows) |
+| `docs/09-architecture-decisions/` | ADR-070 (with the owner's addendum); ADR-059 builders addendum (the garden light's shadow row) |
 | `docs/functional-requirements.md` | FR-3D-LIVE-01 … 09 |
-| `docs/08-crosscutting-concepts/` | §8.29.13, §8.10.16, §8.23.1 (26 artifacts) |
-| `docs/05-building-block-view/` | weather, particles, lights, playback, workspace_living |
-| `docs/11-risks-and-technical-debt/pitfalls/` | PF-L3D-18 |
+| `docs/08-crosscutting-concepts/` | §8.29.13, §8.10.16, §8.23.1 (25 artifacts; a line has no sprite) |
+| `docs/05-building-block-view/` | weather, particles, lights, playback, workspace_living, string_lights, string_lights_paint |
+| `docs/11-risks-and-technical-debt/pitfalls/` | PF-L3D-18, PF-LIF-12, PF-UI-33 |
 | `docs/12-glossary/` | Playback, Weather (3D), Today's Weather, Mood (3D), Morning dew, Garden's life, Lamp pool, Garden Light / String Lights |
-| skills | `ogp-3d-renderer` §19, `ogp-lush-cinematic` living-garden values, `debug-verbose` case study 184 |
+| skills | `ogp-3d-renderer` §19, `ogp-lush-cinematic` living-garden values, `debug-verbose` case studies 184–186 |
 
 ### L4 follow-up hardening — **shipped 2026-10-27 as v1.34.1, PR #630**
 

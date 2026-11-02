@@ -785,7 +785,7 @@ The built world complete (L4, #388, ADR-065).
   before L4's owner passes. In 2D an open frame (swing, hammock, pergola) shades its
   whole footprint (a picket, metal or chain-link fence is weighted by its transmittance
   since #440; the open
-  frames' and the garden lights' is #698). A house is drawn in 2D in the terracotta of its 3D roof
+  frames' and the garden light's is #698; a string of lights casts none, FR-3D-LIVE-08). A house is drawn in 2D in the terracotta of its 3D roof
   tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
   recoloured in 2D before L4 no longer shows that colour on its walls).
 - **FR-3D-BUILT-02** (L4.1): A house, garage or tool shed has **Roof style**
@@ -925,14 +925,20 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   without a forecast (no garden location, offline, not loaded yet), it shows clear and its
   tooltip says which. A new location or document forgets the old forecast.
 - **FR-3D-LIVE-07** (L5.4): **Garden Light** (a lantern on a post; circle tool) and **String
-  Lights** (a string of bulbs between two posts; rectangle tool) are placeable objects with
-  their own sprite, gallery entry, translated name, Change Type membership for their shape,
-  default height (110 cm / 250 cm) and 3D model. Plans with them load in older versions as
-  generic shapes (no file-format change).
+  Lights** (a LINE drawn like a fence: a post at every click, the wire hanging between two
+  posts with a bulb every 40 cm along it) are placeable objects with a gallery entry,
+  translated name, Change Type membership for their shape (circles; lines), default height
+  (110 cm / 250 cm) and 3D model. The lantern has a sprite; a string is drawn ALONG its line —
+  its wire, glowing bulbs and a post at every point, the bulbs where its 3D model hangs them,
+  sized by the line's width — and has no path or fence style. Plans with them load in older
+  versions as generic shapes (no file-format change).
 - **FR-3D-LIVE-08** (L5.4): From dusk on, every bulb of a garden light **glows** in 3D and
   the six lights nearest to the point the camera looks at **light** the garden around them
-  (leaves, lawn and ground included); the lights go off at sunrise. In 2D they cast the
-  usual solid-footprint shadow; their 3D shadow is their posts' (ADR-059's table).
+  (leaves, lawn and ground included); the lights go off at sunrise. In 2D a garden light
+  casts the usual solid-footprint shadow (ADR-059's table); a **string of lights casts no 2D
+  shadow** — not in the overlay, the hours-of-sun map or a plant's sun estimate (the owner's
+  decision: the shade of a wire is no planning fact). In 3D both cast their own thin
+  shadows.
 - **FR-3D-LIVE-09** (L5.2): While an Analyze drape lies on the 3D ground (2D Shadows on the
   Ground, or Hours of Sun on the Ground — Sweep the Day included), the weather and the
   morning dew **pause**: the garden shows the clear sun's look, so the drape's colours read

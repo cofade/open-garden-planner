@@ -526,7 +526,9 @@ def test_garden_lights_are_drawn_with_their_tools_and_light_the_3d_garden(
     event.modifiers.return_value = Qt.KeyboardModifier.NoModifier
     view = bench.view
     assert ObjectType.GARDEN_LIGHT in get_valid_types_for_shape("circle")
-    assert ObjectType.STRING_LIGHTS in get_valid_types_for_shape("rectangle")
+    # a string of lights is a LINE (owner's manual test of L5): offered on lines only
+    assert ObjectType.STRING_LIGHTS in get_valid_types_for_shape("polyline")
+    assert ObjectType.STRING_LIGHTS not in get_valid_types_for_shape("rectangle")
     view.set_active_tool(ToolType.GARDEN_LIGHT)
     tool = view.tool_manager.active_tool
     assert tool is not None and tool._object_type is ObjectType.GARDEN_LIGHT
@@ -535,11 +537,16 @@ def test_garden_lights_are_drawn_with_their_tools_and_light_the_3d_garden(
     view.set_active_tool(ToolType.STRING_LIGHTS)
     tool = view.tool_manager.active_tool
     assert tool is not None and tool._object_type is ObjectType.STRING_LIGHTS
-    tool.mouse_press(event, QPointF(500, 400))
-    tool.mouse_move(event, QPointF(900, 430))
-    tool.mouse_release(event, QPointF(900, 430))
+    for point in (QPointF(500, 400), QPointF(700, 440), QPointF(900, 400)):   # three posts
+        tool.mouse_press(event, point)
+    tool.mouse_double_click(event, QPointF(900, 400))
     kinds = {getattr(item, "object_type", None) for item in bench.scene.items()}
     assert {ObjectType.GARDEN_LIGHT, ObjectType.STRING_LIGHTS} <= kinds
+    from open_garden_planner.ui.canvas.items import PolylineItem
+
+    (drawn,) = [item for item in bench.scene.items()
+                if getattr(item, "object_type", None) is ObjectType.STRING_LIGHTS]
+    assert isinstance(drawn, PolylineItem) and drawn.point_count == 3
     qtbot.waitUntil(lambda: bool(bench.host.lamps) and len(bench.host.lamps[-1]) == 2, timeout=5000)
     lit = bench.host.lamps[-1]
     # where each light stands is the builder's own point, posed like its Model
