@@ -47,6 +47,7 @@ class TestPlacementAndEditing:
         win = _make_app(qtbot, monkeypatch)
         win._on_smart_symbol_selected("raised_bed_rows")
         sym = next(it for it in win.canvas_scene.items() if isinstance(it, SmartSymbolItem))
+        sym.setPos(200.0, 150.0)
         pos_before = (sym.pos().x(), sym.pos().y())
 
         win.properties_panel.set_command_manager(win.canvas_view.command_manager)
@@ -54,11 +55,17 @@ class TestPlacementAndEditing:
         win.properties_panel._on_symbol_param_changed(sym, "rows", 7)
         assert _geometry_children(sym) == 7
         assert (sym.pos().x(), sym.pos().y()) == pos_before  # position preserved
+        assert all(c.scenePos().x() >= 200.0 for c in sym.childItems())  # children do not jump to (0, 0)
+        assert all(c.scenePos().y() >= 150.0 for c in sym.childItems())
 
         win.canvas_view.command_manager.undo()
         assert _geometry_children(sym) == 4
+        assert (sym.pos().x(), sym.pos().y()) == pos_before
+        assert all(c.scenePos().x() >= 200.0 for c in sym.childItems())
         win.canvas_view.command_manager.redo()
         assert _geometry_children(sym) == 7
+        assert (sym.pos().x(), sym.pos().y()) == pos_before
+        assert all(c.scenePos().x() >= 200.0 for c in sym.childItems())
 
     def test_repeated_edits_do_not_leak_items(self, qtbot, monkeypatch) -> None:
         win = _make_app(qtbot, monkeypatch)

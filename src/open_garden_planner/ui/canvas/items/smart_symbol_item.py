@@ -221,7 +221,9 @@ class SmartSymbolItem(GroupItem):
         for child in new_children:
             if isinstance(child, GardenItemMixin) and child.item_id in prev_child_links:
                 child._child_item_ids = list(prev_child_links[child.item_id])
-            self.addToGroup(child)
+            child.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
+            child.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, False)
+            child.setParentItem(self)
 
     def set_cached_specs(self, specs: list[PrimitiveSpec]) -> None:
         """Seed the fallback snapshot (used when loading a file whose definition
