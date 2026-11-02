@@ -72,6 +72,7 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     COLOR_PROPERTIES,
     LINEAR_COLOR_PROPERTIES,
     NEUTRAL_DAY,
+    VECTOR_PROPERTIES,
     engine_linear,
     scene_properties,
     sky_properties,
@@ -279,6 +280,8 @@ def _assert_look_shown(host: Any, look: Any) -> None:
             # handed over as floats: a QColor keeps 16 bits a channel, so that a night
             # colour of a few thousandths survives (8 bits are steps of a fifth there)
             assert (shown.redF(), shown.greenF(), shown.blueF()) == pytest.approx(value, abs=2e-5), name
+        elif name in VECTOR_PROPERTIES:   # L5: a vector3d (float precision on the engine side)
+            assert (shown.x(), shown.y(), shown.z()) == pytest.approx(value, abs=1e-5), name
         elif isinstance(value, float):
             assert shown == pytest.approx(value, rel=1e-12), name
         else:
@@ -352,6 +355,21 @@ class TestSceneFile:
         host.set_look(look)
         _assert_look_shown(host, look)
         assert host.look is look
+        host.set_look(NEUTRAL_DAY)
+        _assert_look_shown(host, NEUTRAL_DAY)
+
+    @pytest.mark.parametrize("weather", ["clear", "overcast", "rain", "snow"])
+    @pytest.mark.parametrize(("elevation", "azimuth"), [(-20.0, 10.0), (-3.0, 300.0), (4.0, 80.0),
+                                                        (40.0, 200.0)])
+    def test_a_living_look_is_applied_as_plain_data(self, host, weather: str, elevation: float,
+                                                    azimuth: float) -> None:
+        """L5 (#389): every weather in every mood reaches the scene as the mapping says —
+        and the neutral day again afterwards: no weather sticks."""
+        from open_garden_planner.core.scene3d.weather import living_look
+
+        look = living_look(SunState(elevation, azimuth), "medium", weather)
+        host.set_look(look)
+        _assert_look_shown(host, look)
         host.set_look(NEUTRAL_DAY)
         _assert_look_shown(host, NEUTRAL_DAY)
 
@@ -2200,7 +2218,8 @@ class TestTeardownIsExceptionSafe:
                                       engine_pose(Transform()), RED)
             with pytest.raises(EngineError, match=r"no function destroyPart\(\)"):
                 made.destroy_part(handle)
-            with pytest.raises(EngineError, match=r"clear\(\): 1 of 4 steps failed"):
+            # every Model, the sun, the ground, the ring — and (L5) the life and the lamps
+            with pytest.raises(EngineError, match=r"clear\(\): 1 of 6 steps failed"):
                 made.clear()
             assert made.part_count() == 1 == len(made.engine_parts())
         finally:

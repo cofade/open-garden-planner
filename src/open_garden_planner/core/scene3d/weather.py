@@ -1,0 +1,355 @@
+"""The living garden's weather, dew, moods and life (Phase 17 L5, #389, ADR-070). Qt-free.
+
+``core/scene3d/look.py`` paints a frame from the sun alone (``look_for``). This module
+paints the WEATHER over it — and the morning dew, the time of day the garden's life
+keeps, and the garden lights:
+
+    living_look(sun, preset, weather, ...) = apply_weather(look_for(sun, preset), ...)
+
+TRUTH BEFORE BEAUTY. The weather is a look and nothing else (ADR-070 decision 1): it
+never moves the sun, never moves a shadow, never touches the 2D sun study, the
+hours-of-sun map or a plant. Under an overcast sky the key light still travels
+where ``core/solar`` says; its shadows are softer and fainter, not elsewhere. A
+``clear`` look outside the morning is EXACTLY ``look_for``'s, field for field
+(only its ``atmosphere`` carries the time of day's life), so every truth gate of
+L1–L4 reads what it read.
+
+The presets (``WEATHER_SPECS``):
+
+- **clear** — the reviewed L1.4 look.
+- **overcast** — a grey sky as bright as the clear one at its horizon (so a night
+  stays a night), no sun disc, the key light down to a fifth with soft, faint
+  shadows, the sky's light up, a little less colour.
+- **rain** — overcast, wet leaves and ground, a nearer haze, more wind, falling rain.
+- **snow** — a pale overcast, snow on the ground and the leaves, falling snow, less wind.
+
+The MOODS (``mood_of``) are names for what the frame shows — night, twilight,
+golden hour, morning dew, overcast, rain, snow, day — read from the look itself,
+so the name can never disagree with the picture.
+
+"Today's weather" (L5.3, optional) maps the app's own daily forecast (Open-Meteo's
+WMO code) onto a preset — ONLY while the plan date is today (``todays_weather``):
+a forecast says nothing about another date.
+"""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Iterable
+from dataclasses import dataclass, replace
+from datetime import date
+from types import MappingProxyType
+from typing import Final
+
+import numpy as np
+
+from .color import srgb_to_linear
+from .look import (
+    GOLDEN_DEG,
+    NIGHT_BELOW_DEG,
+    TWILIGHT_DEG,
+    WIND_STRENGTH,
+    AtmosphereSpec,
+    LookSpec,
+    fill_linear,
+    fog_linear,
+    linear_to_srgb_hex,
+    look_for,
+    mix_linear,
+)
+from .sink import SunState
+
+__all__ = [
+    "DEW_FULL_DEG", "DEW_GONE_DEG", "MOODS", "TODAY", "WEATHERS", "WEATHER_CHOICES",
+    "WEATHER_SPECS", "WeatherSpec", "apply_weather", "dew_amount", "is_evening", "is_morning",
+    "living_look", "mood_of", "normalise_weather", "todays_weather", "weather_from_wmo",
+]
+
+WEATHERS: Final = ("clear", "overcast", "rain", "snow")
+#: The weather choice that follows the forecast for today (L5.3).
+TODAY: Final = "today"
+WEATHER_CHOICES: Final = (*WEATHERS, TODAY)
+
+
+@dataclass(frozen=True, slots=True)
+class WeatherSpec:
+    """One weather preset — its numbers are art direction (``ogp-lush-cinematic``)."""
+
+    name: str
+    #: How overcast the sky is, 0..1.
+    cloud: float
+    #: ``none`` | ``rain`` | ``snow``.
+    precipitation: str
+    #: The shaders' sway amplitude (``LookSpec.wind_strength``): the wind is a shader
+    #: value, no simulation (``foliage.vert``, ``grass.vert``, the particles).
+    wind_strength: float
+    #: How wet leaves and ground look, 0..1.
+    wetness: float
+    #: The depth fog's distances x this.
+    haze: float
+    #: Snow on the ground and the leaves, 0..1.
+    snow_cover: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.precipitation not in ("none", "rain", "snow"):
+            raise ValueError(f"WeatherSpec.precipitation: {self.precipitation!r}")
+        for name in ("cloud", "wetness", "snow_cover"):
+            if not 0.0 <= getattr(self, name) <= 1.0:
+                raise ValueError(f"WeatherSpec.{name} lies in 0..1, got {getattr(self, name)!r}")
+        if not 0.0 < self.haze <= 1.0 or self.wind_strength < 0.0:
+            raise ValueError(f"WeatherSpec: haze in (0, 1], wind >= 0 ({self!r})")
+
+
+WEATHER_SPECS: Final = MappingProxyType({
+    "clear": WeatherSpec("clear", 0.0, "none", WIND_STRENGTH, 0.0, 1.0),
+    "overcast": WeatherSpec("overcast", 1.0, "none", 3.5, 0.0, 0.8),
+    "rain": WeatherSpec("rain", 1.0, "rain", 5.0, 1.0, 0.6),
+    "snow": WeatherSpec("snow", 0.85, "snow", 1.5, 0.0, 0.55, snow_cover=0.75),
+})
+
+
+def normalise_weather(value: object, default: str = "clear") -> str:
+    """A stored weather choice as one of ``WEATHER_CHOICES`` (anything else: ``default``)."""
+    text = value.strip().lower() if isinstance(value, str) else ""
+    return text if text in WEATHER_CHOICES else default
+
+
+# ── today's weather (L5.3) ───────────────────────────────────────────────────
+
+def weather_from_wmo(code: int) -> str:
+    """A WMO weather interpretation code (Open-Meteo's daily ``weathercode``) as a
+    preset: 0–2 clear (a partly cloudy day keeps its sun), 3 overcast, 45/48 (fog)
+    overcast, drizzle, rain, showers and thunderstorms rain, snow and snow showers
+    snow. An unknown code is clear."""
+    code = int(code)
+    if code in (3, 45, 48):
+        return "overcast"
+    if 51 <= code <= 67 or 80 <= code <= 82 or 95 <= code <= 99:
+        return "rain"
+    if 71 <= code <= 77 or code in (85, 86):
+        return "snow"
+    return "clear"
+
+
+def todays_weather(days: Iterable[tuple[str, int]], plan_date: date, today: date) -> str | None:
+    """The preset for ``plan_date`` from a daily forecast ``(ISO date, WMO code)`` —
+    ONLY when ``plan_date`` is ``today`` and the forecast has that day; else None
+    (the caller shows clear and says why)."""
+    if plan_date != today:
+        return None
+    wanted = today.isoformat()
+    for day, code in days:
+        if str(day) == wanted:
+            return weather_from_wmo(code)
+    return None
+
+
+# ── the time of day ──────────────────────────────────────────────────────────
+
+def is_morning(sun: SunState) -> bool:
+    """The sun is EAST of the meridian — before solar noon — whatever the latitude:
+    east of the north–south plane is exactly a compass bearing in (0°, 180°)."""
+    azimuth = float(sun.azimuth_deg) % 360.0
+    return 0.0 < azimuth < 180.0
+
+
+def is_evening(sun: SunState) -> bool:
+    """The sun is WEST of the meridian — after solar noon, before solar midnight."""
+    azimuth = float(sun.azimuth_deg) % 360.0
+    return 180.0 < azimuth < 360.0
+
+
+#: The morning dew: full from dawn (the end of civil twilight) until the sun is this
+#: high, gone by ``DEW_GONE_DEG`` — linear in between (ogp-lush-cinematic §2).
+DEW_FULL_DEG: Final = GOLDEN_DEG
+DEW_GONE_DEG: Final = 18.0
+
+
+def dew_amount(sun: SunState, weather: str = "clear") -> float:
+    """How much morning dew lies on the garden, 0..1: in the morning only, from the
+    end of civil twilight until the sun stands ``DEW_GONE_DEG`` high; never in rain
+    (wet anyway) or snow."""
+    if weather in ("rain", "snow") or not is_morning(sun):
+        return 0.0
+    elevation = float(sun.elevation_deg)
+    if elevation < TWILIGHT_DEG or elevation >= DEW_GONE_DEG:
+        return 0.0
+    if elevation <= DEW_FULL_DEG:
+        return 1.0
+    return (DEW_GONE_DEG - elevation) / (DEW_GONE_DEG - DEW_FULL_DEG)
+
+
+def _ramp(value: float, low: float, high: float) -> float:
+    """0 at ``low``, 1 at ``high``, linear and clamped (``low`` > ``high`` ramps down)."""
+    if high == low:
+        return 1.0 if value >= high else 0.0
+    return min(max((value - low) / (high - low), 0.0), 1.0)
+
+
+# ── the weather on a look ────────────────────────────────────────────────────
+
+#: The overcast sky's hue (linear, luminance 1): a cool, slightly blue grey.
+_REC709: Final = np.array((0.2126, 0.7152, 0.0722))
+_OVERCAST_HUE: Final = np.array((0.94, 0.99, 1.07)) / float(np.array((0.94, 0.99, 1.07)) @ _REC709)
+#: Its top is darker than its horizon (a thick layer is darkest overhead) — and the
+#: horizon as bright as the clear sky's own: a cloudy noon is no dusk, a cloudy night
+#: no brighter than a clear one.
+_OVERCAST_TOP_SHARE: Final = 0.78
+_OVERCAST_HORIZON_GAIN: Final = 1.0
+#: Overcast: the key light down to this share (a disc of sun behind the layer), its
+#: shadows this much fainter and softer; the sky's light and the exposure up.
+_KEY_UNDER_CLOUD: Final = 0.22
+_SHADOW_UNDER_CLOUD: Final = 0.30
+_PCF_UNDER_CLOUD: Final = 8.0
+_PROBE_UNDER_CLOUD: Final = 1.45
+_EXPOSURE_UNDER_CLOUD_EV: Final = 0.15
+_SATURATION_UNDER_CLOUD: Final = 0.80
+#: The ground in the rain: darker (wet earth and stone) and shinier.
+_WET_GROUND_DARKEN: Final = 0.22
+_WET_GROUND_ROUGHNESS: Final = 0.55
+_WET_GROUND_SPECULAR: Final = 0.40
+#: Snow on the ground (linear): a cool white.
+SNOW_LINEAR: Final = (0.80, 0.84, 0.89)
+#: The dew: a morning mist (the haze), and a little less colour in it.
+_DEW_HAZE: Final = 0.62
+_DEW_SATURATION: Final = 0.94
+_DEW_WETNESS: Final = 0.6
+#: Where the wind blows the particles: from the west-south-west (a prevailing
+#: westerly), this many cm/s per unit of the shaders' wind strength. A look, not
+#: meteorology.
+_WIND_FROM_DEG: Final = 250.0
+_DRIFT_PER_WIND: Final = 22.0
+#: The share of the precipitation's particles a preset draws.
+_PRECIP_DENSITY: Final = MappingProxyType({"none": 0.0, "rain": 1.0, "snow": 1.0})
+
+
+def _luminance(linear: np.ndarray) -> float:
+    return float(linear @ _REC709)
+
+
+def _overcast(top: str, horizon: str, cloud: float) -> tuple[str, str]:
+    """The sky's top and horizon under ``cloud``: mixed in linear light towards a grey
+    whose horizon is as bright as the clear sky's horizon."""
+    if cloud <= 0.0:
+        return top, horizon
+    level = _luminance(srgb_to_linear(horizon).astype(np.float64)) * _OVERCAST_HORIZON_GAIN
+    grey_horizon = linear_to_srgb_hex(_OVERCAST_HUE * level)
+    grey_top = linear_to_srgb_hex(_OVERCAST_HUE * level * _OVERCAST_TOP_SHARE)
+    return mix_linear(top, grey_top, cloud), mix_linear(horizon, grey_horizon, cloud)
+
+
+def _particle_light(look: LookSpec) -> tuple[float, float, float]:
+    """The light an unlit particle is drawn in: half the key light — the sun, or once
+    it is down the look's moon (a drop is lit from one side) — plus the sky's light,
+    both in linear light."""
+    mood, sky = look.mood, look.sky
+    key = srgb_to_linear(mood.sun_color).astype(np.float64) * mood.sun_brightness * 0.5
+    ambient = ((srgb_to_linear(sky.top) + srgb_to_linear(sky.horizon)).astype(np.float64) / 2.0
+               * mood.probe_exposure * sky.sky_energy * 0.9)
+    light = key + ambient
+    return (float(light[0]), float(light[1]), float(light[2]))
+
+
+def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState) -> LookSpec:
+    """``look`` (``look_for(sun, …)``) under ``weather`` at ``sun`` — module docstring.
+
+    The sun's direction is not touched (it is not in a look); the sky, the light's
+    colour and strength, the shadows' darkness and softness, the grade, the fog, the
+    wind and the atmosphere are. Clear weather outside the morning changes nothing
+    but the atmosphere.
+    """
+    spec = weather if isinstance(weather, WeatherSpec) else WEATHER_SPECS[weather]
+    cloud = spec.cloud
+    dew = dew_amount(sun, spec.name)
+    mood, sky, shadow = look.mood, look.sky, look.shadow
+    if cloud > 0.0:
+        top, horizon = _overcast(sky.top, sky.horizon, cloud)
+        sky = replace(sky, top=top, horizon=horizon,
+                      ground_bottom=mix_linear(sky.ground_bottom, "#5a5f62", cloud * 0.6),
+                      sun_energy=sky.sun_energy * (1.0 - cloud), cloud=cloud)
+        mood = replace(
+            mood,
+            sun_brightness=mood.sun_brightness * (1.0 + (_KEY_UNDER_CLOUD - 1.0) * cloud),
+            probe_exposure=mood.probe_exposure * (1.0 + (_PROBE_UNDER_CLOUD - 1.0) * cloud),
+            exposure=mood.exposure * 2.0 ** (_EXPOSURE_UNDER_CLOUD_EV * cloud),
+            saturation=mood.saturation * (1.0 + (_SATURATION_UNDER_CLOUD - 1.0) * cloud))
+        shadow = replace(shadow,
+                         factor=shadow.factor * (1.0 + (_SHADOW_UNDER_CLOUD - 1.0) * cloud),
+                         pcf_factor=shadow.pcf_factor + (_PCF_UNDER_CLOUD - shadow.pcf_factor)
+                         * cloud)
+    if dew > 0.0:
+        mood = replace(mood, saturation=mood.saturation * (1.0 + (_DEW_SATURATION - 1.0) * dew))
+    fog = fog_linear(sky.horizon, mood.probe_exposure, sky.sky_energy)
+    fill = fill_linear(sky.top, sky.horizon, mood.probe_exposure, sky.sky_energy)
+
+    wetness = max(spec.wetness, _DEW_WETNESS * dew)
+    haze = spec.haze * (1.0 + (_DEW_HAZE - 1.0) * dew)
+    darken = 1.0 - _WET_GROUND_DARKEN * spec.wetness      # the rain's, not the dew's
+    meadow = look.meadow_albedo
+    if spec.wetness > 0.0:
+        meadow = linear_to_srgb_hex(srgb_to_linear(meadow).astype(np.float64) * darken)
+    if spec.snow_cover > 0.0:
+        meadow = mix_linear(meadow, linear_to_srgb_hex(SNOW_LINEAR), spec.snow_cover)
+    elevation = float(sun.elevation_deg)
+    sun_up = elevation >= NIGHT_BELOW_DEG
+    blowing = math.radians(_WIND_FROM_DEG + 180.0)     # the wind blows TOWARDS this
+    drift = spec.wind_strength * _DRIFT_PER_WIND
+    dry = spec.precipitation == "none"
+    twilight = look.mood.twilight
+    atmosphere = AtmosphereSpec(
+        weather=spec.name, cloud=cloud, dew=dew, wetness=wetness, snow_cover=spec.snow_cover,
+        haze=haze, ground_tint_linear=(darken, darken, darken),
+        ground_roughness=1.0 + (_WET_GROUND_ROUGHNESS - 1.0) * spec.wetness,
+        ground_specular=0.15 + (_WET_GROUND_SPECULAR - 0.15) * spec.wetness,
+        precipitation=spec.precipitation, precip_density=_PRECIP_DENSITY[spec.precipitation],
+        wind_drift_scene=(math.sin(blowing) * drift, math.cos(blowing) * drift),
+        particle_light_linear=(0.0, 0.0, 0.0),   # set below, from the weathered look
+        # falling leaves in any weather but snow; butterflies by day, dry, not under a
+        # full overcast; fireflies on dry evenings, from sunset into the night
+        leaves=0.0 if spec.precipitation == "snow" else 1.0,
+        butterflies=(_ramp(elevation, GOLDEN_DEG, 14.0) * (1.0 - 0.7 * cloud)) if dry else 0.0,
+        fireflies=(_ramp(twilight, 0.15, 0.6) if (dry and is_evening(sun)) else 0.0),
+        # the lights come on with dusk and stay on through the night
+        lamps=_ramp(twilight, 0.05, 0.5) if not sun_up else 0.0)
+    weathered = replace(look, mood=mood, sky=sky, shadow=shadow, fog_linear=fog,
+                        fill_linear=fill, plain_sky_linear=fog, meadow_albedo=meadow,
+                        wind_strength=spec.wind_strength, atmosphere=atmosphere)
+    if cloud == 0.0 and dew == 0.0 and spec.precipitation == "none" and spec.name == "clear":
+        # clear and dry: the sun's own look, field for field — but its atmosphere
+        weathered = replace(look, atmosphere=atmosphere)
+    light = _particle_light(weathered)
+    return replace(weathered, atmosphere=replace(weathered.atmosphere,
+                                                 particle_light_linear=light))
+
+
+def living_look(sun: SunState, preset: str = "high", weather: str = "clear") -> LookSpec:
+    """THE look of a living frame: ``look_for(sun, preset)`` under ``weather``."""
+    return apply_weather(look_for(sun, preset), weather, sun)
+
+
+# ── the moods ────────────────────────────────────────────────────────────────
+
+MOODS: Final = ("night", "twilight", "rain", "snow", "overcast", "morning_dew", "golden_hour",
+                "day")
+#: Up to this sun elevation a clear evening or morning is the golden hour.
+_GOLDEN_HOUR_DEG: Final = 12.0
+
+
+def mood_of(look: LookSpec, sun: SunState) -> str:
+    """The name of what the frame shows (``MOODS``) — read from the look, first match
+    wins: night, twilight, then the weather (rain, snow, overcast), then the dew, the
+    golden hour of a low clear sun, and day."""
+    if look.mood.night:
+        return "night"
+    if look.mood.twilight > 0.0:
+        return "twilight"
+    atmosphere = look.atmosphere
+    if atmosphere.precipitation in ("rain", "snow"):
+        return atmosphere.precipitation
+    if atmosphere.cloud >= 0.5:
+        return "overcast"
+    if atmosphere.dew >= 0.5:
+        return "morning_dew"
+    if float(sun.elevation_deg) <= _GOLDEN_HOUR_DEG:
+        return "golden_hour"
+    return "day"

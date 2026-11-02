@@ -59,6 +59,9 @@ NEW_ROSTER: dict[ObjectType, tuple[ToolType, type]] = {
     ObjectType.WHEELBARROW: (ToolType.WHEELBARROW, RectangleItem),
     ObjectType.PERGOLA: (ToolType.PERGOLA, RectangleItem),
     ObjectType.BIRD_BATH: (ToolType.BIRD_BATH, CircleItem),
+    # garden lights (Phase 17 L5.4, #389)
+    ObjectType.GARDEN_LIGHT: (ToolType.GARDEN_LIGHT, CircleItem),
+    ObjectType.STRING_LIGHTS: (ToolType.STRING_LIGHTS, RectangleItem),
 }
 
 

@@ -46,14 +46,15 @@ from .frame import sun_direction_scene
 from .sink import SunState
 
 __all__ = [
-    "AUTO", "AUTO_LEVELS", "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN", "GOLDEN_DEG",
+    "AUTO", "AUTO_LEVELS", "CLEAR_STILL", "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN",
+    "GOLDEN_DEG", "AtmosphereSpec",
     "LOW_SUN", "MEADOW_ALBEDO", "MOON_AZIMUTH_DEG", "MOON_ELEVATION_DEG", "NEUTRAL_DAY", "NIGHT",
     "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
     "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_REBUILD_DEG", "TWILIGHT_DEG", "AutoPolicy",
     "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec", "day_rig",
     "fill_linear", "fog_color", "fog_depth_cm", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
     "mix_rig", "moon_travel_scene", "normalise_quality", "scale_linear", "sky_is_stale",
-    "sky_phase", "sky_separation_deg", "twilight_fraction", "twilight_rig",
+    "sky_must_build_now", "sky_phase", "sky_separation_deg", "twilight_fraction", "twilight_rig",
 ]
 
 # ── the rig ──────────────────────────────────────────────────────────────────
@@ -416,10 +417,14 @@ class SkySpec:
     #: at eye height, 960 x 540: dip 2.07 / 1.04 luma at low / high -> 0.01 / 0.12;
     #: the fog step 2.51 / 2.50 -> 2.75 / 2.80; night luminance +0.2 %).
     ground_energy: float
-    #: 0 at night: no disc (the moon is a light, not a picture).
+    #: 0 at night: no disc (the moon is a light, not a picture); 0 under a full
+    #: overcast too (L5.2) — the phase is the sun's elevation, never this energy.
     sun_energy: float
     night: bool
     ground_curve: float = 0.1
+    #: L5.2 (ADR-070): how overcast the weather paints this sky, 0 (clear) .. 1. A
+    #: change of it is built at once, like a change of phase (``sky_must_build_now``).
+    cloud: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -457,6 +462,57 @@ class MoodSpec:
 
 
 @dataclass(frozen=True, slots=True)
+class AtmosphereSpec:
+    """The living part of a look (Phase 17 L5, #389, ADR-070): the weather, the
+    morning dew, the particles and the garden lights. Plain data, made by
+    ``core/scene3d/weather.py`` (``living_look``) and mapped onto the scene by
+    ``ui/view3d/quick3d/look.py``. ``CLEAR_STILL`` — what ``look_for`` gives — is a
+    clear sky with nothing alive in it: a look of L1–L4 is exactly what it was.
+
+    Colours named ``_linear`` are linear rgb; the rest are plain numbers. Nothing
+    here is a truth: no field moves the sun, a shadow or a plant."""
+
+    #: ``clear`` | ``overcast`` | ``rain`` | ``snow`` (``weather.WEATHERS``).
+    weather: str = "clear"
+    #: How overcast, 0..1 (also ``SkySpec.cloud``).
+    cloud: float = 0.0
+    #: The morning dew, 0..1 (``weather.dew_amount``) — for the mood and the mist.
+    dew: float = 0.0
+    #: How wet leaves, blades and the ground look, 0..1 (rain 1, dew up to 0.6).
+    wetness: float = 0.0
+    #: How much of the ground is under snow, 0..1 (the snow weather).
+    snow_cover: float = 0.0
+    #: The depth fog's distances x this (1: the camera's own, ``fog_depth_cm``).
+    haze: float = 1.0
+    #: The ground's (meadow, bare plan, baked tiles) multiplier, roughness and
+    #: specular — ONE set for all of them, so the plan meets the meadow without a step.
+    ground_tint_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    ground_roughness: float = 1.0
+    ground_specular: float = 0.15
+    #: ``none`` | ``rain`` | ``snow``, and the share of the precipitation's particles
+    #: drawn (0..1).
+    precipitation: str = "none"
+    precip_density: float = 0.0
+    #: Where the wind carries rain, snow and leaves, cm/s in the scene frame (E, N).
+    wind_drift_scene: tuple[float, float] = (0.0, 0.0)
+    #: The light an unlit particle is drawn in (linear): the key light and the sky's,
+    #: so rain is dark at night and a leaf warm at golden hour.
+    particle_light_linear: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    #: How much of each kind of life shows, 0..1: falling leaves, butterflies (by day,
+    #: dry), fireflies (summer evenings). WHICH plants have them is the plan's —
+    #: ``core/scene3d/particles.ambient_emitters``; WHEN, this.
+    leaves: float = 0.0
+    butterflies: float = 0.0
+    fireflies: float = 0.0
+    #: The garden lights, 0 (off, by day) .. 1 (on at night): they come on with dusk.
+    lamps: float = 0.0
+
+
+#: What every look of L1–L4 has: clear, dry and still.
+CLEAR_STILL: Final = AtmosphereSpec()
+
+
+@dataclass(frozen=True, slots=True)
 class LookSpec:
     """Everything about a frame that is art direction — plain, comparable data.
 
@@ -485,6 +541,11 @@ class LookSpec:
     moon_travel_scene: tuple[float, float, float] | None
     meadow_albedo: str = MEADOW_ALBEDO
     wind_strength: float = WIND_STRENGTH
+    #: L5 (ADR-070): the weather, the dew, the particles and the garden lights of
+    #: this look — ``core/scene3d/weather.py`` paints it (``living_look``);
+    #: ``look_for`` leaves it clear and still. A LOOK, never a truth: nothing in it
+    #: moves the sun or a shadow.
+    atmosphere: AtmosphereSpec = CLEAR_STILL
 
     @property
     def night(self) -> bool:
@@ -588,25 +649,37 @@ def sky_separation_deg(first: SkySpec, second: SkySpec) -> float:
 
 
 def sky_phase(sky: SkySpec) -> str:
-    """``"day"`` (the sky draws its sun), ``"twilight"`` (no sun; its colours still
-    follow the sun's elevation) or ``"night"`` (the night sky, whatever the sun does)."""
+    """``"day"`` (the sun is up: the sky draws its disc — unless an overcast hides it),
+    ``"twilight"`` (no sun; its colours still follow the sun's elevation) or
+    ``"night"`` (the night sky, whatever the sun does). By the sun's ELEVATION, not by
+    the disc's energy: an overcast day (L5.2) is still day."""
     if sky.night:
         return "night"
-    return "day" if sky.sun_energy > 0.0 else "twilight"
+    return "day" if sky.sun_elevation_deg >= NIGHT_BELOW_DEG else "twilight"
+
+
+def sky_must_build_now(shown: SkySpec | None, wanted: SkySpec) -> bool:
+    """True when ``wanted`` is built at once, without waiting for the sun to rest: no
+    sky yet, a change of phase (sunset, nightfall, dawn) or of the weather's cloud
+    (L5.2 — a picked weather must not wait for the sun)."""
+    return (shown is None or sky_phase(shown) != sky_phase(wanted)
+            or shown.cloud != wanted.cloud)
 
 
 def sky_is_stale(shown: SkySpec | None, wanted: SkySpec,
                  threshold_deg: float = SKY_REBUILD_DEG) -> bool:
     """True when the sky on screen must be rebuilt to show ``wanted``.
 
-    No sky yet; the phase changed (``sky_phase``: sunset at 0.5°, the end of civil
-    twilight at −6°, and back — the caller builds those at once); by day and in
-    twilight, the sun moved ``threshold_deg`` or more (in twilight the sky draws no
-    sun, but its colours follow the elevation: one rebuild per degree). A night sky
-    is never rebuilt for the sun's position.
+    No sky yet; the phase or the weather's cloud changed (``sky_must_build_now``:
+    sunset at 0.5°, the end of civil twilight at −6°, and back, a new weather — the
+    caller builds those at once); by day and in twilight, the sun moved
+    ``threshold_deg`` or more (in twilight the sky draws no sun, but its colours
+    follow the elevation: one rebuild per degree). A night sky is never rebuilt for
+    the sun's position.
     """
-    if shown is None or sky_phase(shown) != sky_phase(wanted):
+    if sky_must_build_now(shown, wanted):
         return True
+    assert shown is not None
     if wanted.night:
         return False
     return sky_separation_deg(shown, wanted) >= threshold_deg

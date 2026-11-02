@@ -144,6 +144,10 @@ from open_garden_planner.core.scene3d import (
 )
 from open_garden_planner.core.scene3d.look import fog_depth_cm
 from open_garden_planner.core.scene3d.meadow import meadow_frame
+from open_garden_planner.core.scene3d.particles import (
+    precipitation_buffers,
+    precipitation_volume,
+)
 from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
 
 from .adapter import GroundPlacement, PartSpec
@@ -163,6 +167,7 @@ from .look import (
     COLOR_PROPERTIES,
     LINEAR_COLOR_PROPERTIES,
     NEUTRAL_DAY,
+    VECTOR_PROPERTIES,
     LookSpec,
     SkySpec,
     scene_properties,
@@ -637,7 +642,9 @@ class Quick3DHost:
                 failures.append(error)
         steps: tuple[Callable[[], None], ...] = (
             lambda: self.set_sun(None), lambda: self.set_ground(None),
-            lambda: self.set_selection_ring(None))  # the ring is no item's: hidden, not destroyed
+            lambda: self.set_selection_ring(None),  # the ring is no item's: hidden, not destroyed
+            # the plan's life and its lights are its items': hidden with them (L5)
+            lambda: self.set_ambient(None), lambda: self.set_lamps([]))
         for step in steps:
             try:
                 step()
@@ -941,6 +948,80 @@ class Quick3DHost:
         """The items whose parts are drawn faded (X-ray, L2.4)."""
         return self._faded
 
+    # ── the living garden (Phase 17 L5, #389, ADR-070) ───────────────────────
+
+    #: The ONE geometry of the precipitation's Model and of the ambient life's — class
+    #: defaults, so that no host starts with one. Like the overlays: a weather, a date
+    #: or a time of day creates and destroys no engine object.
+    _precipitation: ReloadableGeometry | None = None
+    _ambient: ReloadableGeometry | None = None
+    #: How often each was loaded (the gates read them).
+    precipitation_loads = 0
+    ambient_loads = 0
+
+    def _load_precipitation(self) -> None:
+        """Load the precipitation's buffer (the same for every plan) into the scene's
+        precipitation Model — once per host, at its first rain or snow."""
+        geometry = self._precipitation
+        if geometry is not None and not sip.isdeleted(geometry):
+            return
+        model = self._call("precipitationModel")
+        try:
+            geometry = ReloadableGeometry(model)
+        except TypeError as error:
+            raise EngineError(f"the scene's precipitation is no 3D object ({error})") from error
+        geometry.load(precipitation_buffers())
+        if self._call("setPrecipitationGeometry", geometry) is not True:
+            raise EngineError("the scene refused the precipitation's geometry")
+        self._precipitation = geometry
+        self.precipitation_loads += 1
+
+    def set_ambient(self, buffers: EngineBuffers | None) -> None:
+        """Show the garden's life — falling leaves, butterflies, fireflies, and the
+        bulbs of the garden lights (``core.scene3d.particles.ambient_buffers``) — or
+        nothing (None, empty). Loaded into the ONE geometry of the scene's ambient
+        Model; WHEN each kind shows is the look's."""
+        self._open("set_ambient")
+        if buffers is None or buffers.is_empty:
+            _set(self._root, "ambientVisible", False)
+            return
+        geometry = self._ambient
+        if geometry is None or sip.isdeleted(geometry):
+            model = self._call("ambientModel")
+            try:
+                geometry = ReloadableGeometry(model)
+            except TypeError as error:
+                raise EngineError(f"the scene's ambient life is no 3D object ({error})") from error
+            geometry.load(buffers)
+            if self._call("setAmbientGeometry", geometry) is not True:
+                raise EngineError("the scene refused the ambient life's geometry")
+            self._ambient = geometry
+        else:
+            geometry.load(buffers)
+        self.ambient_loads += 1
+        _set(self._root, "ambientVisible", True)
+
+    def set_life_enabled(self, enabled: bool) -> None:
+        """The 3D strip's "Wildlife and Falling Leaves" switch: leaves, butterflies and
+        fireflies show (True) or not. The garden lights' bulbs are not life."""
+        self._open("set_life_enabled")
+        _set(self._root, "lifeEnabled", bool(enabled))
+
+    def set_lamps(self, lamps: list[tuple[float, float, float, float]]) -> None:
+        """The garden lights that LIGHT: up to the scene's ``lampSlots`` of
+        ``(east, north, up, strength)`` in the scene frame — the caller picks which
+        (``core.scene3d.lights.nearest_lamps``). Mapped to the engine frame here."""
+        self._open("set_lamps")
+        slots = int(_get(self._root, "lampSlots"))
+        if len(lamps) > slots:
+            raise EngineError(f"the scene lights at most {slots} lamps, got {len(lamps)}")
+        out = []
+        for east, north, up, strength in lamps:
+            engine = scene_to_engine_points(np.array([[east, north, up]], dtype=np.float64))[0]
+            out.append({"x": float(engine[0]), "y": float(engine[1]), "z": float(engine[2]),
+                        "w": float(strength)})
+        _set(self._root, "lamps", out)
+
     # ── lifecycle ────────────────────────────────────────────────────────────
 
     def container(self, parent: QWidget | None = None) -> QWidget:
@@ -1242,6 +1323,11 @@ class Quick3DHost:
         _set(self._root, "camTarget", _engine_vector(shot.target))
         _set(self._root, "camFov", float(shot.fov_deg))
         _set(self._root, "camVersion", int(_get(self._root, "camVersion")) + 1)
+        # where the rain falls follows the camera (L5): around the point it looks at
+        volume = precipitation_volume(shot.eye, shot.target)
+        _set(self._root, "volumeCenter", _engine_vector((*volume.center_scene, 0.0)))
+        _set(self._root, "volumeSize", float(volume.size_cm))
+        _set(self._root, "volumeHeight", float(volume.height_cm))
         self._update_shadow_reach()
 
     def set_top_down(self, center_scene: tuple[float, float], px_per_cm: float) -> None:
@@ -1264,8 +1350,13 @@ class Quick3DHost:
             elif name in LINEAR_COLOR_PROPERTIES:
                 red, green, blue = cast("tuple[float, float, float]", value)  # sRGB-space floats
                 value = QColor.fromRgbF(float(red), float(green), float(blue))
+            elif name in VECTOR_PROPERTIES:
+                x, y, z = cast("tuple[float, float, float]", value)
+                value = QVector3D(float(x), float(y), float(z))
             _set(self._root, name, value)
         previous, self._shown_look = self._shown_look, look
+        if look.atmosphere.precipitation != "none":
+            self._load_precipitation()   # the first rain or snow of this host
         if look.moon_travel_scene != previous.moon_travel_scene:
             self._apply_light()   # dusk or dawn: the key light changes hands
 

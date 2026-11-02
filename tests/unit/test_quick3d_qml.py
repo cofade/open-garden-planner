@@ -21,6 +21,7 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     COLOR_PROPERTIES,
     LINEAR_COLOR_PROPERTIES,
     NEUTRAL_DAY,
+    VECTOR_PROPERTIES,
     scene_properties,
 )
 from open_garden_planner.ui.view3d.quick3d.materials import PART_COMPONENTS
@@ -293,7 +294,9 @@ def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> Non
                                 "screen.frag", "screen.vert",       # X-ray and Cutaway: L2.4
                                 "foliage_door.frag", "water_door.frag",
                                 "foliage_door.vert", "grass_door.vert",
-                                "ground.frag", "lawn.frag"}         # detail normals and lawn lighting
+                                "ground.frag", "lawn.frag",         # detail normals and lawn lighting
+                                "precipitation.vert", "precipitation.frag",   # rain, snow: L5
+                                "ambient.vert", "ambient.frag"}     # leaves, butterflies, fireflies, bulbs
     assert {path.name for path in QML_DIR.iterdir()} == shipped | {"Garden.qml"}
 
 
@@ -343,7 +346,8 @@ def _look_block() -> dict[str, tuple[str, str]]:
     """The scene file's look properties: name -> (QML type, default as written)."""
     code = SCENE.read_text(encoding="utf-8")
     block = code[code.index("// ---- look"):code.index("// ---- key light")]
-    found = re.findall(r"^\s*property (\w+) (\w+):\s*([^\s/]+)", strip_comments(block), re.MULTILINE)
+    found = re.findall(r"^\s*property (\w+) (\w+):\s*(Qt\.vector3d\([^)]*\)|[^\s/]+)",
+                       strip_comments(block), re.MULTILINE)
     return {name: (kind, default.strip('"')) for kind, name, default in found}
 
 
@@ -369,6 +373,9 @@ def test_the_look_properties_are_exactly_the_mapping_and_start_as_the_neutral_da
             assert kind == "int" and int(default) == value, name
         elif isinstance(value, float):
             assert kind == "real" and float(default) == value, name
+        elif name in VECTOR_PROPERTIES:  # L5: a vector3d, written as Qt.vector3d(x, y, z)
+            written = tuple(float(v) for v in default[len("Qt.vector3d("):-1].split(","))
+            assert kind == "vector3d" and written == pytest.approx(value), name
         else:
             assert (kind, default) == ("string", value), name
     assert declared["windTime"] == ("real", "0") and declared["windRunning"] == ("bool", "false")

@@ -28,6 +28,7 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     COLOR_PROPERTIES,
     LINEAR_COLOR_PROPERTIES,
     NEUTRAL_DAY,
+    VECTOR_PROPERTIES,
     engine_hex,
     engine_linear,
     engine_srgb,
@@ -92,6 +93,10 @@ class TestLook:
                     assert isinstance(value, tuple) and len(value) == 3, name
                     assert all(isinstance(channel, float) and 0.0 <= channel <= 1.0
                                for channel in value), (name, value)
+                    continue
+                if name in VECTOR_PROPERTIES:   # L5: a vector3d, three plain floats
+                    assert isinstance(value, tuple) and len(value) == 3, name
+                    assert all(isinstance(component, float) for component in value), (name, value)
                     continue
                 assert isinstance(value, (str, float, int, bool)), (name, value)
                 if name in COLOR_PROPERTIES:

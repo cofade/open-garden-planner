@@ -1117,6 +1117,10 @@ class PlantingCalendarView(QWidget):
     #: Emitted with the full ``list[FrostAlert]`` after each weather fetch, so
     #: the US-C2 Tasks tab can reuse this single forecast (no second fetch).
     frost_alerts_ready = pyqtSignal(object)
+    #: Emitted with the forecast's days as ``(ISO date, WMO code)`` after each weather
+    #: fetch — the 3D view's "Today's Weather" (Phase 17 L5.3) follows this single
+    #: forecast and fetches nothing itself.
+    forecast_days_ready = pyqtSignal(object)
 
     def __init__(self, canvas_scene: Any, project_manager: Any, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1602,6 +1606,8 @@ class PlantingCalendarView(QWidget):
         forecast = self._weather.forecast()
         if forecast is None:
             return
+        self.forecast_days_ready.emit(
+            tuple((day.date, int(day.weathercode)) for day in forecast.days))
         settings = get_settings()
         orange_c = settings.frost_warning_orange_c
         red_c = settings.frost_warning_red_c

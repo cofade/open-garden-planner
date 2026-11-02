@@ -89,6 +89,9 @@ class ToolType(Enum):
     WHEELBARROW = auto()
     PERGOLA = auto()
     BIRD_BATH = auto()
+    # Garden lights (Phase 17 L5.4, #389)
+    GARDEN_LIGHT = auto()
+    STRING_LIGHTS = auto()
 
     # Vertical & container gardening (US-C3)
     CONTAINER_RECT = auto()

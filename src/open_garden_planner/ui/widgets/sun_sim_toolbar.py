@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from PyQt6.QtCore import QDate, QRect, QSize, Qt, QTime, QTimer, pyqtSignal
+from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
     QDateEdit,
@@ -27,11 +28,17 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.core.object_types import get_translated_display_name, is_plant_type
 from open_garden_planner.core.plan_timeline import instance_date, month_number, timeline_month_range
+from open_garden_planner.core.playback import (
+    DEFAULT_SPEED,
+    SPEEDS,
+    STEP_MS,
+    PlaybackMode,
+    next_step,
+)
 from open_garden_planner.core.sim_clock import MAX_PLAN_DATE, MIN_PLAN_DATE
 from open_garden_planner.ui.icons import get_icon
 
-_ANIMATE_INTERVAL_MS = 200
-_ANIMATE_STEP_MINUTES = 10
+_ANIMATE_INTERVAL_MS = STEP_MS
 #: The shortest the two sliders get while the strip makes room to stay within two
 #: rows: German at 10 pt in an 800-px strip needs 80 px (measured with real fonts),
 #: and 10 px more leaves room for a platform font that runs wider.
@@ -259,7 +266,7 @@ class SunSimToolbar(QToolBar):
         self._slider.setToolTip(self.tr("Time of day"))
         group.addWidget(self._slider)
         self._animate_button = self._button(self.tr("Animate"), group, checkable=True)
-        self._animate_button.setToolTip(self.tr("Animate the sun across the selected day"))
+        self._build_playback_menu()
 
         group = self._group()
         self._heatmap_button = self._button(self.tr("Hours of Sun"), group, checkable=True)
@@ -300,6 +307,74 @@ class SunSimToolbar(QToolBar):
         self.set_datetime_local(datetime.now().replace(second=0, microsecond=0))
         self.refresh_theme_icons()
         self._controls_ready = True
+
+    def _build_playback_menu(self) -> None:
+        """Animate plays the day or the year (L5.1, #389): the arrow beside the button
+        chooses which, and how fast. Both write the one sim clock (core/playback.py)."""
+        self._playback_mode = PlaybackMode.DAY
+        self._playback_speed = DEFAULT_SPEED
+        menu = QMenu(self._animate_button)
+        menu.addSection(self.tr("Play"))
+        modes = QActionGroup(menu)
+        modes.setExclusive(True)
+        self._mode_actions: dict[PlaybackMode, QAction] = {}
+        for mode, text, tip in (
+            (PlaybackMode.DAY, self.tr("The Day"),
+             self.tr("Play the time of day; the plan date stays")),
+            (PlaybackMode.YEAR, self.tr("The Year"),
+             self.tr("Play the plan date through its year at this time of day")),
+        ):
+            action = QAction(text, menu)
+            action.setCheckable(True)
+            action.setStatusTip(tip)
+            action.setToolTip(tip)
+            action.triggered.connect(lambda _checked=False, m=mode: self.set_playback_mode(m))
+            modes.addAction(action)
+            menu.addAction(action)
+            self._mode_actions[mode] = action
+        menu.addSection(self.tr("Speed"))
+        speeds = QActionGroup(menu)
+        speeds.setExclusive(True)
+        self._speed_actions: dict[str, QAction] = {}
+        for speed, text in zip(SPEEDS, (self.tr("Slow"), self.tr("Normal"), self.tr("Fast")),
+                               strict=True):
+            action = QAction(text, menu)
+            action.setCheckable(True)
+            action.triggered.connect(lambda _checked=False, v=speed: self.set_playback_speed(v))
+            speeds.addAction(action)
+            menu.addAction(action)
+            self._speed_actions[speed] = action
+        self._animate_button.setMenu(menu)
+        self._animate_button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        self._sync_playback_controls()
+
+    def _sync_playback_controls(self) -> None:
+        self._mode_actions[self._playback_mode].setChecked(True)
+        self._speed_actions[self._playback_speed].setChecked(True)
+        self._animate_button.setToolTip(
+            self.tr("Animate the sun across the selected day")
+            if self._playback_mode is PlaybackMode.DAY
+            else self.tr("Animate the plan date through its year at this time of day"))
+
+    @property
+    def playback_mode(self) -> PlaybackMode:
+        """What Animate plays: the day or the year."""
+        return self._playback_mode
+
+    def set_playback_mode(self, mode: PlaybackMode) -> None:
+        self._playback_mode = PlaybackMode(mode)
+        self._sync_playback_controls()
+
+    @property
+    def playback_speed(self) -> str:
+        """``slow`` / ``normal`` / ``fast`` (``core.playback.SPEEDS``)."""
+        return self._playback_speed
+
+    def set_playback_speed(self, speed: str) -> None:
+        if speed not in SPEEDS:
+            raise ValueError(f"unknown playback speed {speed!r}; choose from {list(SPEEDS)}")
+        self._playback_speed = speed
+        self._sync_playback_controls()
 
     def _group(self) -> QHBoxLayout:
         widget = QWidget(self._content)
@@ -542,9 +617,16 @@ class SunSimToolbar(QToolBar):
             self.heatmap_cleared.emit()
 
     def _on_animate_tick(self) -> None:
-        # Advancing the slider fires valueChanged → one recompute per tick.
-        next_value = self._slider.value() + _ANIMATE_STEP_MINUTES
-        self._slider.setValue(next_value % (24 * 60))
+        wall = self.current_wall_datetime()
+        step = next_step(self._playback_mode, self._playback_speed, wall.date(), wall.time())
+        if self._playback_mode is PlaybackMode.DAY:
+            # Advancing the slider fires valueChanged → one recompute per tick.
+            self._slider.setValue(step.time_of_day.hour * 60 + step.time_of_day.minute)
+            return
+        # the year: the plan date steps, written to the clock as the month slider is
+        # (date_requested); the toolbar shows it once the clock says so
+        if step.plan_date != wall.date():
+            self.date_requested.emit(step.plan_date)
 
     def _request_month(self, number: int) -> None:
         year, month0 = divmod(number, 12)

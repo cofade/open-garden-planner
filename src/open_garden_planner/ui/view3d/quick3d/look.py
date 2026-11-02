@@ -26,17 +26,25 @@ from __future__ import annotations
 
 from typing import Final
 
+import numpy as np
+
+from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors
 from open_garden_planner.core.scene3d.look import NEUTRAL_DAY, LookSpec, SkySpec
 
-__all__ = ["COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES", "NEUTRAL_DAY", "LookSpec", "SkySpec",
-           "engine_hex", "engine_linear", "engine_srgb", "scene_properties", "sky_longitude",
-           "sky_properties"]
+__all__ = ["COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES", "NEUTRAL_DAY", "PRECIP_KINDS",
+           "VECTOR_PROPERTIES", "LookSpec", "SkySpec", "engine_hex", "engine_linear",
+           "engine_srgb", "scene_properties", "sky_longitude", "sky_properties"]
 
 #: The look properties of ``Garden.qml`` that are colours given as ``#rrggbb`` …
 COLOR_PROPERTIES: Final = frozenset({"sunColor", "meadowColor"})
 #: … and the ones the look derives in LINEAR light: handed over as the sRGB-space
 #: triple the engine's own linearisation turns back into that value (``engine_srgb``).
-LINEAR_COLOR_PROPERTIES: Final = frozenset({"fogColor", "skyColor", "fillColor"})
+LINEAR_COLOR_PROPERTIES: Final = frozenset({"fogColor", "skyColor", "fillColor", "groundTint"})
+#: … and the ones that are ``vector3d`` (handed over as ``QVector3D``): the wind's drift
+#: (engine frame) and the light an unlit particle is drawn in (linear rgb) — L5.
+VECTOR_PROPERTIES: Final = frozenset({"windDrift", "particleLight"})
+#: ``AtmosphereSpec.precipitation`` as the scene's ``precipKind``.
+PRECIP_KINDS: Final = {"none": 0, "rain": 1, "snow": 2}
 
 # Qt Quick 3D linearises a colour PROPERTY with a polynomial, not with the sRGB curve
 # (measured, L1.4: a flat ambient light of colour c on a white box, read from the
@@ -119,6 +127,33 @@ def scene_properties(look: LookSpec) -> dict[str, object]:
         "detailNormals": float(preset.detail_normals),
         # wind
         "windStrength": float(look.wind_strength),
+        # the living garden (L5, ADR-070)
+        **_atmosphere_properties(look),
+    }
+
+
+def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
+    """``look.atmosphere`` as the scene's properties. The wind's drift is a direction
+    in the GARDEN (east, north): it goes through the frame mapping (``core/scene3d``)
+    like every other vector."""
+    atmosphere = look.atmosphere
+    east, north = atmosphere.wind_drift_scene
+    drift = scene_to_engine_vectors(np.array((east, north, 0.0), dtype=np.float64))
+    return {
+        "wetness": float(atmosphere.wetness),
+        "snowCover": float(atmosphere.snow_cover),
+        "fogHaze": float(atmosphere.haze),
+        "groundTint": engine_srgb(atmosphere.ground_tint_linear),
+        "groundRoughness": float(atmosphere.ground_roughness),
+        "groundSpecular": float(atmosphere.ground_specular),
+        "precipKind": PRECIP_KINDS[atmosphere.precipitation],
+        "precipDensity": float(atmosphere.precip_density),
+        "windDrift": (float(drift[0]), float(drift[1]), float(drift[2])),
+        "particleLight": tuple(float(value) for value in atmosphere.particle_light_linear),
+        "leafLife": float(atmosphere.leaves),
+        "butterflyLife": float(atmosphere.butterflies),
+        "fireflyLife": float(atmosphere.fireflies),
+        "lampGlow": float(atmosphere.lamps),
     }
 
 

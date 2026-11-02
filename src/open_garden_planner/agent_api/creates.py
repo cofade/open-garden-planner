@@ -65,6 +65,7 @@ _CIRCLE_TYPE_NAMES = _PLANT_TYPE_NAMES | {
     "RAIN_BARREL",
     "WATER_TAP",
     "BIRD_BATH",
+    "GARDEN_LIGHT",
 }
 
 #: Rectangle-based: the D2.1 soil containers plus generic rectangle,
@@ -92,6 +93,7 @@ _RECT_TYPE_NAMES = frozenset(
         "TOOL_SHED",
         "WHEELBARROW",
         "PERGOLA",
+        "STRING_LIGHTS",
         "TRELLIS",
     }
 )

@@ -12,7 +12,7 @@ are production ``.ogp`` files, not hand-rolled JSON:
 * ``bench_large.ogp`` — a 50 x 30 m allotment-style plan with 425 items
   (320 plants) for the performance budgets.
 * ``bench_built.ogp`` — a 26 x 18 m plan of the BUILT world (Phase 17 L4, #388):
-  every furniture and infrastructure object, a house in each roof style, every
+  every furniture and infrastructure object (and since L5.4 the garden lights), a house in each roof style, every
   path style at a real width, a deck, a stone terrace, a driveway, a pond and a
   lawn the paths cut. The L4 Beauty Board's scene.
 
@@ -488,6 +488,10 @@ def build_built() -> PlanBuilder:
         b.plant(tx, ty, name, T.TREE, spread_cm=spread, height_cm=height)
     for i, name in enumerate(["Hydrangea", "Rose", "Lilac"]):
         b.plant(2520, 300 + i * 220, name, T.SHRUB, spread_cm=110, height_cm=140)
+    # --- the garden lights (Phase 17 L5.4, #389): a lantern by the deck, a string over
+    # it. LAST, so every earlier item keeps its id and seed (ids come from the RNG) ---
+    b.circle(1080, 1240, 20, T.GARDEN_LIGHT, "Garden light")
+    b.rect(240, 1235, 420, 30, T.STRING_LIGHTS, "String lights")
     return b
 
 

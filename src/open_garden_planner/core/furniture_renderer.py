@@ -38,6 +38,9 @@ _FURNITURE_FILES: dict[ObjectType, str] = {
     ObjectType.SWING: "swing",
     ObjectType.PICNIC_TABLE: "picnic_table",
     ObjectType.HAMMOCK: "hammock",
+    # Garden lights (Phase 17 L5.4, #389)
+    ObjectType.GARDEN_LIGHT: "garden_light",
+    ObjectType.STRING_LIGHTS: "string_lights",
 }
 
 # Map ObjectType to SVG filename for infrastructure objects
@@ -111,6 +114,9 @@ FURNITURE_DEFAULT_DIMENSIONS: dict[ObjectType, tuple[float, float]] = {
     ObjectType.WHEELBARROW: (60.0, 140.0),
     ObjectType.PERGOLA: (300.0, 300.0),
     ObjectType.BIRD_BATH: (50.0, 50.0),
+    # Garden lights (Phase 17 L5.4): a lantern post (round), a string between two posts
+    ObjectType.GARDEN_LIGHT: (40.0, 40.0),
+    ObjectType.STRING_LIGHTS: (400.0, 30.0),
 }
 
 # Cache for QSvgRenderer instances (path -> renderer)

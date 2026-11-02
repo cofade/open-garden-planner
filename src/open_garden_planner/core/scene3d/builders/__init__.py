@@ -22,6 +22,9 @@ covers this package).
 ``utility``        compost bin, cold frame, rain barrel, water tap,
                    wheelbarrow, bird bath (L4.4)
 ``structures``     PERGOLA, TRELLIS, GREENHOUSE (L4.3)
+``lights``         GARDEN_LIGHT, STRING_LIGHTS: a lantern on a post, a string of
+                   bulbs between two posts — and where their bulbs are, for the
+                   lights of the night (L5.4, ``core/scene3d/lights.py``)
 ``surfaces``       PATH, TERRACE_PATIO, DRIVEWAY, POND_POOL, LAWN: relief on
                    the painted ground — ``ground_detail`` parts (L4.2, L4.5)
 ``plants``         TREE, SHRUB, PERENNIAL (``plant_art.PLANT_KINDS``): one
@@ -55,6 +58,7 @@ from . import (
     buildings,
     furniture,
     hedges,
+    lights,
     lines,
     plants,
     play,
@@ -77,9 +81,10 @@ BUILT_WORLD_KINDS: frozenset[str] = frozenset({
     "HEDGE_SECTION", "HEDGE_POLYGON",
 })
 #: The L4 objects (#388): every furniture and infrastructure sprite of the 2D
-#: roster that the built world does not already build, and the three structures.
+#: roster that the built world does not already build, and the three structures —
+#: and the garden lights of L5.4 (#389).
 OBJECT_KINDS: frozenset[str] = frozenset(
-    {*furniture.KINDS, *play.KINDS, *utility.KINDS, *structures.KINDS})
+    {*furniture.KINDS, *play.KINDS, *utility.KINDS, *structures.KINDS, *lights.KINDS})
 #: The L4 surfaces: relief on the painted ground.
 SURFACE_KINDS: frozenset[str] = frozenset(surfaces.KINDS)
 #: The most triangles one L4 object may have (a 2.5 m slatted compost bin, the
@@ -96,11 +101,13 @@ def register(registry: BuilderRegistry) -> None:
 
 
 def register_objects(registry: BuilderRegistry) -> None:
-    """Register every L4 object builder (#388): furniture, play, utility, structures."""
+    """Register every L4 object builder (#388): furniture, play, utility, structures —
+    and the garden lights (L5.4, #389)."""
     furniture.register(registry)
     play.register(registry)
     utility.register(registry)
     structures.register(registry)
+    lights.register(registry)
 
 
 def register_surfaces(registry: BuilderRegistry) -> None:

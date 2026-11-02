@@ -75,9 +75,11 @@ class TestSpec:
             r"\s+datas\.append\(\(str\(f\), str\(rel\.parent\)\)\)", _code(SPEC))
         assert loop is not None, "ogp.spec no longer bundles ui/view3d/quick3d/qml/*"
         assert sorted(p.name for p in (PACKAGE / "qml").iterdir()) == [
-            "Garden.qml", "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
-            "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert", "ring.frag",
-            "ring.vert",
+            "Garden.qml", "ambient.frag", "ambient.vert",   # the garden's life: L5 (#389)
+            "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
+            "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert",
+            "precipitation.frag", "precipitation.vert",    # rain and snow: L5 (#389)
+            "ring.frag", "ring.vert",
             "screen.frag", "screen.vert", "water.frag", "water_door.frag"]
 
     def test_every_module_of_the_package_is_a_hidden_import(self) -> None:

@@ -111,6 +111,7 @@ from .workspace_analysis import WorkspaceAnalysisCoordinator
 from .workspace_legend import (
     SunPathLegend,
 )
+from .workspace_living import WorkspaceLivingCoordinator
 from .workspace_protocols import (
     EngineHost,
     EngineSink,
@@ -512,6 +513,7 @@ class Workspace(QWidget):
         del command_manager
         self._scene, self._clock, self._location = scene, clock, location
         self._ui_state = ui_state
+        self._living.connect_clock(clock)  # L5: a new plan date may change today's weather
         replaced = getattr(scene, "document_replaced", None)  # a CanvasScene has it
         if replaced is not None:
             replaced.connect(self.document_changed)
@@ -590,6 +592,16 @@ class Workspace(QWidget):
     def look(self) -> LookController | None:
         """The look controller — None until 3D was first opened (L1.4)."""
         return self._look
+
+    @property
+    def living(self) -> WorkspaceLivingCoordinator:
+        """The living garden (L5): the Weather menu, the garden's life and lights."""
+        return self._living
+
+    def set_weather_forecast(self, days: Any) -> None:
+        """The app's daily forecast, ``(ISO date, WMO code)`` per day — what "Today's
+        Weather" follows while the plan date is today (L5.3)."""
+        self._living.set_forecast(days)
 
     def apply_look_settings(self) -> None:
         """The 3D settings changed (the Preferences dialog was accepted): the look
@@ -737,6 +749,7 @@ class Workspace(QWidget):
         strip.addWidget(self._reset_button)
         self._build_walk_controls(pane)  # L1.8: the Walk toggle and the eye height
         self._build_analysis_controls(pane)  # L2: the Analyze menu
+        self._living.build_controls(pane.strip, strip)  # L5: the Weather menu
         # the notices, one per line; every sentence wraps (class docstring of the pane)
         notices = pane.notice_layout
         status = QLabel("", pane.notices)
@@ -859,6 +872,7 @@ class Workspace(QWidget):
             return
         self._host, self._controller, self._input = host, controller, orbit
         self._look = look
+        self._living.wire(look)  # L5: the session's weather, the life switch
         if self.engine_factory is quick3d_engine:
             from ...core.plant_forge import ForgeCache
             from .forge_worker import ForgeWorker
@@ -867,7 +881,8 @@ class Workspace(QWidget):
             # exclusively to this worker's synthesis thread.
             self._forge_worker = ForgeWorker(
                 sink, cache=ForgeCache(max_entries=256), background=True,
-                season_sink=getattr(host, "set_plant_seasons", None),
+                # the plants' seasons, and from them the garden's life (L5)
+                season_sink=self._living.season_sink(host),
             )
         else:
             self._forge_worker = None
@@ -1072,6 +1087,7 @@ class Workspace(QWidget):
         except Exception:  # noqa: BLE001 - the health poll reports a host that died
             _LOG.debug("3D workspace: the camera could not be set", exc_info=True)
         self._schedule_xray()  # L2.4: the occluders follow the camera once it rests
+        self._living.camera_moved(target)  # L5: the lamps that light are the nearest
         worker = self._forge_worker
         if worker is not None:
             forward = (float(target[0] - eye[0]), float(target[1] - eye[1]), float(target[2] - eye[2]))
@@ -1147,6 +1163,7 @@ class Workspace(QWidget):
         self._notices.pop(_NOTICE_BUILDING, None)
         self._notices.pop(_NOTICE_SYNC, None)
         self._refresh_notices()
+        self._living.on_applied(report)  # L5: the garden lights may have moved
         if report.ground_pass:
             # pending ground tiles painted, nothing else: the sun did not move (a
             # set_sun would restart the look's stale-sky timer on every slice) and no
@@ -1448,6 +1465,7 @@ class Workspace(QWidget):
     def _stop_engine(self) -> None:
         self._unwire_selection()  # L1.8: walk mode ends, the canvas is let go
         self._unwire_analysis()   # L2: its timers and its sources
+        self._living.unwire()     # L5: what the host was given goes with it
         self._camera_timer.stop()
         self._health_timer.stop()
         self._forge_timer.stop()
@@ -1537,6 +1555,13 @@ class Workspace(QWidget):
             get_probe_text=lambda: self._analysis_coordinator.probe_text(),
             on_walk_applied=lambda report: self._walk_coordinator.on_applied(report),
             on_walk_resume_pause=lambda showing: self._walk_coordinator.on_showing_changed(showing),
+        )
+        self._living = WorkspaceLivingCoordinator(
+            get_host=lambda: self._host,
+            get_look=lambda: self._look,
+            get_records=lambda: self._controller.sync.records if self._controller else {},
+            get_location=lambda: self._location(),
+            parent=self,
         )
         self._analysis_coordinator = WorkspaceAnalysisCoordinator(
             get_host=lambda: self._host,

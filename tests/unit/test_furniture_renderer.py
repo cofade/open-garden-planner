@@ -33,6 +33,9 @@ FURNITURE_TYPES = [
     ObjectType.SWING,
     ObjectType.PICNIC_TABLE,
     ObjectType.HAMMOCK,
+    # garden lights (Phase 17 L5.4, #389)
+    ObjectType.GARDEN_LIGHT,
+    ObjectType.STRING_LIGHTS,
 ]
 
 # All SVG-rendered object types (furniture + hedge)

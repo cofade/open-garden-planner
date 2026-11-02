@@ -397,6 +397,9 @@ def _furniture_items() -> list[GalleryItem]:
         (_tr("Sandbox"), ToolType.SANDBOX, ObjectType.SANDBOX),
         (_tr("Trampoline"), ToolType.TRAMPOLINE, ObjectType.TRAMPOLINE),
         (_tr("Hot Tub"), ToolType.HOT_TUB, ObjectType.HOT_TUB),
+        # Garden lights (Phase 17 L5.4, #389)
+        (_tr("Garden Light"), ToolType.GARDEN_LIGHT, ObjectType.GARDEN_LIGHT),
+        (_tr("String Lights"), ToolType.STRING_LIGHTS, ObjectType.STRING_LIGHTS),
     ]
     for name, tool, obj in furniture:
         svg_filename = _FURNITURE_FILES.get(obj, "")

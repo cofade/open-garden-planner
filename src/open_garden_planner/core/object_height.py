@@ -110,6 +110,11 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     "SWING": 220.0,
     "HAMMOCK": 110.0,
     "PERGOLA": 250.0,
+    # Garden lights (Phase 17 L5.4, #389): a lantern's cap on its post, and the tops
+    # of a string's two posts. The 2D model extrudes a string's whole footprint as a
+    # solid strip, as it does a picket fence's (ADR-070).
+    "GARDEN_LIGHT": 110.0,
+    "STRING_LIGHTS": 250.0,
 }
 
 # Mirrors CONTAINER_TYPES in core/object_types.py (pinned by unit test).

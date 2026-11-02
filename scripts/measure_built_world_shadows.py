@@ -173,6 +173,8 @@ L4_OBJECT_SIZES: dict[str, float | tuple[float, float]] = {
     "COLD_FRAME": (120.0, 60.0), "RAIN_BARREL": 30.0, "WATER_TAP": 10.0,
     "WHEELBARROW": (60.0, 140.0), "BIRD_BATH": 25.0, "PERGOLA": (300.0, 300.0),
     "TRELLIS": (200.0, 20.0), "GREENHOUSE": (300.0, 200.0),
+    # the garden lights of Phase 17 L5.4 (#389): a lantern post and a string of lights
+    "GARDEN_LIGHT": 20.0, "STRING_LIGHTS": (400.0, 30.0),
 }
 
 
@@ -383,6 +385,9 @@ DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
     "wheelbarrow": ((0.44, 0.45, 0.46), (0.44, 0.45, 0.46), (-22.0, -22.0, -22.0)),
     "bird bath": ((0.40, 0.47, 0.61), (0.40, 0.47, 0.61), (-0.8, -0.8, -0.8)),
     "pergola": ((0.25, 0.28, 0.29), (0.25, 0.28, 0.29), (-1.8, -1.8, -1.5)),
+    # Phase 17 L5.4 (#389): a lantern's post and head, a string's two posts and its wire
+    "garden light": ((0.21, 0.28, 0.37), (0.21, 0.28, 0.37), (-18.4, -12.0, -9.6)),
+    "string lights": ((0.02, 0.02, 0.02), (0.02, 0.02, 0.02), (-13.4, -13.4, -13.2)),
     "trellis": ((0.32, 0.34, 0.39), (0.32, 0.34, 0.39), (-7.0, -7.0, -6.8)),
 }
 

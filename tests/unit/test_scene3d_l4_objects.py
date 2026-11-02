@@ -29,6 +29,7 @@ from open_garden_planner.core.scene3d.builders import (
     OBJECT_KINDS,
     OBJECT_TRIANGLE_BUDGET,
     furniture,
+    lights,
     palette,
     play,
     production_registry,
@@ -48,6 +49,7 @@ ROUND: dict[str, list[float]] = {
     "TABLE_ROUND": [50.0, 30.0, 80.0], "PARASOL": [150.0, 60.0, 220.0], "BBQ_GRILL": [40.0, 25.0, 60.0],
     "FIRE_PIT": [50.0, 30.0, 90.0], "PLANTER_POT": [25.0, 12.0, 50.0], "TRAMPOLINE": [150.0, 90.0, 220.0],
     "RAIN_BARREL": [30.0, 20.0, 45.0], "WATER_TAP": [10.0, 6.0, 15.0], "BIRD_BATH": [25.0, 15.0, 40.0],
+    "GARDEN_LIGHT": [20.0, 12.0, 35.0],                                  # L5.4 (#389)
 }
 #: The rectangle kinds, each with its sprite's own size first.
 BOXED: dict[str, list[tuple[float, float]]] = {
@@ -59,6 +61,7 @@ BOXED: dict[str, list[tuple[float, float]]] = {
     "COLD_FRAME": [(120, 60), (100, 80), (200, 100)], "WHEELBARROW": [(60, 140), (50, 120), (80, 160)],
     "PERGOLA": [(300, 300), (400, 250), (150, 150)], "TRELLIS": [(200, 20), (30, 200), (300, 60)],
     "GREENHOUSE": [(300, 200), (200, 300), (500, 300)],
+    "STRING_LIGHTS": [(400, 30), (200, 30), (800, 40)],                  # L5.4 (#389)
 }
 HEIGHTS: list[float | None] = [None, 30.0, 75.0, 250.0]
 
@@ -84,8 +87,9 @@ def matrix() -> list[tuple[str, object, float | None]]:
 
 def test_the_matrix_is_every_object_kind() -> None:
     assert set(ROUND) | set(BOXED) == OBJECT_KINDS
-    assert len(OBJECT_KINDS) == 24
-    assert set(furniture.KINDS) | set(play.KINDS) | set(utility.KINDS) | set(structures.KINDS) == OBJECT_KINDS
+    assert len(OBJECT_KINDS) == 26   # L4's 24 and the garden lights of L5.4 (#389)
+    assert (set(furniture.KINDS) | set(play.KINDS) | set(utility.KINDS) | set(structures.KINDS)
+            | set(lights.KINDS)) == OBJECT_KINDS
 
 
 @pytest.mark.parametrize("kind", sorted(OBJECT_KINDS))

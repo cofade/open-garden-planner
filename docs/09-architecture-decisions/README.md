@@ -6019,8 +6019,12 @@ only, and correct their heights with a fit after the fact.
   | bird bath | 0.40 / 0.47 / 0.61 | 0.40 / 0.47 / 0.61 | -0.8 / -0.8 / -0.8 | shape and porosity vs solid 2D prism |
   | pergola | 0.25 / 0.28 / 0.29 | 0.25 / 0.28 / 0.29 | -1.8 / -1.8 / -1.5 | shape and porosity vs solid 2D prism |
   | trellis | 0.32 / 0.34 / 0.39 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | shape and porosity vs solid 2D prism |
+  | garden light | 0.21 / 0.28 / 0.37 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | shape and porosity vs solid 2D prism |
+  | string lights | 0.02 / 0.02 / 0.02 | 0.02 / 0.02 / 0.02 | -13.4 / -13.4 / -13.2 | shape and porosity vs solid 2D prism |
 
-  Follow-up #624 extends the analytic reference to all 24 L4 object kinds.
+  Follow-up #624 extends the analytic reference to all 24 L4 object kinds; Phase 17 L5.4
+  (#389, ADR-070) adds the two garden lights — a string of lights is two posts and a wire,
+  its 2D caster a solid strip, the largest such difference in the table.
   The script uses each new case's production default height, its stated footprint
   in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. Swing, hammock
   and pergola shadows are porous geometry; the analytical 2D caster remains a

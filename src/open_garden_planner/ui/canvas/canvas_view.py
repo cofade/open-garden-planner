@@ -569,6 +569,7 @@ class CanvasView(QGraphicsView):
             (ObjectType.SWING, ToolType.SWING, self.tr("Swing")),
             (ObjectType.PICNIC_TABLE, ToolType.PICNIC_TABLE, self.tr("Picnic Table")),
             (ObjectType.HAMMOCK, ToolType.HAMMOCK, self.tr("Hammock")),
+            (ObjectType.STRING_LIGHTS, ToolType.STRING_LIGHTS, self.tr("String Lights")),
         ]
         for obj_type, tool_type, display_name in rect_furniture:
             tool = RectangleTool(self, object_type=obj_type)
@@ -584,6 +585,7 @@ class CanvasView(QGraphicsView):
             (ObjectType.FIRE_PIT, ToolType.FIRE_PIT, self.tr("Fire Pit")),
             (ObjectType.PLANTER_POT, ToolType.PLANTER_POT, self.tr("Planter/Pot")),
             (ObjectType.TRAMPOLINE, ToolType.TRAMPOLINE, self.tr("Trampoline")),
+            (ObjectType.GARDEN_LIGHT, ToolType.GARDEN_LIGHT, self.tr("Garden Light")),
         ]
         for obj_type, tool_type, display_name in circle_furniture:
             tool = CircleTool(self, object_type=obj_type)

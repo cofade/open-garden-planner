@@ -167,6 +167,38 @@ def default_shots(width: float, depth: float) -> list[BoardShot]:
     ]
 
 
+def living_shots(width: float, depth: float) -> list[tuple[BoardShot, str]]:
+    """The living garden's shots (L5, #389): (shot, weather). The default shots'
+    cameras, at the moments each mood needs: an overcast and a rainy noon, a snowy
+    December, a morning with dew, an October afternoon with falling leaves, a June
+    noon with butterflies close to the flowers, a June evening with fireflies and a
+    night with the garden lights on."""
+    cx, cy = width / 2, depth / 2
+    diag = math.hypot(width, depth)
+    june, december, october = date(2026, 6, 21), date(2026, 12, 21), date(2026, 10, 20)
+
+    def utc(day: date, hour: int, minute: int = 0) -> datetime:
+        return datetime(day.year, day.month, day.day, hour, minute, tzinfo=UTC)
+
+    south_west = (cx - 0.62 * width, cy - 0.95 * depth, 0.40 * diag)
+    south_east = (cx + 0.62 * width, cy - 0.95 * depth, 0.36 * diag)
+    hero = (cx + 0.55 * width, cy - 0.78 * depth, 0.17 * diag)
+    hero_target = (cx - 0.08 * width, cy + 0.1 * depth, 160.0)
+    low = (cx + 0.35 * width, cy - 0.45 * depth, 0.08 * diag)
+    low_target = (cx - 0.05 * width, cy + 0.1 * depth, 90.0)
+    middle = (cx, cy, 40.0)
+    return [
+        (BoardShot("overcast", utc(june, 11), south_west, middle, 42.0), "overcast"),
+        (BoardShot("rain", utc(june, 14, 30), hero, hero_target, 46.0), "rain"),
+        (BoardShot("snow", utc(december, 11), south_east, middle, 42.0), "snow"),
+        (BoardShot("morning_dew", utc(june, 3, 45), hero, hero_target, 46.0), "clear"),
+        (BoardShot("autumn_leaves", utc(october, 13), low, low_target, 50.0), "clear"),
+        (BoardShot("butterflies", utc(june, 11), low, low_target, 50.0), "clear"),
+        (BoardShot("fireflies", utc(june, 20, 15), low, low_target, 50.0), "clear"),
+        (BoardShot("lights_night", utc(june, 22, 30), hero, hero_target, 46.0), "clear"),
+    ]
+
+
 # ── the probes' own scenes (plain data) ──────────────────────────────────────
 
 #: The box caster of the shadow gate: the spike's (100 x 100 x 200 cm), sun azimuth 225°.
@@ -219,6 +251,32 @@ def caster_record() -> Record:
                   transform=Transform(east_cm=IOU_CENTRE[0], north_cm=IOU_CENTRE[1]),
                   material=Material("SHED", fill_rgba=CASTER_TINT), height_cm=CASTER_HEIGHT,
                   params=Params({"seed": "caster"}))
+
+
+def lamp_records(width: float, depth: float) -> dict[str, Record]:
+    """The night shot's garden lights (L5.4): three lanterns along the plan's middle and
+    a string of lights across it — records of their own, so that the board's plans
+    (and every digest of their records) stay as they are."""
+    cx, cy = width / 2.0, depth / 2.0
+    out: dict[str, Record] = {}
+    for index, (east, north) in enumerate(((cx - 0.30 * width, cy - 0.10 * depth),
+                                           (cx - 0.05 * width, cy - 0.22 * depth),
+                                           (cx + 0.22 * width, cy - 0.05 * depth))):
+        angle = [2.0 * math.pi * k / 24 for k in range(24)]
+        ring = tuple((20.0 * math.cos(a), 20.0 * math.sin(a)) for a in angle)
+        item = f"lamp_{index}"
+        out[item] = Record(item_id=item, kind="GARDEN_LIGHT", shape="circle", footprints=(ring,),
+                           transform=Transform(east_cm=east, north_cm=north),
+                           material=Material("GARDEN_LIGHT", fill_rgba=(49, 53, 56, 255)),
+                           height_cm=110.0, params=Params({"seed": item, "radius_cm": 20.0}))
+    half_w, half_d = 220.0, 15.0
+    ring = ((-half_w, -half_d), (half_w, -half_d), (half_w, half_d), (-half_w, half_d))
+    out["string_0"] = Record(item_id="string_0", kind="STRING_LIGHTS", shape="rectangle",
+                             footprints=(ring,),
+                             transform=Transform(east_cm=cx - 0.15 * width, north_cm=cy - 0.32 * depth),
+                             material=Material("STRING_LIGHTS", fill_rgba=(238, 225, 198, 255)),
+                             height_cm=250.0, params=Params({"seed": "string_0"}))
+    return out
 
 
 def iou_camera(elevation: float, size: tuple[int, int]) -> probes.Pinhole:
@@ -376,7 +434,8 @@ class Board:
     def frame(self, name: str, records: dict[str, Record], *, shot: Any, sun: SunState | None,
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
               sky: bool = True, size: tuple[int, int] | None = None,
-              baked: bool = False) -> tuple[np.ndarray, Any, dict[str, Any]]:
+              baked: bool = False, ambient: Any = None,
+              lamps: Any = ()) -> tuple[np.ndarray, Any, dict[str, Any]]:
         """Render one frame in a host of its own, save it, account for its Qt messages.
         ``baked``: the plan's flat surfaces are painted onto its ground (L1.5 —
         every board shot; the probes' oracles want it bare, #586)."""
@@ -392,7 +451,7 @@ class Board:
                 graphics_info=True, sky_light=sky and not self.software,
                 prefer_software=self.software, plant_date=build_date,
                 latitude_deg=float(self.location.get("latitude", 52.0)),
-                frost_dates=self.location.get("frost_dates"))
+                frost_dates=self.location.get("frost_dates"), ambient=ambient, lamps=lamps)
         except RenderError as error:
             self._count(dict(error.qt))
             self.write()             # what Qt said is in metrics.json before the run ends
@@ -452,6 +511,71 @@ class Board:
                 self.log("shot", name=shot.name, preset=preset, ms=row["open_ms"],
                          luma=row["mean_luma"], dark_px=row["isolated_dark_px"],
                          clipped_pct=row["clipped_pct"], failures=len(row["build_failures"]))
+                self.write()
+
+    def living(self, presets: list[str]) -> None:
+        """The living garden (L5, #389, ADR-070): ``living_shots`` — the weather, the
+        morning dew, the garden's life and its lights — each through ``living_look`` and
+        the plan's own emitters (``particles.ambient_emitters`` from the records and
+        their phenology on the shot's date). Still frames: the wind's clock at rest, so
+        every particle stands where its seed puts it."""
+        from open_garden_planner.core.phenology import evaluate_phenology_for_records
+        from open_garden_planner.core.scene3d.builders import production_registry
+        from open_garden_planner.core.scene3d.lights import lamp_sources, nearest_lamps
+        from open_garden_planner.core.scene3d.particles import (
+            PRECIP_COUNT,
+            ambient_buffers,
+            ambient_emitters,
+            ambient_particle_count,
+        )
+        from open_garden_planner.core.scene3d.weather import living_look, mood_of
+        from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+        registry = production_registry()
+        latitude = float(self.location["latitude"]) if self.location else 52.0
+        rows: list[dict[str, Any]] = []
+        self.metrics["living"] = rows
+        for preset in presets:
+            for shot, weather in living_shots(self.width, self.depth):
+                at = plan_day(shot.when_utc)
+                records = self.records_for(at)
+                if shot.name == "lights_night":
+                    records = {**records, **lamp_records(self.width, self.depth)}
+                    self._snapshot_day[id(records)] = at
+                sun = self.sun_at(shot.when_utc)
+                look = living_look(sun, preset, weather)
+                seasons = evaluate_phenology_for_records(tuple(records.values()), at,
+                                                         latitude_deg=latitude)
+                emitters = ambient_emitters(records.values(), seasons, at, latitude)
+                sources = lamp_sources(records.values())
+                lamps = nearest_lamps(sources, shot.target)
+                buffers = ambient_buffers((*emitters, *(bulb for source in sources
+                                                         for bulb in source.bulbs())))
+                rgb, _frame, info = self.frame(
+                    f"living_{shot.name}_{preset}", records, sun=sun, look=look,
+                    ground=self.plan_ground(), registry=registry, baked=True,
+                    shot=PerspectiveShot(shot.eye, shot.target, shot.fov_deg),
+                    ambient=buffers, lamps=[lamp.light for lamp in lamps])
+                atmosphere = look.atmosphere
+                counts = {kind: sum(e.count for e in emitters if e.kind == kind)
+                          for kind in ("leaf", "butterfly", "firefly")}
+                row = {"shot": shot.name, "preset": preset, "weather": weather,
+                       "mood": mood_of(look, sun), "sun_elev": round(sun.elevation_deg, 2),
+                       "sun_az": round(sun.azimuth_deg, 2), "date": at.isoformat(),
+                       "build_date": self.snapshot_day(records).isoformat(),
+                       "precip_particles": (round(PRECIP_COUNT * atmosphere.precip_density)
+                                            if atmosphere.precipitation != "none" else 0),
+                       "ambient_particles": ambient_particle_count(emitters),
+                       "ambient_by_kind": counts, "lamps": len(sources), "lamp_lights": len(lamps),
+                       "life": {"leaves": round(atmosphere.leaves, 3),
+                                "butterflies": round(atmosphere.butterflies, 3),
+                                "fireflies": round(atmosphere.fireflies, 3),
+                                "lamps": round(atmosphere.lamps, 3)},
+                       "dew": round(atmosphere.dew, 3), "cloud": atmosphere.cloud,
+                       **info, **probes.frame_stats(rgb)}
+                rows.append(row)
+                self.log("living", name=shot.name, preset=preset, weather=weather,
+                         mood=row["mood"], luma=row["mean_luma"], ambient=row["ambient_particles"])
                 self.write()
 
     def analysis(self, shots: list[BoardShot], presets: list[str]) -> None:
@@ -1153,6 +1277,9 @@ def _parse(argv: list[str]) -> argparse.Namespace:
                         help="dump all stacks to board.log and exit 1 after this long (0 = off)")
     parser.add_argument("--analysis", action="store_true",
                         help="each shot again with the 2D drapes, the sun path and Cutaway (L2)")
+    parser.add_argument("--living", action="store_true",
+                        help="the living garden (L5): weather, dew, leaves, butterflies, "
+                             "fireflies, garden lights")
     parser.add_argument("--list", action="store_true", help="print the shots and render nothing")
     return parser.parse_args(argv)   # a typo is an error, never another experiment
 
@@ -1162,6 +1289,8 @@ def _chosen(args: argparse.Namespace, shots: list[BoardShot]) -> tuple[list[Boar
     bad = [name for name in presets if name not in PRESETS]
     if bad or not presets:
         raise ValueError(f"unknown presets {bad}; choose from {list(PRESETS)}")
+    if args.shots == "none":       # only the phases asked for (--living, the probes)
+        return [], presets
     if args.shots != "all":
         wanted = [name for name in str(args.shots).split(",") if name]
         missing = sorted(set(wanted) - {shot.name for shot in shots})
@@ -1196,7 +1325,10 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
                   f"{sun.azimuth_deg:6.2f}  {'night' if look.night else 'day  '}  exposure "
                   f"{look.mood.exposure:.3f}  key {look.mood.sun_color}")
         return board
-    board.shoot(shots, presets)
+    if args.shots != "none":
+        board.shoot(shots, presets)
+    if args.living:
+        board.living(presets)
     if args.analysis:
         board.analysis(shots, presets)
     if args.moods:
