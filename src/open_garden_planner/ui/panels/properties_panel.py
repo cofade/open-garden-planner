@@ -887,14 +887,13 @@ class PropertiesPanel(QWidget):
         from open_garden_planner.core.plant_renderer import _resolve_svg_path
         from open_garden_planner.ui.icons import get_icon
 
-        # 0. A string of lights has no sprite (a line, L5.4): the gallery's picture,
-        #    painted by the canvas's own painter
-        if obj_type == ObjectType.STRING_LIGHTS:
-            from open_garden_planner.ui.widgets.gallery_data import (
-                render_string_lights_thumbnail,
-            )
+        # 0. A type with no sprite (a string of lights is a line, L5.4): the gallery's
+        #    own painted picture — one seam, so the two views cannot diverge
+        from open_garden_planner.ui.widgets.gallery_data import thumbnail_for
 
-            return QIcon(render_string_lights_thumbnail())
+        thumbnail = thumbnail_for(obj_type)
+        if thumbnail is not None:
+            return QIcon(thumbnail)
 
         # 1. Furniture / infrastructure SVGs (objects/ directory — full-color art)
         svg_path = get_furniture_svg_path(obj_type)

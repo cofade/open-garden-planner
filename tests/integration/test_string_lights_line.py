@@ -130,15 +130,44 @@ def test_the_2d_picture_is_drawn_along_the_line_not_across_a_box(qtbot) -> None:
 
 
 def test_the_picture_follows_the_line_s_width(qtbot) -> None:
-    """The width is the line's stroke width (the Properties panel's): a wider stroke,
-    a bigger post and bulb — the item's bounds grow with it, so nothing is clipped."""
+    """The width is the line's stroke width (the Properties panel's): a wider stroke
+    grows the glow, the bulbs and the wire, and the item's bounds grow with it, so
+    nothing is clipped. The post's drawn side stops at twice the clearance (senior
+    review round 12), so it is no longer the width that reaches furthest."""
     narrow, wide = _string(), _string()
     pen = wide.pen()
     pen.setWidthF(24.0)
     wide.setPen(pen)
     assert wide.boundingRect().height() > narrow.boundingRect().height() + 20.0
     image, source = _render(wide)
-    assert _pixel(image, source, 0.0 + 10.0, 0.0).alpha() == 255, "a 24 cm post reaches 10 cm out"
+    assert _pixel(image, source, 0.0 + 10.0, 0.0).alpha() > 0, "the picture reaches 10 cm out"
+
+
+def test_the_middle_bulb_of_an_odd_string_is_painted_above_its_post(qtbot) -> None:
+    """Senior review round 12, P1: the layout keeps a clamped bulb 6 cm from a post's
+    centre, but the symbol's post is a full stroke width (a 12 cm half-side at 24 cm)
+    and was painted last — 59 % of the ball was buried at the default width, 96 % at
+    24 cm. The posts are now painted under the bulbs, and their drawn side is capped at
+    twice the clearance, so a widened stroke cannot swallow the ball again."""
+    from open_garden_planner.core.string_lights import POST_CLEAR_CM
+    from open_garden_planner.ui.canvas.items.string_lights_paint import drawn_post_side
+
+    v = ((0.0, 0.0), (100.0, 20.0), (200.0, 0.0))   # three posts, five bulbs
+    assert drawn_post_side(12.0) == pytest.approx(12.0)
+    assert drawn_post_side(24.0) == pytest.approx(2.0 * POST_CLEAR_CM)
+    item = _string(v)
+    pen = item.pen()
+    pen.setWidthF(24.0)
+    item.setPen(pen)
+    image, source = _render(item)
+    lay = layout(v)
+    middle = lay.posts[1]
+    bulb_x, bulb_y = min(lay.bulbs_xy(),
+                         key=lambda p: math.hypot(p[0] - middle[0], p[1] - middle[1]))
+    colour = _pixel(image, source, bulb_x, bulb_y)
+    # cream (238, 225, 198) — not the post's grey wood (145, 138, 122) and not the
+    # glow's orange (255, 206, 120) that sits under the ball
+    assert colour.green() > 210 and colour.blue() > 170, (colour.red(), colour.green(), colour.blue())
 
 
 def test_a_string_of_lights_casts_no_2d_shadow(qtbot) -> None:

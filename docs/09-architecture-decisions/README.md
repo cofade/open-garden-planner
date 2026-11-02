@@ -9676,9 +9676,11 @@ cost (nothing animates there), and one canonical path per behaviour.
 persisted; `ObjectType` NAMES are serialized — no `FILE_VERSION` bump: an older version loads
 a garden light as a generic shape, but a string as a fence, because its loader gives every line
 of an unknown type `ObjectType.FENCE` (`project.py`, `object_type or ObjectType.FENCE`) — a
-120 cm fence that casts a 2D shadow and builds as a fence in 3D, and stays one if saved there); one sprite, the lantern's (§8.23 now 25 artifacts; the string is a
-line drawn by the canvas); `bench_built.ogp` gained one of each (appended last, every earlier
-id and seed kept). `LookSpec` gained `atmosphere`
+120 cm fence that casts a 2D shadow, builds as a fence in 3D, and stays one if saved
+there); one sprite, the lantern's (§8.23 now 25 artifacts; the string is a line drawn by
+the canvas); `bench_built.ogp` gained one of each (appended last, every earlier id and seed
+kept; the string's middle post moved from y 1290 to y 1210 after the owner's manual test,
+where the old point stood inside the deck at y ≥ 1260). `LookSpec` gained `atmosphere`
 (`CLEAR_STILL` by default), `SkySpec` `cloud`. Measured (RTX 4070, Direct3D 11, bench_small at
 1280 × 720, Medium, interleaved readbacks): clear with life +0.6 %, snow +1.9 %, rain +3.7 % of a
 frame; with reduced motion 0 frames over 2.5 s after the first build. A garden light's
@@ -9907,17 +9909,21 @@ the garden's life, a new plan's forecast and the 3D lights, and changed two thin
 Its reviews then settled what the line left open. **A bulb keeps 6 cm from its span's posts**
 (`string_lights.POST_CLEAR_CM`): arc-length spacing put the middle bulb of every symmetric
 string with an odd count ON its middle post — a 2.6 cm ball inside a 4 cm post (3D review);
-no bulb moves further. A string's point light stays under its middle bulb, which the clearance
-now keeps off every post: the bulbs' centroid, tried in round 11, stood inside the middle post
-of a straight string (senior review round 12). Where a loop's or an L's light should stand is
-a follow-up. The wire is 0.5 cm thick
+no bulb moves further. The symbol's post is wider than 3D's 4 cm (a full stroke width), so
+the 2D painter draws the wire and posts UNDER the bulbs and caps the post's drawn side at
+`2 × POST_CLEAR_CM`: a clamped ball is visible on top of the post (59 % was buried at the
+default width, 96 % at 24 cm) and a widened stroke cannot swallow it (senior review round
+12). A string's point light stays under its middle bulb, which the clearance now keeps off
+every post: the bulbs' centroid, tried in round 11, stood inside the middle post of a
+straight string (senior review round 12). Where a loop's or an L's light should stand is a
+follow-up. The wire's radius is 0.5 cm
 (0.35 broke into dashes at 7 m on Low). **The line's width sizes the 2D symbol only**, as a
 fence's stroke does: the 3D model builds real 4 cm posts and 2.6 cm bulbs at the same places;
 a width of 0, which a file may hold, is drawn at 12 cm by the bounds and the paint alike
-(`string_lights_paint.drawn_width`). The string's style has no fill, as no line has one — a
-Change Type from a fence kept the rectangle's cream fill, out of step with the line's empty
-brush — and its Type-dropdown icon is the gallery's painted picture, not the warning
-triangle. A crafted line of any length stands on at most `MAX_POSTS` (512) posts, and a paint
+(`string_lights_paint.drawn_width`). The string's style has no fill, as no line has one —
+Change Type from a fence kept the string's cream style fill from its rectangle days, out of
+step with the line's empty brush — and its Type-dropdown icon is the gallery's painted
+picture, not the warning triangle. A crafted line of any length stands on at most `MAX_POSTS` (512) posts, and a paint
 reads the layout the item keeps (security review; general vertex caps at load: #703).
 `NO_2D_SHADOW_TYPE_NAMES` is for a kind whose shade is negligible, never for an open frame
 that overstates its own: a pergola or a swing is cast honestly through #440's transmittance

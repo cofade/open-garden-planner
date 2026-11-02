@@ -282,9 +282,9 @@ def shadow_region(footprints: Iterable[Sequence[Point]]) -> list[Polygon]:
     such bound: a stroke's rings are grouped by winding and bridged, which is
     linear in the ring and cheap next to that stroke's own sweep.
 
-    Callers: the two caster walks (``collect_identified_casters``, which the
-    overlay's ``collect_shadow_casters`` flattens) ask this once per item per
-    walk. The sweep functions themselves take simple rings — one item's ring
+    Callers: the caster walk (``collect_identified_casters``; the overlay's
+    ``collect_shadow_casters`` flattens it) asks this once per item per walk. The
+    sweep functions themselves take simple rings — one item's ring
     set is not recoverable from a single ring, and a hole passed on its own
     would be cast as a solid.
     """

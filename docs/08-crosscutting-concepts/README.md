@@ -7696,8 +7696,10 @@ garden lights; never for a time of day. Equal emitters are not sent again.
 **A string of lights is a line.** Drawn like a fence — a post at every point (at most 512),
 the wire hanging between two posts, a bulb every 40 cm along the wire (at most 120), each
 kept 6 cm clear of the posts of its span — from ONE layout, `core/string_lights.layout`: the
-canvas paints its posts and bulbs from it (sized by the line's width — the 2D symbol only),
-the 3D builder builds them, the lamps glow where it hangs them. It casts no 2D shadow
+canvas paints its posts and bulbs from it (sized by the line's width — the 2D symbol only;
+the wire and posts go under the bulbs, and the post's drawn side is capped at 12 cm, so a
+clamped ball is never buried and a widened stroke cannot swallow it), the 3D builder builds
+them, the lamps glow where it hangs them. It casts no 2D shadow
 (`object_height.casts_2d_shadow`, read by the one caster walk); its 3D model keeps its own
 thin shadow (ADR-070's owner addendum).
 

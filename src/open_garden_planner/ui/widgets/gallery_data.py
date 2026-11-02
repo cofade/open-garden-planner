@@ -147,6 +147,15 @@ def render_string_lights_thumbnail(size: int = THUMB_SIZE) -> QPixmap:
     return QPixmap.fromImage(image)
 
 
+def thumbnail_for(obj_type: ObjectType) -> QPixmap | None:
+    """The gallery's own painted picture for a type with no sprite (a string of
+    lights), else None. The gallery and the Properties panel's Type dropdown share
+    this one seam, so the two can never show different pictures (L5.4, #389)."""
+    if obj_type == ObjectType.STRING_LIGHTS:
+        return render_string_lights_thumbnail()
+    return None
+
+
 def render_texture_thumbnail(
     pattern: FillPattern, color: QColor, size: int = THUMB_SIZE
 ) -> QPixmap | None:
@@ -426,12 +435,10 @@ def _furniture_items() -> list[GalleryItem]:
         (_tr("String Lights"), ToolType.STRING_LIGHTS, ObjectType.STRING_LIGHTS),
     ]
     for name, tool, obj in furniture:
-        if obj == ObjectType.STRING_LIGHTS:   # a line, painted by the canvas: no sprite
-            items.append(GalleryItem(name=name, tool_type=tool, object_type=obj,
-                                     thumbnail=render_string_lights_thumbnail()))
-            continue
-        svg_filename = _FURNITURE_FILES.get(obj, "")
-        thumb = render_svg_thumbnail(_FURNITURE_DIR / f"{svg_filename}.svg")
+        thumb = thumbnail_for(obj)   # a line, painted by the canvas: no sprite
+        if thumb is None:
+            svg_filename = _FURNITURE_FILES.get(obj, "")
+            thumb = render_svg_thumbnail(_FURNITURE_DIR / f"{svg_filename}.svg")
         if thumb is None:
             thumb = render_color_circle_thumbnail(OBJECT_STYLES[obj].fill_color)
         items.append(GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb))

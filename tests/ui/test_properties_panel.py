@@ -704,3 +704,15 @@ class TestObjectTypeDropdownIcons:
                     if PropertiesPanel._get_object_type_icon(obj_type).pixmap(32, 32).toImage()
                     == warning]
         assert fallback == []
+
+    def test_the_string_lights_icon_is_a_painted_picture_not_a_blank(self, qtbot) -> None:
+        """Not-the-warning is not enough either: a blank icon passes the test above.
+        Every icon must carry painted pixels, and the string's must carry its bulbs'
+        cream (senior review round 12)."""
+        image = PropertiesPanel._get_object_type_icon(
+            ObjectType.STRING_LIGHTS).pixmap(32, 32).toImage()
+        painted = [image.pixelColor(x, y) for y in range(image.height())
+                   for x in range(image.width()) if image.pixelColor(x, y).alpha() > 200]
+        assert len(painted) > 20, "the Type dropdown shows a picture, not a blank icon"
+        assert any(c.red() > 200 and c.green() > 190 and c.blue() > 150 for c in painted), \
+            "its cream bulbs are in the picture"
