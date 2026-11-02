@@ -30,7 +30,7 @@ one-time setup in deployment section 7.4; FR-STATS records acceptance requiremen
 | **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
 | **15** | **v1.25.0 – v1.27.0** | **✅ Complete** (Packages 1–3; epic [#284](https://github.com/cofade/open-garden-planner/issues/284)) | **Visual Refresh** |
 | 16 | — | Future | Platform & Community |
-| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
+| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0, L5 ✅ v1.35.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
 
 ---
 

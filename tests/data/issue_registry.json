@@ -1149,20 +1149,40 @@
     "state": "MERGED",
     "title": "feat(#599, #440): typed smart-symbol members and geometry-aware sun/shade model"
   },
+  "687": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden polish: overcast contact shade, lamp-pool fades, snow on roofs, dew mist, leaf colour (follow-up of #389)"
+  },
+  "689": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
+  },
   "695": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
+  },
+  "698": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D shadow: give open objects (string lights, pergola, swing, hammock, trellis, garden light) a transmittance via #440's hook"
   },
   "699": {
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#389): L5 living garden - playback, weather, particles, Today's Weather, garden lights"
   },
-  "701": {
+  "700": {
     "is_pr": false,
     "state": "OPEN",
-    "title": "Shadow casters rebuild every shed's 3D roof mesh on the main thread; 150 sheds time out a sun-controls test (#440)"
+    "title": "Shadow-agreement prose is ungated: numbers in ADR-059 / §8.29.6 / the script docstring drift from DOCUMENTED"
+  },
+  "702": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Weather forecast cards show English weekday names in every UI language"
   },
   "710": {
     "is_pr": false,
