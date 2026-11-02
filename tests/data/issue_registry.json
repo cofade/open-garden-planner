@@ -1071,12 +1071,12 @@
   },
   "659": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Background images above ~256 MiB decoded fail to load (9000x8000 PNG rejected by Qt's default allocation limit)"
   },
   "660": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Every plan snapshot re-encodes the background PNG to base64 - 1.3 s per read on a 9000x8000 plan"
   },
   "661": {
@@ -1123,5 +1123,10 @@
     "is_pr": false,
     "state": "CLOSED",
     "title": "download-stats: the 218-download bar is a bulk crawl — count only the then-current release, fix the doubled tooltip"
+  },
+  "683": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "fix(#659, #660): decode site-plan-sized backgrounds and encode them once"
   }
 }
