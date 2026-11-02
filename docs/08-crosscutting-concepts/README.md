@@ -6483,14 +6483,14 @@ far, −, the 3D shadow extends along the shadow direction: where its tip is), e
 | raised bed, box, plain panel | 0.99–1.00 | 0.99–1.00 | −0.6 … 0.0 | none: the same prism (its top edge bevelled) |
 | hedge (polygon, section) | 0.94–0.98 | 0.93–0.97 | +2.7 … +4.4 | leaf shell drawn in; leaf tips |
 | round tub / terracotta pot | 0.89–0.91 / 0.81–0.83 | the same | −0.6 … −0.3 | taper |
-| house, sun square to the ridge | 0.92 / 0.81 / 0.92 | 0.85 / 0.74 / 0.82 | −270.0 / −270.0 / −108.2 | gable: the ridge is mid-house, the 2D prism's top edge at the far wall |
-| shed, sun square to the ridge | 0.92 / 0.93 / 1.03 | 0.85 / 0.83 / 0.88 | −150.0 / −81.4 / −21.0 | the same, on a 3 m deep shed |
-| house, sun along the ridge | 0.90 / 0.99 / 1.06 | 0.82 / 0.86 / 0.88 | +30.0 / +30.0 / +30.0 | the roof's overhang past the gable wall |
+| house, sun square to the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles; was −270.0 / −270.0 / −108.2 vs flat prism) |
+| shed, sun square to the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles; was −150.0 / −81.4 / −21.0 vs flat prism) |
+| house, sun along the ridge | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.0 / 0.0 / 0.0 | gable roof (#440: shared roof+wall triangles; was +30.0 vs flat prism) |
 | wall | 1.04 / 1.10 / 1.24 | 0.96 / 0.91 / 0.81 | +15.0 / +15.0 / +15.8 | nominal section: WIDER in 3D |
 | stone-wall fence, hedge fence | 1.04–1.06 / 1.13–1.15 / 1.31–1.37 | 0.94–0.96 / 0.87–0.89 / 0.73–0.76 | +14.5 … +15.3, +19.5 … +19.6 | nominal section |
-| picket fence | 0.67 / 0.68 / 0.70 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity: LESS in 3D |
-| metal fence | 0.19 / 0.21 / 0.24 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity |
-| chain-link fence | 0.13 / 0.14 / 0.19 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity |
+| picket fence | 1.00 / 1.00 / 1.00 | 0.65 / 0.66 / 0.68 | +2.0 / +2.0 / +2.4 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
+| metal fence | 0.99 / 0.99 / 0.98 | 0.19 / 0.20 / 0.24 | +0.8 / +0.8 / +0.8 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
+| chain-link fence | 1.09 / 1.03 / 1.08 | 0.12 / 0.13 / 0.19 | +1.5 / +1.5 / +1.5 | porosity (#440 weighted 2D area; unweighted IoU vs full strip) |
 
 So: a solid line item casts a wider shadow in 3D than the 2D model, more at a high sun; a porous
 fence casts a fraction of it — the hours-of-sun map shows shade behind a chain-link fence where

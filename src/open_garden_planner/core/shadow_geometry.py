@@ -56,12 +56,43 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable, Sequence
-from typing import NamedTuple
+from typing import Any, NamedTuple, cast
 
 import pyclipper
 
 Point = tuple[float, float]
 Polygon = list[Point]
+Point3D = tuple[float, float, float]
+Triangle3D = tuple[Point3D, Point3D, Point3D]
+
+
+class WeightedShadowRegion(NamedTuple):
+    """A shadow region with analytical occlusion and open transmittance (#440).
+
+    ``polygons``: outer (CCW) and hole (CW) rings bounding the region.
+    ``occlusion``: shade weight ``1.0 - transmittance`` in ``(0.0, 1.0]`` (``1.0``
+    for opaque casters).
+    ``transmittance``: open sunlight fraction in ``[0.0, 1.0)`` (``0.0`` for opaque
+    casters).
+    """
+
+    polygons: list[Polygon]
+    occlusion: float = 1.0
+    transmittance: float = 0.0
+
+
+class WeightedShadowsResult(NamedTuple):
+    """Result of ``compute_weighted_shadows`` (#440).
+
+    ``union_polygons``: full outer/hole union of all active shadow casters.
+    ``weighted_regions``: disjoint shadow regions with their ``occlusion`` and
+    ``transmittance`` weights.
+    ``owned_shadows``: per-caster ``(polygons, transmittance)`` in input order.
+    """
+
+    union_polygons: list[Polygon]
+    weighted_regions: list[WeightedShadowRegion]
+    owned_shadows: list[tuple[list[Polygon], float]]
 
 
 class ShadowCaster(NamedTuple):
@@ -339,12 +370,45 @@ def clip_to_rect(
 
 
 class GroupedCaster(NamedTuple):
-    """All solid footprints of ONE owner with its height and its base — the caster
-    shape of ``compute_grouped_shadows``. ``base_cm`` as in ``ShadowCaster``."""
+    """All solid footprints of ONE owner with its height, base, and optional 3D
+    roof or fence porosity metadata (#440) — the caster shape of
+    ``compute_grouped_shadows`` and ``compute_weighted_shadows``."""
 
     footprints: Sequence[Sequence[Point]]
     height_cm: float
     base_cm: float = 0.0
+    roof_triangles: tuple[Triangle3D, ...] = ()
+    fence_style: str | None = None
+    fence_points: tuple[Point, ...] = ()
+    fence_width_cm: float = 0.0
+    transmittance: float | None = None
+
+
+def caster_transmittance(
+    caster: Any,
+    elevation_deg: float,
+    azimuth_deg: float,
+) -> float:
+    """Open sunlight transmittance in ``[0.0, 1.0]`` for a caster (#440).
+
+    Returns ``0.0`` for opaque casters, ``caster.transmittance`` when explicitly
+    provided, or the angle-dependent structural fence transmittance when
+    ``caster.fence_style`` is set.
+    """
+    explicit = getattr(caster, "transmittance", None)
+    if explicit is not None:
+        return float(min(1.0, max(0.0, float(explicit))))
+    fence_style = getattr(caster, "fence_style", None)
+    if isinstance(fence_style, str) and fence_style:
+        from open_garden_planner.core.scene3d.builders.fences import fence_transmittance
+
+        height_cm = float(getattr(caster, "height_cm", 0.0) or 0.0)
+        stroke_cm = float(getattr(caster, "fence_width_cm", 0.0) or 3.0)
+        points = getattr(caster, "fence_points", ()) or ()
+        return fence_transmittance(
+            fence_style, height_cm, stroke_cm, elevation_deg, azimuth_deg, points
+        )
+    return 0.0
 
 
 def compute_grouped_shadows(
@@ -360,7 +424,8 @@ def compute_grouped_shadows(
     A ``GroupedCaster`` carries its base — the same swept solid
     ``compute_scene_shadows`` makes of a ``ShadowCaster``; an exact
     ``(footprints, height_cm)`` pair stands on the ground. By TYPE, never by
-    length (``caster_fields``).
+    length (``caster_fields``). When ``roof_triangles`` is present on a
+    ``GroupedCaster``, its 3D structural triangles are projected directly (#440).
     """
     direction = shadow_direction_scene(azimuth_deg)
     all_paths: list[list[tuple[int, int]]] = []
@@ -369,22 +434,186 @@ def compute_grouped_shadows(
         if should_cancel is not None and should_cancel():
             return None
         if isinstance(caster, GroupedCaster):
-            footprints, height, base = caster.footprints, caster.height_cm, caster.base_cm
+            footprints = caster.footprints
+            height = caster.height_cm
+            base = caster.base_cm
+            roof_tris = caster.roof_triangles
         elif type(caster) is tuple and len(caster) == 2:
-            footprints, height, base = caster[0], caster[1], 0.0
+            footprints, height, base, roof_tris = caster[0], caster[1], 0.0, ()
         else:
             raise TypeError(
                 "a grouped caster is a GroupedCaster or a (footprints, height_cm) tuple, "
                 f"not {type(caster).__name__}")
         length = shadow_length_cm(height, elevation_deg)
-        paths = []
+        paths: list[list[tuple[int, int]]] = []
         if length is not None:
-            start = base_offset_cm(base, elevation_deg)
-            for footprint in footprints:
-                paths.extend(_caster_paths_int(footprint, length, direction, start))
+            if roof_tris:
+                paths = _roof_caster_paths_int(
+                    roof_tris, elevation_deg, direction, base_cm=base
+                )
+            else:
+                start = base_offset_cm(base, elevation_deg)
+                for footprint in footprints:
+                    paths.extend(_caster_paths_int(footprint, length, direction, start))
+        unioned = _union_int(paths)
         all_paths.extend(paths)
-        owned.append([_from_int(p) for p in _union_int(paths)])
+        owned.append([_from_int(p) for p in unioned])
     return [_from_int(p) for p in _union_int(all_paths)], owned
+
+
+def compute_weighted_shadows(
+    casters: Iterable[Any],
+    elevation_deg: float,
+    azimuth_deg: float,
+    should_cancel: Callable[[], bool] | None = None,
+    *,
+    receiver_elev_cm: float = 0.0,
+) -> WeightedShadowsResult | None:
+    """Enriched analytical shadow projection with pitched roofs and fence porosity (#440).
+
+    Accepts ``GroupedCaster``, ``IdentifiedCaster``, or ``(footprints, height_cm)``
+    pairs. Each owner's shadow components are unioned first so overlapping parts of
+    one object never double-count shade. When porous casters are present, overlapping
+    regions are partitioned on the integer grid with multiplied transmittance
+    ``T_total = prod(T_i)`` and ``occlusion = 1.0 - T_total``.
+    """
+    if elevation_deg < MIN_SUN_ELEVATION_DEG:
+        return WeightedShadowsResult([], [], [])
+    direction = shadow_direction_scene(azimuth_deg)
+    all_paths: list[list[tuple[int, int]]] = []
+    owner_int_paths: list[list[list[tuple[int, int]]]] = []
+    owner_transmittances: list[float] = []
+    owned_shadows: list[tuple[list[Polygon], float]] = []
+
+    for caster in casters:
+        if should_cancel is not None and should_cancel():
+            return None
+        if isinstance(caster, GroupedCaster) or hasattr(caster, "footprints"):
+            footprints = caster.footprints
+            height = caster.height_cm
+            base = float(getattr(caster, "base_cm", 0.0) or 0.0)
+            roof_tris = getattr(caster, "roof_triangles", ()) or ()
+        elif type(caster) is tuple and len(caster) == 2:
+            footprints, height, base, roof_tris = caster[0], caster[1], 0.0, ()
+        else:
+            raise TypeError(
+                "a weighted caster must provide footprints and height_cm, "
+                f"not {type(caster).__name__}"
+            )
+        trans = caster_transmittance(caster, elevation_deg, azimuth_deg)
+        if trans >= 1.0 or height is None or height <= 0.0:
+            owner_int_paths.append([])
+            owner_transmittances.append(1.0)
+            owned_shadows.append(([], 1.0))
+            continue
+
+        top = base + height
+        if top <= receiver_elev_cm:
+            owner_int_paths.append([])
+            owner_transmittances.append(trans)
+            owned_shadows.append(([], trans))
+            continue
+
+        paths: list[list[tuple[int, int]]] = []
+        if roof_tris:
+            paths = _roof_caster_paths_int(
+                roof_tris,
+                elevation_deg,
+                direction,
+                base_cm=base,
+                receiver_elev_cm=receiver_elev_cm,
+            )
+        else:
+            eff_base = max(base, receiver_elev_cm) - receiver_elev_cm
+            eff_height = top - max(base, receiver_elev_cm)
+            length = shadow_length_cm(eff_height, elevation_deg)
+            if length is not None:
+                start = base_offset_cm(eff_base, elevation_deg)
+                for footprint in footprints:
+                    paths.extend(_caster_paths_int(footprint, length, direction, start))
+
+        all_paths.extend(paths)
+        unioned = _union_int(paths)
+        owner_int_paths.append(unioned)
+        owner_transmittances.append(trans)
+        owned_shadows.append(([_from_int(p) for p in unioned], trans))
+
+    union_int = _union_int(all_paths)
+    union_polygons = [_from_int(p) for p in union_int]
+    if not union_int:
+        return WeightedShadowsResult([], [], owned_shadows)
+
+    has_porous = any(
+        0.0 < t < 1.0 and bool(paths)
+        for paths, t in zip(owner_int_paths, owner_transmittances, strict=True)
+    )
+    if not has_porous:
+        return WeightedShadowsResult(
+            union_polygons,
+            [WeightedShadowRegion(union_polygons, occlusion=1.0, transmittance=0.0)],
+            owned_shadows,
+        )
+
+    opaque_paths = [
+        p
+        for paths, t in zip(owner_int_paths, owner_transmittances, strict=True)
+        if t <= 0.0
+        for p in paths
+    ]
+    opaque_union = _union_int(opaque_paths)
+    porous_regions: list[tuple[list[list[tuple[int, int]]], float]] = []
+
+    for p_paths, p_trans in zip(owner_int_paths, owner_transmittances, strict=True):
+        if not (0.0 < p_trans < 1.0 and p_paths):
+            continue
+        rem = _diff_int(p_paths, opaque_union) if opaque_union else p_paths
+        if not rem:
+            continue
+        next_regions: list[tuple[list[list[tuple[int, int]]], float]] = []
+        for r_paths, r_trans in porous_regions:
+            if not rem:
+                next_regions.append((r_paths, r_trans))
+                continue
+            overlap = _intersect_int(r_paths, rem)
+            if not overlap:
+                next_regions.append((r_paths, r_trans))
+                continue
+            r_only = _diff_int(r_paths, rem)
+            if r_only:
+                next_regions.append((r_only, r_trans))
+            next_regions.append((overlap, r_trans * p_trans))
+            rem = _diff_int(rem, r_paths)
+        if rem:
+            next_regions.append((rem, p_trans))
+        porous_regions = next_regions
+
+    weighted_regions: list[WeightedShadowRegion] = []
+    if opaque_union:
+        weighted_regions.append(
+            WeightedShadowRegion(
+                [_from_int(p) for p in opaque_union],
+                occlusion=1.0,
+                transmittance=0.0,
+            )
+        )
+    grouped_by_trans: dict[float, list[list[tuple[int, int]]]] = {}
+    for r_paths, r_trans in porous_regions:
+        if not r_paths:
+            continue
+        key_t = round(r_trans, 6)
+        grouped_by_trans.setdefault(key_t, []).extend(r_paths)
+    for key_t, r_paths in sorted(grouped_by_trans.items(), key=lambda kv: kv[0]):
+        merged = _union_int(r_paths)
+        if merged:
+            occ = round(min(1.0, max(0.0, 1.0 - key_t)), 6)
+            weighted_regions.append(
+                WeightedShadowRegion(
+                    [_from_int(p) for p in merged],
+                    occlusion=occ,
+                    transmittance=key_t,
+                )
+            )
+    return WeightedShadowsResult(union_polygons, weighted_regions, owned_shadows)
 
 
 def compute_scene_shadows(
@@ -486,9 +715,143 @@ def _union_int(
         return []
     clipper = pyclipper.Pyclipper()
     clipper.AddPaths(paths, pyclipper.PT_SUBJECT, True)
-    return clipper.Execute(
-        pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO
+    return cast(
+        list[list[tuple[int, int]]],
+        clipper.Execute(
+            pyclipper.CT_UNION, pyclipper.PFT_NONZERO, pyclipper.PFT_NONZERO
+        ),
     )
+
+
+def _paths_bbox(
+    paths: list[list[tuple[int, int]]],
+) -> tuple[int, int, int, int] | None:
+    if not paths:
+        return None
+    xs = [pt[0] for p in paths for pt in p]
+    ys = [pt[1] for p in paths for pt in p]
+    if not xs:
+        return None
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _bboxes_overlap(
+    a: tuple[int, int, int, int] | None,
+    b: tuple[int, int, int, int] | None,
+) -> bool:
+    if a is None or b is None:
+        return False
+    return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+
+def _intersect_int(
+    subject: list[list[tuple[int, int]]],
+    clip: list[list[tuple[int, int]]],
+) -> list[list[tuple[int, int]]]:
+    subject = [p for p in subject if len(p) >= 3]
+    clip = [p for p in clip if len(p) >= 3]
+    if not subject or not clip:
+        return []
+    if not _bboxes_overlap(_paths_bbox(subject), _paths_bbox(clip)):
+        return []
+    clipper = pyclipper.Pyclipper()
+    clipper.AddPaths(subject, pyclipper.PT_SUBJECT, True)
+    clipper.AddPaths(clip, pyclipper.PT_CLIP, True)
+    return cast(
+        list[list[tuple[int, int]]],
+        clipper.Execute(
+            pyclipper.CT_INTERSECTION, pyclipper.PFT_EVENODD, pyclipper.PFT_EVENODD
+        ),
+    )
+
+
+def _diff_int(
+    subject: list[list[tuple[int, int]]],
+    clip: list[list[tuple[int, int]]],
+) -> list[list[tuple[int, int]]]:
+    subject = [p for p in subject if len(p) >= 3]
+    clip = [p for p in clip if len(p) >= 3]
+    if not subject:
+        return []
+    if not clip or not _bboxes_overlap(_paths_bbox(subject), _paths_bbox(clip)):
+        return subject
+    clipper = pyclipper.Pyclipper()
+    clipper.AddPaths(subject, pyclipper.PT_SUBJECT, True)
+    clipper.AddPaths(clip, pyclipper.PT_CLIP, True)
+    return cast(
+        list[list[tuple[int, int]]],
+        clipper.Execute(
+            pyclipper.CT_DIFFERENCE, pyclipper.PFT_EVENODD, pyclipper.PFT_EVENODD
+        ),
+    )
+
+
+def _clip_triangle_above_z(
+    tri: Triangle3D,
+    base_cm: float,
+    z_plane: float,
+) -> list[Point3D]:
+    """Clip a 3D triangle (shifted by ``base_cm``) to the half-space ``z >= z_plane``."""
+    verts: list[Point3D] = [
+        (tri[0][0], tri[0][1], tri[0][2] + base_cm),
+        (tri[1][0], tri[1][1], tri[1][2] + base_cm),
+        (tri[2][0], tri[2][1], tri[2][2] + base_cm),
+    ]
+    if z_plane <= 0.0 and min(v[2] for v in verts) >= 0.0:
+        return verts
+    if max(v[2] for v in verts) <= z_plane + 1e-9:
+        return []
+    out: list[Point3D] = []
+    for idx in range(3):
+        a = verts[idx]
+        b = verts[(idx + 1) % 3]
+        a_in = a[2] >= z_plane - 1e-9
+        b_in = b[2] >= z_plane - 1e-9
+        if a_in and b_in:
+            out.append(b)
+        elif a_in and not b_in:
+            denom = a[2] - b[2]
+            t = (a[2] - z_plane) / denom if abs(denom) > 1e-12 else 0.0
+            out.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), z_plane))
+        elif not a_in and b_in:
+            denom = b[2] - a[2]
+            t = (z_plane - a[2]) / denom if abs(denom) > 1e-12 else 0.0
+            out.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), z_plane))
+            out.append(b)
+    return out
+
+
+def _roof_caster_paths_int(
+    roof_triangles: Sequence[Triangle3D],
+    elevation_deg: float,
+    direction: Point,
+    base_cm: float = 0.0,
+    receiver_elev_cm: float = 0.0,
+) -> list[list[tuple[int, int]]]:
+    """Project 3D structural triangles (walls + pitched roof) onto ``z = receiver_elev_cm`` (#440)."""
+    if elevation_deg < MIN_SUN_ELEVATION_DEG or not roof_triangles:
+        return []
+    tan_a = math.tan(math.radians(elevation_deg))
+    dx, dy = direction
+    paths: list[list[tuple[int, int]]] = []
+    for tri in roof_triangles:
+        clipped = _clip_triangle_above_z(tri, base_cm, receiver_elev_cm)
+        if len(clipped) < 3:
+            continue
+        poly: list[tuple[int, int]] = []
+        for vx, vy, vz in clipped:
+            dz = max(0.0, vz - receiver_elev_cm)
+            s = dz / tan_a
+            poly.append(
+                (round((vx + s * dx) * CLIPPER_SCALE), round((vy + s * dy) * CLIPPER_SCALE))
+            )
+        area = pyclipper.Area(poly)
+        if abs(area) <= 0.0:
+            continue
+        if area < 0.0:
+            poly.reverse()
+        paths.append(poly)
+    return paths
 
 
 # ── one caster's ring set as simple rings (issue #444) ────────────

@@ -1029,11 +1029,13 @@ def _record_of(item: Any, object_type: Any, item_id: str, at_date: date | None,
         params[PARAM_OUTLINE_RESOLVED] = True
     if radius is not None:
         params[PARAM_RADIUS_CM] = radius
+    metadata = getattr(item, "metadata", None) or {}
     if shape == OUTLINE_POLYLINE:
         style = getattr(item, "path_fence_style", PathFenceStyle.NONE)
         if style is not PathFenceStyle.NONE:
             params[PARAM_PATH_STYLE] = style.name
-    metadata = getattr(item, "metadata", None) or {}
+        elif isinstance(metadata, dict) and metadata.get("smart_symbol_plain_panel"):
+            params[PARAM_PATH_STYLE] = "PLAIN"
     species = metadata.get("plant_species")
     species_name = ""
     if isinstance(species, dict):
@@ -1240,6 +1242,9 @@ def snapshot_steps(
             object_type = getattr(item, "object_type", None)
             item_uuid = getattr(item, "item_id", None)
             if object_type is None or item_uuid is None:
+                continue
+            metadata = getattr(item, "metadata", None)
+            if isinstance(metadata, dict) and metadata.get("smart_symbol_guide"):
                 continue
             kind = str(getattr(object_type, "name", object_type))
             if kind in _NO_RECORD_KINDS:

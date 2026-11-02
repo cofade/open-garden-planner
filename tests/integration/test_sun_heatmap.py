@@ -205,6 +205,29 @@ class TestWorkerEndToEnd:
         # recompute is a deliberate button press (the FR-SUN-05 contract).
         assert controller.heatmap_visible()
 
+    def test_porous_fence_fractional_heatmap_result(self, qtbot) -> None:
+        """Porous fence computes fractional direct-sun minutes (#440)."""
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.object_types import PathFenceStyle
+        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+        scene = CanvasScene(1000.0, 800.0)
+        fence = PolylineItem(
+            [QPointF(0, 400), QPointF(1000, 400)],
+            object_type=ObjectType.FENCE,
+            path_fence_style=PathFenceStyle.WOODEN_FENCE,
+        )
+        fence.metadata[METADATA_KEY] = 150.0
+        scene.addItem(fence)
+
+        controller = SunHeatmapController(scene, lambda: BERLIN)
+        _run_and_wait(qtbot, controller, WINTER)
+        res = controller.result()
+        assert res is not None
+        # On winter solstice, due north of the fence, cells receive fractional minutes > 0
+        assert res.minutes.max() > 0.0
+
 
 class TestPixelBand:
     def test_winter_ramp_tints_shade_darker(self, qtbot, wall_scene) -> None:

@@ -118,7 +118,7 @@ class TestSerialization:
 
     def test_round_trips_as_parametric(self, manager, qtbot) -> None:
         scene = CanvasScene(width_cm=5000, height_cm=3000)
-        sym = SmartSymbolItem("raised_bed_rows", 1, {"rows": 5})
+        sym = SmartSymbolItem("raised_bed_rows", 2, {"rows": 5})
         scene.addItem(sym)
         sym.regenerate_geometry()
         sym.setPos(120, 80)
@@ -136,7 +136,7 @@ class TestSerialization:
 
     def test_missing_definition_uses_cached_geometry(self, manager, qtbot) -> None:
         scene = CanvasScene(width_cm=5000, height_cm=3000)
-        sym = SmartSymbolItem("raised_bed_rows", 1, {"rows": 4})
+        sym = SmartSymbolItem("raised_bed_rows", 2, {"rows": 4})
         scene.addItem(sym)
         sym.regenerate_geometry()
 
@@ -176,12 +176,16 @@ class TestSerialization:
             manager.load(scene, fp)
         loaded = [it for it in scene.items() if isinstance(it, SmartSymbolItem)]
         assert len(loaded) == 1 and _geometry_children(loaded[0]) == 4
+        # Subsequent regenerate_geometry on a loaded version-mismatched symbol must
+        # preserve its deserialized children rather than clearing them (#599).
+        loaded[0].regenerate_geometry()
+        assert _geometry_children(loaded[0]) == 4
 
 
 class TestDxfExport:
     def test_emits_block_insert_not_flat(self, qtbot) -> None:
         scene = CanvasScene(width_cm=5000, height_cm=3000)
-        sym = SmartSymbolItem("raised_bed_rows", 1, {"rows": 4})
+        sym = SmartSymbolItem("raised_bed_rows", 2, {"rows": 4})
         scene.addItem(sym)
         sym.regenerate_geometry()
         sym.setPos(100, 50)
@@ -199,3 +203,248 @@ class TestDxfExport:
             assert len(list(block)) == 4
             assert inserts[0].dxf.insert.x == 100.0
             assert inserts[0].dxf.insert.y == 50.0
+
+
+class TestTypedMembersAnd3DSnapshot:
+    """Issue #599: typed smart-symbol members, 3D records, guides, and bed links."""
+
+    def test_bundled_symbols_create_typed_children_and_3d_records(self, qtbot) -> None:
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.core.scene3d import PARAM_PATH_STYLE
+        from open_garden_planner.services.smart_symbol_library import (
+            get_smart_symbol_library,
+        )
+        from open_garden_planner.ui.canvas.sun_shadow_controller import (
+            collect_identified_casters,
+        )
+        from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+        lib = get_smart_symbol_library()
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+
+        expected_primary = {
+            "raised_bed_rows": ObjectType.RAISED_BED,
+            "compost_bay_3": ObjectType.COMPOST_BIN,
+            "greenhouse_gabled": ObjectType.GREENHOUSE,
+            "fence_panel": ObjectType.FENCE,
+            "pergola": ObjectType.PERGOLA,
+        }
+        for idx, (sym_id, primary_type) in enumerate(expected_primary.items()):
+            defn = lib.get(sym_id)
+            assert defn is not None and defn.version == 2
+            sym = SmartSymbolItem(sym_id, defn.version, defn.param_defaults())
+            scene.addItem(sym)
+            sym.regenerate_geometry()
+            sym.setPos(idx * 400.0, 100.0)
+            child_types = [getattr(c, "object_type", None) for c in sym.childItems()]
+            assert primary_type in child_types
+
+        records = list(snapshot_records(scene).values())
+        kinds = [r.kind for r in records]
+        assert "RAISED_BED" in kinds
+        assert "COMPOST_BIN" in kinds
+        assert "GREENHOUSE" in kinds
+        assert "PERGOLA" in kinds
+        assert "FENCE" in kinds
+
+        # Plain-panel dividers from raised_bed_rows (3) + compost_bay_3 (2) = 5 PLAIN fences,
+        # plus 1 standard FENCE from fence_panel (6 total FENCE records; guides excluded).
+        fence_records = [r for r in records if r.kind == "FENCE"]
+        plain_records = [
+            r for r in fence_records if r.params.get(PARAM_PATH_STYLE) == "PLAIN"
+        ]
+        assert len(plain_records) == 5
+        assert len(fence_records) == 6
+        assert sorted(round(r.height_cm) for r in plain_records) == [40, 40, 40, 100, 100]
+
+        # Guides are also excluded from 2D shadow casters while typed members are included.
+        casters = collect_identified_casters(scene)
+        caster_ids = {c.item_id for c in casters}
+        for item in scene.items():
+            if isinstance(item, SmartSymbolItem):
+                for child in item.childItems():
+                    cid = str(getattr(child, "item_id", ""))
+                    if getattr(child, "metadata", {}).get("smart_symbol_guide"):
+                        assert cid not in caster_ids
+                    else:
+                        assert cid in caster_ids
+
+    def test_raised_bed_rows_plant_parenting_regen_and_undo(
+        self, qtbot, monkeypatch
+    ) -> None:
+        from open_garden_planner.core.commands import CreateItemCommand
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.items.circle_item import CircleItem
+
+        win = _make_app(qtbot, monkeypatch)
+        win.properties_panel.set_command_manager(win.canvas_view.command_manager)
+
+        win._on_smart_symbol_selected("raised_bed_rows")
+        sym = next(
+            it for it in win.canvas_scene.items() if isinstance(it, SmartSymbolItem)
+        )
+        bed_child = next(
+            c
+            for c in sym.childItems()
+            if getattr(c, "object_type", None) == ObjectType.RAISED_BED
+        )
+        bed_uuid_initial = bed_child.item_id
+        bed_scene_center = bed_child.mapToScene(bed_child.boundingRect().center())
+
+        # Place a plant inside the smart symbol's RAISED_BED child (on the same layer).
+        plant = CircleItem(
+            bed_scene_center.x(),
+            bed_scene_center.y(),
+            15.0,
+            object_type=ObjectType.PERENNIAL,
+            name="Tomato",
+            layer_id=sym.layer_id,
+        )
+        win.canvas_view.command_manager.execute(
+            CreateItemCommand(win.canvas_scene, plant, "plant")
+        )
+        assert plant.parent_bed_id == bed_uuid_initial
+        assert plant.item_id in bed_child.child_item_ids
+        assert plant.zValue() > sym.zValue()
+
+        # Regenerating rows preserves deterministic bed child UUID and plant link.
+        win.properties_panel.set_selected_items([sym])
+        win.properties_panel._on_symbol_param_changed(sym, "rows", 6)
+        new_bed_child = next(
+            c
+            for c in sym.childItems()
+            if getattr(c, "object_type", None) == ObjectType.RAISED_BED
+        )
+        assert new_bed_child.item_id == bed_uuid_initial
+        assert plant.parent_bed_id == bed_uuid_initial
+        assert plant.item_id in new_bed_child.child_item_ids
+
+        # Shrinking W so the plant falls outside unlinks the plant in the SAME undo step,
+        # and undoing restores both W and the plant's parent_bed_id link.
+        win.properties_panel._on_symbol_param_changed(sym, "W", 20.0)
+        assert plant.parent_bed_id is None
+        win.canvas_view.command_manager.undo()
+        assert sym.params["W"] == 100
+        assert plant.parent_bed_id == bed_uuid_initial
+
+        # Transform-only movement carries the linked plant in one undoable command.
+        from PyQt6.QtCore import QEvent, Qt
+        from PyQt6.QtGui import QKeyEvent
+
+        from open_garden_planner.ui.view3d.snapshot import snapshot_records
+
+        win.canvas_scene.clearSelection()
+        sym.setSelected(True)
+        sym_pos_before = sym.pos()
+        plant_pos_before = plant.pos()
+        key_ev = QKeyEvent(
+            QEvent.Type.KeyPress, Qt.Key.Key_Right, Qt.KeyboardModifier.NoModifier
+        )
+        win.canvas_view._move_selected_items(key_ev)
+        sym_delta = sym.pos() - sym_pos_before
+        plant_delta = plant.pos() - plant_pos_before
+        assert sym_delta.x() > 0.0
+        assert abs(plant_delta.x() - sym_delta.x()) < 1e-6
+        assert abs(plant_delta.y() - sym_delta.y()) < 1e-6
+        assert plant.parent_bed_id == bed_uuid_initial
+
+        # Two non-axis-aligned rotations (25 deg and 65 deg) preserve typed 3D records.
+        for angle in (25.0, 65.0):
+            sym.setRotation(angle)
+            snap_recs = snapshot_records(win.canvas_scene)
+            bed_rec = snap_recs[str(bed_uuid_initial)]
+            assert bed_rec.kind == "RAISED_BED"
+            assert abs((bed_rec.transform.rotation_deg - angle + 180.0) % 360.0 - 180.0) < 1e-3
+        sym.setRotation(0.0)
+
+        # Save and reopen preserves deterministic child UUIDs and plant->bed link.
+        with tempfile.TemporaryDirectory() as td:
+            fp = Path(td) / "bed_rows.ogp"
+            ProjectManager().save(win.canvas_scene, fp)
+            scene2 = CanvasScene(width_cm=5000, height_cm=3000)
+            ProjectManager().load(scene2, fp)
+            loaded_sym = next(
+                it for it in scene2.items() if isinstance(it, SmartSymbolItem)
+            )
+            loaded_bed = next(
+                c
+                for c in loaded_sym.childItems()
+                if getattr(c, "object_type", None) == ObjectType.RAISED_BED
+            )
+            loaded_plant = next(
+                it
+                for it in scene2.items()
+                if isinstance(it, CircleItem) and it.name == "Tomato"
+            )
+            assert loaded_bed.item_id == bed_uuid_initial
+            assert loaded_plant.parent_bed_id == bed_uuid_initial
+            assert loaded_plant.item_id in loaded_bed.child_item_ids
+
+    def test_invalid_param_edit_and_version_mismatch_read_only_in_panel(
+        self, qtbot, monkeypatch
+    ) -> None:
+        from PyQt6.QtWidgets import QAbstractSpinBox, QLabel
+
+        from open_garden_planner.models.smart_symbol import SmartSymbolDefinition
+        from open_garden_planner.services.smart_symbol_library import (
+            get_smart_symbol_library,
+        )
+
+        win = _make_app(qtbot, monkeypatch)
+        win.properties_panel.set_command_manager(win.canvas_view.command_manager)
+
+        definition = SmartSymbolDefinition.from_dict(
+            {
+                "id": "dz_panel",
+                "version": 2,
+                "name": "DZ Panel",
+                "name_de": "DZ Panel",
+                "category": "c",
+                "parameters": [
+                    {
+                        "name": "n",
+                        "type": "number",
+                        "label": "N",
+                        "default": 2,
+                        "min": 0,
+                        "max": 10,
+                    }
+                ],
+                "elements": [
+                    {"kind": "line", "x1": 0, "y1": 0, "x2": "10 / n", "y2": 0}
+                ],
+            }
+        )
+        lib = get_smart_symbol_library()
+        lib._ensure_loaded()
+        lib._symbols["dz_panel"] = definition
+
+        win._on_smart_symbol_selected("dz_panel")
+        sym = next(
+            it
+            for it in win.canvas_scene.items()
+            if isinstance(it, SmartSymbolItem) and it.symbol_id == "dz_panel"
+        )
+        orig_children = list(sym.childItems())
+        orig_undo_depth = len(win.canvas_view.command_manager._undo_stack)
+        win.properties_panel.set_selected_items([sym])
+
+        # Invalid parameter edit (n=0 -> ZeroDivisionError) is refused before command execution:
+        # params, child object identities, and undo stack stay untouched.
+        win.properties_panel._on_symbol_param_changed(sym, "n", 0)
+        assert sym.params["n"] == 2
+        assert list(sym.childItems()) == orig_children
+        assert len(win.canvas_view.command_manager._undo_stack) == orig_undo_depth
+
+        # Version mismatch shows read-only caution and disables parameter widgets.
+        sym.symbol_version = 1
+        win.properties_panel._current_identity = None
+        win.properties_panel.set_selected_items([sym])
+        labels = [
+            w.text()
+            for w in win.properties_panel.findChildren(QLabel)
+            if "read-only" in w.text()
+        ]
+        assert len(labels) == 1
+        spins = win.properties_panel.findChildren(QAbstractSpinBox)
+        assert spins and all(not s.isEnabled() for s in spins)

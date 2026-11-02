@@ -1128,5 +1128,15 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#659, #660): decode site-plan-sized backgrounds and encode them once"
+  },
+  "440": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Limitation: the 2D sun/shade model treats porous fences as solid walls and a gable roof as a flat-topped box"
+  },
+  "599": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Phase 17: smart-symbol builders for 3D (deferred from L4 #388)"
   }
 }

@@ -683,3 +683,58 @@ class TestAppWiring:
             "controller — metadata-only height edits repaint nothing, so "
             "scene.changed alone misses them"
         )
+
+    def test_pitched_roof_and_porous_fence_overlay_weighted_regions(
+        self, qtbot, scene
+    ) -> None:
+        """Pitched roofs and porous fences populate weighted regions on the overlay (#440)."""
+        from PyQt6.QtCore import QPointF
+
+        from open_garden_planner.core.object_types import PathFenceStyle
+        from open_garden_planner.core.roof_style import (
+            OVERHANG_KEY,
+            PITCH_KEY,
+            STYLE_KEY,
+        )
+        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+        # Building with gable roof
+        house = RectangleItem(50, 50, 200, 150, object_type=ObjectType.HOUSE)
+        house.metadata[METADATA_KEY] = 300.0
+        house.metadata[STYLE_KEY] = "gable"
+        house.metadata[PITCH_KEY] = 35.0
+        house.metadata[OVERHANG_KEY] = 25.0
+        scene.addItem(house)
+
+        # Wooden fence
+        fence = PolylineItem(
+            [QPointF(0, 300), QPointF(300, 300)],
+            object_type=ObjectType.FENCE,
+            path_fence_style=PathFenceStyle.WOODEN_FENCE,
+        )
+        fence.metadata[METADATA_KEY] = 120.0
+        scene.addItem(fence)
+
+        controller = SunShadowController(scene, lambda: BERLIN)
+        controller.set_sim_datetime(JUNE_NOON_UTC)
+        controller.set_enabled(True)
+        qtbot.wait(400)
+
+        assert controller.state == STATE_ACTIVE
+        overlay = controller._alive_overlay()
+        assert overlay is not None
+        weighted = overlay.weighted_regions()
+        assert weighted
+        # Porous fence produces a region with fractional transmittance in (0, 1)
+        transmittances = [reg.transmittance for reg in weighted]
+        assert any(0.0 < t < 1.0 for t in transmittances)
+
+        # Drape regions match the weighted regions
+        drape = controller.drape_regions()
+        assert len(drape) == len(weighted)
+
+        # Overlay renders through render_scene_region with weighted alphas
+        region = QRectF(0, 0, 400, 400)
+        img = _render(scene, region, 1.0)
+        assert not img.isNull()
+

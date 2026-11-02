@@ -30,6 +30,8 @@ wider than a post widens the posts. The POSTS are the top: exactly the height.
 
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from typing import Final
 
 import numpy as np
@@ -262,3 +264,182 @@ def triangle_budget(line: F64, closed: bool, segments: int, style: str) -> int:
     per_metre, per_segment = {"WOODEN_FENCE": (105, 60), "METAL_FENCE": (100, 35),
                               "CHAIN_LINK": (55, 110)}[style]
     return int(per_metre * metres) + per_segment * max(segments, 1) + 60
+
+
+#: Fence styles whose 3D panels have open gaps between posts, rails, and infill (#440).
+#: ``HEDGE_FENCE``, ``STONE_WALL``, ``WALL``, and ``PLAIN`` panels are opaque (0.0 open).
+POROUS_FENCE_STYLES: Final = frozenset({"WOODEN_FENCE", "METAL_FENCE", "CHAIN_LINK"})
+
+
+def fence_segment_occlusion(
+    style: str,
+    height_cm: float = 150.0,
+    stroke_cm: float = 3.0,
+    elevation_deg: float = 35.0,
+    c_perp: float = 1.0,
+    c_par: float = 0.0,
+    run_len_cm: float = 1000.0,
+    *,
+    shared_start_post: bool = False,
+) -> float:
+    """Analytical shadow occlusion fraction ``[0.0, 1.0]`` for one fence segment (#440).
+
+    Derived directly from the 3D structural constants above (posts, rails, and infill
+    pickets/bars/diamond wires) at solar elevation ``elevation_deg`` and horizontal ray
+    direction components ``(c_perp, c_par)`` relative to the segment:
+
+    - Glancing azimuths (``c_perp -> 0``, ``c_par -> 1``) widen the projected along-fence
+      footprint of posts, pickets, and bars ``(w_along * c_perp + w_across * c_par) /
+      (pitch * c_perp)``, closing the gaps at oblique angles.
+    - Steeper elevations widen the vertical shadow cast by horizontal rails
+      ``rail_tall + rail_across * tan(elevation) * c_perp``.
+    """
+    if style not in POROUS_FENCE_STYLES or height_cm <= 0.0:
+        return 1.0
+    k = _scale(height_cm)
+    tan_a = math.tan(math.radians(max(elevation_deg, 1.0))) if elevation_deg > 0.0 else 0.0
+    cp = max(abs(c_perp), 1e-6)
+    cl = abs(c_par)
+    run = max(run_len_cm, 1.0)
+
+    if style == "WOODEN_FENCE":
+        post_w = max(POST_CM, stroke_cm)
+        per_seg = max(2.0, math.ceil(run / POST_SPACING_CM) + 1.0)
+        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
+        rail_h = min(RAIL_TALL_CM, 0.2 * height_cm)
+        o_rail = min(1.0, 2.0 * (rail_h + RAIL_ACROSS_CM * tan_a * cp) / height_cm)
+        h_picket = max(0.0, height_cm - 4.15 * k) / height_cm
+        w_picket = min(1.0, (PICKET_WIDE_CM * cp + PICKET_THICK_CM * cl) / (PICKET_PITCH_CM * cp))
+        o_infill = h_picket * w_picket
+    elif style == "METAL_FENCE":
+        post_w = max(METAL_POST_CM, stroke_cm)
+        per_seg = max(2.0, math.ceil(run / POST_SPACING_CM) + 1.0)
+        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
+        o_rail = min(1.0, 2.0 * (METAL_RAIL_CM * k + METAL_RAIL_CM * tan_a * cp) / height_cm)
+        h_bar = max(0.0, height_cm - 12.0 * k) / height_cm
+        w_bar = min(1.0, (METAL_BAR_CM * cp + METAL_BAR_CM * cl) / (METAL_BAR_PITCH_CM * cp))
+        o_infill = h_bar * w_bar
+    else:  # CHAIN_LINK
+        post_w = max(CHAIN_POST_CM, stroke_cm)
+        per_seg = max(2.0, math.ceil(run / CHAIN_POST_SPACING_CM) + 1.0)
+        n_posts = per_seg - (1.0 if shared_start_post else 0.0)
+        o_post = min(1.0, (n_posts * (post_w * cp + post_w * cl)) / (run * cp))
+        o_rail = min(1.0, (CHAIN_RAIL_CM * k + CHAIN_RAIL_CM * tan_a * cp) / height_cm)
+        h_wire = max(0.0, height_cm - 8.0 * k) / height_cm
+        # 3-sided tube prism (``primitives.tubes(..., sides=3)``) of circumradius R has mean
+        # projected width 1.5 * R across horizontal/sloped rays; two 45-degree wire families.
+        d_eff = (
+            1.5
+            * (CHAIN_WIRE_RADIUS_CM * k)
+            * math.sqrt(1.0 + 0.5 * (tan_a * cp) ** 2 + 0.5 * (cl / cp) ** 2)
+        )
+        p_single = min(1.0, math.sqrt(2.0) * d_eff / CHAIN_WIRE_PITCH_CM)
+        o_infill = h_wire * (1.0 - (1.0 - p_single) ** 2)
+
+    transmittance = (1.0 - o_post) * (1.0 - o_rail) * (1.0 - o_infill)
+    return float(min(1.0, max(0.0, 1.0 - transmittance)))
+
+
+def fence_transmittance(
+    style: str,
+    height_cm: float,
+    stroke_cm: float,
+    elevation_deg: float,
+    azimuth_deg: float,
+    points: Sequence[tuple[float, float]] = (),
+) -> float:
+    """Angle-dependent open transmittance ``[0.0, 1.0]`` for a fence caster (#440).
+
+    Returns ``0.0`` for opaque styles (``HEDGE_FENCE``, ``STONE_WALL``, ``PLAIN``, or
+    any non-porous style) and ``1.0 - occlusion`` weighted by each segment's projected
+    shadow area for ``WOODEN_FENCE``, ``METAL_FENCE``, and ``CHAIN_LINK``.
+    """
+    if style not in POROUS_FENCE_STYLES or height_cm <= 0.0:
+        return 0.0
+    if len(points) < 2:
+        return 1.0 - fence_segment_occlusion(
+            style, height_cm, stroke_cm, elevation_deg, c_perp=1.0, c_par=0.0
+        )
+
+    opp_rad = math.radians((azimuth_deg + 180.0) % 360.0)
+    dx = math.sin(opp_rad)
+    dy = math.cos(opp_rad)
+    closed = (
+        len(points) >= 3
+        and math.hypot(points[0][0] - points[-1][0], points[0][1] - points[-1][1]) <= 1e-6
+    )
+
+    weighted_occ = 0.0
+    total_weight = 0.0
+    for idx in range(len(points) - 1):
+        ax, ay = points[idx]
+        bx, by = points[idx + 1]
+        seg_len = math.hypot(bx - ax, by - ay)
+        if seg_len <= 1e-6:
+            continue
+        ux = (bx - ax) / seg_len
+        uy = (by - ay) / seg_len
+        c_par = abs(ux * dx + uy * dy)
+        c_perp = abs(ux * dy - uy * dx)
+        shared_start = closed or idx > 0
+        occ = fence_segment_occlusion(
+            style,
+            height_cm,
+            stroke_cm,
+            elevation_deg,
+            c_perp=c_perp,
+            c_par=c_par,
+            run_len_cm=seg_len,
+            shared_start_post=shared_start,
+        )
+        weight = seg_len * max(c_perp, 0.05)
+        weighted_occ += weight * occ
+        total_weight += weight
+
+    if total_weight <= 0.0:
+        return 1.0 - fence_segment_occlusion(
+            style, height_cm, stroke_cm, elevation_deg, c_perp=1.0, c_par=0.0
+        )
+    return float(min(1.0, max(0.0, 1.0 - (weighted_occ / total_weight))))
+
+
+#: Nominal normal-incidence (c_perp=1, c_par=0, elevation=0°, H=150 cm, L=1000 cm)
+#: open fractions for every ``PathFenceStyle`` value (#440):
+#:
+#: ================  ==============  ====================================================
+#: Style             Open fraction   Structural breakdown at normal incidence (150 cm)
+#: ================  ==============  ====================================================
+#: ``WOODEN_FENCE``  ~0.341 (34.1%)  7.44/12 cm pickets (38% raw gap), two 6 cm rails,
+#:                                   9 cm posts every 200 cm
+#: ``METAL_FENCE``   ~0.812 (81.2%)  1.6/11 cm bars (85.5% raw gap), two 2.5 cm rails,
+#:                                   4 cm posts every 200 cm
+#: ``CHAIN_LINK``    ~0.885 (88.5%)  0.8 cm wires at 25 cm diamond pitch (93.4% raw gap),
+#:                                   one 3 cm top rail, 5 cm posts every 250 cm
+#: ``HEDGE_FENCE``   0.000 (0.0%)    opaque foliage block + shell
+#: ``STONE_WALL``    0.000 (0.0%)    opaque masonry wall
+#: ``GRAVEL_PATH``   0.000 (0.0%)    ground path (not a vertical fence caster)
+#: ``STEPPING_STONES`` 0.000 (0.0%)  ground path (not a vertical fence caster)
+#: `` PAVED_PATH``   0.000 (0.0%)    ground path (not a vertical fence caster)
+#: ``WOODCHIP_PATH`` 0.000 (0.0%)    ground path (not a vertical fence caster)
+#: ``PLAIN``         0.000 (0.0%)    opaque plain panel
+#: ================  ==============  ====================================================
+NOMINAL_FENCE_OPEN_FRACTION: Final[dict[str, float]] = {
+    "WOODEN_FENCE": round(
+        1.0 - fence_segment_occlusion("WOODEN_FENCE", 150.0, 3.0, 0.0, 1.0, 0.0, 1000.0), 4
+    ),
+    "METAL_FENCE": round(
+        1.0 - fence_segment_occlusion("METAL_FENCE", 150.0, 3.0, 0.0, 1.0, 0.0, 1000.0), 4
+    ),
+    "CHAIN_LINK": round(
+        1.0 - fence_segment_occlusion("CHAIN_LINK", 150.0, 3.0, 0.0, 1.0, 0.0, 1000.0), 4
+    ),
+    "HEDGE_FENCE": 0.0,
+    "STONE_WALL": 0.0,
+    "GRAVEL_PATH": 0.0,
+    "STEPPING_STONES": 0.0,
+    "PAVED_PATH": 0.0,
+    "WOODCHIP_PATH": 0.0,
+    "PLAIN": 0.0,
+}
