@@ -449,7 +449,7 @@ flowchart LR
     C([Weather → Today's Weather,<br/>a new location — also the one a new or<br/>opened document brings])
     W["Workspace.forecast_wanted"]
     P["PlantingCalendarView.request_forecast<br/>(the weather part of refresh; tab may be hidden)"]
-    F["WeatherWidget fetch (Open-Meteo) — another place<br/>cancels the old fetch; a late result for it is dropped"]
+    F["WeatherWidget fetch (Open-Meteo) — another place<br/>cancels and disconnects the old fetch"]
     R["forecast_days_ready(days) — EMPTY without a<br/>location or after a failed fetch"]
     L["Workspace.set_weather_forecast →<br/>WorkspaceLivingCoordinator → LookController.set_todays_weather<br/>(the plan date's code, only while the plan date is today)"]
     C --> W --> P --> F --> R --> L

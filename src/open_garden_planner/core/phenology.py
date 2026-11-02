@@ -71,6 +71,18 @@ def _smoothstep(edge0: float, edge1: float, x: float) -> float:
     return t * t * (3.0 - 2.0 * t)
 
 
+def plan_latitude(location: object) -> float:
+    """The latitude a plan's location gives — a finite number in ``[-90, 90]`` — or, with
+    no location (or a hostile one), ``DEFAULT_LATITUDE_DEG``. THE one reader: the 3D
+    view's phenology, the garden's life and the look's hemisphere all take it from here
+    (senior review of L5: three readers, one of them checking for NaN)."""
+    latitude = location.get("latitude") if isinstance(location, Mapping) else None
+    if isinstance(latitude, bool) or not isinstance(latitude, (int, float)):
+        return DEFAULT_LATITUDE_DEG
+    latitude = float(latitude)
+    return latitude if math.isfinite(latitude) and -90.0 <= latitude <= 90.0 else DEFAULT_LATITUDE_DEG
+
+
 def seasonal_day_of_year(plan_date: datetime.date, latitude_deg: float = DEFAULT_LATITUDE_DEG) -> float:
     """Return 0-based seasonal day-of-year in `[0.0, 365.0)`, shifted by 6 months when `latitude_deg < 0`."""
     doy0 = float(plan_date.timetuple().tm_yday - 1)
@@ -430,6 +442,7 @@ def evaluate_phenology_for_records(
 
 __all__ = [
     "DEFAULT_LATITUDE_DEG",
+    "plan_latitude",
     "SNOW_LINEAR_RGB",
     "PhenologyState",
     "evaluate_phenology",

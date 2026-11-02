@@ -75,7 +75,6 @@ from __future__ import annotations
 import contextlib
 import enum
 import logging
-import math
 import time
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Final
@@ -104,7 +103,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.phenology import DEFAULT_LATITUDE_DEG
+from open_garden_planner.core.phenology import plan_latitude
 from open_garden_planner.core.plain_text import clip_text, log_text
 from open_garden_planner.core.scene3d.camera import FOV_DEG, OrbitCamera
 
@@ -1200,23 +1199,20 @@ class Workspace(QWidget):
     def _southern(self) -> bool:
         """The plan's place lies south of the equator (no location: the phenology's
         default, a northern one)."""
-        loc = self._location()
-        lat = loc.get("latitude") if isinstance(loc, Mapping) else None
-        return isinstance(lat, (int, float)) and math.isfinite(lat) and lat < 0.0
+        return plan_latitude(self._location()) < 0.0
 
     def _refresh_forge(self) -> None:
         worker, controller = self._forge_worker, self._controller
         if worker is None or controller is None:
             return
         loc = self._location()
-        lat = loc.get("latitude") if isinstance(loc, Mapping) else None
         frost = loc.get("frost_dates") if isinstance(loc, Mapping) else None
         eye, target, _fov = self._camera_now()
         forward = (float(target[0] - eye[0]), float(target[1] - eye[1]), float(target[2] - eye[2]))
         worker.submit_snapshot(
             controller.sync.records.values(), camera_pos=eye, camera_forward=forward,
             plan_date=controller.pass_date,
-            latitude_deg=float(lat) if isinstance(lat, (int, float)) else DEFAULT_LATITUDE_DEG,
+            latitude_deg=plan_latitude(loc),
             frost_dates=frost if isinstance(frost, Mapping) else None,
         )
         if worker.pending_count and self._pane_is_showing():

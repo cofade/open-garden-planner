@@ -75,7 +75,7 @@ class TestWeatherWidgetPlaceChange:
         widget._on_fetch_success(_make_forecast(days=7))
         in_flight = widget._worker = MagicMock()
         widget.set_location(*new_place)
-        in_flight.shutdown.assert_called_once_with(0)   # cancelled, not waited for
+        in_flight.shutdown.assert_called_once()
         assert widget._worker is None and widget.forecast() is None
 
     def test_the_same_place_keeps_its_fetch_and_forecast(self, qtbot: object) -> None:
@@ -88,6 +88,46 @@ class TestWeatherWidgetPlaceChange:
         widget.set_location(52.5, 13.4)
         in_flight.shutdown.assert_not_called()
         assert widget._worker is in_flight and widget.forecast() is forecast
+
+
+@pytest.mark.real_weather_worker
+def test_a_result_queued_before_the_place_changed_never_lands(qtbot: object,
+                                                               monkeypatch: pytest.MonkeyPatch) -> None:
+    """What keeps the old place's forecast off the new place (PF-LIF-12, measured in the
+    senior review of L5): PyQt6 does not deliver a queued signal to a bound-method slot
+    that was disconnected before it ran, and another place disconnects the old worker
+    (``set_location`` → ``shutdown``). The worker below has FINISHED — its result is
+    queued, no event loop has run — when the place changes. The control: left connected,
+    the same queued result lands."""
+    from open_garden_planner.ui.widgets import weather_widget
+
+    class Service:
+        def fetch_forecast(self, _lat: float, _lon: float) -> WeatherForecast:
+            return _make_forecast(7)
+
+    monkeypatch.setattr(weather_widget, "get_weather_service", Service)
+
+    def queued(widget: WeatherWidget) -> list[int]:
+        ready: list[int] = []
+        widget.forecast_ready.connect(lambda: ready.append(1))
+        widget.set_location(52.5, 13.4)
+        widget.refresh()
+        assert widget._worker is not None and widget._worker.wait(5000), "finished, result queued"
+        assert ready == [] and widget.forecast() is None, "nothing delivered yet"
+        return ready
+
+    control = WeatherWidget()
+    qtbot.addWidget(control)
+    landed = queued(control)
+    qtbot.waitUntil(lambda: landed == [1], timeout=2000)
+    assert control.forecast() is not None
+
+    widget = WeatherWidget()
+    qtbot.addWidget(widget)
+    ready = queued(widget)
+    widget.set_location(48.1, 11.6)                 # another place, the result still queued
+    qtbot.wait(100)                                 # the event loop runs the queue
+    assert ready == [] and widget.forecast() is None, "the old place's result never landed"
 
 
 class TestWeatherWidgetForecast:
@@ -245,8 +285,9 @@ class TestWeatherWidgetLifecycle:
 
         import open_garden_planner.services.weather_service as ws
 
-        service = ws.get_weather_service()
-        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+        # on the CLASS: patching the singleton instance leaves an instance attribute
+        # behind on undo, which shadows every later class-level fake (found in L5)
+        monkeypatch.setattr(ws.WeatherService, "fetch_forecast", slow_fetch)
 
         worker = _WeatherFetchWorker(52.5, 13.4)
         successes, errors = [], []
@@ -270,8 +311,9 @@ class TestWeatherWidgetLifecycle:
             return None
 
         import open_garden_planner.services.weather_service as ws
-        service = ws.get_weather_service()
-        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+        # on the CLASS: patching the singleton instance leaves an instance attribute
+        # behind on undo, which shadows every later class-level fake (found in L5)
+        monkeypatch.setattr(ws.WeatherService, "fetch_forecast", slow_fetch)
 
         widget = WeatherWidget()
         widget.set_location(52.5, 13.4)
@@ -302,8 +344,9 @@ class TestWeatherWidgetLifecycle:
             return None
 
         import open_garden_planner.services.weather_service as ws
-        service = ws.get_weather_service()
-        monkeypatch.setattr(service, "fetch_forecast", slow_fetch)
+        # on the CLASS: patching the singleton instance leaves an instance attribute
+        # behind on undo, which shadows every later class-level fake (found in L5)
+        monkeypatch.setattr(ws.WeatherService, "fetch_forecast", slow_fetch)
 
         widget = WeatherWidget()
         qtbot.addWidget(widget)

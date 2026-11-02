@@ -213,10 +213,11 @@ def test_a_cloudy_low_sun_keeps_noons_exposure(weather: str) -> None:
     noon, clear_noon = exposure(40.0, weather), exposure(40.0, "clear")
     lift = noon / clear_noon                               # the cloud's own +EV
     for elevation in (12.0, 5.9, 2.0, 0.6):
-        clear_lift = exposure(elevation, "clear") - clear_noon
-        assert clear_lift > 0.0, "a clear low sun keeps its lift"
-        assert exposure(elevation, weather) == pytest.approx(
-            noon + clear_lift * (1.0 - cloud) * lift), elevation
+        clear_stops = math.log2(exposure(elevation, "clear") / clear_noon)
+        assert clear_stops > 0.0, "a clear low sun keeps its lift"
+        # in stops, like ``mix_rig``: what is left of the clear lift is its (1 - cloud)
+        assert math.log2(exposure(elevation, weather) / noon) == pytest.approx(
+            clear_stops * (1.0 - cloud)), elevation
     assert exposure(-20.0, weather) == pytest.approx(exposure(-20.0, "clear") * lift)
     evening = [exposure(e, weather) for e in (40.0, 5.9, 0.6, -2.0, -4.0, -6.0, -20.0)]
     assert evening == sorted(evening)

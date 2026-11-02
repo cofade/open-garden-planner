@@ -2284,8 +2284,8 @@ audit evidence for the command, machine and measured limitations.
 - **A reload into a live geometry is judged in pixels.** ADR-069 withdrew an in-place reload
   that drew a replaced geometry as nothing; `scenario_reload` loads glow A, then B WHILE SHOWN
   (the product's common path: a date step, a lamp moved), nothing, then B again into the same
-  host and reads each frame back. It runs in CI on OpenGL and on Direct3D 11 (its node id on the
-  render job's engine lines, pinned by `test_quick3d_packaging`). Place the probes over open
+  host and reads each frame back. Its node id is on both of the render job's engine lines -
+  OpenGL on llvmpipe, Direct3D 11 on WARP - pinned by `test_quick3d_packaging`. Place the probes over open
   ground: the first cut put A behind a tree and read "nothing drawn" for a reload that worked.
 - **A fetch that races a document change is held in flight on purpose.** The forecast's seam
   is tested with the app's own weather widget and worker thread — the test is marked
@@ -2294,6 +2294,17 @@ audit evidence for the command, machine and measured limitations.
   ask, run File › New or Open through the app's own paths, open the gate: the late result of
   the old place must land nowhere. Patching `WeatherWidget.refresh` out could not see it
   (`test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; observed failing first).
+  Fake the worker's own lookup (`weather_widget.get_weather_service`), never the singleton's
+  method: `monkeypatch.setattr(instance, "method", ...)` restores by SETTING the old bound
+  method as an instance attribute, which then shadows every later class-level fake in that
+  process - a weather-widget test did it, and the forecast tests failed only when they ran
+  after it.
+- **A mechanism the docs credit is measured, not assumed.** A guard dropping "another
+  place's" result was written, documented - and never ran: PyQt6 does not deliver a queued
+  signal to a bound-method slot disconnected before it ran, so the disconnect already
+  protected. The pin holds a FINISHED worker's result in the queue (`QThread.wait`, no event
+  loop) across the change, with a connected control that receives it
+  (`test_a_result_queued_before_the_place_changed_never_lands`).
 
 ## 8.11 Security Scanning (SAST)
 

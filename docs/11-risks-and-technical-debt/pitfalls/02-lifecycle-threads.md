@@ -127,8 +127,8 @@ asserts that the readiness dialog remains the sole visible progress dialog:
 
 ### PF-LIF-12
 
-- **Rule:** A `CanvasScene.document_replaced` slot only forgets place-dependent state, because the old document's location is still set; the new location's `location_changed` asks again, and a fetch result is applied only to the place it was fetched for.
-- **Pinned by:** `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_weather_widget.py`
+- **Rule:** A `CanvasScene.document_replaced` slot only forgets place-dependent state, because the old document's location is still set; the new location's `location_changed` asks again, and a fetch for another place is cancelled AND disconnected before the place changes.
+- **Pinned by:** `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_weather_widget.py::test_a_result_queued_before_the_place_changed_never_lands`
 - **Source:** #389, ADR-070
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -143,5 +143,11 @@ location — so `PlantingCalendarView.request_forecast` fetched for the OLD plac
 `WeatherWidget.set_location` did not cancel that worker when the place changed. Fix: the slot
 only forgets (`WorkspaceLivingCoordinator.document_changed`); `location_changed`, which always
 follows a new, opened or recovered document, asks (`place_changed`). `WeatherWidget.set_location`
-cancels the in-flight worker and forgets the forecast when the coordinates change, and
-`_on_fetch_success` / `_on_fetch_error` drop a result whose worker fetched another place.
+cancels the in-flight worker, DISCONNECTS it and forgets the forecast when the coordinates
+change. The disconnect is what protects: PyQt6 never delivers a queued signal to a
+bound-method slot that was disconnected before it ran, so a worker that finished for the old
+place - its result already queued - lands nowhere (measured in the senior review; the pin
+holds a finished worker's result in the queue across the change, with a connected control
+that receives it). A guard comparing the sender's coordinates was written first and never
+ran, because nothing reached it; it went. Not covered: the calendar's frost alerts keep the
+old plan's alerts after a cleared location or a failed fetch (#694, older than L5).

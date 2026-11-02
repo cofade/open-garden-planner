@@ -9762,18 +9762,21 @@ past midnight, the firefly season's date, one life assembly for the product and 
    fetched the OLD place; the result then reached Today's Weather, the calendar's strip
    (with no location) and the new plan's frost alerts. The document now only forgets the
    forecast; the ask waits for the new location's `location_changed`, which always follows.
-   `WeatherWidget.set_location` cancels the old place's fetch and forgets its forecast, and
-   a result whose worker fetched another place is dropped (PF-LIF-12). No zero-timer: a
-   fetch for the same place already on its way is not started again
-   (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693.
+   `WeatherWidget.set_location` cancels and DISCONNECTS the old place's fetch and forgets
+   its forecast; the disconnect is what keeps a result already queued from landing (PyQt6
+   delivers no queued signal to a bound-method slot disconnected before it ran - measured
+   and pinned, PF-LIF-12). The same coordinates (a frost-date edit) keep the forecast. No
+   zero-timer: a fetch for the same place already on its way is not started again
+   (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693; the
+   calendar's frost alerts, which keep the old plan's after a cleared location: #694.
 2. **Where noon stands is the place's.** The dew's noon fade and the fireflies' midnight
    read the meridian from the plan's hemisphere (`noon_azimuth`; `LookController.set_southern`,
    told by the workspace) — not from both: a summer dawn north of ~60° stands near due north,
    and round 2's fade dimmed its dew ×0.04 as if it were noon.
 3. **A cloudy evening is an evening.** The low sun's exposure lift (+0.44 EV at a golden
    hour) makes up for a clear key light; under cloud it made a sunset 98 % as bright as noon.
-   The cloudy day now holds NOON's exposure in the share of its cloud, the mood's own
-   returning with twilight: an overcast sunset is 0.77 of noon (rain 0.79, snow 0.68), every
+   The cloudy day now holds NOON's exposure in the share of its cloud (in stops, like
+   `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon (rain 0.79, snow 0.68), every
    dusk monotone, cloudy horizon steps ≤ 1.82.
 4. **Wet leaves are not glossier than 0.6.** At roughness 0.38 a low sun left cream glints
    on the leaves in the rain; at 0.6 the golden hour's cream pixels fall 1,005 → 5, the sunset's
@@ -9781,8 +9784,10 @@ past midnight, the firefly season's date, one life assembly for the product and 
    `lawn.frag`).
 5. **Smaller:** a particle's seed spans [0, 11/12), so at a full share every particle is
    whole (a seed above 11/12 stayed undersized); the reload test adds a reload WHILE SHOWN and
-   runs in CI on OpenGL and Direct3D 11; the host protocol carries the real types; the
-   seasons' host call is contained like every living call; the Forge's default latitude is
-   the phenology's; the Weather button forgets the pause with its engine. Filed: #692 (the
+   stands on both of CI's render lines (OpenGL on llvmpipe, Direct3D 11 on WARP); the host
+   protocol carries the real types; the seasons' host call is contained like every living
+   call; the plan's latitude has ONE finite-checked reader (`phenology.plan_latitude`) for
+   the Forge, the garden's life and the hemisphere; the Weather button forgets the pause
+   with its engine. Filed: #692 (the
    board's access violation at exit, also on the merge base). Owner questions (the PR): a
    cloudy evening darker than a clear one, and a glossier dew than the rain.

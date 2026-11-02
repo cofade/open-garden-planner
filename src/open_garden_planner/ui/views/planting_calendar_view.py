@@ -1120,8 +1120,9 @@ class PlantingCalendarView(QWidget):
     #: Emitted with the forecast's days as ``(ISO date, WMO code)`` after each weather
     #: fetch — the 3D view's "Today's Weather" (Phase 17 L5.3) follows this single
     #: forecast and fetches nothing itself. Emitted EMPTY when there is no forecast to
-    #: follow: no location, or a fetch that failed — so no consumer keeps another
-    #: plan's or a stale forecast (senior review of L5).
+    #: follow: no location, or a fetch that failed — so the 3D view keeps no other plan's
+    #: or stale forecast (senior review of L5). The frost alerts do not follow this rule
+    #: yet: #694.
     forecast_days_ready = pyqtSignal(object)
 
     def __init__(self, canvas_scene: Any, project_manager: Any, parent: QWidget | None = None) -> None:

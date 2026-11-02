@@ -201,7 +201,10 @@ class WeatherWidget(QFrame):
         """Set (or clear) the GPS location; reset UI accordingly. Another place (or
         none): the fetch still on its way for the old one is cancelled and its forecast
         forgotten — neither may land on the new place (senior review of L5: File › New
-        showed the old plan's strip and computed its frost alerts against it)."""
+        showed the old plan's strip and computed its frost alerts against it). The
+        DISCONNECT is what keeps a result already queued from landing: PyQt6 never
+        delivers a queued signal to a bound-method slot disconnected before it ran
+        (measured; ``test_a_result_queued_before_the_place_changed_never_lands``)."""
         if (lat, lon) != (self._lat, self._lon):
             self.shutdown(0)  # cancelled and disconnected; it is not waited for
             self._forecast = None
@@ -268,23 +271,12 @@ class WeatherWidget(QFrame):
 
     # ── slots ───────────────────────────────────────────────────────────
 
-    def _for_this_place(self) -> bool:
-        """The signalling worker fetched for the location set now: a result queued
-        before its place changed is another place's, and is dropped."""
-        worker = self.sender()  # None when called directly: the place is this one
-        place = (getattr(worker, "_lat", self._lat), getattr(worker, "_lon", self._lon))
-        return place == (self._lat, self._lon)
-
     def _on_fetch_success(self, forecast: WeatherForecast) -> None:
-        if not self._for_this_place():
-            return
         self._forecast = forecast
         self._render_forecast(forecast)
         self.forecast_ready.emit()
 
     def _on_fetch_error(self, message: str) -> None:
-        if not self._for_this_place():
-            return
         self.forecast_failed.emit(message)
         self._show_error(message)
 

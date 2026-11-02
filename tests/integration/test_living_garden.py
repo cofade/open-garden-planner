@@ -188,25 +188,22 @@ def test_todays_weather_follows_the_forecast_only_on_today(bench: Bench) -> None
 
 
 class FakeWeather:
-    """``WeatherService.fetch_forecast`` without the network — the rest is the app's own:
+    """The weather service without the network — the rest is the app's own:
     the calendar's weather widget, its worker thread, its signals (the test is marked
     ``real_weather_worker``: the conftest otherwise replaces that thread with a mock). Each fetch is recorded
     and answers its own place's forecast (rain north of the equator, overcast south of
     it) once ``gate`` is open; ``fail`` answers nothing (a failed fetch)."""
 
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from open_garden_planner.services.weather_service import (
-            DayForecast,
-            WeatherForecast,
-            WeatherService,
-        )
+        from open_garden_planner.services.weather_service import DayForecast, WeatherForecast
+        from open_garden_planner.ui.widgets import weather_widget
 
         self.fetches: list[tuple[float, float]] = []
         self.gate = threading.Event()
         self.gate.set()
         self.fail = False
 
-        def fetch(_service: object, lat: float, lon: float) -> WeatherForecast | None:
+        def fetch(lat: float, lon: float) -> WeatherForecast | None:
             self.fetches.append((lat, lon))
             self.gate.wait(10.0)
             if self.fail:
@@ -215,7 +212,9 @@ class FakeWeather:
             return WeatherForecast([DayForecast(date.today().isoformat(), 18.0, 9.0, 4.2, code)],
                                    "2026-11-02T08:00:00+00:00")
 
-        monkeypatch.setattr(WeatherService, "fetch_forecast", fetch)
+        service = type("Service", (), {"fetch_forecast": staticmethod(fetch)})()
+        # the worker's own lookup: whatever a test left on the service singleton, this is it
+        monkeypatch.setattr(weather_widget, "get_weather_service", lambda: service)
 
 
 def _place(location: dict[str, float]) -> tuple[float, float]:
@@ -229,7 +228,7 @@ def test_todays_weather_asks_the_calendar_and_keeps_no_stale_forecast(win, monke
     default —; the forecast it fetched reaches the 3D view; a failed fetch and a plan
     without a location leave no stale forecast behind."""
     weather = FakeWeather(monkeypatch)
-    living = win._workspace.living
+    living, widget = win._workspace.living, win.calendar_view._weather
     today = date.today().isoformat()
     assert win._tab_widget.currentIndex() == 0, "the plan's tab: the calendar is hidden"
     living.actions[TODAY].trigger()
@@ -241,10 +240,12 @@ def test_todays_weather_asks_the_calendar_and_keeps_no_stale_forecast(win, monke
     weather.fail = False
     living.set_weather(TODAY)
     qtbot.waitUntil(lambda: living.forecast == ((today, 63),), timeout=5000)
+    win._project_manager.set_location({**BERLIN, "frost_dates": {"last_spring_frost": "04-20"}})
+    assert living.forecast == ((today, 63),), "the same place (a frost-date edit): it holds"
+    assert len(weather.fetches) == 3, "and nothing is fetched again"
     win._project_manager.set_location(None)
     assert living.forecast == (), "no place: the old forecast is forgotten"
-    qtbot.wait(100)
-    assert len(weather.fetches) == 3, "no location: nothing to fetch"
+    assert widget._worker is None and len(weather.fetches) == 3, "no location: nothing to fetch"
 
 
 @pytest.mark.real_weather_worker
@@ -268,10 +269,13 @@ def test_a_new_or_opened_plan_never_follows_the_old_places_forecast(win, monkeyp
         weather.gate.clear()                       # Berlin's fetch hangs on the network
         living.actions[TODAY].trigger()
         qtbot.waitUntil(lambda: weather.fetches == [_place(BERLIN)], timeout=5000)
+        in_flight = widget._worker
+        assert in_flight is not None
         win._new_project_document(width_cm=2000, height_cm=2000)
         assert win._project_manager.location is None
         weather.gate.set()                         # … and answers after File > New
-        qtbot.wait(300)
+        qtbot.waitUntil(in_flight.isFinished, timeout=5000)
+        qtbot.wait(50)                             # whatever it queued has been run
         assert living.forecast == (), "the old place's late forecast did not land"
         assert widget.forecast() is None and widget._strip.isHidden()
         assert alerts == [], "no frost alerts against another place's weather"

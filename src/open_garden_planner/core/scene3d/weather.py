@@ -344,8 +344,10 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
             mood,
             sun_brightness=mood.sun_brightness * (1.0 + (_KEY_UNDER_CLOUD - 1.0) * cloud),
             probe_exposure=mood.probe_exposure * (1.0 + (_PROBE_UNDER_CLOUD - 1.0) * cloud),
-            exposure=((mood.exposure * (1.0 - held) + NOON.exposure * held)
-                      * 2.0 ** (_EXPOSURE_UNDER_CLOUD_EV * cloud)),
+            # in stops, like ``mix_rig``
+            exposure=2.0 ** (math.log2(mood.exposure) * (1.0 - held)
+                             + math.log2(NOON.exposure) * held
+                             + _EXPOSURE_UNDER_CLOUD_EV * cloud),
             saturation=mood.saturation * (1.0 + (_SATURATION_UNDER_CLOUD - 1.0) * cloud))
         shadow = replace(shadow,
                          factor=shadow.factor * (1.0 + (_SHADOW_UNDER_CLOUD - 1.0) * cloud),

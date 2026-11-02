@@ -42,7 +42,7 @@ from PyQt6.QtCore import QCoreApplication, QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import QMenu, QToolButton, QWidget
 
-from open_garden_planner.core.phenology import DEFAULT_LATITUDE_DEG
+from open_garden_planner.core.phenology import plan_latitude
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.lights import (
     LIGHT_KINDS,
@@ -108,6 +108,7 @@ class WorkspaceLivingCoordinator(QObject):
         self._life = True
         self._analysing = False
         self._forecast: tuple[tuple[str, int], ...] = ()
+        self._forecast_place: tuple[float, float] | None = None   # where it was fetched
         self._seasons: Mapping[str, PhenologyState] = {}
         self._sources: tuple[LampSource, ...] = ()
         self._sources_read = False   # the lights were read from a full pass of this engine
@@ -249,7 +250,12 @@ class WorkspaceLivingCoordinator(QObject):
     def place_changed(self) -> None:
         """The garden location changed (also when a document brings its own): the
         forecast was another place's — forget it, and ask again while Today's Weather
-        is chosen."""
+        is chosen. The SAME coordinates (a frost-date edit, a plan at the same place
+        whose forecast is still held) change nothing: the sky is not cleared and rebuilt."""
+        place = self._place()
+        if self._forecast and place == self._forecast_place:
+            return
+        self._forecast_place = place
         self.document_changed()
         if self._weather == TODAY:
             self.forecast_wanted.emit()
@@ -283,6 +289,7 @@ class WorkspaceLivingCoordinator(QObject):
         """The app's daily forecast: ``(ISO date, WMO code)`` — the Planting Calendar's
         weather widget fetched it; nothing here goes to the network."""
         self._forecast = tuple((str(day), int(code)) for day, code in days)
+        self._forecast_place = self._place()  # the calendar fetches for the plan's place
         self._update_todays()
 
     def season_sink(self, host: EngineHost) -> Callable[[Mapping[str, PhenologyState]], None]:
@@ -364,9 +371,17 @@ class WorkspaceLivingCoordinator(QObject):
         return _tr("The forecast for today is not loaded yet, or could not be fetched.")
 
     def _latitude(self) -> float:
+        return plan_latitude(self._get_location())
+
+    def _place(self) -> tuple[float, float] | None:
+        """The plan's coordinates, or None without a location."""
         location = self._get_location()
-        latitude = location.get("latitude") if isinstance(location, Mapping) else None
-        return float(latitude) if isinstance(latitude, (int, float)) else DEFAULT_LATITUDE_DEG
+        if not isinstance(location, Mapping):
+            return None
+        lat, lon = location.get("latitude"), location.get("longitude")
+        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+            return (float(lat), float(lon))
+        return None
 
     def _refresh_ambient(self) -> None:
         """Rebuild the ambient buffer when what it holds changed: the plants' life on
