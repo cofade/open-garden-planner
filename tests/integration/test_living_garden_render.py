@@ -131,7 +131,7 @@ def test_the_particles_cost_at_most_fifteen_percent_of_a_frame_at_medium(tmp_pat
 def test_the_living_board_renders_every_shot(tmp_path: Path) -> None:
     out = tmp_path / "board"
     proc = _run([sys.executable, str(BOARD), "--out", str(out), "--size", "640x360",
-                 "--shots", "none", "--living", "--presets", "medium",
+                 "--shots", "none", "--living", "--moods", "--dusk", "--presets", "medium",
                  "--watchdog-s", str(TIMEOUT_S - 60)], out)
     metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
     assert proc.returncode == 0 and metrics["status"] == "ok", (proc.returncode, metrics.get("error"))
@@ -152,3 +152,11 @@ def test_the_living_board_renders_every_shot(tmp_path: Path) -> None:
     assert rows["lights_night"]["lamps"] == 4 and rows["lights_night"]["lamp_lights"] == 4
     # snow lies white: the snowy December frame is the brightest of them
     assert rows["snow"]["mean_luma"] > rows["overcast"]["mean_luma"]
+    # a cloudy evening is an evening (3D review of L5, round 3: an overcast sunset was 98 % as
+    # bright as noon), and it fades into the night with no step at sunset — every weather
+    for weather in ("overcast", "rain", "snow"):
+        dusk = metrics[f"dusk_{weather}"]["medium"]
+        assert dusk["monotone"], (weather, dusk["rises"])
+        assert dusk["sunset_step"] <= dusk["day_ramp_max_step"], (weather, dusk)
+        evening = metrics[f"moods_{weather}"]["medium"]["sunset_over_noon"]
+        assert evening["luminance"] < 0.9, (weather, evening)

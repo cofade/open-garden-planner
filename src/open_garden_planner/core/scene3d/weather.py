@@ -46,7 +46,6 @@ import numpy as np
 from .color import srgb_to_linear
 from .look import (
     GOLDEN_DEG,
-    NIGHT_BELOW_DEG,
     NOON,
     TWILIGHT_DEG,
     WIND_STRENGTH,
@@ -301,8 +300,7 @@ def weather_fog(sky_horizon: str, probe_exposure: float, sky_energy: float, clou
     return (fog[0] * gain, fog[1] * gain, fog[2] * gain)
 
 
-def _midnight_fade(sun: SunState, southern: bool = False,
-                   width_deg: float = _FIREFLY_FADE_DEG) -> float:
+def _midnight_fade(sun: SunState, southern: bool, width_deg: float) -> float:
     """0 at solar midnight's meridian — due north in the northern hemisphere, due south in
     the southern — rising to 1 over ``width_deg`` of azimuth on either side: the
     fireflies go out towards it in the evening (``is_evening``), the dew rises from it in
@@ -378,7 +376,7 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     if spec.snow_cover > 0.0:
         meadow = mix_linear(meadow, linear_to_srgb_hex(SNOW_LINEAR), spec.snow_cover)
     elevation = float(sun.elevation_deg)
-    sun_up = elevation >= NIGHT_BELOW_DEG
+    sun_up = sun.is_up        # the ONE test of "the sun is down" (look_for, the 2D shadows)
     blowing = math.radians(_WIND_FROM_DEG + 180.0)     # the wind blows TOWARDS this
     drift = spec.wind_strength * _DRIFT_PER_WIND
     dry = spec.precipitation == "none"
@@ -396,7 +394,7 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         # full overcast; fireflies on dry evenings, from sunset towards solar midnight
         leaves=0.0 if spec.precipitation == "snow" else 1.0,
         butterflies=(_ramp(elevation, GOLDEN_DEG, 14.0) * (1.0 - 0.7 * cloud)) if dry else 0.0,
-        fireflies=(_ramp(twilight, 0.15, 0.6) * _midnight_fade(sun, southern)
+        fireflies=(_ramp(twilight, 0.15, 0.6) * _midnight_fade(sun, southern, _FIREFLY_FADE_DEG)
                    if (dry and is_evening(sun)) else 0.0),
         # the lights come on with dusk and stay on through the night
         lamps=_ramp(twilight, 0.05, 0.5) if not sun_up else 0.0)

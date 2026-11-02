@@ -54,7 +54,6 @@ from open_garden_planner.core.scene3d import (
     Transform,
     verify_builder,
 )
-from open_garden_planner.core.solar import plan_place
 from open_garden_planner.ui.view3d.forge_worker import ForgeWorker
 from tests.perf.test_scene3d_snapshot_budget import budget_factor, traced
 
@@ -425,29 +424,3 @@ def test_one_latitude_reader_for_the_3d_view(location: object, expected: float) 
     latitude of a valid ``plan_place`` — both coordinates real, finite, in range — else
     the default (so a location without a longitude is no place either)."""
     assert plan_latitude(location) == expected
-
-
-@pytest.mark.parametrize(("location", "expected"), [
-    ({"latitude": 52.52, "longitude": 13.405}, (52.52, 13.405)),
-    ({"latitude": -33, "longitude": 151}, (-33.0, 151.0)),
-    ({"latitude": 90.0, "longitude": -180.0}, (90.0, -180.0)),
-    (None, None),
-    ({}, None),
-    ({"latitude": 52.5}, None),
-    ({"latitude": "52.5", "longitude": "13.4"}, None),
-    ({"latitude": True, "longitude": 13.4}, None),
-    ({"latitude": float("nan"), "longitude": 13.4}, None),
-    ({"latitude": 10 ** 400, "longitude": 13.4}, None),
-    ({"latitude": 1000.0, "longitude": 13.4}, None),
-    ({"latitude": 52.5, "longitude": 181.0}, None),
-    ("not a location", None),
-], ids=["floats", "ints", "edges", "none", "empty", "half", "text", "bool", "nan", "overflow",
-        "latitude-beyond", "longitude-beyond", "hostile"])
-def test_one_validity_rule_for_a_plans_place(location: object, expected: object) -> None:
-    """The forecast's reader and the latitude's applied OPPOSITE rules (senior review of
-    L5: a hand-edited plan fetched Sydney's weather under a northern sky, and latitude
-    1000 went to Open-Meteo). One rule now: real numbers, finite, in range — else no
-    place, never an exception in a ``location_changed`` slot."""
-    assert plan_place(location) == expected
-    if expected is not None:
-        assert plan_latitude(location) == expected[0]

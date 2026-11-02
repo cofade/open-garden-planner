@@ -771,7 +771,8 @@ class Board:
                 "luminance": round(night["mean_luminance"] / noon["mean_luminance"], 4),
                 "luma": round(night["mean_luma"] / noon["mean_luma"], 4)}
             rows["sunset_over_noon"] = {
-                "luminance": round(rows["sunset"]["mean_luminance"] / noon["mean_luminance"], 4)}
+                "luminance": round(rows["sunset"]["mean_luminance"] / noon["mean_luminance"], 4),
+                "luma": round(rows["sunset"]["mean_luma"] / noon["mean_luma"], 4)}
             out[preset] = rows
             self.log("moods", weather=weather, preset=preset, **rows["night_over_noon"],
                      sunset_over_noon=rows["sunset_over_noon"]["luminance"])
@@ -894,8 +895,6 @@ class Board:
         (L5): under that weather's look (``weather_look``)."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
-        def look_of(sun: Any, preset: str) -> LookSpec:
-            return weather_look(sun, preset, weather)
 
         tag = "" if weather == "clear" else f"_{weather}"
         by_name = {shot.name: shot for shot in shots}
@@ -917,7 +916,7 @@ class Board:
                                 self.depth / 2.0 + math.cos(bearing) * 1000.0, 165.0),
                         fov_deg=40.0, size=self.size)
                     rgb, _frame, info = self.frame(
-                        f"horizon{tag}_{mood}_{label}_{preset}", {}, sun=sun, look=look_of(sun, preset),
+                        f"horizon{tag}_{mood}_{label}_{preset}", {}, sun=sun, look=weather_look(sun, preset, weather),
                         ground=self.plan_ground(),
                         shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), baked=True)
                     row[label] = {**probes.horizon_step(rgb, camera), "file": info["file"]}
@@ -938,7 +937,7 @@ class Board:
                     self.width, self.depth, self.size, sun.azimuth_deg + 180.0):
                 rgb, _frame, info = self.frame(
                     f"horizon{tag}_far_{distance_m}m_{pitch:.1f}deg_{preset}", {},
-                    sun=sun, look=look_of(sun, preset), ground=self.plan_ground(),
+                    sun=sun, look=weather_look(sun, preset, weather), ground=self.plan_ground(),
                     shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), baked=True)
                 row = {"distance_m": distance_m, "pitch_deg": pitch,
                        **probes.outer_row_step(rgb), "file": info["file"]}
