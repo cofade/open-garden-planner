@@ -53,8 +53,11 @@ from open_garden_planner.core.scene3d.particles import (
     precipitation_buffers,
     precipitation_volume,
 )
-from open_garden_planner.core.string_lights import BULB_SPACING_CM
-from open_garden_planner.core.string_lights import MAX_BULBS as STRING_MAX_BULBS
+from open_garden_planner.core.string_lights import (
+    BULB_SPACING_CM,
+    MAX_BULBS_PER_STRING,
+    POST_CLEAR_CM,
+)
 from tests.unit.scene3d_builder_cases import line_record
 
 QML = Path(__file__).resolve().parents[2] / "src" / "open_garden_planner" / "ui" / "view3d" / "quick3d" / "qml"
@@ -285,6 +288,19 @@ def test_the_point_light_stands_below_the_lamp(kind: str) -> None:
         mesh = next(part for part in parts if part.name == "bulbs").mesh.positions
         near = mesh[np.hypot(mesh[:, 0] - middle[0], mesh[:, 1] - middle[1]) < 4.0]
         assert len(near) and local[2] < near[:, 2].min(), "below the middle bulb"
+        assert local[:2] == pytest.approx(tuple(bulbs[:, :2].mean(axis=0))), "amid its bulbs"
+
+
+def test_a_looped_string_lights_the_space_it_hangs_round() -> None:
+    """Under its middle bulb a loop lit one corner (3D review of the line): the light
+    stands amid the bulbs — inside the loop — and under none of them."""
+    from tests.unit.scene3d_builder_cases import line_record
+
+    square = ((0.0, 0.0), (400.0, 0.0), (400.0, 400.0), (0.0, 400.0), (0.0, 0.0))
+    record = line_record("STRING_LIGHTS", square, 250.0, width=12.0)
+    local = lamp_light(record, 250.0)
+    assert local is not None
+    assert local[:2] == pytest.approx((200.0, 200.0), abs=15.0)
 
 
 def test_a_strings_bulbs_hang_between_its_posts_and_sag() -> None:
@@ -337,7 +353,8 @@ def test_a_post_stands_at_every_point_of_the_line() -> None:
 
 def test_the_bulbs_are_spaced_along_the_wire_not_per_span() -> None:
     """A real string's bulbs sit evenly on its cable wherever the posts stand: 40 cm
-    apart along the whole line — the layout the canvas draws too."""
+    apart along the whole line — the layout the canvas draws too — each moved at most
+    ``POST_CLEAR_CM`` off its place to keep clear of a post."""
     record = string(path=BENT, rotation=0.0)
     lay = string_layout(record)
     assert lay is not None and len(lay.posts) == 4 and len(lay.spans) == 3
@@ -345,7 +362,9 @@ def test_the_bulbs_are_spaced_along_the_wire_not_per_span() -> None:
     assert len(lay.bulbs) == round(total / BULB_SPACING_CM)
     walked = [sum(lay.spans[i].length_cm for i in range(b.span)) + b.share * lay.spans[b.span].length_cm
               for b in lay.bulbs]
-    assert np.allclose(np.diff(walked), total / len(lay.bulbs))
+    step = total / len(lay.bulbs)
+    even = [(k + 0.5) * step for k in range(len(lay.bulbs))]
+    assert np.abs(np.array(walked) - np.array(even)).max() <= POST_CLEAR_CM + 1e-9
     bulbs = string_bulbs(record, 250.0)
     assert bulbs is not None
     assert np.allclose(bulbs[:, :2], np.array(lay.bulbs_xy()))
@@ -361,7 +380,7 @@ def test_a_closed_string_has_no_second_post_where_it_closes() -> None:
 
 def test_a_very_long_string_carries_at_most_max_bulbs() -> None:
     bulbs = string_bulbs(string(length=60_000.0, rotation=0.0), 250.0)
-    assert bulbs is not None and len(bulbs) == STRING_MAX_BULBS
+    assert bulbs is not None and len(bulbs) == MAX_BULBS_PER_STRING
 
 
 @pytest.mark.parametrize("path", [

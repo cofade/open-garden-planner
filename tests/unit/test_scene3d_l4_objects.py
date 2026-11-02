@@ -297,7 +297,7 @@ def test_a_footprint_of_nine_kilometres_is_still_a_bounded_mesh(kind: str) -> No
     than made in their millions."""
     assert MAX_REPEATS == 240
     for size, height in ((900_000.0, 300.0), (300.0, 900_000.0)):
-        if kind in LINES:   # 9 km of string: two posts, ``MAX_BULBS`` bulbs spaced far apart
+        if kind in LINES:   # 9 km of string: two posts, ``MAX_BULBS_PER_STRING`` bulbs spaced far apart
             record = line_record(kind, ((0.0, 0.0), (size, 0.0)), height, width=12.0)
             triangles = sum(part.mesh.triangle_count for part in REGISTRY.build(record))
             assert triangles <= triangle_budget(record) <= 10_000, (kind, size, height, triangles)

@@ -2275,6 +2275,13 @@ audit evidence for the command, machine and measured limitations.
   tier only answers what needs the engine.
 - **The playback is driven through the real toolbar and the real clock**, the menu's actions
   triggered, the timer itself run once — not a step function called in isolation.
+- **A 2D picture and its 3D twin are compared in one frame, over the turn.** A string's
+  canvas bulbs are its layout mapped by the item's own transform; its 3D bulbs, the same
+  layout posed by the record's. The test moves and turns a real item (0°, 30°, −115°) and
+  requires them to coincide seen from above — a pose defect is exactly zero at 0°
+  (`test_string_lights_line.py`). A type change is driven through Change Type itself, undone
+  and redone; the integration conftest's look check (`style_gaps`) caught the fill the string
+  kept from its rectangle days.
 - **A path the stand-in bench does not build is driven through the production seam.** The
   workspace builds its Plant Forge only for the real engine factory, so a bench never ran the
   forge → `season_sink` → coordinator → `set_ambient` path the garden's life takes. The test
@@ -7663,12 +7670,13 @@ top-down truth view no particle is drawn.
 or date change — at most twice a second during the year playback) and when a pass changed the
 garden lights; never for a time of day. Equal emitters are not sent again.
 
-**A string of lights is a line.** Drawn like a fence — a post at every point, the wire
-hanging between two posts, a bulb every 40 cm along the wire (at most 120) — from ONE
-layout, `core/string_lights.layout`: the canvas paints its posts and bulbs from it, the 3D
-builder builds them, the lamps glow where it hangs them. It casts no 2D shadow
-(`object_height.casts_2d_shadow`, read by the caster walk and the 3D record); its 3D model
-keeps its own thin shadow (ADR-070's owner addendum).
+**A string of lights is a line.** Drawn like a fence — a post at every point (at most 512),
+the wire hanging between two posts, a bulb every 40 cm along the wire (at most 120), each
+kept 6 cm clear of the posts of its span — from ONE layout, `core/string_lights.layout`: the
+canvas paints its posts and bulbs from it (sized by the line's width — the 2D symbol only),
+the 3D builder builds them, the lamps glow where it hangs them. It casts no 2D shadow
+(`object_height.casts_2d_shadow`, read by the one caster walk); its 3D model keeps its own
+thin shadow (ADR-070's owner addendum).
 
 **The lamp pool.** Six `PointLight`s are made once by the scene (`lampSlots`), each bound to
 one slot of `root.lamps`; only filled slots are visible, and only after dusk. Which lamps fill
@@ -7677,8 +7685,9 @@ looks. The foliage and lawn shaders light leaves from a point light as from the 
 (`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampNear` (the constant
 fade) 4, `lampFade` 3.5, `lampBrightness` 9.4 at `#ffc98a` — the pool of the first cut's
 1 / 3.5 / 7 at 1.5 m with a third of its light within the lantern's first centimetres. The light stands
-3 cm under the lantern or a string's middle bulb (`builders.lights.lamp_light`): inside the
-bulb it lit the ball from within. A bulb's glow is drawn 6 cm towards the camera, in front of
+3 cm under the lantern, or for a string amid its bulbs under its middle bulb's height
+(`builders.lights.lamp_light`): inside the bulb it lit the ball from within, and under the
+middle bulb a loop lit one corner. A bulb's glow is drawn 6 cm towards the camera, in front of
 its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder; the
 lantern has no glass pane — lit by its own lamp at the near-field strength, a pane drew a
 cream-white box at night exposure whatever its tint.

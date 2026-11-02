@@ -15,7 +15,10 @@ none, or the other way round.
 The bulbs are spaced along the WIRE, not per span: a real string's bulbs are evenly
 spaced on its cable wherever the posts stand. ``bulb_count`` bulbs at the arc
 lengths ``(k + ½) · L / n`` of a string of length ``L`` — never more than
-``MAX_BULBS``, however long the string (a 60 m string would otherwise hang 150).
+``MAX_BULBS_PER_STRING``, however long the string (a 60 m string would otherwise hang 150).
+A bulb is kept ``POST_CLEAR_CM`` from the posts of its span: an arc length that falls on
+a post (the middle post of every symmetric string with an odd count) hung the ball inside
+the post (3D review of the line). It moves at most that far.
 
 Pure: floats in, floats out. No Qt, no numpy.
 """
@@ -30,9 +33,12 @@ from typing import Final
 #: A bulb every this many centimetres along the wire.
 BULB_SPACING_CM: Final = 40.0
 #: The most bulbs one string carries (a long string spaces them further apart).
-MAX_BULBS: Final = 120
+MAX_BULBS_PER_STRING: Final = 120
 #: Two points of the line closer than this are one post.
 MERGE_CM: Final = 1.0
+#: A bulb hangs at least this far from either post of its span (a 2.6 cm ball beside a
+#: 4 cm post) — at the middle of a span shorter than twice it.
+POST_CLEAR_CM: Final = 6.0
 #: The most posts one string stands on. A line with more points (a real string has a
 #: few dozen; a crafted plan can hold millions — the security review of #389) keeps
 #: ``MAX_POSTS`` of them, evenly chosen, its first and last among them, and the wire runs
@@ -109,10 +115,10 @@ def _posts(points: Sequence[Point]) -> tuple[list[Point], bool]:
 
 def bulb_count(length_cm: float) -> int:
     """How many bulbs a string of ``length_cm`` carries: one every
-    ``BULB_SPACING_CM``, at least one, at most ``MAX_BULBS``."""
+    ``BULB_SPACING_CM``, at least one, at most ``MAX_BULBS_PER_STRING``."""
     if not math.isfinite(length_cm) or length_cm <= 0.0:
         return 0
-    return max(1, min(MAX_BULBS, round(length_cm / BULB_SPACING_CM)))
+    return max(1, min(MAX_BULBS_PER_STRING, round(length_cm / BULB_SPACING_CM)))
 
 
 def layout(points: Sequence[Point]) -> Layout:
@@ -137,6 +143,10 @@ def layout(points: Sequence[Point]) -> Layout:
             start += spans[index].length_cm
             index += 1
         length = spans[index].length_cm
-        share = min(1.0, max(0.0, (at - start) / length)) if length > 0.0 else 0.5
+        if length > 2.0 * POST_CLEAR_CM:
+            clear = POST_CLEAR_CM / length
+            share = min(1.0 - clear, max(clear, (at - start) / length))
+        else:
+            share = 0.5
         bulbs.append(Bulb(index, share))
     return Layout(tuple(posts), spans, tuple(bulbs))

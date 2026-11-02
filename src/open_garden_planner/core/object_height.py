@@ -120,7 +120,10 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
 #: Kinds the 2D sun study never casts, whatever their height (the owner's decision in
 #: the manual test of L5, #389): a string of lights is a wire on posts — the shade it
 #: throws is no fact a plan needs, and the solid 2D strip of its first footprint was
-#: some 50 times its real shadow. Its 3D model still casts its own thin shadow.
+#: some 50 times its real shadow. Its 3D model still casts its own thin shadow. This
+#: list is for a kind whose shade is negligible, NOT for an open frame that overstates
+#: its shade (a pergola, a swing): that is cast honestly through #440's transmittance
+#: (#698), never by leaving it out.
 NO_2D_SHADOW_TYPE_NAMES: frozenset[str] = frozenset({"STRING_LIGHTS"})
 
 # Mirrors CONTAINER_TYPES in core/object_types.py (pinned by unit test).
@@ -278,8 +281,9 @@ def resolve_height(
 
 def casts_2d_shadow(object_type: Any) -> bool:
     """False for a kind the 2D sun study never casts (``NO_2D_SHADOW_TYPE_NAMES``) —
-    the one rule the 2D caster walk (``sun_shadow_controller.collect_identified_casters``)
-    and the 3D record (``Record.has_2d_caster``) share."""
+    the rule of the one 2D caster walk (``sun_shadow_controller.
+    collect_identified_casters``), which every 2D shadow and sun-hours consumer reads.
+    The 3D record reports it as ``Record.has_2d_caster`` for the 2D/3D agreement tests."""
     return _type_name(object_type) not in NO_2D_SHADOW_TYPE_NAMES
 
 

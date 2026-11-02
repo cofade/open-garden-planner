@@ -491,7 +491,7 @@ def build_built() -> PlanBuilder:
     # --- the garden lights (Phase 17 L5.4, #389): a lantern by the deck, a string over
     # it. LAST, so every earlier item keeps its id and seed (ids come from the RNG) ---
     b.circle(1080, 1240, 20, T.GARDEN_LIGHT, "Garden light")
-    b.polyline([(240, 1250), (450, 1290), (660, 1250)], T.STRING_LIGHTS,
+    b.polyline([(240, 1250), (450, 1210), (660, 1250)], T.STRING_LIGHTS,
                name="String lights")   # a line: a post at each point (owner's manual test)
     return b
 

@@ -203,7 +203,7 @@ def test_a_crafted_line_of_twenty_thousand_points_is_bounded(qtbot, monkeypatch)
     inside its budget."""
     from open_garden_planner.core.scene3d.builders import production_registry
     from open_garden_planner.core.scene3d.builders.lights import string_triangle_budget
-    from open_garden_planner.core.string_lights import MAX_BULBS, MAX_POSTS
+    from open_garden_planner.core.string_lights import MAX_BULBS_PER_STRING, MAX_POSTS
     from open_garden_planner.ui.canvas.items import polyline_item
 
     points = [(float(i) * 10.0, 30.0 * (i % 2)) for i in range(20_000)]
@@ -216,7 +216,7 @@ def test_a_crafted_line_of_twenty_thousand_points_is_bounded(qtbot, monkeypatch)
     _render(item)
     assert walks == [20_000], "one walk of the line for two paints"
     lay = item._lights_layout()
-    assert len(lay.posts) == MAX_POSTS and len(lay.bulbs) == MAX_BULBS
+    assert len(lay.posts) == MAX_POSTS and len(lay.bulbs) == MAX_BULBS_PER_STRING
     item._move_vertex_to(0, QPointF(-50.0, 0.0))
     item._lights_layout()
     assert len(walks) == 2, "a moved point lays the string out again"
@@ -224,7 +224,7 @@ def test_a_crafted_line_of_twenty_thousand_points_is_bounded(qtbot, monkeypatch)
 
     record = line_record("STRING_LIGHTS", tuple(points[:4_000]), 250.0, width=12.0)
     triangles = sum(part.mesh.triangle_count for part in production_registry().build(record))
-    assert triangles <= string_triangle_budget(record) <= 38 * MAX_POSTS + 96 * MAX_POSTS + 72 * MAX_BULBS
+    assert triangles <= string_triangle_budget(record) <= 38 * MAX_POSTS + 96 * MAX_POSTS + 72 * MAX_BULBS_PER_STRING
 
 
 def test_the_gallery_shows_a_painted_string(qtbot) -> None:
@@ -237,3 +237,81 @@ def test_the_gallery_shows_a_painted_string(qtbot) -> None:
     cream = sum(1 for y in range(image.height()) for x in range(image.width())
                 if (c := image.pixelColor(x, y)).alpha() > 200 and c.red() > 220 and c.green() > 200)
     assert cream >= 4, "its bulbs show"
+
+
+def test_a_line_saved_with_no_width_is_drawn_inside_its_bounds(qtbot) -> None:
+    """A file may hold a string with a stroke width of 0. Its bounds and its paint must
+    agree on the width it is drawn at (``drawn_width``): bounds of width 0 clipped the
+    glow, and a move left trails under the item cache (senior review round 11)."""
+    from open_garden_planner.ui.canvas.items.string_lights_paint import (
+        DEFAULT_WIDTH,
+        drawn_width,
+        reach,
+    )
+
+    for width in (0.0, -3.0, math.nan, math.inf):
+        assert drawn_width(width) == DEFAULT_WIDTH and reach(width) == reach(DEFAULT_WIDTH)
+    item = _string()
+    pen = item.pen()
+    pen.setWidthF(0.0)
+    item.setPen(pen)
+    bounds = item.boundingRect()
+    glow = reach(DEFAULT_WIDTH)
+    for x, y in layout(LINE).bulbs_xy():
+        assert bounds.contains(QRectF(x - glow, y - glow, 2.0 * glow, 2.0 * glow)), (x, y)
+
+
+def test_change_type_turns_a_fence_into_a_string_and_undo_turns_it_back(canvas: CanvasView, qtbot) -> None:
+    """Change Type on a fence line: it becomes a string — the string's 12 cm width, no
+    fence style, out of the 2D caster walk, drawn with its posts and bulbs — and one
+    undo makes it the fence again, casting again; redo repeats it."""
+    from open_garden_planner.core.object_types import PathFenceStyle
+
+    fence = PolylineItem([QPointF(x + 100.0, y + 100.0) for x, y in LINE],
+                         object_type=ObjectType.FENCE,
+                         path_fence_style=PathFenceStyle.WOODEN_FENCE)
+    canvas.scene().addItem(fence)
+    width = fence.pen().widthF()
+    fence.setSelected(True)
+
+    def casts() -> bool:
+        return str(fence.item_id) in {c.item_id for c in collect_identified_casters(canvas.scene())}
+
+    assert casts()
+    fence._dispatch_change_type(ObjectType.STRING_LIGHTS)
+    assert fence.object_type is ObjectType.STRING_LIGHTS
+    assert fence.pen().widthF() == pytest.approx(12.0)
+    assert fence.path_fence_style is PathFenceStyle.NONE
+    assert not casts()
+    image, source = _render(fence)
+    x, y = layout([(p.x(), p.y()) for p in fence.points]).bulbs_xy()[0]
+    assert _pixel(image, source, x, y).red() > 200, "its bulbs are drawn"
+    canvas.scene().addItem(fence)
+    canvas.command_manager.undo()
+    assert fence.object_type is ObjectType.FENCE
+    assert fence.pen().widthF() == pytest.approx(width)
+    assert fence.path_fence_style is PathFenceStyle.WOODEN_FENCE
+    assert casts()
+    canvas.command_manager.redo()
+    assert fence.object_type is ObjectType.STRING_LIGHTS and not casts()
+
+
+@pytest.mark.parametrize("rotation", [0.0, 30.0, -115.0])
+def test_a_moved_and_turned_string_hangs_its_3d_bulbs_where_2d_draws_them(qtbot, rotation: float) -> None:
+    """The 2D bulbs are the layout's points mapped by the item's own transform; the 3D
+    bulbs (``lights.lamp_sources``, what glows at night) are the same layout posed by the
+    record's transform. Seen from above they coincide, wherever the string is moved or
+    turned to — a defect that scales with the turn is invisible at 0°."""
+    from open_garden_planner.core.scene3d.lights import lamp_sources
+
+    scene = CanvasScene(width_cm=4000, height_cm=4000)
+    item = _string()
+    scene.addItem(item)
+    item.setPos(700.0, 450.0)
+    item.setTransformOriginPoint(QPointF(150.0, 20.0))
+    item.setRotation(rotation)
+    drawn = [item.mapToScene(QPointF(x, y)) for x, y in item._lights_layout().bulbs_xy()]
+    (source,) = lamp_sources(snapshot_records(scene).values())
+    assert len(source.bulb_points) == len(drawn)
+    for point, (east, north, _up) in zip(drawn, source.bulb_points, strict=True):
+        assert (east, north) == pytest.approx((point.x(), point.y()), abs=0.01)

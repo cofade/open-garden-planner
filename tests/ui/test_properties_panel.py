@@ -691,3 +691,16 @@ class TestObjectTypeDropdownIcons:
             icon = PropertiesPanel._get_object_type_icon(obj_type)
             assert icon is not None, f"ObjectType '{obj_type.name}' has no icon"
             assert not icon.isNull(), f"ObjectType '{obj_type.name}' produced a null icon"
+
+    def test_no_object_type_shows_the_warning_fallback(self, qtbot) -> None:
+        """A non-null icon is not enough: the last resort is the warning triangle, which
+        on a valid type reads as an error. String Lights lost its sprite when it became a
+        line (L5.4, #389) and fell through to it in every fence's Type dropdown — the
+        null check above passed (senior review round 11)."""
+        from open_garden_planner.ui.icons import get_icon
+
+        warning = get_icon("warning").pixmap(32, 32).toImage()
+        fallback = [obj_type.name for obj_type in ObjectType
+                    if PropertiesPanel._get_object_type_icon(obj_type).pixmap(32, 32).toImage()
+                    == warning]
+        assert fallback == []

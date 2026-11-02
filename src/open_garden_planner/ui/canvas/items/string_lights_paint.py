@@ -10,11 +10,14 @@ A string is a line, not an area: nothing here is stretched to fit a box. The siz
 follow the line's stroke width ``w`` (``STRING_LIGHTS``' style: 12 cm, the post's
 side): the glow is ``GLOW_SHARE · w`` round a bulb, the bulb ``BULB_SHARE · w``, the
 wire ``WIRE_SHARE · w`` — the first sprite's 11 cm glow, 3.2 cm bulb and 1.4 cm wire
-on its 12 cm posts. The colours are the 3D builder's (``builders.palette``).
+on its 12 cm posts. The width sizes this SYMBOL only, as a fence's stroke does: the 3D
+model builds real 4 cm posts and 2.6 cm bulbs (``builders/lights.py``) at the same
+places. The colours are the 3D builder's (``builders.palette``).
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Final
 
@@ -33,16 +36,26 @@ POST_SHARE: Final = 1.0
 POST_ROUND: Final = 0.18
 #: The colour of the glow at its centre (alpha: how strong).
 _GLOW: Final = QColor(255, 206, 120, 180)
+#: The width a string is drawn at when its line has none (a stroke width of 0, which a
+#: file may hold): ``STRING_LIGHTS``' style.
+DEFAULT_WIDTH: Final = 12.0
 
 
 def _colour(swatch: palette.PaletteColor) -> QColor:
     return QColor(*swatch.srgb)
 
 
+def drawn_width(width: float) -> float:
+    """The width a line of stroke ``width`` is drawn at — ``DEFAULT_WIDTH`` for none.
+    ``reach`` and the paint both read it: an item's bounds that assumed another width
+    than its paint clipped the glow and left trails behind a move."""
+    return width if math.isfinite(width) and width > 0.0 else DEFAULT_WIDTH
+
+
 def reach(width: float) -> float:
     """How far the picture reaches beyond the line: a glow's radius or half a post,
     whichever is larger."""
-    return max(GLOW_SHARE, POST_SHARE / 2.0) * max(width, 0.0)
+    return max(GLOW_SHARE, POST_SHARE / 2.0) * drawn_width(width)
 
 
 def string_layout(points: Sequence[QPointF]) -> Layout:
@@ -53,9 +66,9 @@ def string_layout(points: Sequence[QPointF]) -> Layout:
 def paint_string_lights(painter: QPainter, lay: Layout, width: float, wire: QColor) -> None:
     """Paint a string laid out as ``lay`` (item-local cm; ``string_layout`` — the item
     keeps it, a paint never walks the line) with the stroke ``width`` and the wire colour
-    ``wire`` (the line's pen colour). At most ``MAX_POSTS`` posts and ``MAX_BULBS``
+    ``wire`` (the line's pen colour). At most ``MAX_POSTS`` posts and ``MAX_BULBS_PER_STRING``
     bulbs: bounded whatever the line."""
-    w = width if width > 0.0 else 12.0
+    w = drawn_width(width)
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     bulbs = lay.bulbs_xy()

@@ -926,12 +926,15 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   tooltip says which. A new location or document forgets the old forecast.
 - **FR-3D-LIVE-07** (L5.4): **Garden Light** (a lantern on a post; circle tool) and **String
   Lights** (a LINE drawn like a fence: a post at every click, the wire hanging between two
-  posts with a bulb every 40 cm along it) are placeable objects with a gallery entry,
+  posts with a bulb every 40 cm along it, never closer than 6 cm to a post) are placeable objects with a gallery entry,
   translated name, Change Type membership for their shape (circles; lines), default height
   (110 cm / 250 cm) and 3D model. The lantern has a sprite; a string is drawn ALONG its line —
   its wire, glowing bulbs and a post at every point, the bulbs where its 3D model hangs them,
-  sized by the line's width — and has no path or fence style. Plans with them load in older
-  versions as generic shapes (no file-format change).
+  sized by the line's width (the 2D symbol only; the 3D posts and bulbs keep their real size)
+  — and has no path or fence style. No file-format change: an
+  older version loads a garden light as a generic shape, but a string as a **fence** — its
+  loader turns every line of an unknown type into one — standing 120 cm high, casting a 2D
+  shadow and built as a fence in 3D; saved there, it stays a fence.
 - **FR-3D-LIVE-08** (L5.4): From dusk on, every bulb of a garden light **glows** in 3D and
   the six lights nearest to the point the camera looks at **light** the garden around them
   (leaves, lawn and ground included); the lights go off at sunrise. In 2D a garden light

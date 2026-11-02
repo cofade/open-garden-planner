@@ -1,9 +1,10 @@
-"""Garden lights: a lantern on a post, and a string of lights between two posts
+"""Garden lights: a lantern on a post, and a string of lights on a line of posts
 (Phase 17 L5.4, #389, ADR-070).
 
-The 3D twins of their sprites (``scripts/generate_object_sprites.py``
-``build_garden_light`` / ``build_string_lights``) under the rules of ``furniture``
-(its module docstring). What the height is:
+The 3D twins of their 2D pictures — the lantern's sprite (``scripts/
+generate_object_sprites.py`` ``build_garden_light``) and the string's line
+(``ui/canvas/items/string_lights_paint.py``; a string has no sprite) — under the rules
+of ``furniture`` (its module docstring). What the height is:
 
 - **garden light**: the top of the lantern's cap; the post stands on the item's
   circle, the lantern's frame round a warm bulb under the cap. No glass pane: a
@@ -20,8 +21,9 @@ WHERE THE LIGHT IS — the bulb of a lantern, the bulbs of a string — is ONE f
 each (``lantern_bulb``, ``string_bulbs``), read by the builder that puts a bulb there
 and by ``core/scene3d/lights.py`` that makes it glow and light the garden at night:
 a light can never hang somewhere else than its bulb (one canonical path). The point
-light that lights the garden stands just BELOW the lantern or the bulb (``lamp_light``):
-inside the bulb it lit the ball from within — the ball drew dark (3D review of L5).
+light that lights the garden stands just BELOW the lantern or a string's bulbs, amid
+them (``lamp_light``): inside the bulb it lit the ball from within — the ball drew dark
+(3D review of L5).
 """
 
 from __future__ import annotations
@@ -49,6 +51,9 @@ WIRE_PIECES: Final = 12
 WIRE_PIECE_CM: Final = 50.0
 #: The side of a string's square wooden post, cm.
 STRING_POST_CM: Final = 4.0
+#: The radius of a string's wire, cm — 0.35 broke into dashes at 7 m on Low (3D review
+#: of the line).
+WIRE_RADIUS_CM: Final = 0.5
 #: The radius of a bulb, cm, and how much taller than wide a string's bulb is.
 BULB_RADIUS_CM: Final = 2.6
 BULB_SQUASH: Final = 1.25
@@ -99,8 +104,11 @@ def lantern_bulb(record: Record, height_cm: float) -> tuple[float, float, float]
 
 def lamp_light(record: Record, height_cm: float) -> tuple[float, float, float] | None:
     """Where the point light of a garden light or a string stands, item-local (cm; z up
-    from its soil): ``LIGHT_BELOW_CM`` under the lantern's floor, or under the middle
-    bulb of a string — None for a record the builder builds as a plain block."""
+    from its soil): ``LIGHT_BELOW_CM`` under the lantern's floor; for a string, amid its
+    bulbs seen from above (their centroid) and below its middle bulb — under the middle
+    bulb itself it stood on the axis of the middle post of a V and lit none of the post
+    beside it, and a loop lit one corner instead of the space it hangs round (3D review
+    of the line). None for a record the builder builds as a plain block."""
     if record.kind == "GARDEN_LIGHT":
         box = _box_of(record)
         if box is None:
@@ -110,7 +118,8 @@ def lamp_light(record: Record, height_cm: float) -> tuple[float, float, float] |
     bulbs = string_bulbs(record, height_cm)
     if bulbs is None or not len(bulbs):
         return None
-    x, y, z = bulbs[len(bulbs) // 2]
+    x, y = bulbs[:, :2].mean(axis=0)
+    z = bulbs[len(bulbs) // 2, 2]
     return (float(x), float(y), float(z) - BULB_RADIUS_CM * BULB_SQUASH - LIGHT_BELOW_CM)
 
 
@@ -207,7 +216,7 @@ def _string_lights(record: Record, height_cm: float) -> tuple[MeshPart, ...]:
         starts.append(points[:-1])
         ends.append(points[1:])
     if starts:
-        meshes.append(rod(np.concatenate(starts), np.concatenate(ends), 0.35,
+        meshes.append(rod(np.concatenate(starts), np.concatenate(ends), WIRE_RADIUS_CM,
                           palette.RUBBER.linear, sides=4))
     bulbs: list[Mesh] = []
     bulbs_at = string_bulbs(record, h)
@@ -246,9 +255,11 @@ _BULB_TRIANGLES: Final = 64 + 8
 
 def string_triangle_budget(record: Record) -> int:
     """The most triangles a string of lights may have. It grows with the line — a post
-    a point, at most ``WIRE_PIECES`` pieces a span, ``MAX_BULBS`` bulbs at most — as a
-    fence's budget grows with its (a garden light is one small object:
-    ``OBJECT_TRIANGLE_BUDGET``)."""
+    a point (``MAX_POSTS`` at most), at most ``WIRE_PIECES`` pieces a span,
+    ``MAX_BULBS_PER_STRING`` bulbs at most — as a fence's budget grows with its (a garden
+    light is one small object: ``OBJECT_TRIANGLE_BUDGET``). It is the builder's count
+    part by part, so its ceiling is the line's own: at ``MAX_POSTS`` posts about
+    77 000 triangles."""
     lay = string_layout(record)
     if lay is None:   # the plain block of its regions: a prism's two caps and its walls
         corners = sum(len(ring) for ring in record.footprints)

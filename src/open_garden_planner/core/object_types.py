@@ -539,9 +539,11 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
     ObjectType.GARDEN_LIGHT: ObjectStyle(  # black enamel (Phase 17 L5.4, #389)
         QColor(49, 53, 56, 255), QColor(19, 21, 23), 1.5, QT_TR_NOOP("Garden Light")),
     # a LINE (L5.4, owner's manual test of #389): the stroke is its dark wire, its width
-    # the size of its posts and bulbs (ui/canvas/items/string_lights_paint.py)
+    # the size of its posts and bulbs (ui/canvas/items/string_lights_paint.py); no fill,
+    # as no line has one (a Change Type that kept the rectangle's cream fill left the
+    # item's fill attribute out of step with its brush)
     ObjectType.STRING_LIGHTS: ObjectStyle(
-        QColor(238, 225, 198, 255), QColor(48, 51, 54), 12.0, QT_TR_NOOP("String Lights")),
+        QColor(238, 225, 198, 0), QColor(48, 51, 54), 12.0, QT_TR_NOOP("String Lights")),
     ObjectType.TOOL_SHED: ObjectStyle(
         fill_color=QColor(160, 130, 90, 255),  # Light wood
         stroke_color=QColor(100, 75, 45),  # Dark wood

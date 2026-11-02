@@ -9,9 +9,10 @@ import pytest
 
 from open_garden_planner.core.string_lights import (
     BULB_SPACING_CM,
-    MAX_BULBS,
+    MAX_BULBS_PER_STRING,
     MAX_POSTS,
     MERGE_CM,
+    POST_CLEAR_CM,
     bulb_count,
     layout,
 )
@@ -29,13 +30,36 @@ def test_the_bulbs_are_evenly_spaced_along_the_wire() -> None:
     starts = [0.0, 120.0]
     walked = [starts[b.span] + b.share * lay.spans[b.span].length_cm for b in lay.bulbs]
     step = lay.length_cm / len(lay.bulbs)
-    assert walked == pytest.approx([(k + 0.5) * step for k in range(len(lay.bulbs))])
+    assert walked == pytest.approx([(k + 0.5) * step for k in range(len(lay.bulbs))],
+                                   abs=POST_CLEAR_CM)
     assert all(0.0 <= b.share <= 1.0 for b in lay.bulbs)
+
+
+@pytest.mark.parametrize("points", [
+    [(0.0, 0.0), (210.0, 40.0), (420.0, 0.0)],                       # a symmetric V, 11 bulbs
+    [(0.0, 0.0), (160.0, 40.0), (300.0, 0.0)],
+    [(float(60 * i), 80.0 * (i % 2)) for i in range(30)],             # a zig-zag of 30 posts
+    [(0.0, 0.0), (400.0, 0.0), (400.0, 400.0), (0.0, 400.0), (0.0, 0.0)],  # a closed square
+    [(0.0, 0.0), (20.0, 0.0), (40.0, 0.0), (300.0, 0.0)],             # spans shorter than 2x
+], ids=["v-odd", "v", "zigzag", "loop", "short-spans"])
+def test_no_bulb_hangs_inside_a_post(points) -> None:
+    """3D review of the line: an arc length on a post put a 2.6 cm ball inside the 4 cm
+    post — the middle post of every symmetric string with an odd bulb count. Every bulb
+    keeps ``POST_CLEAR_CM`` from each post of its span (the middle of a shorter span)."""
+    lay = layout(points)
+    assert lay.bulbs
+    for bulb in lay.bulbs:
+        span = lay.spans[bulb.span]
+        x, y = lay.bulb_xy(bulb)
+        for post in (span.a, span.b):
+            px, py = lay.posts[post]
+            gap = math.hypot(x - px, y - py)
+            assert gap >= min(POST_CLEAR_CM, span.length_cm / 2.0) - 1e-9, (bulb, gap)
 
 
 @pytest.mark.parametrize(("length", "count"), [
     (0.0, 0), (-5.0, 0), (math.inf, 0), (math.nan, 0),
-    (1.0, 1), (40.0, 1), (100.0, 2), (440.0, 11), (60_000.0, MAX_BULBS),
+    (1.0, 1), (40.0, 1), (100.0, 2), (440.0, 11), (60_000.0, MAX_BULBS_PER_STRING),
 ])
 def test_how_many_bulbs(length: float, count: int) -> None:
     assert bulb_count(length) == count
@@ -69,6 +93,6 @@ def test_a_line_of_twenty_thousand_points_stands_on_max_posts() -> None:
     lay = layout(points)
     assert len(lay.posts) == MAX_POSTS and len(lay.spans) == MAX_POSTS - 1
     assert lay.posts[0] == points[0] and lay.posts[-1] == points[-1]
-    assert len(lay.bulbs) == MAX_BULBS
+    assert len(lay.bulbs) == MAX_BULBS_PER_STRING
     xs = [x for x, _y in lay.posts]
     assert xs == sorted(xs), "thinned in order"

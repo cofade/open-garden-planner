@@ -1,7 +1,8 @@
 """The garden lights at night (Phase 17 L5.4, #389, ADR-070). Qt-free.
 
 A garden light (``GARDEN_LIGHT``) or a string of lights (``STRING_LIGHTS``) is an
-object of the plan with a 2D sprite and a 3D model (``builders/lights.py``). At dusk
+object of the plan with a 2D picture (the lantern's sprite; the string is a line,
+``string_lights_paint``) and a 3D model (``builders/lights.py``). At dusk
 its bulbs come on (``AtmosphereSpec.lamps``): every bulb GLOWS — a sprite of the
 ambient buffer (``particles.ambient_buffers``, kind ``bulb``) — and the lamps nearest
 to the camera's target LIGHT the garden — the scene's fixed pool of point lights

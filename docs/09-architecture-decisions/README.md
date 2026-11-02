@@ -9673,8 +9673,10 @@ cost (nothing animates there), and one canonical path per behaviour.
 `lights.py`, `builders/lights.py`, `ui/view3d/workspace_living.py`; shaders
 `precipitation.vert/.frag`, `ambient.vert/.frag`; two object types added to `ObjectType`
 (appended) and `ToolType` (beside the other furniture tools — `ToolType` values are never
-persisted; `ObjectType` NAMES are serialized: older versions load them as generic shapes — no
-`FILE_VERSION` bump); one sprite, the lantern's (§8.23 now 25 artifacts; the string is a
+persisted; `ObjectType` NAMES are serialized — no `FILE_VERSION` bump: an older version loads
+a garden light as a generic shape, but a string as a fence, because its loader gives every line
+of an unknown type `ObjectType.FENCE` (`project.py`, `object_type or ObjectType.FENCE`) — a
+120 cm fence that casts a 2D shadow and builds as a fence in 3D, and stays one if saved there); one sprite, the lantern's (§8.23 now 25 artifacts; the string is a
 line drawn by the canvas); `bench_built.ogp` gained one of each (appended last, every earlier
 id and seed kept). `LookSpec` gained `atmosphere`
 (`CLEAR_STILL` by default), `SkySpec` `cloud`. Measured (RTX 4070, Direct3D 11, bench_small at
@@ -9686,7 +9688,10 @@ only, its roof projection to buildings; the open objects' is #698 — the shadow
 ADR-059's builders addendum. A string of lights casts no 2D shadow at all (the owner's
 addendum). Tests:
 `tests/unit/test_playback.py`, `test_scene3d_weather.py`, `test_scene3d_particles.py`,
-`tests/integration/test_living_garden.py` (§8.10), the render tier
+`tests/unit/test_string_lights.py`, `tests/integration/test_living_garden.py` (§8.10),
+`tests/integration/test_string_lights_line.py` (the string as a line: the tool, its 2D
+picture, no 2D shadow, Change Type and undo, 2D and 3D bulbs at one place however it is
+turned), the render tier
 `tests/integration/test_living_garden_render.py` (the two issue gates and the board), the
 Beauty Board's `--living` shots, and the frozen `--selftest`: a second small frame — a rainy
 night with one garden light, in perspective — compiles the particle shaders and the point-light
@@ -9721,7 +9726,7 @@ to the merge base but two pixels by 1 luma; no weather moved a shadow centroid b
 3. **Lanterns and bulbs (P1).** The heads drew as neutral white boxes with dark cores: the
    point light stood inside the bulb's ball (a culled sphere lit from within renders dark) and
    lit the lantern's glossy pane at full strength. The light now stands `LIGHT_BELOW_CM` (3 cm)
-   under the lantern or a string's middle bulb (`builders.lights.lamp_light` — the one function
+   under the lantern or a string's bulbs, amid them (`builders.lights.lamp_light` — the one function
    the light reads); `constantFade` 4 with brightness 9.4 keeps the 1.5-m pool of 1 / 3.5 / 7
    while the near field drops to a third; the glow is drawn 6 cm towards the camera, in front of
    its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder. The
@@ -9898,3 +9903,25 @@ the garden's life, a new plan's forecast and the 3D lights, and changed two thin
    (PF-UI-33).
 4. Found along the way: the forecast cards' weekday names and the task list's month names
    are English in every language (`strftime`; #702).
+
+Its reviews then settled what the line left open. **A bulb keeps 6 cm from its span's posts**
+(`string_lights.POST_CLEAR_CM`): arc-length spacing put the middle bulb of every symmetric
+string with an odd count ON its middle post — a 2.6 cm ball inside a 4 cm post (3D review);
+no bulb moves further. **A string's point light stands amid its bulbs** (their centroid seen
+from above, under the middle bulb's height): under the middle bulb it stood on a V's middle
+post and lit none of the post beside it, and a loop lit one corner. The wire is 0.5 cm thick
+(0.35 broke into dashes at 7 m on Low). **The line's width sizes the 2D symbol only**, as a
+fence's stroke does: the 3D model builds real 4 cm posts and 2.6 cm bulbs at the same places;
+a width of 0, which a file may hold, is drawn at 12 cm by the bounds and the paint alike
+(`string_lights_paint.drawn_width`). The string's style has no fill, as no line has one — a
+Change Type from a fence kept the rectangle's cream fill, out of step with the line's empty
+brush — and its Type-dropdown icon is the gallery's painted picture, not the warning
+triangle. A crafted line of any length stands on at most `MAX_POSTS` (512) posts, and a paint
+reads the layout the item keeps (security review; general vertex caps at load: #703).
+`NO_2D_SHADOW_TYPE_NAMES` is for a kind whose shade is negligible, never for an open frame
+that overstates its own: a pergola or a swing is cast honestly through #440's transmittance
+(#698). **Older versions**: no file-format change, but an older loader gives every line of an
+unknown type `ObjectType.FENCE` — a string opens there as a 120 cm fence that casts a 2D
+shadow, and stays one if saved there. A string drawn as a rectangle by this PR's first build
+(the owner's test plans only; none shipped) opens as the two-post line along its box in 3D
+and as a box on the canvas — draw it again.
