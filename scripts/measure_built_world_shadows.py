@@ -12,8 +12,9 @@ What is compared, for one item at a sun elevation:
 * **2D** — what the sun & shade overlay and the hours-of-sun map cast for it:
   ``core.shadow_geometry.compute_scene_shadows`` of its footprint (for a line item
   the STROKE strip, ``polyline_footprint``) extruded to its height — a solid prism,
-  except a pitched building (its roof and wall triangles, #440) and a styled fence
-  (the strip weighted by its transmittance: the ratio column, #440).
+  except (``compute_weighted_shadows``, #440) a pitched building (its roof and wall
+  triangles) and a picket, metal or chain-link fence (the strip weighted by its
+  transmittance: the ratio column).
 * **3D** — the ground shadow of the mesh its production builder makes: every
   triangle projected along the sun ray onto the ground, united. What a shadow map
   of that mesh shows, without the map's resolution.
@@ -31,9 +32,9 @@ and this table is what each costs today (the history before #440: ADR-059):
   hedge fence — a wider shadow, more so at a high sun;
 * a PICKET, METAL or CHAIN-LINK fence is mostly air: its 3D shadow is the bars'
   and wires', a fraction of the strip — the 2D model weights the strip by that
-  transmittance (ratio ~1.0, IoU against the unweighted strip low);
+  transmittance (ratio 0.98–1.09; IoU against the unweighted strip 0.12–0.68);
 * a HOUSE or shed with a pitched roof is projected as its roof and walls in both
-  models (reach 0.0); a FLAT roof is still the prism (its row: "house, flat roof");
+  models (reach 0.0); a FLAT roof is still the prism;
 * a POT tapers and a hedge is a leaf shell drawn in from its outline.
 
 A raised bed and a box are prisms in both: IoU 1.00, reach equal. A plain panel

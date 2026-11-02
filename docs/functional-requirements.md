@@ -783,7 +783,8 @@ The built world complete (L4, #388, ADR-065).
   (250 cm), fire pit (30), planter pot (50), cold frame (45), rain barrel (100),
   water tap (80), swing (220), hammock (110) and pergola (250), which had none
   before L4's owner passes. In 2D an open frame (swing, hammock, pergola) shades its
-  whole footprint (a styled fence is weighted by its transmittance since #440; the open
+  whole footprint (a picket, metal or chain-link fence is weighted by its transmittance
+  since #440; the open
   frames' and the garden lights' is #698). A house is drawn in 2D in the terracotta of its 3D roof
   tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
   recoloured in 2D before L4 no longer shows that colour on its walls).

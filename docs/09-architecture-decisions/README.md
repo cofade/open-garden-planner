@@ -6062,13 +6062,13 @@ only, and correct their heights with a fit after the fact.
   board's sections (a wall `max(stroke, 30)` cm, a hedge `max(stroke, 40)` cm): a WIDER shadow,
   more so the higher the sun — fine at 15° (IoU ≥ 0.94), under the box gate at 60° (0.73–0.81);
   **(2) porosity** (until #440) — a picket, metal or chain-link fence is mostly air, so its 3D
-  shadow lies INSIDE the unweighted 2D strip's and was 67 %, 19–24 % and 13–19 % of it
-  (cc2b3eb7's ratio column): the hours-of-sun map showed full shade behind a chain-link fence;
+  shadow lies INSIDE the unweighted 2D strip's and was 67–70 %, 19–24 % and 13–19 % of it
+  (the ratio column before #440, at its parent cc2b3eb7): the hours-of-sun map showed full shade behind a chain-link fence;
   **(3) gable against prism** (until #440) — 2D extruded a building's footprint flat-topped to
   its ridge height; **(4) taper and leaf shell** — a pot narrows to its foot, a hedge's block is its
   footprint drawn in by 4 cm. Which rows meet IoU 0.85 is the table's to say, not a sentence's.
-  Since #440 reasons (2) and (3) no longer hold for the analysis: a styled fence is weighted
-  by its transmittance, and a pitched building's roof and
+  Since #440 reasons (2) and (3) no longer hold for the analysis: a picket, metal or
+  chain-link fence is weighted by its transmittance (ratio 0.98–1.09), and a pitched building's roof and
   walls are projected — the gabled, hip and single-slope houses in the table above read IoU 1.00
   and a reach of 0.0. The analysis — overlay and heatmap — stays the 2D
   model's, draped onto the 3D ground (ADR-048, the scope note of criterion 8); the 3D shadow is
@@ -9818,7 +9818,8 @@ past midnight, the firefly season's date, one life assembly for the product and 
    The cloudy day now holds NOON's exposure in the share of its cloud (in stops, like
    `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon
    (rain 0.79, snow 0.68; a clear one 0.57; in luma 0.84 / 0.85 / 0.81, clear 0.67; the
-   high preset — the render tier's medium run reads 0.76 / 0.78 / 0.67) — mean LINEAR
+   high preset at 1280 × 720 — the render tier's medium run at 640 × 360 reads
+   0.76 / 0.78 / 0.67) — mean LINEAR
    luminance of the board's mood
    camera, `render_beauty_board.py --living --moods --dusk` (`moods_<weather>` /
    `sunset_over_noon`), re-measured at the final head with the stop blend and the matched set
