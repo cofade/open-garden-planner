@@ -7626,7 +7626,7 @@ them follows the camera's target (`nearest_lamps`), so a large plan's lights are
 looks. The foliage and lawn shaders light leaves from a point light as from the sun
 (`POINT_LIGHT` with `LIGHT_ATTENUATION`). Falloff and strength: `lampNear` (the constant
 fade) 4, `lampFade` 3.5, `lampBrightness` 9.4 at `#ffc98a` — the pool of the first cut's
-1 / 3.5 / 7 at 1.5 m with a third of its light in the lantern's own glass. The light stands
+1 / 3.5 / 7 at 1.5 m with a third of its light within the lantern's first centimetres. The light stands
 3 cm under the lantern or a string's middle bulb (`builders.lights.lamp_light`): inside the
 bulb it lit the ball from within. A bulb's glow is drawn 6 cm towards the camera, in front of
 its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder; the
