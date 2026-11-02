@@ -164,6 +164,17 @@ representations with structural roof/wall triangle projection for ridged buildin
 angle-dependent structural fence porosity (`WOODEN_FENCE`, `METAL_FENCE`, `CHAIN_LINK`), owner-grouped
 casting, and independent multiplicative overlap ($T_1 \times T_2$).
 
+Phase 17 L5, the living garden (#389), shipped in
+[v1.35.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.35.0) via
+[PR #699](https://github.com/cofade/open-garden-planner/pull/699) after owner acceptance.
+- **Playback:** the day and the year play through the shared simulation clock, and the 2D shadows and the 3D light turn together.
+- **Weather:** clear, overcast, rain and snow are a look in 3D, set with the **Weather** button in the 3D strip. They never move the sun or change the sun study, and they pause while an analysis is draped on the ground.
+- **Life:** falling rain, snow and leaves, butterflies and fireflies are shader particles on the wind's clock. Reduced motion stills them.
+- **Today's Weather:** reads the forecast for the plan's location.
+- **Lights:** a Garden Light, and String Lights drawn as a LINE like a fence, with a post at every click. They glow and light the garden after dusk, and a string casts no 2D shadow.
+
+See the [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l5-acceptance-highlights--living-garden-389-adr-070--shipped-v1350-pr-699).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.
