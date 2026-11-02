@@ -293,12 +293,12 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   `"basis": "current_release"`), `_summary_row` notes `new release or asset` only
   when `new` deltas explain the window, and `chart.js` removes duplicate SVG `<title>`
   tooltips and formats `>3` windows via localized `windowCount`.
-- Site-plan-sized backgrounds (#659, #660): Qt's allocation limit is a **process-wide
-  static** (256 MB, measured on the decoded image), so a 9000×8000 PNG — 294 kB on disk,
-  275 MiB decoded — failed to import and reopened as a placeholder; `BackgroundImageItem`
-  now raises it for one decode only (restored in `finally`) and refuses >120 MP from the
-  header. The embedded base64 PNG is encoded once per pixmap revision, not 1.2 s per
-  Agent API read / autosave. PF-PER-22/23, FR-IMG-12/13.
+- Site-plan-sized backgrounds (#659, #660) shipped in v1.34.12 (PR #683): Qt's allocation
+  limit is a **process-wide static** (256 MB, measured on the decoded image), so a 9000×8000
+  PNG — 294 kB on disk, 275 MiB decoded — failed to import and reopened as a placeholder;
+  `BackgroundImageItem` now raises it for one decode only (restored in `finally`) and refuses
+  >120 MP from the header. The embedded base64 PNG is encoded once per pixmap revision, not
+  1.2 s per Agent API read / autosave. PF-PER-22/23, FR-IMG-12/13.
 - Phase 17 L1–L4 and Package F/G are shipped; L5 (#389) remains open. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.

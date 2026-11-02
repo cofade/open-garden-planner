@@ -144,6 +144,15 @@ clipper for large regions. The in-place Model experiment (#531) was withdrawn af
 render tiers drew a replaced geometry as nothing, and the sparse seasonal-index experiment
 went with it on the same files; those issues stay open.
 
+Site-plan-sized background images (#659, #660) shipped in
+[v1.34.12](https://github.com/cofade/open-garden-planner/releases/tag/v1.34.12) via
+[PR #683](https://github.com/cofade/open-garden-planner/pull/683): a background whose decoded
+size exceeds Qt's 256 MB default (a 9000 × 8000 PNG is a 294 kB file and 275 MiB decoded) now
+imports and reopens instead of degrading to a placeholder, an image above 120 megapixels is
+refused with a translated message before the image is decoded, and the embedded PNG is encoded
+once and re-encoded only when the image itself changes, instead of about 1.2 s on every plan
+read and autosave.
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

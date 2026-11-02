@@ -3862,7 +3862,7 @@ bed takes the garden bed's soil pattern (colour preserved); (e) offsetting an op
 now creates a parallel line on the cursor's side, not a filled polygon. The 3D curved-fence
 fillet is issue #675. New pitfalls: PF-CAN-34/35, PF-DOM-33, PF-UI-32; ADR-022 addendum.
 
-### Site-plan-sized backgrounds (#659, #660) — **delivered 2026-11-01, package PR (awaiting owner manual acceptance)**
+### Site-plan-sized backgrounds (#659, #660) — **shipped 2026-11-02 as v1.34.12 ([PR #683](https://github.com/cofade/open-garden-planner/pull/683))**
 
 Two defects in one file (`ui/canvas/items/background_image_item.py`) that made each other
 worse: Qt would not decode a large background, and once it could, every plan read would
