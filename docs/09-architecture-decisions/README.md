@@ -763,7 +763,7 @@ Because `is_bed_type` was *extended* (not renamed) to include containers, every 
 
 ### Addendum (Issue #599 — Typed Smart-Symbol Members and Definition Versioning, 2026-11-02)
 
-**Status**: Accepted | **Context**: issue #599, Slice B of 3D performance and correctness.
+**Status**: Shipped in v1.34.13 | **Context**: issue #599, Slice B of 3D performance and correctness.
 Smart symbol children previously instantiated exclusively as untyped/generic canvas items (`RectangleItem` with `GENERIC_RECTANGLE`, plain polylines, etc.). As a result, smart symbols containing garden beds (`raised_bed_rows`), greenhouses, compost bays, or fences were invisible to bed parenting, plant capacity accounting, soil diagnostics, 2D shadow casting, and 3D builders. Furthermore, regenerating geometry on parameter edits discarded and recreated children with random UUIDs, breaking any existing plant-to-bed parenting links.
 
 **Decision**:
@@ -1765,7 +1765,7 @@ PF-L3D-17 records the traps, FR-3D-BUILT-09 and FR-SUN-02 state the rule, and
 
 ### ADR-037 / ADR-048 addendum — unified geometry-aware analytical caster path (#440, 2026-11-02)
 
-**Status**: Accepted | **Context**: issue #440, Slice B of 3D performance and correctness.
+**Status**: Shipped in v1.34.13 | **Context**: issue #440, Slice B of 3D performance and correctness.
 The 2D shadow overlay and hours-of-sun heatmap previously treated all buildings as flat rectangular prisms of ridge height and all fences as opaque solid walls. This produced severe over-shadowing to the north of pitched roofs (overhangs and gable/hip slopes were ignored) and completely ignored the open porosity of wooden picket fences, metal bars, and chain-link fences.
 
 **Decision**:

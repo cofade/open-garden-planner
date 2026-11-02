@@ -2755,7 +2755,7 @@ drawing nothing). #475 and #534 are open. Only #452 is closed.
 | [#475](https://github.com/cofade/open-garden-planner/issues/475) | **open** — ground tiles are still painted by the controller's sliced ground passes; the global pixel grid and padded tiles are not implemented | the #615 two-/four-tile contracts still pass unchanged |
 | [#534](https://github.com/cofade/open-garden-planner/issues/534) | **open** — the wind-memory growth is not fixed; no closing keyword | the xfail stays |
 
-### Symbol and shadow correctness (Slice B) — **#599 and #440 delivered in PR, 2026-11-02**
+### Symbol and shadow correctness (Slice B) — **#599 and #440 shipped in v1.34.13, PR #686, 2026-11-02**
 
 Two issues from the analytical correctness cluster (`261030_PLAN.md` §4), delivered in one branch with Addenda to ADR-032, ADR-037, and ADR-048.
 - **#599 (Typed smart-symbol members):** Canonical `_spec_to_item` instantiating typed `ObjectType` items (`RAISED_BED`, `GREENHOUSE`, `COMPOST`, `FENCE`). Exclude `role: "guide"` elements from 3D records and shadows. Stable deterministic UUIDs (`uuid5`) so child plant-to-bed links survive edits. Atomic undo command (`ChangeSmartSymbolParamCommand`) reconciling bed membership. Definition versioning: older instances retain saved children; incompatible param edits are disabled with a translated explanation. Zero `FILE_VERSION` bump; Smart Symbols sidebar stays hidden per owner policy.
@@ -2763,8 +2763,8 @@ Two issues from the analytical correctness cluster (`261030_PLAN.md` §4), deliv
 
 | Issue | State | Evidence |
 |---|---|---|
-| [#599](https://github.com/cofade/open-garden-planner/issues/599) | **done — delivered in PR** | typed member instantiation (`ObjectType.RAISED_BED` etc.), stable `uuid5` UUIDs, plant parenting preserved across param edits, single atomic undo command, definition versioning fallback; `tests/integration/test_smart_symbols.py` (13 passed) |
-| [#440](https://github.com/cofade/open-garden-planner/issues/440) | **done — delivered in PR** | pitched roof projection matching 3D envelope, angle-dependent fence porosity, owner-grouped casting, multiplicative independent overlap ($T_1 \times T_2$), 64 MiB memory bound; `scripts/measure_built_world_shadows.py --check` passes with 0 violations across all 9 families |
+| [#599](https://github.com/cofade/open-garden-planner/issues/599) | **done — shipped in v1.34.13 (PR #686)** | typed member instantiation (`ObjectType.RAISED_BED` etc.), stable `uuid5` UUIDs, plant parenting preserved across param edits, single atomic undo command, definition versioning fallback; `tests/integration/test_smart_symbols.py` (13 passed) |
+| [#440](https://github.com/cofade/open-garden-planner/issues/440) | **done — shipped in v1.34.13 (PR #686)** | pitched roof projection matching 3D envelope, angle-dependent fence porosity, owner-grouped casting, multiplicative independent overlap ($T_1 \times T_2$), 64 MiB memory bound; `scripts/measure_built_world_shadows.py --check` passes with 0 violations across all 9 families |
 
 ### Test lifecycle, popup focus, release classification, and 3D workspace modularization — **shipped 2026-10-28 as v1.34.2, PR #632**
 
