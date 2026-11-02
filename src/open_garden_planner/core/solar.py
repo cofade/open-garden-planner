@@ -30,6 +30,7 @@ Conventions (each has a classic sign bug attached — see the test module):
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -77,6 +78,31 @@ def _julian_day(dt_utc: datetime) -> float:
     a = year // 100
     b = 2 - a + a // 4
     return int(365.25 * (year + 4716)) + int(30.6001 * (month + 1)) + day + b - 1524.5
+
+
+def plan_place(location: object) -> tuple[float, float] | None:
+    """A plan location's ``(lat, lon)`` — or None when it is no place: both coordinates
+    real numbers (no bools, no text), finite, the latitude in ``[-90, 90]`` and the
+    longitude in ``[-180, 180]``. ONE validity rule for the readers of the L5 living
+    garden (senior review: the forecast's reader accepted text and bools, the latitude's
+    rejected them — a hand-edited plan fetched Sydney's weather with a northern sky):
+    the Planting Calendar's forecast, Today's Weather, the Plant Forge's phenology, the
+    garden's life and the look's hemisphere. (Older readers elsewhere: #697.)"""
+    if not isinstance(location, Mapping):
+        return None
+    place: list[float] = []
+    for key, bound in (("latitude", 90.0), ("longitude", 180.0)):
+        value = location.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        try:
+            number = float(value)
+        except OverflowError:  # a 400-digit integer in a hostile file
+            return None
+        if not (math.isfinite(number) and -bound <= number <= bound):
+            return None
+        place.append(number)
+    return (place[0], place[1])
 
 
 def solar_position(lat_deg: float, lon_deg: float, dt_utc: datetime) -> SolarPosition:

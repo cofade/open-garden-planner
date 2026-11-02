@@ -417,8 +417,11 @@ class SkySpec:
     #: at eye height, 960 x 540: dip 2.07 / 1.04 luma at low / high -> 0.01 / 0.12;
     #: the fog step 2.51 / 2.50 -> 2.75 / 2.80; night luminance +0.2 %).
     ground_energy: float
-    #: 0 at night: no disc (the moon is a light, not a picture); 0 under a full
-    #: overcast too (L5.2) — the phase is the sun's elevation, never this energy.
+    #: NEVER 0: Qt's procedural sky draws energy 0 as a BLACK disc with a dark halo (3D
+    #: review of L5). A set sun is hidden by MATCHING the sky — the horizon's colour at
+    #: ``sky_energy`` (``look_for``) — and a cloud hides a day's sun by its colour, its
+    #: energy kept (``weather.apply_weather``). The phase is the sun's elevation
+    #: (``sky_phase``), never this energy.
     sun_energy: float
     night: bool
     ground_curve: float = 0.1

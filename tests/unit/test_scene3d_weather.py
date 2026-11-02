@@ -242,10 +242,12 @@ def test_a_winter_dew_fades_before_noon_not_at_it(elevation: float, southern: bo
 
 def test_a_summer_dawn_near_due_north_keeps_its_dew() -> None:
     """North of ~60° a summer dawn stands near due north — solar MIDNIGHT's meridian
-    there, not noon's: its dew is not faded as if it were noon (senior review of L5:
-    x0.04 at azimuth 1°). South of the equator the same bearing IS noon."""
+    there, not noon's: its dew RISES from that meridian over 15° (no step: 3D review of
+    L5, round 4) and is not faded as if it were noon (senior review: x0.04 at 1°).
+    South of the equator the same bearing IS noon."""
     dawn = sun(-1.0, 20.0)                 # 64° N in June, after the white night's low point
     assert dew_amount(dawn) == pytest.approx(dew_amount(sun(-1.0, 60.0))) == 1.0
+    assert dew_amount(sun(-1.0, 3.0)) == pytest.approx(0.2), "a fifth of the way up the rise"
     assert dew_amount(sun(-1.0, 20.0), southern=True) < 0.85, "south: noon's fade"
     assert dew_amount(sun(-1.0, 3.0), southern=True) < 0.15
 

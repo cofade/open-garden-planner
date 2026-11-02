@@ -150,8 +150,8 @@ forecast landed on a plan at another place — and the 3D view, guessing that a 
 plan's, labelled it so. Now `PlantingCalendarView.follow_location` moves the widget on EVERY
 `location_changed`, visible or not, fetching nothing; `forecast_days_ready` carries the
 `(lat, lon)` the widget fetched for, and `WorkspaceLivingCoordinator.set_forecast` drops one for
-another place. Both read a place with ONE function (`weather_service.forecast_place`): they
-compare places.
+another place. Both read a place with ONE function (`core.solar.plan_place`): they compare
+places.
 
 **The mechanism (the canonical statement; other docs point here).** The disconnect is what keeps
 a result already QUEUED from landing: PyQt6 does not deliver a queued signal to an UNDECORATED

@@ -57,6 +57,7 @@ from .look import (
     linear_to_srgb_hex,
     look_for,
     mix_linear,
+    sky_phase,
 )
 from .sink import SunState
 
@@ -207,7 +208,7 @@ def dew_amount(sun: SunState, weather: str = "clear", *, southern: bool = False)
         amount = (DEW_GONE_DEG - elevation) / (DEW_GONE_DEG - DEW_FULL_DEG)
     noon = noon_azimuth(southern)
     return (amount * _ramp(_to_meridian(sun, noon), 0.0, _DEW_NOON_FADE_DEG)
-            * _ramp(_to_meridian(sun, (noon + 180.0) % 360.0), 0.0, _DEW_MIDNIGHT_RISE_DEG))
+            * _midnight_fade(sun, southern, _DEW_MIDNIGHT_RISE_DEG))
 
 
 def _ramp(value: float, low: float, high: float) -> float:
@@ -301,12 +302,14 @@ def weather_fog(sky_horizon: str, probe_exposure: float, sky_energy: float, clou
     return (fog[0] * gain, fog[1] * gain, fog[2] * gain)
 
 
-def _midnight_fade(sun: SunState, southern: bool = False) -> float:
-    """1 in the evening, fading to 0 as the sun nears solar midnight's meridian — due
-    north in the northern hemisphere, due south in the southern (an evening is the west
-    side of the meridian there too, ``is_evening``)."""
+def _midnight_fade(sun: SunState, southern: bool = False,
+                   width_deg: float = _FIREFLY_FADE_DEG) -> float:
+    """0 at solar midnight's meridian — due north in the northern hemisphere, due south in
+    the southern — rising to 1 over ``width_deg`` of azimuth on either side: the
+    fireflies go out towards it in the evening (``is_evening``), the dew rises from it in
+    the morning (``_DEW_MIDNIGHT_RISE_DEG``)."""
     midnight = (noon_azimuth(southern) + 180.0) % 360.0
-    return _ramp(_to_meridian(sun, midnight), 0.0, _FIREFLY_FADE_DEG)
+    return _ramp(_to_meridian(sun, midnight), 0.0, width_deg)
 
 
 def _particle_light(look: LookSpec) -> tuple[float, float, float]:
@@ -344,7 +347,7 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
         # round 2: luma 0 at the sun, 150 around it, under overcast and rain)
         sky = replace(sky, top=top, horizon=horizon,
                       ground_bottom=mix_linear(sky.ground_bottom, "#5a5f62", cloud * 0.6),
-                      sun_disc=(horizon if sky.sun_disc == sky.horizon       # a set sun stays matched
+                      sun_disc=(horizon if sky_phase(sky) != "day"           # a set sun stays matched
                                 else mix_linear(sky.sun_disc, horizon, cloud)),
                       cloud=cloud)
         held = cloud * (1.0 - mood.twilight)           # how much of NOON's exposure holds

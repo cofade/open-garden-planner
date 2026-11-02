@@ -1934,7 +1934,7 @@ marker. PF-TST-29 and §8.8 record the rule. No stored key, `.ogp` field or prod
 
 **Decision — the generator IS the asset, again.** All furniture/infrastructure SVGs are emitted by `scripts/generate_object_sprites.py` — seeded per object, byte-deterministic (`--check` + `tests/unit/test_object_sprite_conformance.py::TestDeterminism`), so hand edits are unlandable and the generator doubles as the provenance record (`resources/objects/PROVENANCE.md`). The style is the man-made sibling of ADR-040's Lush Sprite — **"Lush Object"**, contract in `resources/objects/README.md`: rim-dark → crown-light shading per part, occlusion halos where parts stack, a `MATERIALS` anchor table (woods, metals, enamels/plastics, fabrics, minerals, glass/water/soil/sand) rendered by material primitives (`plank`/`wood_surface`, `disc`/`ring`, `fabric` with weave hatch + puff shading, `metal_bar`, `glass_pane`, `water_fill`, `granular_fill`, `glow`/`flame`), and one builder per object. Two invariants carried over from ADR-040 and one that is new: **(a) QtSvg subset only** (allowlist walk in the gate; rings are two-subpath paths, circle-clipped planks are computed analytically — no clipPath); **(b) rotation safety** — furniture rotation is USER-controlled, so light comes from straight above and **no directional shadow is baked** (`test_no_baked_directional_shadow` pins the legacy `#00000020` shadow's absence; the item-level painted shadow is the single shadow source, still user-toggleable); **(c) the viewBox IS the nominal footprint** in cm (`test_default_dimensions_match_viewboxes` pins it to `FURNITURE_DEFAULT_DIMENSIONS`, a gate-read metadata table with no production sizing consumer) — the canvas stretches art to the user's rect, so square viewBoxes for circle-tool objects and rounded footprints keep mild non-uniform stretch harmless. Owner-decided richness: **full parity** with the plant sprites (per-part gradients, gloss, micro-detail), not a calmer "lite" tier; budgets ≤ 460 elements / 44 KB (1.2× the densest, `hot_tub` at 380 elements / 35,910 bytes).
 
-**Roster growth (owner decision #7).** Nine new object types — `SANDBOX`, `TRAMPOLINE`, `HOT_TUB`, `SWING`, `PICNIC_TABLE`, `HAMMOCK` (furniture) and `WHEELBARROW`, `PERGOLA`, `BIRD_BATH` (infrastructure) — appended to `ObjectType`/`ToolType`, with `OBJECT_STYLES` (fill colour = 3D extrusion colour), `get_valid_types_for_shape` membership, canvas tool registration, renderer maps + default dims, `DEFAULT_HEIGHTS_CM` rows for the **solid** ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath — they cast shadows and extrude), gallery entries, and German strings in all three translation contexts. **Swing, pergola and hammock get no default height** (senior-review finding): the shadow/3D model extrudes the whole item footprint as a solid prism, and those objects are mostly air (sprite ink coverage 0.20 / 0.53 / 0.43) — a solid 3×3 m block at 2.3 m would misstate a sun study; a footprint-fill factor in the shadow model is the follow-up that would let them cast honest shade; until then they are in `_HEIGHT_FIELD_TYPES`, so the properties panel still offers the Height field and a user can opt one in explicitly (round-2 review: without that set the field never appeared and the "explicit" escape hatch was fiction). The `shape` recipe key is gate-checked (not read by the generator): the conformance gate cross-checks it against `get_valid_types_for_shape` and requires square art for circle-tool objects. **No FILE_VERSION bump**: `project.py` already degrades an unknown `object_type` name to `None` → generic shape (name/geometry/metadata survive) — the additive-enum contract is now pinned by `tests/unit/test_project_unknown_object_type.py` so a future loader change cannot silently break it. The agent API's `create_object` scope is deliberately **not** widened (plants + soil containers only) — no schema churn in an asset package; new types are already queryable by name. Existing types without a height default (parasol, fire pit, planter, rain barrel, water tap, cold frame) keep casting no shadow — adding heights would change existing sun studies and is a separate decision. **Superseded (2026-10-27, ADR-065 "Owner's second manual pass"):** the owner made that decision. All nine height-less kinds (swing, pergola, hammock and the six above) now have rows in `DEFAULT_HEIGHTS_CM`, and `_HEIGHT_FIELD_TYPES` is gone. The solid-prism overstatement for the open frames is accepted, as for a picket fence's strip; the footprint-fill factor is still the way to honest frame shadows.
+**Roster growth (owner decision #7).** Nine new object types — `SANDBOX`, `TRAMPOLINE`, `HOT_TUB`, `SWING`, `PICNIC_TABLE`, `HAMMOCK` (furniture) and `WHEELBARROW`, `PERGOLA`, `BIRD_BATH` (infrastructure) — appended to `ObjectType`/`ToolType`, with `OBJECT_STYLES` (fill colour = 3D extrusion colour), `get_valid_types_for_shape` membership, canvas tool registration, renderer maps + default dims, `DEFAULT_HEIGHTS_CM` rows for the **solid** ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath — they cast shadows and extrude), gallery entries, and German strings in all three translation contexts. **Swing, pergola and hammock get no default height** (senior-review finding): the shadow/3D model extrudes the whole item footprint as a solid prism, and those objects are mostly air (sprite ink coverage 0.20 / 0.53 / 0.43) — a solid 3×3 m block at 2.3 m would misstate a sun study; a footprint-fill factor in the shadow model is the follow-up that would let them cast honest shade; until then they are in `_HEIGHT_FIELD_TYPES`, so the properties panel still offers the Height field and a user can opt one in explicitly (round-2 review: without that set the field never appeared and the "explicit" escape hatch was fiction). The `shape` recipe key is gate-checked (not read by the generator): the conformance gate cross-checks it against `get_valid_types_for_shape` and requires square art for circle-tool objects. **No FILE_VERSION bump**: `project.py` already degrades an unknown `object_type` name to `None` → generic shape (name/geometry/metadata survive) — the additive-enum contract is now pinned by `tests/unit/test_project_unknown_object_type.py` so a future loader change cannot silently break it. The agent API's `create_object` scope is deliberately **not** widened (plants + soil containers only) — no schema churn in an asset package; new types are already queryable by name. Existing types without a height default (parasol, fire pit, planter, rain barrel, water tap, cold frame) keep casting no shadow — adding heights would change existing sun studies and is a separate decision. **Superseded (2026-10-27, ADR-065 "Owner's second manual pass"):** the owner made that decision. All nine height-less kinds (swing, pergola, hammock and the six above) now have rows in `DEFAULT_HEIGHTS_CM`, and `_HEIGHT_FIELD_TYPES` is gone. The solid-prism overstatement for the open frames is accepted (a picket fence's strip was too, until #440 weighted fences by their transmittance); the footprint-fill factor — #440's caster transmittance — is still the way to honest frame shadows (#698).
 
 **Three latent inconsistencies fixed en passant.** Every SVG-rendered object was drawn upside-down on the canvas — the view/export `scale(1, -1)` flips a pixmap blitted in item-local coordinates, and the plant sprites hid it by radial symmetry; the owner's manual test caught it on the fire pit's flames, and the furniture paint branches now un-flip about the rect centre (§11.4, pinned by `TestUprightOnCanvas`). `BBQ_GRILL` is drawn by the *circle* tool but its art/default dims were 80×60 — the sprite was stretched to a square on every canvas; the art is now square (80×80) and the type is offered in the circle branch of the "Change Type" menu (it was only in the rectangle branch). Gallery thumbnails stretched non-square art into squares (bench → brown block); `gallery_data.render_svg_thumbnail` now letterboxes by the SVG's viewBox aspect (pixel-pinned by `TestGalleryThumbnails`). The `HEDGE_SECTION` mapping in `furniture_renderer.py` looked dead (load-time migration to `HEDGE_POLYGON`) but is still reachable through the rectangle "Change Type" menu — left untouched.
 
@@ -6068,7 +6068,9 @@ only, and correct their heights with a fit after the fact.
   ridge height; **(4) taper and leaf shell** — a pot narrows to its foot, a hedge's block is its
   footprint drawn in by 4 cm. Only the prisms (raised bed, box, plain panel), the two hedges and
   the round tub would meet IoU 0.85 at all three elevations; no building, no terracotta pot, no
-  wall and no styled fence does. The analysis — overlay and heatmap — stays the 2D
+  wall and no styled fence does. (Since #440 reasons (2) and (3) no longer hold for the analysis:
+  a styled fence is weighted by its transmittance and a building's roof is projected — the
+  table above is #440's.) The analysis — overlay and heatmap — stays the 2D
   model's, draped onto the 3D ground (ADR-048, the scope note of criterion 8); the 3D shadow is
   a picture of the mesh.
 
@@ -6101,7 +6103,8 @@ only, and correct their heights with a fit after the fact.
   through no fault of the builder. Thin members are exempt from a per-pixel IoU.
   **Porous fences (answered by #440):** the 2D sun study no longer treats a chain-link, metal or
   picket fence as a solid strip — #440 weights it by its angle-dependent structural transmittance
-  (ADR-059's porosity addendum); the other open objects in this table still cast a solid prism
+  (the ADR-037 / ADR-048 addendum on the unified geometry-aware caster path), and projects a
+  building's roof and walls; the other open objects in this table still cast a solid prism
   (#698).
 - A HOUSE's fill colour tints its WALLS in 3D; in 2D it tints the roof texture (a 31 % overlay).
   And the tint rule is uneven for hedges: a hedge POLYGON is baked in the hedge texture's greens
@@ -9674,9 +9677,10 @@ each (appended last, every earlier id and seed kept). `LookSpec` gained `atmosph
 1280 × 720, Medium, interleaved readbacks): clear with life +0.6 %, snow +1.9 %, rain +3.7 % of a
 frame; with reduced motion 0 frames over 2.5 s after the first build. The two garden lights'
 3D shadows are a small share of their solid 2D prisms (string lights 2 %: the 2D strip
-overstates it about fiftyfold, like every open object without a porosity model — #440 gave
-fences and buildings one; the lights' is #698) — the shadow table of ADR-059's builders
-addendum. Tests:
+overstates their shade about fiftyfold; every open object without a porosity model is
+overstated — a pergola about 4×, a swing about 6× — and #440 gave one to fences only, its
+roof projection to buildings; the open objects' is #698) — the shadow table of ADR-059's
+builders addendum. Tests:
 `tests/unit/test_playback.py`, `test_scene3d_weather.py`, `test_scene3d_particles.py`,
 `tests/integration/test_living_garden.py` (§8.10), the render tier
 `tests/integration/test_living_garden_render.py` (the two issue gates and the board), the
@@ -9799,7 +9803,7 @@ past midnight, the firefly season's date, one life assembly for the product and 
    hidden (`PlantingCalendarView.follow_location`; round 4 found the old place's late forecast
    landing on a plan at another place when Today's Weather was not chosen), and the forecast
    carries the place it was fetched for: the 3D view drops another place's instead of
-   guessing (`forecast_days_ready(place, days)`, one reader `weather_service.forecast_place`).
+   guessing (`forecast_days_ready(place, days)`, one reader `solar.plan_place`).
    An edit at the same coordinates (a frost date) keeps the forecast. No zero-timer: a fetch
    for the same place already on its way is not started again (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693; the
    calendar's frost alerts, which keep the old plan's after a cleared location: #694.
@@ -9811,9 +9815,10 @@ past midnight, the firefly season's date, one life assembly for the product and 
    hour) makes up for a clear key light; under cloud it made a sunset 98 % as bright as noon.
    The cloudy day now holds NOON's exposure in the share of its cloud (in stops, like
    `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon
-   (rain 0.79, snow 0.68; mean
-   linear luminance of the board's mood camera, re-measured at the final head with the stop
-   blend and the matched set sun — round 3 read the same to 0.01), every dusk monotone.
+   (rain 0.79, snow 0.68; a clear one 0.57) — mean linear luminance of the board's mood
+   camera, `render_beauty_board.py --living --moods --dusk` (`moods_<weather>` /
+   `sunset_over_noon`), re-measured at the final head with the stop blend and the matched set
+   sun; every dusk monotone (`dusk_<weather>`).
 4. **Wet leaves are not glossier than 0.6.** At roughness 0.38 a low sun left cream glints
    on the leaves in the rain; at 0.6 the golden hour's cream pixels fall 1,005 → 5, the sunset's
    707 → 38, the sun-facing walk views 413–468 → 0–23 (`foliage.frag`, `foliage_door.frag`,
@@ -9844,7 +9849,7 @@ past midnight, the firefly season's date, one life assembly for the product and 
 3. **The producer says where it fetched** (round 4): the weather widget follows every location
    change, also with its tab hidden, and `forecast_days_ready(place, days)` carries the
    coordinates; the 3D view drops another place's forecast (PF-LIF-12).
-4. **One validity rule for a place** (round 5): `phenology.plan_place` — real numbers, finite,
+4. **One validity rule for a place** (round 5): `solar.plan_place` — real numbers, finite,
    in range — for the calendar's forecast, Today's Weather, the Forge's phenology, the
    garden's life and the hemisphere (older readers: #697).
 5. **String Lights' 2D shadow, stated truly** (round 5): #440, merged from master, made fences

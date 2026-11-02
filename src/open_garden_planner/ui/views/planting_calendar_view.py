@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
 
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.frost_dates import parse_frost
-from open_garden_planner.core.phenology import plan_place
+from open_garden_planner.core.solar import plan_place
 from open_garden_planner.models.plant_data import PlantSpeciesData
 from open_garden_planner.models.plant_data import species_key as _species_key
 from open_garden_planner.models.propagation import PropagationPlan
@@ -1341,7 +1341,7 @@ class PlantingCalendarView(QWidget):
             self._weather.set_location(*place)
 
     def _place(self) -> tuple[float, float] | None:
-        """The plan's ``(lat, lon)``, or None without one (``phenology.plan_place``)."""
+        """The plan's ``(lat, lon)``, or None without one (``solar.plan_place``)."""
         return plan_place(getattr(self._project_manager, "location", None))
 
     def refresh(self) -> None:

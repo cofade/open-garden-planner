@@ -483,8 +483,11 @@ def test_a_light_member_of_a_rotated_symbol_lights_and_survives_save(qtbot, monk
     library._ensure_loaded()
     monkeypatch.setitem(library._symbols, "lit_pergola", definition)
 
-    def lights(scene: CanvasScene) -> list[tuple[str, int]]:
-        return sorted((source.kind, len(source.bulb_points))
+    def lights(scene: CanvasScene) -> list[tuple[str, tuple[tuple[float, ...], ...]]]:
+        """Each light's kind and bulb positions (rounded): a save that dropped the symbol's
+        rotation or position would move them."""
+        return sorted((source.kind, tuple(tuple(round(v, 3) for v in point)
+                                          for point in source.bulb_points))
                       for source in lamp_sources(snapshot_records(scene).values()))
 
     scene = CanvasScene(width_cm=5000, height_cm=3000)
@@ -497,10 +500,10 @@ def test_a_light_member_of_a_rotated_symbol_lights_and_survives_save(qtbot, monk
     assert {ObjectType.STRING_LIGHTS, ObjectType.GARDEN_LIGHT} <= kinds
     before = lights(scene)
     assert [kind for kind, _bulbs in before] == ["GARDEN_LIGHT", "STRING_LIGHTS"]
-    assert all(bulbs >= 1 for _kind, bulbs in before)
+    assert all(len(bulbs) >= 1 for _kind, bulbs in before)
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "lit.ogp"
         ProjectManager().save(scene, path)
         scene.clear()
         ProjectManager().load(scene, path)
-    assert lights(scene) == before, "the same lights after save and load"
+    assert lights(scene) == before, "the same lights, at the same places, after save and load"

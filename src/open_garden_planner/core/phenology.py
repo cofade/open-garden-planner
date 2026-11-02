@@ -41,6 +41,7 @@ from .plant_art import (
 )
 from .scene3d import Record, srgb_to_linear
 from .scene3d.builders.plants import plant_sprite
+from .solar import plan_place
 
 #: Default temperate Northern-Hemisphere latitude when a plan has no coordinates set.
 DEFAULT_LATITUDE_DEG: Final[float] = 52.0
@@ -69,31 +70,6 @@ def _smoothstep(edge0: float, edge1: float, x: float) -> float:
         return 1.0 if x >= edge1 else 0.0
     t = min(max((x - edge0) / (edge1 - edge0), 0.0), 1.0)
     return t * t * (3.0 - 2.0 * t)
-
-
-def plan_place(location: object) -> tuple[float, float] | None:
-    """A plan location's ``(lat, lon)`` — or None when it is no place: both coordinates
-    real numbers (no bools, no text), finite, the latitude in ``[-90, 90]`` and the
-    longitude in ``[-180, 180]``. ONE validity rule for the readers of the L5 living
-    garden (senior review: the forecast's reader accepted text and bools, the latitude's
-    rejected them — a hand-edited plan fetched Sydney's weather with a northern sky):
-    the Planting Calendar's forecast, Today's Weather, the Plant Forge's phenology, the
-    garden's life and the look's hemisphere. (Older readers elsewhere: #697.)"""
-    if not isinstance(location, Mapping):
-        return None
-    place: list[float] = []
-    for key, bound in (("latitude", 90.0), ("longitude", 180.0)):
-        value = location.get(key)
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            return None
-        try:
-            number = float(value)
-        except OverflowError:  # a 400-digit integer in a hostile file
-            return None
-        if not (math.isfinite(number) and -bound <= number <= bound):
-            return None
-        place.append(number)
-    return (place[0], place[1])
 
 
 def plan_latitude(location: object) -> float:
@@ -462,7 +438,6 @@ def evaluate_phenology_for_records(
 __all__ = [
     "DEFAULT_LATITUDE_DEG",
     "plan_latitude",
-    "plan_place",
     "SNOW_LINEAR_RGB",
     "PhenologyState",
     "evaluate_phenology",

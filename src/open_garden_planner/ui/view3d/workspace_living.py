@@ -42,7 +42,7 @@ from PyQt6.QtCore import QCoreApplication, QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup
 from PyQt6.QtWidgets import QMenu, QToolButton, QWidget
 
-from open_garden_planner.core.phenology import plan_latitude, plan_place
+from open_garden_planner.core.phenology import plan_latitude
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.lights import (
     LIGHT_KINDS,
@@ -56,6 +56,7 @@ from open_garden_planner.core.scene3d.particles import (
     ambient_emitters,
 )
 from open_garden_planner.core.scene3d.weather import TODAY, WEATHER_CHOICES, todays_weather
+from open_garden_planner.core.solar import plan_place
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 if TYPE_CHECKING:
@@ -381,7 +382,7 @@ class WorkspaceLivingCoordinator(QObject):
 
     def _place(self) -> tuple[float, float] | None:
         """The plan's coordinates, or None without a location — read as the calendar
-        reads them (``phenology.plan_place``): the two compare places."""
+        reads them (``solar.plan_place``): the two compare places."""
         return plan_place(self._get_location())
 
     def _refresh_ambient(self) -> None:

@@ -36,6 +36,9 @@ laid beside an L0 board): ``golden_hour``, ``sunset`` (the 6° golden anchor),
 ``--dusk``     the evening of the golden-hour shot from a 6° sun to a −7° one, one camera:
                the light must fade (luminance never rises) and crossing sunset (0.6° →
                0.4°) is no larger a step than a half degree of the day ramp
+               (with ``--living``, ``--horizon``, ``--moods`` and ``--dusk`` run again under
+               each cloudy weather — ADR-070's cloudy evening: ``moods_<weather>`` /
+               ``sunset_over_noon``)
 ``--fence``    the plan's fences alone against the same frame without them, at the noon
                camera, per preset: how the pickets alias (dark share, Laplacian)
 ``--edge``     an empty plan at golden hour and noon: the luma step where the plan
@@ -221,6 +224,19 @@ HORIZON_STEP_BOUND = 3.0
 #: The weathers whose sky is not the clear one (L5): ``--living`` runs the horizon
 #: probe under each — an overcast sky draws its horizon otherwise (3D review of L5).
 HORIZON_WEATHERS = ("overcast", "rain", "snow")
+
+
+def weather_look(sun: SunState, preset: str, weather: str = "clear") -> LookSpec:
+    """The look a probe judges under ``weather``: ``look_for`` when clear, else
+    ``living_look`` with its rain or snow left out — a probe reads the light, the fog and
+    the sky, not the streaks (``--living`` with ``--horizon``, ``--moods``, ``--dusk``)."""
+    if weather == "clear":
+        return look_for(sun, preset)
+    from open_garden_planner.core.scene3d.weather import living_look
+
+    look = living_look(sun, preset, weather)
+    return replace(look, atmosphere=replace(look.atmosphere, precipitation="none",
+                                            precip_density=0.0))
 
 
 def distant_horizon_cameras(width: float, depth: float, size: tuple[int, int], bearing_deg: float
@@ -721,11 +737,13 @@ class Board:
         return rgb, frame, {"file": path.name, "open_ms": round(frame.open_ms, 1),
                             "qt": dict(frame.qt.get("counts", {}))}
 
-    def mood_strip(self, shots: list[BoardShot], presets: list[str]) -> None:
+    def mood_strip(self, shots: list[BoardShot], presets: list[str], weather: str = "clear") -> None:
         """ONE camera and ONE date through the day's moods (gate G3): the hero camera,
         the plan as it stands on the day of the ``noon`` shot, lit by the suns of the
         noon, golden-hour, sunset and night shots. Night against noon on the same
-        shot and plan — and nothing but the light differs between the frames."""
+        shot and plan — and nothing but the light differs between the frames.
+        ``weather`` (L5, ``--living``): under that weather's look (``weather_look``) —
+        where ADR-070's cloudy evening is measured (sunset against noon)."""
         from open_garden_planner.core.scene3d.builders import production_registry
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
@@ -733,16 +751,17 @@ class Board:
         camera = by_name["golden_hour"]
         at = plan_day(by_name["noon"].when_utc)
         records, registry = self.records_for(at), production_registry()
+        tag = "" if weather == "clear" else f"_{weather}"
         out: dict[str, Any] = {}
-        self.metrics["moods"] = out
+        self.metrics[f"moods{tag}"] = out
         for preset in presets:
             rows: dict[str, Any] = {}
             for mood in HORIZON_SHOTS:
                 when = by_name[mood].when_utc.replace(year=at.year, month=at.month, day=at.day)
                 sun = self.sun_at(when)
-                look = look_for(sun, preset)
+                look = weather_look(sun, preset, weather)
                 rgb, _frame, info = self.frame(
-                    f"mood_{mood}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
+                    f"mood{tag}_{mood}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
                     registry=registry, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg),
                     baked=True)
                 rows[mood] = {"sun_elev": round(sun.elevation_deg, 2), "night": look.night,
@@ -751,8 +770,11 @@ class Board:
             rows["night_over_noon"] = {
                 "luminance": round(night["mean_luminance"] / noon["mean_luminance"], 4),
                 "luma": round(night["mean_luma"] / noon["mean_luma"], 4)}
+            rows["sunset_over_noon"] = {
+                "luminance": round(rows["sunset"]["mean_luminance"] / noon["mean_luminance"], 4)}
             out[preset] = rows
-            self.log("moods", preset=preset, **rows["night_over_noon"])
+            self.log("moods", weather=weather, preset=preset, **rows["night_over_noon"],
+                     sunset_over_noon=rows["sunset_over_noon"]["luminance"])
             self.write()
 
     # ── truth probes ─────────────────────────────────────────────────────────
@@ -869,17 +891,11 @@ class Board:
     def horizon(self, shots: list[BoardShot], presets: list[str], weather: str = "clear") -> None:
         """Gate G5: the fogged meadow meets the sky — per mood, per preset, looking away
         from the sun and across it (the sun itself is never in the bands). ``weather``
-        (L5): under ``living_look`` of that weather, its rain or snow left out (the
-        probe reads the fog against the sky, not the streaks)."""
-        from open_garden_planner.core.scene3d.weather import living_look
+        (L5): under that weather's look (``weather_look``)."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
         def look_of(sun: Any, preset: str) -> LookSpec:
-            if weather == "clear":
-                return look_for(sun, preset)
-            look = living_look(sun, preset, weather)
-            return replace(look, atmosphere=replace(look.atmosphere, precipitation="none",
-                                                    precip_density=0.0))
+            return weather_look(sun, preset, weather)
 
         tag = "" if weather == "clear" else f"_{weather}"
         by_name = {shot.name: shot for shot in shots}
@@ -982,12 +998,13 @@ class Board:
                 self.log("far_plan", **row)
                 self.write()
 
-    def dusk(self, shots: list[BoardShot], presets: list[str]) -> None:
+    def dusk(self, shots: list[BoardShot], presets: list[str], weather: str = "clear") -> None:
         """Day into night on ONE camera and ONE date (the golden-hour shot's): the plan's
         own suns of that evening, found by elevation (``DUSK_ELEVATIONS``). The light
         must fade — the mean luminance never rises from 6° to −7° — and crossing sunset
         (0.6° → 0.4°, where the key light leaves as the 2D shadows do) is no larger a
-        step than the largest half degree of the day ramp before it (6° … 0.6°)."""
+        step than the largest half degree of the day ramp before it (6° … 0.6°).
+        ``weather`` (L5, ``--living``): the same evening under that weather's look."""
         from open_garden_planner.core.scene3d.builders import production_registry
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
@@ -1003,17 +1020,18 @@ class Board:
                 if target not in found and sun.elevation_deg <= target:
                     found[target] = (moment, sun)
             moment += timedelta(seconds=20)
+        tag = "" if weather == "clear" else f"_{weather}"
         out: dict[str, Any] = {}
-        self.metrics["dusk"] = out
+        self.metrics[f"dusk{tag}"] = out
         for preset in presets:
             rows = []
             for target in DUSK_ELEVATIONS:
                 if target not in found:
                     continue
                 moment, sun = found[target]
-                look = look_for(sun, preset)
+                look = weather_look(sun, preset, weather)
                 rgb, _frame, info = self.frame(
-                    f"dusk_{target:+.1f}_{preset}", records, sun=sun, look=look,
+                    f"dusk{tag}_{target:+.1f}_{preset}", records, sun=sun, look=look,
                     ground=self.plan_ground(), registry=registry,
                     shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg))
                 rows.append({"target": target, "utc": moment.isoformat(),
@@ -1037,7 +1055,8 @@ class Board:
                            "monotone": not rises,
                            "day_ramp_max_step": round(max(day_steps), 5) if day_steps else None,
                            "sunset_step": None if crossing is None else round(crossing, 5)}
-            self.log("dusk", preset=preset, monotone=not rises, sunset_step=out[preset]["sunset_step"],
+            self.log("dusk", weather=weather, preset=preset, monotone=not rises,
+                     sunset_step=out[preset]["sunset_step"],
                      day_ramp_max_step=out[preset]["day_ramp_max_step"])
             self.write()
 
@@ -1343,9 +1362,13 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
         board.shoot(shots, presets)
     if args.living:
         board.living(presets)
-        if args.horizon:     # the cloudy skies' horizon, gated like the clear one
-            for weather in HORIZON_WEATHERS:
+        for weather in HORIZON_WEATHERS:   # the cloudy skies, probed like the clear one
+            if args.horizon:
                 board.horizon(default_shots(board.width, board.depth), presets, weather)
+            if args.moods:
+                board.mood_strip(default_shots(board.width, board.depth), presets, weather)
+            if args.dusk:
+                board.dusk(default_shots(board.width, board.depth), presets, weather)
     if args.analysis:
         board.analysis(shots, presets)
     if args.moods:

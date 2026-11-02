@@ -99,8 +99,9 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     # barrel, a standpipe tap, an A-frame swing's top beam, a hammock stand's hooks,
     # a pergola's rafters. The 2D model extrudes the whole footprint as a solid
     # prism (`ui/canvas/footprints.item_footprints`), so an open frame — a swing,
-    # a hammock, a pergola — shades its whole footprint in 2D, as a picket fence
-    # casts a solid strip: accepted by the owner, ADR-042's #308 note superseded.
+    # a hammock, a pergola — shades its whole footprint in 2D: accepted by the owner,
+    # ADR-042's #308 note superseded. (A picket fence did too, until #440 weighted
+    # fences by their transmittance; the open frames' is #698.)
     "PARASOL": 250.0,
     "FIRE_PIT": 30.0,
     "PLANTER_POT": 50.0,
@@ -113,8 +114,8 @@ DEFAULT_HEIGHTS_CM: dict[str, float] = {
     # Garden lights (Phase 17 L5.4, #389): a lantern's cap on its post, and the tops
     # of a string's two posts. The 2D model extrudes a string's whole footprint as a
     # SOLID strip — like every open object without a porosity model (pergola, swing,
-    # hammock, trellis); #440 gave fences and buildings one, the lights have none yet:
-    # a string's 3D shadow is 2 % of that strip (ADR-070; owner question, #698).
+    # hammock, trellis); #440 gave one to fences only, the lights have none yet: a
+    # string's 3D shadow is 2 % of that strip (ADR-070; owner question, #698).
     "GARDEN_LIGHT": 110.0,
     "STRING_LIGHTS": 250.0,
 }

@@ -17,7 +17,6 @@ from open_garden_planner.core.phenology import (
     evaluate_phenology_batch,
     evaluate_phenology_for_records,
     plan_latitude,
-    plan_place,
     seasonal_day_of_year,
     seasonal_month,
 )
@@ -55,6 +54,7 @@ from open_garden_planner.core.scene3d import (
     Transform,
     verify_builder,
 )
+from open_garden_planner.core.solar import plan_place
 from open_garden_planner.ui.view3d.forge_worker import ForgeWorker
 from tests.perf.test_scene3d_snapshot_budget import budget_factor, traced
 
@@ -420,9 +420,10 @@ def test_fruit_ripeness_tint_changes_while_the_plant_is_also_flowering():
 ], ids=["south", "equator", "north", "no-longitude", "none", "empty", "text", "bool", "nan",
         "inf", "beyond", "hostile", "overflow"])
 def test_one_latitude_reader_for_the_3d_view(location: object, expected: float) -> None:
-    """THE plan latitude the 3D view's phenology, the garden's life and the look's
-    hemisphere all read (senior review of L5: three readers, one checking for NaN) —
-    a finite latitude in [-90, 90], else the default."""
+    """The plan latitude the 3D view's phenology, the garden's life and the look's
+    hemisphere read (senior review of L5: three readers, one checking for NaN): the
+    latitude of a valid ``plan_place`` — both coordinates real, finite, in range — else
+    the default (so a location without a longitude is no place either)."""
     assert plan_latitude(location) == expected
 
 
