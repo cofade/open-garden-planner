@@ -4,8 +4,8 @@ Pure stdlib (math + datetime only) — deliberately Qt-free so it can be
 unit-tested in isolation and consumed by both the 2D shadow overlay
 (US-E3) and the 3D view's sun light (US-E6) without pulling in any UI.
 
-It also holds ``plan_place``, the ONE validity rule for a plan's location (Phase 17 L5,
-ADR-070): the readers of a place import it from here, next to the code that uses one.
+It also holds ``plan_place``, the validity rule for a plan's location that the Phase 17 L5
+readers share (ADR-070); the older readers still apply their own (#697).
 
 Implements the NOAA "General Solar Position Calculations" algorithm (the
 NOAA solar-calculator spreadsheet formulas, themselves condensed from

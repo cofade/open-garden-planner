@@ -895,7 +895,6 @@ class Board:
         (L5): under that weather's look (``weather_look``)."""
         from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
 
-
         tag = "" if weather == "clear" else f"_{weather}"
         by_name = {shot.name: shot for shot in shots}
         out: dict[str, Any] = {}
@@ -916,7 +915,8 @@ class Board:
                                 self.depth / 2.0 + math.cos(bearing) * 1000.0, 165.0),
                         fov_deg=40.0, size=self.size)
                     rgb, _frame, info = self.frame(
-                        f"horizon{tag}_{mood}_{label}_{preset}", {}, sun=sun, look=weather_look(sun, preset, weather),
+                        f"horizon{tag}_{mood}_{label}_{preset}", {}, sun=sun,
+                        look=weather_look(sun, preset, weather),
                         ground=self.plan_ground(),
                         shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg), baked=True)
                     row[label] = {**probes.horizon_step(rgb, camera), "file": info["file"]}

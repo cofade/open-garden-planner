@@ -199,7 +199,7 @@ def test_dataclass_is_frozen():
         pos.elevation_deg = 0.0  # type: ignore[misc]
 
 
-# ── a plan's place (L5, ADR-070) ──────────────────────────────────────────────
+# ── a plan's place (L5, ADR-070) — a validity rule, not a solar number ────────
 
 
 @pytest.mark.parametrize(("location", "expected"), [
@@ -223,7 +223,4 @@ def test_one_validity_rule_for_a_plans_place(location: object, expected: object)
     L5: a hand-edited plan fetched Sydney's weather under a northern sky, and latitude
     1000 went to Open-Meteo). One rule now: real numbers, finite, in range — else no
     place, never an exception in a ``location_changed`` slot."""
-    assert plan_place(location) == expected
-    from open_garden_planner.core.phenology import DEFAULT_LATITUDE_DEG, plan_latitude
-
-    assert plan_latitude(location) == (expected[0] if expected else DEFAULT_LATITUDE_DEG)
+    assert plan_place(location) == expected   # plan_latitude's default: test_phenology.py

@@ -500,7 +500,8 @@ def test_a_light_member_of_a_rotated_symbol_lights_and_survives_save(qtbot, monk
     kinds = {getattr(child, "object_type", None) for child in symbol.childItems()}
     assert {ObjectType.STRING_LIGHTS, ObjectType.GARDEN_LIGHT} <= kinds
     before = lights(scene)
-    assert before != unrotated, "the symbol's rotation reaches its members' bulbs"
+    assert all(turned != flat for (_kind, turned), (_same, flat)
+               in zip(before, unrotated, strict=True)), "the rotation reaches EACH light's bulbs"
     assert [kind for kind, _bulbs in before] == ["GARDEN_LIGHT", "STRING_LIGHTS"]
     assert all(len(bulbs) >= 1 for _kind, bulbs in before)
     with tempfile.TemporaryDirectory() as folder:

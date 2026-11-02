@@ -6066,10 +6066,8 @@ only, and correct their heights with a fit after the fact.
   shade behind a chain-link fence where the 3D fence lets more than four fifths of the sun
   through; **(3) gable against prism** — 2D extrudes a building's footprint flat-topped to its
   ridge height; **(4) taper and leaf shell** — a pot narrows to its foot, a hedge's block is its
-  footprint drawn in by 4 cm. Before #440 only the prisms (raised bed, box, plain panel), the
-  two hedges and the round tub met IoU 0.85 at all three elevations; no building, no terracotta
-  pot, no wall and no styled fence did. Since #440 reasons (2) and (3) no longer hold for the
-  analysis: a styled fence is weighted by its transmittance, and a pitched building's roof and
+  footprint drawn in by 4 cm. Which rows meet IoU 0.85 is the table's to say, not a sentence's.
+  Since #440 reasons (2) and (3) no longer hold for the analysis: a styled fence is weighted by its transmittance, and a pitched building's roof and
   walls are projected — the gabled, hip and single-slope houses in the table above read IoU 1.00
   and a reach of 0.0. The analysis — overlay and heatmap — stays the 2D
   model's, draped onto the 3D ground (ADR-048, the scope note of criterion 8); the 3D shadow is
@@ -6081,18 +6079,18 @@ only, and correct their heights with a fit after the fact.
   (raised bed and box −0.6 cm: the top edge's bevel; the plain panel 0.0), the pots (−0.6 and
   −0.5 cm: the rim's bevel) and the post fences (picket +2.0 to +2.4, metal +0.8, chain link
   +1.5 cm: a post is wider than the stroke). The hedge polygons pass the 2D tip by 2.7–4.4 cm
-  (leaf tips). *Did not agree before #440 — (a) and (b); #440 projects the roof and walls, and
-  the table's pitched houses now agree at a reach of 0.0:* **(a) a gabled building with the sun
-  square to its ridge.** The 2D model extruded the whole footprint to the ridge height, so its highest edge is at the FAR
-  WALL; a gable's ridge is mid-house. At a low sun the ridge casts the tip and the 3D shadow is
-  exactly half the depth short — 270 cm on the 5.4 m deep house, 150 cm on the 3 m shed; at a
-  high sun the far eave casts it (lower, but half the depth plus the overhang further out) and
-  the miss shrinks to 108 cm and 21 cm at 60°. The roof is right (it is on the live ridge, the
-  2D canvas's own line); the difference is the 2D model's flat-topped prism, and it is not a
-  roof to "fix". **(b) The same building with the sun along its ridge:** the 30 cm overhang
-  carries the ridge height past the gable wall, +30 cm. **(c) Nominal sections:** a wall's
-  coping edge stands 17 cm from the centre line where the 4 cm stroke's edge stands at 2, so
-  its tip lies 15 cm further (stone-wall fence +14.5, hedge fence +19.5). An earlier version of
+  (leaf tips). *Did not agree until #440 (cc2b3eb7's `DOCUMENTED`), which projects a pitched
+  roof and its walls — the table's pitched houses now read a reach of 0.0:* **(a) a gabled
+  building with the sun square to its ridge.** The 2D model extruded the whole footprint to the
+  ridge height, so its highest edge was at the FAR WALL; a gable's ridge is mid-house. At a low
+  sun the ridge cast the tip and the 3D shadow was exactly half the depth short — 270 cm on the
+  5.4 m deep house, 150 cm on the 3 m shed; at a high sun the far eave cast it and the miss
+  shrank to 108 cm and 21 cm at 60°. The roof was right; the difference was the 2D model's
+  flat-topped prism, which #440 replaced. **(b) The same building with the sun along its
+  ridge:** the 30 cm overhang carried the ridge height past the gable wall, +30 cm. *Still do
+  not agree:* **(c) Nominal sections:** a wall's coping edge stands 17 cm from the centre line
+  where the 4 cm stroke's edge stands at 2, so its tip lies 15 cm further (stone-wall fence
+  +14.5, hedge fence +19.5). An earlier version of
   this paragraph claimed the opposite of (a)–(c) in one universal sentence; **no sentence about
   shadows goes next to the gate unless the script prints the number behind it.**
 

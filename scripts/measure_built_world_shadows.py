@@ -29,11 +29,11 @@ is what each costs:
   hedge fence — a wider shadow, more so at a high sun;
 * a PICKET, METAL or CHAIN-LINK fence is mostly air: its 3D shadow is the bars'
   and wires', a fraction of the solid strip the 2D model casts;
-* a HOUSE or shed has a gable roof where 2D extrudes a flat-topped prism to the
-  ridge height — less shadow square to the ridge, and eaves that overhang. The
-  2D prism's top edge is at the FAR WALL, the gable's ridge is mid-house: with the
-  sun square to the ridge the 3D tip is short by up to half the depth minus the
-  overhang (270 cm less 30 on a 5.4 m deep house);
+* a HOUSE or shed has a gable roof: before #440 the 2D model extruded a flat-topped
+  prism to the ridge height (its top edge at the FAR WALL, the gable's ridge
+  mid-house: the 3D tip was short by up to half the depth minus the overhang, 270 cm
+  less 30 on a 5.4 m deep house); #440 projects the roof and its walls, and the
+  pitched houses read a reach of 0.0;
 * a POT tapers and a hedge is a leaf shell drawn in from its outline.
 
 A raised bed and a box are prisms in both: IoU 1.00, reach equal. A plain panel
