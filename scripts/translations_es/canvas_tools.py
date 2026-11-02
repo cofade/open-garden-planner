@@ -26,9 +26,21 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     },
     'BackgroundImageItem': {
         'Calibrate Scale...': 'Calibrar escala...',
+        'Failed to load image from embedded data': (
+            'No se pudo cargar la imagen desde los datos incrustados'
+        ),
+        'Failed to load image: {path}': 'No se pudo cargar la imagen: {path}',
+        'Failed to encode the background image as PNG': (
+            'No se pudo codificar la imagen de fondo como PNG'
+        ),
         'Lock Image': 'Bloquear imagen',
         'Remove Image': 'Quitar imagen',
         'Set Opacity ({pct}%)...': 'Establecer opacidad ({pct}%)...',
+        'This image is {megapixels} megapixels and needs about {megabytes} MB '
+        'of memory. Background images are limited to {limit} megapixels.': (
+            'Esta imagen tiene {megapixels} megapíxeles y necesita unos {megabytes} MB '
+            'de memoria. Las imágenes de fondo están limitadas a {limit} megapíxeles.'
+        ),
         'Unlock Image': 'Desbloquear imagen',
     },
     'BedActions': {

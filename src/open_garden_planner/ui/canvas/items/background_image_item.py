@@ -2,12 +2,47 @@
 
 Displays an imported image (satellite photo, etc.) that can be calibrated
 to real-world scale.
+
+Large site plans
+----------------
+Qt refuses to decode an image whose *decoded* size exceeds its process-wide
+allocation limit (256 MB by default), so a 9000 x 8000 RGBA PNG — a 294 kB
+file — fails to load even on a machine with plenty of memory (#659).
+:data:`DECODE_ALLOCATION_LIMIT_MB` raises that limit for the duration of one
+background decode only. The item then keeps the pixmap twice (the original for
+serialization plus the vertically flipped copy it paints), which is why
+:data:`MAX_BACKGROUND_PIXELS` bounds the accepted size rather than the decoded
+bytes alone.
+
+The embedded PNG is encoded once and reused (#660): a project snapshot is taken
+on every Agent API read and every autosave, and re-encoding a 72-megapixel
+background costs about 1.2 s of main-thread time per read for unchanged bytes.
 """
 
 import base64
+import logging
+import math
+from collections.abc import Iterator
+from contextlib import contextmanager
 
-from PyQt6.QtCore import QBuffer, QByteArray, QCoreApplication, QIODevice, QPointF, Qt
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QPixmap, QTransform
+from PyQt6.QtCore import (
+    QBuffer,
+    QByteArray,
+    QCoreApplication,
+    QIODevice,
+    QPointF,
+    QSize,
+    Qt,
+)
+from PyQt6.QtGui import (
+    QColor,
+    QFont,
+    QImageReader,
+    QPainter,
+    QPen,
+    QPixmap,
+    QTransform,
+)
 from PyQt6.QtWidgets import (
     QGraphicsItem,
     QGraphicsPixmapItem,
@@ -17,6 +52,135 @@ from PyQt6.QtWidgets import (
 )
 
 from open_garden_planner.core.plan_io import PlanValidationError, finite_number
+
+logger = logging.getLogger(__name__)
+
+# Decoded-size allowance for ONE background decode, in MB. Qt's default is 256,
+# which rejects any image over ~67 megapixels at RGBA8 — below a real site plan
+# (the reported case is 9917 x 7009: 278 MB, 265 MiB, decoded). #659.
+DECODE_ALLOCATION_LIMIT_MB = 512
+
+# Accepted pixel count of a background. The item holds the decoded pixmap twice
+# (original + flipped copy), so this caps one copy at ~458 MiB and a loaded
+# background at ~916 MiB. The largest real site plan seen is 69.5 MP. A 16-bit
+# source over ~67 MP can still exceed the decoder budget above; that failure is
+# reported by the generic load message rather than this cap.
+MAX_BACKGROUND_PIXELS = 120_000_000
+
+
+@contextmanager
+def _decode_budget(limit_mb: int = DECODE_ALLOCATION_LIMIT_MB) -> Iterator[None]:
+    """Permit a decoded image up to ``limit_mb`` MB for the duration of the block.
+
+    ``QImageReader.setAllocationLimit`` is a process-wide static, not a per-reader
+    setting, so the previous value is restored in ``finally``. A raise that leaked
+    would let every later decode in the application allocate more than it should.
+    Zero means *disabled*; Qt ignores a negative argument and ``allocationLimit()``
+    never returns one, so 0 is the only sentinel to special-case. A budget that is
+    already disabled or already larger is left untouched rather than narrowed.
+    Every caller runs on the GUI thread — the import action, plan load and the
+    satellite import — so the widened window is not observable by another decode.
+    """
+    previous = QImageReader.allocationLimit()
+    raised = 0 < previous < limit_mb
+    if raised:
+        QImageReader.setAllocationLimit(limit_mb)
+    try:
+        yield
+    finally:
+        if raised:
+            QImageReader.setAllocationLimit(previous)
+
+
+def _check_image_size(size: QSize) -> None:
+    """Refuse a background larger than :data:`MAX_BACKGROUND_PIXELS`.
+
+    The probe reads the image header only, so an oversized file is refused
+    before the decoder allocates anything. A format that cannot report its size
+    is left to the decoder's own allocation limit (the outer backstop).
+    """
+    if not size.isValid():
+        return
+    pixels = size.width() * size.height()
+    if pixels <= MAX_BACKGROUND_PIXELS:
+        return
+    # Round the measured size UP: a 120.05 MP image formatted with one decimal
+    # would otherwise read "120.0 megapixels ... limited to 120", i.e. refused
+    # for exceeding a limit it appears to equal. The limit takes the same
+    # rounding so the two figures cannot disagree if the constant ever changes.
+    def megapixels(px: int) -> float:
+        return math.ceil(px / 100_000) / 10
+
+    raise ValueError(
+        QCoreApplication.translate(
+            "BackgroundImageItem",
+            "This image is {megapixels} megapixels and needs about {megabytes} MB "
+            "of memory. Background images are limited to {limit} megapixels.",
+        ).format(
+            megapixels=f"{megapixels(pixels):.1f}",
+            # The item keeps the decoded pixmap twice (original + flipped copy);
+            # reporting one copy would understate the cost of what is being refused.
+            megabytes=pixels * 8 // 1_000_000,
+            limit=f"{megapixels(MAX_BACKGROUND_PIXELS):.1f}",
+        )
+    )
+
+
+def _load_pixmap_from_file(image_path: str) -> QPixmap:
+    """Decode a background image from disk under the raised allocation budget."""
+    with _decode_budget():
+        _check_image_size(QImageReader(image_path).size())
+        pixmap = QPixmap(image_path)
+    if pixmap.isNull():
+        raise ValueError(
+            QCoreApplication.translate(
+                "BackgroundImageItem", "Failed to load image: {path}"
+            ).format(path=image_path)
+        )
+    return pixmap
+
+
+def _load_pixmap_from_data(data: bytes) -> QPixmap:
+    """Decode an embedded background image under the raised allocation budget."""
+    payload = QByteArray(data)
+    with _decode_budget():
+        buffer = QBuffer()
+        buffer.setData(payload)
+        buffer.open(QIODevice.OpenModeFlag.ReadOnly)
+        try:
+            _check_image_size(QImageReader(buffer).size())
+        finally:
+            buffer.close()
+        pixmap = QPixmap()
+        loaded = pixmap.loadFromData(payload)
+    if not loaded or pixmap.isNull():
+        raise ValueError(
+            QCoreApplication.translate(
+                "BackgroundImageItem", "Failed to load image from embedded data"
+            )
+        )
+    return pixmap
+
+
+def _encode_png_base64(pixmap: QPixmap) -> str:
+    """Encode a pixmap as a base64 PNG for embedding in the project file."""
+    buf = QBuffer()
+    buf.open(QIODevice.OpenModeFlag.WriteOnly)
+    saved = pixmap.save(buf, "PNG")
+    encoded = base64.b64encode(bytes(buf.data())).decode("ascii")
+    buf.close()
+    if not saved:
+        # Internal invariant, not user input: an unencodable pixmap must fail the
+        # save loudly rather than write an empty image_data that reloads as a
+        # placeholder (the data-loss shape AUD-043 exists to prevent). Translated
+        # because the app's save-error dialog shows str(error) (application.py).
+        raise RuntimeError(
+            QCoreApplication.translate(
+                "BackgroundImageItem",
+                "Failed to encode the background image as PNG",
+            )
+        )
+    return encoded
 
 
 class BackgroundImageItem(QGraphicsPixmapItem):
@@ -60,6 +224,9 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         self._geo_metadata: dict | None = geo_metadata
         self._is_placeholder: bool = _placeholder
         self._raw_dict: dict | None = _raw_dict
+        # Encoded-once cache for to_dict(); see _cached_png_base64 (#660).
+        self._encoded_png_b64: str | None = None
+        self._encoded_png_cache_key: int = 0
 
         if _placeholder:
             w = 300
@@ -84,14 +251,9 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         else:
             # Load the image — either from embedded bytes or from disk path
             if _pixmap_data is not None:
-                self._original_pixmap = QPixmap()
-                self._original_pixmap.loadFromData(QByteArray(_pixmap_data))
-                if self._original_pixmap.isNull():
-                    raise ValueError("Failed to load image from embedded data")
+                self._original_pixmap = _load_pixmap_from_data(_pixmap_data)
             else:
-                self._original_pixmap = QPixmap(image_path)
-                if self._original_pixmap.isNull():
-                    raise ValueError(f"Failed to load image: {image_path}")
+                self._original_pixmap = _load_pixmap_from_file(image_path)
 
         # Derive the scale from geo metadata so the satellite image is true-to-life.
         # 1 cm = 0.01 m → px_per_cm = 0.01 / meters_per_pixel.
@@ -228,21 +390,20 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         when loading if ``image_data`` is present.
         If in placeholder mode, the original raw dictionary is preserved so that
         saving doesn't lose the missing image's metadata or image reference (AUD-043).
+
+        The encoded payload is cached (#660): callers take a snapshot on every
+        Agent API read and every autosave, and the bytes cannot change without
+        the pixmap changing.
         """
         if getattr(self, "_is_placeholder", False) and getattr(self, "_raw_dict", None):
             res = self._raw_dict.copy()
             res["position"] = {"x": self.pos().x(), "y": self.pos().y()}
             return res
 
-        buf = QBuffer()
-        buf.open(QIODevice.OpenModeFlag.WriteOnly)
-        self._original_pixmap.save(buf, "PNG")
-        image_data_b64 = base64.b64encode(bytes(buf.data())).decode("ascii")
-        buf.close()
         data: dict = {
             "type": "background_image",
             "image_path": self._image_path,
-            "image_data": image_data_b64,
+            "image_data": self._cached_png_base64(),
             "position": {"x": self.pos().x(), "y": self.pos().y()},
             "opacity": self._opacity,
             "locked": self._locked,
@@ -251,6 +412,20 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         if self._geo_metadata is not None:
             data["geo_metadata"] = self._geo_metadata
         return data
+
+    def _cached_png_base64(self) -> str:
+        """Return the embedded base64 PNG, encoding at most once per revision.
+
+        ``QPixmap.cacheKey()`` changes whenever the pixmap's contents change, so
+        the cache can never outlive the pixels it was made from — including for
+        a future "replace image" action. Called on the GUI thread only, like
+        every other member of the item.
+        """
+        cache_key = self._original_pixmap.cacheKey()
+        if self._encoded_png_b64 is None or self._encoded_png_cache_key != cache_key:
+            self._encoded_png_b64 = _encode_png_base64(self._original_pixmap)
+            self._encoded_png_cache_key = cache_key
+        return self._encoded_png_b64
 
     @classmethod
     def from_dict(cls, data: dict) -> "BackgroundImageItem":
@@ -261,7 +436,9 @@ class BackgroundImageItem(QGraphicsPixmapItem):
         Honors a saved ``geo_metadata`` block (present for satellite imports);
         older projects without one keep loading unchanged.
         If image file loading or decoding fails, returns a placeholder item
-        that preserves data on re-save (AUD-043).
+        that preserves data on re-save (AUD-043). The refusal reason is logged:
+        an image above the size cap otherwise degrades to a dashed
+        "[Missing Image: ...]" box with nothing in the log to explain why.
         """
         image_path = data.get("image_path", "")
         geo_metadata = data.get("geo_metadata")
@@ -278,7 +455,13 @@ class BackgroundImageItem(QGraphicsPixmapItem):
                 item = cls(image_path, geo_metadata=geo_metadata)
         except PlanValidationError:
             raise
-        except Exception:
+        except Exception as error:
+            logger.warning(
+                "Background image could not be decoded; loading a placeholder "
+                "that keeps its data on re-save: path=%r reason=%s",
+                image_path,
+                error,
+            )
             item = cls(
                 image_path,
                 geo_metadata=geo_metadata,

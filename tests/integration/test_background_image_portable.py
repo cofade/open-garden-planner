@@ -8,14 +8,16 @@ Verifies that:
 """
 
 
+import base64
 import json
 from pathlib import Path
 
 import pytest
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QColor, QImage, QImageReader, QPixmap
 
 from open_garden_planner.core.project import ProjectManager
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.items import background_image_item
 from open_garden_planner.ui.canvas.items.background_image_item import BackgroundImageItem
 
 
@@ -150,3 +152,93 @@ class TestBackgroundImagePortability:
             "Missing background image must load as placeholder, not be dropped"
         )
         assert bg_items[0].is_placeholder is True
+
+
+def _write_png(path: Path, width: int, height: int) -> Path:
+    """Write a solid-colour PNG of the given pixel size."""
+    image = QImage(width, height, QImage.Format.Format_RGBA8888)
+    image.fill(QColor(120, 140, 110))
+    assert image.save(str(path), "PNG")
+    return path
+
+
+class TestLargeBackgroundImages:
+    """#659 / #660: site-plan-sized backgrounds import, reopen and read cheaply."""
+
+    def test_a_background_above_the_process_decode_budget_reloads(
+        self, qtbot, tmp_path: Path
+    ) -> None:
+        """A plan whose image exceeds the decode budget must not reopen as a placeholder.
+
+        A 2000 x 2000 RGBA image is 16 MB decoded, so a 4 MB process budget puts
+        it over the limit exactly as Qt's 256 MB default does to the reported
+        9000 x 8000 site plan, without allocating 275 MiB per copy here (#659).
+        """
+        source = _write_png(tmp_path / "site_plan.png", 2000, 2000)
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        scene.addItem(BackgroundImageItem(str(source)))
+        save_path = tmp_path / "large_background.ogp"
+        ProjectManager().save(scene, save_path)
+        source.unlink()  # portable file: the source path is only a hint
+
+        previous = QImageReader.allocationLimit()
+        QImageReader.setAllocationLimit(4)
+        try:
+            # Plain Qt refuses the embedded payload at this budget: without that
+            # precondition the test would pass even if the limit were never in force.
+            embedded = base64.b64decode(
+                next(
+                    obj["image_data"]
+                    for obj in json.loads(save_path.read_text(encoding="utf-8"))["objects"]
+                    if obj.get("type") == "background_image"
+                )
+            )
+            assert QPixmap().loadFromData(embedded) is False, (
+                "precondition: plain Qt refuses this payload at a 4 MB budget"
+            )
+            fresh_scene = CanvasScene(width_cm=5000, height_cm=3000)
+            ProjectManager().load(fresh_scene, save_path)
+        finally:
+            QImageReader.setAllocationLimit(previous)
+
+        bg_items = [
+            item for item in fresh_scene.items() if isinstance(item, BackgroundImageItem)
+        ]
+        assert len(bg_items) == 1
+        assert bg_items[0].is_placeholder is False, (
+            "an image above the process decode budget must reload, not degrade"
+        )
+        assert bg_items[0].image_size_pixels() == (2000, 2000)
+
+    def test_repeated_plan_reads_encode_the_background_once(
+        self, qtbot, png_image: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Every Agent API read takes a snapshot; the embedded PNG is encoded once."""
+        scene = CanvasScene(width_cm=5000, height_cm=3000)
+        scene.addItem(BackgroundImageItem(str(png_image)))
+        project = ProjectManager()
+
+        calls: list[int] = []
+        real_encode = background_image_item._encode_png_base64
+
+        def counting_encode(pixmap: QPixmap) -> str:
+            calls.append(pixmap.cacheKey())
+            return real_encode(pixmap)
+
+        monkeypatch.setattr(background_image_item, "_encode_png_base64", counting_encode)
+
+        first = project.snapshot_dict(scene)
+        second = project.snapshot_dict(scene)
+
+        assert len(calls) == 1, "two plan reads must encode the background once"
+        first_bg = [o for o in first["objects"] if o.get("type") == "background_image"][0]
+        second_bg = [o for o in second["objects"] if o.get("type") == "background_image"][0]
+        assert first_bg["image_data"] == second_bg["image_data"]
+        assert first_bg["image_data"] is second_bg["image_data"], (
+            "an unchanged background must not be re-encoded for each plan read"
+        )
+        # The snapshot still round-trips into a real item.
+        restored = BackgroundImageItem.from_dict(first_bg)
+        assert restored.is_placeholder is False
+        assert not restored.pixmap().isNull()
+
