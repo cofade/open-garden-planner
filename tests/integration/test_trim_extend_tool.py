@@ -17,6 +17,10 @@ from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
 from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
 from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+from open_garden_planner.ui.canvas.roof_ridge_link import (
+    build_linked_ridge,
+    linked_ridge,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -333,6 +337,52 @@ class TestTrimPolygon:
 
         assert sq in _items_of(canvas, PolygonItem)
 
+    def test_trimming_a_house_removes_its_ridge_and_undo_restores_it(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """A house trimmed into an open fence has no roof, so no ridge.
+
+        The trim replaces the shape but keeps its UUID (inherit_item_identity),
+        which also copied ``ridge_item_id`` — the ridge survived as an orphan
+        (round-5 review of #690).
+        """
+        house = PolygonItem(
+            [
+                QPointF(100, 100),
+                QPointF(900, 100),
+                QPointF(900, 900),
+                QPointF(100, 900),
+            ],
+            object_type=ObjectType.HOUSE,
+        )
+        canvas.scene().addItem(house)
+        ridge = build_linked_ridge(house, house.layer_id)
+        assert ridge is not None
+        canvas.scene().addItem(ridge)
+        _add_polyline(canvas, [QPointF(300, 0), QPointF(300, 200)])
+        _add_polyline(canvas, [QPointF(700, 0), QPointF(700, 200)])
+
+        canvas.set_active_tool(ToolType.TRIM_EXTEND)
+        tool = canvas.tool_manager.active_tool
+        event = _left_click_event()
+
+        tool.mouse_move(event, QPointF(500, 100))
+        tool.mouse_press(event, QPointF(500, 100))
+
+        assert house.scene() is None
+        assert ridge.scene() is None, "the trimmed house left an orphaned ridge"
+        replacement = next(
+            item
+            for item in _items_of(canvas, PolylineItem)
+            if item.item_id == house.item_id
+        )
+        assert "ridge_item_id" not in replacement.metadata
+
+        canvas.command_manager.undo()
+        assert house.scene() is canvas.scene()
+        assert ridge.scene() is canvas.scene()
+        assert linked_ridge(house) is ridge
+
 
 # ---------------------------------------------------------------------------
 # Rectangle trim
@@ -378,6 +428,41 @@ class TestTrimRectangle:
         canvas.command_manager.undo()
 
         assert rect in _items_of(canvas, RectangleItem)
+
+    def test_trimming_a_house_rectangle_removes_its_ridge_too(
+        self, canvas: CanvasView, qtbot: object
+    ) -> None:
+        """The rectangle path replaced the shape the same way — and kept the
+        ridge link the same way (round-5 review of #690)."""
+        rect = RectangleItem(
+            100, 100, 800, 800, object_type=ObjectType.HOUSE
+        )
+        canvas.scene().addItem(rect)
+        ridge = build_linked_ridge(rect, rect.layer_id)
+        assert ridge is not None
+        canvas.scene().addItem(ridge)
+        _add_polyline(canvas, [QPointF(300, 0), QPointF(300, 200)])
+        _add_polyline(canvas, [QPointF(700, 0), QPointF(700, 200)])
+
+        canvas.set_active_tool(ToolType.TRIM_EXTEND)
+        tool = canvas.tool_manager.active_tool
+        event = _left_click_event()
+
+        tool.mouse_move(event, QPointF(500, 100))
+        tool.mouse_press(event, QPointF(500, 100))
+
+        assert rect.scene() is None
+        assert ridge.scene() is None
+        replacement = next(
+            item
+            for item in _items_of(canvas, PolylineItem)
+            if item.item_id == rect.item_id
+        )
+        assert "ridge_item_id" not in replacement.metadata
+
+        canvas.command_manager.undo()
+        assert rect.scene() is canvas.scene()
+        assert ridge.scene() is canvas.scene()
 
     def test_rectangle_acts_as_cutting_edge_for_polyline(
         self, canvas: CanvasView, qtbot: object

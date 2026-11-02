@@ -3356,26 +3356,17 @@ class CanvasView(QGraphicsView):
         # Expand deletion to include associated roof ridges (metadata-linked, not
         # Qt children). The validated lookup refuses a copied/stale link, so
         # deleting a mirrored house never deletes its source's ridge.
-        from open_garden_planner.core.object_types import ObjectType
-        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            linked_ridges_under,
+        )
 
         _sel_ids = {item.item_id for item in selected if isinstance(item, GardenItemMixin)}
-
-        def _houses_in(item: QGraphicsItem):
-            if (
-                isinstance(item, GardenItemMixin)
-                and item.object_type == ObjectType.HOUSE
-            ):
-                yield item
-            for child in item.childItems():
-                yield from _houses_in(child)
 
         for _root in list(selected):
             # A group's HOUSE is a child, not a selected sibling: walk the tree
             # or deleting the group leaves the ridge behind.
-            for _item in _houses_in(_root):
-                ridge = linked_ridge(_item)
-                if ridge is not None and ridge.item_id not in _sel_ids:
+            for ridge in linked_ridges_under(_root):
+                if ridge.item_id not in _sel_ids:
                     selected.append(ridge)
                     _sel_ids.add(ridge.item_id)
 
@@ -3403,11 +3394,25 @@ class CanvasView(QGraphicsView):
             JournalPinItem,
         )
 
-        journal_pin_ids = [
-            i.note_id for i in selected if isinstance(i, JournalPinItem)
-        ]
+        def _journal_pins_in(item: QGraphicsItem):
+            if isinstance(item, JournalPinItem):
+                yield item
+            for child in item.childItems():
+                yield from _journal_pins_in(child)
+
+        # A group hides its pins from the top-level selection too: walk the
+        # tree, or deleting the group removes the pins but keeps their notes.
+        journal_pins: list[JournalPinItem] = []
+        for _root in selected:
+            for pin in _journal_pins_in(_root):
+                if pin not in journal_pins:
+                    journal_pins.append(pin)
+        journal_pin_ids = [pin.note_id for pin in journal_pins]
         regular_items = [i for i in selected if not isinstance(i, JournalPinItem)]
 
+        # Emit BEFORE the group delete so the application can still find a
+        # nested pin by note id. DeleteJournalNoteCommand sees the pin's parent
+        # and leaves placement to the group's own restore (PF-PER-25).
         if journal_pin_ids:
             self.journal_notes_batch_delete_requested.emit(journal_pin_ids)
 

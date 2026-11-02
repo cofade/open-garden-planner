@@ -185,6 +185,68 @@ class TestReviewerRegressions:
 
         assert captured == [[note.id]]
 
+    def test_delete_key_prunes_notes_for_pins_inside_a_group(
+        self, project_manager: ProjectManager, scene: CanvasScene, qtbot: object
+    ) -> None:
+        """A group hides its pins from the top-level selection.
+
+        Deleting the group removed the pins but kept their note records; the
+        batch delete now walks the tree, and undo restores the group with the
+        pin still inside it (P2 of the #674 review).
+        """
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.canvas_view import CanvasView
+        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+        note = JournalNote(date="2026-05-13", text="x", scene_x=0.0, scene_y=0.0)
+        pin = JournalPinItem(x=0.0, y=0.0, note_id=note.id)
+        other = RectangleItem(100, 100, 50, 50, layer_id=scene.active_layer.id)
+        scene.addItem(other)
+        CommandManager().execute(
+            AddJournalNoteCommand(project_manager, scene, pin, note)
+        )
+        GroupCommand(scene, [pin, other]).execute()
+        group = pin.parentItem()
+        assert group is not None
+
+        captured: list[list[str]] = []
+        view = CanvasView(scene=scene)
+
+        def delete_notes(note_ids: list[str]) -> None:
+            # The application's slot, reduced to its command execution.
+            pins = {
+                item.note_id: item
+                for item in scene.items()
+                if isinstance(item, JournalPinItem)
+            }
+            for note_id in note_ids:
+                found = pins.get(note_id)
+                if found is not None:
+                    view.command_manager.execute(
+                        DeleteJournalNoteCommand(
+                            project_manager,
+                            scene,
+                            found,
+                            remove_pin=found.parentItem() is None,
+                        )
+                    )
+
+        view.journal_notes_batch_delete_requested.connect(captured.append)
+        view.journal_notes_batch_delete_requested.connect(delete_notes)
+        group.setSelected(True)
+        view._delete_selected_items()
+
+        assert captured == [[note.id]]
+        assert note.id not in project_manager.garden_journal_notes
+        assert group.scene() is None
+
+        # Two commands: the note delete and the group delete.
+        view.command_manager.undo()
+        assert group.scene() is scene
+        assert pin.parentItem() is group, "undo lost the pin's group membership"
+        view.command_manager.undo()
+        assert note.id in project_manager.garden_journal_notes
+
     def test_save_syncs_pin_pos_into_note_dict(
         self,
         project_manager: ProjectManager,

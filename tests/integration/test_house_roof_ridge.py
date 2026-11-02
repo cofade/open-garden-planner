@@ -14,8 +14,10 @@ redo without a new UUID, and go away again when the shape stops being a HOUSE.
 from __future__ import annotations
 
 import uuid
+from unittest.mock import MagicMock
 
-from PyQt6.QtCore import QPointF
+from PyQt6.QtCore import QPoint, QPointF
+from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
 from open_garden_planner.core.commands import ChangeObjectTypeCommand
 from open_garden_planner.core.object_types import ObjectType
@@ -479,3 +481,76 @@ def test_ridge_metadata_is_a_stable_uuid_pair(qtbot) -> None:
     assert ridge is not None
     assert uuid.UUID(ridge.metadata["owner_polygon_id"]) == rect.item_id
     assert uuid.UUID(rect.metadata["ridge_item_id"]) == ridge.item_id
+
+
+def _context_event() -> MagicMock:
+    event = MagicMock(spec=QGraphicsSceneContextMenuEvent)
+    event.screenPos.return_value = QPoint(0, 0)
+    return event
+
+
+def test_context_menu_delete_removes_the_ridge_in_the_same_undo_step(
+    qtbot, monkeypatch
+) -> None:
+    """The polygon menu's Delete used ``scene.removeItem`` directly.
+
+    That bypassed the command stack *and* the ridge expansion: the house
+    vanished, its free-standing ridge stayed (round-5 review of #690).
+    """
+    scene, view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(100, 100), QPointF(500, 100), QPointF(500, 300), QPointF(100, 300)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    scene.addItem(house)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    house.setSelected(True)
+
+    def fake_exec(menu_self, *_args, **_kwargs):
+        return next(
+            (a for a in menu_self.actions() if a.text() == "Delete"), None
+        )
+
+    monkeypatch.setattr(QMenu, "exec", fake_exec)
+    house.contextMenuEvent(_context_event())
+
+    assert house.scene() is None
+    assert ridge.scene() is None, "the menu delete left the linked ridge behind"
+    assert view.command_manager.can_undo
+
+    view.command_manager.undo()
+    assert house.scene() is scene
+    assert ridge.scene() is scene
+    assert linked_ridge(house) is ridge
+
+
+def test_converted_rectangle_corner_drag_re_derives_the_ridge(qtbot) -> None:
+    """A corner drag changes ``rect()`` without moving ``pos()``.
+
+    No ``itemChange`` fires, so a converted rectangle's ridge needs its own
+    hook in ``_move_corner_to`` (round-5 review of #690).
+    """
+    from open_garden_planner.ui.canvas.items.resize_handle import RectCorner
+
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    rect._dispatch_change_type(ObjectType.HOUSE)
+    ridge = _ridge_of(rect)
+    assert ridge is not None
+    before = [QPointF(p) for p in ridge.points]
+
+    rect._move_corner_to(
+        RectCorner.BOTTOM_RIGHT,
+        QPointF(100.0, 80.0),
+        rect.rect(),
+        rect.pos(),
+    )
+
+    p1, p2 = _expected_ridge_endpoints(rect)
+    assert ridge.points[0] == p1 and ridge.points[-1] == p2
+    assert [QPointF(p) for p in ridge.points] != before, (
+        "the corner drag did not reach the ridge hook"
+    )

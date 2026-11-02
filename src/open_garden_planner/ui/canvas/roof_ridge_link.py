@@ -108,6 +108,27 @@ def build_linked_ridge(
     return ridge
 
 
+def linked_ridges_under(item: QGraphicsItem) -> list[QGraphicsItem]:
+    """Every live linked ridge of a HOUSE in *item*'s own child tree.
+
+    A group is not a HOUSE: deleting the group only names the group, so a
+    deletion path that inspects the selected wrapper alone leaves a nested
+    house's free-standing ridge behind. The walk is shared by the GUI delete
+    (``CanvasView._delete_selected_items``) and the Agent API
+    (``_do_agent_delete_object``) so the two cannot drift.
+    """
+    ridges: list[QGraphicsItem] = []
+    pending = [item]
+    while pending:
+        candidate = pending.pop()
+        if getattr(candidate, "object_type", None) == ObjectType.HOUSE:
+            ridge = linked_ridge(candidate)
+            if ridge is not None and ridge not in ridges:
+                ridges.append(ridge)
+        pending.extend(candidate.childItems())
+    return ridges
+
+
 def update_house_ridges_under(item: QGraphicsItem) -> None:
     """Re-derive the ridge of every HOUSE inside *item*'s child tree.
 

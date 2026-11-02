@@ -118,9 +118,16 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   `ui/canvas/roof_ridge_link.build_linked_ridge` — the same seam `PolygonTool` and the agent's
   `create_object` use. A converted rectangle's ridge follows the host on move, resize and rotation
   (`update_linked_ridge`, called from `itemChange`, `_apply_rotation`, the resize hook and
-  `apply_rect_like_geometry` for undo/redo). Acceptance:
-  `tests/integration/test_house_roof_ridge.py` (including the two-conversion undo/redo lineage and
-  rectangle move/resize/rotate).
+  `apply_rect_like_geometry` for undo/redo). Deleting a house or a group containing one removes
+  its ridge (menu, Delete key and agent `delete_object` share one tree walk); trimming a house
+  into an open fence removes the ridge in the same undo step; fillet/chamfer and a converted
+  rectangle's corner drag re-derive it; a mirror copy strips the inherited link and a ridge is
+  never a mirror source. Acceptance:
+  `tests/integration/test_house_roof_ridge.py` (including the two-conversion undo/redo lineage,
+  rectangle move/resize/rotate, menu delete and corner drag),
+  `tests/integration/test_trim_extend_tool.py`, `tests/integration/test_fillet_chamfer.py`,
+  `tests/integration/test_mirror_tool.py` and the grouped-house case in
+  `tests/integration/test_agent_api_default_on.py`.
 
 
 ## FR-3: Layers

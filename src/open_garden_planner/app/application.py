@@ -6281,7 +6281,12 @@ class GardenPlannerApp(QMainWindow):
             if pin is None:
                 continue
             self.canvas_view.command_manager.execute(
-                DeleteJournalNoteCommand(self._project_manager, scene, pin)
+                DeleteJournalNoteCommand(
+                    self._project_manager,
+                    scene,
+                    pin,
+                    remove_pin=pin.parentItem() is None,
+                )
             )
 
     def _on_journal_note_activated(self, note_id: str) -> None:

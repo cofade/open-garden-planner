@@ -2245,19 +2245,16 @@ class AgentHost:
 
 
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
-        """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
-        ``CanvasView._delete_selected_items``'s ``ridge_item_id`` expansion so
-        deleting a house doesn't orphan its ridge polyline."""
-        from open_garden_planner.core.object_types import ObjectType
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
+        """Every linked ``ROOF_RIDGE`` under *item* — the same tree walk as
+        ``CanvasView._delete_selected_items``. A group's HOUSE is a child, so
+        inspecting only the resolved wrapper would orphan its ridge. The
+        validated lookup refuses a copied/stale link, so the agent's
+        delete_object never removes another house's ridge."""
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            linked_ridges_under,
+        )
 
-        if not isinstance(item, GardenItemMixin) or item.object_type != ObjectType.HOUSE:
-            return []
-        # The validated lookup refuses a copied/stale link, so the agent's
-        # delete_object never removes another house's ridge.
-        ridge = linked_ridge(cast(Any, item))
-        return [ridge] if ridge is not None else []
+        return linked_ridges_under(cast(Any, item))
 
 
     def _agent_require_unconstrained(

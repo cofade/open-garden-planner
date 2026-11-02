@@ -967,7 +967,9 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         elif action == show_area_action:
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:
-            self.scene().removeItem(self)
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
         elif repeat_actions.dispatch(action, self.scene()):
             return
         elif action is not None and action in (

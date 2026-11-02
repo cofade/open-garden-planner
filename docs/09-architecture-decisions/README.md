@@ -2628,6 +2628,34 @@ has no `roof_shape` property (the issue's wording predates the current
 `roof_style` metadata, which is 3D-only and does not suppress the 2D ridge).
 Pinned by `tests/integration/test_house_roof_ridge.py`.
 
+**Addendum (ridge lifecycle, #690 review).** Every operation that removes or
+replaces a house must treat the ridge as derived geometry, not a sibling the
+user selected:
+
+- **Deletion owns the tree.** `roof_ridge_link.linked_ridges_under()` walks a
+  selected item's Qt child tree, so deleting a group removes a nested HOUSE's
+  ridge too. The GUI's Delete key, every shape's context-menu Delete (routed
+  through `CanvasView._delete_selected_items`, so it is undoable and prunes
+  constraints/journal notes) and the Agent API's `delete_object` share it.
+- **A trim that opens a house removes its roof.** Trimming a HOUSE polygon or
+  rectangle produces an open FENCE; the old closed-shape ridge is removed and
+  restored by `TrimPolygonCommand`'s `linked_ridge` parameter, and the
+  replacement does not inherit `ridge_item_id`.
+- **A corner edit re-derives.** Fillet/chamfer replace the host shape, so
+  `_CornerReplacementCommand` re-derives the ridge on execute, undo and redo
+  (a converted rectangle's corner drag has its own hook in `_move_corner_to`,
+  where no `itemChange` fires).
+- **A copy never adopts a source ridge.** Mirror Move keeps the house UUID and
+  re-derives the ridge; Mirror Copy gets a fresh UUID and strips the inherited
+  `ridge_item_id`, and a `ROOF_RIDGE` is never itself a mirror source. Offset
+  and array copies still do not build a ridge (documented follow-up).
+
+Pinned by `tests/integration/test_house_roof_ridge.py`,
+`tests/integration/test_trim_extend_tool.py`,
+`tests/integration/test_fillet_chamfer.py`,
+`tests/integration/test_mirror_tool.py` and
+`tests/integration/test_agent_api_default_on.py`.
+
 ## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
 
 **Status**: Accepted (2026-10-04). Introduced by the first whole-repository audit
@@ -9613,7 +9641,9 @@ The identity is **never serialized**; old plans load with the identity and no
 visible change, so `FILE_VERSION` stays `"1.4"`. The stored block is read
 leniently (unknown/malformed/non-finite fields fall back; a zero or negative
 scale becomes 1.0), and a non-finite value is never written — `json.dump` would
-otherwise emit a JSON `NaN` that cannot reopen.
+otherwise emit a JSON `NaN` that cannot reopen. An integer too large to become
+a float (`10**400`) is malformed for these fields and falls back to its default
+on read; `to_dict()` drops the block rather than raising `OverflowError`.
 
 **Composition.** The offset is applied in centimetres in the item frame and is
 independent of angle and scale (`translate · rotate · scale`). A HOUSE's

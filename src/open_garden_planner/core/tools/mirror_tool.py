@@ -389,6 +389,7 @@ class MirrorTool(BaseTool):
 
 
 def _is_mirrorable(item: QGraphicsItem) -> bool:
+    from open_garden_planner.core.object_types import ObjectType
     from open_garden_planner.ui.canvas.items import (
         ArcItem,
         BezierItem,
@@ -398,6 +399,12 @@ def _is_mirrorable(item: QGraphicsItem) -> bool:
         PolylineItem,
         RectangleItem,
     )
+
+    # A roof ridge is derived geometry owned by its HOUSE. Mirroring it would
+    # either clone a ridge still owned by the source house or leave the source
+    # ridge behind in Move mode; the owning house re-derives it instead.
+    if getattr(item, "object_type", None) is ObjectType.ROOF_RIDGE:
+        return False
 
     return isinstance(
         item,

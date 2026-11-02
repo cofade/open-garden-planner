@@ -2557,6 +2557,13 @@ class MirrorItemsCommand(Command):
             from open_garden_planner.ui.guild_copy import remap_mirror_membership
 
             remap_mirror_membership(scene, self._originals, self._mirrored)
+            # A copy has a fresh UUID, so the inherited ``ridge_item_id`` names
+            # the SOURCE's ridge. Strip it AFTER the membership remap, which
+            # rewrites copied metadata from the source (round-5 review of #690).
+            for item in self._mirrored:
+                metadata = getattr(item, "metadata", None)
+                if isinstance(metadata, dict):
+                    metadata.pop("ridge_item_id", None)
 
     @property
     def description(self) -> str:
@@ -3443,6 +3450,8 @@ class TrimPolygonCommand(Command):
         scene: QGraphicsScene,
         original_polygon: QGraphicsItem,
         result_polyline: QGraphicsItem,
+        *,
+        linked_ridge: QGraphicsItem | None = None,
     ) -> None:
         """Initialize.
 
@@ -3450,10 +3459,14 @@ class TrimPolygonCommand(Command):
             scene: The canvas scene.
             original_polygon: The polygon being trimmed (currently in scene).
             result_polyline: Open polyline wrapping the remaining perimeter.
+            linked_ridge: A HOUSE's derived roof ridge, which stops existing
+                when the closed house becomes an open fence. Removed and
+                restored in this same undo step.
         """
         self._scene = scene
         self._polygon = original_polygon
         self._polyline = result_polyline
+        self._linked_ridge = linked_ridge
 
     @property
     def description(self) -> str:
@@ -3462,6 +3475,8 @@ class TrimPolygonCommand(Command):
     def execute(self) -> None:
         if self._polygon.scene() is not None:
             self._scene.removeItem(self._polygon)
+        if self._linked_ridge is not None and self._linked_ridge.scene() is not None:
+            self._scene.removeItem(self._linked_ridge)
         if self._polyline.scene() is None:
             self._scene.addItem(self._polyline)
 
@@ -3470,6 +3485,8 @@ class TrimPolygonCommand(Command):
             self._scene.removeItem(self._polyline)
         if self._polygon.scene() is None:
             self._scene.addItem(self._polygon)
+        if self._linked_ridge is not None and self._linked_ridge.scene() is None:
+            self._scene.addItem(self._linked_ridge)
 
 
 class TrimRectangleCommand(TrimPolygonCommand):
@@ -3553,8 +3570,12 @@ class _CornerReplacementCommand(Command):
         from open_garden_planner.ui.canvas.items.rectangle_item import (
             RectangleItem,
         )
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
 
         self._rectangle = isinstance(original_item, RectangleItem)
+        # A rounded/bevelled corner changes a polygon's outline, so a HOUSE's
+        # derived ridge must follow the replacement — including on redo.
+        self._linked_ridge = linked_ridge(original_item)
         graph = getattr(scene, "constraint_graph", None)
         item_id = getattr(original_item, "item_id", None)
         self._graph = graph
@@ -3570,6 +3591,12 @@ class _CornerReplacementCommand(Command):
             self._scene.removeItem(self._original)
         if self._new.scene() is None:
             self._scene.addItem(self._new)
+        if self._linked_ridge is not None:
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                update_linked_ridge,
+            )
+
+            update_linked_ridge(self._new)
         if self._graph is not None and self._topology is not None:
             self._graph.apply_corner_edit(
                 self._item_id,
@@ -3583,6 +3610,12 @@ class _CornerReplacementCommand(Command):
             self._scene.removeItem(self._new)
         if self._original.scene() is None:
             self._scene.addItem(self._original)
+        if self._linked_ridge is not None:
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                update_linked_ridge,
+            )
+
+            update_linked_ridge(self._original)
         if self._graph is not None and self._topology is not None:
             self._graph.restore_topology_state(self._topology)
 
@@ -4179,11 +4212,21 @@ class DeleteJournalNoteCommand(Command):
         project_manager: "Any",
         scene: QGraphicsScene,
         pin_item: "Any",   # JournalPinItem
+        *,
+        remove_pin: bool = True,
     ) -> None:
+        """Initialize.
+
+        ``remove_pin=False`` is for a batch delete of a group: the group's own
+        ``DeleteItemsCommand`` removes the nested pin, and this command prunes
+        only the note. Removing it here as well would make undo restore it at
+        the top level instead of inside the group.
+        """
         self._pm = project_manager
         self._scene = scene
         self._pin = pin_item
         self._note_id = pin_item.note_id
+        self._remove_pin = remove_pin
         existing = self._pm.garden_journal_notes.get(self._note_id)
         self._old_dict: dict[str, Any] | None = (
             dict(existing) if existing is not None else None
@@ -4195,13 +4238,13 @@ class DeleteJournalNoteCommand(Command):
 
     def execute(self) -> None:
         self._pm.delete_journal_note(self._note_id)
-        if self._pin.scene() is not None:
+        if self._remove_pin and self._pin.scene() is not None:
             self._scene.removeItem(self._pin)
 
     def undo(self) -> None:
         if self._old_dict is not None:
             self._pm.restore_journal_note(self._note_id, self._old_dict)
-        if self._pin.scene() is None:
+        if self._remove_pin and self._pin.scene() is None:
             self._scene.addItem(self._pin)
 
 

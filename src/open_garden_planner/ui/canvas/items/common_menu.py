@@ -68,3 +68,26 @@ def build_repeat_actions(menu: QMenu, context: str) -> RepeatActions:
         assert action is not None  # the string overload constructs an action
         actions.append(action)
     return RepeatActions(tuple(actions))
+
+
+def dispatch_delete_selection(scene: QGraphicsScene | None) -> bool:
+    """Delete the scene selection through the canvas view's undo-aware path.
+
+    A menu that called ``scene.removeItem`` itself bypassed the command stack,
+    and a HOUSE's metadata-linked roof ridge is not a Qt child: the direct call
+    left the ridge in the plan (round-5 review of #690). The view owns the one
+    deletion implementation — linked ridges, constraints and journal-note
+    pruning included — exactly as the Delete key does.
+    """
+    if scene is None:
+        return False
+    for view in scene.views():
+        handler = getattr(view, "_delete_selected_items", None)
+        if callable(handler):
+            handler()
+            return True
+    # A bare QGraphicsScene (unit probes) has no view to own the command; the
+    # destructive fallback stays available rather than leaving Delete inert.
+    for selected in scene.selectedItems():
+        scene.removeItem(selected)
+    return True

@@ -81,6 +81,20 @@ def test_malformed_values_fall_back_to_defaults() -> None:
     assert FillTransform.from_dict({"offset_x_cm": math.inf}) == FillTransform()
 
 
+def test_unrepresentable_integers_never_raise() -> None:
+    """A huge JSON integer is a valid ``int`` but not a valid ``float``.
+
+    ``float(10**400)`` raises ``OverflowError``; the stored block arrives from
+    an untrusted file, and both directions promised to tolerate malformed data
+    (P2 of the #665 review).
+    """
+    huge = 10**400
+    assert FillTransform.from_dict({"angle_deg": huge}) == FillTransform()
+    assert FillTransform.from_dict({"scale": huge}) == FillTransform()
+    assert FillTransform.from_dict({"offset_x_cm": huge}) == FillTransform()
+    assert FillTransform(offset_x_cm=huge).to_dict() is None
+
+
 def test_nan_is_never_written_to_json() -> None:
     assert FillTransform(angle_deg=float("nan")).to_dict() is None
 

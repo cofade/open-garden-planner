@@ -26,6 +26,14 @@ _tinted_cache: dict[tuple["FillPattern", int], QPixmap] = {}
 _TINTED_CACHE_MAX = 200
 
 
+def _is_finite(value: float) -> bool:
+    """``math.isfinite`` that treats an unrepresentable value as non-finite."""
+    try:
+        return math.isfinite(value)
+    except (OverflowError, TypeError, ValueError):
+        return False
+
+
 @dataclass(frozen=True)
 class FillTransform:
     """A per-object transform of the fill texture (issue #665).
@@ -77,7 +85,7 @@ class FillTransform:
         if self.is_identity:
             return None
         values = (self.angle_deg, self.scale, self.offset_x_cm, self.offset_y_cm)
-        if not all(math.isfinite(value) for value in values):
+        if not all(_is_finite(value) for value in values):
             # json.dump writes NaN happily; a JSON NaN would reopen as an
             # invalid number. Dropping the whole block is the safe fallback.
             return None
@@ -103,7 +111,12 @@ class FillTransform:
             raw = value.get(key, default)
             if isinstance(raw, bool) or not isinstance(raw, int | float):
                 return default
-            result = float(raw)
+            try:
+                result = float(raw)
+            except (OverflowError, TypeError, ValueError):
+                # A huge JSON integer (``10**400``) is a valid ``int`` but not
+                # representable as a float; it is malformed for this field.
+                return default
             return result if math.isfinite(result) else default
 
         scale = number("scale", 1.0)

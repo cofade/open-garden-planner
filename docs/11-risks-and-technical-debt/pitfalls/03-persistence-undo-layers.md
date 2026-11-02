@@ -341,8 +341,8 @@ drops the cache fails for the right reason.
 
 ### PF-PER-24
 
-- **Rule:** A float that is written into `.ogp` JSON must be proven finite first: `json.dump` happily writes `NaN`/`Infinity`, which cannot reopen as a number. A display block (`fill_transform`) drops itself when any value is non-finite; its reader treats missing/malformed fields as defaults and a non-positive scale as 1.0, so a hand-edited plan never fails to show.
-- **Pinned by:** `tests/unit/test_fill_transform.py::test_nan_is_never_written_to_json`; `tests/unit/test_fill_transform.py::test_malformed_values_fall_back_to_defaults`
+- **Rule:** A float that is written into `.ogp` JSON must be proven finite first: `json.dump` happily writes `NaN`/`Infinity`, which cannot reopen as a number. A display block (`fill_transform`) drops itself when any value is non-finite; its reader treats missing/malformed fields as defaults and a non-positive scale as 1.0, so a hand-edited plan never fails to show. An integer too large for `float` (`10**400`) is malformed too: convert it inside the same guard, or `OverflowError` escapes the "never raises" reader.
+- **Pinned by:** `tests/unit/test_fill_transform.py::test_nan_is_never_written_to_json`; `tests/unit/test_fill_transform.py::test_malformed_values_fall_back_to_defaults`; `tests/unit/test_fill_transform.py::test_unrepresentable_integers_never_raise`
 - **Source:** #665
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -359,8 +359,8 @@ value crosses the persistence boundary.
 
 ### PF-PER-25
 
-- **Rule:** A derived sibling's **metadata link** is part of a command's undo state, not just its scene membership. When a command removes or creates a linked item (a HOUSE's `ROOF_RIDGE`), it must capture the owner's pre-command id key and restore it on undo — and clear it when the owner stops being the kind that owns one — or undo leaves a dangling id that silently disables other features.
-- **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_leaving_house_drops_the_link_and_undo_restores_it`; `tests/integration/test_house_roof_ridge.py::test_a_non_house_type_change_never_leaves_a_stale_ridge_link`
+- **Rule:** A derived sibling's **metadata link** is part of a command's undo state, not just its scene membership. When a command removes or creates a linked item (a HOUSE's `ROOF_RIDGE`), it must capture the owner's pre-command id key and restore it on undo — and clear it when the owner stops being the kind that owns one — or undo leaves a dangling id that silently disables other features. Every path that removes the owner (menu/key Delete, agent delete, trim, group delete) must also remove the live ridge; a tree walk is required for groups, and a copy must strip the inherited key because its fresh UUID cannot own the source's ridge.
+- **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_leaving_house_drops_the_link_and_undo_restores_it`; `tests/integration/test_house_roof_ridge.py::test_a_non_house_type_change_never_leaves_a_stale_ridge_link`; `tests/integration/test_house_roof_ridge.py::test_context_menu_delete_removes_the_ridge_in_the_same_undo_step`; `tests/integration/test_trim_extend_tool.py::test_trimming_a_house_removes_its_ridge_and_undo_restores_it`; `tests/integration/test_agent_api_default_on.py::test_delete_object_removes_a_grouped_houses_linked_ridge`; `tests/integration/test_mirror_tool.py::test_copy_strips_a_house_ridge_link_and_does_not_clone_the_ridge`
 - **Source:** #690
 - **Status:** standing
 - **Legacy:** none (new entry)

@@ -261,7 +261,7 @@ def polygon_resize_apply(item: QGraphicsItem, geom: dict[str, Any]) -> None:
     Module-level rather than a closure inside ``_on_resize_end`` so a test can
     drive the production function instead of re-implementing it: a test that
     copies the apply logic passes while the real one stays broken.
-    ``setPos`` fires ``_move_ridge_by_delta`` first; the recompute below
+    ``setPos`` fires the item-change ridge hook first; the recompute below
     overwrites it wholesale. ``_update_area_label`` is here so this path and
     ``_apply_resize`` (the live drag) do not disagree: ``setPos`` only fires
     ``itemChange`` when the position actually changes, so a resize that holds
@@ -1072,10 +1072,11 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         elif action == show_area_action:
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:
-            # Delete this item and any other selected items
-            scene = self.scene()
-            for item in scene.selectedItems():
-                scene.removeItem(item)
+            # Delete the selection through the view: it owns linked ridges,
+            # constraints and journal-note pruning (round-5 review of #690).
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
         elif repeat_actions.dispatch(action, self.scene()):
             return
         elif action is not None and action in (

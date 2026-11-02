@@ -836,6 +836,53 @@ def test_delete_object_deletes_linked_roof_ridge(qtbot: Any, monkeypatch: Any) -
         win._stop_agent_api()
 
 
+def test_delete_object_removes_a_grouped_houses_linked_ridge(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A group's HOUSE is a child, not the resolved wrapper.
+
+    The agent delete walked only the wrapper, so deleting a group removed the
+    house but left its free-standing ridge — the same hole the GUI closed in
+    ``CanvasView._delete_selected_items`` (round-5 review of #690).
+    """
+    from PyQt6.QtCore import QPointF
+
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
+    from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        house = PolygonItem(
+            [QPointF(0, 0), QPointF(500, 0), QPointF(500, 400), QPointF(0, 400)],
+            object_type=ObjectType.HOUSE,
+        )
+        other = RectangleItem(600, 0, 50, 50)
+        win.canvas_scene.addItem(house)
+        win.canvas_scene.addItem(other)
+        ridge = build_linked_ridge(house, house.layer_id)
+        assert ridge is not None
+        win.canvas_scene.addItem(ridge)
+        GroupCommand(win.canvas_scene, [house, other]).execute()
+        group = house.parentItem()
+        assert group is not None
+
+        result = win._do_agent_delete_object(str(group.item_id))
+
+        assert win.canvas_scene.find_item_by_id(house.item_id) is None
+        assert win.canvas_scene.find_item_by_id(ridge.item_id) is None
+        assert result["linked_items_deleted"] == 1
+
+        win.canvas_view.command_manager.undo()
+        assert win.canvas_scene.find_item_by_id(group.item_id) is not None
+        assert win.canvas_scene.find_item_by_id(ridge.item_id) is not None
+    finally:
+        win._stop_agent_api()
+
+
 def test_move_and_delete_reject_journal_pin(qtbot: Any, monkeypatch: Any) -> None:
     """Journal pins have a ProjectData-linked delete path (pruning the note
     dict) that DeleteItemsCommand alone doesn't replicate — must be refused,

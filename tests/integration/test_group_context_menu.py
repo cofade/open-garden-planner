@@ -233,6 +233,34 @@ def test_a_lone_object_offers_nothing(qtbot, monkeypatch) -> None:
     assert _labels(_open_menu(rect, monkeypatch)) & {GROUP, UNGROUP} == set()
 
 
+_SHAPE_FACTORIES = [_rectangle, _polygon, _polyline, _circle, _ellipse]
+
+
+@pytest.mark.parametrize(
+    "factory", _SHAPE_FACTORIES, ids=[f.__name__ for f in _SHAPE_FACTORIES]
+)
+def test_shape_menu_delete_is_the_undoable_view_delete(
+    factory, qtbot, monkeypatch
+) -> None:
+    """A context-menu Delete must go through ``_delete_selected_items``.
+
+    The five shape menus used to call ``scene.removeItem`` directly, which
+    bypassed the undo stack and left a HOUSE's metadata-linked roof ridge in
+    the plan (round-5 review of #690).
+    """
+    view = _canvas(qtbot)
+    item = factory(layer_id=view.scene().active_layer.id)
+    view.scene().addItem(item)
+    item.setSelected(True)
+
+    _open_menu(item, monkeypatch, choose="Delete")
+
+    assert item.scene() is None
+    assert view.command_manager.can_undo, "the menu delete bypassed the command stack"
+    view.command_manager.undo()
+    assert item.scene() is view.scene()
+
+
 @pytest.mark.parametrize("factory,with_peer,alone", ITEM_CASES)
 def test_every_menu_routes_through_the_shared_seam(factory, with_peer, alone) -> None:
     """Structural drift guard, like the Arrange and bed-menu suites.

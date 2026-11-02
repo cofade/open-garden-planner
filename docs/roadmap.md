@@ -3927,9 +3927,9 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   dissolves one nesting level and multiple selected groups in **one** undo step
   (`CompoundCommand`); a smart symbol can be grouped but never ungrouped. Every item type
   now normalises the selection before building its menu. Pinned by
-  `tests/integration/test_group_context_menu.py` (68 tests over 14 item types, including the
-  just-grouped state, the nested one-level rule, the two-group one-step undo, group delete/undo
-  and the deliberately non-groupable background).
+  `tests/integration/test_group_context_menu.py` (73 tests over 14 item types, including the
+  just-grouped state, the nested one-level rule, the two-group one-step undo, group delete/undo,
+  the undoable shape-menu Delete and the deliberately non-groupable background).
 - **#665 — per-object fill angle / scale / offset.** `core/fill_patterns.FillTransform` is
   an additive `fill_transform` appearance block (identity is never written; old plans load
   unchanged, `FILE_VERSION` stays). The Properties panel offers **Pattern Angle / Scale /

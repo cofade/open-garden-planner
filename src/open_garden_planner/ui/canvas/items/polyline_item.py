@@ -571,10 +571,11 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         elif action == edit_label_action:
             self.start_label_edit()
         elif action == delete_action:
-            # Delete this item and any other selected items
-            scene = self.scene()
-            for item in scene.selectedItems():
-                scene.removeItem(item)
+            # Delete the selection through the view: it owns linked ridges,
+            # constraints and journal-note pruning (round-5 review of #690).
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
         elif repeat_actions.dispatch(action, self.scene()):
             return
         elif action == array_along_path_action and array_along_path_action is not None:
