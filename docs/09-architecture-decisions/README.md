@@ -9570,7 +9570,7 @@ The golden meshes still match below the threshold.
 
 ## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
 
-**Status**: Accepted (issue #389, epic #383) — all four slices, the two optional ones included.
+**Status**: Accepted (issue #389, epic #383) — all four slices, the two optional ones included. Shipped in v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after the owner's manual acceptance (two rounds; 2026-11-02).
 
 **Context**: After L4 the 3D view showed the plan's garden in a mood that followed the sun's
 height alone (`core/scene3d/look.py`, ADR-059 addendum L1.4), with wind as a shader clock and a

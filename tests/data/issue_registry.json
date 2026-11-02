@@ -516,8 +516,13 @@
   },
   "389": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L5 \"Living garden\": year and day playback, weather, particles, wind (Phase 17, needs #315)"
+  },
+  "390": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L6 \"Director's cut\": photo mode, camera tours, render_3d_view MCP tool (Phase 17)"
   },
   "392": {
     "is_pr": false,
@@ -1144,9 +1149,44 @@
     "state": "MERGED",
     "title": "feat(#599, #440): typed smart-symbol members and geometry-aware sun/shade model"
   },
+  "687": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden polish: overcast contact shade, lamp-pool fades, snow on roofs, dew mist, leaf colour (follow-up of #389)"
+  },
+  "689": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
+  },
   "695": {
     "is_pr": false,
     "state": "OPEN",
     "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
+  },
+  "698": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D shadow: give open objects (string lights, pergola, swing, hammock, trellis, garden light) a transmittance via #440's hook"
+  },
+  "699": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#389): L5 living garden - playback, weather, particles, Today's Weather, garden lights"
+  },
+  "700": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Shadow-agreement prose is ungated: numbers in ADR-059 / §8.29.6 / the script docstring drift from DOCUMENTED"
+  },
+  "702": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Weather forecast cards show English weekday names in every UI language"
+  },
+  "710": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D close-up: a string's wire shows its joints and its bulbs read as octagons at walk distance"
   }
 }

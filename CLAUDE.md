@@ -309,9 +309,11 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   `hip`, `shed`), angle-dependent structural fence porosity (`WOODEN_FENCE`,
   `METAL_FENCE`, `CHAIN_LINK`), owner-grouped casting, multiplicative independent
   overlap ($T_1 \times T_2$), and bounded 64 MiB fractional sample allocation.
-- Phase 17 L1–L4 and Package F/G are shipped. L5 (#389, ADR-070) is in review as a
-  draft PR: playback through the SimClock, weather as a look (never the sun), shader
-  particles on the wind clock, Today's Weather, Garden Light / String Lights. Load
+- Phase 17 L1–L5 and Package F/G are shipped. L5 (#389, ADR-070) shipped in
+  v1.35.0 (PR #699): playback through the SimClock, weather as a look (never the sun),
+  shader particles on the wind clock, Today's Weather, Garden Light, and String Lights
+  as a LINE that casts no 2D shadow. Follow-ups: #687, #689, #698, #700, #702–#710;
+  L6 (#390) is next. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
