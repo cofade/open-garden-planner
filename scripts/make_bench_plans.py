@@ -488,8 +488,9 @@ def build_built() -> PlanBuilder:
         b.plant(tx, ty, name, T.TREE, spread_cm=spread, height_cm=height)
     for i, name in enumerate(["Hydrangea", "Rose", "Lilac"]):
         b.plant(2520, 300 + i * 220, name, T.SHRUB, spread_cm=110, height_cm=140)
-    # --- the garden lights (Phase 17 L5.4, #389): a lantern by the deck, a string over
-    # it. LAST, so every earlier item keeps its id and seed (ids come from the RNG) ---
+    # --- the garden lights (Phase 17 L5.4, #389): a lantern by the deck, a string on
+    # the lawn just north of it (its middle post at y 1210, clear of the deck at y 1260).
+    # LAST, so every earlier item keeps its id and seed (ids come from the RNG) ---
     b.circle(1080, 1240, 20, T.GARDEN_LIGHT, "Garden light")
     b.polyline([(240, 1250), (450, 1210), (660, 1250)], T.STRING_LIGHTS,
                name="String lights")   # a line: a post at each point (owner's manual test)

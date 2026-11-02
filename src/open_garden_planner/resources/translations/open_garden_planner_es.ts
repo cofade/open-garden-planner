@@ -1739,7 +1739,7 @@
             <translation>Mover elemento</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2608" />
+            <location filename="../../ui/panels/properties_panel.py" line="2607" />
             <source>Move item (constrained)</source>
             <translation>Mover elemento (con restricciones)</translation>
         </message>
@@ -1856,22 +1856,22 @@
             <translation>negrita</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1601" />
+            <location filename="../../ui/panels/properties_panel.py" line="1600" />
             <source>container drainage</source>
             <translation>Drenaje del contenedor</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1615" />
+            <location filename="../../ui/panels/properties_panel.py" line="1614" />
             <source>container height</source>
             <translation>Altura del contenedor</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1587" />
+            <location filename="../../ui/panels/properties_panel.py" line="1586" />
             <source>container material</source>
             <translation>Material del contenedor</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1629" />
+            <location filename="../../ui/panels/properties_panel.py" line="1628" />
             <source>container soil volume</source>
             <translation>Volumen de sustrato del contenedor</translation>
         </message>
@@ -1896,7 +1896,7 @@
             <translation>tamaño de fuente</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2095" />
+            <location filename="../../ui/panels/properties_panel.py" line="2094" />
             <source>frost protection</source>
             <translation>protección contra heladas</translation>
         </message>
@@ -1906,12 +1906,12 @@
             <translation>funciones</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1375" />
+            <location filename="../../ui/panels/properties_panel.py" line="1374" />
             <source>grid</source>
             <translation>Cuadrícula</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1389" />
+            <location filename="../../ui/panels/properties_panel.py" line="1388" />
             <source>grid spacing</source>
             <translation>Espaciado de la cuadrícula</translation>
         </message>
@@ -1926,12 +1926,12 @@
             <translation>visibilidad de etiqueta</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2878" />
+            <location filename="../../ui/panels/properties_panel.py" line="2877" />
             <source>name</source>
             <translation>nombre</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1754" />
+            <location filename="../../ui/panels/properties_panel.py" line="1753" />
             <source>object height</source>
             <translation>altura del objeto</translation>
         </message>
@@ -1964,27 +1964,27 @@
             <translation type="vanished">fecha de retirada</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1884" />
+            <location filename="../../ui/panels/properties_panel.py" line="1883" />
             <source>roof overhang</source>
             <translation>alero del tejado</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1874" />
+            <location filename="../../ui/panels/properties_panel.py" line="1873" />
             <source>roof pitch</source>
             <translation>inclinación del tejado</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1864" />
+            <location filename="../../ui/panels/properties_panel.py" line="1863" />
             <source>roof style</source>
             <translation>forma del tejado</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1457" />
+            <location filename="../../ui/panels/properties_panel.py" line="1456" />
             <source>soil depth</source>
             <translation>Profundidad del sustrato</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2113" />
+            <location filename="../../ui/panels/properties_panel.py" line="2112" />
             <source>spacing radius</source>
             <translation>radio de espaciado</translation>
         </message>
@@ -2009,12 +2009,12 @@
             <translation>parámetro de símbolo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2280" />
+            <location filename="../../ui/panels/properties_panel.py" line="2279" />
             <source>text color</source>
             <translation>color de texto</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2249" />
+            <location filename="../../ui/panels/properties_panel.py" line="2248" />
             <source>text content</source>
             <translation>contenido del texto</translation>
         </message>
@@ -3835,12 +3835,12 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         <name>GalleryData</name>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="267" />
+            <location filename="../../ui/widgets/gallery_data.py" line="276" />
             <source>Apple Tree</source>
             <translation>Manzano</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="236" />
+            <location filename="../../ui/widgets/gallery_data.py" line="245" />
             <source>Arc (3-point)</source>
             <translation>Arco (3 puntos)</translation>
         </message>
@@ -3856,34 +3856,34 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="339" />
+            <location filename="../../ui/widgets/gallery_data.py" line="348" />
             <source>Aster</source>
             <translation>Áster</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="415" />
+            <location filename="../../ui/widgets/gallery_data.py" line="424" />
             <source>BBQ/Grill</source>
             <translation>Barbacoa/Parrilla</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="304" />
+            <location filename="../../ui/widgets/gallery_data.py" line="313" />
             <source>Barberry</source>
             <translation>Berberis</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="553" />
+            <location filename="../../ui/widgets/gallery_data.py" line="560" />
             <source>Basic Shapes</source>
             <translation>Formas básicas</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="372" />
+            <location filename="../../ui/widgets/gallery_data.py" line="381" />
             <source>Basil</source>
             <translation>Albahaca</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="368" />
+            <location filename="../../ui/widgets/gallery_data.py" line="377" />
             <source>Bean</source>
             <translation>Judía</translation>
         </message>
@@ -3893,7 +3893,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Judía de mata baja</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="552" />
+            <location filename="../../ui/widgets/gallery_data.py" line="559" />
             <source>Beds &amp; Surfaces</source>
             <translation>Bancales y superficies</translation>
         </message>
@@ -3903,35 +3903,35 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Remolacha</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="412" />
+            <location filename="../../ui/widgets/gallery_data.py" line="421" />
             <source>Bench</source>
             <translation>Banco</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="238" />
+            <location filename="../../ui/widgets/gallery_data.py" line="247" />
             <source>Bezier</source>
             <translation>Bézier</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="272" />
+            <location filename="../../ui/widgets/gallery_data.py" line="281" />
             <source>Birch</source>
             <translation>Abedul</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="505" />
+            <location filename="../../ui/widgets/gallery_data.py" line="512" />
             <source>Bird Bath</source>
             <translation>Bebedero para pájaros</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="299" />
+            <location filename="../../ui/widgets/gallery_data.py" line="308" />
             <source>Blackberry</source>
             <translation>Zarzamora</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="298" />
+            <location filename="../../ui/widgets/gallery_data.py" line="307" />
             <source>Blueberry</source>
             <translation>Arándano</translation>
         </message>
@@ -3942,7 +3942,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="297" />
+            <location filename="../../ui/widgets/gallery_data.py" line="306" />
             <source>Boxwood</source>
             <translation>Boj</translation>
         </message>
@@ -3953,7 +3953,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="372" />
+            <location filename="../../ui/widgets/gallery_data.py" line="381" />
             <source>Broccoli</source>
             <translation>Brócoli</translation>
         </message>
@@ -3964,19 +3964,19 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="371" />
+            <location filename="../../ui/widgets/gallery_data.py" line="380" />
             <source>Cabbage</source>
             <translation>Col</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="304" />
+            <location filename="../../ui/widgets/gallery_data.py" line="313" />
             <source>Camellia</source>
             <translation>Camelia</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="369" />
+            <location filename="../../ui/widgets/gallery_data.py" line="378" />
             <source>Carrot</source>
             <translation>Zanahoria</translation>
         </message>
@@ -3991,7 +3991,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Apio</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="411" />
+            <location filename="../../ui/widgets/gallery_data.py" line="420" />
             <source>Chair</source>
             <translation>Silla</translation>
         </message>
@@ -4002,7 +4002,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="267" />
+            <location filename="../../ui/widgets/gallery_data.py" line="276" />
             <source>Cherry Tree</source>
             <translation>Cerezo</translation>
         </message>
@@ -4023,64 +4023,64 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="375" />
+            <location filename="../../ui/widgets/gallery_data.py" line="384" />
             <source>Chives</source>
             <translation>Cebollino</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="339" />
+            <location filename="../../ui/widgets/gallery_data.py" line="348" />
             <source>Chrysanthemum</source>
             <translation>Crisantemo</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="374" />
+            <location filename="../../ui/widgets/gallery_data.py" line="383" />
             <source>Cilantro</source>
             <translation>Cilantro</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="233" />
+            <location filename="../../ui/widgets/gallery_data.py" line="242" />
             <source>Circle</source>
             <translation>Círculo</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="341" />
+            <location filename="../../ui/widgets/gallery_data.py" line="350" />
             <source>Clematis</source>
             <translation>Clemátide</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="327" />
+            <location filename="../../ui/widgets/gallery_data.py" line="336" />
             <source>Climbing Plant</source>
             <translation>Planta trepadora</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="463" />
+            <location filename="../../ui/widgets/gallery_data.py" line="470" />
             <source>Cold Frame</source>
             <translation>Cajonera fría</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="255" />
+            <location filename="../../ui/widgets/gallery_data.py" line="264" />
             <source>Columnar Tree</source>
             <translation>Árbol columnar</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="289" />
+            <location filename="../../ui/widgets/gallery_data.py" line="298" />
             <source>Compact Shrub</source>
             <translation>Arbusto compacto</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="498" />
+            <location filename="../../ui/widgets/gallery_data.py" line="505" />
             <source>Compost Bin</source>
             <translation>Compostador</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="257" />
+            <location filename="../../ui/widgets/gallery_data.py" line="266" />
             <source>Conifer</source>
             <translation>Conífera</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="528" />
+            <location filename="../../ui/widgets/gallery_data.py" line="535" />
             <source>Container</source>
             <translation>Contenedor</translation>
         </message>
@@ -4090,54 +4090,54 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Cilantro</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="368" />
+            <location filename="../../ui/widgets/gallery_data.py" line="377" />
             <source>Corn</source>
             <translation>Maíz</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="338" />
+            <location filename="../../ui/widgets/gallery_data.py" line="347" />
             <source>Cosmos</source>
             <translation>Cosmos</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="343" />
+            <location filename="../../ui/widgets/gallery_data.py" line="352" />
             <source>Crocus</source>
             <translation>Croco</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="367" />
+            <location filename="../../ui/widgets/gallery_data.py" line="376" />
             <source>Cucumber</source>
             <translation>Pepino</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="300" />
+            <location filename="../../ui/widgets/gallery_data.py" line="309" />
             <source>Currant</source>
             <translation>Grosellero</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="336" />
+            <location filename="../../ui/widgets/gallery_data.py" line="345" />
             <source>Daffodil</source>
             <translation>Narciso</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="336" />
+            <location filename="../../ui/widgets/gallery_data.py" line="345" />
             <source>Dahlia</source>
             <translation>Dalia</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="374" />
+            <location filename="../../ui/widgets/gallery_data.py" line="383" />
             <source>Dill</source>
             <translation>Eneldo</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="448" />
+            <location filename="../../ui/widgets/gallery_data.py" line="455" />
             <source>Driveway</source>
             <translation>Entrada para vehículos</translation>
         </message>
@@ -4148,18 +4148,18 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="366" />
+            <location filename="../../ui/widgets/gallery_data.py" line="375" />
             <source>Eggplant</source>
             <translation>Berenjena</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="302" />
+            <location filename="../../ui/widgets/gallery_data.py" line="311" />
             <source>Elderberry</source>
             <translation>Saúco</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="234" />
+            <location filename="../../ui/widgets/gallery_data.py" line="243" />
             <source>Ellipse</source>
             <translation>Elipse</translation>
         </message>
@@ -4169,12 +4169,12 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Escarola</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="477" />
+            <location filename="../../ui/widgets/gallery_data.py" line="484" />
             <source>Fence</source>
             <translation>Valla</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="560" />
+            <location filename="../../ui/widgets/gallery_data.py" line="567" />
             <source>Fences &amp; Walls</source>
             <translation>Vallas y muros</translation>
         </message>
@@ -4185,12 +4185,12 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="269" />
+            <location filename="../../ui/widgets/gallery_data.py" line="278" />
             <source>Fig Tree</source>
             <translation>Higuera</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="416" />
+            <location filename="../../ui/widgets/gallery_data.py" line="425" />
             <source>Fire Pit</source>
             <translation>Brasero exterior</translation>
         </message>
@@ -4200,43 +4200,43 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Lino</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="324" />
+            <location filename="../../ui/widgets/gallery_data.py" line="333" />
             <source>Flowering Perennial</source>
             <translation>Vivaz con flor</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="556" />
+            <location filename="../../ui/widgets/gallery_data.py" line="563" />
             <source>Flowers &amp; Perennials</source>
             <translation>Flores y vivaces</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="301" />
+            <location filename="../../ui/widgets/gallery_data.py" line="310" />
             <source>Forsythia</source>
             <translation>Forsitia</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="258" />
+            <location filename="../../ui/widgets/gallery_data.py" line="267" />
             <source>Fruit Tree</source>
             <translation>Árbol frutal</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="559" />
+            <location filename="../../ui/widgets/gallery_data.py" line="566" />
             <source>Furniture</source>
             <translation>Mobiliario</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="390" />
+            <location filename="../../ui/widgets/gallery_data.py" line="399" />
             <source>Garage/Shed</source>
             <translation>Garaje/Cobertizo</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="445" />
+            <location filename="../../ui/widgets/gallery_data.py" line="452" />
             <source>Garden Bed</source>
             <translation>Bancal de jardín</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="425" />
+            <location filename="../../ui/widgets/gallery_data.py" line="434" />
             <source>Garden Light</source>
             <translation>Farol de jardín</translation>
         </message>
@@ -4247,72 +4247,72 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="370" />
+            <location filename="../../ui/widgets/gallery_data.py" line="379" />
             <source>Garlic</source>
             <translation>Ajo</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="340" />
+            <location filename="../../ui/widgets/gallery_data.py" line="349" />
             <source>Geranium</source>
             <translation>Geranio</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="299" />
+            <location filename="../../ui/widgets/gallery_data.py" line="308" />
             <source>Gooseberry</source>
             <translation>Uva espina</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="391" />
+            <location filename="../../ui/widgets/gallery_data.py" line="400" />
             <source>Greenhouse</source>
             <translation>Invernadero</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="326" />
+            <location filename="../../ui/widgets/gallery_data.py" line="335" />
             <source>Ground Cover</source>
             <translation>Planta tapizante</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="419" />
+            <location filename="../../ui/widgets/gallery_data.py" line="428" />
             <source>Hammock</source>
             <translation>Hamaca</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="315" />
+            <location filename="../../ui/widgets/gallery_data.py" line="324" />
             <source>Hedge</source>
             <translation>Seto</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="358" />
+            <location filename="../../ui/widgets/gallery_data.py" line="367" />
             <source>Herb</source>
             <translation>Hierba aromática</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="343" />
+            <location filename="../../ui/widgets/gallery_data.py" line="352" />
             <source>Hibiscus</source>
             <translation>Hibisco</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="300" />
+            <location filename="../../ui/widgets/gallery_data.py" line="309" />
             <source>Holly</source>
             <translation>Acebo</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="423" />
+            <location filename="../../ui/widgets/gallery_data.py" line="432" />
             <source>Hot Tub</source>
             <translation>Bañera de hidromasaje</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="389" />
+            <location filename="../../ui/widgets/gallery_data.py" line="398" />
             <source>House</source>
             <translation>Casa</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="341" />
+            <location filename="../../ui/widgets/gallery_data.py" line="350" />
             <source>Hydrangea</source>
             <translation>Hortensia</translation>
         </message>
@@ -4322,31 +4322,31 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Hisopo</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="561" />
+            <location filename="../../ui/widgets/gallery_data.py" line="568" />
             <source>Infrastructure</source>
             <translation>Infraestructura</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="337" />
+            <location filename="../../ui/widgets/gallery_data.py" line="346" />
             <source>Iris</source>
             <translation>Lirio</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="342" />
+            <location filename="../../ui/widgets/gallery_data.py" line="351" />
             <source>Jasmine</source>
             <translation>Jazmín</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="301" />
+            <location filename="../../ui/widgets/gallery_data.py" line="310" />
             <source>Juniper</source>
             <translation>Enebro</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="371" />
+            <location filename="../../ui/widgets/gallery_data.py" line="380" />
             <source>Kale</source>
             <translation>Col rizada</translation>
         </message>
@@ -4357,12 +4357,12 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="335" />
+            <location filename="../../ui/widgets/gallery_data.py" line="344" />
             <source>Lavender</source>
             <translation>Lavanda</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="446" />
+            <location filename="../../ui/widgets/gallery_data.py" line="453" />
             <source>Lawn</source>
             <translation>Césped</translation>
         </message>
@@ -4378,48 +4378,48 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="270" />
+            <location filename="../../ui/widgets/gallery_data.py" line="279" />
             <source>Lemon Tree</source>
             <translation>Limonero</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="370" />
+            <location filename="../../ui/widgets/gallery_data.py" line="379" />
             <source>Lettuce</source>
             <translation>Lechuga</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="302" />
+            <location filename="../../ui/widgets/gallery_data.py" line="311" />
             <source>Lilac</source>
             <translation>Lila</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="337" />
+            <location filename="../../ui/widgets/gallery_data.py" line="346" />
             <source>Lily</source>
             <translation>Azucena</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="414" />
+            <location filename="../../ui/widgets/gallery_data.py" line="423" />
             <source>Lounger</source>
             <translation>Tumbona</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="273" />
+            <location filename="../../ui/widgets/gallery_data.py" line="282" />
             <source>Magnolia</source>
             <translation>Magnolio</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="272" />
+            <location filename="../../ui/widgets/gallery_data.py" line="281" />
             <source>Maple</source>
             <translation>Arce</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="338" />
+            <location filename="../../ui/widgets/gallery_data.py" line="347" />
             <source>Marigold</source>
             <translation>Caléndula</translation>
         </message>
@@ -4429,7 +4429,7 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Melón</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="373" />
+            <location filename="../../ui/widgets/gallery_data.py" line="382" />
             <source>Mint</source>
             <translation>Menta</translation>
         </message>
@@ -4440,58 +4440,58 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="272" />
+            <location filename="../../ui/widgets/gallery_data.py" line="281" />
             <source>Oak</source>
             <translation>Roble</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="270" />
+            <location filename="../../ui/widgets/gallery_data.py" line="279" />
             <source>Olive Tree</source>
             <translation>Olivo</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="370" />
+            <location filename="../../ui/widgets/gallery_data.py" line="379" />
             <source>Onion</source>
             <translation>Cebolla</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="271" />
+            <location filename="../../ui/widgets/gallery_data.py" line="280" />
             <source>Orange Tree</source>
             <translation>Naranjo</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="375" />
+            <location filename="../../ui/widgets/gallery_data.py" line="384" />
             <source>Oregano</source>
             <translation>Orégano</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="325" />
+            <location filename="../../ui/widgets/gallery_data.py" line="334" />
             <source>Ornamental Grass</source>
             <translation>Gramínea ornamental</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="259" />
+            <location filename="../../ui/widgets/gallery_data.py" line="268" />
             <source>Palm</source>
             <translation>Palmera</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="340" />
+            <location filename="../../ui/widgets/gallery_data.py" line="349" />
             <source>Pansy</source>
             <translation>Pensamiento</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="413" />
+            <location filename="../../ui/widgets/gallery_data.py" line="422" />
             <source>Parasol</source>
             <translation>Sombrilla</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="374" />
+            <location filename="../../ui/widgets/gallery_data.py" line="383" />
             <source>Parsley</source>
             <translation>Perejil</translation>
         </message>
@@ -4501,78 +4501,78 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Chirivía</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="479" />
+            <location filename="../../ui/widgets/gallery_data.py" line="486" />
             <source>Path</source>
             <translation>Camino</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="368" />
+            <location filename="../../ui/widgets/gallery_data.py" line="377" />
             <source>Pea</source>
             <translation>Guisante</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="269" />
+            <location filename="../../ui/widgets/gallery_data.py" line="278" />
             <source>Peach Tree</source>
             <translation>Melocotonero</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="268" />
+            <location filename="../../ui/widgets/gallery_data.py" line="277" />
             <source>Pear Tree</source>
             <translation>Peral</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="337" />
+            <location filename="../../ui/widgets/gallery_data.py" line="346" />
             <source>Peony</source>
             <translation>Peonía</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="366" />
+            <location filename="../../ui/widgets/gallery_data.py" line="375" />
             <source>Pepper</source>
             <translation>Pimiento</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="503" />
+            <location filename="../../ui/widgets/gallery_data.py" line="510" />
             <source>Pergola</source>
             <translation>Pérgola</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="340" />
+            <location filename="../../ui/widgets/gallery_data.py" line="349" />
             <source>Petunia</source>
             <translation>Petunia</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="418" />
+            <location filename="../../ui/widgets/gallery_data.py" line="427" />
             <source>Picnic Table</source>
             <translation>Mesa de picnic</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="274" />
+            <location filename="../../ui/widgets/gallery_data.py" line="283" />
             <source>Pine</source>
             <translation>Pino</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="497" />
+            <location filename="../../ui/widgets/gallery_data.py" line="504" />
             <source>Planter/Pot</source>
             <translation>Jardinera/Maceta</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="268" />
+            <location filename="../../ui/widgets/gallery_data.py" line="277" />
             <source>Plum Tree</source>
             <translation>Ciruelo</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="232" />
+            <location filename="../../ui/widgets/gallery_data.py" line="241" />
             <source>Polygon</source>
             <translation>Polígono</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="449" />
+            <location filename="../../ui/widgets/gallery_data.py" line="456" />
             <source>Pond/Pool</source>
             <translation>Estanque/Piscina</translation>
         </message>
@@ -4583,51 +4583,51 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="369" />
+            <location filename="../../ui/widgets/gallery_data.py" line="378" />
             <source>Potato</source>
             <translation>Patata</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="303" />
+            <location filename="../../ui/widgets/gallery_data.py" line="312" />
             <source>Privet</source>
             <translation>Aligustre</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="367" />
+            <location filename="../../ui/widgets/gallery_data.py" line="376" />
             <source>Pumpkin</source>
             <translation>Calabaza</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="369" />
+            <location filename="../../ui/widgets/gallery_data.py" line="378" />
             <source>Radish</source>
             <translation>Rábano</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="499" />
+            <location filename="../../ui/widgets/gallery_data.py" line="506" />
             <source>Rain Barrel</source>
             <translation>Barril de lluvia</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="462" />
+            <location filename="../../ui/widgets/gallery_data.py" line="469" />
             <source>Raised Bed</source>
             <translation>Bancal elevado</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="298" />
+            <location filename="../../ui/widgets/gallery_data.py" line="307" />
             <source>Raspberry</source>
             <translation>Frambueso</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="231" />
+            <location filename="../../ui/widgets/gallery_data.py" line="240" />
             <source>Rectangle</source>
             <translation>Rectángulo</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="297" />
+            <location filename="../../ui/widgets/gallery_data.py" line="306" />
             <source>Rhododendron</source>
             <translation>Rododendro</translation>
         </message>
@@ -4643,23 +4643,23 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="335" />
+            <location filename="../../ui/widgets/gallery_data.py" line="344" />
             <source>Rose</source>
             <translation>Rosa</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="372" />
+            <location filename="../../ui/widgets/gallery_data.py" line="381" />
             <source>Rosemary</source>
             <translation>Romero</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="529" />
+            <location filename="../../ui/widgets/gallery_data.py" line="536" />
             <source>Round Container</source>
             <translation>Contenedor redondo</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="254" />
+            <location filename="../../ui/widgets/gallery_data.py" line="263" />
             <source>Round Deciduous</source>
             <translation>Frondosa de copa redonda</translation>
         </message>
@@ -4670,17 +4670,17 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="373" />
+            <location filename="../../ui/widgets/gallery_data.py" line="382" />
             <source>Sage</source>
             <translation>Salvia</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="421" />
+            <location filename="../../ui/widgets/gallery_data.py" line="430" />
             <source>Sandbox</source>
             <translation>Arenero</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="555" />
+            <location filename="../../ui/widgets/gallery_data.py" line="562" />
             <source>Shrubs &amp; Hedges</source>
             <translation>Arbustos y setos</translation>
         </message>
@@ -4691,24 +4691,24 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="371" />
+            <location filename="../../ui/widgets/gallery_data.py" line="380" />
             <source>Spinach</source>
             <translation>Espinaca</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="305" />
+            <location filename="../../ui/widgets/gallery_data.py" line="314" />
             <source>Spirea</source>
             <translation>Espirea</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="288" />
+            <location filename="../../ui/widgets/gallery_data.py" line="297" />
             <source>Spreading Shrub</source>
             <translation>Arbusto extendido</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="274" />
+            <location filename="../../ui/widgets/gallery_data.py" line="283" />
             <source>Spruce</source>
             <translation>Pícea</translation>
         </message>
@@ -4718,18 +4718,18 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Fresa</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="426" />
+            <location filename="../../ui/widgets/gallery_data.py" line="435" />
             <source>String Lights</source>
             <translation>Guirnalda de luces</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="558" />
+            <location filename="../../ui/widgets/gallery_data.py" line="565" />
             <source>Structures</source>
             <translation>Estructuras</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="335" />
+            <location filename="../../ui/widgets/gallery_data.py" line="344" />
             <source>Sunflower</source>
             <translation>Girasol</translation>
         </message>
@@ -4754,60 +4754,60 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Boniato</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="420" />
+            <location filename="../../ui/widgets/gallery_data.py" line="429" />
             <source>Swing</source>
             <translation>Columpio</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="409" />
+            <location filename="../../ui/widgets/gallery_data.py" line="418" />
             <source>Table (Rect.)</source>
             <translation>Mesa (rect.)</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="410" />
+            <location filename="../../ui/widgets/gallery_data.py" line="419" />
             <source>Table (Round)</source>
             <translation>Mesa (redonda)</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="447" />
+            <location filename="../../ui/widgets/gallery_data.py" line="454" />
             <source>Terrace/Patio</source>
             <translation>Terraza/Patio</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="373" />
+            <location filename="../../ui/widgets/gallery_data.py" line="382" />
             <source>Thyme</source>
             <translation>Tomillo</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="366" />
+            <location filename="../../ui/widgets/gallery_data.py" line="375" />
             <source>Tomato</source>
             <translation>Tomate</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="501" />
+            <location filename="../../ui/widgets/gallery_data.py" line="508" />
             <source>Tool Shed</source>
             <translation>Caseta de herramientas</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="422" />
+            <location filename="../../ui/widgets/gallery_data.py" line="431" />
             <source>Trampoline</source>
             <translation>Cama elástica</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="554" />
+            <location filename="../../ui/widgets/gallery_data.py" line="561" />
             <source>Trees</source>
             <translation>Árboles</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="531" />
+            <location filename="../../ui/widgets/gallery_data.py" line="538" />
             <source>Trellis</source>
             <translation>Espaldera</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="336" />
+            <location filename="../../ui/widgets/gallery_data.py" line="345" />
             <source>Tulip</source>
             <translation>Tulipán</translation>
         </message>
@@ -4817,44 +4817,44 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Valeriana</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="357" />
+            <location filename="../../ui/widgets/gallery_data.py" line="366" />
             <source>Vegetable</source>
             <translation>Hortaliza</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="557" />
+            <location filename="../../ui/widgets/gallery_data.py" line="564" />
             <source>Vegetables &amp; Herbs</source>
             <translation>Hortalizas y hierbas</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="563" />
+            <location filename="../../ui/widgets/gallery_data.py" line="570" />
             <source>Vertical &amp; Container</source>
             <translation>Vertical y contenedor</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="303" />
+            <location filename="../../ui/widgets/gallery_data.py" line="312" />
             <source>Viburnum</source>
             <translation>Viburno</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="478" />
+            <location filename="../../ui/widgets/gallery_data.py" line="485" />
             <source>Wall</source>
             <translation>Muro</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="530" />
+            <location filename="../../ui/widgets/gallery_data.py" line="537" />
             <source>Wall Planter</source>
             <translation>Jardinera de pared</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="271" />
+            <location filename="../../ui/widgets/gallery_data.py" line="280" />
             <source>Walnut Tree</source>
             <translation>Nogal</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="500" />
+            <location filename="../../ui/widgets/gallery_data.py" line="507" />
             <source>Water Tap</source>
             <translation>Grifo de agua</translation>
         </message>
@@ -4864,18 +4864,18 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
             <translation>Sandía</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="256" />
+            <location filename="../../ui/widgets/gallery_data.py" line="265" />
             <source>Weeping Tree</source>
             <translation>Árbol llorón</translation>
         </message>
         <message>
-            <location filename="../../ui/widgets/gallery_data.py" line="504" />
+            <location filename="../../ui/widgets/gallery_data.py" line="511" />
             <source>Wheelbarrow</source>
             <translation>Carretilla</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="273" />
+            <location filename="../../ui/widgets/gallery_data.py" line="282" />
             <source>Willow</source>
             <translation>Sauce</translation>
         </message>
@@ -4886,19 +4886,19 @@ Use 0,1 para DXF en mm, 100 para DXF en metros.</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="342" />
+            <location filename="../../ui/widgets/gallery_data.py" line="351" />
             <source>Wisteria</source>
             <translation>Glicinia</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="338" />
+            <location filename="../../ui/widgets/gallery_data.py" line="347" />
             <source>Zinnia</source>
             <translation>Zinia</translation>
         </message>
         <message>
             <location filename="../../resources/data/plant_species.json" line="1" />
-            <location filename="../../ui/widgets/gallery_data.py" line="367" />
+            <location filename="../../ui/widgets/gallery_data.py" line="376" />
             <source>Zucchini</source>
             <translation>Calabacín</translation>
         </message>
@@ -11451,100 +11451,100 @@ para asignar datos de especie.</translation>
     <context>
         <name>PropertiesPanel</name>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1529" />
+            <location filename="../../ui/panels/properties_panel.py" line="1528" />
             <source>0 = auto-compute from footprint × height; set a value to override</source>
             <translation>0 = calcular automáticamente a partir de huella × altura; introduzca un valor para anular</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1109" />
+            <location filename="../../ui/panels/properties_panel.py" line="1108" />
             <source>Arrange</source>
             <translation>Organizar</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1525" />
-            <location filename="../../ui/panels/properties_panel.py" line="1704" />
-            <location filename="../../ui/panels/properties_panel.py" line="1805" />
-            <location filename="../../ui/panels/properties_panel.py" line="1823" />
+            <location filename="../../ui/panels/properties_panel.py" line="1524" />
+            <location filename="../../ui/panels/properties_panel.py" line="1703" />
+            <location filename="../../ui/panels/properties_panel.py" line="1804" />
+            <location filename="../../ui/panels/properties_panel.py" line="1822" />
             <source>Auto</source>
             <translation>Automático</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1780" />
+            <location filename="../../ui/panels/properties_panel.py" line="1779" />
             <source>Automatic</source>
             <translation>Automático</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2377" />
+            <location filename="../../ui/panels/properties_panel.py" line="2376" />
             <source>Bark</source>
             <translation>Corteza</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2190" />
+            <location filename="../../ui/panels/properties_panel.py" line="2189" />
             <source>Bold</source>
             <translation>Negrita</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2376" />
+            <location filename="../../ui/panels/properties_panel.py" line="2375" />
             <source>Brick</source>
             <translation>Ladrillo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1126" />
+            <location filename="../../ui/panels/properties_panel.py" line="1125" />
             <source>Bring Forward</source>
             <translation>Avanzar un nivel</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1120" />
+            <location filename="../../ui/panels/properties_panel.py" line="1119" />
             <source>Bring to Front</source>
             <translation>Traer al frente</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2696" />
+            <location filename="../../ui/panels/properties_panel.py" line="2695" />
             <source>Cannot resize this shape: its edge length is constrained. Remove the constraint first.</source>
             <translation>No se puede cambiar el tamaño de esta forma: su longitud de lado está restringida. Elimine primero la restricción.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1403" />
+            <location filename="../../ui/panels/properties_panel.py" line="1402" />
             <source>Cells:</source>
             <translation>Celdas:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2385" />
+            <location filename="../../ui/panels/properties_panel.py" line="2384" />
             <source>Clay</source>
             <translation>Arcilla</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2212" />
+            <location filename="../../ui/panels/properties_panel.py" line="2211" />
             <source>Color:</source>
             <translation>Color:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2383" />
+            <location filename="../../ui/panels/properties_panel.py" line="2382" />
             <source>Compost</source>
             <translation>Compost</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2366" />
+            <location filename="../../ui/panels/properties_panel.py" line="2365" />
             <source>Concrete</source>
             <translation>Hormigón</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="978" />
+            <location filename="../../ui/panels/properties_panel.py" line="977" />
             <source>Contained Plants</source>
             <translation>Plantas contenidas</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1487" />
+            <location filename="../../ui/panels/properties_panel.py" line="1486" />
             <source>Container</source>
             <translation>Recipiente</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2149" />
+            <location filename="../../ui/panels/properties_panel.py" line="2148" />
             <source>Content:</source>
             <translation>Contenido:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2387" />
+            <location filename="../../ui/panels/properties_panel.py" line="2386" />
             <source>Corten steel</source>
             <translation>Acero corten</translation>
         </message>
@@ -11554,127 +11554,127 @@ para asignar datos de especie.</translation>
             <translation>Ctrl+Mayús+G para desagrupar</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1708" />
+            <location filename="../../ui/panels/properties_panel.py" line="1707" />
             <source>Custom height (0 = back to automatic)</source>
             <translation>Altura personalizada (0 = volver a automático)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2452" />
+            <location filename="../../ui/panels/properties_panel.py" line="2451" />
             <source>Dash Dot</source>
             <translation>Punto y raya</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2450" />
+            <location filename="../../ui/panels/properties_panel.py" line="2449" />
             <source>Dashed</source>
             <translation>Discontinuo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2386" />
+            <location filename="../../ui/panels/properties_panel.py" line="2385" />
             <source>Decking</source>
             <translation>Tarima</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1712" />
+            <location filename="../../ui/panels/properties_panel.py" line="1711" />
             <source>Default for this object type</source>
             <translation>Predeterminado para este tipo de objeto</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1243" />
+            <location filename="../../ui/panels/properties_panel.py" line="1242" />
             <source>Diameter:</source>
             <translation>Diámetro:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2451" />
+            <location filename="../../ui/panels/properties_panel.py" line="2450" />
             <source>Dotted</source>
             <translation>De puntos</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1509" />
+            <location filename="../../ui/panels/properties_panel.py" line="1508" />
             <source>Drainage:</source>
             <translation>Drenaje:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1536" />
+            <location filename="../../ui/panels/properties_panel.py" line="1535" />
             <source>Effective:</source>
             <translation>Efectivo:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2356" />
+            <location filename="../../ui/panels/properties_panel.py" line="2355" />
             <source>Fill Color:</source>
             <translation>Color de relleno:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2401" />
+            <location filename="../../ui/panels/properties_panel.py" line="2400" />
             <source>Fill Pattern:</source>
             <translation>Patrón de relleno:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1442" />
+            <location filename="../../ui/panels/properties_panel.py" line="1441" />
             <source>Fill depth used to calculate soil volume in the Shopping List</source>
             <translation>Profundidad de llenado usada para calcular el volumen de tierra en la lista de compras</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2384" />
+            <location filename="../../ui/panels/properties_panel.py" line="2383" />
             <source>Flagstone</source>
             <translation>Laja</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1782" />
+            <location filename="../../ui/panels/properties_panel.py" line="1781" />
             <source>Flat</source>
             <translation>Plano</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2167" />
+            <location filename="../../ui/panels/properties_panel.py" line="2166" />
             <source>Font:</source>
             <translation>Fuente:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1711" />
+            <location filename="../../ui/panels/properties_panel.py" line="1710" />
             <source>From assigned species (max height)</source>
             <translation>De la especie asignada (altura máx.)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1709" />
+            <location filename="../../ui/panels/properties_panel.py" line="1708" />
             <source>From container fill height</source>
             <translation>De la altura de llenado del recipiente</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1710" />
+            <location filename="../../ui/panels/properties_panel.py" line="1709" />
             <source>From measured current height</source>
             <translation>De la altura actual medida</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2072" />
+            <location filename="../../ui/panels/properties_panel.py" line="2071" />
             <source>Frost protection:</source>
             <translation>Protección contra heladas:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1780" />
+            <location filename="../../ui/panels/properties_panel.py" line="1779" />
             <source>Gable</source>
             <translation>A dos aguas</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2374" />
+            <location filename="../../ui/panels/properties_panel.py" line="2373" />
             <source>Glass</source>
             <translation>Vidrio</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2364" />
+            <location filename="../../ui/panels/properties_panel.py" line="2363" />
             <source>Grass</source>
             <translation>Césped</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2365" />
+            <location filename="../../ui/panels/properties_panel.py" line="2364" />
             <source>Gravel</source>
             <translation>Grava</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1347" />
+            <location filename="../../ui/panels/properties_panel.py" line="1346" />
             <source>Grid Overlay</source>
             <translation>Superposición de cuadrícula</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1400" />
+            <location filename="../../ui/panels/properties_panel.py" line="1399" />
             <source>Grid:</source>
             <translation>Cuadrícula:</translation>
         </message>
@@ -11684,37 +11684,37 @@ para asignar datos de especie.</translation>
             <translation>Grupo ({n} elementos)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1270" />
+            <location filename="../../ui/panels/properties_panel.py" line="1269" />
             <source>H: </source>
             <translation>Al: </translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1507" />
+            <location filename="../../ui/panels/properties_panel.py" line="1506" />
             <source>Has drainage holes</source>
             <translation>Tiene orificios de drenaje</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2375" />
+            <location filename="../../ui/panels/properties_panel.py" line="2374" />
             <source>Hedge</source>
             <translation>Seto</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1517" />
+            <location filename="../../ui/panels/properties_panel.py" line="1516" />
             <source>Height:</source>
             <translation>Alto:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1781" />
+            <location filename="../../ui/panels/properties_panel.py" line="1780" />
             <source>Hip</source>
             <translation>A cuatro aguas</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2000" />
+            <location filename="../../ui/panels/properties_panel.py" line="1999" />
             <source>Invalid symbol parameter value — geometry unchanged.</source>
             <translation>Valor de parámetro de símbolo no válido — geometría sin cambios.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2195" />
+            <location filename="../../ui/panels/properties_panel.py" line="2194" />
             <source>Italic</source>
             <translation>Cursiva</translation>
         </message>
@@ -11724,7 +11724,7 @@ para asignar datos de especie.</translation>
             <translation>Etiqueta:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2382" />
+            <location filename="../../ui/panels/properties_panel.py" line="2381" />
             <source>Lattice</source>
             <translation>Celosía</translation>
         </message>
@@ -11735,22 +11735,22 @@ para asignar datos de especie.</translation>
             <translation>Capa:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2507" />
+            <location filename="../../ui/panels/properties_panel.py" line="2506" />
             <source>Locked in place: unlock to move (Fix in place constraint).</source>
             <translation>Fijado en su lugar: desbloquear para mover (restricción de fijación).</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1504" />
+            <location filename="../../ui/panels/properties_panel.py" line="1503" />
             <source>Material:</source>
             <translation>Material:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1497" />
+            <location filename="../../ui/panels/properties_panel.py" line="1496" />
             <source>Metal</source>
             <translation>Metal</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2370" />
+            <location filename="../../ui/panels/properties_panel.py" line="2369" />
             <source>Mulch</source>
             <translation>Mantillo</translation>
         </message>
@@ -11767,7 +11767,7 @@ aún no implementada</translation>
             <translation>Nombre:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2049" />
+            <location filename="../../ui/panels/properties_panel.py" line="2048" />
             <source>Needs frost protection</source>
             <translation>Necesita protección contra heladas</translation>
         </message>
@@ -11776,7 +11776,7 @@ aún no implementada</translation>
             <translation type="vanished">Sin altura — no proyecta sombra</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1714" />
+            <location filename="../../ui/panels/properties_panel.py" line="1713" />
             <source>No height — no shadow on the 2D plan</source>
             <translation>Sin altura — sin sombra en el plano 2D</translation>
         </message>
@@ -11786,94 +11786,94 @@ aún no implementada</translation>
             <translation>Ningún objeto seleccionado</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="984" />
+            <location filename="../../ui/panels/properties_panel.py" line="983" />
             <source>No plants in this bed</source>
             <translation>No hay plantas en este bancal</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1733" />
+            <location filename="../../ui/panels/properties_panel.py" line="1732" />
             <source>Object height:</source>
             <translation>Altura del objeto:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2063" />
+            <location filename="../../ui/panels/properties_panel.py" line="2062" />
             <source>Override frost sensitivity:
 checked = always protect, unchecked = never protect, indeterminate = use the plant database default</source>
             <translation>Anular sensibilidad a las heladas:
 marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar el valor por defecto de la base de datos</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1054" />
+            <location filename="../../ui/panels/properties_panel.py" line="1053" />
             <source>Parent Bed</source>
             <translation>Bancal superior</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2380" />
+            <location filename="../../ui/panels/properties_panel.py" line="2379" />
             <source>Pebbles</source>
             <translation>Guijarros</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1495" />
+            <location filename="../../ui/panels/properties_panel.py" line="1494" />
             <source>Plastic</source>
             <translation>Plástico</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1219" />
+            <location filename="../../ui/panels/properties_panel.py" line="1218" />
             <source>Position:</source>
             <translation>Posición:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2036" />
+            <location filename="../../ui/panels/properties_panel.py" line="2035" />
             <source>Recommended spacing radius (half of plant spread)</source>
             <translation>Radio de separación recomendado (mitad de la envergadura de la planta)</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2371" />
+            <location filename="../../ui/panels/properties_panel.py" line="2370" />
             <source>Roof Tiles</source>
             <translation>Tejas</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1833" />
+            <location filename="../../ui/panels/properties_panel.py" line="1832" />
             <source>Roof overhang:</source>
             <translation>Alero del tejado:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1814" />
+            <location filename="../../ui/panels/properties_panel.py" line="1813" />
             <source>Roof pitch:</source>
             <translation>Inclinación del tejado:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1793" />
+            <location filename="../../ui/panels/properties_panel.py" line="1792" />
             <source>Roof style:</source>
             <translation>Forma del tejado:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2372" />
+            <location filename="../../ui/panels/properties_panel.py" line="2371" />
             <source>Sand</source>
             <translation>Arena</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1334" />
+            <location filename="../../ui/panels/properties_panel.py" line="1333" />
             <source>Semi-axes:</source>
             <translation>Semiejes:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1132" />
+            <location filename="../../ui/panels/properties_panel.py" line="1131" />
             <source>Send Backward</source>
             <translation>Retroceder un nivel</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1138" />
+            <location filename="../../ui/panels/properties_panel.py" line="1137" />
             <source>Send to Back</source>
             <translation>Enviar al fondo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1776" />
+            <location filename="../../ui/panels/properties_panel.py" line="1775" />
             <source>Shapes the roof in the 3D view. The 2D plan and its sun study are unchanged.</source>
             <translation>Da forma al tejado en la vista 3D. El plano 2D y su estudio solar no cambian.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1353" />
+            <location filename="../../ui/panels/properties_panel.py" line="1352" />
             <source>Show grid</source>
             <translation>Mostrar cuadrícula</translation>
         </message>
@@ -11883,106 +11883,106 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Mostrar etiqueta en el lienzo</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1781" />
+            <location filename="../../ui/panels/properties_panel.py" line="1780" />
             <source>Single slope</source>
             <translation>A un agua</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1286" />
-            <location filename="../../ui/panels/properties_panel.py" line="2183" />
+            <location filename="../../ui/panels/properties_panel.py" line="1285" />
+            <location filename="../../ui/panels/properties_panel.py" line="2182" />
             <source>Size:</source>
             <translation>Tamaño:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2381" />
+            <location filename="../../ui/panels/properties_panel.py" line="2380" />
             <source>Slate</source>
             <translation>Pizarra</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2369" />
+            <location filename="../../ui/panels/properties_panel.py" line="2368" />
             <source>Soil</source>
             <translation>Tierra</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1432" />
+            <location filename="../../ui/panels/properties_panel.py" line="1431" />
             <source>Soil Fill</source>
             <translation>Sustrato de tierra</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1463" />
+            <location filename="../../ui/panels/properties_panel.py" line="1462" />
             <source>Soil depth:</source>
             <translation>Profundidad del suelo:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1531" />
+            <location filename="../../ui/panels/properties_panel.py" line="1530" />
             <source>Soil volume:</source>
             <translation>Volumen de tierra:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2363" />
-            <location filename="../../ui/panels/properties_panel.py" line="2449" />
+            <location filename="../../ui/panels/properties_panel.py" line="2362" />
+            <location filename="../../ui/panels/properties_panel.py" line="2448" />
             <source>Solid</source>
             <translation>Sólido</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2040" />
+            <location filename="../../ui/panels/properties_panel.py" line="2039" />
             <source>Spacing radius:</source>
             <translation>Radio de separación:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1401" />
+            <location filename="../../ui/panels/properties_panel.py" line="1400" />
             <source>Spacing:</source>
             <translation>Separación:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2373" />
+            <location filename="../../ui/panels/properties_panel.py" line="2372" />
             <source>Stone</source>
             <translation>Piedra</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2418" />
+            <location filename="../../ui/panels/properties_panel.py" line="2417" />
             <source>Stroke Color:</source>
             <translation>Color de trazo:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2466" />
+            <location filename="../../ui/panels/properties_panel.py" line="2465" />
             <source>Stroke Style:</source>
             <translation>Estilo de trazo:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2437" />
+            <location filename="../../ui/panels/properties_panel.py" line="2436" />
             <source>Stroke Width:</source>
             <translation>Grosor de trazo:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2203" />
-            <location filename="../../ui/panels/properties_panel.py" line="2338" />
+            <location filename="../../ui/panels/properties_panel.py" line="2202" />
+            <location filename="../../ui/panels/properties_panel.py" line="2337" />
             <source>Style:</source>
             <translation>Estilo:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1906" />
+            <location filename="../../ui/panels/properties_panel.py" line="1905" />
             <source>Symbol definition not found — showing cached geometry.</source>
             <translation>Definición de símbolo no encontrada — mostrando geometría en caché.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1918" />
+            <location filename="../../ui/panels/properties_panel.py" line="1917" />
             <source>Symbol definition version mismatch — saved geometry is read-only.</source>
             <translation>Discrepancia de versión de definición de símbolo — la geometría guardada es de solo lectura.</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1494" />
-            <location filename="../../ui/panels/properties_panel.py" line="2379" />
+            <location filename="../../ui/panels/properties_panel.py" line="1493" />
+            <location filename="../../ui/panels/properties_panel.py" line="2378" />
             <source>Terracotta</source>
             <translation>Terracota</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2126" />
+            <location filename="../../ui/panels/properties_panel.py" line="2125" />
             <source>Text</source>
             <translation>Texto</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1000" />
+            <location filename="../../ui/panels/properties_panel.py" line="999" />
             <source>Total: {count} plant(s)</source>
             <translation>Total: {count} planta(s)</translation>
         </message>
@@ -11992,28 +11992,28 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>Tipo:</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1039" />
+            <location filename="../../ui/panels/properties_panel.py" line="1038" />
             <source>Unlink</source>
             <translation>Desvincular</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1259" />
+            <location filename="../../ui/panels/properties_panel.py" line="1258" />
             <source>W: </source>
             <translation>An: </translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2368" />
+            <location filename="../../ui/panels/properties_panel.py" line="2367" />
             <source>Water</source>
             <translation>Agua</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2378" />
+            <location filename="../../ui/panels/properties_panel.py" line="2377" />
             <source>Wildflower Meadow</source>
             <translation>Pradera silvestre</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1496" />
-            <location filename="../../ui/panels/properties_panel.py" line="2367" />
+            <location filename="../../ui/panels/properties_panel.py" line="1495" />
+            <location filename="../../ui/panels/properties_panel.py" line="2366" />
             <source>Wood</source>
             <translation>Madera</translation>
         </message>
@@ -12023,22 +12023,22 @@ marcado = proteger siempre, desmarcado = no proteger nunca, indeterminado = usar
             <translation>{count} objetos seleccionados</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="1550" />
+            <location filename="../../ui/panels/properties_panel.py" line="1549" />
             <source>{litres:.1f} L</source>
             <translation>{litres:.1f} L</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2032" />
+            <location filename="../../ui/panels/properties_panel.py" line="2031" />
             <source>—</source>
             <translation>—</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2315" />
+            <location filename="../../ui/panels/properties_panel.py" line="2314" />
             <source>── Fences ──</source>
             <translation>── Vallas ──</translation>
         </message>
         <message>
-            <location filename="../../ui/panels/properties_panel.py" line="2300" />
+            <location filename="../../ui/panels/properties_panel.py" line="2299" />
             <source>── Paths ──</source>
             <translation>── Caminos ──</translation>
         </message>

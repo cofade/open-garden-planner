@@ -105,9 +105,9 @@ def lantern_bulb(record: Record, height_cm: float) -> tuple[float, float, float]
 def lamp_light(record: Record, height_cm: float) -> tuple[float, float, float] | None:
     """Where the point light of a garden light or a string stands, item-local (cm; z up
     from its soil): ``LIGHT_BELOW_CM`` under the lantern's floor, or under the middle
-    bulb of a string — which ``POST_CLEAR_CM`` keeps off every post (before it, that bulb
-    hung on the middle post of a symmetric string; the bulbs' centroid, tried in review,
-    stood inside the middle post of a straight one). None for a record the builder
+    bulb of a string — which ``POST_CLEAR_CM`` keeps off the posts of its span (before it,
+    that bulb hung on the middle post of a symmetric string; the bulbs' centroid, tried in
+    review, stood inside the middle post of a straight one). None for a record the builder
     builds as a plain block."""
     if record.kind == "GARDEN_LIGHT":
         box = _box_of(record)

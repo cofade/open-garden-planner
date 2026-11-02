@@ -17,6 +17,7 @@ from open_garden_planner.core.phenology import PhenologyState
 from open_garden_planner.core.scene3d import Material, Params, Record, Transform
 from open_garden_planner.core.scene3d.builders import OBJECT_KINDS, production_registry
 from open_garden_planner.core.scene3d.builders.lights import (
+    BULB_RADIUS_CM,
     STRING_POST_CM,
     build_garden_light,
     build_string_lights,
@@ -300,17 +301,22 @@ def test_the_point_light_stands_below_the_lamp(kind: str) -> None:
 def test_a_strings_point_light_stands_outside_every_post(path) -> None:
     """Senior review round 12: the bulbs' centroid put the light INSIDE the middle post
     of a straight string, and before ``POST_CLEAR_CM`` the middle bulb hung on the
-    middle post of a symmetric one. Under the middle bulb, kept clear of the posts, the
-    light is outside every post's box, and under a bulb."""
+    middle post of a symmetric one. Under the middle bulb — kept clear of the posts of
+    its span — the light is clear of every post on these shapes, and under a bulb. On a
+    line that doubles back a bulb can still meet a FOREIGN post: ``POST_CLEAR_CM`` is a
+    span guarantee, and the paint order keeps that bulb visible."""
     from tests.unit.scene3d_builder_cases import line_record
 
     record = line_record("STRING_LIGHTS", path, 250.0, width=12.0)
     local = lamp_light(record, 250.0)
     lay = string_layout(record)
     assert local is not None and lay is not None
-    half = STRING_POST_CM / 2.0
+    # Euclidean: the 2.6 cm ball clear of the 4 cm post, not just the light's point
+    # outside the post's half-side (a 45-degree span left only 0.24 cm of Chebyshev
+    # margin where the ball already overlapped)
     for px, py in lay.posts:
-        assert max(abs(local[0] - px), abs(local[1] - py)) > half + 2.0, (px, py, local)
+        assert np.hypot(local[0] - px, local[1] - py) > STRING_POST_CM / 2.0 + BULB_RADIUS_CM, \
+            (px, py, local)
     bulbs = string_bulbs(record, 250.0)
     assert bulbs is not None
     assert np.hypot(bulbs[:, 0] - local[0], bulbs[:, 1] - local[1]).min() < 1e-6, "under a bulb"

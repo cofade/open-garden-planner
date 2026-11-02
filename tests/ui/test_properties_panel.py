@@ -714,5 +714,7 @@ class TestObjectTypeDropdownIcons:
         painted = [image.pixelColor(x, y) for y in range(image.height())
                    for x in range(image.width()) if image.pixelColor(x, y).alpha() > 200]
         assert len(painted) > 20, "the Type dropdown shows a picture, not a blank icon"
-        assert any(c.red() > 200 and c.green() > 190 and c.blue() > 150 for c in painted), \
+        # cream (238, 225, 198), not plain white: red - blue = 40 on the bulbs, 0 on white
+        assert any(c.red() > 200 and c.green() > 190 and 150 < c.blue() < 215
+                   and c.red() - c.blue() > 25 for c in painted), \
             "its cream bulbs are in the picture"

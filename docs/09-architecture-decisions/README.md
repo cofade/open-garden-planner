@@ -9914,17 +9914,19 @@ the 2D painter draws the wire and posts UNDER the bulbs and caps the post's draw
 `2 × POST_CLEAR_CM`: a clamped ball is visible on top of the post (59 % was buried at the
 default width, 96 % at 24 cm) and a widened stroke cannot swallow it (senior review round
 12). A string's point light stays under its middle bulb, which the clearance now keeps off
-every post: the bulbs' centroid, tried in round 11, stood inside the middle post of a
-straight string (senior review round 12). Where a loop's or an L's light should stand is a
-follow-up. The wire's radius is 0.5 cm
+the posts of its span: the bulbs' centroid, tried in round 11, stood inside the middle post
+of a straight string (senior review round 12); a bulb can still meet a foreign post on a
+line that doubles back, where the paint order keeps it visible. Where a loop's or an L's
+light should stand is a follow-up. The wire's radius is 0.5 cm
 (0.35 broke into dashes at 7 m on Low). **The line's width sizes the 2D symbol only**, as a
 fence's stroke does: the 3D model builds real 4 cm posts and 2.6 cm bulbs at the same places;
 a width of 0, which a file may hold, is drawn at 12 cm by the bounds and the paint alike
 (`string_lights_paint.drawn_width`). The string's style has no fill, as no line has one —
 Change Type from a fence kept the string's cream style fill from its rectangle days, out of
 step with the line's empty brush — and its Type-dropdown icon is the gallery's painted
-picture, not the warning triangle. A crafted line of any length stands on at most `MAX_POSTS` (512) posts, and a paint
-reads the layout the item keeps (security review; general vertex caps at load: #703).
+picture, not the warning triangle. A crafted line of any length stands on at most
+`MAX_POSTS` (512) posts, and a paint reads the layout the item keeps (security review;
+general vertex caps at load: #703).
 `NO_2D_SHADOW_TYPE_NAMES` is for a kind whose shade is negligible, never for an open frame
 that overstates its own: a pergola or a swing is cast honestly through #440's transmittance
 (#698). **Older versions**: no file-format change, but an older loader gives every line of an
