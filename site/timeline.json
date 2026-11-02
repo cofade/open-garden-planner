@@ -1,9 +1,10 @@
 {
-  "version": 1,
+  "version": 2,
+  "basis": "current_release",
   "timezone": "UTC",
   "repo": "cofade/open-garden-planner",
   "baseline_at": "2026-10-28T17:19:46Z",
-  "updated_at": "2026-11-01T06:08:14Z",
+  "updated_at": "2026-11-02T06:06:46Z",
   "days": [
     {
       "date": "2026-02-14",
@@ -2061,11 +2062,6 @@
       "partial": false,
       "windows": [
         {
-          "from": "2026-10-28T17:19:46Z",
-          "to": "2026-10-29T05:50:06Z",
-          "kind": "normal"
-        },
-        {
           "from": "2026-10-28T20:23:31Z",
           "to": "2026-10-29T05:50:06Z",
           "kind": "new"
@@ -2075,30 +2071,10 @@
     {
       "date": "2026-10-29",
       "historical": 0.0,
-      "observed": 218.0,
+      "observed": 2.0,
       "gap": 0.0,
       "partial": false,
       "windows": [
-        {
-          "from": "2026-10-29T05:50:06Z",
-          "to": "2026-10-30T05:51:20Z",
-          "kind": "normal"
-        },
-        {
-          "from": "2026-10-29T09:13:59Z",
-          "to": "2026-10-30T05:51:20Z",
-          "kind": "new"
-        },
-        {
-          "from": "2026-10-29T11:19:08Z",
-          "to": "2026-10-30T05:51:20Z",
-          "kind": "new"
-        },
-        {
-          "from": "2026-10-29T20:28:05Z",
-          "to": "2026-10-30T05:51:20Z",
-          "kind": "new"
-        },
         {
           "from": "2026-10-29T23:46:51Z",
           "to": "2026-10-30T05:51:20Z",
@@ -2109,20 +2085,10 @@
     {
       "date": "2026-10-30",
       "historical": 0.0,
-      "observed": 6.0,
+      "observed": 3.0,
       "gap": 0.0,
       "partial": false,
       "windows": [
-        {
-          "from": "2026-10-30T05:51:20Z",
-          "to": "2026-10-31T05:43:38Z",
-          "kind": "normal"
-        },
-        {
-          "from": "2026-10-30T14:04:52Z",
-          "to": "2026-10-31T05:43:38Z",
-          "kind": "new"
-        },
         {
           "from": "2026-10-30T15:10:52Z",
           "to": "2026-10-31T05:43:38Z",
@@ -2131,29 +2097,20 @@
       ]
     },
     {
-      "date": "2026-10-31",
-      "historical": 0.0,
-      "observed": 3.0,
-      "gap": 0.0,
-      "partial": false,
-      "windows": [
-        {
-          "from": "2026-10-31T05:43:38Z",
-          "to": "2026-11-01T06:08:14Z",
-          "kind": "normal"
-        }
-      ]
-    },
-    {
       "date": "2026-11-01",
       "historical": 0.0,
-      "observed": 1.0,
+      "observed": 4.0,
       "gap": 0.0,
       "partial": true,
       "windows": [
         {
           "from": "2026-11-01T01:55:52Z",
           "to": "2026-11-01T06:08:14Z",
+          "kind": "new"
+        },
+        {
+          "from": "2026-11-01T13:51:56Z",
+          "to": "2026-11-02T06:06:46Z",
           "kind": "new"
         }
       ]

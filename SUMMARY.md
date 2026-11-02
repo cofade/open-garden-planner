@@ -7,6 +7,9 @@
 Generated from GitHub's per-asset download counters; no data comes from the app.
 These are downloads, not users: bots, virus scanners and retries are included.
 Each line is the window between two snapshots (not a calendar day).
+The chart counts only the release that is current at each snapshot (older releases
+are closed once a newer regular release is published); the tables below report the
+raw per-asset counters across all releases, so the chart total and **All** differ by design.
 
 `SHA256SUMS.txt` is fetched by in-app updates from v1.30.3 on *and* by web users who
 follow the install instructions; older apps download the installer only. The two
@@ -17,15 +20,17 @@ Prereleases are left out of the window table (not of the totals).
 
 | Snapshot (UTC) | Window (h) | Installer | SHA256SUMS.txt | Note |
 | --- | ---: | ---: | ---: | --- |
-| 2026-11-01 06:08 | 24.4 | 4 | 2 | new release or asset |
+| 2026-11-02 06:06 | 24 | 4 | 1 |  |
+| 2026-11-01 06:08 | 24.4 | 4 | 2 |  |
 | 2026-10-31 05:43 | 23.9 | 6 | 3 | new release or asset |
-| 2026-10-30 05:51 | 24 | 218 | 217 | new release or asset |
+| 2026-10-30 05:51 | 24 | 218 | 217 |  |
 | 2026-10-29 05:50 | 12.5 | 2 | 0 | window is not about a day; new release or asset |
 
-## Totals per release (counters at 2026-11-01T06:08:14Z)
+## Totals per release (counters at 2026-11-02T06:06:46Z)
 
 | Release | Installer | SHA256SUMS.txt |
 | --- | ---: | ---: |
+| v1.34.11 | 3 | 1 |
 | v1.34.10 | 1 | 1 |
 | v1.34.9 | 6 | 3 |
 | v1.34.8 | 3 | 1 |
@@ -36,7 +41,7 @@ Prereleases are left out of the window table (not of the totals).
 | v1.34.3 | 3 | 1 |
 | v1.34.2 | 1 | 1 |
 | v1.34.1 | 1 | 1 |
-| v1.34.0 | 5 | 3 |
+| v1.34.0 | 6 | 3 |
 | v1.33.0 | 1 | 1 |
 | v1.32.1 | 4 | 1 |
 | v1.32.0 | 2 | 5 |
@@ -233,4 +238,4 @@ Prereleases are left out of the window table (not of the totals).
 | v1.0.2 | 2 | 2 |
 | v1.0.1 | 5 | 2 |
 | v1.0.0 | 2 | 2 |
-| **All** | 908 | 315 |
+| **All** | 912 | 316 |
