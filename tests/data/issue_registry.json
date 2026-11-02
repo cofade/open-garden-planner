@@ -1099,6 +1099,16 @@
     "state": "CLOSED",
     "title": "FIXED items still move transiently during a drag - Qt moves them before the view resets them"
   },
+  "664": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Split a shape along a two-click snapped line"
+  },
+  "665": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Fill patterns: angle, scale and X/Y offset controls"
+  },
   "668": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1118,6 +1128,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#655, #656, #657, #658, #661, #662, #668, #669, #670): CAD-precision and data-integrity package"
+  },
+  "674": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Canvas context menu: add Group, keep Ungroup, and make both follow the selection (incl. nested groups)"
   },
   "675": {
     "is_pr": false,
@@ -1143,5 +1158,15 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "feat(#599, #440): typed smart-symbol members and geometry-aware sun/shade model"
+  },
+  "688": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fix(smart_symbols): visual texture stretch on rectangular smart symbols with non-square aspect ratios (e.g. compost_bay_3)"
+  },
+  "690": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
   }
 }

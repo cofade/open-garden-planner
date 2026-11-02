@@ -339,3 +339,21 @@ counting wrapper documents the call count, and `payload is payload` pins the
 behaviour without depending on the helper's name, so a re-implementation that
 drops the cache fails for the right reason.
 
+### PF-PER-24
+
+- **Rule:** A float that is written into `.ogp` JSON must be proven finite first: `json.dump` happily writes `NaN`/`Infinity`, which cannot reopen as a number. A display block (`fill_transform`) drops itself when any value is non-finite; its reader treats missing/malformed fields as defaults and a non-positive scale as 1.0, so a hand-edited plan never fails to show.
+- **Pinned by:** `tests/unit/test_fill_transform.py::test_nan_is_never_written_to_json`; `tests/unit/test_fill_transform.py::test_malformed_values_fall_back_to_defaults`
+- **Source:** #665
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The per-object fill transform accepted a scale from a spin box and a block from a
+plan file; both are untrusted at the file seam. Python's `json.dump` serializes
+`float("nan")` as the bare token `NaN`, which `json.load` accepts in CPython but
+which is not valid JSON for any other consumer, and which a bounds check later
+would not catch. `FillTransform.to_dict()` therefore returns `None` for any
+non-finite member (the identity is also `None`, so the key simply disappears), and
+`from_dict()` sanitizes the other direction. The render side has no NaN guard
+because `QTransform` silently ignores non-finite input; the rule lives where the
+value crosses the persistence boundary.
+

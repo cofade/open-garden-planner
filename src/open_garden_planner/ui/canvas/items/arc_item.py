@@ -325,16 +325,20 @@ class ArcItem(CurveEditMixin, QGraphicsPathItem):
     # ------------------------------------------------------------------
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        if not self.isSelected():
-            if self.scene():
-                self.scene().clearSelection()
-            self.setSelected(True)
+        from .group_menu import build_group_context_menu, normalize_context_menu_selection
+
+        normalize_context_menu_selection(self)
 
         _ = QCoreApplication.translate
         menu = QMenu()
+        group_actions = build_group_context_menu(menu, self)
+        if group_actions.offered:
+            menu.addSeparator()
         delete_action = menu.addAction(_("ArcItem", "Delete Arc"))
         lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
+        if group_actions.dispatch(action, self.scene()):
+            return
         if self.dispatch_lock_action(action, lock_action):
             return
 

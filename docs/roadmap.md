@@ -1607,6 +1607,10 @@ Icon designs per tool:
 - Groups serialize/deserialize in project files
 - Properties panel shows "Group (N items)" when group is selected
 
+The right-click half of the first and fourth criteria was never implemented until #674
+(FR-EDIT-22): both entries now live on every groupable object's menu, and a multi-group
+ungroup is one undo step.
+
 **Technical Notes**:
 - Use `QGraphicsItemGroup` from Qt or custom group class
 - New item: `src/open_garden_planner/ui/canvas/items/group_item.py`
@@ -3912,4 +3916,32 @@ re-encode it.
   2000 x 2000 image, which is the same code path with no CI memory spike.
 - **Docs.** FR-IMG-12/13; §8.7 (error handling) extended; new pitfalls PF-PER-22/23;
   no `.ogp` change and no `FILE_VERSION` bump (the embedded key already existed).
+
+### 2D drawing-tools package (#674, #665, #690) — **draft PR, awaiting owner manual testing**
+
+Three 2D canvas gaps that share the item-appearance and context-menu seams:
+
+- **#674 — Group / Ungroup in every item's right-click menu.** Both directions are decided
+  from the selection at menu-open time and dispatch through the view's `Ctrl+G` /
+  `Ctrl+Shift+G` methods, so the menu can never be stricter than the shortcut. Ungroup
+  dissolves one nesting level and multiple selected groups in **one** undo step
+  (`CompoundCommand`); a smart symbol can be grouped but never ungrouped. Every item type
+  now normalises the selection before building its menu. Pinned by
+  `tests/integration/test_group_context_menu.py` (65 tests over 14 item types, including the
+  nested one-level rule and the two-group one-step undo).
+- **#665 — per-object fill angle / scale / offset.** `core/fill_patterns.FillTransform` is
+  an additive `fill_transform` appearance block (identity is never written; old plans load
+  unchanged, `FILE_VERSION` stays). The Properties panel offers **Pattern Angle / Scale /
+  Offset X, Y** and **Reset Pattern**; Copy appearance, material changes, undo/redo and
+  save/reload preserve the values. A HOUSE's roof tiles compose the transform with the ridge
+  frame (both planes stay mirrored). Pinned by `tests/unit/test_fill_transform.py` and
+  `tests/integration/test_fill_transform.py`, including a rendered clockwise-sign probe.
+- **#690 — converting a shape to HOUSE creates its linked roof ridge.** The Properties
+  panel and **Change Type** now build the same `ROOF_RIDGE` the polygon tool draws, in the
+  same undo step; converting away removes it. Geometry is the canonical
+  `compute_roof_ridge_endpoints`, mapped through the item's transform, through one shared
+  `build_linked_ridge` seam. Pinned by `tests/integration/test_house_roof_ridge.py`.
+
+Docs: FR-EDIT-22/23/24, ADR-070 (the display transform), ADR-046 addendum (type change owns
+the ridge).
 

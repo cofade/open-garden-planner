@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from PyQt6.QtCore import QCoreApplication, QRectF, Qt
+from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
     QGraphicsItem,
@@ -17,6 +17,46 @@ from PyQt6.QtWidgets import (
 )
 
 from .garden_item import GardenItemMixin
+
+
+def groupable_selection(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
+    """The selection ``Ctrl+G`` acts on (issue #674).
+
+    A group's members are not selectable, so every selected item is top-level;
+    the one exception the shortcut has always made is a *selected* GroupItem
+    whose ``parentItem()`` is not None (defensive: it cannot happen through the
+    canvas). Both the shortcut and every context menu use this one filter, so
+    the menu can never offer Group for a selection the shortcut would refuse.
+    """
+    return [
+        item
+        for item in items
+        if not isinstance(item, GroupItem) or item.parentItem() is None
+    ]
+
+
+def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
+    """The selected groups ``Ctrl+Shift+G`` may dissolve.
+
+    A ``SmartSymbolItem`` is a ``GroupItem`` subclass whose members are
+    generated from its parameters: ungrouping it would scatter them and drop
+    the parametric identity, so a smart symbol is never offered (or accepted
+    as) an ungroup target. It still counts as an ordinary object for Group.
+
+    Only TOP-LEVEL groups are dissolved: Qt can keep a just-grouped child group
+    flagged selected inside its new parent, and ungrouping one gesture must not
+    silently cascade into the nested levels the issue documents as a second
+    deliberate step.
+    """
+    from .smart_symbol_item import SmartSymbolItem
+
+    return [
+        item
+        for item in items
+        if isinstance(item, GroupItem)
+        and item.parentItem() is None
+        and not isinstance(item, SmartSymbolItem)
+    ]
 
 
 class GroupItem(GardenItemMixin, QGraphicsItemGroup):
@@ -90,12 +130,12 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
     # ------------------------------------------------------------------
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        """Show ungroup action in the context menu."""
-        _ = QCoreApplication.translate
+        """Show Group / Ungroup for the current selection (issues #674, #338)."""
+        self.normalize_context_menu_selection()
         menu = QMenu()
-        ungroup_action = menu.addAction(_("GroupItem", "Ungroup"))
-
-        menu.addSeparator()
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
 
         # Move to Layer submenu (hidden when project has only one layer)
         move_layer_menu = self._build_move_to_layer_menu(menu)
@@ -104,13 +144,9 @@ class GroupItem(GardenItemMixin, QGraphicsItemGroup):
         arrange_menu = self._build_arrange_menu(menu)
 
         action = menu.exec(event.screenPos())
-        if action == ungroup_action:
-            scene = self.scene()
-            if scene:
-                views = scene.views()
-                if views and hasattr(views[0], "ungroup_item"):
-                    views[0].ungroup_item(self)
-        elif move_layer_menu and action and action.parent() is move_layer_menu:
+        if self.dispatch_group_action(action, group_actions):
+            return
+        if move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
         elif arrange_menu and action and action.parent() is arrange_menu:
             self._dispatch_arrange(action.data())

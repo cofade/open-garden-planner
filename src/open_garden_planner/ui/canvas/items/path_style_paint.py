@@ -343,7 +343,9 @@ class PathStylePaint:
         export writes a pen as its colour, and a texture brush's colour is black (a
         black bar in every exported SVG, PF-CAN-27)."""
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(create_pattern_brush(pattern, self.pen().color()))
+        painter.setBrush(create_pattern_brush(
+            pattern, self.pen().color(), getattr(self, "fill_transform", None)
+        ))
         painter.drawPath(self._stroke_outline(width))
 
     def _paint_gravel_path(self, painter: QPainter) -> None:

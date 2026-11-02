@@ -92,7 +92,9 @@ def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
             # Apply pattern brush and store pattern
             if hasattr(item, 'fill_pattern'):
                 item.fill_pattern = style.fill_pattern
-            brush = create_pattern_brush(style.fill_pattern, style.fill_color)
+            brush = create_pattern_brush(
+                style.fill_pattern, style.fill_color, item.fill_transform
+            )
             item.setBrush(brush)
 
         # Apply custom fill color and pattern (overrides type default)
@@ -103,7 +105,7 @@ def _show_properties_dialog(item: QGraphicsEllipseItem) -> None:
             item.fill_pattern = fill_pattern
         if hasattr(item, 'fill_color'):
             item.fill_color = fill_color
-        brush = create_pattern_brush(fill_pattern, fill_color)
+        brush = create_pattern_brush(fill_pattern, fill_color, item.fill_transform)
         item.setBrush(brush)
 
         # Apply custom stroke properties (overrides type default)
@@ -221,7 +223,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         # Use stored fill_pattern and color if available, otherwise use style defaults
         pattern = self.fill_pattern if self.fill_pattern is not None else style.fill_pattern
         color = self.fill_color if self.fill_color is not None else style.fill_color
-        brush = create_pattern_brush(pattern, color)
+        brush = create_pattern_brush(pattern, color, self.fill_transform)
         self.setBrush(brush)
 
     def _setup_flags(self) -> None:
@@ -843,13 +845,14 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""
-        # Select this item if not already selected
-        if not self.isSelected():
-            self.scene().clearSelection()
-            self.setSelected(True)
+        self.normalize_context_menu_selection()
 
         _ = QCoreApplication.translate
         menu = QMenu()
+
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
 
         # Move to Layer submenu (hidden when project has only one layer)
         move_layer_menu = self._build_move_to_layer_menu(menu)
@@ -941,6 +944,8 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_group_action(action, group_actions):
+            return
         if self.dispatch_lock_action(action, lock_action):
             return
         # Dispatch bed-specific actions via the shared mixin handler.

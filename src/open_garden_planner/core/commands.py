@@ -1265,6 +1265,98 @@ class ChangePropertyCommand(Command):
             setattr(self._item, self._property_name, self._old_value)
 
 
+class ChangeObjectTypeCommand(Command):
+    """Change an item's type/style and keep a HOUSE's roof ridge in step (#690).
+
+    A HOUSE's ``ROOF_RIDGE`` is derived geometry (ADR-046): the polygon tool
+    creates it on draw, and this command creates it when a shape *becomes* a
+    HOUSE (a rectangle converted from the Properties panel or Change Type), so
+    the canvas shows the same ridge either way. Converting away from HOUSE takes
+    the ridge with it, and both halves are one undo step with the type change.
+
+    The ridge is built once, on the first execute that needs one, and re-added
+    on redo — never rebuilt — so its UUID and the metadata links on both sides
+    stay stable through undo/redo.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene | None,
+        item: QGraphicsItem,
+        old_state: dict[str, Any],
+        new_state: dict[str, Any],
+        apply_func: Callable[[Any, Any], None],
+    ) -> None:
+        # ``None`` is a unit-test item with no scene: the type change still
+        # applies, and a ridge keeps the item's metadata links but has nowhere
+        # to be shown until the item joins a scene.
+        self._scene = scene
+        self._item = item
+        self._old_state = dict(old_state)
+        self._new_state = dict(new_state)
+        self._apply_func = apply_func
+        self._created_ridge: QGraphicsItem | None = None
+        self._removed_ridge: QGraphicsItem | None = None
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Change type")
+
+    def _new_is_house(self) -> bool:
+        from open_garden_planner.core.object_types import ObjectType
+
+        return bool(
+            getattr(self._item, "object_type", None) == ObjectType.HOUSE
+        )
+
+    def execute(self) -> None:
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            build_linked_ridge,
+            linked_ridge,
+        )
+
+        scene = self._item.scene() or self._scene
+        was_house = self._new_is_house()
+        self._apply_func(self._item, self._new_state)
+        if self._new_is_house():
+            ridge = linked_ridge(self._item) or self._created_ridge
+            if ridge is None:
+                self._created_ridge = build_linked_ridge(
+                    self._item, getattr(self._item, "layer_id", None)
+                )
+                ridge = self._created_ridge
+            if ridge is not None and ridge.scene() is None and scene is not None:
+                scene.addItem(ridge)
+            return
+        if was_house:
+            ridge = linked_ridge(self._item) or self._created_ridge or self._removed_ridge
+            if ridge is not None and ridge.scene() is not None:
+                self._removed_ridge = ridge
+                scene = ridge.scene()
+                if scene is not None:
+                    scene.removeItem(ridge)
+
+    def undo(self) -> None:
+        from open_garden_planner.core.object_types import ObjectType
+
+        scene = self._item.scene() or self._scene
+        self._apply_func(self._item, self._old_state)
+        if (
+            self._created_ridge is not None
+            and self._old_state.get("object_type") != ObjectType.HOUSE
+            and self._created_ridge.scene() is not None
+        ):
+            created_scene = self._created_ridge.scene()
+            if created_scene is not None:
+                created_scene.removeItem(self._created_ridge)
+        if (
+            self._removed_ridge is not None
+            and self._removed_ridge.scene() is None
+            and scene is not None
+        ):
+            scene.addItem(self._removed_ridge)
+
+
 class ChangeSmartSymbolParamCommand(Command):
     """Command for changing a smart-symbol parameter and regenerating its children (#599).
 

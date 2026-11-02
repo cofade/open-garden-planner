@@ -9556,3 +9556,78 @@ lane, and the late-timer settle
 `tests/unit/test_scene3d_polygon.py` pins the pricing, the capacity
 and the refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget.
 The golden meshes still match below the threshold.
+
+## ADR-070: Per-object fill transform as additive appearance metadata (issue #665)
+
+**Status**: Accepted (2026-11-02, package #674/#665/#690).
+
+**Context.** Fill textures were painted at one fixed tile scale and orientation.
+Rotating the object to align decking, roof tiles or paving also rotates its
+geometry and every measurement, and baking rotated assets is combinatorial. The
+only fudge was picking a different pattern — the plan stayed geometrically exact
+but visually misleading (boards running the wrong way, tiles out of phase between
+two roof planes).
+
+**Decision.** Add three **display-only** values per filled object: pattern angle
+(degrees clockwise as displayed, 0 = as authored), pattern scale (multiplier,
+1.0 = the authored tile) and pattern offset X/Y (centimetres in the item's own
+frame, negative allowed). They live in `core/fill_patterns.FillTransform`, are
+applied as a `QBrush` transform on top of the cached tinted texture, and travel
+in an additive `.ogp` block:
+
+```json
+"fill_transform": {"angle_deg": 30.0, "scale": 1.5, "offset_x_cm": -12.5, "offset_y_cm": 7.0}
+```
+
+The identity is **never serialized**; old plans load with the identity and no
+visible change, so `FILE_VERSION` stays `"1.4"`. The stored block is read
+leniently (unknown/malformed/non-finite fields fall back; a zero or negative
+scale becomes 1.0), and a non-finite value is never written — `json.dump` would
+otherwise emit a JSON `NaN` that cannot reopen.
+
+**Composition.** The offset is applied in centimetres in the item frame and is
+independent of angle and scale (`translate · rotate · scale`). A HOUSE's
+`_paint_with_ridge` composes the user transform *inside* the canonical ridge
+frame (`ridge_tx · user_tx`), on both the normal and mirrored halves, so a
+default transform is byte-identical to the previous roof and a user angle turns
+the tiles relative to the roof while the two planes stay mirror images.
+
+**Scope.** Geometry, area, snapping, selection, DXF/export coordinates and the
+Agent API's centimetre contract are untouched. The 3D ground/face texture
+sampling keeps its existing untransformed tile ruler; this is a 2D display
+property, stated in FR-EDIT-23 and the Properties tooltip. Extending the
+transform into 3D materials is separate work.
+
+**Consequences.** A new appearance attribute must be added to the one
+copy/restore list (`core/item_look._LOOK_ATTRIBUTES`), the one brush builder
+(`fill_brush`) and the save/load look path (`restore_stored_look`) — those three
+seams already exist, so Copy appearance, material changes, undo/redo and reload
+stay in step (`style_gaps` verifies it). Pinned by
+`tests/unit/test_fill_transform.py` (model, leniency, composition, rendered
+clockwise sign and tile period) and `tests/integration/test_fill_transform.py`
+(panel spins + Reset, one command per change, geometry unchanged, save/reload,
+copy appearance, roof composition).
+
+**Alternatives rejected.** *Rotate the object* (changes geometry and all
+measurements); *bake one texture per angle/scale* (combinatorial and still not
+user-adjustable); *do nothing* (the status quo the issue documents). A per-object
+key inside `metadata` was also rejected: this is appearance, and the existing
+appearance seams all operate on typed attributes, not free-form metadata.
+
+### ADR-046 addendum: a type change into HOUSE owns its ridge (issue #690)
+
+The polygon tool and `create_object` already build the canonical ridge, but a
+rectangle or polygon converted to HOUSE through the Properties panel or
+**Change Type** stayed ridgeless on the canvas (3D still worked from its type).
+A type change is now `ChangeObjectTypeCommand`: it applies the type/style state,
+creates the linked `ROOF_RIDGE` when the new type is HOUSE, and removes it when
+the shape leaves HOUSE — all in the type change's one undo step. The ridge is
+built once and re-added on redo (stable UUID and both metadata links), through
+`ui/canvas/roof_ridge_link.build_linked_ridge`; `PolygonTool` uses the same seam,
+so there is still exactly one construction path and one geometry computation
+(`compute_roof_ridge_endpoints`, mapped through the item's own transform). The
+ridge is always created for a HOUSE, matching what drawing one produces; this
+codebase has no `roof_shape` property (the issue's wording predates the current
+`roof_style` metadata, which is 3D-only and does not suppress the 2D ridge).
+Pinned by `tests/integration/test_house_roof_ridge.py`.
+

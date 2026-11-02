@@ -7,6 +7,7 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QColor, QPen
 
 from open_garden_planner.core.commands import (
+    ChangeObjectTypeCommand,
     ChangePropertyCommand,
     MoveToLayerCommand,
 )
@@ -56,6 +57,8 @@ class PropertyEdits:
             state['fill_color'] = QColor(item.fill_color) if item.fill_color else None
         if hasattr(item, 'fill_pattern'):
             state['fill_pattern'] = item.fill_pattern
+        if hasattr(item, 'fill_transform'):
+            state['fill_transform'] = item.fill_transform
         if hasattr(item, 'stroke_color'):
             state['stroke_color'] = QColor(item.stroke_color) if item.stroke_color else None
         if hasattr(item, 'stroke_width'):
@@ -108,6 +111,8 @@ class PropertyEdits:
             item.fill_color = state['fill_color']
         if 'fill_pattern' in state and hasattr(item, 'fill_pattern'):
             item.fill_pattern = state['fill_pattern']
+        if 'fill_transform' in state and hasattr(item, 'fill_transform'):
+            item.fill_transform = state['fill_transform']
         if 'stroke_color' in state and hasattr(item, 'stroke_color'):
             item.stroke_color = state['stroke_color']
         if 'stroke_width' in state and hasattr(item, 'stroke_width'):
@@ -119,11 +124,13 @@ class PropertyEdits:
             if hasattr(item, 'apply_style_preset'):
                 item.apply_style_preset()
 
-        # Update visual appearance
+        # Update visual appearance (the pattern transform travels with the rest
+        # of the look, so undo/redo of any fill edit keeps angle/scale/offset)
         if not isinstance(item, PolylineItem):
             pattern = state.get('fill_pattern', FillPattern.SOLID)
             color = state.get('fill_color') or item.brush().color()
-            brush = create_pattern_brush(pattern, color)
+            transform = state.get('fill_transform', getattr(item, 'fill_transform', None))
+            brush = create_pattern_brush(pattern, color, transform)
             item.setBrush(brush)
 
         stroke_color = state.get('stroke_color') or item.pen().color()
@@ -187,6 +194,7 @@ class PropertyEdits:
             "label_visible": self._change_label_visible,
             "layer_id": self._change_layer_id,
             "fill_pattern": self._change_fill_pattern,
+            "fill_transform": self._change_fill_transform,
             "stroke_width": self._change_stroke_width,
             "stroke_style": self._change_stroke_style,
         }
@@ -214,14 +222,21 @@ class PropertyEdits:
             'stroke_width': style.stroke_width,
             'stroke_style': style.stroke_style,
         }
-        host._apply_item_state(item, new_state)
 
-        # Create undo command if we have a command manager
+        def apply_func(itm: Any, state: dict[str, Any]) -> None:
+            host._apply_item_state(itm, state)
+
+        # A HOUSE gains its linked ROOF_RIDGE in the same undo step (#690);
+        # ChangeObjectTypeCommand owns that rule and is applied here first,
+        # then registered — the panel's signal handler must not emit a stack
+        # change while a widget is still processing the edit.
+        cmd = ChangeObjectTypeCommand(
+            item.scene(), item, old_state, new_state, apply_func
+        )
+        cmd.execute()
+
+        # Create undo entry if we have a command manager
         if host._command_manager:
-            def apply_func(itm: Any, state: dict[str, Any]) -> None:
-                host._apply_item_state(itm, state)
-            cmd = ChangePropertyCommand(item, "type", old_state, new_state, apply_func)
-            # Don't execute - already applied, just add to stack
             host._command_manager.register_applied(cmd)
 
         # Defer panel refresh to avoid destroying widgets while signal is processing
@@ -270,7 +285,8 @@ class PropertyEdits:
         if hasattr(item, 'fill_pattern'):
             item.fill_pattern = value
         color = item.fill_color if hasattr(item, 'fill_color') and item.fill_color else item.brush().color()
-        brush = create_pattern_brush(value, color)
+        transform = getattr(item, 'fill_transform', None)
+        brush = create_pattern_brush(value, color, transform)
         item.setBrush(brush)
 
         if host._command_manager:
@@ -278,8 +294,34 @@ class PropertyEdits:
                 if hasattr(itm, 'fill_pattern'):
                     itm.fill_pattern = val
                 c = itm.fill_color if hasattr(itm, 'fill_color') and itm.fill_color else itm.brush().color()
-                itm.setBrush(create_pattern_brush(val, c))
+                itm.setBrush(create_pattern_brush(
+                    val, c, getattr(itm, 'fill_transform', None)
+                ))
             cmd = ChangePropertyCommand(item, "fill pattern", old_pattern, value, apply_pattern)
+            host._command_manager.register_applied(cmd)
+
+
+    def _change_fill_transform(self, item: Any, value: Any) -> None:
+        """Apply a pattern angle/scale/offset edit as one undoable command (#665)."""
+        host = self._host
+        if not hasattr(item, 'fill_transform'):
+            return
+        old_transform = item.fill_transform
+        if value == old_transform:
+            return  # unchanged values create no undo entry (issue #665)
+
+        def apply_transform(itm: Any, val: Any) -> None:
+            itm.fill_transform = val
+            pattern = getattr(itm, 'fill_pattern', FillPattern.SOLID) or FillPattern.SOLID
+            color = (itm.fill_color if getattr(itm, 'fill_color', None)
+                     else itm.brush().color())
+            itm.setBrush(create_pattern_brush(pattern, color, val))
+
+        apply_transform(item, value)
+        if host._command_manager:
+            cmd = ChangePropertyCommand(
+                item, "fill pattern transform", old_transform, value, apply_transform
+            )
             host._command_manager.register_applied(cmd)
 
 
@@ -346,7 +388,9 @@ class PropertyEdits:
                 item.fill_color = color
             # Apply to brush
             pattern = item.fill_pattern if hasattr(item, 'fill_pattern') else FillPattern.SOLID
-            brush = create_pattern_brush(pattern, color)
+            brush = create_pattern_brush(
+                pattern, color, getattr(item, 'fill_transform', None)
+            )
             item.setBrush(brush)
 
             # Create undo command
@@ -355,7 +399,9 @@ class PropertyEdits:
                     if hasattr(itm, 'fill_color'):
                         itm.fill_color = val
                     p = itm.fill_pattern if hasattr(itm, 'fill_pattern') else FillPattern.SOLID
-                    itm.setBrush(create_pattern_brush(p, val))
+                    itm.setBrush(create_pattern_brush(
+                        p, val, getattr(itm, 'fill_transform', None)
+                    ))
                 cmd = ChangePropertyCommand(item, "fill color", old_color, color, apply_fill_color)
                 host._command_manager.register_applied(cmd)
 

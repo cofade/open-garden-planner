@@ -491,13 +491,14 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""
-        # Select this item if not already selected
-        if not self.isSelected():
-            self.scene().clearSelection()
-            self.setSelected(True)
+        self.normalize_context_menu_selection()
 
         _ = QCoreApplication.translate
         menu = QMenu()
+
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
 
         # Edit vertices action
         if self.is_vertex_edit_mode:
@@ -543,6 +544,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # Execute menu and handle result
         lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
+        if self.dispatch_group_action(action, group_actions):
+            return
         if self.dispatch_lock_action(action, lock_action):
             return
 

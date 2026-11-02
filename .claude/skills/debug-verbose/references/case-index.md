@@ -184,3 +184,4 @@
 | Case study: the pane that destroyed the widget talking to it, and a group frame that moved on reload (#658, #661) | [Read](181-case-study-panel-destroyed-its-own-sender-and-group-frame.md) |
 | Case study: a heartbeat that never saw its longest block (#452) | [Read](182-case-study-heartbeat-never-saw-its-longest-block-452.md) |
 | Case study: a site plan too big to decode, and a snapshot that re-encoded it (#659, #660) | [Read](183-case-study-a-site-plan-too-big-to-decode-659-660.md) |
+| Case study: a nested group survived its parent's ungroup (#674) | [Read](184-case-study-a-nested-group-survived-its-parents-ungroup-674.md) |

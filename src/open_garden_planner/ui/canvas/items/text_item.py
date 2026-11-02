@@ -227,8 +227,13 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show right-click context menu."""
+        self.normalize_context_menu_selection()
         _ = QCoreApplication.translate
         menu = QMenu()
+
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
 
         edit_action = menu.addAction(_("TextItem", "Edit Text"))
 
@@ -245,6 +250,8 @@ class TextItem(RotationHandleMixin, GardenItemMixin, QGraphicsTextItem):
 
         lock_action = self.build_lock_context_menu(menu)
         chosen = menu.exec(event.screenPos())
+        if self.dispatch_group_action(chosen, group_actions):
+            return
         if self.dispatch_lock_action(chosen, lock_action):
             return
         if chosen == edit_action:

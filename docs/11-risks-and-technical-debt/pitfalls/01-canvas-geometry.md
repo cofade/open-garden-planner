@@ -436,3 +436,23 @@ a 4× distance limit), and choose the side whose points are nearest the cursor.
 The result keeps the source's type and line look (`capture_line_look` /
 `apply_line_look`) and is a `PolylineItem`, so it reads as a second fence/path
 and exports as a line. Closed shapes continue to use the area offset.
+
+### PF-CAN-36
+
+- **Rule:** A `QGraphicsItemGroup`'s child reports `isSelected() == True` while only the group is selected (Qt propagates selection into group children). An operation that acts on "the selection" must filter to the level it is defined at — group/ungroup count only TOP-LEVEL groups (`parentItem() is None`) — or one gesture dissolves nested levels.
+- **Pinned by:** `tests/integration/test_group_context_menu.py::test_nested_groups_ungroup_one_level_at_a_time`; `tests/integration/test_group_context_menu.py::test_two_groups_ungroup_in_one_undo_step`
+- **Source:** #674
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Merging Group/Ungroup into every item's context menu had to combine "dissolve every
+selected group" with the issue's "one nesting level per gesture" rule. The first
+version filtered `scene.selectedItems()` for `GroupItem` and built one
+`UngroupCommand` per hit. A nested test failed: after grouping an inner group and a
+shape into an outer group, the inner group still reported selected (Qt mirrors a
+group's selection state on its children, even though `GroupCommand` had called
+`setSelected(False)` on it), so one click dissolved the outer *and* the inner
+group. The menu's availability logic already filtered top-level groups
+(`groupable_selection`); the dispatch did not. `ungroupable_groups()` now keeps only
+`parentItem() is None` and still excludes a smart symbol. A child's `isSelected()`
+is a fact about its group, not evidence that the user chose the child.

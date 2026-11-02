@@ -1534,6 +1534,19 @@ class ProjectManager(QObject):
         return QColor(brush.color())
 
     @staticmethod
+    def _stored_fill_transform(item: Any) -> dict[str, float] | None:
+        """The additive ``fill_transform`` block for ``item`` (issue #665).
+
+        ``None`` for the identity, so an untouched plan's file is byte-for-byte
+        what it was before the feature existed; a non-finite value is dropped
+        rather than written into JSON as ``NaN``.
+        """
+        transform = getattr(item, "fill_transform", None)
+        if transform is None:
+            return None
+        return transform.to_dict()
+
+    @staticmethod
     def _serialize_item_core(item: QGraphicsItem) -> dict[str, Any] | None:
         """Core serialization logic for a single graphics item."""
         for field_name, value in (("x", item.pos().x()), ("y", item.pos().y()),
@@ -1598,6 +1611,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
@@ -1633,6 +1649,9 @@ class ProjectManager(QObject):
             data["stroke_width"] = item.pen().widthF()
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
@@ -1668,6 +1687,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
@@ -1759,6 +1781,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name

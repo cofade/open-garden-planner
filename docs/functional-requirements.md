@@ -79,6 +79,41 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   are one undo/redo pair; a bed dragged with its linked plant keeps the link; a bed
   dragged alone carries its child), `tests/unit/test_commands.py::TestCompoundCommand`
   (order, reverse undo, a step that raises rolls the ones that ran back).
+- **FR-EDIT-22** *(issue #674)*: **Group** and **Ungroup** are reachable from every groupable
+  object's right-click menu, not only from `Ctrl+G` / `Ctrl+Shift+G`. The entries are decided from
+  the selection at menu-open time: 2+ objects (no group) offer **Group**; exactly one group offers
+  **Ungroup**; a group plus a foreign object, or 2+ groups, offer both. Group nests the selected
+  items (including a group) into a new outer group; Ungroup dissolves **one nesting level** and
+  dissolves every selected top-level group in **one undo step**. A smart symbol may be grouped but
+  never ungrouped (its members are generated from its parameters). Right-clicking an unselected
+  object replaces the selection first, on every item type including group, smart symbol, callout,
+  text, journal pin and construction geometry. The menu never offers a row the shortcut would
+  refuse: both read `group_item.groupable_selection` / `ungroupable_groups`, and dispatch calls the
+  view's `group_selected` / `ungroup_selected`. No new persisted field. Acceptance:
+  `tests/integration/test_group_context_menu.py` (real `contextMenuEvent` per item type, menu matrix,
+  nested one-level rule, one-step multi-group undo, selection normalisation).
+- **FR-EDIT-23** *(issue #665)*: A filled object's texture can be **turned, scaled and shifted**
+  independently of its geometry from the Properties panel: **Pattern Angle** (degrees clockwise,
+  0 = as authored), **Pattern Scale** (multiplier, 1.0 = authored tile), and **Pattern Offset X/Y**
+  (centimetres, negative allowed), plus one **Reset Pattern** button. The values live in an
+  additive per-object `fill_transform` block (`{angle_deg, scale, offset_x_cm, offset_y_cm}`);
+  the identity is not written, so old plans load unchanged and `FILE_VERSION` stays. Copy
+  appearance, material/pattern changes, undo/redo and save/reload preserve all four values; a
+  second save/reload is stable. Geometry, area, selection and snapping are untouched. A HOUSE's
+  roof tiles compose the transform with the ridge frame, so both roof planes stay mirrored.
+  Acceptance: `tests/unit/test_fill_transform.py` (model round-trip, malformed-file leniency,
+  composition order, rendered clockwise sign and tile period) and
+  `tests/integration/test_fill_transform.py` (panel spins + Reset, one command per change, geometry
+  unchanged, save/reload, copy appearance, roof composition). The 3D ground/faces keep their
+  existing untransformed sampling; the control is a 2D display property (ADR-070).
+- **FR-EDIT-24** *(issue #690)*: Converting a rectangle or polygon to **HOUSE** through the
+  Properties panel's Type field or the context menu's **Change Type** creates the same linked
+  `ROOF_RIDGE` the polygon tool draws, in the **same undo step** as the type change; converting
+  away from HOUSE removes it and undo restores the same ridge (stable UUID and metadata links).
+  Geometry uses `core.roof_ridge.compute_roof_ridge_endpoints` mapped through the item's own
+  transform, and the ridge is built through `ui/canvas/roof_ridge_link.build_linked_ridge` — the
+  same seam `PolygonTool` uses (ADR-046 addendum). Acceptance:
+  `tests/integration/test_house_roof_ridge.py`.
 
 
 ## FR-3: Layers

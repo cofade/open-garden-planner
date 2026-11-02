@@ -1,0 +1,220 @@
+"""Integration tests: a shape converted into a HOUSE gains its roof ridge (#690).
+
+A HOUSE's ``ROOF_RIDGE`` is derived geometry owned by the polygon (ADR-046).
+Drawing a house polygon with the polygon tool creates it, and the Agent API's
+``create_object`` creates it; converting an existing rectangle/polygon through
+the Properties panel or the Change Type menu used to leave the house without
+one — geometrically fine in 3D but missing the 2D ridge line (and the roof
+tiles the ridge frame places).
+
+The ridge must be created in the SAME undo step as the type change, survive
+redo without a new UUID, and go away again when the shape stops being a HOUSE.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from PyQt6.QtCore import QPointF
+
+from open_garden_planner.core.commands import ChangeObjectTypeCommand
+from open_garden_planner.core.object_types import ObjectType
+from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.canvas.items import PolylineItem
+from open_garden_planner.ui.canvas.items.polygon_item import PolygonItem
+from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+from open_garden_planner.ui.canvas.roof_ridge_link import (
+    build_linked_ridge,
+    linked_ridge,
+    outline_polygon,
+)
+from open_garden_planner.ui.panels.properties_panel import PropertiesPanel
+
+
+def _scene_view(qtbot) -> tuple[CanvasScene, CanvasView]:
+    scene = CanvasScene(width_cm=2000, height_cm=2000)
+    view = CanvasView(scene)
+    qtbot.addWidget(view)
+    return scene, view
+
+
+def _house_rect(scene: CanvasScene) -> RectangleItem:
+    rect = RectangleItem(
+        100,
+        50,
+        400,
+        200,
+        object_type=ObjectType.GENERIC_RECTANGLE,
+        layer_id=scene.active_layer.id,
+    )
+    scene.addItem(rect)
+    return rect
+
+
+def _ridge_of(item) -> PolylineItem | None:
+    ridge = linked_ridge(item)
+    assert ridge is None or isinstance(ridge, PolylineItem)
+    return ridge
+
+
+def _expected_ridge_endpoints(item) -> tuple[QPointF, QPointF]:
+    """The canonical geometry, mapped through the item's own transform."""
+    polygon = outline_polygon(item)
+    assert polygon is not None
+    local_1, local_2 = compute_roof_ridge_endpoints(polygon, QPointF(0.0, 0.0))
+    return item.mapToScene(local_1), item.mapToScene(local_2)
+
+
+def test_properties_panel_conversion_creates_the_linked_ridge(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+
+    panel._on_property_changed(rect, "object_type", ObjectType.HOUSE)
+
+    assert rect.object_type == ObjectType.HOUSE
+    ridge = _ridge_of(rect)
+    assert ridge is not None, "a HOUSE converted from a rectangle must get a ridge"
+    assert str(rect.item_id) == ridge.metadata["owner_polygon_id"]
+    assert ridge.scene() is scene
+    assert len(view.command_manager._undo_stack) == 1
+
+    p1, p2 = _expected_ridge_endpoints(rect)
+    assert ridge.points[0] == p1 and ridge.points[-1] == p2
+
+
+def test_undo_removes_the_ridge_and_redo_restores_the_same_one(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    panel._on_property_changed(rect, "object_type", ObjectType.HOUSE)
+    ridge = _ridge_of(rect)
+    assert ridge is not None
+    ridge_id = ridge.item_id
+
+    view.command_manager.undo()
+    assert rect.object_type == ObjectType.GENERIC_RECTANGLE
+    assert ridge.scene() is None
+    assert linked_ridge(rect) is None  # no longer in the scene
+
+    view.command_manager.redo()
+    restored = _ridge_of(rect)
+    assert restored is ridge
+    assert restored.item_id == ridge_id, "redo must not mint a new ridge identity"
+    assert restored.scene() is scene
+    assert len(view.command_manager._undo_stack) == 1
+
+
+def test_context_menu_change_type_uses_the_same_command(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    rect.setSelected(True)
+
+    rect._dispatch_change_type(ObjectType.HOUSE)
+
+    ridge = _ridge_of(rect)
+    assert ridge is not None
+    assert len(view.command_manager._undo_stack) == 1
+    view.command_manager.undo()
+    assert ridge.scene() is None
+
+
+def test_polygon_conversion_creates_the_ridge_too(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    polygon = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.GENERIC_POLYGON,
+        layer_id=scene.active_layer.id,
+    )
+    polygon.setPos(200, 200)
+    scene.addItem(polygon)
+
+    polygon._dispatch_change_type(ObjectType.HOUSE)
+
+    ridge = _ridge_of(polygon)
+    assert ridge is not None
+    p1, p2 = _expected_ridge_endpoints(polygon)
+    assert ridge.points[0] == p1 and ridge.points[-1] == p2
+
+
+def test_converting_away_from_house_removes_the_ridge_and_undo_restores_it(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    panel._on_property_changed(rect, "object_type", ObjectType.HOUSE)
+    ridge = _ridge_of(rect)
+    assert ridge is not None
+
+    panel._on_property_changed(rect, "object_type", ObjectType.GARDEN_BED)
+    assert rect.object_type == ObjectType.GARDEN_BED
+    assert ridge.scene() is None
+    assert linked_ridge(rect) is None
+
+    view.command_manager.undo()
+    assert rect.object_type == ObjectType.HOUSE
+    assert ridge.scene() is scene
+    assert linked_ridge(rect) is ridge
+
+
+def test_converting_without_a_house_does_not_create_a_ridge(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+
+    panel._on_property_changed(rect, "object_type", ObjectType.GARDEN_BED)
+
+    assert rect.object_type == ObjectType.GARDEN_BED
+    assert _ridge_of(rect) is None
+
+
+def test_ridge_geometry_follows_a_rotated_shape(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    rect.setTransformOriginPoint(rect.rect().center())
+    rect.setRotation(90.0)
+    rect.rotation_angle = 90.0
+
+    ridge = build_linked_ridge(rect, rect.layer_id)
+    assert ridge is not None
+    p1, p2 = _expected_ridge_endpoints(rect)
+    assert ridge.points[0] == p1 and ridge.points[-1] == p2
+    # A quarter turn swaps the long axis: the ridge now runs vertically.
+    assert abs(p1.x() - p2.x()) < 1e-6
+    assert abs(p1.y() - p2.y()) > 300.0
+
+
+def test_the_command_does_not_mint_a_second_ridge_on_repeat_execute(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+
+    def apply(itm, state):
+        for key, value in state.items():
+            if hasattr(itm, key):
+                setattr(itm, key, value)
+        if hasattr(itm, "_setup_styling"):
+            itm._setup_styling()
+
+    old_state = {"object_type": ObjectType.GENERIC_RECTANGLE}
+    new_state = {"object_type": ObjectType.HOUSE}
+    command = ChangeObjectTypeCommand(scene, rect, old_state, new_state, apply)
+
+    command.execute()
+    ridge = _ridge_of(rect)
+    assert ridge is not None
+    command.undo()
+    command.execute()
+    command.undo()
+    command.execute()
+    assert _ridge_of(rect) is ridge
+    assert len([i for i in scene.items() if isinstance(i, PolylineItem)]) == 1
+
+
+def test_ridge_metadata_is_a_stable_uuid_pair(qtbot) -> None:
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    ridge = build_linked_ridge(rect, rect.layer_id)
+    assert ridge is not None
+    assert uuid.UUID(ridge.metadata["owner_polygon_id"]) == rect.item_id
+    assert uuid.UUID(rect.metadata["ridge_item_id"]) == ridge.item_id

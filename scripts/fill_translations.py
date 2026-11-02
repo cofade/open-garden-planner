@@ -623,11 +623,6 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "Change Type": "Typ ändern",
     },
 
-    # ── GroupItem ──
-    "GroupItem": {
-        "Ungroup": "Gruppe aufheben",
-    },
-
     # ── GalleryData (gallery items shown in toolbar dropdowns + global search) ──
     "GalleryData": {
         # Bundled catalog names used by guild pickers, editors and member rows.
@@ -3545,6 +3540,33 @@ for _ctx, _strings in _L2_TRANSLATIONS.items():
 
 # ── Phase 17 L4: the built world (#388) ──
 for _ctx, _strings in _L4_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+
+# ── 2D drawing tools package (#674 group menus, #665 fill transform) ──
+_DRAWING_TOOLS_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "Commands": {
+        "Change type": "Typ ändern",
+        "fill pattern transform": "Füllmuster-Transformation",
+    },
+    "GardenItem": {
+        "Group": "Gruppieren",
+        "Ungroup": "Gruppe aufheben",
+    },
+    "CanvasView": {
+        "Ungroup {n} groups": "{n} Gruppen aufheben",
+        "Ungrouped {n} groups": "{n} Gruppen aufgehoben",
+    },
+    "PropertiesPanel": {
+        "Pattern Angle:": "Musterwinkel:",
+        "Pattern Scale:": "Mustergröße:",
+        "Pattern Offset:": "Muster-Versatz:",
+        "Reset Pattern": "Muster zurücksetzen",
+        "Restore the pattern's original angle, scale and offset":
+            "Ursprünglichen Winkel, Maßstab und Versatz des Musters wiederherstellen",
+    },
+}
+for _ctx, _strings in _DRAWING_TOOLS_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 

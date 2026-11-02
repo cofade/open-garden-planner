@@ -34,7 +34,7 @@ from open_garden_planner.core.commands import (
     ChangePropertyCommand,
     CommandManager,
 )
-from open_garden_planner.core.fill_patterns import FillPattern
+from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.furniture_renderer import get_furniture_svg_path
 from open_garden_planner.core.item_look import (
     MAX_FENCE_WIDTH_CM,
@@ -2397,6 +2397,99 @@ class PropertiesPanel(QWidget):
                     else c.currentIndex()
                 ),
             )
+
+            # Pattern transform (issue #665): move/turn/resize the texture only,
+            # never the object. Geometry, area and snapping are untouched.
+            transform = getattr(item, 'fill_transform', FillTransform())
+
+            angle_spin = QDoubleSpinBox()
+            angle_spin.setRange(-360.0, 360.0)
+            angle_spin.setDecimals(1)
+            angle_spin.setSingleStep(5.0)
+            angle_spin.setSuffix("°")  # a unit symbol, not translated (cf. " cm")
+            angle_spin.setValue(transform.angle_deg)
+            self._form_layout.addRow(self.tr("Pattern Angle:"), angle_spin)
+
+            scale_spin = QDoubleSpinBox()
+            scale_spin.setRange(0.1, 20.0)
+            scale_spin.setDecimals(2)
+            scale_spin.setSingleStep(0.1)
+            scale_spin.setValue(transform.scale)
+            self._form_layout.addRow(self.tr("Pattern Scale:"), scale_spin)
+
+            x_spin = QDoubleSpinBox()
+            x_spin.setRange(-10000.0, 10000.0)
+            x_spin.setDecimals(1)
+            x_spin.setSingleStep(1.0)
+            x_spin.setSuffix(" cm")
+            x_spin.setValue(transform.offset_x_cm)
+            y_spin = QDoubleSpinBox()
+            y_spin.setRange(-10000.0, 10000.0)
+            y_spin.setDecimals(1)
+            y_spin.setSingleStep(1.0)
+            y_spin.setSuffix(" cm")
+            y_spin.setValue(transform.offset_y_cm)
+            for spin in (angle_spin, scale_spin, x_spin, y_spin):
+                _style_numeric_field(spin)
+            offset_row = QHBoxLayout()
+            offset_row.addWidget(x_spin)
+            offset_row.addWidget(y_spin)
+            offset_widget = QWidget()
+            offset_widget.setLayout(offset_row)
+            self._form_layout.addRow(self.tr("Pattern Offset:"), offset_widget)
+
+            def _read_transform(
+                angle=angle_spin, scale=scale_spin, x=x_spin, y=y_spin
+            ) -> FillTransform:
+                return FillTransform(
+                    angle_deg=angle.value(),
+                    scale=scale.value(),
+                    offset_x_cm=x.value(),
+                    offset_y_cm=y.value(),
+                )
+
+            def _commit_transform() -> None:
+                self._on_property_changed(item, 'fill_transform', _read_transform())
+
+            for spin in (angle_spin, scale_spin, x_spin, y_spin):
+                spin.valueChanged.connect(lambda *_args: _commit_transform())
+
+            reset_btn = QPushButton(self.tr("Reset Pattern"))
+            reset_btn.setToolTip(
+                self.tr("Restore the pattern's original angle, scale and offset")
+            )
+
+            def _reset_transform() -> None:
+                default = FillTransform()
+                for spin, value in (
+                    (angle_spin, default.angle_deg),
+                    (scale_spin, default.scale),
+                    (x_spin, default.offset_x_cm),
+                    (y_spin, default.offset_y_cm),
+                ):
+                    spin.blockSignals(True)
+                    spin.setValue(value)
+                    spin.blockSignals(False)
+                self._on_property_changed(item, 'fill_transform', default)
+
+            reset_btn.clicked.connect(_reset_transform)
+            self._form_layout.addRow("", reset_btn)
+
+            def _refresh_transform(
+                angle=angle_spin, scale=scale_spin, x=x_spin, y=y_spin, it=item
+            ) -> None:
+                value = getattr(it, 'fill_transform', FillTransform())
+                for spin, field in (
+                    (angle, value.angle_deg),
+                    (scale, value.scale),
+                    (x, value.offset_x_cm),
+                    (y, value.offset_y_cm),
+                ):
+                    spin.blockSignals(True)
+                    spin.setValue(field)
+                    spin.blockSignals(False)
+
+            self._register_refresh(angle_spin, _refresh_transform)
 
         # Stroke color
         def _read_stroke(it=item) -> QColor:

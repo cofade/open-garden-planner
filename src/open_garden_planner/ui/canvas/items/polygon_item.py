@@ -211,7 +211,9 @@ def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
             # Apply pattern brush and store pattern
             if hasattr(item, 'fill_pattern'):
                 item.fill_pattern = style.fill_pattern
-            brush = create_pattern_brush(style.fill_pattern, style.fill_color)
+            brush = create_pattern_brush(
+                style.fill_pattern, style.fill_color, getattr(item, "fill_transform", None)
+            )
             item.setBrush(brush)
 
         # Apply custom fill color and pattern (overrides type default)
@@ -222,7 +224,9 @@ def _show_properties_dialog(item: QGraphicsPolygonItem) -> None:
             item.fill_pattern = fill_pattern
         if hasattr(item, 'fill_color'):
             item.fill_color = fill_color
-        brush = create_pattern_brush(fill_pattern, fill_color)
+        brush = create_pattern_brush(
+            fill_pattern, fill_color, getattr(item, "fill_transform", None)
+        )
         item.setBrush(brush)
 
         # Apply custom stroke properties (overrides type default)
@@ -353,7 +357,7 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # Use stored fill_pattern and color if available, otherwise use style defaults
         pattern = self.fill_pattern if self.fill_pattern is not None else style.fill_pattern
         color = self.fill_color if self.fill_color is not None else style.fill_color
-        brush = create_pattern_brush(pattern, color)
+        brush = create_pattern_brush(pattern, color, self.fill_transform)
         self.setBrush(brush)
 
     def _setup_flags(self) -> None:
@@ -489,9 +493,20 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         # at T^-1.(x,y). Because the sampling is the inverse, the texture's own
         # +Y (its down-slope, see the assignment note below) lands in the world
         # at R(angle).(0,1) = the ridge's left-perpendicular.
+        # A per-object pattern transform (#665) is composed INTO the ridge
+        # frame, not instead of it: angle 0 keeps the canonical tiles, and a
+        # user angle turns them relative to the roof, so the two planes stay
+        # mirror images of each other.
+        user_tx = None
+        user_transform = getattr(self, "fill_transform", None)
+        if user_transform is not None and not user_transform.is_identity:
+            user_tx = user_transform.brush_transform()
+
         normal_tx = QTransform()
         normal_tx.translate(mid_x, mid_y)
         normal_tx.rotate(angle_deg)
+        if user_tx is not None:
+            normal_tx = normal_tx * user_tx
         normal_brush = QBrush(brush)
         normal_brush.setTransform(normal_tx)
 
@@ -501,6 +516,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         mirrored_tx.translate(mid_x, mid_y)
         mirrored_tx.rotate(angle_deg)
         mirrored_tx.scale(1.0, -1.0)
+        if user_tx is not None:
+            mirrored_tx = mirrored_tx * user_tx
         mirrored_brush = QBrush(brush)
         mirrored_brush.setTransform(mirrored_tx)
 
@@ -982,13 +999,14 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""
-        # Select this item if not already selected
-        if not self.isSelected():
-            self.scene().clearSelection()
-            self.setSelected(True)
+        self.normalize_context_menu_selection()
 
         _ = QCoreApplication.translate
         menu = QMenu()
+
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
 
         # Edit vertices action
         if self.is_vertex_edit_mode:
@@ -1079,6 +1097,8 @@ class PolygonItem(VertexEditMixin, RotationHandleMixin, ResizeHandlesMixin, Gard
         lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_group_action(action, group_actions):
+            return
         if self.dispatch_lock_action(action, lock_action):
             return
         # Dispatch bed-specific actions via the shared mixin handler.

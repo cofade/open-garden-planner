@@ -272,8 +272,12 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
             super().mouseDoubleClickEvent(event)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
+        self.normalize_context_menu_selection()
         _ = QCoreApplication.translate
         menu = QMenu()
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
         edit_action = menu.addAction(_("CalloutItem", "Edit Text"))
         move_layer_menu = self._build_move_to_layer_menu(menu)
         # Arrange submenu (Bring to Front / Forward / Send Backward / Back)
@@ -281,6 +285,8 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         menu.addSeparator()
         delete_action = menu.addAction(_("CalloutItem", "Delete"))
         chosen = menu.exec(event.screenPos())
+        if self.dispatch_group_action(chosen, group_actions):
+            return
         if chosen == edit_action:
             self.start_editing()
         elif chosen == delete_action:

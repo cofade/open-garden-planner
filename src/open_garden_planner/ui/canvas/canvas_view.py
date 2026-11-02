@@ -3082,9 +3082,9 @@ class CanvasView(QGraphicsView):
             and event.modifiers() & Qt.KeyboardModifier.ControlModifier
         ):
             if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-                self._ungroup_selected()
+                self.ungroup_selected()
             else:
-                self._group_selected()
+                self.group_selected()
             event.accept()
             return
 
@@ -4323,16 +4323,17 @@ class CanvasView(QGraphicsView):
     # Group / Ungroup
     # ------------------------------------------------------------------
 
-    def _group_selected(self) -> None:
-        """Group all currently selected items (Ctrl+G)."""
-        from open_garden_planner.core.commands import GroupCommand
-        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+    def group_selected(self) -> None:
+        """Group all currently selected items (Ctrl+G and the Group menu entry).
 
-        selected = [
-            item
-            for item in self.scene().selectedItems()
-            if not isinstance(item, GroupItem) or item.parentItem() is None
-        ]
+        The selection filter is ``group_item.groupable_selection`` — the same
+        one every context menu asks — so the shortcut and the menu can never
+        disagree about whether Group is available (issue #674).
+        """
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import groupable_selection
+
+        selected = groupable_selection(list(self.scene().selectedItems()))
         # Need at least 2 items (or 1 group child) — sensible minimum is 2
         if len(selected) < 2:
             self.set_status_message(self.tr("Select 2 or more items to group"))
@@ -4342,18 +4343,45 @@ class CanvasView(QGraphicsView):
         self._command_manager.execute(command)
         self.set_status_message(self.tr("Grouped {n} items").format(n=len(selected)))
 
-    def _ungroup_selected(self) -> None:
-        """Ungroup all selected GroupItems (Ctrl+Shift+G)."""
-        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+    def _group_selected(self) -> None:
+        """Compatibility alias for :meth:`group_selected` (kept for callers)."""
+        self.group_selected()
 
-        groups = [
-            item for item in self.scene().selectedItems() if isinstance(item, GroupItem)
-        ]
+    def ungroup_selected(self) -> None:
+        """Ungroup all selected groups in ONE undo step (Ctrl+Shift+G).
+
+        Dissolving several selected groups used to push one ``UngroupCommand``
+        per group, so Ctrl+Z restored them one at a time for a single gesture
+        (issue #674). A ``CompoundCommand`` makes the whole gesture one step;
+        a single group still uses the plain command so its undo label and
+        stack entry are unchanged.
+        """
+        from open_garden_planner.core.commands import CompoundCommand, UngroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import ungroupable_groups
+
+        groups = ungroupable_groups(list(self.scene().selectedItems()))
         if not groups:
             self.set_status_message(self.tr("No group selected"))
             return
-        for group in groups:
-            self.ungroup_item(group)
+        commands = [UngroupCommand(self.scene(), group) for group in groups]
+        command = (
+            commands[0]
+            if len(commands) == 1
+            else CompoundCommand(
+                commands,
+                description=self.tr("Ungroup {n} groups").format(n=len(commands)),
+            )
+        )
+        self._command_manager.execute(command)
+        self.set_status_message(
+            self.tr("Ungrouped")
+            if len(commands) == 1
+            else self.tr("Ungrouped {n} groups").format(n=len(commands))
+        )
+
+    def _ungroup_selected(self) -> None:
+        """Compatibility alias for :meth:`ungroup_selected` (kept for callers)."""
+        self.ungroup_selected()
 
     def ungroup_item(self, group: QGraphicsItem) -> None:
         """Ungroup a specific GroupItem."""

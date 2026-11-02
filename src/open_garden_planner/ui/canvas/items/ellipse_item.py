@@ -76,7 +76,7 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
 
         pattern = self.fill_pattern if self.fill_pattern is not None else style.fill_pattern
         color = self.fill_color if self.fill_color is not None else style.fill_color
-        self.setBrush(create_pattern_brush(pattern, color))
+        self.setBrush(create_pattern_brush(pattern, color, self.fill_transform))
 
     def _setup_flags(self) -> None:
         self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsSelectable, True)
@@ -224,12 +224,14 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
             super().mouseDoubleClickEvent(event)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
-        if not self.isSelected():
-            self.scene().clearSelection()
-            self.setSelected(True)
+        self.normalize_context_menu_selection()
 
         _ = QCoreApplication.translate
         menu = QMenu()
+
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
 
         edit_label_action = menu.addAction(_("EllipseItem", "Edit Label"))
 
@@ -304,6 +306,8 @@ class EllipseItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGra
         lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_group_action(action, group_actions):
+            return
         if self.dispatch_lock_action(action, lock_action):
             return
         # Dispatch bed-specific actions via the shared mixin handler.
