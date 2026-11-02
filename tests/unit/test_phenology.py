@@ -414,7 +414,9 @@ def test_fruit_ripeness_tint_changes_while_the_plant_is_also_flowering():
     ({"latitude": float("-inf")}, DEFAULT_LATITUDE_DEG),
     ({"latitude": -91.0}, DEFAULT_LATITUDE_DEG),
     ("not a location", DEFAULT_LATITUDE_DEG),
-], ids=["south", "equator", "north", "none", "empty", "text", "bool", "nan", "inf", "beyond", "hostile"])
+    ({"latitude": 10 ** 400}, DEFAULT_LATITUDE_DEG),
+], ids=["south", "equator", "north", "none", "empty", "text", "bool", "nan", "inf", "beyond",
+        "hostile", "overflow"])
 def test_one_latitude_reader_for_the_3d_view(location: object, expected: float) -> None:
     """THE plan latitude the 3D view's phenology, the garden's life and the look's
     hemisphere all read (senior review of L5: three readers, one checking for NaN) —

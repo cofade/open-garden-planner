@@ -75,7 +75,7 @@ class TestWeatherWidgetPlaceChange:
         widget._on_fetch_success(_make_forecast(days=7))
         in_flight = widget._worker = MagicMock()
         widget.set_location(*new_place)
-        in_flight.shutdown.assert_called_once()
+        in_flight.shutdown.assert_called_once_with(0)   # cancelled, NOT waited for
         assert widget._worker is None and widget.forecast() is None
 
     def test_the_same_place_keeps_its_fetch_and_forecast(self, qtbot: object) -> None:
@@ -91,25 +91,26 @@ class TestWeatherWidgetPlaceChange:
 
 
 @pytest.mark.real_weather_worker
+@pytest.mark.parametrize("outcome", ["forecast", "failure"])
 def test_a_result_queued_before_the_place_changed_never_lands(qtbot: object,
-                                                               monkeypatch: pytest.MonkeyPatch) -> None:
-    """What keeps the old place's forecast off the new place (PF-LIF-12, measured in the
-    senior review of L5): PyQt6 does not deliver a queued signal to a bound-method slot
-    that was disconnected before it ran, and another place disconnects the old worker
-    (``set_location`` → ``shutdown``). The worker below has FINISHED — its result is
-    queued, no event loop has run — when the place changes. The control: left connected,
-    the same queued result lands."""
+                                                               monkeypatch: pytest.MonkeyPatch,
+                                                               outcome: str) -> None:
+    """What keeps the old place's result off the new place — PF-LIF-12 states the rule.
+    The worker below has FINISHED — its forecast (or its failure) is queued, no event
+    loop has run — when the place changes; ``set_location`` disconnects it. The
+    control: left connected, the same queued result lands."""
     from open_garden_planner.ui.widgets import weather_widget
 
     class Service:
-        def fetch_forecast(self, _lat: float, _lon: float) -> WeatherForecast:
-            return _make_forecast(7)
+        def fetch_forecast(self, _lat: float, _lon: float) -> WeatherForecast | None:
+            return _make_forecast(7) if outcome == "forecast" else None
 
     monkeypatch.setattr(weather_widget, "get_weather_service", Service)
 
     def queued(widget: WeatherWidget) -> list[int]:
         ready: list[int] = []
-        widget.forecast_ready.connect(lambda: ready.append(1))
+        signal = widget.forecast_ready if outcome == "forecast" else widget.forecast_failed
+        signal.connect(lambda *_: ready.append(1))
         widget.set_location(52.5, 13.4)
         widget.refresh()
         assert widget._worker is not None and widget._worker.wait(5000), "finished, result queued"
@@ -120,7 +121,7 @@ def test_a_result_queued_before_the_place_changed_never_lands(qtbot: object,
     qtbot.addWidget(control)
     landed = queued(control)
     qtbot.waitUntil(lambda: landed == [1], timeout=2000)
-    assert control.forecast() is not None
+    assert (control.forecast() is not None) == (outcome == "forecast")
 
     widget = WeatherWidget()
     qtbot.addWidget(widget)

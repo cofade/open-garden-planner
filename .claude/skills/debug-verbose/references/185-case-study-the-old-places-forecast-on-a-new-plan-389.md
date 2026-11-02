@@ -15,7 +15,8 @@ reproduced this with an isolated probe. The seam test did not catch it: it patch
 2. "The worker for the old place is not cancelled." That was true but secondary. Cancelling
    alone would have left the ask itself fetching the wrong place.
 3. After the fix, "a guard that drops a result for another place is needed too." It was
-   written and documented, and the next review measured that it never ran (see Lesson).
+   written and documented, and the next review measured that its drop branch never fired
+   (see Lesson).
 
 **What instrumentation revealed** (the reviewer's probe, a faked `fetch_forecast` recording
 each call, around `_new_project_document`):
@@ -45,8 +46,11 @@ slot asked for a forecast there, and the calendar read the old place's location.
 - A "document replaced" signal is a goodbye, not a hello: read nothing place-dependent in
   it, including from the project manager. Ask on the signal that carries the new value
   (PF-LIF-12).
-- Measure the mechanism before documenting it. PyQt6 delivers no queued signal to a
-  bound-method slot that was disconnected before it ran, so the disconnect already
-  protected, and the extra guard was dead code.
+- Measure the mechanism before documenting it: the disconnect already protected, and the
+  extra guard was dead code. The rule and its limit (undecorated slots only) are stated once,
+  in PF-LIF-12.
+- Round 4 found a second path: with the calendar's tab hidden and Today's Weather not chosen,
+  nothing moved the widget on a place change, and the 3D side GUESSED that a forecast was the
+  plan's. Have the producer say where it fetched; never infer provenance at the consumer.
 - A seam test that patches out the thing doing the work (here `refresh`) cannot see a bug
   in it. Fake only the network (`weather_widget.get_weather_service`).

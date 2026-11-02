@@ -56,6 +56,7 @@ from open_garden_planner.core.scene3d.particles import (
     ambient_emitters,
 )
 from open_garden_planner.core.scene3d.weather import TODAY, WEATHER_CHOICES, todays_weather
+from open_garden_planner.services.weather_service import forecast_place
 from open_garden_planner.ui.sim_clock_subscription import connect_qobject
 
 if TYPE_CHECKING:
@@ -250,8 +251,9 @@ class WorkspaceLivingCoordinator(QObject):
     def place_changed(self) -> None:
         """The garden location changed (also when a document brings its own): the
         forecast was another place's — forget it, and ask again while Today's Weather
-        is chosen. The SAME coordinates (a frost-date edit, a plan at the same place
-        whose forecast is still held) change nothing: the sky is not cleared and rebuilt."""
+        is chosen. An edit that keeps the coordinates (a frost date) changes nothing while
+        the forecast held is the one fetched there: the sky is not cleared and rebuilt.
+        (A new document has forgotten its forecast already: ``document_changed``.)"""
         place = self._place()
         if self._forecast and place == self._forecast_place:
             return
@@ -285,11 +287,18 @@ class WorkspaceLivingCoordinator(QObject):
         if host is not None:
             self._send("set_life_enabled", lambda: host.set_life_enabled(self._life))
 
-    def set_forecast(self, days: Iterable[tuple[str, int]]) -> None:
-        """The app's daily forecast: ``(ISO date, WMO code)`` — the Planting Calendar's
-        weather widget fetched it; nothing here goes to the network."""
+    def set_forecast(self, place: tuple[float, float] | None,
+                     days: Iterable[tuple[str, int]]) -> None:
+        """The app's daily forecast for ``place`` — the ``(lat, lon)`` the Planting
+        Calendar's weather widget fetched it for —: ``(ISO date, WMO code)`` per day;
+        nothing here goes to the network. A forecast for another place than the plan's
+        is not this plan's and is dropped: the producer says where it fetched, nobody
+        guesses (senior review of L5)."""
+        where = None if place is None else (float(place[0]), float(place[1]))
+        if where != self._place():
+            return
         self._forecast = tuple((str(day), int(code)) for day, code in days)
-        self._forecast_place = self._place()  # the calendar fetches for the plan's place
+        self._forecast_place = where
         self._update_todays()
 
     def season_sink(self, host: EngineHost) -> Callable[[Mapping[str, PhenologyState]], None]:
@@ -374,14 +383,9 @@ class WorkspaceLivingCoordinator(QObject):
         return plan_latitude(self._get_location())
 
     def _place(self) -> tuple[float, float] | None:
-        """The plan's coordinates, or None without a location."""
-        location = self._get_location()
-        if not isinstance(location, Mapping):
-            return None
-        lat, lon = location.get("latitude"), location.get("longitude")
-        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-            return (float(lat), float(lon))
-        return None
+        """The plan's coordinates, or None without a location — read as the calendar
+        reads them (``forecast_place``): the two compare places."""
+        return forecast_place(self._get_location())
 
     def _refresh_ambient(self) -> None:
         """Rebuild the ambient buffer when what it holds changed: the plants' life on

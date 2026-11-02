@@ -2300,11 +2300,12 @@ audit evidence for the command, machine and measured limitations.
   process - a weather-widget test did it, and the forecast tests failed only when they ran
   after it.
 - **A mechanism the docs credit is measured, not assumed.** A guard dropping "another
-  place's" result was written, documented - and never ran: PyQt6 does not deliver a queued
-  signal to a bound-method slot disconnected before it ran, so the disconnect already
-  protected. The pin holds a FINISHED worker's result in the queue (`QThread.wait`, no event
-  loop) across the change, with a connected control that receives it
-  (`test_a_result_queued_before_the_place_changed_never_lands`).
+  place's" result was written and documented, and its drop branch never fired: the
+  disconnect already protected (PF-LIF-12 states for which slots). The pin holds a FINISHED
+  worker's result in the queue (`QThread.wait`, no event loop) across the change, with a
+  connected control that receives it (`test_a_result_queued_before_the_place_changed_never_lands`).
+  And a docs sentence is a claim too: the first statement of the rule ("never delivers")
+  was too general — a `@pyqtSlot`-decorated slot does receive the queued result.
 
 ## 8.11 Security Scanning (SAST)
 
@@ -4174,7 +4175,10 @@ the gate checks all three; plus `FURNITURE_DEFAULT_DIMENSIONS`), `core/object_he
 up needs a row, open frames included, and
 `test_every_standing_object_kind_has_a_default_height` fails without one: ADR-065,
 owner's second pass), `ui/widgets/gallery_data.py`
-(gallery tuple), and `scripts/fill_translations.py` in the `CanvasView`,
+(gallery tuple), `models/smart_symbol.py` (`VALID_OBJECT_TYPES_BY_KIND`, the Qt-free mirror
+of the valid-shape list that smart-symbol members are checked against — #686;
+`test_valid_object_types_by_kind_matches_core_shape_table` fails without it, as L5's two
+lights found on its merge), and `scripts/fill_translations.py` in the `CanvasView`,
 `GalleryData` and `ObjectType` contexts. Roster tests are map-driven; the
 additive-enum forward-compat contract (unknown names → generic shape, no
 FILE_VERSION bump) is pinned by `tests/unit/test_project_unknown_object_type.py`.

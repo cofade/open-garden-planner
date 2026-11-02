@@ -71,6 +71,7 @@ VALID_OBJECT_TYPES_BY_KIND: dict[str, frozenset[str]] = {
         "CONTAINER",
         "WALL_PLANTER",
         "TRELLIS",
+        "STRING_LIGHTS",
     }),
     "line": frozenset({"FENCE", "WALL", "PATH"}),
     "polyline": frozenset({"FENCE", "WALL", "PATH"}),
@@ -103,6 +104,7 @@ VALID_OBJECT_TYPES_BY_KIND: dict[str, frozenset[str]] = {
         "BIRD_BATH",
         "POND_POOL",
         "GARDEN_BED",
+        "GARDEN_LIGHT",
     }),
 }
 ALL_KNOWN_OBJECT_TYPES: frozenset[str] = frozenset().union(*VALID_OBJECT_TYPES_BY_KIND.values())

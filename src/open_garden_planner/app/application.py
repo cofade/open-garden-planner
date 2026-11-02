@@ -2350,6 +2350,9 @@ class GardenPlannerApp(QMainWindow):
         # while its tab is hidden, so it can be wired to stack_changed (covers
         # undo/redo) without the heavyweight churn #210 flagged — fixes #225.
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
+        # the weather widget follows the place at once, also while this tab is hidden
+        # (its refresh is skipped then): a fetch for the old place is cancelled (PF-LIF-12)
+        self._project_manager.location_changed.connect(self.calendar_view.follow_location)
         self._project_manager.location_changed.connect(
             lambda _: self.calendar_view.schedule_refresh()
         )

@@ -604,10 +604,11 @@ class Workspace(QWidget):
         """The living garden (L5): the Weather menu, the garden's life and lights."""
         return self._living
 
-    def set_weather_forecast(self, days: Any) -> None:
-        """The app's daily forecast, ``(ISO date, WMO code)`` per day — what "Today's
-        Weather" follows while the plan date is today (L5.3)."""
-        self._living.set_forecast(days)
+    def set_weather_forecast(self, place: Any, days: Any) -> None:
+        """The app's daily forecast for ``place`` (the ``(lat, lon)`` it was fetched for),
+        ``(ISO date, WMO code)`` per day — what "Today's Weather" follows while the plan
+        date is today (L5.3)."""
+        self._living.set_forecast(place, days)
 
     def apply_look_settings(self) -> None:
         """The 3D settings changed (the Preferences dialog was accepted): the look

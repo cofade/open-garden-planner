@@ -174,7 +174,8 @@ def test_the_life_switch_reaches_the_engine(bench: Bench) -> None:
 def test_todays_weather_follows_the_forecast_only_on_today(bench: Bench) -> None:
     look, clock = bench.workspace.look, bench.clock
     today = date.today()
-    bench.workspace.set_weather_forecast(((today.isoformat(), 63), ("2000-01-01", 73)))
+    bench.workspace.set_weather_forecast(_place(BERLIN),
+                                         ((today.isoformat(), 63), ("2000-01-01", 73)))
     _menu_actions(bench)["Today's Weather"].trigger()
     assert look.weather_choice == TODAY
     clock.set_date(today)
@@ -240,12 +241,54 @@ def test_todays_weather_asks_the_calendar_and_keeps_no_stale_forecast(win, monke
     weather.fail = False
     living.set_weather(TODAY)
     qtbot.waitUntil(lambda: living.forecast == ((today, 63),), timeout=5000)
+    assert widget._worker is None, "the fetch is over"
     win._project_manager.set_location({**BERLIN, "frost_dates": {"last_spring_frost": "04-20"}})
     assert living.forecast == ((today, 63),), "the same place (a frost-date edit): it holds"
-    assert len(weather.fetches) == 3, "and nothing is fetched again"
+    assert widget._worker is None, "and nothing is fetched again"
     win._project_manager.set_location(None)
     assert living.forecast == (), "no place: the old forecast is forgotten"
     assert widget._worker is None and len(weather.fetches) == 3, "no location: nothing to fetch"
+
+
+@pytest.mark.real_weather_worker
+def test_a_place_change_off_todays_weather_cancels_the_old_places_fetch(win, monkeypatch,
+                                                                        qtbot) -> None:
+    """Senior review of L5, round 4 (observed): with the calendar's tab hidden and the 3D
+    view NOT on Today's Weather, nobody moved the weather widget when the place changed,
+    so the old place's late forecast landed on the new plan — labelled as the new place,
+    then kept by a frost-date edit and shown when Today's Weather was picked. The widget
+    now follows every place at once (``PlantingCalendarView.follow_location``), and the
+    3D view takes a forecast only for the plan's own place (the producer says where)."""
+    sydney = {"latitude": -33.87, "longitude": 151.21}
+    weather = FakeWeather(monkeypatch)
+    living, widget = win._workspace.living, win.calendar_view._weather
+    alerts: list[object] = []
+    win.calendar_view.frost_alerts_ready.connect(alerts.append)
+    today = date.today().isoformat()
+    try:
+        weather.gate.clear()                       # Berlin's fetch hangs on the network
+        living.actions[TODAY].trigger()
+        qtbot.waitUntil(lambda: weather.fetches == [_place(BERLIN)], timeout=5000)
+        in_flight = widget._worker
+        assert in_flight is not None
+        living.actions["clear"].trigger()          # off Today's Weather …
+        win._project_manager.set_location(dict(sydney))   # … the place changes
+        assert widget.place() == _place(sydney), "the hidden widget moved at once"
+        weather.gate.set()                         # Berlin answers late
+        qtbot.waitUntil(in_flight.isFinished, timeout=5000)
+        qtbot.wait(50)
+        assert living.forecast == () and widget.forecast() is None, "Berlin's never landed"
+        assert alerts == [], "no frost alerts against Berlin for a plan in Sydney"
+        win._project_manager.set_location({**sydney, "frost_dates": {"last_spring_frost": "09-20"}})
+        assert living.forecast == ()
+        living.actions[TODAY].trigger()
+        qtbot.waitUntil(lambda: living.forecast == ((today, 3),), timeout=5000)
+        assert weather.fetches == [_place(BERLIN), _place(sydney)]
+        # and a forecast for another place than the plan's is dropped, whoever sends it
+        win.calendar_view.forecast_days_ready.emit(_place(BERLIN), ((today, 71),))
+        assert living.forecast == ((today, 3),), "Berlin's forecast is not Sydney's"
+    finally:
+        weather.gate.set()
 
 
 @pytest.mark.real_weather_worker

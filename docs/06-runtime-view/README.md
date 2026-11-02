@@ -442,23 +442,27 @@ flowchart TD
 ```
 
 **The forecast fan-out (L5.3).** The Planting Calendar's weather widget is the app's one
-weather fetch. Its days reach the 3D view's Today's Weather as `(ISO date, WMO code)`:
+weather fetch. Its days reach the 3D view's Today's Weather as `(ISO date, WMO code)`, with
+the `(lat, lon)` they were fetched for:
 
 ```mermaid
 flowchart LR
-    C([Weather → Today's Weather,<br/>a new location — also the one a new or<br/>opened document brings])
+    C([Weather → Today's Weather; while it is chosen,<br/>a new location — also the one a new or<br/>opened document brings (the same coordinates: nothing)])
     W["Workspace.forecast_wanted"]
     P["PlantingCalendarView.request_forecast<br/>(the weather part of refresh; tab may be hidden)"]
     F["WeatherWidget fetch (Open-Meteo) — another place<br/>cancels and disconnects the old fetch"]
-    R["forecast_days_ready(days) — EMPTY without a<br/>location or after a failed fetch"]
-    L["Workspace.set_weather_forecast →<br/>WorkspaceLivingCoordinator → LookController.set_todays_weather<br/>(the plan date's code, only while the plan date is today)"]
+    R["forecast_days_ready(place, days) — days EMPTY without a<br/>location or after a failed fetch"]
+    L["Workspace.set_weather_forecast →<br/>WorkspaceLivingCoordinator (another place's: dropped)<br/>→ LookController.set_todays_weather<br/>(the plan date's code, only while the plan date is today)"]
     C --> W --> P --> F --> R --> L
 ```
 
 A replaced document only FORGETS the forecast (`CanvasScene.document_replaced` comes while the
 old document's location is still set: an ask there fetched the old place's forecast, which then
 landed on the new plan — its strip, its frost alerts and Today's Weather). The new document's
-`location_changed`, which always follows a new, opened or recovered document, asks.
+`location_changed`, which always follows a new, opened or recovered document, asks. Every
+`location_changed` also moves the weather widget at once (`PlantingCalendarView.follow_location`)
+— visible or not, fetching nothing — so a fetch still on its way for the old place is cancelled
+and disconnected (PF-LIF-12).
 
 A write from inside any listener raises `RuntimeError`: the remaining listeners
 would otherwise receive a stale change. Every listener runs even when one raises,

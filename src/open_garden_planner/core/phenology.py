@@ -73,13 +73,16 @@ def _smoothstep(edge0: float, edge1: float, x: float) -> float:
 
 def plan_latitude(location: object) -> float:
     """The latitude a plan's location gives — a finite number in ``[-90, 90]`` — or, with
-    no location (or a hostile one), ``DEFAULT_LATITUDE_DEG``. THE one reader: the 3D
-    view's phenology, the garden's life and the look's hemisphere all take it from here
-    (senior review of L5: three readers, one of them checking for NaN)."""
+    no location (or a hostile one), ``DEFAULT_LATITUDE_DEG``. The 3D view's Plant Forge
+    phenology, the garden's life and the look's hemisphere read it here (senior review
+    of L5: three readers, only one checking for NaN)."""
     latitude = location.get("latitude") if isinstance(location, Mapping) else None
     if isinstance(latitude, bool) or not isinstance(latitude, (int, float)):
         return DEFAULT_LATITUDE_DEG
-    latitude = float(latitude)
+    try:
+        latitude = float(latitude)
+    except OverflowError:  # a 400-digit integer in a hostile file
+        return DEFAULT_LATITUDE_DEG
     return latitude if math.isfinite(latitude) and -90.0 <= latitude <= 90.0 else DEFAULT_LATITUDE_DEG
 
 

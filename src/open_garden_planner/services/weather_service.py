@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import ssl
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -321,6 +323,22 @@ class WeatherService:
 # ---------------------------------------------------------------------------
 
 _weather_service: WeatherService | None = None
+
+
+def forecast_place(location: object) -> tuple[float, float] | None:
+    """Where a plan's forecast is fetched: its location's ``(lat, lon)`` as finite floats,
+    or None without one (or with one that is not a place). THE reader for the producer
+    (the Planting Calendar's weather widget) and the consumer (the 3D view's Today's
+    Weather) alike — they compare places, so they must read them the same way (L5)."""
+    if not isinstance(location, Mapping):
+        return None
+    latitude: Any = location.get("latitude")       # anything a file holds: float() judges
+    longitude: Any = location.get("longitude")
+    try:
+        place = (float(latitude), float(longitude))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return place if all(math.isfinite(value) for value in place) else None
 
 
 def get_weather_service() -> WeatherService:

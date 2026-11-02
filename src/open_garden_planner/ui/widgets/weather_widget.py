@@ -202,9 +202,8 @@ class WeatherWidget(QFrame):
         none): the fetch still on its way for the old one is cancelled and its forecast
         forgotten — neither may land on the new place (senior review of L5: File › New
         showed the old plan's strip and computed its frost alerts against it). The
-        DISCONNECT is what keeps a result already queued from landing: PyQt6 never
-        delivers a queued signal to a bound-method slot disconnected before it ran
-        (measured; ``test_a_result_queued_before_the_place_changed_never_lands``)."""
+        DISCONNECT is what keeps a result already queued from landing — PF-LIF-12 says
+        why and for which slots."""
         if (lat, lon) != (self._lat, self._lon):
             self.shutdown(0)  # cancelled and disconnected; it is not waited for
             self._forecast = None
@@ -215,6 +214,12 @@ class WeatherWidget(QFrame):
         else:
             self._location_lbl.setText(f"{lat:.2f}°, {lon:.2f}°")
             self._show_loading()
+
+    def place(self) -> tuple[float, float] | None:
+        """The coordinates this widget fetches for (``set_location``), or None."""
+        if self._lat is None or self._lon is None:
+            return None
+        return (self._lat, self._lon)
 
     def refresh(self) -> None:
         """Start a background fetch for the current location."""
@@ -271,6 +276,8 @@ class WeatherWidget(QFrame):
 
     # ── slots ───────────────────────────────────────────────────────────
 
+    # Both slots stay UNDECORATED: a @pyqtSlot slot still receives a result queued before
+    # its worker was disconnected — the old place's forecast on the new place (PF-LIF-12).
     def _on_fetch_success(self, forecast: WeatherForecast) -> None:
         self._forecast = forecast
         self._render_forecast(forecast)

@@ -9789,11 +9789,14 @@ past midnight, the firefly season's date, one life assembly for the product and 
    (with no location) and the new plan's frost alerts. The document now only forgets the
    forecast; the ask waits for the new location's `location_changed`, which always follows.
    `WeatherWidget.set_location` cancels and DISCONNECTS the old place's fetch and forgets
-   its forecast; the disconnect is what keeps a result already queued from landing (PyQt6
-   delivers no queued signal to a bound-method slot disconnected before it ran - measured
-   and pinned, PF-LIF-12). The same coordinates (a frost-date edit) keep the forecast. No
-   zero-timer: a fetch for the same place already on its way is not started again
-   (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693; the
+   its forecast (the disconnect is what keeps a queued result from landing: PF-LIF-12 states
+   the rule and its limit). The widget follows EVERY location change, also while its tab is
+   hidden (`PlantingCalendarView.follow_location`; round 4 found the old place's late forecast
+   landing on a plan at another place when Today's Weather was not chosen), and the forecast
+   carries the place it was fetched for: the 3D view drops another place's instead of
+   guessing (`forecast_days_ready(place, days)`, one reader `weather_service.forecast_place`).
+   An edit at the same coordinates (a frost date) keeps the forecast. No zero-timer: a fetch
+   for the same place already on its way is not started again (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693; the
    calendar's frost alerts, which keep the old plan's after a cleared location: #694.
 2. **Where noon stands is the place's.** The dew's noon fade and the fireflies' midnight
    read the meridian from the plan's hemisphere (`noon_azimuth`; `LookController.set_southern`,

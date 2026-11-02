@@ -127,8 +127,8 @@ asserts that the readiness dialog remains the sole visible progress dialog:
 
 ### PF-LIF-12
 
-- **Rule:** A `CanvasScene.document_replaced` slot only forgets place-dependent state, because the old document's location is still set; the new location's `location_changed` asks again, and a fetch for another place is cancelled AND disconnected before the place changes.
-- **Pinned by:** `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_weather_widget.py::test_a_result_queued_before_the_place_changed_never_lands`
+- **Rule:** A `CanvasScene.document_replaced` slot only forgets place-dependent state, because the old document's location is still set; every `location_changed` moves the fetching widget at once (cancelling and disconnecting the old place's fetch), and a consumer takes a result only for the place its producer says it was fetched for.
+- **Pinned by:** `tests/integration/test_living_garden.py::test_a_new_or_opened_plan_never_follows_the_old_places_forecast`; `tests/integration/test_living_garden.py::test_a_place_change_off_todays_weather_cancels_the_old_places_fetch`; `tests/integration/test_weather_widget.py::test_a_result_queued_before_the_place_changed_never_lands`
 - **Source:** #389, ADR-070
 - **Status:** standing
 - **Legacy:** none (new entry)
@@ -144,10 +144,23 @@ location — so `PlantingCalendarView.request_forecast` fetched for the OLD plac
 only forgets (`WorkspaceLivingCoordinator.document_changed`); `location_changed`, which always
 follows a new, opened or recovered document, asks (`place_changed`). `WeatherWidget.set_location`
 cancels the in-flight worker, DISCONNECTS it and forgets the forecast when the coordinates
-change. The disconnect is what protects: PyQt6 never delivers a queued signal to a
-bound-method slot that was disconnected before it ran, so a worker that finished for the old
-place - its result already queued - lands nowhere (measured in the senior review; the pin
-holds a finished worker's result in the queue across the change, with a connected control
-that receives it). A guard comparing the sender's coordinates was written first and never
-ran, because nothing reached it; it went. Not covered: the calendar's frost alerts keep the
-old plan's alerts after a cleared location or a failed fetch (#694, older than L5).
+change. A second path (senior review, round 4, observed): with the calendar's tab hidden and
+Today's Weather not chosen, nobody moved the widget on a place change, so the old place's late
+forecast landed on a plan at another place — and the 3D view, guessing that a forecast was the
+plan's, labelled it so. Now `PlantingCalendarView.follow_location` moves the widget on EVERY
+`location_changed`, visible or not, fetching nothing; `forecast_days_ready` carries the
+`(lat, lon)` the widget fetched for, and `WorkspaceLivingCoordinator.set_forecast` drops one for
+another place. Both read a place with ONE function (`weather_service.forecast_place`): they
+compare places.
+
+**The mechanism (the canonical statement; other docs point here).** The disconnect is what keeps
+a result already QUEUED from landing: PyQt6 does not deliver a queued signal to an UNDECORATED
+bound-method slot (`_on_fetch_success`, `_on_fetch_error`) that was disconnected before it ran.
+That is not Qt's general promise — Qt documents that events already scheduled may still be
+delivered — and a `@pyqtSlot`-decorated slot DOES receive it (measured in the senior review):
+decorating these slots reopens the hole. The pin holds a finished worker's forecast or failure in
+the queue (`QThread.wait`, no event loop) across the change, with a connected control that
+receives it. A guard comparing the sender's coordinates was written first; its drop branch never
+fired (nothing reached it after the disconnect) and it went. Not covered: the calendar's frost
+alerts keep the old plan's alerts after a cleared location or a failed fetch (#694, older than
+L5).
