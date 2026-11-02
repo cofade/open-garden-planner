@@ -2632,11 +2632,14 @@ Pinned by `tests/integration/test_house_roof_ridge.py`.
 replaces a house must treat the ridge as derived geometry, not a sibling the
 user selected:
 
-- **Deletion owns the tree.** `roof_ridge_link.linked_ridges_under()` walks a
-  selected item's Qt child tree, so deleting a group removes a nested HOUSE's
-  ridge too. The GUI's Delete key, every shape's context-menu Delete (routed
-  through `CanvasView._delete_selected_items`, so it is undoable and prunes
-  constraints/journal notes) and the Agent API's `delete_object` share it.
+- **Deletion owns the tree.** `group_item.selection_tree()` walks a selected
+  item's Qt child tree once; `roof_ridge_link.linked_ridges_under()` uses the
+  same walk for ridges, and both delete paths use the tree for constraints and
+  journal notes too. Deleting a group therefore removes a nested HOUSE's ridge,
+  a child's constraint and a grouped pin's note. The GUI's Delete key, every
+  shape's context-menu Delete (routed through
+  `CanvasView._delete_selected_items`, so it is undoable) and the Agent API's
+  `delete_object` share it.
 - **A trim that opens a house removes its roof.** Trimming a HOUSE polygon or
   rectangle produces an open FENCE; the old closed-shape ridge is removed and
   restored by `TrimPolygonCommand`'s `linked_ridge` parameter, and the
@@ -2651,9 +2654,10 @@ user selected:
   and array copies still do not build a ridge (documented follow-up).
 - **Same-type changes and layer moves stay symmetric.** A "Change Type" command
   that finds a HOUSE with no ridge creates one, so its undo removes it again
-  (the pre-command item had none). `MoveToLayerCommand` uses the same
-  `linked_ridges_under` walk as delete, so a nested HOUSE's ridge follows its
-  group to the target layer. One ownership predicate
+  (the pre-command item had none); a legacy non-HOUSE shape that already names a
+  ridge keeps that exact one-sided link on undo. `MoveToLayerCommand` uses the
+  same `linked_ridges_under` walk as delete, so a nested HOUSE's ridge follows
+  its group to the target layer. One ownership predicate
   (`roof_ridge_link.is_owned_ridge`, reverse `owner_polygon_id`) is shared by
   the 2D lookup, the 3D snapshot and the sun/shadow caster; a missing reverse
   link stays valid for older plans, a mismatched one is never adopted.

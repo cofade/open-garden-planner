@@ -51,6 +51,27 @@ def top_level_selection(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
     return [item for item in items if item.parentItem() is None]
 
 
+def selection_tree(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
+    """The items plus every Qt child, once each, parents before children.
+
+    Derived links and graph references live on items a group hides from the
+    top-level selection (a nested HOUSE's ridge, a child's constraint, a
+    journal pin). Every delete/move path that must account for them walks this
+    one tree instead of inventing its own recursion.
+    """
+    result: list[QGraphicsItem] = []
+    pending = list(items)
+    seen: set[int] = set()
+    while pending:
+        item = pending.pop()
+        if id(item) in seen:
+            continue
+        seen.add(id(item))
+        result.append(item)
+        pending.extend(item.childItems())
+    return result
+
+
 def ungroupable_groups(items: list[QGraphicsItem]) -> list[GroupItem]:
     """The selected groups ``Ctrl+Shift+G`` may dissolve.
 

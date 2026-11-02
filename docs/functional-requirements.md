@@ -94,7 +94,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   `ungroupable_groups`, and dispatch calls the view's `group_selected` / `ungroup_selected`. No new
   persisted field. Acceptance: `tests/integration/test_group_context_menu.py` (14 item types, real
   `contextMenuEvent`, menu matrix, the just-grouped state, nested one-level rule, one-step
-  multi-group undo, selection normalisation).
+  multi-group undo, selection normalisation and group-delete subtree cleanup).
 - **FR-EDIT-23** *(issue #665)*: A filled object's texture can be **turned, scaled and shifted**
   independently of its geometry from the Properties panel: **Pattern Angle** (degrees clockwise,
   0 = as authored), **Pattern Scale** (multiplier, 1.0 = authored tile), and **Pattern Offset X/Y**

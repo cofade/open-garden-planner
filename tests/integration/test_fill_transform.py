@@ -239,6 +239,38 @@ def test_every_filled_shape_type_renders_the_transform(factory, qtbot) -> None:
     assert identity != turned, "the pattern transform did not reach the fill"
 
 
+def test_a_textured_path_renders_the_transform(qtbot) -> None:
+    """The path painter must consume the item's transform, not just the panel.
+
+    Deleting the ``fill_transform=`` kwarg from ``PolylineItem.paint`` left the
+    whole suite green before this probe (round-7 review P2).
+    """
+    from open_garden_planner.core.object_types import PathFenceStyle
+
+    def render(transform: FillTransform) -> QImage:
+        scene = QGraphicsScene()
+        item = PolylineItem(
+            [QPointF(0, 0), QPointF(600, 0)], object_type=ObjectType.PATH
+        )
+        item.path_fence_style = PathFenceStyle.GRAVEL_PATH
+        item.setPen(QPen(QColor("#8a7a55"), 40))
+        item.fill_transform = transform
+        scene.addItem(item)
+        bounds = item.sceneBoundingRect().adjusted(-4, -4, 4, 4)
+        image = QImage(
+            int(bounds.width()), int(bounds.height()), QImage.Format.Format_ARGB32
+        )
+        image.fill(QColor("white"))
+        painter = QPainter(image)
+        scene.render(painter, QRectF(0, 0, image.width(), image.height()), bounds)
+        painter.end()
+        return image
+
+    identity = render(FillTransform())
+    turned = render(FillTransform(angle_deg=45, scale=1.7, offset_x_cm=9))
+    assert identity != turned, "the pattern transform did not reach the path stroke"
+
+
 def test_material_change_keeps_the_transform(qtbot) -> None:
     scene = QGraphicsScene()
     item = _rect(scene)

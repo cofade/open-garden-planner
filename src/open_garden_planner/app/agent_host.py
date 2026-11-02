@@ -908,6 +908,7 @@ class AgentHost:
         """
         host = self._host
         from open_garden_planner.core.commands import DeleteItemsCommand, RemoveConstraintCommand
+        from open_garden_planner.ui.canvas.items.group_item import selection_tree
 
         item = host._resolve_agent_item(item_id)
         linked_ridge = host._agent_linked_roof_ridge(item)
@@ -917,7 +918,15 @@ class AgentHost:
             host._agent_item_uuid(candidate) for candidate in targets
         }
 
-        constraints = host._agent_item_constraints(item)
+        # A group's children can own constraints too; the GUI delete walks the
+        # same subtree, so the two receipts cannot disagree (round-7 review P1).
+        constraints: list[Any] = []
+        for member in selection_tree([item]):
+            if getattr(member, "item_id", None) is None:
+                continue
+            for constraint in host._agent_item_constraints(member):
+                if constraint not in constraints:
+                    constraints.append(constraint)
         for constraint in constraints:
             host.canvas_view.command_manager.execute(
                 RemoveConstraintCommand(host.canvas_scene.constraint_graph, constraint)

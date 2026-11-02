@@ -1326,6 +1326,21 @@ class ChangeObjectTypeCommand(Command):
         self._item.set_metadata("ridge_item_id", str(ridge.item_id))  # type: ignore[attr-defined]
         ridge.set_metadata("owner_polygon_id", str(self._item.item_id))  # type: ignore[attr-defined]
 
+    def _restore_old_link(self) -> None:
+        """Restore the exact pre-command ``ridge_item_id`` (or its absence).
+
+        A legacy non-HOUSE shape can still name a ridge (the old type-change
+        command removed neither the item nor the key). Undo must keep that
+        one-sided link exactly as it found it; clearing it leaves the ridge
+        visible but unowned and redo then builds a second one (round-7 review P2).
+        """
+        if self._old_ridge_id and isinstance(
+            getattr(self._item, "metadata", None), dict
+        ):
+            self._item.set_metadata("ridge_item_id", str(self._old_ridge_id))  # type: ignore[attr-defined]
+            return
+        self._link(None)
+
     def execute(self) -> None:
         from open_garden_planner.ui.canvas.roof_ridge_link import (
             build_linked_ridge,
@@ -1374,7 +1389,7 @@ class ChangeObjectTypeCommand(Command):
                 created_scene = self._created_ridge.scene()
                 if created_scene is not None:
                     created_scene.removeItem(self._created_ridge)
-            self._link(None)
+            self._restore_old_link()
             return
         if self._removed_ridge is not None:
             # The pre-command HOUSE owned a ridge and execute removed it.
@@ -1387,16 +1402,11 @@ class ChangeObjectTypeCommand(Command):
             # same-type Change Type (or the multi-selection variant) still ran.
             # Undo must remove it again or the scene gains geometry the user
             # did not have before (round-6 review P2).
-            if self._created_ridge.scene() is not None:
-                created_scene = self._created_ridge.scene()
-                if created_scene is not None:
-                    created_scene.removeItem(self._created_ridge)
-            self._link(None)
+            created_scene = self._created_ridge.scene()
+            if created_scene is not None:
+                created_scene.removeItem(self._created_ridge)
         # A HOUSE whose link predates this command: restore exactly that key.
-        if self._old_ridge_id and isinstance(
-            getattr(self._item, "metadata", None), dict
-        ):
-            self._item.set_metadata("ridge_item_id", str(self._old_ridge_id))  # type: ignore[attr-defined]
+        self._restore_old_link()
 
 
 class ChangeSmartSymbolParamCommand(Command):

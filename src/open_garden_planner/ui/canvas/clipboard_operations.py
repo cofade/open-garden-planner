@@ -268,10 +268,17 @@ class ClipboardOperations:
             # Use command for undo support
             from open_garden_planner.core import CreateItemsCommand
 
+            created = _with_house_ridges(pasted_items)
+            if not created:
+                # A lone ROOF_RIDGE is derived geometry and is dropped with its
+                # owner link; reporting "Pasted 1" and pushing an empty command
+                # would both lie and add a no-op undo step (round-7 review P2).
+                host.set_status_message(
+                    QCoreApplication.translate("CanvasView", "Nothing to paste")
+                )
+                return
             command = CreateItemsCommand(
-                cast("CanvasScene", host.scene()),
-                _with_house_ridges(pasted_items),
-                "pasted objects",
+                cast("CanvasScene", host.scene()), created, "pasted objects"
             )
             host._command_manager.execute(command)
 
@@ -371,10 +378,14 @@ class ClipboardOperations:
 
             from open_garden_planner.core import CreateItemsCommand
 
+            created = _with_house_ridges(duplicated_items)
+            if not created:
+                host.set_status_message(
+                    QCoreApplication.translate("CanvasView", "Nothing to duplicate")
+                )
+                return
             command = CreateItemsCommand(
-                cast("CanvasScene", host.scene()),
-                _with_house_ridges(duplicated_items),
-                "duplicated objects",
+                cast("CanvasScene", host.scene()), created, "duplicated objects"
             )
             host._command_manager.execute(command)
 

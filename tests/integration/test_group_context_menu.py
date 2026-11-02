@@ -569,6 +569,45 @@ def test_deleting_a_group_restores_its_membership_on_undo(qtbot) -> None:
     assert first.parentItem() is group and second.parentItem() is group
 
 
+def test_deleting_a_group_removes_a_childs_constraint(qtbot) -> None:
+    """The top-level filter must not hide a child's graph references.
+
+    Before the fix the group vanished but its child's constraint stayed in the
+    graph and was written to the plan with a dead anchor (round-7 review P1).
+    """
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+
+    view = _canvas(qtbot)
+    scene = view.scene()
+    child = _rectangle(layer_id=scene.active_layer.id)
+    peer = _rectangle(layer_id=scene.active_layer.id)
+    scene.addItem(child)
+    scene.addItem(peer)
+    graph = scene.constraint_graph
+    graph.add_constraint(
+        AnchorRef(item_id=child.item_id, anchor_type=AnchorType.CENTER),
+        AnchorRef(item_id=peer.item_id, anchor_type=AnchorType.CENTER),
+        50.0,
+    )
+    child.setSelected(True)
+    peer.setSelected(True)
+    view.group_selected()
+    group = child.parentItem()
+    assert group is not None
+
+    view._delete_selected_items()
+
+    assert group.scene() is None
+    assert graph.constraints == {}, "a group child's constraint was left dangling"
+
+    # Two commands: remove constraint, then delete the group.
+    view.command_manager.undo()
+    assert group.scene() is scene
+    view.command_manager.undo()
+    assert len(graph.constraints) == 1
+
+
 def test_the_background_image_is_deliberately_not_groupable(qtbot) -> None:
     """A backdrop grouped with ground surfaces re-bands it above them."""
     from PyQt6.QtCore import QBuffer, QByteArray, QIODevice

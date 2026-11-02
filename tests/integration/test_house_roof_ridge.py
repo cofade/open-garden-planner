@@ -314,6 +314,35 @@ def test_undo_of_a_same_type_house_change_removes_the_created_ridge(qtbot) -> No
     assert linked_ridge(rect) is ridge
 
 
+def test_undo_restores_a_legacy_ridge_link_on_a_non_house(qtbot) -> None:
+    """A pre-#690 plan can keep a ridge while its shape is not a HOUSE.
+
+    Converting it to HOUSE adopts that live ridge; undo must restore the
+    one-sided link, not clear it, or the ridge stays visible unowned and redo
+    builds a second one (round-7 review P2).
+    """
+    scene, view = _scene_view(qtbot)
+    rect = _house_rect(scene)
+    ridge = build_linked_ridge(rect, rect.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    panel = PropertiesPanel(command_manager=view.command_manager)
+    panel._on_property_changed(rect, "object_type", ObjectType.HOUSE)
+    assert linked_ridge(rect) is ridge
+
+    view.command_manager.undo()
+    assert rect.object_type == ObjectType.GENERIC_RECTANGLE
+    assert rect.metadata.get("ridge_item_id") == str(ridge.item_id)
+    assert ridge.scene() is scene
+
+    view.command_manager.redo()
+    assert linked_ridge(rect) is ridge
+    assert len(
+        [i for i in scene.items() if isinstance(i, PolylineItem)
+         and i.object_type == ObjectType.ROOF_RIDGE]
+    ) == 1, "redo built a second ridge"
+
+
 def test_a_grouped_house_carries_its_ridge_on_a_group_move(qtbot) -> None:
     from open_garden_planner.core.commands import GroupCommand
 
@@ -543,6 +572,34 @@ def test_duplicating_a_house_gets_its_own_ridge(qtbot) -> None:
     view._delete_selected_items()
     assert original_ridge.scene() is scene
     assert linked_ridge(original) is original_ridge
+
+
+def test_copying_a_lone_ridge_pastes_nothing_and_adds_no_undo_step(qtbot) -> None:
+    """A derived ridge without its owner is dropped — silently doing nothing is
+    still a lie and an empty undo step (round-7 review P2)."""
+    scene, view = _scene_view(qtbot)
+    ridge = PolylineItem(
+        [QPointF(100, 100), QPointF(500, 100)],
+        object_type=ObjectType.ROOF_RIDGE,
+        layer_id=scene.active_layer.id,
+    )
+    ridge.set_metadata("owner_polygon_id", str(uuid.uuid4()))  # owner not copied
+    scene.addItem(ridge)
+    ridge.setSelected(True)
+    view.copy_selected()
+
+    statuses: list[str] = []
+    view.status_message.connect(statuses.append)
+    depth = len(view.command_manager._undo_stack)
+    view.paste()
+    assert statuses[-1] == "Nothing to paste"
+    assert len(view.command_manager._undo_stack) == depth
+
+    ridge.setSelected(True)
+    view.duplicate_selected()
+    assert statuses[-1] == "Nothing to duplicate"
+    assert len(view.command_manager._undo_stack) == depth
+    assert ridge.scene() is scene
 
 
 def test_ridge_metadata_is_a_stable_uuid_pair(qtbot) -> None:

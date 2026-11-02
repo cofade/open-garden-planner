@@ -3370,10 +3370,14 @@ class CanvasView(QGraphicsView):
                     selected.append(ridge)
                     _sel_ids.add(ridge.item_id)
 
-        # Collect constraints to remove for deleted items (garden + construction)
+        # Collect constraints to remove for deleted items (garden + construction).
+        # Walk each selected item's subtree: a group's child can own a constraint
+        # that the top-level selection no longer names (round-7 review P1).
+        from open_garden_planner.ui.canvas.items.group_item import selection_tree
+
         graph = self._canvas_scene.constraint_graph
         constraints_to_remove = []
-        for item in selected:
+        for item in selection_tree(selected):
             if isinstance(
                 item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
             ):
@@ -3394,19 +3398,13 @@ class CanvasView(QGraphicsView):
             JournalPinItem,
         )
 
-        def _journal_pins_in(item: QGraphicsItem):
-            if isinstance(item, JournalPinItem):
-                yield item
-            for child in item.childItems():
-                yield from _journal_pins_in(child)
-
         # A group hides its pins from the top-level selection too: walk the
-        # tree, or deleting the group removes the pins but keeps their notes.
-        journal_pins: list[JournalPinItem] = []
-        for _root in selected:
-            for pin in _journal_pins_in(_root):
-                if pin not in journal_pins:
-                    journal_pins.append(pin)
+        # same tree, or deleting the group removes the pins but keeps their notes.
+        journal_pins = [
+            item
+            for item in selection_tree(selected)
+            if isinstance(item, JournalPinItem)
+        ]
         journal_pin_ids = [pin.note_id for pin in journal_pins]
         regular_items = [i for i in selected if not isinstance(i, JournalPinItem)]
 
