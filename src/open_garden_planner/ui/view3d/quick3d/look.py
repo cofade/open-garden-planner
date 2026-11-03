@@ -13,6 +13,13 @@ onto the engine's scene and decides nothing:
   ITS property names (``Quick3DHost.set_sky`` hands them to ``buildSky``).
   ``sky_longitude`` is the measured convention: the generator draws its sun at
   compass bearing ``sunLongitude - 90°``.
+- ``atmosphere_properties(sky)`` — the inputs of the atmosphere sky (Phase 17 L7,
+  ``qml/AtmosphereSky.qml``, a Qt 6.12 ``SkyMaterial``), by ITS property names
+  (``Quick3DHost.set_sky`` hands them to ``buildAtmosphere``). Its sun is a DIRECTION
+  in the example's atmosphere coordinates (``atmosphere_sun_direction``): the solar
+  position through the one scene → engine map, then ``(x, y, z) → (−x, −z, y)`` —
+  derived from the shaders, measured by the board's sky probe; the ``+ 90°`` of the
+  painted sky is not assumed for it.
 
 What is truth is not in either mapping: the key light's DIRECTION comes from the
 ``SunState`` the pipeline sends (``Quick3DSink.set_sun``), and at night from the
@@ -28,11 +35,24 @@ from typing import Final
 
 import numpy as np
 
-from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors
-from open_garden_planner.core.scene3d.look import NEUTRAL_DAY, LookSpec, SkySpec
+from open_garden_planner.core.scene3d.atmosphere_lut import PaintedSky, atmosphere_gain
+from open_garden_planner.core.scene3d.color import srgb_to_linear
+from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors, sun_direction_scene
+from open_garden_planner.core.scene3d.look import (
+    ATMOSPHERE_CLOUD_GAIN,
+    ATMOSPHERE_DISC_ENERGY,
+    ATMOSPHERE_HAZE_DEG,
+    ATMOSPHERE_THIN_CLOUD_LIFT,
+    NEUTRAL_DAY,
+    LookSpec,
+    SkySpec,
+    sky_phase,
+)
 
-__all__ = ["COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES", "NEUTRAL_DAY", "PRECIP_KINDS",
-           "VECTOR_PROPERTIES", "LookSpec", "SkySpec", "engine_hex", "engine_linear",
+__all__ = ["ATMOSPHERE_VECTOR_PROPERTIES", "COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES",
+           "NEUTRAL_DAY", "PRECIP_KINDS", "VECTOR_PROPERTIES", "LookSpec", "SkySpec",
+           "atmosphere_properties", "atmosphere_sun_direction", "engine_hex", "engine_linear",
+           "cloud_light_gain", "painted_sky",
            "engine_srgb", "scene_properties", "sky_longitude", "sky_properties"]
 
 #: The look properties of ``Garden.qml`` that are colours given as ``#rrggbb`` …
@@ -186,4 +206,98 @@ def sky_properties(sky: SkySpec) -> dict[str, object]:
         "groundEnergy": float(sky.ground_energy),
         "groundCurve": float(sky.ground_curve),
         "sunEnergy": float(sky.sun_energy),
+    }
+
+
+#: The atmosphere's inputs that are ``vector3d`` (``QVector3D``): directions and LINEAR
+#: colours — a shader uniform, so no colour property's polynomial touches them.
+ATMOSPHERE_VECTOR_PROPERTIES: Final = frozenset({
+    "sunDirection", "sunDiscColor", "paintedTop", "paintedHorizon", "paintedGround",
+    "paintedSun"})
+
+
+def atmosphere_sun_direction(sky: SkySpec) -> tuple[float, float, float]:
+    """Where the atmosphere draws its sun: a unit vector in the skymaterial example's
+    atmosphere coordinates.
+
+    The example sets ``sunDirection = (f.x, f.z, −f.y)`` from a light's forward ``f``
+    and its shader turns it back into the engine-frame direction AT the sun as
+    ``(−s.x, s.z, −s.y)`` (= −f); the sky-view LUT reads the same vector with z up.
+    So from the engine-frame vector ``e`` at the sun: ``s = (−e.x, −e.z, e.y)``.
+    ``e`` is the solar position (``sky``: elevation floored at the end of civil
+    twilight, as the painted sky's) through the one scene → engine map.
+    """
+    toward = scene_to_engine_vectors(np.asarray(
+        sun_direction_scene(sky.sun_elevation_deg, sky.sun_azimuth_deg), dtype=np.float64))
+    return (float(-toward[0]), float(-toward[2]), float(toward[1]))
+
+
+def _linear(hex_colour: str, energy: float = 1.0) -> tuple[float, float, float]:
+    red, green, blue = (srgb_to_linear(hex_colour) * float(energy)).tolist()
+    return (float(red), float(green), float(blue))
+
+
+def painted_sky(sky: SkySpec) -> PaintedSky:
+    """``sky``'s painted sky in linear light — what ``sky_properties`` hands the
+    generator, as the generator linearises it."""
+    return PaintedSky(top=_linear(sky.top), horizon=_linear(sky.horizon),
+                      ground=_linear(sky.ground_bottom),
+                      sun=_linear(sky.sun_disc, sky.sun_energy),
+                      sky_energy=float(sky.sky_energy), ground_energy=float(sky.ground_energy),
+                      ground_curve=float(sky.ground_curve))
+
+
+def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None = None) -> float:
+    """The clouds' light in the painted sky's units: ``ATMOSPHERE_CLOUD_GAIN`` × the clear
+    sky's gain at this sun (``sky_gain``: ``atmosphere_gain`` of this sky, when the caller
+    has it) — the one gain of the whole atmosphere (3D reviews of L7: a scale of its own,
+    at a fixed high sun, dimmed the deck twice and deepened a bright band at the horizon;
+    what made the full gain light a cloudy sunset too brightly was the deck's forward
+    scattering, which ``atmosphere.frag`` now fades with the cover). The gain was
+    calibrated on a full deck: separate clouds take ``ATMOSPHERE_THIN_CLOUD_LIFT`` × (1 −
+    cover)² more on top, or Partly cloudy's noon clouds read as dark smoke on a brighter
+    sky (3D review of the owner's Partly cloudy: luma 167 on gaps of 207)."""
+    gain = atmosphere_gain(atmosphere_sun_direction(sky), painted) if sky_gain is None else sky_gain
+    cover = min(max(float(sky.cloud), 0.0), 1.0)
+    return (float(ATMOSPHERE_CLOUD_GAIN) * float(gain)
+            * (1.0 + float(ATMOSPHERE_THIN_CLOUD_LIFT) * (1.0 - cover) ** 2))
+
+
+def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
+    """``sky`` as the property values of ``AtmosphereSky.qml`` (L7).
+
+    The painted sky beneath is ``sky_properties``' sky, in linear light (its curve
+    and sun-glow constants are the generator's defaults, in ``atmosphere.frag``). The
+    atmosphere is painted over it by day and fades out through civil twilight
+    (``atmosphereWeight`` = 1 − ``sky.twilight``): the night is the painted night. It
+    is scaled to the painted sky's light on the ground (``atmosphereGain``:
+    ``atmosphere_lut.atmosphere_gain``, from the sky-view table of this sun). Its disc
+    shows while the sun is up and as far as the weather's cloud lets it (``sunAlpha``);
+    the weather's cloud is the volumetric clouds' coverage.
+    """
+    day = sky_phase(sky) == "day"
+    cloud = min(max(float(sky.cloud), 0.0), 1.0)
+    sun = atmosphere_sun_direction(sky)
+    painted = painted_sky(sky)
+    gain = float(atmosphere_gain(sun, painted))
+    return {
+        "sunDirection": sun,
+        # the clouds themselves hide the disc (atmosphere.frag: cloudT): in the gaps of
+        # a partial cover it stays whole, and it goes only as the deck closes
+        "sunAlpha": (1.0 - max(cloud - 0.5, 0.0) / 0.5) if day else 0.0,
+        "sunDiscColor": _linear(sky.sun_disc, sky.sun_energy * ATMOSPHERE_DISC_ENERGY),
+        "paintedTop": painted.top,
+        "paintedHorizon": painted.horizon,
+        "paintedGround": painted.ground,
+        "paintedSun": painted.sun,
+        "paintedSkyEnergy": painted.sky_energy,
+        "paintedGroundEnergy": painted.ground_energy,
+        "paintedGroundCurve": painted.ground_curve,
+        "atmosphereWeight": 1.0 - min(max(float(sky.twilight), 0.0), 1.0),
+        "hazeDeg": float(ATMOSPHERE_HAZE_DEG),
+        "atmosphereGain": gain,
+        "cloudLightGain": cloud_light_gain(sky, painted, gain) if cloud > 0.0 else 0.0,
+        "cloudHueShare": cloud,
+        "cloudsEnabled": cloud > 0.0,
+        "cloudCoverage": cloud,
     }

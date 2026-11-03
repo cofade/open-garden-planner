@@ -488,8 +488,13 @@ def test_the_seam_gate_sees_a_texture_that_repeats(tmp_path: Path) -> None:
     shutil.copytree(QML_SOURCE, qml)
     scene = qml / "Garden.qml"
     text = scene.read_text(encoding="utf-8")
-    assert text.count("Texture.ClampToEdge") == 2
-    scene.write_text(text.replace("Texture.ClampToEdge", "Texture.Repeat"), encoding="utf-8")
+    # the ground tile's pair only: the atmosphere's sky-view table clamps too (L7)
+    tile = text.index("//  - ClampToEdge: with the default Repeat")
+    head, tail = text[:tile], text[tile:]
+    assert tail.count("Texture.ClampToEdge") >= 2
+    tail = tail.replace("Texture.ClampToEdge", "Texture.Repeat", 2)
+    assert "tilingModeHorizontal: Texture.Repeat\n                tilingModeVertical: Texture.Repeat" in tail
+    scene.write_text(head + tail, encoding="utf-8")
     out = tmp_path / "repeat"
     proc, result = run_ground_driver(out, "ground_seams", qml_dir=qml)
     assert proc.returncode == 0 and result.get("status") == "ok", failure_report(proc, out)

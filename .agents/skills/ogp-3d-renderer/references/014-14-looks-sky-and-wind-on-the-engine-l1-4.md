@@ -62,6 +62,7 @@ machine):
 - **A software adapter presents frames while the GPU's display sleeps**: with the display
   asleep the GPU host presented 0 frames (only readbacks measure there), the WARP host 30–60 in
   5 s. Say which a frame-rate number is.
-- **Qt 6.11 exposes no "reduce motion" preference** (`QStyleHints`); the drift guard
-  `test_qt_still_exposes_no_motion_preference` fails the day one appears.
+- **Qt 6.11 exposed no "reduce motion" preference** (`QStyleHints`). Qt 6.12 does
+  (`QAccessibilityHints.motionPreference`), and L7 honours it beside the setting (reference 020);
+  the drift guard is now `test_qt_exposes_exactly_the_one_motion_preference_that_is_honoured`.
 

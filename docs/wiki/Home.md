@@ -170,7 +170,7 @@ Phase 17 L5, the living garden (#389), shipped in
 [v1.35.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.35.0) via
 [PR #699](https://github.com/cofade/open-garden-planner/pull/699) after owner acceptance.
 - **Playback:** the day and the year play through the shared simulation clock, and the 2D shadows and the 3D light turn together.
-- **Weather:** clear, overcast, rain and snow are a look in 3D, set with the **Weather** button in the 3D strip. They never move the sun or change the sun study, and they pause while an analysis is draped on the ground.
+- **Weather:** clear, partly cloudy, overcast, rain and snow are a look in 3D, set with the **Weather** button in the 3D strip. They never move the sun or change the sun study, and they pause while an analysis is draped on the ground.
 - **Life:** falling rain, snow and leaves, butterflies and fireflies are shader particles on the wind's clock. Reduced motion stills them.
 - **Today's Weather:** while the plan date is today, it shows the forecast for the plan's location; on any other date it shows clear and says why.
 - **Lights:** a Garden Light, and String Lights drawn as a LINE like a fence, with a post at every click. They glow and light the garden after dusk, and a string casts no 2D shadow.

@@ -25,6 +25,15 @@ Four things:
   it cannot oscillate; and ``sky_is_stale`` — when the sky texture, which is
   expensive to rebuild, has to follow the sun.
 
+The sky has two MODELS (``SKY_MODELS``, ``SkySpec.model``): ``painted`` — Qt's
+procedural sky texture, the sky of L1–L5 and the default — and ``atmosphere``
+(Phase 17 L7, #391, Qt 6.12): Hillaire's physically based atmosphere and volumetric
+clouds painted OVER the painted sky above a haze band, by day only
+(``ATMOSPHERE_HAZE_DEG``), scaled per sky to the painted sky's light on the ground
+(``atmosphere_lut.atmosphere_gain``). Both draw the same sun, the same horizon, the
+same night and the same light balance; the model is the user's choice, never a
+preset's.
+
 Night is where the 2D shadow overlay says it is: ``NIGHT_BELOW_DEG`` IS
 ``core.shadow_geometry.MIN_SUN_ELEVATION_DEG`` (the spike's ``SUN_LOW_DEG`` has
 the same value; pinned).
@@ -46,14 +55,20 @@ from .frame import sun_direction_scene
 from .sink import SunState
 
 __all__ = [
-    "AUTO", "AUTO_LEVELS", "CLEAR_STILL", "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN",
+    "ATMOSPHERE", "ATMOSPHERE_CLOUD_GAIN", "ATMOSPHERE_DISC_ENERGY", "ATMOSPHERE_HAZE_DEG",
+    "ATMOSPHERE_THIN_CLOUD_LIFT",
+    "AUTO", "AUTO_LEVELS",
+    "CLEAR_STILL",
+    "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN",
     "GOLDEN_DEG", "AtmosphereSpec",
     "LOW_SUN", "MEADOW_ALBEDO", "MOON_AZIMUTH_DEG", "MOON_ELEVATION_DEG", "NEUTRAL_DAY", "NIGHT",
     "NIGHT_BELOW_DEG", "NIGHT_SKY_ENERGY", "NOON", "NOON_DEG", "PRESETS", "PRESET_SPECS",
-    "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_REBUILD_DEG", "TWILIGHT_DEG", "AutoPolicy",
+    "PAINTED", "QUALITY_CHOICES", "SKY_MIN_ELEVATION_DEG", "SKY_MODELS", "SKY_REBUILD_DEG",
+    "TWILIGHT_DEG", "AutoPolicy",
     "AutoPreset", "LookSpec", "MoodSpec", "PresetSpec", "Rig", "ShadowSpec", "SkySpec", "day_rig",
     "fill_linear", "fog_color", "fog_depth_cm", "fog_linear", "linear_to_srgb_hex", "look_for", "mix_linear",
-    "mix_rig", "moon_travel_scene", "normalise_quality", "scale_linear", "sky_is_stale",
+    "mix_rig", "moon_travel_scene", "normalise_quality", "normalise_sky_model", "scale_linear",
+    "sky_is_stale",
     "sky_must_build_now", "sky_phase", "sky_separation_deg", "twilight_fraction", "twilight_rig",
 ]
 
@@ -97,6 +112,41 @@ MOON_AZIMUTH_DEG: Final = 165.0
 #: of civil twilight: through twilight its colours follow the elevation (one rebuild
 #: per degree); the night sky does not.
 SKY_MIN_ELEVATION_DEG: Final = TWILIGHT_DEG
+
+#: The two sky models (module docstring). ``PAINTED`` is the default and the
+#: fallback: the sky every look of L1–L5 was judged on.
+PAINTED: Final = "painted"
+ATMOSPHERE: Final = "atmosphere"
+SKY_MODELS: Final = (PAINTED, ATMOSPHERE)
+#: The atmosphere fades in over this band above the horizon; at and below it the
+#: painted sky shows, so the fog meets the same horizon in either model (the fog is
+#: calibrated on the painted horizon: ``FOG_OF_HORIZON``) and in every direction.
+ATMOSPHERE_HAZE_DEG: Final = 6.0
+#: The volumetric clouds' scattered light relative to the clear sky's, both under the
+#: clear sky's gain at the actual sun (the example's 1 saturates a full cover to white):
+#: a full overcast lights the ground at noon as the painted Overcast does (calibrated,
+#: L7 — see the ADR-048 addendum). The deck's forward scattering fades with the cover in
+#: ``atmosphere.frag`` (a thick deck diffuses): without that a cloudy sunset read 0.96-1.0
+#: of noon and a bright band ran round the horizon under the deck (3D reviews of L7).
+ATMOSPHERE_CLOUD_GAIN: Final = 0.064
+#: Separate clouds' light on top, x (1 - cover)^2: that gain was calibrated on a full deck,
+#: and at Partly cloudy's 0.4 it read as dark smoke at noon. 4.2 is x 2.5 at 0.4, x 1 at
+#: Overcast and Rain, x 1.09 at Snow (3D review of the owner's Partly cloudy).
+ATMOSPHERE_THIN_CLOUD_LIFT: Final = 4.2
+#: The atmosphere's sun disc × this, over the painted disc's colour and energy. The
+#: painted disc stands two to three times above the sky around it; the atmosphere's
+#: aerosol halo, after the gain, is about as bright as the painted disc — at × 1 the disc
+#: read (240, 239, 237) under a horizon glow of (248, 244, 230), and the board's sky probe
+#: found the glow, 9° below the sun (L7). Its solid angle is too small to move the light.
+#: The disc's CORE only (inside 1.5°): its glow keeps the painted disc's energy, or a
+#: sunset disc clipped white (3D review).
+ATMOSPHERE_DISC_ENERGY: Final = 4.0
+
+
+def normalise_sky_model(value: object, default: str = PAINTED) -> str:
+    """A stored sky-model choice as one of ``SKY_MODELS`` (anything else: ``default``)."""
+    text = str(value).strip().lower() if isinstance(value, str) else ""
+    return text if text in SKY_MODELS else default
 
 
 @dataclass(frozen=True, slots=True)
@@ -427,7 +477,13 @@ class SkySpec:
     ground_curve: float = 0.1
     #: L5.2 (ADR-070): how overcast the weather paints this sky, 0 (clear) .. 1. A
     #: change of it is built at once, like a change of phase (``sky_must_build_now``).
+    #: The atmosphere model (L7) also draws it as its volumetric clouds' coverage.
     cloud: float = 0.0
+    #: How far into the night (``MoodSpec.twilight``): 0 while the sun is up, 1 at
+    #: night. The atmosphere model fades out by it (L7); the painted sky ignores it.
+    twilight: float = 0.0
+    #: Which sky draws this spec (``SKY_MODELS``, L7). A change of it is built at once.
+    model: str = PAINTED
 
 
 @dataclass(frozen=True, slots=True)
@@ -475,7 +531,7 @@ class AtmosphereSpec:
     Colours named ``_linear`` are linear rgb; the rest are plain numbers. Nothing
     here is a truth: no field moves the sun, a shadow or a plant."""
 
-    #: ``clear`` | ``overcast`` | ``rain`` | ``snow`` (``weather.WEATHERS``).
+    #: ``clear`` | ``partly_cloudy`` | ``overcast`` | ``rain`` | ``snow`` (``weather.WEATHERS``).
     weather: str = "clear"
     #: How overcast, 0..1 (also ``SkySpec.cloud``).
     cloud: float = 0.0
@@ -623,7 +679,7 @@ def look_for(sun: SunState, preset: str = "high") -> LookSpec:
             sun_disc=rig.sky_horizon if sun_down else rig.sun_disc,
             ground_bottom=mix_linear(_DAY_GROUND_BOTTOM, _NIGHT_GROUND_BOTTOM, t),
             sky_energy=sky_energy, ground_energy=sky_energy, sun_energy=sun_energy,
-            night=night),
+            night=night, twilight=t),
         shadow=ShadowSpec(cost.shadow_map_quality, cost.shadow_cascades, cost.soft_shadows,
                           cost.shadow_bias, factor, pcf_factor),
         fog_linear=fog,
@@ -668,10 +724,10 @@ def sky_phase(sky: SkySpec) -> str:
 
 def sky_must_build_now(shown: SkySpec | None, wanted: SkySpec) -> bool:
     """True when ``wanted`` is built at once, without waiting for the sun to rest: no
-    sky yet, a change of phase (sunset, nightfall, dawn) or of the weather's cloud
-    (L5.2 — a picked weather must not wait for the sun)."""
+    sky yet, a change of phase (sunset, nightfall, dawn), of the weather's cloud
+    (L5.2 — a picked weather must not wait for the sun) or of the sky model (L7)."""
     return (shown is None or sky_phase(shown) != sky_phase(wanted)
-            or shown.cloud != wanted.cloud)
+            or shown.cloud != wanted.cloud or shown.model != wanted.model)
 
 
 def sky_is_stale(shown: SkySpec | None, wanted: SkySpec,

@@ -316,6 +316,15 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   L6 (#390) is next. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
+- L7 (#391, ADR-048 addendum L7) is in a draft PR: Qt pins 6.12.0, WebEngine 6.140 moves
+  with them (PF-CI-17), the 6.12 pick honours cull mode (PF-E3D-13), the OS reduce-motion
+  is honoured, and an opt-in atmosphere `SkyMaterial` sky (default stays painted) whose
+  LUTs and cloud volume are CPU texture data (PF-E3D-14). It only DRAWS the sky (no cube:
+  Qt 6.12.0's pre-filter crashed the owner's exe, PF-E3D-17); the painted sky lights under
+  both, and Partly cloudy (cover 0.4) shows its clouds. On 6.12 deleting an earlier sky Texture nulls
+  the DEFAULT sky's probe: `Garden.qml` re-binds it (PF-E3D-16, local GPU tier only). #714:
+  horizon gate red on master; follow-ups #716, #717, #719, #722 (sky), #720 (hygiene, Qt report),
+  #718 (flood soak, red on master too).
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
   Subscribe to its signals. Every rect resize uses `geometry_apply.py`; every
   Arrange surface uses `build_arrange_command`; scene teardown uses

@@ -78,7 +78,11 @@ class TestSpec:
             r"\s+datas\.append\(\(str\(f\), str\(rel\.parent\)\)\)", _code(SPEC))
         assert loop is not None, "ogp.spec no longer bundles ui/view3d/quick3d/qml/*"
         assert sorted(p.name for p in (PACKAGE / "qml").iterdir()) == [
-            "Garden.qml", "ambient.frag", "ambient.vert",   # the garden's life: L5 (#389)
+            # the atmosphere sky (L7, #391) with its provenance and Qt's licence texts:
+            # they ship beside the files they cover (MIT asks for the notice in copies)
+            "AtmosphereSky.qml", "Garden.qml", "LICENSE-qt-skymaterial.txt", "PROVENANCE.md",
+            "ambient.frag", "ambient.vert",   # the garden's life: L5 (#389)
+            "atmosphere.frag",
             "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
             "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert",
             "precipitation.frag", "precipitation.vert",    # rain and snow: L5 (#389)

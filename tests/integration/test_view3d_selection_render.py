@@ -60,7 +60,7 @@ from tests.integration.view3d_selection_support import (
     run_selection_driver,
     top_down_outline,
 )
-from tests.integration.workspace_render_state import front_facing_oracle, load_held_oracle
+from tests.integration.workspace_render_state import engine_pick_oracle, load_held_oracle
 
 pytestmark = render_tier
 
@@ -465,8 +465,9 @@ def test_the_look_through_test_can_fail(run: Run) -> None:
 def ws(run: Run, qapp: Any) -> dict[str, Any]:  # noqa: ARG001 - Qt for the scene
     from PyQt6.QtCore import qVersion
 
-    assert qVersion().split(".")[:2] == ["6", "11"], (
-        "Recharacterize Qt picking on upgrade: 6.12 changes material culling semantics")
+    assert qVersion().split(".")[:2] == ["6", "12"], (
+        "Recharacterize Qt picking on upgrade: 6.12 made it honour the cull mode "
+        "(workspace_render_state.engine_pick_oracle)")
     data = run[0]["scenarios"]["workspace"]
     scene, _view, _manager = driver.load_plan("bench_small")
     records = driver.plan_records(scene)
@@ -479,7 +480,7 @@ def ws(run: Run, qapp: Any) -> dict[str, Any]:  # noqa: ARG001 - Qt for the scen
                  if any(part.mesh.vertex_count and not part.ground_detail for part in built.build(record)))
     assert data["records"] == len(records) and data["models"] >= solids > 0
     assert data["build_failures"] == []
-    oracle = front_facing_oracle(load_held_oracle(run[1] / data["oracle_file"]), shot.eye)
+    oracle = engine_pick_oracle(*load_held_oracle(run[1] / data["oracle_file"]), shot.eye)
     return {"data": data, "records": records, "shot": shot, "oracle": oracle,
             "view": (float(data["view_size"][0]), float(data["view_size"][1])),
             "size": (float(scene.width_cm), float(scene.height_cm))}

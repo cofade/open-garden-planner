@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import importlib.util
 import json
+import os
+import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +20,34 @@ if __package__ in (None, ""):
 from scripts.audit_metrics import parse_mypy
 
 ROOT = Path(__file__).resolve().parents[1]
+
+#: PyQt6 6.12.0's generated stubs put the positional-only marker AFTER ``*args``
+#: (``def drawPolygon(self, point: QPointF|None, *args: QPointF, /) -> None``) — not
+#: valid Python, so mypy rejects the whole stub file and cannot run at all (16 lines
+#: in QtGui.pyi, 3 in QtDBus.pyi; none in 6.11; Phase 17 L7, #391). The gate reads a
+#: copy of the stubs with that marker dropped (``sanitized_pyqt6_stubs``); nothing else
+#: in them changes, nothing in the venv or the repository is touched. Remove once a
+#: PyQt6 release ships valid stubs: the copy then changes nothing (``stub_repairs``).
+_MARKER_AFTER_STAR_ARGS = re.compile(r"(\*\w+: [^()]*?), /\)")
+
+
+def sanitized_pyqt6_stubs(target: Path) -> int:
+    """Copy PyQt6's ``.pyi`` stubs into ``target / "PyQt6"`` with the positional-only
+    marker after ``*args`` removed; return how many lines were repaired (0 when PyQt6
+    is not installed)."""
+    spec = importlib.util.find_spec("PyQt6")
+    if spec is None or not spec.submodule_search_locations:
+        return 0
+    source = Path(next(iter(spec.submodule_search_locations)))
+    package = target / "PyQt6"
+    package.mkdir(parents=True, exist_ok=True)
+    (package / "__init__.pyi").write_text("", encoding="utf-8")
+    repaired = 0
+    for stub in sorted(source.glob("*.pyi")):
+        text, count = _MARKER_AFTER_STAR_ARGS.subn(r"\1)", stub.read_text(encoding="utf-8"))
+        repaired += count
+        (package / stub.name).write_text(text, encoding="utf-8")
+    return repaired
 
 
 def validate_baseline(data: Any, mypy_version: str) -> dict[str, Any]:
@@ -67,13 +99,18 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("Mypy baseline is missing")
         if not args.write_baseline and sys.platform not in data["environments"]:
             raise ValueError("Baseline is missing this platform")
-        proc = subprocess.run(
-            [sys.executable, "-m", "mypy", "src/open_garden_planner", "--no-incremental",
-             "--show-error-codes", "--no-pretty", "--no-color-output"],
-            cwd=root, capture_output=True, text=True, encoding="utf-8", timeout=1800, check=False,
-        )
+        with tempfile.TemporaryDirectory(prefix="ogp-mypy-stubs-") as stubs:
+            repairs = sanitized_pyqt6_stubs(Path(stubs))
+            env = {**os.environ, "MYPYPATH": stubs}
+            proc = subprocess.run(
+                [sys.executable, "-m", "mypy", "src/open_garden_planner", "--no-incremental",
+                 "--show-error-codes", "--no-pretty", "--no-color-output"],
+                cwd=root, capture_output=True, text=True, encoding="utf-8", timeout=1800,
+                check=False, env=env,
+            )
         result = parse_mypy(proc.returncode, proc.stdout, proc.stderr)
-        result.update({"mypy_version": version, "platform": sys.platform, "target_python": "3.11"})
+        result.update({"mypy_version": version, "platform": sys.platform, "target_python": "3.11",
+                       "stub_repairs": repairs})
         if not result["available"]:
             raise ValueError(result["reason"])
         if args.write_baseline:

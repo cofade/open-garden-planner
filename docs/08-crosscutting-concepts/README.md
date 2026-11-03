@@ -6273,6 +6273,9 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     the process's `QHash` seed: 6 to 8 of 16 same-size 512² textures per release
     (`QT_HASH_SEED=0`: 6 in every run), 26 to 32 of 64 same-size 256² textures — below the
     gate's 0.6 share.
+    *Re-checked on the bump to 6.12.0* (Phase 17 L7, #391, 2026-11-03): the reproducer on the
+    PyQt6-Qt6 6.12.0 wheels (WARP, frames presented) still leaks — 16 → 96 textures over 10
+    cycles, 8 a cycle; QTBUG-151940 is *In Review* with no fix version. Nothing else moved.
     *Re-check* (this entry and TD-040 replace #532 as the tracker). Triggers: every change of
     the Qt pair's version in `pyproject.toml`, and every change of QTBUG-151940 (the owner
     reported it from their account, which watches it; a "Need More Info" there is answered from
@@ -7730,6 +7733,72 @@ the lamp's warm glow (`judge_living_frame`). No sky is built in it (WARP's probe
 **Limitations (stated).** Roofs and a bed's soil are not snow-covered (principled parts); the
 wind's direction is a look (from the west-south-west), not the forecast's; Today's Weather is
 the forecast's daily code, not the hour's.
+
+### 8.29.14 The atmosphere sky and Qt 6.12 (L7, #391, ADR-048 addendum L7)
+
+**Two sky models.** `SkySpec.model` is `painted` (Qt's `ProceduralSkyTextureData`, the sky of
+L1–L5, the default) or `atmosphere` (a Qt 6.12 `SkyMaterial`: `qml/AtmosphereSky.qml` and
+`atmosphere.frag`, ported from Qt's `skymaterial` example). The setting is
+`view3d/sky_model` (Preferences → 3D View → Sky); `LookController` turns a look's sky into an
+atmosphere sky only when the model is chosen, the adapter is a GPU and the cloud volume is ready
+(`sky_model_shown`), and builds a change of model at once (`look.sky_must_build_now`). The host
+(`Quick3DHost.set_sky`) always builds the painted sky (`buildSky`, a fresh texture pair, as
+before). Its texture is the light probe under BOTH models. For the atmosphere it then calls
+`buildAtmosphere`: ONE `AtmosphereSky` per scene, made at the first call and from then on only
+written; a painted sky only switches it off.
+
+**The atmosphere never lights and never builds a cube** (PF-E3D-17). It is `enableIBL: false`,
+`skyboxMode: ScreenSpaceHalf`, drawn on screen per frame. Qt 6.12.0's pre-filter of a sky
+material's light cube used a freed QRhi resource and killed the process. Qt builds that cube for
+image-based light, the Cubemap mode, a reflection probe or a material reading the screen
+texture, so none of these may appear while a `SkyMaterial` is in the scene. Qt's screen path
+applies no exposure under our post effects, so `atmosphere.frag` applies the skybox shader's
+`1 − exp(−c × e)` itself (`skyExposed`, `skyExposure` = `probeExposure`).
+
+**The atmosphere is painted over the painted sky.** Per direction the shader computes the painted
+sky (Qt's generator formula, `paintedSky()`) and mixes the atmosphere over it by
+`(1 − twilight) × smoothstep(0, 6°, elevation)`: the horizon the fog meets and the night are the
+painted sky's in every direction. Its scale is not a constant: `atmosphere_lut.atmosphere_gain`
+gives it the painted sky's cosine-weighted light on a horizontal surface at every sun, so its
+brightness matches the light the painted probe casts. The weather's cloud is the clouds' cover
+(Partly cloudy 0.4: scattered clouds; Overcast and Rain 1.0; Snow 0.85); their light is `ATMOSPHERE_CLOUD_GAIN` × the same gain
+(`cloud_light_gain`, calibrated against the painted Overcast at noon), their forward scattering
+and silver lining fade with the cover (a thick deck diffuses, so a cloudy evening dims as under
+the painted sky), they lose the sun through civil twilight and take the look's horizon hue in
+proportion to the cover. Custom materials that may run under a `SkyMaterial` keep the
+widened probe guard (PF-E3D-15). The app no longer reaches it, because the painted probe is
+always set.
+
+**Texture data, not render passes.** A `SkyMaterial` compiles its shader only when every texture
+it samples exists (PF-E3D-14): both of its textures are made on the CPU and handed over as
+`QQuick3DTextureData` (`quick3d/cloud_volume.py`) — the sky-view table
+(`core/scene3d/atmosphere_lut.py`, ~0.1 s a sun, refilled in place) and the 64³ cloud noise
+volume (`core/scene3d/cloud_noise.py`, ~1 s once, made on the look controller's worker). Neither
+`Texture` is ever re-pointed. The example's `QuadTextureProvider` LUT passes are not used.
+
+**What Qt 6.12 changed elsewhere** (ADR-048 addendum L7's table): the pick honours the cull mode
+(PF-E3D-13; the selection witness keeps every face of `materials.TWO_SIDED_KINDS`); the
+operating system's reduce-motion preference exists and is honoured (FR-3D-LOOK-04); WebEngine
+and QtPdf moved (PF-CI-17); one more deferred-delete round frees a closed window's connections
+(PF-TST-36); destroying an earlier sky Texture nulls the current light probe, so the environment
+restores its own binding in `onLightProbeChanged` (PF-E3D-16). QTBUG-151940 (known limit 11) is
+unchanged.
+
+**How it is tested.** GPU-less: the noise volume against a scalar transcription of the C++
+(`test_scene3d_cloud_noise.py`), the tables, the gain's definition and the sun's mapping over 30
+positions (`test_scene3d_atmosphere_sky.py`), the QML wiring and lifetime and the cube Qt is never
+asked for (`test_quick3d_qml.py`), the painted sky built and lighting under the atmosphere on a real
+host (`test_quick3d_host.py`'s `TestSky`), the controller's model switch, worker, software rule and its two fallbacks
+to the painted sky — a build the scene refuses, a volume that cannot be made; a shader that
+silently never compiles is not caught at run time, only by the self-test —
+(`test_view3d_look_controller.py`), and the Preferences → workspace flow end to end
+(`tests/integration/test_view3d_atmosphere_sky.py`). On the engine: every board gate on both
+models (`test_view3d_looks_render.py`'s `board` fixture is parametrized by sky model), the
+atmosphere on ONE live host against a fresh host per sun — the sky-view table refilled in place,
+model switches both ways, a top-down round trip, a cloud deck coming and going
+(`test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`) —, the weather's gates on both
+skies (`test_living_garden_render.py`) and the frozen self-test's point 8 (the atmosphere from the
+bundle, clear and cloudy).
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 

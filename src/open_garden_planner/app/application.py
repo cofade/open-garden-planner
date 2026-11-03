@@ -5328,7 +5328,7 @@ class GardenPlannerApp(QMainWindow):
         dialog = PreferencesDialog(self)
         if dialog.exec():
             self._update_satellite_menu_state()
-            self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4)
+            self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4), sky (L7)
             # Canvas (#321): touch gestures take effect at once, like the look settings.
             self.canvas_view.set_touch_gestures_enabled(settings.touch_gestures_enabled)
             after = _agent_api_state()

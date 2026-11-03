@@ -224,9 +224,10 @@ SKY_MAX_ERROR_DEG = 6.0
 HORIZON_SHOTS = ("noon", "golden_hour", "sunset", "night")
 HORIZON_DISTANCES_M = (67, 202, 403, 600)
 HORIZON_STEP_BOUND = 3.0
-#: The weathers whose sky is not the clear one (L5): ``--living`` runs the horizon
-#: probe under each — an overcast sky draws its horizon otherwise (3D review of L5).
-HORIZON_WEATHERS = ("overcast", "rain", "snow")
+#: The weathers whose sky is not the clear one (L5; partly cloudy since L7): ``--living``
+#: runs the horizon probe, the mood strip and the dusk under each — an overcast sky draws
+#: its horizon otherwise (3D review of L5).
+HORIZON_WEATHERS = ("partly_cloudy", "overcast", "rain", "snow")
 
 
 def weather_look(sun: SunState, preset: str, weather: str = "clear") -> LookSpec:
@@ -454,6 +455,16 @@ class Board:
 
     # ── one frame ────────────────────────────────────────────────────────────
 
+    def with_sky_model(self, look: LookSpec) -> LookSpec:
+        """``look`` with its sky drawn by ``--sky`` (L7): ``painted`` (the default) or
+        ``atmosphere`` — every frame, probe and look of the run goes through here."""
+        from dataclasses import replace
+
+        model = str(self.args.sky)
+        if model == look.sky.model:
+            return look
+        return replace(look, sky=replace(look.sky, model=model))
+
     def frame(self, name: str, records: dict[str, Record], *, shot: Any, sun: SunState | None,
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
               sky: bool = True, size: tuple[int, int] | None = None,
@@ -465,6 +476,7 @@ class Board:
         from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
+        look = self.with_sky_model(look)
         try:
             build_date = self._snapshot_day.get(id(records))
             frame = render_records(
@@ -721,6 +733,7 @@ class Board:
         from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
+        look = self.with_sky_model(look)
         try:
             frame = render_records(
                 records, shot=shot, sun=sun, ground=self.plan_ground(), size=self.size,
@@ -768,8 +781,10 @@ class Board:
                     f"mood{tag}_{mood}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
                     registry=registry, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg),
                     baked=True)
+                view = probes.Pinhole(camera.eye, camera.target, camera.fov_deg, self.size)
                 rows[mood] = {"sun_elev": round(sun.elevation_deg, 2), "night": look.night,
-                              "file": info["file"], **probes.frame_stats(rgb)}
+                              "file": info["file"], **probes.frame_stats(rgb),
+                              "ground_luminance": probes.ground_luminance(rgb, view)}
             noon, night = rows["noon"], rows["night"]
             rows["night_over_noon"] = {
                 "luminance": round(night["mean_luminance"] / noon["mean_luminance"], 4),
@@ -1250,7 +1265,7 @@ class Board:
             host.set_camera(shot.eye, shot.target, shot.fov_deg)
             host.set_look(look_for(sun, presets[0]))
             if not self.software:
-                host.set_sky(look_for(sun, presets[0]).sky)
+                host.set_sky(self.with_sky_model(look_for(sun, presets[0])).sky)
             host.show()
             ready = host.wait_ready(30.0)
             for preset in presets:
@@ -1316,6 +1331,8 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--living", action="store_true",
                         help="the living garden (L5): weather, dew, leaves, butterflies, "
                              "fireflies, garden lights")
+    parser.add_argument("--sky", choices=("painted", "atmosphere"), default="painted",
+                        help="which sky draws every frame (L7: atmosphere = Qt 6.12 SkyMaterial)")
     parser.add_argument("--list", action="store_true", help="print the shots and render nothing")
     return parser.parse_args(argv)   # a typo is an error, never another experiment
 
@@ -1345,7 +1362,8 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
     offscreen.ensure_application()
     metrics.update({"platform": platform.platform(), "python": sys.version.split()[0],
                     "qt": QT_VERSION_STR, "size": str(args.size), "software": bool(args.software),
-                    "sky_light": not args.software, "wind_time": 0.0})
+                    "sky_light": not args.software, "sky_model": str(args.sky),
+                    "wind_time": 0.0})
     board = Board(args, out, log, metrics)
     log("start", qt=QT_VERSION_STR, size=args.size, presets=args.presets, shots=args.shots,
         software=bool(args.software))

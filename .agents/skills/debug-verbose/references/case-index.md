@@ -187,3 +187,9 @@
 | Case study: an idle gate that counted the first picture (#389) | [Read](184-case-study-an-idle-gate-that-counted-the-first-picture-389.md) |
 | Case study: the old place's forecast on a new plan (#389) | [Read](185-case-study-the-old-places-forecast-on-a-new-plan-389.md) |
 | Case study: a menu button that read as a label (#389) | [Read](186-case-study-a-menu-button-that-read-as-a-label-389.md) |
+| Case study: a sky that drew white and said nothing (#391) | [Read](187-case-study-a-sky-that-drew-white-and-said-nothing-391.md) |
+| Case study: a test that passed and still errored on Qt 6.12 (#391) | [Read](188-case-study-a-test-that-passed-and-still-errored-on-qt-6-12-391.md) |
+| Case study: a pond that went black under a new sky (#391) | [Read](189-case-study-a-pond-that-went-black-under-a-new-sky-391.md) |
+| Case study: a cloudy evening that brightened (#391) | [Read](190-case-study-a-cloudy-evening-that-brightened-391.md) |
+| Case study: a sky that vanished after the first sun change (#391) | [Read](191-case-study-a-sky-that-vanished-after-the-first-sun-change-391.md) |
+| Case study: a crash with no trace under the new sky (#391) | [Read](192-case-study-a-crash-with-no-trace-under-the-new-sky-391.md) |

@@ -1798,7 +1798,7 @@ The GO decision's evidence log (item 2) already found the Qt3D micro-version tra
 
 **Two bugs, two classes of fix.** The *dependency* bug: pin **all four** Qt wheels to equal micros (`PyQt6`, `PyQt6-Qt6`, `PyQt6-3D`, `PyQt6-3D-Qt6` — the invariant is *equal micros*, not a specific version; bump them together, or all to 6.11.1 once a matching `PyQt6-3D-Qt6 6.11.1` exists). The *process* bug: the release build was not reproducible (no lockfile → the same commit resolves different Qt runtimes on different days), and the only exe gate smoke-tested **startup**, which a lazily-imported subsystem sidesteps — structurally the same miss as the US-D1.4 `unittest` exclusion. Defenses added (PR #274): a source-level guard test (`qVersion()` == `PyQt6-3D-Qt6` micro) that fails the fast CI test job on drift; a frozen-exe `--selftest` step in `release.yml` that imports the Qt3D bindings headless **in the actual shipped artifact** and fails the release on a non-zero exit; and graceful degradation — `_on_open_3d_view` catches the `ImportError` for a translated "3D View Unavailable" dialog, plus a `sys.excepthook` backstop in `main.py` so no uncaught slot exception can ever again abort the process silently. See §11.4.
 
-**Scope note — the equal-micro rule is Qt3D-specific, not a blanket Qt rule.** `PyQt6.Qt3D*` binds Qt's *private* internals, which break on even a patch drift; `PyQt6-WebEngine` links only Qt's *public* ABI (stable across a minor bump), so `PyQt6-WebEngine-Qt6` legitimately floats a minor behind the core (e.g. `6.10.2` next to `PyQt6-Qt6 6.11.0`, which works). Do **not** "fix" the WebEngine pin to match the core micro — tightening it can only break the resolve.
+**Scope note — the equal-micro rule is Qt3D-specific, not a blanket Qt rule.** `PyQt6.Qt3D*` binds Qt's *private* internals, which break on even a patch drift; `PyQt6-WebEngine` links only Qt's *public* ABI (stable across a minor bump), so `PyQt6-WebEngine-Qt6` legitimately floats a minor behind the core (e.g. `6.10.2` next to `PyQt6-Qt6 6.11.0`, which works). Do **not** "fix" the WebEngine pin to match the core micro — tightening it can only break the resolve. **Corrected at Qt 6.12 (Phase 17 L7, #391, 2026-11-03):** the 6.10 WebEngine wheel next to `PyQt6-Qt6 6.12.0` failed to import (*"DLL load failed … procedure not found"*), so WebEngine now moves WITH the pair — its 6.12-era release is numbered `6.140.0` (Chromium 140) and requires `PyQt6>=6.12.0`; ADR-048 addendum L7, PF-CI-17.
 
 **Dependency-lock follow-up (#404, ADR-050).** PR #274 fixed #277 by matching the four Qt pins and adding runtime/frozen guards. This CI/release package adds reproducible selection of all Python dependencies and packaging tools; it complements those Qt guards.
 
@@ -3669,6 +3669,247 @@ one path that destroyed many Models per second (date playback, ADR-060 addendum 
 open: the owner shipped the default with it at the L1 pull request (ADR-060 addendum D5).
 (#532 is closed as a tracker by PR #654; the leak remains: QTBUG-151940, TD-040, §8.29.5
 known limit 11.)
+
+### Addendum L7 — Qt 6.12 LTS and the atmosphere sky (2026-11-03, #391)
+
+**Status**: Delivered in a draft PR, awaiting the owner's manual test. Two parts: the Qt pins
+move to the 6.12 LTS, and an opt-in **atmosphere sky** — Qt 6.12's new `SkyMaterial` with a port
+of Qt's `skymaterial` example (Hillaire's atmosphere, ray-marched volumetric clouds) — joins the
+painted sky. Preconditions of #391 met: PyQt6 6.12.0 was published on 2026-10-28, and L1.10 had
+removed Qt 3D.
+
+**The pins.** `PyQt6` and `PyQt6-Qt6` 6.12.0 (`uv lock --upgrade-package` per package with the
+pinned uv 0.12.23, `pylock.toml` re-exported with `check_dependency_lock.py`'s arguments; the
+gate agrees). Two things moved with them that ADR-038's scope note did not foresee:
+
+- **WebEngine can no longer float a minor behind.** `PyQt6-WebEngine` 6.10.0 next to Qt 6.12.0
+  failed `import PyQt6.QtWebEngineWidgets` with *"DLL load failed … Die angegebene Prozedur wurde
+  nicht gefunden"* — the import `main.py` makes at module level, so the app would not start.
+  Its 6.12-era release is numbered **6.140.0** (`qWebEngineVersion()` 6.140.0, Chromium
+  140.0.7339.225, published 2026-11-02) and requires `PyQt6>=6.12.0`; the pin is
+  `PyQt6-WebEngine>=6.140.0,<6.141`, the governance test holds both bounds.
+- **QtPdf left the WebEngine wheel** for `PyQt6-Pdf` 6.140.0. The app never imports it; two
+  integration tests and `scripts/validate_exports.py` read exported PDFs back with it, so it is a
+  `dev` extra. Its runtime files (`Qt6Pdf.dll`, `Qt6PdfQuick.dll`, the `QtQuick/Pdf` QML module,
+  the `qpdf` image plugin) still land in the bundle, as they did from `PyQt6-WebEngine-Qt6`
+  before: PyInstaller's QML and image-format hooks collect what lies under `PyQt6/Qt6`, and the
+  build environment carries every extra. No WebEngine DLL links `Qt6Pdf.dll` (import tables
+  read); the notices and the SBOM now name `PyQt6-Pdf-Qt6`.
+
+**What 6.12 changed that this repository had pinned** (each measured or read at the tag, both
+versions):
+
+| Fact | 6.11 | 6.12 | What changed here |
+|---|---|---|---|
+| Pick and cull mode (`qssgrenderray.cpp`) | positive determinants only: front faces of every material | the material's cull mode decides: `NoCulling` picks both sides | the selection witness keeps front faces of culled kinds and every face of `TWO_SIDED_KINDS` (foliage, grass, glass), pinned against the QML; the render tier's selection gate passed in full on 6.12. Accepted as the click hitting what the user sees: a two-sided part is drawn from behind, so it is picked from behind — a crown seen from below, a greenhouse's glass from inside (walk mode). Open for the owner to confirm (PR); `TWO_SIDED_KINDS` treats `vc` as culled although Cutaway draws it two-sided (#720) |
+| `QAccessibilityHints.motionPreference` | absent | `NoPreference` / `ReducedMotion`, with a change signal (Windows: `SPI_GETCLIENTAREAANIMATION`, the "Animation effects" switch) | honoured beside the app's setting (FR-3D-LOOK-04): either stops the wind; the drift guard now fails on a SECOND motion hint |
+| A destroyed window's lambda-connection proxies | freed in the first deferred-delete round | one round later | the widget-leak test flushes two rounds with a collection after each (PF-TST-36); not a product leak — the event loop keeps turning |
+| Destroying an EARLIER sky Texture (`buildSky`'s deferred `old.destroy()`) | the environment's watcher on it was gone with the switch | its destroyed-watcher still fires and sets the light probe to null although the probe is the current sky: after a host's first sun change (in the 3D review's run without the fix: the first rebuild, once also the second; later rebuilds never) the view drew the clear colour (sky-sequence test: (161, 154, 122) against (97, 126, 137); `master`'s code fails identically on the 6.12 wheels) | the environment restores its own `lightProbe` binding in `onLightProbeChanged`, synchronously, before a frame renders (PF-E3D-16); the board, a fresh host per frame, cannot see it |
+| Colour-property linearisation (`qssgutils.cpp`) | polynomial | unchanged (byte-identical source) | none |
+| `sampleProbe.glsllib` (`qt_sampleDiffuse` / `qt_sampleGlossy`, used by `water.frag`) | — | unchanged (byte-identical) | none |
+| `QSGRendererInterface.GraphicsApi` member names | `OpenGL`, `Direct3D11Rhi`, … | identical | none |
+| QTBUG-151940 (#532, TD-040) | leaks | the committed reproducer still leaks on the 6.12.0 wheels: 16 → 96 textures over 10 cycles, 8 a cycle (WARP, frames presented); the report is *In Review*, no fix version (2026-11-03) | the versions named move; nothing else |
+
+**The atmosphere sky — the decision.** A second **sky model** (`SkySpec.model`, setting
+`view3d/sky_model`, Preferences → 3D View → **Sky**: *Painted* / *Atmosphere with clouds*). The
+**default stays the painted sky**: every look of L1–L5 was accepted on it, and changing the
+default is the owner's call (asked in the PR). The model is never a quality preset's choice; on
+a software adapter there is no sky at all, as before. A change of model is built at once, like
+a change of phase.
+
+**The design: the painted sky is the base, the atmosphere is painted over it.** `atmosphere.frag`
+is the example's shader up to its `MAIN()`; the app's `MAIN()` evaluates Qt's
+`ProceduralSkyTextureData` formula per direction (`paintedSky()`, the same colours the look gives
+the painted sky) and mixes the atmosphere over it by
+`share = atmosphereWeight × smoothstep(0, hazeDeg, elevation)`:
+
+- **at and below the horizon, and through a 6° haze band, the painted sky shows** — the fog is
+  calibrated on the painted horizon (`FOG_OF_HORIZON`), so the meadow meets the same horizon in
+  either model and in every direction (the atmosphere's horizon changes with the azimuth, the
+  fog's colour cannot);
+- **`atmosphereWeight` = 1 − the look's twilight**: the atmosphere fades out through civil
+  twilight, so the night is the painted night exactly (measured: −8° sun, frame luma 23.98
+  against 23.99, sky 0.9/1.3/6.1 against 0.9/1.4/6.1);
+- **the gain is computed per sky**, not chosen: scaled by `atmosphereGain` the atmosphere sends
+  the same cosine-weighted luminance onto a horizontal surface as the painted sky it replaces
+  (`atmosphere_lut.atmosphere_gain`, 48 × 96 directions of the upper hemisphere). The physical
+  sky's radiance changes about sevenfold between a 60° and a 2° sun; the gain runs from 0.055 to
+  0.31 (and 0.95 at −4°): the auto-exposure the accepted look implies. Measured on the GPU, the
+  sunlit grass reads the same under both skies at every sun height (60°: 197.7 / 197.7; 15°:
+  139.0 / 139.0; 2°: 62.9 / 63.3; −2°: 47.6 / 47.2): the probe's light balance against the sun is
+  the accepted one, only the sky's hue and structure are new;
+- **clouds**: coverage = the weather's cloud (overcast and rain 1.0, snow 0.85, clear 0). Their
+  scattered light takes the atmosphere's one gain: `cloudLightGain` = `ATMOSPHERE_CLOUD_GAIN`
+  0.064 × the clear sky's gain at the actual sun (`quick3d.look.cloud_light_gain`; the example's
+  scale saturates a full cover to white — its own comment says so), calibrated so a full
+  Overcast lights the ground at noon as the painted Overcast does (ground luminance 0.198 /
+  0.207, about 2 luma). A thick deck diffuses: its forward lobe and its silver lining fade with
+  the cover (`atmosphere.frag`, `CLOUD_DIFFUSION` 0.8). Without that, a full overcast was bright
+  toward a low sun, a cloudy sunset read 0.96–1.0 of its noon and the L5 weather gates (which
+  had not run on the atmosphere) failed; a scale of the clouds' own at a fixed high sun dimmed
+  the deck twice (garden at a cloudy sunset 0.6–0.75 of the painted one) and deepened a bright
+  band round the horizon (3D reviews). Measured (Medium, 640 × 360): sunset over noon 0.750 /
+  0.776 / 0.668 for overcast / rain / snow against the painted 0.761 / 0.781 / 0.674; the
+  garden under a cloudy sky 0.96–0.99 of the painted one at noon, 0.90–0.92 at golden hour,
+  0.87–0.89 at the sunset mood. The deck also loses the sun through civil twilight as the look
+  does (its sunlight × `atmosphereWeight`): the example clamps the sun's slant at the horizon,
+  so its deck kept the horizon sun's light down to −6°; every cloudy dusk is monotone, the
+  sunset step 0.0088 / 0.0088 / 0.0142 against day ramps of 0.041 / 0.042 / 0.057. Left over
+  (#719): under the deck at a low sun the painted haze band reads brighter than the deck above
+  it — 30 / 42 / 55 luma toward / across / away from a 0.5° sun (painted sky: 6), 11–20 at 6°.
+  The clouds take the look's horizon hue (under a weather, the weather's own grey) in
+  proportion to the cover (`cloudHueShare`: the example's analytic sun reddening read beige to
+  mustard), and fade out between 120 and 240 km (`cloudMaxDistanceKm`, the example's 80 faded
+  them at 2.4–4.7° elevation, where the clear sky's bright horizon then showed as a stripe);
+- the disc: the look's sun colour × `ATMOSPHERE_DISC_ENERGY` 4 in its core, shown while the sun
+  is up and as far as the cloud lets it (`sunAlpha` = 1 − cloud) — at the painted disc's energy
+  the aerosol halo outshone it (240,239,237 under a glow of 248,244,230). The glow around the
+  core keeps the painted disc's colour and energy: × 4 there clipped a sunset disc and its glow
+  to white (255,255,253 against the painted 222,196,154; 3D review);
+- the water: Qt 6.12 lights a custom material through its `IBL_PROBE()` under a `SkyMaterial`
+  but leaves `QSSG_ENABLE_LIGHT_PROBE` false, so `water.frag` / `water_door.frag` guard their
+  sky term on that macro OR `SAMPLE_PROBE_GLSLLIB` (Qt's probe-sampler include guard) —
+  measured on the render tier's raised pool, the atmosphere's water at a 4° sun read
+  (1, 18, 32) against the painted (5, 40, 65), and (6, 41, 65) with the guard; the painted
+  sky's frames are identical with either guard (PF-E3D-15);
+- the air: the example's composition with half its aerosol haze
+  (`atmosphere_lut.EARTH_ATMOSPHERE`, turbidity 0.5): at 1 the noon sky read pale and a
+  camera facing a low sun washed to cream.
+
+**Why the look-up tables are computed on the CPU** (the example renders both in the frame with
+`QuadTextureProvider`). A `SkyMaterial` compiles its shader only once every texture it samples
+exists (`qssgrenderskymaterial.cpp`, `skyShaderTexturesReady`: "the GLSL sampler type depends on
+the actual texture"), and a provider's texture exists only after its first render. Measured: the
+first frame after the atmosphere appeared was white on a shown window; with a texture input left
+empty the shader never compiled and Qt drew its built-in debug sky; and the app's offscreen
+frames — the board, the probes, `--selftest` — may render only ONCE (a second `grabWindow()` on
+the never-shown view was an access violation), so they were white every time. As texture DATA
+(`core/scene3d/atmosphere_lut.py`, a numpy port of `transmittance.frag` and `skytexture.frag`,
+float32 as the shader computes, within 0.75 % of float64), the table is ready before the first
+frame, it is computed once per sun instead of every frame, and the sky's colour is known to
+Python — which is what makes the gain exact. The cloud noise volume is likewise texture data
+(`core/scene3d/cloud_noise.py`, a port of `CloudNoiseTextureData`, checked voxel by voxel against
+a scalar transcription of the C++ to 1e-12); it costs about a second of numpy, so the look
+controller makes it on a worker when the model is chosen and shows the painted sky until it is
+ready. The volume and the table each have ONE `Texture` for the host's life; the table's data is
+refilled in place for a new sun.
+
+**The sun.** The example derives its sun from a light's forward vector; here it is SET from the
+solar position (at night the key light is the moon): the engine-frame vector at the sun through
+the one scene → engine map, then `(x, y, z) → (−x, −z, y)` — derived from the two shaders (the
+LUT reads z as up; `MAIN()` turns it back with `(−s.x, s.z, −s.y)`) and pinned by a unit test over
+30 sun positions; the painted sky's measured `sunLongitude = azimuth + 90°` is not assumed for
+it. Measured by the board's sky probe (gate G4, disc read 25° off centre in the east, south and
+west): bearing error at most 0.02° (the painted sky: 0.08°), the disc read at
+11.98° for a 12° sun. (Before the disc energy above, the probe locked onto the horizon glow 9°
+below the sun with the bearing still within 0.35° — a gate that checks the bearing alone would
+have passed the wrong blob; the render tier also checks the elevation.).
+
+**Cost** (RTX 4070, Direct3D 11, a shown 960 × 540 host): the first atmosphere sky's frame
+783 ms against the painted sky's 663 ms (a one-time shader compile); each later sun change
+~200 ms on the GUI thread against the painted sky's 122 ms (the sky-view table ~110 ms, the gain
+~30 ms), the next frame 1–7 ms after it. The board renders a fresh host per frame and so pays
+the compile per frame (~2.5 s).
+
+**Truth gates on the atmosphere** (`render_beauty_board.py --sky atmosphere`, 640 × 360,
+low and high): every gate green on the final configuration, the painted
+sky's numbers from the same machine and day in brackets — shadow IoU 0.918 / 0.967 / 0.962
+(low) and 0.985 / 0.968 / 0.962 (high) at 15° / 35° / 60°, identical (the key light is the
+same); north-up identity NCC 0.757 (identical); night over noon 0.093 / 0.086 (0.100 / 0.092;
+bound 0.25); the night rows' luma 53.60 / 51.31 (53.61 / 51.32); dusk monotone, the sunset
+step 0.0089 / 0.0087 against the day ramp's largest 0.030 (0.0067 / 0.0066 against 0.028 /
+0.029); the low preset's picket alias error 7.91 (8.07); the plan edge 0.43 / line 1.36
+(0.21 / 1.64; bounds 1.0 / 2.0); no Qt warning or error in either board. The mood order is read on the garden: the render tier gates
+noon > golden hour > sunset > night on `ground_luminance` (the rows below the horizon,
+`board_probes.ground_luminance`) on both skies, and on the whole frame on the painted sky
+only — facing a low sun, the atmosphere's sun and its halo enter the frame and its sunset
+frame read up to 1.9 % above its golden hour while the garden below darkened 23–25 %, as
+under the painted sky. (Before the 3D review the tier allowed that swap within 3 %; the
+review replaced the tolerance with the garden's own order.) The distant-horizon rows (`--horizon`) read the same as the painted
+sky's and fail its 3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
+3.44 / 3.48; 67 m / 31.6° high: 3.11) — a pre-existing failure filed as #714, not this
+package's.
+
+**Self-test** (`--selftest`, point 8): the frozen exe now renders the atmosphere from the bundle,
+clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that), against
+a frame without a sky. With the revision below (half resolution, the sky's own exposure) it
+reads 81.4 apart from the plain background and 24.5 between clear and cloudy, on the GPU and on
+WARP alike (bounds 11 and 7, a quarter of the first build's 44.3 and 28.1); the three frames
+took 10.2 s / 9.5 s, the cloud volume made once included.
+
+**Licences** (per-file check at the tag; `qml/PROVENANCE.md`, `qml/LICENSE-qt-skymaterial.txt`):
+the example's sky shader (`advancedsky.frag`, three marked changes) and the two look-up-table
+shaders ported to numpy (`core/scene3d/atmosphere_lut.py`) are MIT (© 2023 Fernando García Liñán,
+© 2026 The Qt Company), the QML
+and the noise generator BSD-3-Clause (offered as "LicenseRef-Qt-Commercial OR BSD-3-Clause"); the
+painted-sky arithmetic re-expressed in `paintedSky()` and `painted_radiance()` comes from Qt
+Quick 3D itself ("LicenseRef-Qt-Commercial OR GPL-3.0-only"), the module the app already ships
+under GPLv3. All compatible with the app's GPL-3.0-or-later; the per-file table and the one
+statement of the rule are `qml/PROVENANCE.md`.
+
+**Left open.** The default model (an owner decision); the first-frame shader compile could be
+pre-warmed like the Cutaway's (`shaderWarmer`). (Whether a "partly cloudy" weather should exist
+was answered by the owner's manual test: see the revision below.)
+
+**Revision after the owner's manual test (2026-11-03): the atmosphere only draws the sky.** The
+owner's frozen exe crashed natively while testing *Atmosphere with clouds*. The cause is Qt
+6.12.0's `SkyMaterial` light cube: its pre-filter (`QSSGRenderSkyMaterialManager::
+runPrefilterCycle`) used a freed QRhi resource (PF-E3D-17, with the dump, the probe and the
+numbers). The owner also saw no difference between the skies: Clear has no cloud, and Overcast
+and Rain close the deck, so the clouds never showed. The owner chose to keep the atmosphere,
+fix the crash, and add a partly cloudy weather. What changed:
+
+- **The painted sky lights the garden under both models.** The atmosphere is `enableIBL:
+  false` and `skyboxMode: ScreenSpaceHalf`. Qt draws it on screen per frame
+  (`SkyMaterialBackgroundPass`) and never builds its cube (`resolveLayerIblTexture` builds one
+  only for image-based light, Cubemap mode, reflection probes or a screen texture). For the
+  atmosphere model the host builds the painted sky first (`buildSky`) and then writes the
+  atmosphere (`buildAtmosphere`) in the same GUI-thread turn. The painted texture stays the
+  environment's `lightProbe`. So the light balance above is now exact by construction, and the
+  cloudy-light numbers (0.96–0.99 at noon, 0.87–0.92 toward sunset) no longer apply: the
+  garden is lit as under the painted sky in every weather. `atmosphere_gain` and
+  `cloudLightGain` still scale the sky and the deck to the painted sky's brightness. The
+  water's widened probe guard (PF-E3D-15) is no longer reached under the atmosphere, because a
+  `lightProbe` is set; it stays, correct for any `SkyMaterial`.
+- **The sky applies its own exposure** (`atmosphere.frag` `skyExposed`, `skyExposure` =
+  the look's `probeExposure`): `1 − exp(−radiance × exposure)`, the curve of Qt's `qt_exposure`
+  that the painted sky's skybox shader runs. Qt's screen path passes `FRAGCOLOR` straight
+  through under our post effects, because its tonemap variant has no
+  `QSSG_FORCE_IBL_EXPOSURE`. The first build of this revision missed that (3D review, round 3,
+  REJECT): the sky read 1.8× too bright by day and 2.9× at night, 25–28 % of a low-sun frame
+  clipped, the disc vanished, and the horizon step rose to 36–56 luma. With the curve (no fitted
+  constant; a multiply needed an unexplained 0.80 by day because the curve compresses bright
+  values): clipping 0.0 / 0.8 / 0.04 % at golden hour / sunset / morning, horizon steps 1.1–3.4
+  luma (bound 6.0), the disc read at 12.06° for a 12° sun with a bearing error of 0.01°.
+- **The crash is gone.** A full-app probe of the manual checklist crashed 3 of 5 times at one
+  painted to atmosphere switch before the fix. After it, the same sequence ran 4 × 240 s with
+  no crash.
+- **Partly cloudy** (`weather.WEATHER_SPECS["partly_cloudy"]`): cloud 0.4 is the atmosphere's
+  cover; the sun stays out, because the light takes 0.15 of the overcast's changes
+  (`WeatherSpec.light`) and the sky 0.25 of its grey (`WeatherSpec.grey`). Every other weather
+  has one share for all three, so its look under the painted sky is unchanged (under the
+  atmosphere Snow's disc went from 0.15 to 0.30 and its clouds' light × 1.09). Wind 3.0, haze
+  0.9, dry, and the mood
+  stays a day (it is overcast from 0.5). The cover sheet of the owner pass read scattered clouds
+  at 0.35 and 0.6 and a closed deck at 1.0. Separate clouds take
+  `ATMOSPHERE_THIN_CLOUD_LIFT` 4.2 × (1 − cover)² more light (× 2.5 at 0.4, × 1 at Overcast and
+  Rain, × 1.09 at Snow), because the 0.064 was calibrated on a full deck and they read as dark
+  smoke at noon; `sunAlpha` goes only as the deck closes (1 − max(cloud − 0.5, 0) / 0.5), since
+  the clouds themselves hide the disc. Today's Weather maps WMO code 2 (partly cloudy) to it;
+  codes 0 and 1 stay clear. The painted sky shows only its slightly greyer blue; the clouds are
+  the atmosphere's. ADR-070's weather gates run on it (`HORIZON_WEATHERS`).
+- **Cost** (RTX 4070, Direct3D 11, a shown 1280 × 720 host looking into the sky, the median of
+  40 frames, the range of three runs of the same code): painted 2.1–2.3 ms; atmosphere at
+  cover 0: 2.2–3.6 ms (Half), 3.2–3.7 (Full), 2.1–3.5 (Quarter); at cover 0.4: 3.1–5.6 ms
+  (Half), 4.5–8.9 (Full), 3.7–4.9 (Quarter). The atmosphere's numbers move by up to × 1.9
+  between runs. The GPU idles at 210 MHz between them, so we read that as its clock state, but
+  did not pin it down; compare ranges, not single runs. Half and Full look the same, so the
+  default is Half. A sun change now also builds the painted sky (~120 ms) beside the sky-view
+  table, about 0.32 s of GUI thread in all, and the light cube's one-time filter is gone. An
+  integrated GPU is still unmeasured (owner question), and a playing day stalls on those
+  builds (#722).
+- **The self-test** renders the atmosphere without the painted probe (`sky_probe=False`): a
+  machine without a GPU cannot afford a probe filter. The rule it checks is unchanged.
 
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
@@ -9934,3 +10175,19 @@ unknown type `ObjectType.FENCE` — a string opens there as a 120 cm fence that 
 shadow, and stays one if saved there. A string drawn as a rectangle by this PR's first build
 (the owner's test plans only; none shipped) opens as the two-post line along its box in 3D
 and as a box on the canvas — draw it again.
+
+**Addendum L7 (#391, the owner's manual test, 2026-11-03): Partly cloudy.** A fifth weather
+between Clear and Overcast: `WEATHER_SPECS["partly_cloudy"]` is cloud 0.4, dry, wind 3.0 and
+haze 0.9. The cloud is the atmosphere sky's cover; the look takes smaller shares of decision
+2's overcast, 0.15 for the light (`WeatherSpec.light`: the key light × 0.88, the shadows' factor
+× 0.90) and 0.25 for the sky's grey (`WeatherSpec.grey`). At the full 0.4 the painted sky read as
+a dull clear day (3D review). The sun and its shadows stay where `core/solar` puts them, as in
+every weather. Every other weather has one share for all three, so no accepted look moved under
+the painted sky. Its mood stays day, golden hour
+or dew (`mood_of` names overcast from cloud 0.5). It exists because the atmosphere sky's
+volumetric clouds show as scattered clouds only at partial cover; Clear has none and Overcast
+closes the deck (ADR-048 addendum L7, revision). Today's Weather maps WMO code 2 (partly
+cloudy) to it; codes 0 and 1 stay clear. The board's cloudy-weather gates (horizon, mood strip,
+dusk) and the render tier's cloudy-evening gate run on it (`HORIZON_WEATHERS`). Pinned by
+`tests/unit/test_scene3d_weather.py::test_a_partly_cloudy_day_keeps_its_sun` and the WMO table.
+

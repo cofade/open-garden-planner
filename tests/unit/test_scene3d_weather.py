@@ -116,9 +116,10 @@ def test_an_overcast_horizon_is_as_bright_as_the_clear_one(at: SunState) -> None
 @pytest.mark.parametrize("at", SUNS)
 def test_the_fog_meets_the_weathered_horizon(weather: str, at: SunState) -> None:
     look = living_look(at, "high", weather)
+    spec = WEATHER_SPECS[weather]
+    grey = spec.cloud if spec.grey is None else spec.grey   # the sky's own share of the grey
     assert look.fog_linear == weather_fog(look.sky.horizon, look.mood.probe_exposure,
-                                          look.sky.sky_energy, look.atmosphere.cloud,
-                                          look.mood.twilight)
+                                          look.sky.sky_energy, grey, look.mood.twilight)
     assert look.plain_sky_linear == look.fog_linear
 
 
@@ -318,7 +319,8 @@ def test_the_precipitation_is_the_weathers(weather: str) -> None:
 def test_the_wind_is_a_shader_value_that_the_weather_sets() -> None:
     strengths = {w: living_look(AFTERNOON, "high", w).wind_strength for w in WEATHERS}
     assert strengths["clear"] == look_for(AFTERNOON, "high").wind_strength
-    assert strengths["rain"] > strengths["overcast"] > strengths["clear"] > strengths["snow"]
+    assert (strengths["rain"] > strengths["overcast"] > strengths["partly_cloudy"]
+            > strengths["clear"] > strengths["snow"])
     drift = living_look(AFTERNOON, "high", "rain").atmosphere.wind_drift_scene
     assert math.hypot(*drift) > 0.0
 
@@ -419,11 +421,32 @@ def test_every_mood_of_the_issue_is_reachable() -> None:
     assert {"morning_dew", "golden_hour", "overcast", "night"} <= reached <= set(MOODS)
 
 
+def test_a_partly_cloudy_day_keeps_its_sun() -> None:
+    """L7 (#391): scattered clouds — the sky's cloud is the atmosphere's cover (0.4: the
+    clouds read as scattered) while the light and the sky's grey take smaller shares: the
+    sun and its shadows stay, between clear and overcast, and the frame is still a day.
+    Every other weather has one share for all three (a change there moves accepted looks)."""
+    at = sun(40.0, 200.0)
+    clear, partly, overcast = (living_look(at, "high", w) for w in ("clear", "partly_cloudy", "overcast"))
+    assert partly.sky.cloud == WEATHER_SPECS["partly_cloudy"].cloud == pytest.approx(0.4)
+    assert partly.atmosphere.precipitation == "none" and partly.atmosphere.wetness == 0.0
+    assert (clear.mood.sun_brightness > partly.mood.sun_brightness
+            > overcast.mood.sun_brightness), "the key light between clear and overcast"
+    assert clear.shadow.factor > partly.shadow.factor > overcast.shadow.factor
+    assert partly.shadow.factor >= 0.85 * clear.shadow.factor, "its shadows stay crisp"
+    assert partly.mood.sun_brightness >= 0.85 * clear.mood.sun_brightness, "the sun stays out"
+    assert mood_of(partly, at) == "day" and mood_of(overcast, at) == "overcast"
+    spec = WEATHER_SPECS["partly_cloudy"]
+    assert spec.light == pytest.approx(0.15) and spec.grey == pytest.approx(0.25)
+    for name in ("clear", "overcast", "rain", "snow"):
+        assert WEATHER_SPECS[name].light is None and WEATHER_SPECS[name].grey is None, name
+
+
 # ── today's weather (L5.3) ───────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize(("code", "weather"), [
-    (0, "clear"), (1, "clear"), (2, "clear"), (3, "overcast"), (45, "overcast"), (48, "overcast"),
+    (0, "clear"), (1, "clear"), (2, "partly_cloudy"), (3, "overcast"), (45, "overcast"), (48, "overcast"),
     (51, "rain"), (61, "rain"), (67, "rain"), (80, "rain"), (95, "rain"), (99, "rain"),
     (71, "snow"), (77, "snow"), (85, "snow"), (86, "snow"), (4, "clear"), (1000, "clear")])
 def test_a_wmo_code_is_a_preset(code: int, weather: str) -> None:

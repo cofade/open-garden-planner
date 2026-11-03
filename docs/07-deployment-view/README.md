@@ -525,7 +525,9 @@ The runbook for acting on the monthly issue:
 1. `git checkout -b chore/dependency-update` and `uv lock --upgrade`.
 2. Keep the Qt pair (`PyQt6`, `PyQt6-Qt6`) on one micro (two wheels since Phase 17 L1.10
    removed the old 3D view's pair; `tests/unit/test_qt_runtime_pins.py`)
-   and keep `PyQt6-WebEngine` below 6.11 and `mcp` on v1; `tests/unit/test_dependency_governance.py`
+   move `PyQt6-WebEngine` with the pair (since Qt 6.12 its release is numbered after its
+   Chromium — 6.140 beside 6.12 — and an older one fails to import: PF-CI-17; `PyQt6-Pdf`, a
+   `dev` extra, follows it) and keep `mcp` on v1; `tests/unit/test_dependency_governance.py`
    pins those caps. Any change of the Qt pair's version also triggers the QTBUG-151940 re-check (TD-040, §8.29.5 known
    limit 11).
 3. `python scripts/check_dependency_lock.py` (lock/export agreement) and the full gates,

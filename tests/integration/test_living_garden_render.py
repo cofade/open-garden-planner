@@ -128,11 +128,14 @@ def test_the_particles_cost_at_most_fifteen_percent_of_a_frame_at_medium(tmp_pat
     assert data["health"]["ok"] and not data["health"]["qml_warnings"]
 
 
-def test_the_living_board_renders_every_shot(tmp_path: Path) -> None:
+# L7 (#391, 3D review): the weather's gates hold on BOTH skies — the atmosphere's cloud
+# deck brightened a cloudy evening before its clouds got their own light scale
+@pytest.mark.parametrize("sky", ["painted", "atmosphere"])
+def test_the_living_board_renders_every_shot(tmp_path: Path, sky: str) -> None:
     out = tmp_path / "board"
     proc = _run([sys.executable, str(BOARD), "--out", str(out), "--size", "640x360",
                  "--shots", "none", "--living", "--moods", "--dusk", "--presets", "medium",
-                 "--watchdog-s", str(TIMEOUT_S - 60)], out)
+                 "--sky", sky, "--watchdog-s", str(TIMEOUT_S - 60)], out)
     metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
     assert proc.returncode == 0 and metrics["status"] == "ok", (proc.returncode, metrics.get("error"))
     assert metrics["qt_messages"]["counts"].get("error", 0) == 0
@@ -154,7 +157,8 @@ def test_the_living_board_renders_every_shot(tmp_path: Path) -> None:
     assert rows["snow"]["mean_luma"] > rows["overcast"]["mean_luma"]
     # a cloudy evening is an evening (3D review of L5, round 3: an overcast sunset was 98 % as
     # bright as noon), and it fades into the night with no step at sunset — every weather
-    for weather in ("overcast", "rain", "snow"):
+    # (partly cloudy since L7: between the clear evening and the overcast one)
+    for weather in ("partly_cloudy", "overcast", "rain", "snow"):
         dusk = metrics[f"dusk_{weather}"]["medium"]
         assert dusk["monotone"], (weather, dusk["rises"])
         assert dusk["sunset_step"] <= dusk["day_ramp_max_step"], (weather, dusk)

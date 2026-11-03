@@ -70,12 +70,15 @@ class Engines:
 
 @pytest.fixture()
 def look_settings(qtbot):  # noqa: ARG001 - Qt must be up
-    """The three 3D settings at known values, and put back afterwards."""
+    """The 3D settings at known values, and put back afterwards (L7: the sky model too)."""
     settings = get_settings()
-    saved = (settings.view3d_quality, settings.view3d_reduced_motion, settings.view3d_auto_level)
+    saved = (settings.view3d_quality, settings.view3d_reduced_motion, settings.view3d_auto_level,
+             settings.view3d_sky_model)
     settings.view3d_quality, settings.view3d_reduced_motion = "high", False
+    settings.view3d_sky_model = "painted"
     yield settings
-    settings.view3d_quality, settings.view3d_reduced_motion, settings.view3d_auto_level = saved
+    (settings.view3d_quality, settings.view3d_reduced_motion, settings.view3d_auto_level,
+     settings.view3d_sky_model) = saved
 
 
 @pytest.fixture()
@@ -120,7 +123,8 @@ def _settle(qtbot: Any, ms: int = 0) -> None:
 
 
 def _preferences(window: GardenPlannerApp, monkeypatch: pytest.MonkeyPatch, *,
-                 quality: str | None = None, reduced_motion: bool | None = None) -> None:
+                 quality: str | None = None, reduced_motion: bool | None = None,
+                 sky_model: str | None = None) -> None:
     """Edit → Preferences through the REAL window (``_on_preferences``): the dialog it
     builds is changed as a user would and saved — its ``exec`` returns Accepted — and
     what the window does on "Save" is what is tested (review P1: the window's call to
@@ -131,6 +135,9 @@ def _preferences(window: GardenPlannerApp, monkeypatch: pytest.MonkeyPatch, *,
             combo.setCurrentIndex(combo.findData(quality))
         if reduced_motion is not None:
             dialog._view3d_reduced_motion_check.setChecked(reduced_motion)
+        if sky_model is not None:   # L7 (#391)
+            combo = dialog._view3d_sky_combo
+            combo.setCurrentIndex(combo.findData(sky_model))
         dialog._save_and_accept()
         return 1
 

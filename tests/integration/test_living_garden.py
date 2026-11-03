@@ -5,7 +5,7 @@ What a user does, through the real widgets:
 - L5.1: the Plan & Sun toolbar's Animate plays the DAY (the time of day, the plan date
   stays) or the YEAR (the plan date, the time stays) at three speeds — every step a
   write of the ONE sim clock, so the 2D overlay and the 3D view follow it;
-- L5.2: the 3D strip's Weather menu picks clear, overcast, rain or snow — the look the
+- L5.2: the 3D strip's Weather menu picks clear, partly cloudy, overcast, rain or snow — the look the
   engine is told is the living look of that weather, a new weather's sky is built at
   once, and the "Wildlife and Falling Leaves" switch reaches the engine;
 - L5.3: "Today's Weather" follows the app's own forecast, ONLY while the plan date is
@@ -399,7 +399,7 @@ def test_an_analyze_drape_pauses_the_weather(bench: Bench, drape: str) -> None:
 def test_every_weather_choice_has_its_menu_entry(bench: Bench) -> None:
     assert set(bench.workspace.living.actions) == set(WEATHER_CHOICES)
     texts = set(_menu_actions(bench))
-    assert {"Clear", "Overcast", "Rain", "Snow", "Today's Weather",
+    assert {"Clear", "Partly cloudy", "Overcast", "Rain", "Snow", "Today's Weather",
             "Wildlife and Falling Leaves"} <= texts
 
 

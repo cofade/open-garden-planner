@@ -121,3 +121,131 @@ inside 160 measured moves). A timer's expiry is not an idle signal: `NET_SETTLE_
 50 ms after it, and a repaint in that window restarts the whole quiet time. Probe with a
 600 ms block in every tenth preview turn: 4 mid-round reads before, 1 after (the net's
 pass once the tool stops).
+
+### PF-E3D-13
+
+- **Rule:** Since Qt 6.12 the engine's pick honours each material's cull mode: a `NoCulling` part is picked from behind too, a culled one only on its front faces (6.11 picked front faces of every material). A selection oracle must keep every face of the two-sided kinds (`materials.TWO_SIDED_KINDS`, pinned against the QML) and the front faces of the rest.
+- **Pinned by:** `tests/unit/test_render_measurement_state.py::test_qt612_selection_honours_the_cull_mode_and_the_general_oracle_keeps_both`; `tests/unit/test_quick3d_qml.py::test_the_two_sided_kinds_are_the_components_that_never_cull`; `tests/integration/test_view3d_selection_render.py`
+- **Source:** #391 (Phase 17 L7), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+`qssgrenderray.cpp` v6.11.0 accepted only positive Moller-Trumbore determinants (its
+back-face branch was commented out); v6.12.0 takes the material's `QSSGCullFaceMode` and accepts
+either sign for `Disabled`. Foliage, grass and glass are `NoCulling` here. The render tier's
+selection test carried a guard that refused to run on any minor but 6.11 ("recharacterize Qt
+picking on upgrade") — that guard is what made the change visible; it now names 6.12. The held
+oracle file records, per triangle, whether its material draws both sides.
+
+### PF-E3D-14
+
+- **Rule:** A Qt 6.12 `SkyMaterial` compiles its shader only once EVERY texture it samples exists: hand it texture DATA (`QQuick3DTextureData`), never a texture rendered in the frame (`QuadTextureProvider`) — a provider's texture exists only after its first render, so the first frame after the sky appears is white, and a frame rendered only once (the app's offscreen frames) is white every time. A texture input left empty never compiles, and Qt silently draws its built-in debug sky.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_atmosphere_is_made_once_and_never_destroyed_nor_re_pointed`; `tests/unit/test_quick3d_selftest.py`; `tests/integration/test_view3d_looks_render.py`
+- **Source:** #391 (Phase 17 L7), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Qt's skymaterial example renders its two look-up tables with `QuadTextureProvider` every
+frame. Ported as is, the atmosphere drew white: `qssgrenderskymaterial.cpp`'s
+`skyShaderTexturesReady` defers the compile "since the GLSL sampler type depends on the actual
+texture", and nothing reported it — no Qt warning, in any category. A minimal harness
+(`SkyMaterial` with no shader, with an inline shader, with ours) told the cases apart: the
+debug sky and the inline shader drew, ours drew white on frame 1 and the debug sky after (one
+texture input was empty). A second `grabWindow()` on the never-shown offscreen view to "warm
+it up" was an access violation — the host's one-offscreen-frame contract stands. The fix
+computes the tables in numpy (`core/scene3d/atmosphere_lut.py`) and hands them over as data,
+which also made the sky's colour known to Python.
+
+### PF-E3D-15
+
+- **Rule:** A custom material's sky term is compiled when `QSSG_ENABLE_LIGHT_PROBE` is set OR `SAMPLE_PROBE_GLSLLIB` is defined, never on the macro alone: under a Qt 6.12 `SkyMaterial` Qt calls the material's `IBL_PROBE()` and includes the probe samplers while it leaves `QSSG_ENABLE_LIGHT_PROBE` false, so a guard on the macro alone compiles the sky term out and the surface loses the sky's light without a warning.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_water_samples_the_sky_under_a_sky_material_too`
+- **Source:** #391 (Phase 17 L7, `ogp-3d-reviewer` pass), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+`water.frag` and `water_door.frag` sampled the sky only `#if QSSG_ENABLE_LIGHT_PROBE`, the
+guard L1.2 needed while a scene could have no probe at all. Under the atmosphere sky the pond
+went near-black as the sun sank, while the painted sky's pond was fine. Measured on the render
+tier's raised pool (`quick3d_render_driver.pond_record`), RTX 4070: water (1, 18, 32) at a 4°
+sun against the painted sky's (5, 40, 65); 13 / 75 / 113 against 18 / 85 / 126 at 15°. With
+the widened guard the atmosphere's water is within 1.6 codes of the painted sky's at 60°, 15°
+and 4°, and the painted sky's frames are identical with either guard. `SAMPLE_PROBE_GLSLLIB`
+is the include guard of Qt's `sampleProbe.glsllib`, so it is defined exactly when
+`qt_sampleDiffuse` / `qt_sampleGlossy` exist; Qt's own default material reads its probe
+through the same include, so it was never affected.
+
+### PF-E3D-16
+
+- **Rule:** On Qt 6.12 destroying an EARLIER sky Texture sets the scene environment's light probe to null although the probe already holds the current sky (the stale destroyed-watcher still fires), so the environment restores its own lightProbe binding in onLightProbeChanged, in the same signal, before any frame renders; a test of the sky must take a frame AFTER the old Textures are deleted.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_light_probe_is_put_back_when_an_earlier_sky_is_destroyed`; `tests/integration/test_view3d_looks_render.py::test_a_sky_rebuilt_three_times_is_still_the_sky_after_the_old_ones_are_gone`; `tests/integration/test_view3d_looks_render.py::test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`
+- **Source:** #391 (Phase 17 L7, found by the render tier after the Qt 6.12 pin), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Every sun change builds a fresh painted-sky Texture and destroys the old one, deferred
+(`buildSky`). On Qt 6.12 the frame after that delete showed the clear colour instead of the
+sky — on a host's first sun change (the 3D review's run without the fix: the first rebuild, once
+also the second; later rebuilds never): the render tier's sky-sequence test read the frame after the old Textures were gone as
+(161, 154, 122) flat beige against (97, 126, 137) before. `master`'s own code fails the same way
+under the 6.12 wheels and passes under 6.11, so it is the upgrade, not L7's sky. A probe with
+two builds told the cases apart: keeping the old Texture alive kept the sky; a counter on the
+environment's `lightProbeChanged` read one change to null at the old Texture's delete although
+the probe was the new sky; re-assigning the property restored the sky; a re-assign inside the
+old Texture's `Component.onDestruction` came too early (the watcher fires after it), and a
+zero-interval Timer after it came too late for a frame rendered straight after the delete.
+Restoring the binding in `onLightProbeChanged` is synchronous and frame-exact. Qt's
+`qquick3dsceneenvironment.cpp` and `attachWatcher` (`qquick3dobject_p.h`) changed only
+cosmetically between the tags; the upstream cause is not identified. Fill pictures are re-pointed
+and then destroyed too (a recolour): the senior review measured them unaffected on 6.12 (the
+recoloured pattern still drawn after the delete rounds). Parts and ground tiles destroy themselves
+after detaching. The render tier's live-host atmosphere sequence
+(`test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`) fails without the handler in
+most runs — 6 of 7 in the senior review's (`painted_160` after the delete: 40.7 against a bound
+of 0.5); in the one that passed, that frame's grab took 1.2 ms against ~1,660 ms, so the stale
+watcher's firing is timing-dependent: a reproducer for Qt must repeat the sequence.
+
+### PF-E3D-17
+
+- **Rule:** A Qt 6.12.0 `SkyMaterial` never lights the scene and never draws through a cube: Qt builds and pre-filters its cube for image-based light, the Cubemap skybox mode, a reflection probe or a screen texture, and that pre-filter uses a freed QRhi resource and kills the process natively, so the atmosphere backs the view on screen (`enableIBL: false`, a ScreenSpace skybox mode) and the painted sky's texture stays the light probe under both sky models.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_atmosphere_never_builds_the_cube_that_crashed_qt_6_12_0`; `tests/ui/test_quick3d_host.py::TestSky`
+- **Source:** #391 (Phase 17 L7, the owner's manual test of the frozen exe on 2026-11-03), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+The owner's frozen exe died about two minutes into testing "Atmosphere with clouds": access
+violation `c0000005` in `Qt6Gui.dll`, no Python trace and nothing in `app.log`. Windows had
+written a minidump (`%LOCALAPPDATA%\CrashDumps`, because the machine has a `LocalDumps` key).
+A stack scan of the faulting thread mapped to the nearest exports read `QSSGRenderer::rhiPrepare`
+→ `QSSGLayerRenderData::resolveLayerIblTexture` → `QSSGRenderSkyMaterialManager::resolve` →
+`ensureEnvironmentMap` → `runPrefilterCycle`. The faulting function, disassembled from the DLL,
+is QRhi's `sanityCheckResourceOwnership`: its warning string is "%s %p (%s) belongs to QRhi %p,
+but client code attempted to use it with QRhi %p". It read a resource's owner pointer as
+`0x20000000`, so the resource had been freed. The manager deletes its textures at once
+(`QSSGRhiContextPrivate::releaseTexture` is a plain `delete`) and detects changes by comparing raw
+pointers, so a recycled address can pass its cache check. The exact stale resource is not
+identified.
+
+A full-app probe drove the manual checklist's actions on a timer: time of day, weather, walk
+mode, reduce motion, the sky model and the layout. Each action was printed before it ran. With one
+seed, three of five runs crashed at the same action: a painted to atmosphere switch at night
+in snow, right after the weather changed. With the cube off, 0 of 4 runs crashed at that action.
+Neither sky switching alone (215 switches) nor the atmosphere without switching crashed in
+200 s. After the fix the same seed ran 8 x 240 s with no crash. The painted sky, the default,
+never reaches this code.
+
+Three traps when applying the rule. When `lightProbe` is set, Qt does not request the sky
+material's IBL pass (`else if (layer.skyMaterial)`), but `SkyMaterialBackgroundPass` still
+draws a ScreenSpace sky, so with a probe set the pass that could build the cube never runs.
+Without a probe (`sky_probe=False`, or a lost binding) `needCube` decides: `enableIBL`, Cubemap
+mode, a `ReflectionProbe`, or a material that needs the screen texture (`SCREEN_TEXTURE`,
+`transmissionFactor`) would bring the cube back. The QML test pins that none of them exists.
+And the screen path applies no
+exposure under our post effects: its main is `qt_tonemap(qt_exposure(FRAGCOLOR, e))`, but
+`qt_exposure` is compiled to a pass-through there, while the skybox shader's Custom variant
+forces it with `QSSG_FORCE_IBL_EXPOSURE`. So the sky shader applies `1 − exp(−c × e)` itself
+(`skyExposed`). Without it the first build of this fix read 1.8× too bright by day and 2.9× at
+night with the disc gone, and a plain multiply left 13–14 luma by day. Re-check the rule on every Qt
+bump: on 2026-11-03 no QTBUG matched this crash, and Qt 6.12.1 was not on PyPI. The instrument
+is `scripts/probe_sky_crash.py`: to ask whether a new Qt fixed it, turn `enableIBL` on and drop
+the probe under the atmosphere in a scratch checkout, and run seed 7 several times.

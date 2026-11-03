@@ -11192,12 +11192,17 @@ to assign species data.</translation>
             <translation>Allow AI assistants to edit the plan</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="384" />
+            <source>Atmosphere with clouds</source>
+            <translation>Atmosphere with clouds</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="365" />
             <source>Automatic</source>
             <translation>Automatic</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="396" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="412" />
             <source>Cancel</source>
             <translation>Cancel</translation>
         </message>
@@ -11221,7 +11226,7 @@ to assign species data.</translation>
             <translation>Connect AI Assistant…</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="630" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="649" />
             <source>Connection to {api} is working.</source>
             <translation>Connection to {api} is working.</translation>
         </message>
@@ -11231,12 +11236,12 @@ to assign species data.</translation>
             <translation>Copy</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="636" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="655" />
             <source>Could not connect to {api}. Please check your credentials.</source>
             <translation>Could not connect to {api}. Please check your credentials.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="511" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="529" />
             <source>Enable AI editing to generate a token</source>
             <translation>Enable AI editing to generate a token</translation>
         </message>
@@ -11276,7 +11281,7 @@ to assign species data.</translation>
             <translation>Enter Trefle API token...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="647" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="666" />
             <source>Error testing {api}: {error}</source>
             <translation>Error testing {api}: {error}</translation>
         </message>
@@ -11303,7 +11308,7 @@ to assign species data.</translation>
             <translation>How detailed the 3D view is drawn. Automatic picks a level from the frame rate it measures on this computer.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="384" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="400" />
             <source>Keep leaves and grass still instead of swaying in the wind.</source>
             <translation>Keep leaves and grass still instead of swaying in the wind.</translation>
         </message>
@@ -11348,6 +11353,16 @@ to assign species data.</translation>
             <translation>Orange warning threshold (°C):</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="383" />
+            <source>Painted</source>
+            <translation>Painted</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="388" />
+            <source>Painted: the soft painted sky. Atmosphere with clouds: a physically based sky with volumetric clouds by day, which costs more on the graphics card. The sun, the shadows and the night are the same in both.</source>
+            <translation>Painted: the soft painted sky. Atmosphere with clouds: a physically based sky with volumetric clouds by day, which costs more on the graphics card. The sun, the shadows and the night are the same in both.</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="139" />
             <source>Perenual (perenual.com)</source>
             <translation>Perenual (perenual.com)</translation>
@@ -11358,17 +11373,17 @@ to assign species data.</translation>
             <translation>Permapeople (permapeople.org)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="604" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="623" />
             <source>Please enter a Perenual API key first.</source>
             <translation>Please enter a Perenual API key first.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="596" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
             <source>Please enter a Trefle API token first.</source>
             <translation>Please enter a Trefle API token first.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="634" />
             <source>Please enter both Permapeople Key ID and Key Secret.</source>
             <translation>Please enter both Permapeople Key ID and Key Secret.</translation>
         </message>
@@ -11393,7 +11408,7 @@ to assign species data.</translation>
             <translation>Red alert threshold (°C):</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="381" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="397" />
             <source>Reduce motion in the 3D view</source>
             <translation>Reduce motion in the 3D view</translation>
         </message>
@@ -11413,7 +11428,7 @@ to assign species data.</translation>
             <translation>Run a local MCP server so AI assistants can read this garden plan. Binds to 127.0.0.1 (this computer) only. Editing stays off unless you enable it below.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="400" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="416" />
             <source>Save</source>
             <translation>Save</translation>
         </message>
@@ -11431,6 +11446,11 @@ to assign species data.</translation>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="306" />
             <source>Show this URL and help register it with an AI assistant</source>
             <translation>Show this URL and help register it with an AI assistant</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="394" />
+            <source>Sky:</source>
+            <translation>Sky:</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="239" />
@@ -11451,24 +11471,24 @@ to assign species data.</translation>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="129" />
             <location filename="../../ui/dialogs/preferences_dialog.py" line="152" />
             <location filename="../../ui/dialogs/preferences_dialog.py" line="181" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="596" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="604" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="614" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="623" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="633" />
             <source>Test</source>
             <translation>Test</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="646" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="665" />
             <source>Test Error</source>
             <translation>Test Error</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="635" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="654" />
             <source>Test Failed</source>
             <translation>Test Failed</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="629" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="648" />
             <source>Test Successful</source>
             <translation>Test Successful</translation>
         </message>
@@ -11498,7 +11518,7 @@ to assign species data.</translation>
             <translation>Used for Load Satellite Background. The key is stored only in your local user settings and is never included in plans or the installer.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="450" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="466" />
             <source>Using OGP_GOOGLE_MAPS_KEY from environment</source>
             <translation>Using OGP_GOOGLE_MAPS_KEY from environment</translation>
         </message>
@@ -14072,7 +14092,7 @@ checked = always protect, unchecked = never protect, indeterminate = use the pla
     <context>
         <name>SunHeatmapController</name>
         <message>
-            <location filename="../../ui/canvas/sun_heatmap.py" line="588" />
+            <location filename="../../ui/canvas/sun_heatmap.py" line="590" />
             <source>{n} h</source>
             <translation>{n} h</translation>
         </message>
@@ -15344,12 +15364,12 @@ Details: {error}</source>
 Details: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="128" />
+            <location filename="../../ui/view3d/workspace_living.py" line="129" />
             <source>A clear sky: the sun and its shadows as the plan's sun study has them</source>
             <translation>A clear sky: the sun and its shadows as the plan's sun study has them</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="129" />
+            <location filename="../../ui/view3d/workspace_living.py" line="133" />
             <source>A grey sky: soft, faint shadows; the sun stays where it is</source>
             <translation>A grey sky: soft, faint shadows; the sun stays where it is</translation>
         </message>
@@ -15425,7 +15445,7 @@ Details: {error}</translation>
             <translation>Cutaway</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="87" />
+            <location filename="../../ui/view3d/workspace_living.py" line="88" />
             <source>Day</source>
             <translation>Day</translation>
         </message>
@@ -15435,7 +15455,7 @@ Details: {error}</translation>
             <translation>Eye height while walking</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="87" />
+            <location filename="../../ui/view3d/workspace_living.py" line="88" />
             <source>Golden hour</source>
             <translation>Golden hour</translation>
         </message>
@@ -15470,12 +15490,12 @@ Details: {error}</translation>
             <translation>Lay the plan's 2D shadows on the 3D ground: the sun study's own answer</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="455" />
+            <location filename="../../ui/view3d/workspace_living.py" line="459" />
             <source>Mood: {mood}</source>
             <translation>Mood: {mood}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="86" />
+            <location filename="../../ui/view3d/workspace_living.py" line="87" />
             <source>Morning dew</source>
             <translation>Morning dew</translation>
         </message>
@@ -15485,7 +15505,7 @@ Details: {error}</translation>
             <translation>Move the plan date forward and compare before and after</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="85" />
+            <location filename="../../ui/view3d/workspace_living.py" line="86" />
             <source>Night</source>
             <translation>Night</translation>
         </message>
@@ -15500,10 +15520,15 @@ Details: {error}</translation>
             <translation>On the ground</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="79" />
-            <location filename="../../ui/view3d/workspace_living.py" line="86" />
+            <location filename="../../ui/view3d/workspace_living.py" line="80" />
+            <location filename="../../ui/view3d/workspace_living.py" line="87" />
             <source>Overcast</source>
             <translation>Overcast</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace_living.py" line="79" />
+            <source>Partly cloudy</source>
+            <translation>Partly cloudy</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_legend.py" line="54" />
@@ -15516,13 +15541,13 @@ Details: {error}</translation>
             <translation>Play the plan date from sunrise to sunset and watch the hours of sun add up</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="79" />
-            <location filename="../../ui/view3d/workspace_living.py" line="85" />
+            <location filename="../../ui/view3d/workspace_living.py" line="80" />
+            <location filename="../../ui/view3d/workspace_living.py" line="86" />
             <source>Rain</source>
             <translation>Rain</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="130" />
+            <location filename="../../ui/view3d/workspace_living.py" line="134" />
             <source>Rain: a grey sky, wet leaves and ground, falling rain</source>
             <translation>Rain: a grey sky, wet leaves and ground, falling rain</translation>
         </message>
@@ -15537,7 +15562,7 @@ Details: {error}</translation>
             <translation>Show List</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="147" />
+            <location filename="../../ui/view3d/workspace_living.py" line="151" />
             <source>Show butterflies at the flowers, fireflies on summer evenings and falling leaves in autumn</source>
             <translation>Show butterflies at the flowers, fireflies on summer evenings and falling leaves in autumn</translation>
         </message>
@@ -15592,12 +15617,12 @@ Details: {error}</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_living.py" line="80" />
-            <location filename="../../ui/view3d/workspace_living.py" line="86" />
+            <location filename="../../ui/view3d/workspace_living.py" line="87" />
             <source>Snow</source>
             <translation>Snow</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="131" />
+            <location filename="../../ui/view3d/workspace_living.py" line="135" />
             <source>Snow on the ground and the leaves, falling snow</source>
             <translation>Snow on the ground and the leaves, falling snow</translation>
         </message>
@@ -15605,6 +15630,11 @@ Details: {error}</translation>
             <location filename="../../ui/view3d/workspace_analysis.py" line="101" />
             <source>Sun Path and Compass</source>
             <translation>Sun Path and Compass</translation>
+        </message>
+        <message>
+            <location filename="../../ui/view3d/workspace_living.py" line="130" />
+            <source>Sun and scattered clouds: the shadows stay, a little softer. The clouds show with the atmosphere sky (Preferences, 3D View, Sky)</source>
+            <translation>Sun and scattered clouds: the shadows stay, a little softer. The clouds show with the atmosphere sky (Preferences, 3D View, Sky)</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_analysis.py" line="208" />
@@ -15651,17 +15681,17 @@ Details: {error}</translation>
             <translation>The 3D view reported a problem. Details are in the log file.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="451" />
+            <location filename="../../ui/view3d/workspace_living.py" line="455" />
             <source>The analysis on the ground shows the clear sun's colours; the weather returns when the ground shows nothing.</source>
             <translation>The analysis on the ground shows the clear sun's colours; the weather returns when the ground shows nothing.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="379" />
+            <location filename="../../ui/view3d/workspace_living.py" line="383" />
             <source>The forecast for today is not loaded yet, or could not be fetched.</source>
             <translation>The forecast for today is not loaded yet, or could not be fetched.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="132" />
+            <location filename="../../ui/view3d/workspace_living.py" line="136" />
             <source>The forecast's weather while the plan date is today; on any other date a clear sky</source>
             <translation>The forecast's weather while the plan date is today; on any other date a clear sky</translation>
         </message>
@@ -15696,17 +15726,17 @@ Details: {error}</translation>
             <translation>There is no free ground to walk on.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="80" />
+            <location filename="../../ui/view3d/workspace_living.py" line="81" />
             <source>Today's Weather</source>
             <translation>Today's Weather</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="375" />
+            <location filename="../../ui/view3d/workspace_living.py" line="379" />
             <source>Today's weather follows the forecast only while the plan date is today; on any other date the sky is clear.</source>
             <translation>Today's weather follows the forecast only while the plan date is today; on any other date the sky is clear.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="378" />
+            <location filename="../../ui/view3d/workspace_living.py" line="382" />
             <source>Today's weather needs a garden location for its forecast.</source>
             <translation>Today's weather needs a garden location for its forecast.</translation>
         </message>
@@ -15721,7 +15751,7 @@ Details: {error}</translation>
             <translation>Try Hardware Next Time</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="85" />
+            <location filename="../../ui/view3d/workspace_living.py" line="86" />
             <source>Twilight</source>
             <translation>Twilight</translation>
         </message>
@@ -15746,22 +15776,22 @@ Details: {error}</translation>
             <translation>Walk through the garden at eye height (W A S D or the arrow keys walk, drag to look around, Shift runs, Esc leaves)</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="163" />
+            <location filename="../../ui/view3d/workspace_living.py" line="167" />
             <source>Weather</source>
             <translation>Weather</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="443" />
+            <location filename="../../ui/view3d/workspace_living.py" line="447" />
             <source>Weather: Today ({weather})</source>
             <translation>Weather: Today ({weather})</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="445" />
+            <location filename="../../ui/view3d/workspace_living.py" line="449" />
             <source>Weather: {weather}</source>
             <translation>Weather: {weather}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="144" />
+            <location filename="../../ui/view3d/workspace_living.py" line="148" />
             <source>Wildlife and Falling Leaves</source>
             <translation>Wildlife and Falling Leaves</translation>
         </message>
@@ -15791,7 +15821,7 @@ Details: {error}</translation>
             <translation>{tip} ({shortcut})</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_living.py" line="447" />
+            <location filename="../../ui/view3d/workspace_living.py" line="451" />
             <source>{weather} (paused while analysing)</source>
             <translation>{weather} (paused while analysing)</translation>
         </message>

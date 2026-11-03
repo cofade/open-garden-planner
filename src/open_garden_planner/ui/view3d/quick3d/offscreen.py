@@ -206,6 +206,7 @@ def render_records(
     frost_dates: Mapping[str, object] | None = None,
     ambient: EngineBuffers | None = None,
     lamps: Sequence[tuple[float, float, float, float]] = (),
+    sky_probe: bool = True,
 ) -> OffscreenFrame:
     """Render ``records`` from ``shot`` under ``sun`` into an image of ``size``
     (logical pixels), through the real ``SceneSync`` → ``Quick3DSink`` path.
@@ -235,7 +236,10 @@ def render_records(
     off and the items drawn faded (``core.scene3d.xray.XRAY_OPACITY``). ``ambient`` /
     ``lamps`` (L5): the garden's life (``core.scene3d.particles.ambient_buffers``) and
     the garden lights that light (scene frame) — a still picture: the wind's clock is at
-    rest, every particle where its seed puts it.
+    rest, every particle where its seed puts it. ``sky_probe=False`` (L7): a sky of the
+    atmosphere model (``look.sky.model``) backs the frame without the painted sky's
+    light probe — nothing lit by a sky, no probe to filter — what the self-test renders
+    on a machine without a GPU (``Quick3DHost.sky_probe``).
 
     Raises ``RenderError`` on a QML or shader error, when this backend cannot
     render 3D, when a Qt Quick window is shown in this process (module
@@ -298,6 +302,7 @@ def render_records(
             host.set_shot(shot)
             breakdown["scene_apply"] = (time.perf_counter() - mark) * 1000.0
             if sky_light:
+                host.sky_probe = sky_probe
                 host.set_sky(look.sky)
                 breakdown["sky_build"] = host.last_sky_build_ms
             parts = sum(sink.part_count(item_id) for item_id in sink.item_ids())

@@ -4,7 +4,7 @@ The 3D strip's "Weather" menu and what it drives. Engine-free: like the other
 coordinators of the workspace it is told the host and the look controller by
 ``Workspace`` and imports no Qt Quick binding.
 
-- **The weather** — Clear, Overcast, Rain, Snow, and Today's Weather (L5.3): the
+- **The weather** — Clear, Partly cloudy (L7), Overcast, Rain, Snow, and Today's Weather (L5.3): the
   forecast the app fetched (``set_forecast``; the Planting Calendar's weather widget —
   the 3D view fetches nothing itself, it ASKS: ``forecast_wanted`` when Today's Weather
   is chosen, and again for a new location or document, which also forget the old
@@ -76,8 +76,9 @@ def _tr(text: str) -> str:
 
 def weather_names() -> dict[str, str]:
     """The weather choices as the menu names them (translated)."""
-    return {"clear": _tr("Clear"), "overcast": _tr("Overcast"), "rain": _tr("Rain"),
-            "snow": _tr("Snow"), TODAY: _tr("Today's Weather")}
+    return {"clear": _tr("Clear"), "partly_cloudy": _tr("Partly cloudy"),
+            "overcast": _tr("Overcast"), "rain": _tr("Rain"), "snow": _tr("Snow"),
+            TODAY: _tr("Today's Weather")}
 
 
 def mood_names() -> dict[str, str]:
@@ -126,6 +127,9 @@ class WorkspaceLivingCoordinator(QObject):
         names = weather_names()
         tips = {
             "clear": _tr("A clear sky: the sun and its shadows as the plan's sun study has them"),
+            "partly_cloudy": _tr("Sun and scattered clouds: the shadows stay, a little "
+                                 "softer. The clouds show with the atmosphere sky "
+                                 "(Preferences, 3D View, Sky)"),
             "overcast": _tr("A grey sky: soft, faint shadows; the sun stays where it is"),
             "rain": _tr("Rain: a grey sky, wet leaves and ground, falling rain"),
             "snow": _tr("Snow on the ground and the leaves, falling snow"),

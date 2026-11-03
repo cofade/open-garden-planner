@@ -829,6 +829,41 @@ class TestSky:
                 assert shown == pytest.approx(value), name
         assert data.property("sunLongitude") == pytest.approx(340.0), "azimuth + 90 degrees"
 
+    def test_the_atmosphere_backs_the_view_and_the_painted_sky_lights_it(self, host) -> None:
+        """PF-E3D-17 (#391): an atmosphere sky is built WITH the painted sky — the same
+        sun, colours and cloud — whose texture stays the light probe, and the atmosphere
+        itself asks Qt 6.12.0 for no cube (its pre-filter crashed the app)."""
+        from dataclasses import replace
+
+        from open_garden_planner.core.scene3d.look import ATMOSPHERE
+
+        sky = replace(look_for(SunState(25.0, 200.0), "high").sky, model=ATMOSPHERE, cloud=0.4)
+        host.set_sky(sky)
+        texture = _sky_texture(host)
+        assert texture is not None, "the painted sky is built under the atmosphere"
+        data = texture.property("textureData")
+        for name, value in sky_properties(sky).items():
+            if not isinstance(value, str):
+                assert data.property(name) == pytest.approx(value), name
+        assert host.scene_property("atmosphereBuilt") is True and host.sky == sky
+        atmosphere = host.scene_property("atmosphereObject")
+        # its skyboxMode (not Cubemap) is test_quick3d_qml's: PyQt6 cannot convert the enum
+        assert atmosphere.property("enableIBL") is False, "no light from the atmosphere"
+        assert atmosphere.property("cloudCoverage") == pytest.approx(0.4)
+        host.set_sky(replace(sky, model="painted"))
+        assert host.scene_property("atmosphereBuilt") is False and _sky_texture(host) is not None
+
+    def test_without_the_probe_the_atmosphere_alone_backs_the_view(self, host) -> None:
+        """``sky_probe`` False (the self-test on a machine without a GPU): no painted
+        sky, no probe to filter — the atmosphere backs the frame alone."""
+        from dataclasses import replace
+
+        from open_garden_planner.core.scene3d.look import ATMOSPHERE
+
+        host.sky_probe = False
+        host.set_sky(replace(look_for(SunState(25.0, 200.0), "high").sky, model=ATMOSPHERE))
+        assert _sky_texture(host) is None and host.scene_property("atmosphereBuilt") is True
+
     def test_dropping_the_sky_goes_back_to_the_plain_background(self, host) -> None:
         host.set_sky(look_for(SunState(30.0, 180.0), "high").sky)
         host.set_sky(None)
