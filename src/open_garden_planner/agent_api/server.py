@@ -1215,7 +1215,9 @@ def build_server(
         Read-only: it never moves the owner's camera or date, and it needs no token. The
         picture shows the plan on the date and at the time the owner has set (see
         plan_date and time_of_day in the result), under the view's own weather and quality,
-        without photo mode's development and without a selection highlight.
+        without photo mode's development and without a selection highlight. Plants keep the
+        leaf detail of the view's own camera, so a close shot from elsewhere is coarser than
+        the view would be from there.
 
         It needs the 3D view open. When it is not, or while the view is still building, it
         says so at once rather than waiting: ask the user to open 3D or Split, or call

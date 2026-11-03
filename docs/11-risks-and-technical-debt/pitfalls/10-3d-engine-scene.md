@@ -283,7 +283,9 @@ had taken the darkest leaves below 0 on the red channel, and `ivec2(int(lutSize*
 read the previous slice's last column, where red is at its maximum. Read the shader out of Qt's
 resources (`:/qtquick3d_helpers/shaders/tonemapper.frag`), do not guess it. A related trap in the
 same file: `vignetteStrength` is not a strength, a lower value darkens the middle of the picture;
-`vignetteRadius` is the exponent that reaches only into the corners.
+`vignetteRadius` is the exponent that reaches only into the corners; and `vignetteColor` defaults to
+grey, which BRIGHTENS whatever is darker: a third of a night's pixels, found by the 3D review after
+every daytime test had passed.
 
 ### PF-E3D-20
 

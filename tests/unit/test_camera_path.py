@@ -13,6 +13,7 @@ import pytest
 from open_garden_planner.core import camera_path
 from open_garden_planner.core.camera_path import (
     DATE_STEPS_PER_S,
+    EYE_SAMPLES_PER_S,
     FRAME_RATES,
     MIN_EYE_CM,
     WIND_START_S,
@@ -22,6 +23,7 @@ from open_garden_planner.core.camera_path import (
     HeldCamera,
     TourSpec,
     frame_count,
+    path_eyes,
     tour_frames,
 )
 from open_garden_planner.core.scene3d.camera import CameraPose
@@ -245,3 +247,27 @@ def test_a_tour_refuses_what_cannot_be_rendered(bad: dict) -> None:
 def test_the_shortest_tour_still_has_two_frames() -> None:
     assert frame_count(TourSpec(HeldCamera(KEYS[0]), 1.0, 24)) == 24
     assert len(list(tour_frames(TourSpec(HeldCamera(KEYS[0]), 1.0, 24)))) == 24
+
+
+def test_a_flights_eyes_are_where_its_frames_go() -> None:
+    path = CameraPath((CameraKey((0.0, 0.0, 200.0), (0.0, 100.0, 0.0)),
+                       CameraKey((1000.0, 0.0, 200.0), (1000.0, 100.0, 0.0))))
+    spec = TourSpec(path, 5.0, 30)
+    eyes = path_eyes(spec)
+    assert len(eyes) == 5 * EYE_SAMPLES_PER_S + 1
+    assert eyes[0] == pytest.approx((0.0, 0.0, 200.0)) and eyes[-1] == pytest.approx((1000.0, 0.0, 200.0))
+    frames = list(tour_frames(spec))
+    assert frames[0].key.eye == pytest.approx(eyes[0]) and frames[-1].key.eye == pytest.approx(eyes[-1])
+
+
+def test_a_held_camera_has_one_place_to_be() -> None:
+    key = CameraKey((0.0, 0.0, 200.0), (0.0, 100.0, 0.0))
+    assert set(path_eyes(TourSpec(HeldCamera(key), 2.0, 30))) == {key.eye}
+
+
+def test_a_closed_flight_samples_all_the_way_round() -> None:
+    pose = CameraPose((0.0, 0.0), 1000.0, 0.0, 30.0)
+    eyes = path_eyes(TourSpec(DroneOrbit(pose), 4.0, 30))
+    east = [eye[0] for eye in eyes]
+    north = [eye[1] for eye in eyes]
+    assert min(east) < -500.0 < 500.0 < max(east) and min(north) < -500.0 < 500.0 < max(north)

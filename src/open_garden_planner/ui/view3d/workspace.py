@@ -1603,6 +1603,7 @@ class Workspace(QWidget):
             is_pane_showing=self._pane_is_showing,
             view_state=lambda: self._state.value,
             ground_point=self._ground_point,
+            fly_path=self._fly_path,
             default_path=lambda name: self.default_save_path(name),
             parent=self,
         )
@@ -1638,6 +1639,16 @@ class Workspace(QWidget):
     def capture(self) -> WorkspaceCaptureCoordinator:
         """Photo mode, the camera tours and the agent's pictures (L6)."""
         return self._capture
+
+    def _fly_path(self, eyes: Any) -> None:
+        """A recording's flight (None after it): the plants' detail follows it, not the camera,
+        and the recording waits for that (``ForgeWorker.fly_path``)."""
+        worker = self._forge_worker
+        if worker is None:
+            return
+        worker.fly_path(eyes)
+        if worker.pending_count and self._pane_is_showing():
+            self._forge_timer.start(10)
 
     def _forge_pending(self) -> int:
         worker = self._forge_worker

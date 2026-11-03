@@ -1525,8 +1525,8 @@ class Quick3DHost:
     def _apply_photo(self, picture_height_px: float) -> None:
         """The photo settings for the camera in place and a picture of this height."""
         shot = self._camera_scene
-        eye = shot.eye if shot is not None else (0.0, 0.0, 0.0)
-        for name, value in photo_properties(self._photo, eye, picture_height_px).items():
+        eye, target = (shot.eye, shot.target) if shot is not None else ((0.0, 0.0, 0.0),) * 2
+        for name, value in photo_properties(self._photo, eye, target, picture_height_px).items():
             _set(self._root, name, value)
 
     def _apply_grade(self, grade: str) -> None:

@@ -56,6 +56,9 @@ _PAUSED_RETRY_MS: Final = 250
 #: A frame that has not settled after this long is rendered anyway and counted: a pipeline
 #: that cannot settle must not hold a recording for ever (``TourResult.unsettled``).
 SETTLE_LIMIT_S: Final = 20.0
+#: The first frame also waits for the plants the whole flight passes close by: a plan's worth
+#: of forging, once (``WorkspaceCaptureCoordinator.start_tour``).
+FIRST_FRAME_SETTLE_FACTOR: Final = 9
 #: The thumbnail a preview shows of each frame, at most, in logical pixels of the dialog.
 _THUMBNAIL_WIDTH: Final = 480
 
@@ -150,7 +153,8 @@ class TourRecorder(QObject):
         frame = self._frame
         assert frame is not None
         if not self._settled():
-            if time.monotonic() - self._settling_since < SETTLE_LIMIT_S:
+            limit = SETTLE_LIMIT_S if self._done else SETTLE_LIMIT_S * FIRST_FRAME_SETTLE_FACTOR
+            if time.monotonic() - self._settling_since < limit:
                 self._timer.start(_RETRY_MS)
                 return
             self._unsettled += 1

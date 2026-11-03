@@ -142,6 +142,17 @@ def test_a_tour_writes_every_frame_and_leaves_the_view_where_it_was(tmp_path: Pa
     assert result["camera_kept"] and result["clock_kept"]
 
 
+def test_a_tours_frames_show_the_plants_as_the_view_would_from_there(tmp_path: Path) -> None:
+    """The view's camera used to decide a tour's leaves: 9.72 levels from the view moved there."""
+    result = drive(tmp_path, "detail")
+    assert result["tour"]["ok"] and result["tour"]["unsettled"] == 0, result["tour"]
+    assert result["finer_than_the_view"] > 0, "the flight really passes closer than the view"
+    assert result["frame_has_the_flights_detail"]
+    assert result["pending_at_first_frame"] == 0, "the first frame waited for them"
+    assert result["fine_vs_coarse"]["mean"] > 1.0, "and it can be seen"
+    assert result["after_it_the_camera_decides"]
+
+
 def test_a_time_lapse_follows_the_clock_and_puts_it_back(tmp_path: Path) -> None:
     runs = drive(tmp_path, "timelapse")["runs"]
     day, year = runs["day"], runs["year"]

@@ -1034,8 +1034,11 @@ Item {
             adjustmentContrast: root.photoGraded ? 1.0 : root.contrast
             // photo mode (L6.1): off unless a setting asks, and never in the truth view
             vignetteEnabled: !root.topDown && root.photoVignette > 0
-            // Qt: colour x (u (1-u) v (1-v) x strength) ^ radius. A LOWER strength darkens the
-            // middle of the picture too; the exponent is what reaches only into the corners
+            // Qt: colour x (u (1-u) v (1-v) x strength) ^ radius, towards this colour. Its
+            // default grey brightens whatever is darker (34 % of a night's pixels). A LOWER
+            // strength darkens the middle of the picture too; the exponent is what reaches only
+            // into the corners
+            vignetteColor: "black"
             vignetteStrength: 15
             vignetteRadius: root.photoVignette
             lutEnabled: !root.topDown && root.photoGraded

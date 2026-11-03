@@ -45,7 +45,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from open_garden_planner.core.camera_path import CameraKey, TourFrame, TourSpec
+from open_garden_planner.core.camera_path import CameraKey, TourFrame, TourSpec, path_eyes
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d.photo import (
     DEFAULT_BLUR,
@@ -136,7 +136,8 @@ class WorkspaceCaptureCoordinator(QObject):
                  get_camera: Callable[[], Any], get_camera_now: Callable[[], tuple[Any, Any, float]],
                  forge_pending: Callable[[], int], is_pane_showing: Callable[[], bool],
                  view_state: Callable[[], str], ground_point: Callable[[float, float], Any],
-                 default_path: Callable[[str], str], parent: QWidget) -> None:
+                 default_path: Callable[[str], str], fly_path: Callable[[Any], None],
+                 parent: QWidget) -> None:
         super().__init__(parent)
         self._get_host = get_host
         self._get_controller = get_controller
@@ -149,6 +150,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self._view_state = view_state
         self._ground_point = ground_point
         self.default_path = default_path
+        self._fly_path = fly_path
         self._parent = parent
         self._settings: PhotoSettings = NO_PHOTO
         self._photo_on = False
@@ -486,6 +488,8 @@ class WorkspaceCaptureCoordinator(QObject):
             look.hold_preset(True)   # a recording view presents little: not a slow machine
         recorder.finished.connect(self._on_tour_finished)
         self._recorder = recorder
+        if not realtime:   # a preview shows how the tour moves, and does not wait for leaves
+            self._fly_path(path_eyes(spec))
         return recorder
 
     def _tour_frame(self, frame: TourFrame) -> QImage:
@@ -528,6 +532,7 @@ class WorkspaceCaptureCoordinator(QObject):
         if recorder is not None:
             recorder.deleteLater()
         moment, self._recording_clock = self._recording_clock, None
+        self._fly_path(None)
         host = self._get_host()
         if host is not None:
             host.end_captures()   # its render targets go; a 4K tour holds about 600 MB

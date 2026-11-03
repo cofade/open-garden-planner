@@ -31,6 +31,7 @@ from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core.commands import CreateItemsCommand
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.growth_model import years_to_maturity
 from open_garden_planner.core.guild_commands import GuildMembershipCommand
 from open_garden_planner.core.item_look import restore_stored_look
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
@@ -355,11 +356,30 @@ for _en, _de, _es in (
     text(_en, _de, _es)
 
 
+#: Before the first day of a tour's default time-lapse (``tour_dialog.DEFAULT_SEASON``).
+ESTABLISHED = "2026-03-01"
+
+
+def _establish(item):
+    """A tree, a shrub, a perennial stood here before the season: a time-lapse from March shows
+    it leafing out, not popping in on the fixture's one date. What ripens within a season keeps
+    its planting day and comes up in the beds."""
+    metadata = getattr(item, "metadata", None) or {}
+    instance, species = metadata.get("plant_instance"), metadata.get("plant_species")
+    if not instance or not species:
+        return
+    kind = item.object_type.name if getattr(item, "object_type", None) is not None else ""
+    if years_to_maturity(species, kind) >= 1.0:
+        instance["planting_date"] = ESTABLISHED
+
+
 def family_garden():
     """The bench plan as an example: ``make_bench_plans.build_small``, one builder for both."""
     from make_bench_plans import BERLIN, build_small
 
     builder = build_small()
+    for item in builder.scene.items():
+        _establish(item)
     manager = ProjectManager()
     manager.set_location(dict(BERLIN) | {"timezone": "Europe/Berlin"})
     return builder.scene, manager

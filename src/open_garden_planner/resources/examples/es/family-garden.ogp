@@ -962,7 +962,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 55.0
         }
       },
@@ -1015,7 +1015,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 55.0
         }
       },
@@ -1137,7 +1137,7 @@
           ]
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 55.0
         }
       },
@@ -1190,7 +1190,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 55.0
         }
       },
@@ -1243,7 +1243,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 55.0
         }
       },
@@ -1296,7 +1296,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 55.0
         }
       },
@@ -1419,7 +1419,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 55.0
         }
       },
@@ -1540,7 +1540,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15"
+          "planting_date": "2026-03-01"
         }
       },
       "label_visible": false,
@@ -1766,7 +1766,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15"
+          "planting_date": "2026-03-01"
         }
       },
       "label_visible": false,
@@ -3623,7 +3623,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 90.14863606657975,
           "current_height_cm": 165.35971892390944
         }
@@ -3678,7 +3678,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 107.44448177497136,
           "current_height_cm": 121.09662804769371
         }
@@ -3731,7 +3731,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 111.07284109575926,
           "current_height_cm": 114.53216722573322
         }
@@ -3784,7 +3784,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 101.63720855652566,
           "current_height_cm": 144.52754436302166
         }
@@ -3837,7 +3837,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 90.02292423469608,
           "current_height_cm": 119.60656655823192
         }
@@ -3890,7 +3890,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 106.12957166890804,
           "current_height_cm": 109.14036685735894
         }
@@ -3945,7 +3945,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 110.0,
           "current_height_cm": 117.41252484203524
         }
@@ -4000,7 +4000,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 110.0,
           "current_height_cm": 141.4306139196968
         }
@@ -4055,7 +4055,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 110.0,
           "current_height_cm": 123.03167972001397
         }
@@ -4110,7 +4110,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 110.0,
           "current_height_cm": 133.15188322823175
         }
@@ -4165,7 +4165,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 360.0,
           "current_height_cm": 480.0
         }
@@ -4218,7 +4218,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 280.0,
           "current_height_cm": 900.0
         }
@@ -4273,7 +4273,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 340.0,
           "current_height_cm": 420.0
         }
@@ -4328,7 +4328,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 280.0,
           "current_height_cm": 450.0
         }
@@ -4381,7 +4381,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 240.0,
           "current_height_cm": 800.0
         }
@@ -4434,7 +4434,7 @@
           "functions": []
         },
         "plant_instance": {
-          "planting_date": "2026-04-15",
+          "planting_date": "2026-03-01",
           "current_spread_cm": 220.0,
           "current_height_cm": 300.0
         }

@@ -51,7 +51,7 @@ def test_the_module_is_free_of_qt() -> None:
 
 def test_no_photo_develops_nothing() -> None:
     """Every setting off IS the view: the scene's own defaults, through the mapping."""
-    properties = photo_properties(NO_PHOTO, (0.0, 0.0, 100.0), 720.0)
+    properties = photo_properties(NO_PHOTO, (0.0, 0.0, 100.0), (0.0, 100.0, 0.0), 720.0)
     assert properties["photoExposure"] == 1.0
     assert properties["photoVignette"] == 0.0
     assert properties["photoBlur"] == 0.0
@@ -66,7 +66,7 @@ def test_the_scene_declares_what_the_mapping_writes_and_starts_with_nothing_on()
     for name, default in (("photoExposure", "1.0"), ("photoVignette", "0.0"), ("photoBlur", "0.0")):
         assert f"property real {name}: {default}" in text, name
     assert "property bool photoGraded: false" in text
-    for name in photo_properties(NO_PHOTO, (0.0, 0.0, 0.0), 720.0):
+    for name in photo_properties(NO_PHOTO, (0.0, 0.0, 0.0), (0.0, 1.0, 0.0), 720.0):
         assert f"property real {name}:" in text, name
 
 
@@ -78,23 +78,45 @@ def test_exposure_is_in_photographers_stops(stops: float, gain: float) -> None:
 def test_the_vignette_reaches_only_into_the_corners() -> None:
     """Qt: colour x (u (1-u) v (1-v) x 15) ^ radius. Measured: a lower strength darkened the
     middle too. So the setting is the exponent, and the middle stays within 2 %."""
-    strongest = photo_properties(PhotoSettings(vignette=1.0), (0.0, 0.0, 0.0), 720.0)["photoVignette"]
+    strongest = photo_properties(PhotoSettings(vignette=1.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0),
+                                 720.0)["photoVignette"]
     assert strongest == pytest.approx(VIGNETTE_MAX)
     middle = (0.25 * 0.25 * 15.0) ** strongest
     corner = (0.05 * 0.95 * 0.05 * 0.95 * 15.0) ** strongest
     assert middle > 0.975
-    assert corner < 0.4
+    assert corner < 0.55
+
+
+def test_the_vignette_darkens_towards_black_and_never_brightens() -> None:
+    """Qt's default colour is grey: a third of a night's pixels came out BRIGHTER (3D review)."""
+    qml = (Path(photo.__file__).parents[2] / "ui" / "view3d" / "quick3d" / "qml"
+           / "Garden.qml").read_text(encoding="utf-8")
+    assert 'vignetteColor: "black"' in qml
 
 
 def test_the_focus_is_a_point_so_a_moving_camera_keeps_it() -> None:
     settings = PhotoSettings(blur=0.5, focus_scene=(100.0, 0.0, 0.0))
-    assert focus_distance_cm(settings, (0.0, 0.0, 0.0)) == pytest.approx(100.0)
-    assert focus_distance_cm(settings, (100.0, 300.0, 400.0)) == pytest.approx(500.0)
-    assert focus_distance_cm(NO_PHOTO, (5.0, 5.0, 5.0)) == 0.0
+    assert focus_distance_cm(settings, (0.0, 0.0, 0.0), (100.0, 0.0, 0.0)) == pytest.approx(100.0)
+    assert focus_distance_cm(settings, (100.0, 300.0, 400.0), (100.0, 0.0, 0.0)) == pytest.approx(500.0)
+    assert focus_distance_cm(NO_PHOTO, (5.0, 5.0, 5.0), (5.0, 6.0, 5.0)) == 0.0
+
+
+def test_the_focus_is_a_depth_along_the_view_and_not_the_way_to_the_point() -> None:
+    """Qt compares depths. A clicked point off the axis at the straight distance kept 0.37 of
+    its sharpness near a corner (3D review); along the axis it keeps all of it."""
+    settings = PhotoSettings(blur=0.5, focus_scene=(300.0, 400.0, 0.0))
+    eye, target = (0.0, 0.0, 0.0), (0.0, 1000.0, 0.0)
+    assert focus_distance_cm(settings, eye, target) == pytest.approx(400.0), "not 500, its distance"
+
+
+def test_a_point_behind_the_camera_or_a_camera_without_a_direction_gives_a_usable_depth() -> None:
+    settings = PhotoSettings(blur=0.5, focus_scene=(0.0, -100.0, 0.0))
+    assert focus_distance_cm(settings, (0.0, 0.0, 0.0), (0.0, 50.0, 0.0)) == 0.0
+    assert focus_distance_cm(settings, (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)) == pytest.approx(100.0)
 
 
 def test_what_stays_sharp_grows_with_the_distance_and_never_vanishes() -> None:
-    assert focus_range_cm(4000.0) == pytest.approx(1000.0)
+    assert focus_range_cm(4000.0) == pytest.approx(1600.0)
     assert focus_range_cm(10.0) >= 30.0
 
 
@@ -102,7 +124,7 @@ def test_a_focus_without_blur_or_blur_without_a_focus_is_no_depth_of_field() -> 
     assert not PhotoSettings(blur=0.5).depth_of_field
     assert not PhotoSettings(focus_scene=(1.0, 2.0, 3.0)).depth_of_field
     assert PhotoSettings(blur=0.5, focus_scene=(1.0, 2.0, 3.0)).depth_of_field
-    properties = photo_properties(PhotoSettings(blur=1.0), (0.0, 0.0, 0.0), 1080.0)
+    properties = photo_properties(PhotoSettings(blur=1.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0), 1080.0)
     assert properties["photoBlur"] == 0.0
 
 
@@ -175,6 +197,23 @@ def test_each_grade_does_what_its_name_says() -> None:
     crisp, plain = table("crisp"), table(NO_GRADE)
     assert crisp[15, 0, 0][0] >= plain[15, 0, 0][0]
     assert int(crisp[2, 2, 2][0]) < int(plain[2, 2, 2][0]), "more contrast: darker shadows"
+
+
+def test_crisp_leaves_the_ends_of_the_range_where_they_are() -> None:
+    """A straight gain took a third of a sunset's pixels to a channel at 0 (3D review)."""
+    crisp, plain = table("crisp"), table(NO_GRADE)
+    assert (crisp[0, 0, 0][:3] == plain[0, 0, 0][:3]).all()
+    assert (crisp[15, 15, 15][:3] == plain[15, 15, 15][:3]).all()
+    channels = crisp.reshape(-1, 4)[:, :3]
+    assert (channels == 0).mean() < (plain.reshape(-1, 4)[:, :3] == 0).mean() + 0.04
+
+
+def test_golden_keeps_a_blue_sky_blue() -> None:
+    """Blue x 0.88 took 46 % of the sky's colour, a muddy olive (3D review)."""
+    sky = (9, 11, 14)   # red, green, blue levels of a table
+    graded, plain = table("golden")[sky][:3].astype(np.int32), table(NO_GRADE)[sky][:3].astype(np.int32)
+    assert graded[2] > graded[1] > graded[0], "still blue"
+    assert plain[2] - graded[2] < 0.08 * plain[2]
 
 
 def test_an_unknown_grade_is_refused() -> None:

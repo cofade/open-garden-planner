@@ -304,6 +304,36 @@ class TestForgeCacheAndWorker:
         assert cache.get(("species", "oak", 1, LOD2, 40000, 18000, "")) == p1
         _ = p2
 
+    def test_a_flown_path_decides_a_plants_detail_until_the_camera_takes_over_again(self) -> None:
+        """A recording's frames show the detail the view would from there (L6, 3D review)."""
+        sink = RecordingSink()
+        worker = ForgeWorker(sink, cache=ForgeCache(max_entries=16))
+        ref = SpriteRef("species", "apple_tree")
+        near_the_flight = _tree_record(ref, item_id="a", east_cm=9000.0, north_cm=0.0)
+        away_from_it = _tree_record(ref, item_id="b", east_cm=0.0, north_cm=9000.0)
+        sink.begin()
+        for record in (near_the_flight, away_from_it):
+            sink.add(record.item_id, (), record.transform, record.material)
+        sink.commit()
+        camera = (20000.0, 20000.0, 170.0)
+        worker.submit_snapshot([near_the_flight, away_from_it], camera_pos=camera)
+        worker.drain()
+        assert {key: state[1] for key, state in worker._applied_state.items()} == {"a": LOD2, "b": LOD2}
+
+        worker.fly_path([(30000.0, 0.0, 100.0), (9000.0, -500.0, 100.0), (30000.0, 500.0, 100.0)])
+        assert worker.pending_count == 1, "only what the flight passes"
+        worker.drain()
+        assert worker._applied_state["a"][1] == LOD0 and worker._applied_state["b"][1] == LOD2
+
+        worker.update_camera(camera)
+        assert worker.pending_count == 0, "a camera on the move changes nothing while it flies"
+        worker.submit_snapshot([near_the_flight, away_from_it], camera_pos=camera)
+        assert worker.pending_count == 0, "nor does a regrowth of the same plants"
+
+        worker.fly_path(None)
+        worker.drain()
+        assert worker._applied_state["a"][1] == LOD2
+
     def test_forge_worker_orders_visible_plants_first(self) -> None:
         sink = RecordingSink()
         worker = ForgeWorker(sink, cache=ForgeCache(max_entries=16))

@@ -30,10 +30,10 @@ from numpy.typing import NDArray
 
 from .scene3d.camera import CameraPose
 
-__all__ = ["DATE_STEPS_PER_S", "DEFAULT_FPS", "FRAME_RATES", "MAX_DURATION_S", "MIN_DURATION_S",
-           "MIN_EYE_CM", "WIND_START_S",
+__all__ = ["DATE_STEPS_PER_S", "DEFAULT_FPS", "EYE_SAMPLES_PER_S", "FRAME_RATES", "MAX_DURATION_S",
+           "MIN_DURATION_S", "MIN_EYE_CM", "WIND_START_S",
            "CameraKey", "CameraMotion", "CameraPath", "DroneOrbit", "HeldCamera", "TourFrame",
-           "TourSpec", "frame_count", "tour_frames"]
+           "TourSpec", "frame_count", "path_eyes", "tour_frames"]
 
 Point3 = tuple[float, float, float]
 
@@ -59,6 +59,8 @@ _FOV_WEIGHT_CM: Final = 10.0
 #: plan). Nobody sees a plant grow between two of eight frames a second; a 12 s video is
 #: then 96 regrowths and a quarter of the time.
 DATE_STEPS_PER_S: Final = 8.0
+#: How often per second ``path_eyes`` samples a flight: a plant's detail changes over metres.
+EYE_SAMPLES_PER_S: Final = 4.0
 _ALPHA: Final = 0.5
 _EASE_SHARE: Final = 0.15
 
@@ -286,6 +288,13 @@ def _time_at(span: tuple[time, time], u: float) -> time:
     last = span[1].hour * 3600 + span[1].minute * 60 + span[1].second
     seconds = round(first + (last - first) * u)
     return time(seconds // 3600, seconds // 60 % 60, seconds % 60)
+
+
+def path_eyes(spec: TourSpec) -> tuple[Point3, ...]:
+    """Where the tour's camera will be, without computing every frame: a plant's detail follows
+    the nearest of these during a recording (``ForgeWorker.fly_path``)."""
+    last = max(1, math.ceil(spec.duration_s * EYE_SAMPLES_PER_S))
+    return tuple(spec.motion.at(index / last).eye for index in range(last + 1))
 
 
 def tour_frames(spec: TourSpec) -> Iterator[TourFrame]:

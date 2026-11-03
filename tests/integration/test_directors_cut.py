@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 import pytest
@@ -19,7 +20,13 @@ from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QImage
 from PyQt6.QtWidgets import QPushButton
 
-from open_garden_planner.core.camera_path import CameraKey, HeldCamera, TourSpec, frame_count
+from open_garden_planner.core.camera_path import (
+    CameraKey,
+    HeldCamera,
+    TourSpec,
+    frame_count,
+    path_eyes,
+)
 from open_garden_planner.core.scene3d.photo import DEFAULT_BLUR, NO_PHOTO, PhotoSettings
 from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.view3d.quick3d.lifecycle import HostStateError
@@ -360,6 +367,46 @@ def run_tour(rig: Rig, spec: TourSpec, writer: Any = None, size: tuple[int, int]
     return outcome[0]
 
 
+def test_a_recording_gives_the_plants_its_flight_and_takes_it_back_and_a_preview_does_not(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    flights: list[Any] = []
+    monkeypatch.setattr(capture, "_fly_path", flights.append)
+    key = CameraKey((0.0, 0.0, 500.0), (10.0, 10.0, 0.0))
+    spec = TourSpec(HeldCamera(key), 1.0, 24)
+    assert run_tour(rig, spec).ok
+    assert flights[0] == path_eyes(spec) and flights[-1] is None and len(flights) == 2
+    flights.clear()
+    assert run_tour(rig, spec, realtime=True).ok
+    assert flights == [None], "a preview shows how a tour moves, and does not wait for leaves"
+
+
+def test_the_flight_reaches_the_forge_and_its_work_starts(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    class Forge:
+        pending_count = 3
+        flights: list[Any] = []
+
+        def fly_path(self, eyes: Any) -> None:
+            self.flights.append(eyes)
+
+        def step(self, max_items: int = 1) -> list[str]:
+            return []
+
+    rig.open_3d()
+    workspace = rig.workspace
+    assert workspace._forge_worker is None, "no forge on this bench unless it is put there"
+    workspace._fly_path(((0.0, 0.0, 500.0),))   # and without one it is nothing to worry about
+    forge = Forge()
+    monkeypatch.setattr(workspace, "_forge_worker", forge)
+    eyes = ((0.0, 0.0, 500.0),)
+    workspace._fly_path(eyes)
+    assert forge.flights == [eyes]
+    assert workspace._forge_timer.isActive(), "the plants of the flight are forged from now on"
+    workspace._forge_timer.stop()
+
+
 def test_a_tour_renders_every_frame_from_its_own_camera_without_moving_the_view(rig: Rig) -> None:
     rig.open_3d()
     host = rig.host
@@ -532,6 +579,18 @@ def test_a_frame_waits_for_the_pipeline_to_settle(qtbot: Any) -> None:
     made.start()
     qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
     assert outcome[0].unsettled == 0 and len(answers) < 1000
+
+
+def test_the_first_frame_may_wait_longer_for_the_plants_of_the_whole_flight(
+        qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The forge is at work on everything the flight passes close by; later frames only on what
+    a day has changed. Rendered too early, a video opens on coarse leaves that pop in later."""
+    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.05)
+    ready_at = monotonic() + 0.25
+    made, outcome = recorder(Sink(), settled=lambda: monotonic() > ready_at)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert outcome[0].ok and outcome[0].unsettled == 0
 
 
 def test_a_pipeline_that_never_settles_cannot_hold_a_recording_for_ever(

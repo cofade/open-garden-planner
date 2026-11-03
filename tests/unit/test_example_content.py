@@ -191,3 +191,22 @@ def test_localized_examples_keep_geometry_ids_art_and_botanical_truth(slug, lang
             assert old["metadata"]["plant_instance"] == new["metadata"]["plant_instance"]
         if old["type"] == "text":
             assert old["content"] != new["content"]
+
+
+def test_the_showcases_trees_stand_before_a_time_lapse_starts_and_the_beds_come_up_in_it():
+    """A full-grown birch must not pop in on the fixture's one planting day (3D review)."""
+    from open_garden_planner.core.growth_model import years_to_maturity
+
+    plan = load(SHOWCASE)
+    plants = [o for o in plan["objects"] if o.get("metadata", {}).get("plant_instance")]
+    established = seasonal = 0
+    for plant in plants:
+        metadata = plant["metadata"]
+        planted = metadata["plant_instance"]["planting_date"]
+        if years_to_maturity(metadata["plant_species"], plant.get("object_type", "")) >= 1.0:
+            assert planted <= "2026-03-01", metadata["plant_species"].get("common_name")
+            established += 1
+        else:
+            assert planted == "2026-04-15"
+            seasonal += 1
+    assert established and seasonal

@@ -27,17 +27,21 @@ __all__ = ["BLUR_MAX", "DEFAULT_BLUR", "EXPOSURE_EV_RANGE", "GRADES", "LUT_SIZE"
 
 #: The table's edge: Qt's default, and all a smooth grade needs.
 LUT_SIZE: Final = 16
-EXPOSURE_EV_RANGE: Final = (-2.0, 2.0)
-#: Qt's ``depthOfFieldBlurAmount`` at a setting of 1, at a picture 1080 pixels high.
-BLUR_MAX: Final = 8.0
+#: Two stops up clipped two thirds of a noon picture (3D review): the top stops short of that.
+EXPOSURE_EV_RANGE: Final = (-2.0, 1.5)
+#: Qt's ``depthOfFieldBlurAmount`` at a setting of 1, at a picture 1080 pixels high. Its blur
+#: has three taps: at 8 they read as ghosts of a trellis and of leaves.
+BLUR_MAX: Final = 5.0
 #: What "focus here" switches on when no blur was asked for yet.
-DEFAULT_BLUR: Final = 0.5
-#: Qt's ``vignetteRadius`` at a setting of 1 (its default): an exponent, and the control
-#: that reaches only into the corners. Its ``vignetteStrength`` stays at Qt's 15: a lower
-#: one darkens the middle of the picture too (2.4 took the mean luma from 99 to 47).
-VIGNETTE_MAX: Final = 0.35
-#: What stays sharp around the focused point: this share of its distance, in front and behind.
-FOCUS_RANGE_SHARE: Final = 0.25
+DEFAULT_BLUR: Final = 0.8
+#: Qt's ``vignetteRadius`` at a setting of 1: an exponent, and the control that reaches only
+#: into the corners. Its ``vignetteStrength`` stays at Qt's 15: a lower one darkens the middle
+#: of the picture too (2.4 took the mean luma from 99 to 47). The colour is black in
+#: ``Garden.qml``: Qt's default grey BRIGHTENS a picture darker than it (a third of a night).
+VIGNETTE_MAX: Final = 0.20
+#: How deep the band that stays sharp is, as a share of the focused point's depth: half of it
+#: in front of the point, half behind (Qt's ``depthOfFieldFocusRange``).
+FOCUS_RANGE_SHARE: Final = 0.40
 _FOCUS_RANGE_MIN_CM: Final = 30.0
 NO_GRADE: Final = "none"
 #: The picture height the blur amount is defined at. Qt's blur is measured in pixels of the
@@ -79,12 +83,21 @@ def exposure_gain(exposure_ev: float) -> float:
     return float(2.0 ** exposure_ev)
 
 
-def focus_distance_cm(settings: PhotoSettings, eye: tuple[float, float, float]) -> float:
-    """How far the focused point is from ``eye``; 0 without one. A distance is what Qt
-    takes, but a POINT is what the user picked: on a tour the focus stays on the plant."""
+def focus_distance_cm(settings: PhotoSettings, eye: tuple[float, float, float],
+                      target: tuple[float, float, float]) -> float:
+    """How deep the focused point lies in front of a camera at ``eye`` looking at ``target``;
+    0 without one, or behind the camera. A depth is what Qt takes, but a POINT is what the user
+    picked: on a tour the focus stays on the plant. Along the view's axis, not the way to the
+    point: Qt compares depths, and off-axis the straight distance is sharp somewhere else
+    (a clicked point near a corner kept 0.37 of its sharpness)."""
     if settings.focus_scene is None:
         return 0.0
-    return math.dist(settings.focus_scene, eye)
+    length = math.dist(target, eye)
+    if length <= 0.0:   # no axis to measure along
+        return math.dist(settings.focus_scene, eye)
+    depth = sum((point - start) * (end - start) for point, end, start
+                in zip(settings.focus_scene, target, eye, strict=True)) / length
+    return max(depth, 0.0)
 
 
 def focus_range_cm(distance_cm: float) -> float:
@@ -107,15 +120,16 @@ def _luma(rgb: Rgb) -> Rgb:
 def _golden(rgb: Rgb) -> Rgb:
     """Warm highlights, a little warmth in the shadows too: late afternoon."""
     luma = _luma(rgb)[..., None]
-    warm = rgb * np.array((1.06, 1.0, 0.88))
-    return np.asarray(warm + (0.03 * (1.0 - luma)) * np.array((1.0, 0.45, 0.0)))
+    warm = rgb * np.array((1.05, 1.0, 0.95))   # 0.88 took 46 % of a blue sky's colour: olive
+    return np.asarray(warm + (0.02 * (1.0 - luma)) * np.array((1.0, 0.45, 0.0)))
 
 
 def _crisp(rgb: Rgb) -> Rgb:
-    """More contrast and saturation around the mid-tones: a bright, clear day."""
-    contrast = 0.5 + (rgb - 0.5) * 1.12
+    """More contrast and saturation around the mid-tones: a bright, clear day. A curve that
+    leaves 0 and 1 where they are: a straight gain took a third of a sunset to a channel at 0."""
+    contrast = rgb + 0.48 * (rgb - 0.5) * rgb * (1.0 - rgb)
     luma = _luma(contrast)[..., None]
-    return np.asarray(luma + (contrast - luma) * 1.16)
+    return np.asarray(luma + (contrast - luma) * 1.08)
 
 
 def _cool(rgb: Rgb) -> Rgb:

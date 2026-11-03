@@ -186,11 +186,12 @@ def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
 
 
 def photo_properties(settings: PhotoSettings, eye: tuple[float, float, float],
+                     target: tuple[float, float, float],
                      picture_height_px: float) -> dict[str, float]:
-    """``settings`` as the scene's photo properties, for a camera at ``eye`` and a picture
-    this many device pixels high (L6.1). The grade is not here: it is a texture, and the
-    host owns those (``Quick3DHost.set_photo``)."""
-    distance = focus_distance_cm(settings, eye)
+    """``settings`` as the scene's photo properties, for a camera at ``eye`` looking at
+    ``target`` and a picture this many device pixels high (L6.1). The grade is not here: it is
+    a texture, and the host owns those (``Quick3DHost.set_photo``)."""
+    distance = focus_distance_cm(settings, eye, target)
     return {
         "photoExposure": exposure_gain(settings.exposure_ev),
         "photoVignette": float(settings.vignette) * VIGNETTE_MAX,

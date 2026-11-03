@@ -14,6 +14,7 @@ Scenarios:
               camera of its own, and the view afterwards; photo settings, each off again.
 ``grades``    Every grade against the view; the identity table against the view.
 ``tour``      The workspace's own recording: a drone orbit into an MP4, read back with Qt.
+``detail``    A recording close to the plants: its frames have the flight's plant detail.
 ``timelapse`` A day and a stretch of the year: the clock is put back, frames follow it.
 ``agent``     The MCP tool's provider on the real workspace: its refusals and its picture.
 """
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 import traceback
@@ -33,6 +35,7 @@ from typing import Any
 
 import numpy as np
 from PyQt6.QtCore import QEventLoop, Qt, QTimer, QUrl
+from PyQt6.QtGui import QImage
 from PyQt6.QtWidgets import QApplication
 
 REPO = Path(__file__).resolve().parents[2]
@@ -413,6 +416,69 @@ def scenario_tour(out: Path) -> dict[str, Any]:
         pump(100)
 
 
+def scenario_detail(out: Path) -> dict[str, Any]:
+    """A recording's frames show the plants the view would show from there, not the view's."""
+    from open_garden_planner.core.camera_path import CameraKey, HeldCamera, TourSpec, path_eyes
+    from open_garden_planner.core.plant_forge.lod import select_lod
+    from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+    from open_garden_planner.ui.view3d.video_writer import PngSequenceWriter
+
+    window, workspace = main_window_on_plan()
+    try:
+        result: dict[str, Any] = {"settled_s": settled(workspace)}
+        capture, host = workspace.capture, workspace.host
+        worker, records = workspace._forge_worker, workspace._controller.sync.records
+        key = CameraKey((2100.0, -300.0, 300.0), (1900.0, 300.0, 60.0), 40.0)
+        shot = PerspectiveShot(key.eye, key.target, key.fov_deg)
+        coarse = rgb(host.capture((1280, 720), shot, wind_time_s=10.0, label="coarse"))
+        spec = TourSpec(HeldCamera(key), 1.0, 24)
+
+        def lods() -> dict[str, int]:
+            return {name: state[1] for name, state in worker._applied_state.items()}
+
+        def wanted(eyes: Any) -> dict[str, int]:
+            answer = {}
+            for name in lods():
+                place = records[name].transform
+                centre = (place.east_cm, place.north_cm,
+                          place.base_cm + float(records[name].height_cm or 0.0) * 0.5)
+                answer[name] = select_lod(min(math.dist(centre, eye) for eye in eyes))
+            return answer
+
+        before = lods()
+        seen: dict[str, Any] = {}
+        take = capture._tour_frame
+
+        def spy(frame: Any) -> Any:
+            if not seen:
+                seen["lods"] = lods()
+                seen["pending"] = capture._forge_pending()
+            return take(frame)
+
+        capture._tour_frame = spy
+        folder = out / "frames"
+        folder.mkdir()
+        outcome: list[Any] = []
+        recorder = capture.start_tour(spec, (1280, 720), PngSequenceWriter(folder, (1280, 720)))
+        recorder.finished.connect(outcome.append)
+        result["done_s"] = wait_until(lambda: bool(outcome), 240.0)
+        tour = outcome[0]
+        result["tour"] = {"ok": tour.ok, "frames": tour.frames, "unsettled": tour.unsettled}
+        expected = wanted(path_eyes(spec))
+        result["finer_than_the_view"] = sum(1 for name, lod in expected.items() if lod < before[name])
+        result["frame_has_the_flights_detail"] = seen["lods"] == expected
+        result["pending_at_first_frame"] = seen["pending"]
+        fine = rgb(QImage(str(folder / "frame_000001.png")))
+        result["fine_vs_coarse"] = difference(fine, coarse)
+        settled(workspace)
+        result["after_it_the_camera_decides"] = lods() == before
+        return result
+    finally:
+        workspace.shutdown()
+        window.close()
+        pump(100)
+
+
 def scenario_timelapse(out: Path) -> dict[str, Any]:
     from open_garden_planner.core.camera_path import HeldCamera, TourSpec
     from open_garden_planner.ui.view3d.video_writer import PngSequenceWriter
@@ -561,6 +627,7 @@ def scenario_agent(out: Path) -> dict[str, Any]:
 
 SCENARIOS: dict[str, Callable[[Path], dict[str, Any]]] = {
     "host": scenario_host, "grades": scenario_grades, "tour": scenario_tour,
+    "detail": scenario_detail,
     "timelapse": scenario_timelapse, "agent": scenario_agent, "soak": scenario_soak,
     "daysoak": scenario_daysoak,
 }

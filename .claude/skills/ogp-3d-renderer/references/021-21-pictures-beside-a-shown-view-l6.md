@@ -27,10 +27,18 @@ PF-E3D-19, PF-E3D-20. Measured on the dev box (RTX 4070, Direct3D 11; WARP on th
   `int(lutSize*b + r)`: below 0 it reads the previous slice, above 1 the next. Its `fixY` undoes the
   flip of a LOADED image, so texture data runs its rows the other way, and a `Texture`'s `flipV`
   does not reach an effect's sampler.
-- **Vignette:** `colour × (u(1−u)v(1−v) × strength) ^ radius`. A lower strength darkens the middle too;
-  the exponent reaches only into the corners. Strength 15, radius 0.35 is Qt's default, and a dark one.
-- **Depth of field blur is in pixels of the picture:** scale it with the height, or a 4K photo is
-  sharper than its preview.
+- **Vignette:** `mix(vignetteColor, colour, (u(1−u)v(1−v) × strength) ^ radius)`. Its default colour is
+  GREY: it brightens whatever is darker (34 % of a night's pixels), so set black. A lower strength
+  darkens the middle too; the exponent reaches only into the corners. Strength 15, radius 0.35 is
+  Qt's default, and a dark one.
+- **Depth of field compares DEPTHS:** `focusDistance` is along the view's axis, and `focusRange` is the
+  whole band, half in front and half behind. The straight distance to a point near a corner kept
+  0.37 of its sharpness. Blur is three taps, in pixels of the picture: scale it with the height (or
+  a 4K photo is sharper than its preview), and above about 5 at 1080p the taps read as ghosts.
+- **A capture from another camera has the view camera's plant LOD:** nothing but `_apply_camera` tells
+  the forge about a camera, and `capture` must not. A tour gives it the whole flight first
+  (`ForgeWorker.fly_path`, 9.72 levels from the view moved there without it); an agent's single
+  picture cannot wait, and its tool description says so.
 - **Qt Multimedia in the wheels:** `QVideoFrameInput` is bound and works. `supportedVideoCodecs` for
   MPEG4 on Windows: MPEG1, MPEG2, MPEG4, H264, MotionJPEG (H264 is `h264_mf`, the system's encoder,
   Constrained Baseline). `errorOccurred` cannot be connected from PyQt6: its enum is unknown to the

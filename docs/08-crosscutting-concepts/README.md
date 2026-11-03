@@ -7854,7 +7854,8 @@ what the owner has on, and the agent's metadata says which.
 pane's notices and turns a click into "focus here". `core/scene3d/photo.py` is the Qt-free truth:
 `PhotoSettings` (exposure in stops, vignette, grade, blur, a focused POINT), `NO_PHOTO`, and the
 procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene. Blur is
-scaled to the picture's height, because Qt's is in pixels. Grades come through
+scaled to the picture's height, because Qt's is in pixels; the focused point becomes a depth along
+the view's axis, because that is what Qt compares. Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's
 life, and re-chosen when the look's adjustments change.
 
@@ -7862,7 +7863,10 @@ life, and re-chosen when the look's adjustments change.
 `TourRecorder` runs them one per event-loop pass: move the clock, wait until `_tour_settled`
 (the controller idle, no forge pending, the sky of this moment built), capture, offer to the
 writer. `start_tour` stops whoever else plays the clock (`clock_wanted` → the toolbar's Animate),
-holds the automatic preset, and restores the owner's date and time afterwards. A recording is
+holds the automatic preset, and restores the owner's date and time afterwards. While it records,
+`ForgeWorker.fly_path` gives each plant the finest detail the flight asks for (`path_eyes`), so a
+frame shows what the view would from there and no plant changes its leaves in mid-flight; the first
+frame waits for that, up to `SETTLE_LIMIT_S × FIRST_FRAME_SETTLE_FACTOR`. A recording is
 modal; a preview (small, in real time, skipping what it is late for) is not. `HostStateError` pauses
 it and it goes on without a gap.
 
@@ -7876,8 +7880,9 @@ picks from `CODECS`.
 `photo=NO_PHOTO` and reports what the picture shows. See §8.19.
 
 Known limits: the view must be open for an agent (ADR-071); a tour's keys live in the session;
-a capture has the view's quality preset; a year's time-lapse spends #531's 2 MB per regrowth;
-the MP4 carries no colour tag.
+a capture has the view's quality preset; an agent's picture from another camera has the plant
+detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
+colour tag.
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 
