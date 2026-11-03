@@ -153,7 +153,8 @@ def test_the_3d_selftest_draws_and_judges_the_selection_ring(tmp_path: Path) -> 
     (frame,) = [line for line in proc.stdout.splitlines() if "Qt Quick 3D frame" in line]
     assert frame.endswith("(Garden.qml, 6 materials, a baked ground of 12 tiles in 12 tile "
                           "paints, the selection ring, the shade and the lines overlays, four "
-                          "screen doors; a rainy night with a garden light)")
+                          "screen doors; a rainy night with a garden light; the atmosphere "
+                          "sky, clear and cloudy)")
 
 
 @pytest.mark.parametrize(("file", "old", "new"), [
