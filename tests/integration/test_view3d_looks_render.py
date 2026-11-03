@@ -73,8 +73,6 @@ MIN_IOU = 0.85
 #: measured 0.919-0.986 (640 x 360, 2026-10-12). G8 asked only for a relaxed G2 there.
 #: G3. Night's mean LUMINANCE (linear light) under a quarter of noon's, same shot and plan.
 MAX_NIGHT_OVER_NOON = 0.25
-#: L7: how far sunset may read above golden hour on the ATMOSPHERE sky (see the moods test).
-ATMOSPHERE_MOOD_SWAP = 0.03
 #: G4. The spike's bound for the sky probe; measured here 0.03 degrees.
 MAX_SKY_ERROR_DEG = 6.0
 #: G5. The largest change of the row-mean luma across 0.15 degrees at the horizon, the
@@ -282,17 +280,17 @@ def test_night_is_under_a_quarter_of_noons_luminance_on_the_same_shot(board) -> 
         ratio = moods["night_over_noon"]["luminance"]
         assert ratio < MAX_NIGHT_OVER_NOON, (preset, moods["night_over_noon"])
         assert moods["night"]["night"] is True and moods["noon"]["night"] is False
-        # no mood contradicts its time of day: the lower the sun, the darker the frame
-        order = [moods[name]["mean_luminance"] for name in ("noon", "golden_hour", "sunset", "night")]
-        if metrics["sky_model"] == "atmosphere":
-            # L7 (#391): the atmosphere's light sits toward a low sun, and its gain gives the
-            # ground the painted sky's light, so a camera FACING the sun reads sunset up to
-            # 1.9 % above golden hour (measured 0.2443 / 0.2483 low, 0.2564 / 0.2614 high).
-            # Recorded for the owner (ADR-048 addendum L7); everything else stays strict.
-            golden, sunset = order[1], order[2]
-            assert sunset <= golden * (1.0 + ATMOSPHERE_MOOD_SWAP), (preset, order)
-            order[1], order[2] = max(golden, sunset), min(golden, sunset)
-        assert order == sorted(order, reverse=True), (preset, order)
+        # no mood contradicts its time of day: the lower the sun, the darker the GARDEN (the
+        # rows below the horizon), on both skies
+        names = ("noon", "golden_hour", "sunset", "night")
+        ground = [moods[name]["ground_luminance"] for name in names]
+        assert ground == sorted(ground, reverse=True), (preset, ground)
+        if metrics["sky_model"] == "painted":
+            # and the whole frame too. Not on the atmosphere (L7, #391, 3D review): its light
+            # sits toward a low sun, so a frame FACING it reads sunset up to 1.9 % above
+            # golden hour while the garden below darkens 23-25 %, as under the painted sky
+            order = [moods[name]["mean_luminance"] for name in names]
+            assert order == sorted(order, reverse=True), (preset, order)
 
 
 def test_the_sky_draws_its_sun_at_the_solar_azimuth(board) -> None:

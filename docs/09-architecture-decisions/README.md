@@ -3704,6 +3704,7 @@ versions):
 | Pick and cull mode (`qssgrenderray.cpp`) | positive determinants only: front faces of every material | the material's cull mode decides: `NoCulling` picks both sides | the selection witness keeps front faces of culled kinds and every face of `TWO_SIDED_KINDS` (foliage, grass, glass), pinned against the QML; the render tier's selection gate passed in full on 6.12 |
 | `QAccessibilityHints.motionPreference` | absent | `NoPreference` / `ReducedMotion`, with a change signal (Windows: `SPI_GETCLIENTAREAANIMATION`, the "Animation effects" switch) | honoured beside the app's setting (FR-3D-LOOK-04): either stops the wind; the drift guard now fails on a SECOND motion hint |
 | A destroyed window's lambda-connection proxies | freed in the first deferred-delete round | one round later | the widget-leak test flushes two rounds with a collection after each (PF-TST-36); not a product leak — the event loop keeps turning |
+| Destroying an EARLIER sky Texture (`buildSky`'s deferred `old.destroy()`) | the environment's watcher on it was gone with the switch | its destroyed-watcher still fires and sets the light probe to null although the probe is the current sky: the frame after every sun change drew the clear colour (sky-sequence test: (161, 154, 122) against (97, 126, 137); `master`'s code fails identically on the 6.12 wheels) | the environment restores its own `lightProbe` binding in `onLightProbeChanged`, synchronously, before a frame renders (PF-E3D-16); the board, a fresh host per frame, cannot see it |
 | Colour-property linearisation (`qssgutils.cpp`) | polynomial | unchanged (byte-identical source) | none |
 | `sampleProbe.glsllib` (`qt_sampleDiffuse` / `qt_sampleGlossy`, used by `water.frag`) | — | unchanged (byte-identical) | none |
 | `QSGRendererInterface.GraphicsApi` member names | `OpenGL`, `Direct3D11Rhi`, … | identical | none |
@@ -3738,16 +3739,40 @@ the painted sky) and mixes the atmosphere over it by
   139.0 / 139.0; 2°: 62.9 / 63.3; −2°: 47.6 / 47.2): the probe's light balance against the sun is
   the accepted one, only the sky's hue and structure are new;
 - **clouds**: coverage = the weather's cloud (overcast and rain 1.0, snow 0.85, clear 0); their
-  scattered light is scaled apart by `ATMOSPHERE_CLOUD_GAIN` 0.06 (the example's scale saturates
-  a full cover to white — its own comment says so), calibrated so a full Overcast lights the
-  ground as the painted Overcast does (grass 135.3 / 130.3 at 50°, 114.4 / 113.5 at 25°,
-  87.0 / 91.0 at 8°); they take the look's horizon hue (under a weather, the weather's own grey)
-  in proportion to the cover (`cloudHueShare`: the example's analytic sun reddening read beige
-  to mustard), and fade out between 120 and 240 km (`cloudMaxDistanceKm`, the example's 80 faded
-  them at 2.4–4.7° elevation, where the clear sky's bright horizon then showed as a stripe);
-- the disc: the look's sun colour × `ATMOSPHERE_DISC_ENERGY` 4, shown while the sun is up and
-  as far as the cloud lets it (`sunAlpha` = 1 − cloud) — at the painted disc's energy the
-  aerosol halo outshone it (240,239,237 under a glow of 248,244,230);
+  scattered light is scaled apart (`cloudLightGain`, `quick3d.look.cloud_light_gain`): at the
+  reference sun (50°) `ATMOSPHERE_CLOUD_GAIN` 0.06 × the clear sky's gain (the example's scale
+  saturates a full cover to white — its own comment says so), calibrated so a full Overcast
+  lights the ground as the painted Overcast does (noon ground luminance 0.211 / 0.207). As the
+  sun sinks the clear sky's gain at the actual sun rises about sevenfold to make up for the
+  physical sky's dimming, but the deck — lit by the sun — dims less: taken whole, that make-up
+  lit a cloudy sunset at 0.96–1.0 of its noon, and the L5 weather gates (which had not run on
+  the atmosphere) failed (3D review). A fixed high sun's gain alone dimmed the deck twice
+  (sunset over noon 0.56 / 0.59 / 0.47 for overcast / rain / snow). The clouds take
+  `ATMOSPHERE_CLOUD_MAKEUP` 0.7 of the make-up (the high sun's gain^0.3 × the actual one's^0.7),
+  calibrated on the board so a cloudy evening dims from noon as under the painted sky: sunset
+  over noon 0.740 / 0.772 / 0.621 against the painted 0.761 / 0.781 / 0.674 (Medium, 640 × 360;
+  at 1.0: 0.833 / 0.867 / 0.702, rain over the 0.85 bound). The garden at a cloudy sunset reads
+  about a quarter darker than under the painted sky (overcast ground 0.089 against 0.119) — for
+  the owner. The deck loses the sun through civil twilight as the look does (its sunlight ×
+  `atmosphereWeight`): the example clamps the sun's slant at the horizon, so its deck kept the
+  horizon sun's light down to −6° and a cloudy dusk brightened; with the fade every cloudy dusk
+  is monotone, the sunset step 0.0076 / 0.0076 / 0.0114 against day ramps of 0.050 / 0.051 /
+  0.067. Its sun-side silver lining (an edge effect) fades with the cover. The clouds take the
+  look's horizon hue (under a weather, the weather's own grey) in proportion to the cover
+  (`cloudHueShare`: the example's analytic sun reddening read beige to mustard), and fade out
+  between 120 and 240 km (`cloudMaxDistanceKm`, the example's 80 faded them at 2.4–4.7°
+  elevation, where the clear sky's bright horizon then showed as a stripe);
+- the disc: the look's sun colour × `ATMOSPHERE_DISC_ENERGY` 4 in its core, shown while the sun
+  is up and as far as the cloud lets it (`sunAlpha` = 1 − cloud) — at the painted disc's energy
+  the aerosol halo outshone it (240,239,237 under a glow of 248,244,230). The glow around the
+  core keeps the painted disc's colour and energy: × 4 there clipped a sunset disc and its glow
+  to white (255,255,253 against the painted 222,196,154; 3D review);
+- the water: Qt 6.12 lights a custom material through its `IBL_PROBE()` under a `SkyMaterial`
+  but leaves `QSSG_ENABLE_LIGHT_PROBE` false, so `water.frag` / `water_door.frag` guard their
+  sky term on that macro OR `SAMPLE_PROBE_GLSLLIB` (Qt's probe-sampler include guard) —
+  measured on the render tier's raised pool, the atmosphere's water at a 4° sun read
+  (1, 18, 32) against the painted (5, 40, 65), and (6, 41, 65) with the guard; the painted
+  sky's frames are identical with either guard (PF-E3D-15);
 - the air: the example's composition with half its aerosol haze
   (`atmosphere_lut.EARTH_ATMOSPHERE`, turbidity 0.5): at 1 the noon sky read pale and a
   camera facing a low sun washed to cream.
@@ -3795,11 +3820,13 @@ same); north-up identity NCC 0.757 (identical); night over noon 0.093 / 0.086 (0
 bound 0.25); the night rows' luma 53.60 / 51.31 (53.61 / 51.32); dusk monotone, the sunset
 step 0.0089 / 0.0087 against the day ramp's largest 0.030 (0.0067 / 0.0066 against 0.028 /
 0.029); the low preset's picket alias error 7.91 (8.07); the plan edge 0.43 / line 1.36
-(0.21 / 1.64; bounds 1.0 / 2.0); no Qt warning or error in either board. One art-direction row
-moves: with the camera facing a low sun the atmosphere's sunset frame reads above its golden
-hour — mean luminance 0.2443 / 0.2483 (low) and 0.2564 / 0.2614 (high), up to 1.9 % — its
-light sits toward the sun and its gain gives the ground the painted light. The render tier
-allows that swap within 3 % on the atmosphere only and records it for the owner. The distant-horizon rows (`--horizon`) read the same as the painted
+(0.21 / 1.64; bounds 1.0 / 2.0); no Qt warning or error in either board. The mood order is read on the garden: the render tier gates
+noon > golden hour > sunset > night on `ground_luminance` (the rows below the horizon,
+`board_probes.ground_luminance`) on both skies, and on the whole frame on the painted sky
+only — facing a low sun, the atmosphere's sun and its halo enter the frame and its sunset
+frame read up to 1.9 % above its golden hour while the garden below darkened 23–25 %, as
+under the painted sky. (Before the 3D review the tier allowed that swap within 3 %; the
+review replaced the tolerance with the garden's own order.) The distant-horizon rows (`--horizon`) read the same as the painted
 sky's and fail its 3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
 3.44 / 3.48; 67 m / 31.6° high: 3.11) — a pre-existing failure filed as #714, not this
 package's.

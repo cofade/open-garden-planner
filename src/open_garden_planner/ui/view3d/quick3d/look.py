@@ -31,6 +31,7 @@ look; the scene file's defaults are its mapping, pinned by a test.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Final
 
 import numpy as np
@@ -40,6 +41,7 @@ from open_garden_planner.core.scene3d.color import srgb_to_linear
 from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors, sun_direction_scene
 from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE_CLOUD_GAIN,
+    ATMOSPHERE_CLOUD_MAKEUP,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
     NEUTRAL_DAY,
@@ -51,7 +53,7 @@ from open_garden_planner.core.scene3d.look import (
 __all__ = ["ATMOSPHERE_VECTOR_PROPERTIES", "COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES",
            "NEUTRAL_DAY", "PRECIP_KINDS", "VECTOR_PROPERTIES", "LookSpec", "SkySpec",
            "atmosphere_properties", "atmosphere_sun_direction", "engine_hex", "engine_linear",
-           "painted_sky",
+           "cloud_light_gain", "painted_sky",
            "engine_srgb", "scene_properties", "sky_longitude", "sky_properties"]
 
 #: The look properties of ``Garden.qml`` that are colours given as ``#rrggbb`` …
@@ -246,6 +248,32 @@ def painted_sky(sky: SkySpec) -> PaintedSky:
                       ground_curve=float(sky.ground_curve))
 
 
+#: The sun the clouds' light is scaled at (``cloud_light_gain``): a high one, at a fixed
+#: azimuth, so its sky-view table is made once (the gain integrates the whole hemisphere,
+#: so it does not depend on the azimuth).
+CLOUD_REFERENCE_ELEVATION_DEG: Final = 50.0
+CLOUD_REFERENCE_AZIMUTH_DEG: Final = 180.0
+
+
+def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None = None) -> float:
+    """The clouds' light in the painted sky's units (3D review of L7): ``ATMOSPHERE_CLOUD_GAIN``
+    × the clear-sky gain of a HIGH sun under this look's colours, raised toward the gain at
+    the actual sun (``sky_gain``, ``atmosphere_gain`` of this sky) by
+    ``ATMOSPHERE_CLOUD_MAKEUP``.
+
+    The high sun's gain dims with the look's own sky; the actual sun's gain makes up for
+    the physical sky's dimming, which the deck — lit by the sun — dims less than: taken
+    whole it lit a cloudy sunset above the painted one, left out it dimmed the deck twice.
+    At the reference sun the two agree within 0.1 % (the painted disc, left out of the high
+    sun's gain because its colour switches at sundown): the calibrated noon."""
+    reference = replace(sky, sun_elevation_deg=CLOUD_REFERENCE_ELEVATION_DEG,
+                        sun_azimuth_deg=CLOUD_REFERENCE_AZIMUTH_DEG)
+    high = atmosphere_gain(atmosphere_sun_direction(reference), replace(painted, sun=painted.horizon))
+    actual = atmosphere_gain(atmosphere_sun_direction(sky), painted) if sky_gain is None else sky_gain
+    makeup = float(ATMOSPHERE_CLOUD_MAKEUP)
+    return float(ATMOSPHERE_CLOUD_GAIN) * high ** (1.0 - makeup) * float(actual) ** makeup
+
+
 def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
     """``sky`` as the property values of ``AtmosphereSky.qml`` (L7).
 
@@ -262,6 +290,7 @@ def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
     cloud = min(max(float(sky.cloud), 0.0), 1.0)
     sun = atmosphere_sun_direction(sky)
     painted = painted_sky(sky)
+    gain = float(atmosphere_gain(sun, painted))
     return {
         "sunDirection": sun,
         "sunAlpha": (1.0 - cloud) if day else 0.0,
@@ -275,8 +304,8 @@ def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
         "paintedGroundCurve": painted.ground_curve,
         "atmosphereWeight": 1.0 - min(max(float(sky.twilight), 0.0), 1.0),
         "hazeDeg": float(ATMOSPHERE_HAZE_DEG),
-        "atmosphereGain": float(atmosphere_gain(sun, painted)),
-        "cloudGain": float(ATMOSPHERE_CLOUD_GAIN),
+        "atmosphereGain": gain,
+        "cloudLightGain": cloud_light_gain(sky, painted, gain) if cloud > 0.0 else 0.0,
         "cloudHueShare": cloud,
         "cloudsEnabled": cloud > 0.0,
         "cloudCoverage": cloud,

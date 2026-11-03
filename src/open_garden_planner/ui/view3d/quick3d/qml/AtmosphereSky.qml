@@ -15,8 +15,9 @@
 //  - the cloud noise volume is a Texture handed in at creation (Garden.qml: its data
 //    is core/scene3d/cloud_noise.py, a port of the example's CloudNoiseTextureData);
 //  - the painted-sky base, the haze band, the twilight weight, the gains, the clouds'
-//    hue and the disc colour of atmosphere.frag (paintedTop .. sunDiscColor below), and
-//    the clouds' fade distance (cloudMaxDistanceKm);
+//    hue and the disc colour of atmosphere.frag (paintedTop .. sunDiscColor below), the
+//    clouds' fade distance (cloudMaxDistanceKm), the silver lining faded with the cover
+//    and the clouds' sunlight faded through civil twilight;
 //  - the two LUTs are not rendered here: the sky-view table is computed on the CPU
 //    once per sun (core/scene3d/atmosphere_lut.py) and handed in as texture data, so
 //    the sky is complete in the FIRST frame (see skytextureBuffer).
@@ -98,9 +99,9 @@ SkyMaterial {
     property real hazeDeg: 6.0
     // physical radiance -> the painted sky's units (the example drew x 0.1)
     property real atmosphereGain: 0.1
-    // the clouds' scattered light relative to the sky's (the example's: 1), and how much
-    // of the look's horizon hue they take (atmosphere.frag)
-    property real cloudGain: 1.0
+    // the clouds' scattered light -> the painted sky's units (atmosphere.frag), and how
+    // much of the look's horizon hue they take
+    property real cloudLightGain: 0.006
     property real cloudHueShare: 0.0
     // the atmosphere's disc: the look's sun colour, linear (x sunAlpha)
     property vector3d sunDiscColor: Qt.vector3d(1, 0.88, 0.72)

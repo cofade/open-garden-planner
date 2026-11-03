@@ -66,6 +66,18 @@ def luminance(rgb: Any) -> Array:
     return np.asarray(0.2126 * linear[..., 0] + 0.7152 * linear[..., 1] + 0.0722 * linear[..., 2])
 
 
+def ground_luminance(rgb: Any, camera: Pinhole, margin_rows: int = 3) -> float:
+    """The mean LUMINANCE of the rows below the horizon (from ``margin_rows`` under the
+    camera's horizon row down): the garden and the meadow without the sky. L7 (#391): a
+    sky whose light sits toward a low sun brightens a frame that faces it while the
+    garden itself darkens; the mood order is judged on this."""
+    frame = np.asarray(rgb, dtype=np.float64)[..., :3]
+    rows, cols = frame.shape[:2]
+    first = int(math.ceil(camera.scaled((cols, rows)).horizon_row())) + margin_rows
+    first = min(max(first, 0), rows - 1)
+    return round(float(luminance(frame[first:]).mean()), 5)
+
+
 def frame_stats(rgb: Any) -> dict[str, Any]:
     """A board frame's own numbers: isolated dark pixels, the share of pixels with a
     clipped channel (per cent), the mean luma (codes) and the mean luminance (linear)."""

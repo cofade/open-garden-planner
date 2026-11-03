@@ -1198,5 +1198,15 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "Render tier: distant-horizon gate fails on master (403 m / 15° rows 3.44–3.48 > 3.0 luma)"
+  },
+  "716": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L7 follow-up: atmosphere sky's low band too bright (cream wash, horizon inversion)"
+  },
+  "717": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L7 follow-up: sky probe's sun-disc finder misses a low (8°) sun"
   }
 }

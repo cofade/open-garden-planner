@@ -63,7 +63,11 @@ void IBL_PROBE()
 {
     // compiled without a light probe too (L1.2 sets none; L1.4 adds the sky): the
     // samplers exist only when Qt includes its probe library
-#if QSSG_ENABLE_LIGHT_PROBE
+    // L7 (#391): a SkyMaterial lights the scene through IBL_PROBE() too, but Qt 6.12
+    // leaves QSSG_ENABLE_LIGHT_PROBE false then - the pond went black under the
+    // atmosphere sky. SAMPLE_PROBE_GLSLLIB is the include guard of Qt's probe
+    // samplers: defined exactly when qt_sampleDiffuse / qt_sampleGlossy exist
+#if QSSG_ENABLE_LIGHT_PROBE || defined(SAMPLE_PROBE_GLSLLIB)
     DIFFUSE += BASE_COLOR.rgb * uBody * waterLuma(qt_sampleDiffuse(NORMAL).rgb) * AO_FACTOR;
     float ndv = clamp(dot(NORMAL, VIEW_VECTOR), 0.0, 1.0);
     float fresnel = 0.02 + 0.98 * pow(1.0 - ndv, 5.0);

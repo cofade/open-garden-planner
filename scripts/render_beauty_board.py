@@ -780,8 +780,10 @@ class Board:
                     f"mood{tag}_{mood}_{preset}", records, sun=sun, look=look, ground=self.plan_ground(),
                     registry=registry, shot=PerspectiveShot(camera.eye, camera.target, camera.fov_deg),
                     baked=True)
+                view = probes.Pinhole(camera.eye, camera.target, camera.fov_deg, self.size)
                 rows[mood] = {"sun_elev": round(sun.elevation_deg, 2), "night": look.night,
-                              "file": info["file"], **probes.frame_stats(rgb)}
+                              "file": info["file"], **probes.frame_stats(rgb),
+                              "ground_luminance": probes.ground_luminance(rgb, view)}
             noon, night = rows["noon"], rows["night"]
             rows["night_over_noon"] = {
                 "luminance": round(night["mean_luminance"] / noon["mean_luminance"], 4),

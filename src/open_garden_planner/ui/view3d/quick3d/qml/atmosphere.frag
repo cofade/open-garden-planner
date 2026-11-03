@@ -237,7 +237,8 @@ vec3 raymarchClouds(vec3 ro, vec3 rd, vec3 sunDirWorld, vec3 sunRadiance,
 
             // Additive silver lining toward the sun.
             float silver = pow(clamp(cosThetaView, 0.0, 1.0), 4.0) * (1.0 - exp(-odSun * 2.0));
-            msLight += silver * sunRadiance;
+            // L7: an edge effect - faded with the weather's cover (3D review)
+            msLight += silver * sunRadiance * (1.0 - cloudHueShare);
 
             vec3 ambient = mix(skyGroundRGB, skyZenithRGB, clamp(hf, 0.0, 1.0)) * 0.6;
             float sunFacing = clamp(cosThetaView * 0.5 + 0.5, 0.0, 1.0);
@@ -480,7 +481,7 @@ vec3 gammaCorrect(vec3 linearSrgb)
 //    twilight fraction), so the night is the painted night exactly;
 //  - atmosphereGain scales the physical radiance (W m^-2 sr^-1 after the spectral
 //    conversion) into the painted sky's units, in place of the example's 0.1, and
-//    cloudGain the clouds' scattered light relative to it.
+//    cloudLightGain the clouds' scattered light (see the end of MAIN()).
 //
 // The sun disc of the atmosphere is the look's sun colour (sunDiscColor, linear,
 // times sunAlpha: 0 while the sun is down), drawn where the atmosphere shows; the
@@ -534,9 +535,11 @@ void MAIN()
         if (sunAngle < sunDiskInnerAngle) {
             sunCol = sunDiscColor * sunAlpha;
         } else if (sunAngle < sunDiskOuterAngle) {
+            // the glow round the core in the painted disc's own colour and energy: the core's
+            // x4 (sunDiscColor) clipped a sunset disc and its glow to white (3D review of L7)
             float t = (sunAngle - sunDiskInnerAngle) / (sunDiskOuterAngle - sunDiskInnerAngle);
             t = ease(t, sunDiskFalloff);
-            sunCol = sunDiscColor * sunAlpha * (1.0 - t);
+            sunCol = paintedSun * sunAlpha * (1.0 - t);
         }
     }
 
@@ -549,7 +552,10 @@ void MAIN()
         float sunCosZenith = max(sunDirWorld.y, 0.0);
         float slant = 1.0 / max(sunCosZenith + 0.025, 0.025);
         vec3 sunAtten = exp(-slant * vec3(0.05, 0.15, 0.40));
-        vec3 sunRadianceLinear = sunTint * sunAtten * SUN_RADIANCE_SCALE;
+        // the deck loses the sun through civil twilight as the look does (atmosphereWeight
+        // = 1 - twilight; 1 by day): the example clamps the slant at the horizon, so its
+        // deck kept the horizon sun's light down to -6 deg and glowed (3D review of L7)
+        vec3 sunRadianceLinear = sunTint * sunAtten * SUN_RADIANCE_SCALE * atmosphereWeight;
 
         vec3 skyZenithRGB = texture(skytextureBuffer, sampleSphericalMap(vec3(0.0, 1.0, 0.0))).rgb;
         vec3 skyGroundRGB = texture(skytextureBuffer, sampleSphericalMap(normalize(vec3(0.0, -0.25, 0.0)))).rgb;
@@ -569,10 +575,12 @@ void MAIN()
         cloudScatter = mix(cloudScatter, tinted, cloudHueShare);
     }
 
-    // the atmosphere in the painted sky's units; the disc is already in them. The
-    // clouds' own light is scaled apart (cloudGain): the example lights them at its own
-    // fixed scale, under which a full cover saturates to white (its comment says so)
-    vec3 atmosphere = max((col * cloudT + cloudScatter * cloudGain) * atmosphereGain, vec3(0.0))
+    // the atmosphere in the painted sky's units; the disc is already in them. The clouds'
+    // own light has its own scale (cloudLightGain, quick3d/look.py cloud_light_gain): the
+    // clear sky's gain rises as the sun sinks to make up for the physical sky's dimming, and
+    // taken whole it lifted a cloudy evening above the painted one (3D review of L7); the
+    // example's scale also saturates a full cover to white
+    vec3 atmosphere = max(col * cloudT * atmosphereGain + cloudScatter * cloudLightGain, vec3(0.0))
                       + sunCol * cloudT;
     FRAGCOLOR = vec4(mix(painted, atmosphere, share), 1.0);
 }

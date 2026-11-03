@@ -128,11 +128,14 @@ def test_the_particles_cost_at_most_fifteen_percent_of_a_frame_at_medium(tmp_pat
     assert data["health"]["ok"] and not data["health"]["qml_warnings"]
 
 
-def test_the_living_board_renders_every_shot(tmp_path: Path) -> None:
+# L7 (#391, 3D review): the weather's gates hold on BOTH skies — the atmosphere's cloud
+# deck brightened a cloudy evening before its clouds got their own light scale
+@pytest.mark.parametrize("sky", ["painted", "atmosphere"])
+def test_the_living_board_renders_every_shot(tmp_path: Path, sky: str) -> None:
     out = tmp_path / "board"
     proc = _run([sys.executable, str(BOARD), "--out", str(out), "--size", "640x360",
                  "--shots", "none", "--living", "--moods", "--dusk", "--presets", "medium",
-                 "--watchdog-s", str(TIMEOUT_S - 60)], out)
+                 "--sky", sky, "--watchdog-s", str(TIMEOUT_S - 60)], out)
     metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
     assert proc.returncode == 0 and metrics["status"] == "ok", (proc.returncode, metrics.get("error"))
     assert metrics["qt_messages"]["counts"].get("error", 0) == 0

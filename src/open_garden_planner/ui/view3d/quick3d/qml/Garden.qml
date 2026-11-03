@@ -909,6 +909,15 @@ Item {
                             : view.paintedShown ? SceneEnvironment.SkyBox : SceneEnvironment.Color
             clearColor: root.skyColor
             lightProbe: view.paintedShown ? view.skyTexture : null
+            // Qt 6.12 (PF-E3D-16): when an EARLIER sky Texture is destroyed (buildSky's
+            // deferred old.destroy()), its destroyed-watcher still fires and sets the probe
+            // to null although the probe is the current sky - the sky drew the clear colour
+            // after the first sun change. The binding is put back in the same signal, before
+            // any frame can render (6.11: the watcher was gone with the switch)
+            onLightProbeChanged: {
+                if (lightProbe !== (view.paintedShown ? view.skyTexture : null))
+                    lightProbe = Qt.binding(function() { return view.paintedShown ? view.skyTexture : null })
+            }
             // L7: the atmosphere backs the view AND lights it (its own filtered cube)
             skyMaterial: view.atmosphereShown ? view.atmosphere : null
             probeExposure: root.probeExposure

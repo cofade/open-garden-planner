@@ -29,6 +29,7 @@ from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors, sun_
 from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE,
     ATMOSPHERE_CLOUD_GAIN,
+    ATMOSPHERE_CLOUD_MAKEUP,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
     PAINTED,
@@ -43,6 +44,7 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     ATMOSPHERE_VECTOR_PROPERTIES,
     atmosphere_properties,
     atmosphere_sun_direction,
+    cloud_light_gain,
     painted_sky,
 )
 
@@ -153,7 +155,7 @@ def test_the_new_uniforms_are_read_by_the_shader() -> None:
     for name in ("paintedTop", "paintedHorizon", "paintedGround", "paintedSun",
                  "paintedSkyEnergy", "paintedGroundEnergy", "paintedGroundCurve",
                  "atmosphereWeight", "hazeDeg", "atmosphereGain", "sunDiscColor",
-                 "cloudGain", "cloudHueShare"):
+                 "cloudLightGain", "cloudHueShare"):
         assert re.search(rf"\b{name}\b", app_part), name
 
 
@@ -162,7 +164,7 @@ def test_by_day_the_atmosphere_shows_its_sun_over_the_painted_sky() -> None:
     inputs = atmosphere_properties(sky)
     assert inputs["atmosphereWeight"] == 1.0 and inputs["sunAlpha"] == 1.0
     assert inputs["cloudsEnabled"] is False and inputs["cloudCoverage"] == 0.0
-    assert inputs["hazeDeg"] == ATMOSPHERE_HAZE_DEG and inputs["cloudGain"] == ATMOSPHERE_CLOUD_GAIN
+    assert inputs["hazeDeg"] == ATMOSPHERE_HAZE_DEG and inputs["cloudLightGain"] == 0.0, "no cloud"
     assert inputs["atmosphereGain"] == pytest.approx(
         atmosphere_gain(atmosphere_sun_direction(sky), painted_sky(sky)))
     for name, colour in (("paintedTop", sky.top), ("paintedHorizon", sky.horizon),
@@ -276,3 +278,38 @@ def test_the_painted_radiance_is_the_generators_formula() -> None:
     assert painted_radiance(high, painted, sun) == pytest.approx(
         np.asarray(painted.top) * painted.sky_energy, rel=0.02)
     assert painted_radiance(np.asarray(sun), painted, sun) == pytest.approx(np.asarray(painted.sun))
+
+
+@pytest.mark.parametrize("weather", ["overcast", "rain", "snow"])
+def test_the_clouds_take_part_of_the_clear_skys_make_up_for_a_sinking_sun(weather: str) -> None:
+    """3D review of L7: scaled by the clear sky's gain at the ACTUAL sun (which rises about
+    sevenfold toward sunset), a cloud deck lit a cloudy sunset at 0.96-1.0 of its noon; at a
+    fixed high sun's gain it dimmed twice. The clouds' scale is the high sun's gain raised
+    toward the actual one by ``ATMOSPHERE_CLOUD_MAKEUP`` (calibrated on the board): the
+    calibrated value at the reference sun, and between the two everywhere else."""
+    for elevation in (60.0, 50.0, 25.0, 8.0, 2.0, 0.6, -2.0, -4.0):
+        sky = living_look(SunState(elevation, 225.0), "medium", weather).sky
+        painted = painted_sky(sky)
+        actual = atmosphere_gain(atmosphere_sun_direction(sky), painted)
+        reference = replace(sky, sun_elevation_deg=50.0, sun_azimuth_deg=180.0)
+        high = atmosphere_gain(atmosphere_sun_direction(reference), replace(painted, sun=painted.horizon))
+        inputs = atmosphere_properties(sky)
+        assert inputs["cloudLightGain"] == pytest.approx(cloud_light_gain(sky, painted))
+        assert inputs["cloudLightGain"] == pytest.approx(
+            ATMOSPHERE_CLOUD_GAIN * high ** (1.0 - ATMOSPHERE_CLOUD_MAKEUP) * actual ** ATMOSPHERE_CLOUD_MAKEUP)
+        low, top = sorted((ATMOSPHERE_CLOUD_GAIN * high, ATMOSPHERE_CLOUD_GAIN * actual))
+        assert low * (1 - 1e-9) <= inputs["cloudLightGain"] <= top * (1 + 1e-9), elevation
+    noon = living_look(SunState(50.0, 180.0), "medium", weather).sky
+    painted = painted_sky(noon)
+    # the calibrated noon: the two gains differ there only by the painted disc (< 0.1 %)
+    assert cloud_light_gain(noon, painted) == pytest.approx(ATMOSPHERE_CLOUD_GAIN * atmosphere_gain(
+        atmosphere_sun_direction(noon), replace(painted, sun=painted.horizon)), rel=1e-3)
+    assert 0.0 < ATMOSPHERE_CLOUD_MAKEUP < 1.0
+
+
+def test_the_clouds_lose_the_sun_through_civil_twilight() -> None:
+    """3D review of L7: the example clamps the sun's slant at the horizon, so its deck kept
+    the horizon sun's light down to -6 deg and a cloudy dusk brightened. The deck's sunlight
+    is faded by the atmosphere's twilight weight (1 by day)."""
+    code = (QML_DIR / "atmosphere.frag").read_text(encoding="utf-8")
+    assert "sunTint * sunAtten * SUN_RADIANCE_SCALE * atmosphereWeight;" in code

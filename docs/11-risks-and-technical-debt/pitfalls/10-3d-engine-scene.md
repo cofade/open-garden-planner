@@ -155,3 +155,45 @@ texture input was empty). A second `grabWindow()` on the never-shown offscreen v
 it up" was an access violation — the host's one-offscreen-frame contract stands. The fix
 computes the tables in numpy (`core/scene3d/atmosphere_lut.py`) and hands them over as data,
 which also made the sky's colour known to Python.
+
+### PF-E3D-15
+
+- **Rule:** A custom material's sky term is compiled when `QSSG_ENABLE_LIGHT_PROBE` is set OR `SAMPLE_PROBE_GLSLLIB` is defined, never on the macro alone: under a Qt 6.12 `SkyMaterial` Qt calls the material's `IBL_PROBE()` and includes the probe samplers while it leaves `QSSG_ENABLE_LIGHT_PROBE` false, so a guard on the macro alone compiles the sky term out and the surface loses the sky's light without a warning.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_water_samples_the_sky_under_a_sky_material_too`
+- **Source:** #391 (Phase 17 L7, `ogp-3d-reviewer` pass), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+`water.frag` and `water_door.frag` sampled the sky only `#if QSSG_ENABLE_LIGHT_PROBE`, the
+guard L1.2 needed while a scene could have no probe at all. Under the atmosphere sky the pond
+went near-black as the sun sank, while the painted sky's pond was fine. Measured on the render
+tier's raised pool (`quick3d_render_driver.pond_record`), RTX 4070: water (1, 18, 32) at a 4°
+sun against the painted sky's (5, 40, 65); 13 / 75 / 113 against 18 / 85 / 126 at 15°. With
+the widened guard the atmosphere's water is within 1.6 codes of the painted sky's at 60°, 15°
+and 4°, and the painted sky's frames are identical with either guard. `SAMPLE_PROBE_GLSLLIB`
+is the include guard of Qt's `sampleProbe.glsllib`, so it is defined exactly when
+`qt_sampleDiffuse` / `qt_sampleGlossy` exist; Qt's own default material reads its probe
+through the same include, so it was never affected.
+
+### PF-E3D-16
+
+- **Rule:** On Qt 6.12 destroying an EARLIER sky Texture sets the scene environment's light probe to null although the probe already holds the current sky (the stale destroyed-watcher still fires), so the environment restores its own lightProbe binding in onLightProbeChanged, in the same signal, before any frame renders; a test of the sky must take a frame AFTER the old Textures are deleted.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_light_probe_is_put_back_when_an_earlier_sky_is_destroyed`; `tests/integration/test_view3d_looks_render.py::test_a_sky_rebuilt_three_times_is_still_the_sky_after_the_old_ones_are_gone`
+- **Source:** #391 (Phase 17 L7, found by the render tier after the Qt 6.12 pin), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Every sun change builds a fresh painted-sky Texture and destroys the old one, deferred
+(`buildSky`). On Qt 6.12 the frame after that delete showed the clear colour instead of the
+sky: the render tier's sky-sequence test read the frame after the old Textures were gone as
+(161, 154, 122) flat beige against (97, 126, 137) before. `master`'s own code fails the same way
+under the 6.12 wheels and passes under 6.11, so it is the upgrade, not L7's sky. A probe with
+two builds told the cases apart: keeping the old Texture alive kept the sky; a counter on the
+environment's `lightProbeChanged` read one change to null at the old Texture's delete although
+the probe was the new sky; re-assigning the property restored the sky; a re-assign inside the
+old Texture's `Component.onDestruction` came too early (the watcher fires after it), and a
+zero-interval Timer after it came too late for a frame rendered straight after the delete.
+Restoring the binding in `onLightProbeChanged` is synchronous and frame-exact. Qt's
+`qquick3dsceneenvironment.cpp` and `attachWatcher` (`qquick3dobject_p.h`) changed only
+cosmetically between the tags; the upstream cause is not identified. No other scene object is
+re-pointed and then destroyed (parts and ground tiles destroy themselves after detaching).

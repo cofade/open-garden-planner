@@ -500,6 +500,31 @@ def test_the_atmosphere_is_made_once_and_never_destroyed_nor_re_pointed() -> Non
         assert f"tilingMode{axis}: Texture.Repeat" in volume, "the volume tiles in 3D"
 
 
+def test_the_light_probe_is_put_back_when_an_earlier_sky_is_destroyed() -> None:
+    """Qt 6.12 (PF-E3D-16): destroying an EARLIER sky Texture fires its stale
+    destroyed-watcher and sets the environment's light probe to null although the probe
+    is the current sky - the painted sky drew the clear colour after the first sun change.
+    The environment restores the SAME binding in the change signal, before a frame can
+    render. The render tier's sky-sequence test is the engine half of this pin."""
+    code = (QML_DIR / "Garden.qml").read_text(encoding="utf-8")
+    wanted = "view.paintedShown ? view.skyTexture : null"
+    assert f"lightProbe: {wanted}\n" in code
+    handler = code[code.index("onLightProbeChanged: {"):]
+    handler = handler[:handler.index("\n            }\n")]
+    assert f"if (lightProbe !== ({wanted}))" in handler
+    assert f"lightProbe = Qt.binding(function() {{ return {wanted} }})" in handler
+
+
+def test_the_water_samples_the_sky_under_a_sky_material_too() -> None:
+    """3D review of L7: under a ``SkyMaterial`` Qt 6.12 calls ``IBL_PROBE()`` with
+    ``QSSG_ENABLE_LIGHT_PROBE`` false, so a pond guarded by that macro alone went black under
+    the atmosphere sky. The guard also accepts Qt's probe-sampler include guard."""
+    for name in ("water.frag", "water_door.frag"):
+        code = (QML_DIR / name).read_text(encoding="utf-8")
+        assert "#if QSSG_ENABLE_LIGHT_PROBE || defined(SAMPLE_PROBE_GLSLLIB)" in code, name
+        assert "#if QSSG_ENABLE_LIGHT_PROBE\n" not in code, name
+
+
 def test_the_winds_clock_runs_only_while_it_is_told_to() -> None:
     code = _scene()
     animation = code[code.index("FrameAnimation {"):]
