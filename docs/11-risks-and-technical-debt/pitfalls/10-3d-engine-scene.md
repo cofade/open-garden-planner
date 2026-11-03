@@ -204,3 +204,38 @@ after detaching. The render tier's live-host atmosphere sequence
 most runs — 6 of 7 in the senior review's (`painted_160` after the delete: 40.7 against a bound
 of 0.5); in the one that passed, that frame's grab took 1.2 ms against ~1,660 ms, so the stale
 watcher's firing is timing-dependent: a reproducer for Qt must repeat the sequence.
+
+### PF-E3D-17
+
+- **Rule:** A Qt 6.12.0 `SkyMaterial` never lights the scene and never draws through a cube: Qt builds and pre-filters its cube for image-based light, the Cubemap skybox mode, a reflection probe or a screen texture, and that pre-filter uses a freed QRhi resource and kills the process natively, so the atmosphere backs the view on screen (`enableIBL: false`, a ScreenSpace skybox mode) and the painted sky's texture stays the light probe under both sky models.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_atmosphere_never_builds_the_cube_that_crashed_qt_6_12_0`; `tests/ui/test_quick3d_host.py::TestSky`
+- **Source:** #391 (Phase 17 L7, the owner's manual test of the frozen exe on 2026-11-03), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+The owner's frozen exe died about two minutes into testing "Atmosphere with clouds": access
+violation `c0000005` in `Qt6Gui.dll`, no Python trace and nothing in `app.log`. Windows had
+written a minidump (`%LOCALAPPDATA%\CrashDumps`, because the machine has a `LocalDumps` key).
+A stack scan of the faulting thread mapped to the nearest exports read `QSSGRenderer::rhiPrepare`
+→ `QSSGLayerRenderData::resolveLayerIblTexture` → `QSSGRenderSkyMaterialManager::resolve` →
+`ensureEnvironmentMap` → `runPrefilterCycle`. The faulting function, disassembled from the DLL,
+is QRhi's `sanityCheckResourceOwnership`: its warning string is "%s %p (%s) belongs to QRhi %p,
+but client code attempted to use it with QRhi %p". It read a resource's owner pointer as
+`0x20000000`, so the resource had been freed. The manager deletes its textures at once
+(`QSSGRhiContextPrivate::releaseTexture` is a plain `delete`) and detects changes by comparing raw
+pointers, so a recycled address can pass its cache check. The exact stale resource is not
+identified.
+
+A full-app probe drove the manual checklist's actions on a timer: time of day, weather, walk
+mode, reduce motion, the sky model and the layout. Each action was printed before it ran. With one
+seed, three of five runs crashed at the same action: a painted to atmosphere switch at night
+in snow, right after the weather changed. With the cube off, 0 of 4 runs crashed at that action.
+Neither sky switching alone (215 switches) nor the atmosphere without switching crashed in
+200 s. After the fix the same seed ran 4 x 240 s with no crash. The painted sky, the default,
+never reaches this code.
+
+Two traps when applying the rule. When `lightProbe` is set, Qt does not request the sky
+material's IBL pass (`else if (layer.skyMaterial)`), but `SkyMaterialBackgroundPass` still
+draws a ScreenSpace sky. A material that reads `SCREEN_TEXTURE` or a `ReflectionProbe` would
+bring the cube back; the QML test pins that neither exists. Re-check the rule on every Qt
+bump: on 2026-11-03 no QTBUG matched this crash, and Qt 6.12.1 was not on PyPI.

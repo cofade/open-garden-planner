@@ -224,9 +224,10 @@ SKY_MAX_ERROR_DEG = 6.0
 HORIZON_SHOTS = ("noon", "golden_hour", "sunset", "night")
 HORIZON_DISTANCES_M = (67, 202, 403, 600)
 HORIZON_STEP_BOUND = 3.0
-#: The weathers whose sky is not the clear one (L5): ``--living`` runs the horizon
-#: probe under each — an overcast sky draws its horizon otherwise (3D review of L5).
-HORIZON_WEATHERS = ("overcast", "rain", "snow")
+#: The weathers whose sky is not the clear one (L5; partly cloudy since L7): ``--living``
+#: runs the horizon probe, the mood strip and the dusk under each — an overcast sky draws
+#: its horizon otherwise (3D review of L5).
+HORIZON_WEATHERS = ("partly_cloudy", "overcast", "rain", "snow")
 
 
 def weather_look(sun: SunState, preset: str, weather: str = "clear") -> LookSpec:

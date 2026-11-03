@@ -399,7 +399,7 @@ def test_an_analyze_drape_pauses_the_weather(bench: Bench, drape: str) -> None:
 def test_every_weather_choice_has_its_menu_entry(bench: Bench) -> None:
     assert set(bench.workspace.living.actions) == set(WEATHER_CHOICES)
     texts = set(_menu_actions(bench))
-    assert {"Clear", "Overcast", "Rain", "Snow", "Today's Weather",
+    assert {"Clear", "Partly cloudy", "Overcast", "Rain", "Snow", "Today's Weather",
             "Wildlife and Falling Leaves"} <= texts
 
 

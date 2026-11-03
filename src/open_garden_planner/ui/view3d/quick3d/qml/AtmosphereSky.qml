@@ -18,6 +18,9 @@
 //    hue and the disc colour of atmosphere.frag (paintedTop .. sunDiscColor below), the
 //    clouds' fade distance (cloudMaxDistanceKm), the silver lining faded with the cover
 //    and the clouds' sunlight faded through civil twilight;
+//  - it only BACKS the view, drawn on screen (enableIBL false, ScreenSpaceHalf; the
+//    example lit the scene through a Cubemap): Qt 6.12.0's pre-filter of that cube
+//    crashed the app (PF-E3D-17), and the painted sky's probe lights the garden;
 //  - the two LUTs are not rendered here: the sky-view table is computed on the CPU
 //    once per sun (core/scene3d/atmosphere_lut.py) and handed in as texture data, so
 //    the sky is complete in the FIRST frame (see skytextureBuffer).
@@ -29,12 +32,13 @@ import QtQuick3D
 SkyMaterial {
     id: skyMaterial
     fragmentShader: "atmosphere.frag"
-    // the example's sample count; one frame for the whole prefilter (iblRenderFrames 0):
-    // the view renders on demand, and a probe must see the finished light in ONE frame
-    iblSampleCount: 128
-    iblRenderFrames: 0
-    radianceMapSize: 512
-    skyboxMode: SkyMaterial.Cubemap
+    // The sky only BACKS the view, drawn on screen; the painted sky's probe lights the
+    // garden (Garden.qml). No light and no Cubemap mode, so Qt never builds this
+    // material's cube: Qt 6.12.0's pre-filter of that cube used a freed QRhi resource
+    // and crashed the app (PF-E3D-17; Qt's resolveLayerIblTexture builds the cube only
+    // for IBL, Cubemap mode, reflection probes or a screen texture - none of them here).
+    enableIBL: false
+    skyboxMode: SkyMaterial.ScreenSpaceHalf
 
     property int lutSize: 128
     property int lutSizeTransmit: 128

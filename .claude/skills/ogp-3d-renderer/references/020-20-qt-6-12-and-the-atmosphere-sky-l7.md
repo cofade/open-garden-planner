@@ -1,7 +1,7 @@
 ## 20. Qt 6.12 and the atmosphere sky (L7, #391)
 
 Concept: docs §8.29.14; decisions and every number: ADR-048 addendum L7; lessons: PF-E3D-13,
-PF-E3D-14, PF-E3D-15, PF-E3D-16, PF-CI-17, PF-TST-36. Measured on the dev box (RTX 4070, Direct3D 11; WARP on the
+PF-E3D-14, PF-E3D-15, PF-E3D-16, PF-E3D-17, PF-CI-17, PF-TST-36. Measured on the dev box (RTX 4070, Direct3D 11; WARP on the
 same machine), 2026-11-02/03, PyQt6 / PyQt6-Qt6 6.12.0:
 
 - **Destroying an earlier sky Texture nulls the current light probe** (6.12 only): the
@@ -26,6 +26,21 @@ same machine), 2026-11-02/03, PyQt6 / PyQt6-Qt6 6.12.0:
   the view (`skyboxMode: Cubemap`, or `ScreenSpaceFull/Half/Quarter` evaluated on screen) and,
   with `enableIBL`, is GGX-filtered into the scene's light (`iblSampleCount`, `iblRenderFrames`
   0 = one frame). Property changes re-render it by themselves.
+- **Never let a 6.12.0 `SkyMaterial` build its cube** (PF-E3D-17): its pre-filter
+  (`QSSGRenderSkyMaterialManager::runPrefilterCycle`) used a freed QRhi resource, an access
+  violation in `Qt6Gui.dll`'s `sanityCheckResourceOwnership` with no Python trace. The owner's
+  frozen exe died that way. A full-app probe crashed 3 of 5 times at one painted to atmosphere
+  switch, and 0 of 4 with the cube off. Qt builds the cube for `enableIBL`, `skyboxMode:
+  Cubemap`, a `ReflectionProbe` or a material reading `SCREEN_TEXTURE`
+  (`QSSGLayerRenderData::resolveLayerIblTexture`). The app's atmosphere is `enableIBL: false`
+  with `ScreenSpaceHalf`, and the painted sky's texture stays `lightProbe`. With a probe set,
+  Qt skips the sky material's IBL pass but `SkyMaterialBackgroundPass` still draws the sky.
+- **Reading a native crash without a debugger:** a machine with a `LocalDumps` key leaves
+  minidumps in `%LOCALAPPDATA%\CrashDumps`. Parse the dump with the `minidump` package, scan
+  the faulting thread's stack for return addresses inside loaded modules, and name each by the
+  nearest export (`pefile`). Most of Qt Quick 3D's runtime is exported, so the chain is
+  readable. Disassemble the faulting function with `capstone`: a `qWarning` format string it
+  references names it. PyQt6 cannot convert a `SkyboxMode` enum read through `property()`.
 - **It compiles only when every texture it samples exists** — and says nothing otherwise: a
   texture input left null drew Qt's built-in debug sky forever; the example's
   `QuadTextureProvider` tables made the first frame white. Hand it `QQuick3DTextureData`
@@ -41,10 +56,13 @@ same machine), 2026-11-02/03, PyQt6 / PyQt6-Qt6 6.12.0:
   `textureLod(volume, vec3, 0.0)` in the sky shader.
 - **Cost:** first atmosphere frame 783 ms (painted 663 ms; a one-time compile), each later sun
   change ~200 ms of GUI thread (painted 122 ms: the CPU sky-view table ~110 ms, the gain
-  ~30 ms), the next frame 1-7 ms after. A board renders a fresh host per frame and pays the
-  compile per frame (~2.5-4 s).
-- **Software adapter:** the self-test's quarter-resolution screen-space atmosphere (no cube, no
-  probe) renders on WARP with the same numbers as on the GPU (44.3 / 28.1 against 44.3 / 28.1).
+  ~30 ms), plus the painted sky it now builds as the light. Per frame on screen (1280 × 720,
+  looking into the sky): painted 2.23 ms; the atmosphere at cover 0.4: Half 3.11 ms, Full
+  4.38, Quarter 2.55. Half and Full look the same. A board renders a fresh host per frame and
+  pays the compile per frame (~2.5-4 s).
+- **Software adapter:** the self-test's screen-space atmosphere without the painted probe
+  (`sky_probe=False`) renders on WARP (a quarter resolution, before the revision: 44.3 / 28.1
+  on both).
 - **The sky probe on the atmosphere** reads the disc only once the disc outshines its aerosol
   halo: at the painted disc's energy the probe locked onto the horizon glow 9° below the sun
   (bearing still within 0.35°); `ATMOSPHERE_DISC_ENERGY` 4 → bearing 0.02°, elevation 11.98° for

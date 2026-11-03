@@ -3831,8 +3831,8 @@ sky's and fail its 3.0-luma bound on BOTH skies and on `master` with Qt 6.11 ali
 package's.
 
 **Self-test** (`--selftest`, point 8): the frozen exe now renders the atmosphere from the bundle,
-clear and under 0.7 of cloud, at a quarter of the resolution with no probe (a machine without a
-GPU can afford that), against a frame without a sky: 44.3 apart from the plain background and
+clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that; at a
+quarter of the resolution then, at half since the revision below), against a frame without a sky: 44.3 apart from the plain background and
 28.1 between clear and cloudy on the GPU and on WARP alike (bounds 11 and 7); the three frames
 took 9.3 s / 8.8 s, the cloud volume made once included.
 
@@ -3846,9 +3846,47 @@ Quick 3D itself ("LicenseRef-Qt-Commercial OR GPL-3.0-only"), the module the app
 under GPLv3. All compatible with the app's GPL-3.0-or-later; the per-file table and the one
 statement of the rule are `qml/PROVENANCE.md`.
 
-**Left open.** The default model (an owner decision); whether a "partly cloudy" weather should
-exist — the clouds look best at partial cover (the self-test's 0.7), but no preset produces one;
-the first-frame shader compile could be pre-warmed like the Cutaway's (`shaderWarmer`).
+**Left open.** The default model (an owner decision); the first-frame shader compile could be
+pre-warmed like the Cutaway's (`shaderWarmer`). (Whether a "partly cloudy" weather should exist
+was answered by the owner's manual test: see the revision below.)
+
+**Revision after the owner's manual test (2026-11-03): the atmosphere only draws the sky.** The
+owner's frozen exe crashed natively while testing *Atmosphere with clouds*. The cause is Qt
+6.12.0's `SkyMaterial` light cube: its pre-filter (`QSSGRenderSkyMaterialManager::
+runPrefilterCycle`) used a freed QRhi resource (PF-E3D-17, with the dump, the probe and the
+numbers). The owner also saw no difference between the skies: Clear has no cloud, and Overcast
+and Rain close the deck, so the clouds never showed. The owner chose to keep the atmosphere,
+fix the crash, and add a partly cloudy weather. What changed:
+
+- **The painted sky lights the garden under both models.** The atmosphere is `enableIBL:
+  false` and `skyboxMode: ScreenSpaceHalf`. Qt draws it on screen per frame
+  (`SkyMaterialBackgroundPass`) and never builds its cube (`resolveLayerIblTexture` builds one
+  only for image-based light, Cubemap mode, reflection probes or a screen texture). For the
+  atmosphere model the host builds the painted sky first (`buildSky`) and then writes the
+  atmosphere (`buildAtmosphere`) in the same GUI-thread turn. The painted texture stays the
+  environment's `lightProbe`. So the light balance above is now exact by construction, and the
+  cloudy-light numbers (0.96–0.99 at noon, 0.87–0.92 toward sunset) no longer apply: the
+  garden is lit as under the painted sky in every weather. `atmosphere_gain` and
+  `cloudLightGain` still scale the sky and the deck to the painted sky's brightness. The
+  water's widened probe guard (PF-E3D-15) is no longer reached under the atmosphere, because a
+  `lightProbe` is set; it stays, correct for any `SkyMaterial`.
+- **The crash is gone.** A full-app probe of the manual checklist crashed 3 of 5 times at one
+  painted to atmosphere switch before the fix. After it, the same sequence ran 4 × 240 s with
+  no crash.
+- **Partly cloudy** (`weather.WEATHER_SPECS["partly_cloudy"]`): cloud 0.4, the overcast's
+  changes at that share (the key light 0.69, the shadows 0.72 of clear's), wind 3.0, haze 0.9,
+  dry, and the mood stays a day (it is overcast from 0.5). The cover sheet of the owner pass
+  read scattered clouds at 0.35 and 0.6 and a closed deck at 1.0. Today's Weather maps WMO code
+  2 (partly cloudy) to it; codes 0 and 1 stay clear. The painted sky shows only the greyer blue;
+  the clouds are the atmosphere's. ADR-070's weather gates run on it (`HORIZON_WEATHERS`).
+- **Cost** (RTX 4070, Direct3D 11, a shown 1280 × 720 host looking into the sky, the median of
+  40 frames): painted 2.23 ms; atmosphere at cover 0: 2.37 ms (Half), 2.25 (Full), 2.14
+  (Quarter); at cover 0.4: 3.11 ms (Half), 4.38 (Full), 2.55 (Quarter). Half and Full look the
+  same, so the default is Half. A sun change now also builds the painted sky (~120 ms) beside
+  the sky-view table, and the light cube's one-time filter is gone. An integrated GPU is still
+  unmeasured (owner question).
+- **The self-test** renders the atmosphere without the painted probe (`sky_probe=False`): a
+  machine without a GPU cannot afford a probe filter. The rule it checks is unchanged.
 
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
@@ -10114,3 +10152,16 @@ unknown type `ObjectType.FENCE` — a string opens there as a 120 cm fence that 
 shadow, and stays one if saved there. A string drawn as a rectangle by this PR's first build
 (the owner's test plans only; none shipped) opens as the two-post line along its box in 3D
 and as a box on the canvas — draw it again.
+
+**Addendum L7 (#391, the owner's manual test, 2026-11-03): Partly cloudy.** A fifth weather
+between Clear and Overcast: `WEATHER_SPECS["partly_cloudy"]` is cloud 0.4, dry, wind 3.0 and
+haze 0.9. Its look is decision 2's overcast at that share: the key light × 0.69, the shadows'
+factor × 0.72, a little softer, the sky 40 % of the way to the overcast grey. The sun and its
+shadows stay where `core/solar` puts them, as in every weather. Its mood stays day, golden hour
+or dew (`mood_of` names overcast from cloud 0.5). It exists because the atmosphere sky's
+volumetric clouds show as scattered clouds only at partial cover; Clear has none and Overcast
+closes the deck (ADR-048 addendum L7, revision). Today's Weather maps WMO code 2 (partly
+cloudy) to it; codes 0 and 1 stay clear. The board's cloudy-weather gates (horizon, mood strip,
+dusk) and the render tier's cloudy-evening gate run on it (`HORIZON_WEATHERS`). Pinned by
+`tests/unit/test_scene3d_weather.py::test_a_partly_cloudy_day_keeps_its_sun` and the WMO table.
+

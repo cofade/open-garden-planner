@@ -207,11 +207,13 @@ Item {
     // clouds over the painted sky, AtmosphereSky.qml / atmosphere.frag), made at the
     // first call with its two textures - the cloud volume and the sky-view table, both
     // texture DATA from Python (quick3d/cloud_volume.py), ready before the first frame -
-    // and from then on only written: a SkyMaterial re-renders its cube and re-filters its
-    // light itself when an input changes, so it is never rebuilt, and the host refills
-    // the sky-view table's data in place for a new sun. Neither it nor a Texture of it is
-    // ever destroyed or re-pointed while the scene lives (a data object attached to a
-    // second Texture draws white: ogp-3d-renderer §2) - a painted sky only switches it off.
+    // and from then on only written: a SkyMaterial redraws itself when an input changes,
+    // so it is never rebuilt, and the host refills the sky-view table's data in place
+    // for a new sun. Neither it nor a Texture of it is ever destroyed or re-pointed while
+    // the scene lives (a data object attached to a second Texture draws white:
+    // ogp-3d-renderer §2) - a painted sky only switches it off. It only BACKS the view:
+    // the host builds the painted sky first (buildSky), whose texture stays the light
+    // probe under the atmosphere too (PF-E3D-17: the atmosphere's own light crashed).
     function buildAtmosphere(inputs, volumeData, skyViewData) {
         var sky = view.atmosphere
         if (!sky) {
@@ -223,11 +225,7 @@ Item {
         }
         for (var key in inputs)
             sky[key] = inputs[key]
-        var old = view.skyTexture
-        view.skyTexture = null
-        view.atmosphereOn = true
-        if (old)
-            old.destroy()              // a painted sky goes after the atmosphere shows
+        view.atmosphereOn = true       // the painted sky (if any) stays: the light probe
         root.skyBuilds += 1
         return {"builds": root.skyBuilds}
     }
@@ -854,7 +852,9 @@ Item {
         // it is the sky now (buildAtmosphere: yes; buildSky, dropSky: no)
         property var atmosphere: null
         property bool atmosphereOn: false
-        // a sky lights and backs the PERSPECTIVE view only
+        // a sky lights and backs the PERSPECTIVE view only. The painted sky is the light
+        // probe under BOTH models and the background when no atmosphere is on (L7,
+        // PF-E3D-17): paintedShown and atmosphereShown are both true under the atmosphere
         readonly property bool paintedShown: skyTexture !== null && !root.topDown
         readonly property bool atmosphereShown: atmosphereOn && atmosphere !== null && !root.topDown
         readonly property bool skyShown: paintedShown || atmosphereShown

@@ -3,10 +3,11 @@
 A real ``GardenPlannerApp``; its 3D engine is replaced at the documented seam
 (``Workspace.engine_factory``) by the workspace tests' recording host. The user opens
 the 3D view (the painted sky, the default), picks Edit → Preferences → 3D View → Sky →
-"Atmosphere with clouds" and saves, turns the weather to Overcast and back in the 3D
-strip, and goes back to the painted sky. The test asserts the SKIES handed to the
-engine: the same sky (sun, colours, cloud, twilight) drawn by another model, built at
-once, and nothing else touched — no look change, no geometry, no camera, no frame.
+"Atmosphere with clouds" and saves, turns the weather to Overcast, Partly cloudy and
+back in the 3D strip, and goes back to the painted sky. The test asserts the SKIES
+handed to the engine: the same sky (sun, colours, cloud, twilight) drawn by another
+model, built at once, and nothing else touched — no look change, no geometry, no
+camera, no frame.
 
 The cloud noise volume is made on a worker (about a second of numpy) before the
 atmosphere is asked for; here the worker answers at once
@@ -97,6 +98,13 @@ def test_choosing_the_atmosphere_redraws_the_same_sky_and_touches_nothing_else(
     overcast = living_look(sun, look.preset, "overcast")
     assert host.skies[skies:] == [replace(overcast.sky, model="atmosphere")]
     assert host.skies[-1].cloud == overcast.sky.cloud > 0.0
+    # Partly cloudy (L7): the scattered clouds the atmosphere draws — no other weather
+    # puts the cover between 0 and the closed deck
+    skies = len(host.skies)
+    actions["Partly cloudy"].trigger()
+    partly = living_look(sun, look.preset, "partly_cloudy")
+    assert host.skies[skies:] == [replace(partly.sky, model="atmosphere")]
+    assert 0.0 < host.skies[-1].cloud < overcast.sky.cloud
     actions["Clear"].trigger()
     assert host.skies[-1] == replace(clear.sky, model="atmosphere")
 

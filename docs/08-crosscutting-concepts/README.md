@@ -7742,22 +7742,30 @@ L1–L5, the default) or `atmosphere` (a Qt 6.12 `SkyMaterial`: `qml/AtmosphereS
 `view3d/sky_model` (Preferences → 3D View → Sky); `LookController` turns a look's sky into an
 atmosphere sky only when the model is chosen, the adapter is a GPU and the cloud volume is ready
 (`sky_model_shown`), and builds a change of model at once (`look.sky_must_build_now`). The host
-dispatches on the model (`Quick3DHost.set_sky`): `buildSky` (a fresh texture pair, as before) or
-`buildAtmosphere` (ONE `AtmosphereSky` per scene, made at the first call and from then on only
-written; a painted sky only switches it off).
+(`Quick3DHost.set_sky`) always builds the painted sky (`buildSky`, a fresh texture pair, as
+before). Its texture is the light probe under BOTH models. For the atmosphere it then calls
+`buildAtmosphere`: ONE `AtmosphereSky` per scene, made at the first call and from then on only
+written; a painted sky only switches it off.
+
+**The atmosphere never lights and never builds a cube** (PF-E3D-17). It is `enableIBL: false`,
+`skyboxMode: ScreenSpaceHalf`, drawn on screen per frame. Qt 6.12.0's pre-filter of a sky
+material's light cube used a freed QRhi resource and killed the process. Qt builds that cube for
+image-based light, the Cubemap mode, a reflection probe or a material reading the screen
+texture, so none of these may appear while a `SkyMaterial` is in the scene.
 
 **The atmosphere is painted over the painted sky.** Per direction the shader computes the painted
 sky (Qt's generator formula, `paintedSky()`) and mixes the atmosphere over it by
 `(1 − twilight) × smoothstep(0, 6°, elevation)`: the horizon the fog meets and the night are the
 painted sky's in every direction. Its scale is not a constant: `atmosphere_lut.atmosphere_gain`
-gives it the painted sky's cosine-weighted light on a horizontal surface at every sun — the sun /
-sky balance the owner accepted, measured equal on the lit grass at every sun height. The
-weather's cloud is the clouds' cover; their light is `ATMOSPHERE_CLOUD_GAIN` × the same gain
+gives it the painted sky's cosine-weighted light on a horizontal surface at every sun, so its
+brightness matches the light the painted probe casts. The weather's cloud is the clouds' cover
+(Partly cloudy 0.4: scattered clouds; Overcast and Rain 1.0; Snow 0.85); their light is `ATMOSPHERE_CLOUD_GAIN` × the same gain
 (`cloud_light_gain`, calibrated against the painted Overcast at noon), their forward scattering
 and silver lining fade with the cover (a thick deck diffuses, so a cloudy evening dims as under
 the painted sky), they lose the sun through civil twilight and take the look's horizon hue in
-proportion to the cover. Custom materials sample the sky under a `SkyMaterial` only with the
-widened probe guard (PF-E3D-15).
+proportion to the cover. Custom materials that may run under a `SkyMaterial` keep the
+widened probe guard (PF-E3D-15). The app no longer reaches it, because the painted probe is
+always set.
 
 **Texture data, not render passes.** A `SkyMaterial` compiles its shader only when every texture
 it samples exists (PF-E3D-14): both of its textures are made on the CPU and handed over as
@@ -7776,8 +7784,9 @@ unchanged.
 
 **How it is tested.** GPU-less: the noise volume against a scalar transcription of the C++
 (`test_scene3d_cloud_noise.py`), the tables, the gain's definition and the sun's mapping over 30
-positions (`test_scene3d_atmosphere_sky.py`), the QML wiring and lifetime
-(`test_quick3d_qml.py`), the controller's model switch, worker, software rule and its two fallbacks
+positions (`test_scene3d_atmosphere_sky.py`), the QML wiring and lifetime and the cube Qt is never
+asked for (`test_quick3d_qml.py`), the painted sky built and lighting under the atmosphere on a real
+host (`test_quick3d_host.py`'s `TestSky`), the controller's model switch, worker, software rule and its two fallbacks
 to the painted sky — a build the scene refuses, a volume that cannot be made; a shader that
 silently never compiles is not caught at run time, only by the self-test —
 (`test_view3d_look_controller.py`), and the Preferences → workspace flow end to end

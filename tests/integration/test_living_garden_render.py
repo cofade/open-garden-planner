@@ -157,7 +157,8 @@ def test_the_living_board_renders_every_shot(tmp_path: Path, sky: str) -> None:
     assert rows["snow"]["mean_luma"] > rows["overcast"]["mean_luma"]
     # a cloudy evening is an evening (3D review of L5, round 3: an overcast sunset was 98 % as
     # bright as noon), and it fades into the night with no step at sunset — every weather
-    for weather in ("overcast", "rain", "snow"):
+    # (partly cloudy since L7: between the clear evening and the overcast one)
+    for weather in ("partly_cloudy", "overcast", "rain", "snow"):
         dusk = metrics[f"dusk_{weather}"]["medium"]
         assert dusk["monotone"], (weather, dusk["rises"])
         assert dusk["sunset_step"] <= dusk["day_ramp_max_step"], (weather, dusk)

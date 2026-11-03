@@ -17,6 +17,10 @@ L1–L4 reads what it read.
 The presets (``WEATHER_SPECS``):
 
 - **clear** — the reviewed L1.4 look.
+- **partly_cloudy** (L7, #391) — sun and scattered clouds: the overcast's changes at
+  ``cloud`` 0.4, so the sun and its shadows stay, a little softer. The clouds
+  themselves are the atmosphere sky's (``AtmosphereSky.qml``); the painted sky shows
+  only its greyer blue.
 - **overcast** — a grey sky as bright as the clear one at its horizon (so a night
   stays a night), no sun disc, the key light down to a fifth with soft, faint
   shadows, the sky's light up, a little less colour.
@@ -66,7 +70,7 @@ __all__ = [
     "weather_fog", "weather_from_wmo",
 ]
 
-WEATHERS: Final = ("clear", "overcast", "rain", "snow")
+WEATHERS: Final = ("clear", "partly_cloudy", "overcast", "rain", "snow")
 #: The weather choice that follows the forecast for today (L5.3).
 TODAY: Final = "today"
 WEATHER_CHOICES: Final = (*WEATHERS, TODAY)
@@ -103,6 +107,9 @@ class WeatherSpec:
 
 WEATHER_SPECS: Final = MappingProxyType({
     "clear": WeatherSpec("clear", 0.0, "none", WIND_STRENGTH, 0.0, 1.0),
+    # the atmosphere's clouds read as scattered up to about 0.6 and close above it
+    # (the cover sheet of L7's owner pass: 0.35 and 0.6 against 1.0)
+    "partly_cloudy": WeatherSpec("partly_cloudy", 0.4, "none", 3.0, 0.0, 0.9),
     "overcast": WeatherSpec("overcast", 1.0, "none", 3.5, 0.0, 0.8),
     "rain": WeatherSpec("rain", 1.0, "rain", 5.0, 1.0, 0.6),
     "snow": WeatherSpec("snow", 0.85, "snow", 1.5, 0.0, 0.55, snow_cover=0.75),
@@ -119,10 +126,12 @@ def normalise_weather(value: object, default: str = "clear") -> str:
 
 def weather_from_wmo(code: int) -> str:
     """A WMO weather interpretation code (Open-Meteo's daily ``weathercode``) as a
-    preset: 0–2 clear (a partly cloudy day keeps its sun), 3 overcast, 45/48 (fog)
-    overcast, drizzle, rain, showers and thunderstorms rain, snow and snow showers
+    preset: 0–1 clear (clear sky, mainly clear), 2 partly cloudy, 3 overcast, 45/48
+    (fog) overcast, drizzle, rain, showers and thunderstorms rain, snow and snow showers
     snow. An unknown code is clear."""
     code = int(code)
+    if code == 2:
+        return "partly_cloudy"
     if code in (3, 45, 48):
         return "overcast"
     if 51 <= code <= 67 or 80 <= code <= 82 or 95 <= code <= 99:

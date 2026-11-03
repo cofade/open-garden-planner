@@ -526,7 +526,7 @@ class AtmosphereSpec:
     Colours named ``_linear`` are linear rgb; the rest are plain numbers. Nothing
     here is a truth: no field moves the sun, a shadow or a plant."""
 
-    #: ``clear`` | ``overcast`` | ``rain`` | ``snow`` (``weather.WEATHERS``).
+    #: ``clear`` | ``partly_cloudy`` | ``overcast`` | ``rain`` | ``snow`` (``weather.WEATHERS``).
     weather: str = "clear"
     #: How overcast, 0..1 (also ``SkySpec.cloud``).
     cloud: float = 0.0

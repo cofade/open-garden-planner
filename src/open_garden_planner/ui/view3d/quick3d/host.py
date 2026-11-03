@@ -460,11 +460,10 @@ class Quick3DHost:
         #: the sky-view table is refilled for every new sun.
         self._cloud_noise: CloudNoiseTexture | None = None
         self._sky_view: SkyViewTexture | None = None
-        #: False: the atmosphere sky only BACKS the view — no light probe from it, drawn
-        #: on screen at a quarter of the resolution, no cube — what the self-test needs
-        #: on a machine without a GPU (a prefiltered probe costs seconds on WARP). Set
-        #: before the first atmosphere build; the product leaves it True.
-        self.atmosphere_light = True
+        #: False: an atmosphere sky backs the view WITHOUT the painted sky's light probe
+        #: (``set_sky``) — what the self-test renders on a machine without a GPU, where
+        #: filtering a probe costs seconds. The product leaves it True.
+        self.sky_probe = True
         self._container: QWidget | None = None
         self._spent = False   # the one offscreen frame was taken (Qt cannot tell us)
         self._closed = False  # close() ran to its end (Qt deletes the view only later)
@@ -1395,9 +1394,12 @@ class Quick3DHost:
 
         EVERY call with a sky builds one: a whole procedural sky on the GUI thread,
         and a light probe Qt filters in the next frame it renders. ``sky.model``
-        says which sky (L7): ``painted`` — the procedural texture — or
+        says which sky BACKS the view (L7): ``painted`` — the procedural texture — or
         ``atmosphere`` — the Qt 6.12 ``SkyMaterial``, whose inputs are only written
-        here; Qt renders its cube and filters its light in the next frame. WHEN to build is
+        here and which Qt draws on screen. The painted sky is built for BOTH: it is
+        the one light probe. The atmosphere never lights, so Qt never builds its cube.
+        That cube's pre-filter in Qt 6.12.0 uses a freed QRhi resource and crashed the
+        app (PF-E3D-17: 3 of 5 runs of one painted -> atmosphere switch). WHEN to build is
         the caller's policy (``core.scene3d.look.sky_is_stale``: once per noticeable
         sun move) — and so is never building one on a software adapter, where the
         probe's filtering was measured in tens of seconds (``ogp-3d-renderer`` §8).
@@ -1413,14 +1415,17 @@ class Quick3DHost:
             self._sky = None
             return
         started = time.perf_counter()
-        if sky.model == ATMOSPHERE:
-            # L7: the inputs of the ONE atmosphere sky (made at the first call, then
-            # only written: a SkyMaterial re-renders its cube and its light on its own)
-            inputs = self._atmosphere_inputs(sky)
-            self._call("buildAtmosphere", inputs, self._cloud_volume(),
-                       self._sky_view_table(atmosphere_sun_direction(sky)))
+        # the painted sky: the light probe of both models, and the background of painted
+        if sky.model == ATMOSPHERE and not self.sky_probe:
+            self._call("dropSky")
         else:
             self._call("buildSky", sky_properties(sky))
+        if sky.model == ATMOSPHERE:
+            # L7: the inputs of the ONE atmosphere sky (made at the first call, then only
+            # written) — in the same GUI-thread turn, so no frame shows the painted
+            # background between the two calls
+            self._call("buildAtmosphere", self._atmosphere_inputs(sky), self._cloud_volume(),
+                       self._sky_view_table(atmosphere_sun_direction(sky)))
         self.last_sky_build_ms = (time.perf_counter() - started) * 1000.0
         self._sky = sky
         self.sky_builds += 1
@@ -1435,9 +1440,6 @@ class Quick3DHost:
                 x, y, z = cast("tuple[float, float, float]", value)
                 value = QVector3D(float(x), float(y), float(z))
             inputs[name] = value
-        if not self.atmosphere_light:
-            # SkyMaterial.enableIBL / skyboxMode (ScreenSpaceQuarter = 3): no cube at all
-            inputs.update(enableIBL=False, skyboxMode=SKYBOX_SCREEN_SPACE_QUARTER)
         return inputs
 
     def _sky_view_table(self, sun_direction: tuple[float, float, float]) -> SkyViewTexture:
@@ -1727,11 +1729,6 @@ def _pick_hit(row: Any) -> PickHit:
     point = engine_to_scene_points(np.array([row["x"], row["y"], row["z"]], dtype=np.float64))
     return PickHit(item_id=str(row.get("id", "")), part_index=int(row.get("part", -1)),
                    point=(float(point[0]), float(point[1]), float(point[2])))
-
-
-#: ``SkyMaterial.SkyboxMode.ScreenSpaceQuarter`` (Qt 6.12: Cubemap 0, ScreenSpaceFull 1,
-#: ScreenSpaceHalf 2, ScreenSpaceQuarter 3 — read from ``Quick3D.qmltypes``).
-SKYBOX_SCREEN_SPACE_QUARTER: Final = 3
 
 
 def _engine_vector(point_scene: tuple[float, float, float]) -> QVector3D:

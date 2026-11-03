@@ -192,3 +192,4 @@
 | Case study: a pond that went black under a new sky (#391) | [Read](189-case-study-a-pond-that-went-black-under-a-new-sky-391.md) |
 | Case study: a cloudy evening that brightened (#391) | [Read](190-case-study-a-cloudy-evening-that-brightened-391.md) |
 | Case study: a sky that vanished after the first sun change (#391) | [Read](191-case-study-a-sky-that-vanished-after-the-first-sun-change-391.md) |
+| Case study: a crash with no trace under the new sky (#391) | [Read](192-case-study-a-crash-with-no-trace-under-the-new-sky-391.md) |

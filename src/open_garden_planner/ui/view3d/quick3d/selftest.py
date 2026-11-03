@@ -42,9 +42,10 @@ the artifact it runs in: can THIS build render the garden? It
    uploaded as a 3D texture — looking into the sky at eye height, once clear and once
    under the weather's clouds: the sky must be drawn (not the plain background), and
    the cloudy one must differ from the clear one, which only a cloud raymarch through
-   the uploaded volume can do (``judge_atmosphere_frames``). The atmosphere lights
-   nothing here and is drawn on screen at a quarter of the resolution (no cube, no
-   probe: ``atmosphere_light=False``) — a machine without a GPU can afford that.
+   the uploaded volume can do (``judge_atmosphere_frames``). The atmosphere is drawn
+   on screen and never lights (the product's way too, PF-E3D-17); here not even the
+   painted sky's probe is built (``sky_probe=False``) — a machine without a GPU can
+   afford that.
 
 A QML error, a shader that does not compile, a frame that fails the judge or an
 exception fails the self-test. So does a hang: a watchdog dumps every thread's
@@ -570,7 +571,7 @@ def _render_atmosphere(log: RenderLog, qml_dir: Path | None
         sky = replace(look.sky, model=ATMOSPHERE, cloud=cloud or 0.0)
         frame = render_records({}, shot=shot, sun=ATMOSPHERE_SUN, ground=GROUND, size=SIZE,
                                look=replace(look, sky=sky), qml_dir=qml_dir, log=log,
-                               sky_light=cloud is not None, atmosphere_light=False)
+                               sky_light=cloud is not None, sky_probe=False)
         frames.append(frame.rgba())
     return frames[0], frames[1], frames[2]
 

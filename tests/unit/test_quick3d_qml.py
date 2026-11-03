@@ -473,7 +473,8 @@ def test_the_atmosphere_is_made_once_and_never_destroyed_nor_re_pointed() -> Non
     """L7 (#391): ONE AtmosphereSky, made with the cloud volume's ONE Texture at the
     first build and from then on only written — a SkyMaterial re-renders by itself, and
     a data object attached to a second Texture draws white (``ogp-3d-renderer`` §2). A
-    painted sky (or none) only switches it off; the environment shows one or the other."""
+    painted sky (or none) only switches it off; the atmosphere leaves the painted sky in
+    place — its texture is the light probe under both models (PF-E3D-17)."""
     code = _scene()
     build = code[code.index("function buildAtmosphere"):code.index("function dropSky")]
     assert build.count("createObject") == 3 and "if (!sky) {" in build, "made once"
@@ -482,8 +483,8 @@ def test_the_atmosphere_is_made_once_and_never_destroyed_nor_re_pointed() -> Non
     assert "atmosphereComponent.createObject(view.scene, {\"noiseVolume\": volume," in build
     assert "\"skytextureBuffer\": skyView})" in build
     assert "sky[key] = inputs[key]" in build and "view.atmosphereOn = true" in build
-    assert "view.skyTexture = null" in build, "the painted sky goes when the atmosphere shows"
-    assert build.count(".destroy()") == 1 and "old.destroy()" in build, "only the painted pair"
+    assert "view.skyTexture" not in build, "the painted sky stays: it is the light probe"
+    assert ".destroy()" not in build, "the atmosphere destroys nothing"
     assert "atmosphere.destroy" not in code and "volume.destroy" not in code
     assert code.count("AtmosphereSky {") == 1, "one declaration: inside its Component"
     for function in ("function buildSky", "function dropSky"):
@@ -513,6 +514,29 @@ def test_the_light_probe_is_put_back_when_an_earlier_sky_is_destroyed() -> None:
     handler = handler[:handler.index("\n            }\n")]
     assert f"if (lightProbe !== ({wanted}))" in handler
     assert f"lightProbe = Qt.binding(function() {{ return {wanted} }})" in handler
+
+
+def test_the_atmosphere_never_builds_the_cube_that_crashed_qt_6_12_0() -> None:
+    """PF-E3D-17 (#391, owner's manual test): Qt 6.12.0's SkyMaterial pre-filters its
+    light cube with a freed QRhi resource — an access violation in Qt6Gui
+    (``sanityCheckResourceOwnership``) under ``QSSGRenderSkyMaterialManager::
+    runPrefilterCycle``. Qt builds that cube only for image-based light, the Cubemap
+    skybox mode, reflection probes or a screen texture (``resolveLayerIblTexture``), so
+    the atmosphere asks for none of them and the painted sky's texture lights the
+    garden under both models."""
+    sky = (QML_DIR / "AtmosphereSky.qml").read_text(encoding="utf-8")
+    assert re.search(r"^\s*enableIBL:\s*false\s*$", sky, re.MULTILINE), "no light from the atmosphere"
+    mode = re.search(r"^\s*skyboxMode:\s*SkyMaterial\.(\w+)\s*$", sky, re.MULTILINE)
+    assert mode is not None and mode.group(1).startswith("ScreenSpace"), "drawn on screen, no cube"
+    for cube_only in ("iblSampleCount", "iblRenderFrames", "radianceMapSize", "iblSamplesPerFrame"):
+        assert cube_only not in sky, f"{cube_only} tunes the cube this sky never builds"
+    code = _scene()
+    assert "lightProbe: view.paintedShown ? view.skyTexture : null" in code, (
+        "the painted texture lights, whichever sky backs the view")
+    assert "ReflectionProbe" not in code, "a reflection probe would build the cube"
+    shaders = " ".join(path.read_text(encoding="utf-8") for path in QML_DIR.glob("*.frag"))
+    assert "SCREEN_TEXTURE" not in shaders and "SCREEN_MIP_TEXTURE" not in shaders, (
+        "a screen texture would build the cube")
 
 
 def test_the_water_samples_the_sky_under_a_sky_material_too() -> None:

@@ -688,15 +688,16 @@ sequenceDiagram
         W-->>LC: the 64³ volume (or an exception → painted for the session)
     end
     LC->>H: set_sky(atmosphere sky) — the look's sky with model "atmosphere"
+    H->>Q: buildSky(painted properties) — the light probe under both models
     H->>H: sky-view table for this sun (~0.1 s), gain, inputs
-    H->>Q: buildAtmosphere(inputs, volume, table)
-    Note over Q: ONE AtmosphereSky per scene, made at the first call,<br/>then only written; a painted sky only switches it off
+    H->>Q: buildAtmosphere(inputs, volume, table) — same GUI-thread turn, no frame between
+    Note over Q: ONE AtmosphereSky per scene, made at the first call,<br/>then only written; drawn on screen (ScreenSpaceHalf),<br/>no light, no cube (PF-E3D-17); a painted sky only switches it off
     Q-->>H: built (a refusal → painted sky for the session)
 ```
 
-A sun change while the atmosphere shows refills the same sky-view table in place and
-writes the inputs (about 0.2 s of GUI thread, against 0.12 s for a painted rebuild); a
-painted sky is a fresh Texture pair per build, and the environment re-binds its light
+A sun change while the atmosphere shows rebuilds the painted sky (its light), refills the
+same sky-view table in place and writes the inputs; a painted sky is a fresh Texture pair
+per build, and the environment re-binds its light
 probe when the previous one is deleted (PF-E3D-16). A shader that compiles to nothing is
 not seen at run time (PF-E3D-14; #720).
 
