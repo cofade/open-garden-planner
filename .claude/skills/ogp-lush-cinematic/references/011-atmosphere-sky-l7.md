@@ -21,7 +21,7 @@ has the measurements):
 | thin clouds' light × (1 + 4.2 × (1 − cover)²) | `look.ATMOSPHERE_THIN_CLOUD_LIFT` | the 0.064 was calibrated on a full deck; at 0.4 the noon clouds read as dark smoke. × 2.5 at 0.4, × 1 at Overcast and Rain, × 1.09 at Snow |
 | disc 1 − max(cloud − 0.5, 0) / 0.5 | `atmosphere_properties` `sunAlpha` | the clouds themselves hide the disc; in a gap of a partial cover it stays whole |
 | sky exposure 1 − exp(−c × e) | `atmosphere.frag` `skyExposed` | the skybox shader's curve, which Qt's screen path skips under our post effects: without it 1.8× too bright by day, 25–28 % of a low-sun frame clipped, no disc. Never replace it with a multiply: that leaves 13–14 luma by day |
-| skybox Half | `AtmosphereSky.qml` `ScreenSpaceHalf` | drawn on screen per frame. At cover 0.4, 1280 × 720, sky-filled: 3.11 ms against Full's 4.38 (painted 2.23), and Half and Full look the same |
+| skybox Half | `AtmosphereSky.qml` `ScreenSpaceHalf` | drawn on screen per frame. At cover 0.4, 1280 × 720, sky-filled, three runs: 3.1-5.6 ms against Full's 4.5-8.9 (painted 2.1-2.3), and Half and Full look the same |
 | aerosol turbidity 0.5 | `atmosphere_lut.EARTH_ATMOSPHERE` | the example's 1 read pale at noon and washed a camera facing a low sun to cream; 0.25 differed little more |
 | disc energy × 4 | `look.ATMOSPHERE_DISC_ENERGY` | at × 1 the halo outshone the disc (240,239,237 under 248,244,230) and the sky probe found the glow 9° below the sun; at × 4 it reads the disc at 11.98° for a 12° sun; the ×4 is the core only — the glow around it keeps the painted disc's colour and energy (×4 there clipped a sunset disc to white) |
 

@@ -3831,10 +3831,11 @@ sky's and fail its 3.0-luma bound on BOTH skies and on `master` with Qt 6.11 ali
 package's.
 
 **Self-test** (`--selftest`, point 8): the frozen exe now renders the atmosphere from the bundle,
-clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that; at a
-quarter of the resolution then, at half since the revision below), against a frame without a sky: 44.3 apart from the plain background and
-28.1 between clear and cloudy on the GPU and on WARP alike (bounds 11 and 7); the three frames
-took 9.3 s / 8.8 s, the cloud volume made once included.
+clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that), against
+a frame without a sky. With the revision below (half resolution, the sky's own exposure) it
+reads 81.4 apart from the plain background and 24.5 between clear and cloudy, on the GPU and on
+WARP alike (bounds 11 and 7, a quarter of the first build's 44.3 and 28.1); the three frames
+took 10.2 s / 9.5 s, the cloud volume made once included.
 
 **Licences** (per-file check at the tag; `qml/PROVENANCE.md`, `qml/LICENSE-qt-skymaterial.txt`):
 the example's sky shader (`advancedsky.frag`, three marked changes) and the two look-up-table
@@ -3896,11 +3897,14 @@ fix the crash, and add a partly cloudy weather. What changed:
   codes 0 and 1 stay clear. The painted sky shows only its slightly greyer blue; the clouds are
   the atmosphere's. ADR-070's weather gates run on it (`HORIZON_WEATHERS`).
 - **Cost** (RTX 4070, Direct3D 11, a shown 1280 × 720 host looking into the sky, the median of
-  40 frames): painted 2.23 ms; atmosphere at cover 0: 2.37 ms (Half), 2.25 (Full), 2.14
-  (Quarter); at cover 0.4: 3.11 ms (Half), 4.38 (Full), 2.55 (Quarter). Half and Full look the
-  same, so the default is Half. A sun change now also builds the painted sky (~120 ms) beside
-  the sky-view table, and the light cube's one-time filter is gone. An integrated GPU is still
-  unmeasured (owner question).
+  40 frames, the range of three runs of the same code): painted 2.1–2.3 ms; atmosphere at
+  cover 0: 2.2–3.6 ms (Half), 3.2–3.7 (Full), 2.1–3.5 (Quarter); at cover 0.4: 3.1–5.6 ms
+  (Half), 4.5–8.9 (Full), 3.7–4.9 (Quarter). The atmosphere's numbers move by up to × 1.9
+  between runs. The GPU idles at 210 MHz between them, so we read that as its clock state, but
+  did not pin it down; compare ranges, not single runs. Half and Full look the same, so the
+  default is Half. A sun change now also builds the painted sky (~120 ms) beside the sky-view
+  table, and the light cube's one-time filter is gone. An integrated GPU is still unmeasured
+  (owner question).
 - **The self-test** renders the atmosphere without the painted probe (`sky_probe=False`): a
   machine without a GPU cannot afford a probe filter. The rule it checks is unchanged.
 

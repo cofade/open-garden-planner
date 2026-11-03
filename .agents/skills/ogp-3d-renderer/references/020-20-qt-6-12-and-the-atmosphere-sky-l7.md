@@ -62,12 +62,14 @@ same machine), 2026-11-02/03, PyQt6 / PyQt6-Qt6 6.12.0:
 - **Cost:** first atmosphere frame 783 ms (painted 663 ms; a one-time compile), each later sun
   change ~200 ms of GUI thread (painted 122 ms: the CPU sky-view table ~110 ms, the gain
   ~30 ms), plus the painted sky it now builds as the light. Per frame on screen (1280 × 720,
-  looking into the sky): painted 2.23 ms; the atmosphere at cover 0.4: Half 3.11 ms, Full
-  4.38, Quarter 2.55. Half and Full look the same. A board renders a fresh host per frame and
-  pays the compile per frame (~2.5-4 s).
+  looking into the sky, three runs of the same code): painted 2.1-2.3 ms; the atmosphere at
+  cover 0.4: Half 3.1-5.6 ms, Full 4.5-8.9, Quarter 3.7-4.9. The GPU idles at 210 MHz between
+  runs and short frames do not always boost it, so one run proves nothing: compare ranges.
+  Half and Full look the same. A board renders a fresh host per frame and pays the compile
+  per frame (~2.5-4 s).
 - **Software adapter:** the self-test's screen-space atmosphere without the painted probe
-  (`sky_probe=False`) renders on WARP (a quarter resolution, before the revision: 44.3 / 28.1
-  on both).
+  (`sky_probe=False`) renders on WARP: 81.4 from the plain background and 24.5 between clear
+  and cloudy, the same as on the GPU (bounds 11 and 7).
 - **The sky probe on the atmosphere** reads the disc only once the disc outshines its aerosol
   halo: at the painted disc's energy the probe locked onto the horizon glow 9° below the sun
   (bearing still within 0.35°); `ATMOSPHERE_DISC_ENERGY` 4 → bearing 0.02°, elevation 11.98° for
