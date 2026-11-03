@@ -363,7 +363,10 @@ class TourDialog(QDialog):
             return
         try:
             recorder = self._capture.start_tour(spec, size, writer, realtime=realtime)
-        except (CaptureRefused, VideoError) as error:
+        except CaptureRefused:   # its own text is English: it is an agent's sentence
+            self._status.setText(self.tr("The 3D view is still building. Try again in a moment."))
+            return
+        except VideoError as error:
             self._status.setText(str(error))
             return
         self._recorder = recorder
@@ -410,9 +413,10 @@ class TourDialog(QDialog):
         self.cancel_button.setEnabled(True)
         self.close_button.setEnabled(True)
         if recording:
+            shown = self.isVisible()   # closing the dialog is one way to stop a recording
             self.hide()
             self.setWindowModality(Qt.WindowModality.NonModal)
-            self.show()
+            self.setVisible(shown)
         self._status.setText(self._say(result, recording))
         self._sync_controls()
 

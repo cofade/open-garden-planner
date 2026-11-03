@@ -49,6 +49,9 @@ if __name__ == "__main__":  # run as a script: make this checkout's code importa
     for entry in (str(REPO / "src"), str(REPO)):
         if entry not in sys.path:
             sys.path.insert(0, entry)
+    from scripts.quiet_windows import keep_windows_behind
+
+    keep_windows_behind()  # run by hand: no start-up hook did this
 
 VIEW = (1280, 720)
 PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"

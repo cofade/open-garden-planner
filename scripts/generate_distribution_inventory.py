@@ -92,6 +92,19 @@ THIS SOFTWARE.""",
     },
 }
 
+#: What a wheel carries beyond its own license (ADR-071). Checked at run time on the pinned
+#: wheel: ``avcodec_license()`` says "LGPL version 2.1 or later", its configuration has no
+#: ``--enable-gpl``, and Qt logs "Using Qt multimedia with FFmpeg version 9.0.1".
+EMBEDDED_NOTICES: dict[str, str] = {
+    "pyqt6-qt6": (
+        "This wheel's Qt Multimedia uses the FFmpeg libraries (avcodec, avformat, avutil, "
+        "swresample, swscale) under the LGPL version 2.1 or later. They are separate DLLs in "
+        "the bundle's `PyQt6/Qt6/bin` folder and can be replaced. FFmpeg's source: "
+        "https://ffmpeg.org/download.html. Open Garden Planner uses them to write MP4 videos; "
+        "H.264 comes from the operating system's own encoder."
+    ),
+}
+
 #: SPDX ids the raw ``License:`` field may be trusted to name directly (used only
 #: when no PEP 639 ``License-Expression`` and no license classifier exist).
 #: Anything else is treated as prose and emitted as a CycloneDX ``name`` — never
@@ -325,6 +338,10 @@ def render_notices(records: list[dict[str, object]], app_version: str) -> str:
         if record["home_page"]:
             lines.append(f"- Project: {record['home_page']}")
         lines.append("")
+        embedded = EMBEDDED_NOTICES.get(str(record["canonical_name"]))
+        if embedded:
+            lines.append(embedded)
+            lines.append("")
         for text in record["license_texts"]:
             lines.append("```")
             lines.append(str(text))

@@ -295,7 +295,7 @@ def test_the_view_menu_offers_the_three_modes_with_shortcuts_nobody_else_has(app
     submenus = {menu.title(): menu for menu in window._view_menu.findChildren(QMenu)}
     menu = submenus["&Workspace"]
     texts = [action.text() for action in menu.actions() if not action.isSeparator()]
-    assert texts == ["&Plan", "&3D", "&Split", "&Reset 3D View", "&Photo Mode", "Camera &Tour..."]
+    assert texts == ["&Plan", "&3D", "&Split", "&Reset 3D View", "P&hoto Mode", "Camera &Tour..."]
     modes = workspace.mode_actions()
     assert menu.actions()[:3] == modes and all(action.isCheckable() for action in modes)
     taken: dict[str, list[str]] = {}

@@ -42,7 +42,7 @@ if __name__ == "__main__":  # run as a script: make this checkout's code importa
             sys.path.insert(0, entry)
     import script_isolation
 
-    script_isolation.isolate_profile()
+    script_isolation.isolate_profile()  # with scripts/quiet_windows.keep_windows_behind
 
 PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
 DAY = date(2026, 6, 21)
@@ -120,6 +120,22 @@ def shown_host(out: Path) -> tuple[Any, Any]:
     return host, sync
 
 
+def window_behind(host: Any) -> dict[str, Any]:
+    """Whether the shown view is out of the user's way (``scripts/quiet_windows``), asked of
+    Windows itself. None on another platform, where the switch is off."""
+    if sys.platform != "win32":
+        return {"checked": False}
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32")
+    user32.GetForegroundWindow.restype = wintypes.HWND
+    view = host._view
+    return {"checked": True, "foreground": bool(user32.GetForegroundWindow() == int(view.winId())),
+            "no_activation": bool(view.property("_q_showWithoutActivating")),
+            "exposed": bool(view.isExposed())}
+
+
 def scenario_host(out: Path) -> dict[str, Any]:
     from open_garden_planner.core.scene3d.photo import NO_PHOTO, PhotoSettings
     from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
@@ -133,6 +149,7 @@ def scenario_host(out: Path) -> dict[str, Any]:
         taken = host.capture(size, label="same")
         taken.save(str(out / "same.png"))
         result: dict[str, Any] = {
+            "behind": window_behind(host),
             "ratio": ratio, "size": size, "format": taken.format().name,
             "taken_size": [taken.width(), taken.height()],
             "capture_vs_view": difference(view, rgb(taken))}

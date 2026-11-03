@@ -64,7 +64,6 @@ from __future__ import annotations
 
 import importlib
 import os
-import tempfile
 import time
 from dataclasses import dataclass
 from datetime import date
@@ -592,11 +591,14 @@ def _check_capture(log: RenderLog, qml_dir: Path | None) -> str:
 
     from .adapter import Quick3DSink
     from .host import EngineError, Quick3DHost
-    from .offscreen import image_rgba
+    from .offscreen import ensure_application, image_rgba
 
+    ensure_application()   # a frame above that failed early may not have made one
     host = Quick3DHost(SIZE, qml_dir=qml_dir, log=log)
     try:
-        host.show()
+        if not host.renders_3d():
+            return f"not exercised: the {host.graphics_api()} backend draws no 3D"
+        host.show_behind()
         if not host.wait_ready(30.0):
             return "not exercised: no window could be shown in this session"
         sync = SceneSync(Quick3DSink(host), registry())
@@ -620,20 +622,24 @@ def _check_capture(log: RenderLog, qml_dir: Path | None) -> str:
         host.close()
 
 
-def _check_video(log: RenderLog) -> str:
+def _check_video(log: RenderLog, folder: Path) -> str:
     """Eight frames into an MP4 from the bundle's Qt Multimedia and FFmpeg (L6.2, ADR-071):
     lazily loaded like the old 3D view was (#277), so the only proof it works is doing it.
+    Written beside the self-test's log, in the user's own folder, and gone afterwards.
     Returns what was written; raises when nothing was."""
     from PyQt6.QtCore import QEventLoop, QTimer
     from PyQt6.QtGui import QColor, QImage
 
     from ..video_writer import Mp4Writer, best_codec
     from .host import EngineError
+    from .offscreen import ensure_application
 
+    ensure_application()
     if best_codec() is None:
         raise EngineError("Qt Multimedia loaded, but it offers no encoder for an MP4 file")
-    with tempfile.TemporaryDirectory(prefix="ogp-selftest-video") as folder:
-        path = Path(folder) / "selftest.mp4"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "OpenGardenPlanner-selftest-video.mp4"
+    try:
         writer = Mp4Writer(path, VIDEO_SIZE, 30)
         outcome: list[tuple[bool, str]] = []
         writer.finished.connect(lambda ok, message: outcome.append((ok, message)))
@@ -665,6 +671,8 @@ def _check_video(log: RenderLog) -> str:
             raise EngineError("the video file is empty")
         log("selftest_video", codec=writer.codec, bytes=size)
         return f"{VIDEO_FRAMES} frames into {size} bytes of {writer.codec}"
+    finally:
+        path.unlink(missing_ok=True)
 
 
 def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WATCHDOG_S,
@@ -750,7 +758,7 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
         except Exception as exc:  # noqa: BLE001 - report every failure, never abort
             say(False, f"capture view -> {type(exc).__name__}: {exc}")
         try:
-            say(True, f"video: {_check_video(log)}")
+            say(True, f"video: {_check_video(log, path.parent)}")
         except Exception as exc:  # noqa: BLE001 - report every failure, never abort
             say(False, f"video -> {type(exc).__name__}: {exc}")
     ok = all(line.startswith("  OK  ") for line in lines)

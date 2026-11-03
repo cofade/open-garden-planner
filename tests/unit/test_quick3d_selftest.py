@@ -479,6 +479,62 @@ class TestScene:
                 assert 0.0 < x < selftest.GROUND.width_cm and 0.0 < y < selftest.GROUND.depth_cm
 
 
+@pytest.fixture()
+def no_new_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The capture's and the video's blocks have their own tests below; here the frame's."""
+    monkeypatch.setattr(selftest, "_check_capture", lambda *_a: "stand-in")
+    monkeypatch.setattr(selftest, "_check_video", lambda *_a: "stand-in")
+
+
+class TestTheDirectorsCutBlocks:
+    """L6 (ADR-071): the self-test captures and encodes, because both load lazily (#277)."""
+
+    def test_a_capture_that_differs_from_the_view_fails(self, monkeypatch: pytest.MonkeyPatch,
+                                                        tmp_path) -> None:
+        def wrong(*_args: object) -> str:
+            raise RuntimeError("the capture differs from the view by up to 40 levels")
+
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame()))
+        monkeypatch.setattr(selftest, "_render_living", lambda *_a, **_k: _good_frame())
+        monkeypatch.setattr(selftest, "_check_capture", wrong)
+        monkeypatch.setattr(selftest, "_check_video", lambda *_a: "stand-in")
+        result = selftest.run_selftest(tmp_path / "selftest.log")
+        assert not result.ok
+        assert any(line.startswith("  FAIL capture view -> ") and "40 levels" in line
+                   for line in result.lines)
+
+    def test_a_video_that_cannot_be_written_fails(self, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+        def wrong(*_args: object) -> str:
+            raise RuntimeError("Qt Multimedia loaded, but it offers no encoder")
+
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame()))
+        monkeypatch.setattr(selftest, "_check_capture", lambda *_a: "stand-in")
+        monkeypatch.setattr(selftest, "_check_video", wrong)
+        result = selftest.run_selftest(tmp_path / "selftest.log")
+        assert not result.ok
+        assert any(line.startswith("  FAIL video -> ") for line in result.lines)
+
+    def test_the_video_block_really_encodes_and_leaves_nothing(self, qtbot, tmp_path) -> None:
+        from open_garden_planner.ui.view3d.video_writer import best_codec
+
+        if best_codec() is None:
+            pytest.skip("this system has no MP4 encoder")
+        logged: list[tuple[str, dict[str, object]]] = []
+
+        def log(phase: str, **fields: object) -> None:
+            logged.append((phase, fields))
+
+        said = selftest._check_video(log, tmp_path / "logs")  # noqa: SLF001 - the block itself
+        assert "8 frames" in said and logged[0][0] == "selftest_video"
+        assert list((tmp_path / "logs").iterdir()) == []
+
+    def test_a_backend_without_3d_says_so_instead_of_failing(self, qtbot, tmp_path) -> None:
+        """Under ``offscreen``: a host that draws nothing is not a broken capture."""
+        said = selftest._check_capture(lambda *_a, **_k: None, None)  # noqa: SLF001
+        assert said.startswith("not exercised")
+
+
+@pytest.mark.usefixtures("no_new_blocks")
 class TestRun:
     def test_an_import_failure_is_reported_and_fails(self, monkeypatch: pytest.MonkeyPatch,
                                                      tmp_path) -> None:

@@ -726,6 +726,28 @@ def test_closing_the_dialog_stops_what_it_started(rig: Rig, qtbot: Any) -> None:
     qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
 
 
+def test_closing_the_dialog_during_a_recording_does_not_bring_it_back(
+        rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    dialog.record_png(tmp_path / "tour")
+    capture = rig.workspace.capture
+    assert capture.recording
+    dialog.close()
+    qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
+    assert not dialog.isVisible()
+    assert dialog.windowModality() == Qt.WindowModality.NonModal
+
+
+def test_a_tour_refused_for_now_says_so_in_the_users_language(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    rig.bed(300.0, 300.0)   # an edit is on its way: the view is warming up
+    dialog.preview()
+    assert not rig.workspace.capture.recording
+    assert "still building" in dialog._status.text()
+    dialog.close()
+
+
 def test_shutting_down_with_a_tour_running_is_clean(rig: Rig) -> None:
     rig.open_3d()
     capture = rig.workspace.capture

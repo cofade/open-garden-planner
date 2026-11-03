@@ -253,7 +253,7 @@ the probe under the atmosphere in a scratch checkout, and run seed 7 several tim
 ### PF-E3D-18
 
 - **Rule:** A picture beside a shown view comes from a second `View3D` of the same scene (`importScene`, the same camera and environment), read with `grabToImage` driven by one synchronous `grabWindow`; never a `render_records` beside a shown window, never a wait for the window's next frame, and never a `View3D` made and destroyed per picture.
-- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_a_capture_at_the_views_size_is_the_view`; `tests/integration/test_directors_cut_render.py::test_another_camera_moves_nothing_on_screen`; `tests/integration/test_view3d_workspace_widget.py::test_the_workspaces_modules_never_ask_a_host_for_a_frame`.
+- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_a_capture_at_the_views_size_is_the_view`; `tests/integration/test_directors_cut_render.py::test_another_camera_moves_nothing_on_screen`; `tests/integration/test_view3d_workspace_widget.py::test_the_workspaces_modules_never_ask_a_host_for_a_frame`
 - **Source:** #390 (Phase 17 L6), ADR-071 decisions 1 to 4.
 - **Status:** standing
 - **Legacy:** none (new entry).
@@ -270,7 +270,7 @@ smallest size. A soak on one adapter would have approved the wrong design.
 ### PF-E3D-19
 
 - **Rule:** With a colour table on, the environment's saturation and contrast are 1 and the table carries them: Qt applies them unclamped right before its table lookup, and that lookup is a `texelFetch` whose column a colour below 0 pushes into the neighbouring slice. Texture DATA for a table runs its rows opposite to a loaded PNG, and a `Texture`'s `flipV` does not reach an effect's sampler.
-- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_a_grades_table_is_the_view_through_it_and_turns_nothing_red`; `tests/unit/test_scene3d_photo.py::test_a_table_carries_the_looks_adjustments_exactly_as_qts_shader_does`; `tests/unit/test_scene3d_photo.py::test_as_texture_data_the_rows_run_opposite_to_qts_identity_png`.
+- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_a_grades_table_is_the_view_through_it_and_turns_nothing_red`; `tests/unit/test_scene3d_photo.py::test_a_table_carries_the_looks_adjustments_exactly_as_qts_shader_does`; `tests/unit/test_scene3d_photo.py::test_as_texture_data_the_rows_run_opposite_to_qts_identity_png`
 - **Source:** #390 (Phase 17 L6.1), found by an identity table against the view; ADR-071 decision 6.
 - **Status:** standing
 - **Legacy:** none (new entry).
@@ -288,7 +288,7 @@ same file: `vignetteStrength` is not a strength, a lower value darkens the middl
 ### PF-E3D-20
 
 - **Rule:** Frames for Qt's recorder are BT.709 YUV computed by the app, in an HD size: handed RGB it converts with BT.601 and writes no colour tag, and players read an untagged HD stream as BT.709. A test reads a decoded frame's Y, Cb and Cr itself; `QVideoFrame.toImage` guesses the matrix differently by platform.
-- **Pinned by:** `tests/integration/test_video_writer.py::test_an_mp4_has_every_frame_the_right_length_and_the_right_colours`; `tests/unit/test_video_yuv.py::test_a_colour_survives_the_round_trip_within_two_levels`; `tests/unit/test_video_yuv.py::test_it_is_the_bt709_matrix_and_not_bt601`.
+- **Pinned by:** `tests/integration/test_video_writer.py::test_an_mp4_has_every_frame_the_right_length_and_the_right_colours`; `tests/unit/test_video_yuv.py::test_a_colour_survives_the_round_trip_within_two_levels`; `tests/unit/test_video_yuv.py::test_it_is_the_bt709_matrix_and_not_bt601`
 - **Source:** #390 (Phase 17 L6.2), found by reading the first video back; ADR-071 decision 9.
 - **Status:** standing
 - **Legacy:** none (new entry).

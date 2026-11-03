@@ -112,7 +112,7 @@ class TestSpec:
                        "ui.view3d.tour_recorder", "ui.view3d.video_writer"):
             assert f'"open_garden_planner.{module}",' in code, module
         selftest = (PACKAGE / "selftest.py").read_text(encoding="utf-8")
-        assert "_check_video(log)" in selftest and "_check_capture(log, qml_dir)" in selftest
+        assert "_check_video(log, path.parent)" in selftest and "_check_capture(log, qml_dir)" in selftest
 
     def test_the_spike_left_the_bundle_with_l1_10(self) -> None:
         """L1.10 trimmed the spec with the spike: its QML, its modules and

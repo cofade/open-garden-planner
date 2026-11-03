@@ -2260,6 +2260,16 @@ audit evidence for the command, machine and measured limitations.
 
 ### 8.10.17 Patterns from the director's cut (Phase 17 L6, #390)
 
+- **Real windows stay behind.** The render tier, its drivers, the Beauty Board and the probes show
+  real windows, because the engine draws nothing under `offscreen`. `scripts/quiet_windows.py` (the
+  owner's request) shows them without activating them and under every other window, so a run no
+  longer interrupts work on the same desktop. It is on for every child of `render_env` /
+  `isolated_env` (the start-up hook), everything that calls `script_isolation.isolate_profile`, and
+  the drivers run by hand. A covered window still renders and reads back: the render tier runs on
+  it. `OGP_WINDOWS_IN_FRONT=1` switches it off, to watch a run. A new probe gets it by isolating
+  itself, which it must do anyway. The product and the frozen exe never run it; `--selftest`'s one
+  shown window uses `Quick3DHost.show_behind`.
+
 - **A second reader for a claim about pixels.** "The capture is the view" is asserted by comparing
   with `grab()` at the same size and, for a shot, with the view moved to that camera. Both are
   max-difference 0, not a threshold of taste.

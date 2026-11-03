@@ -164,7 +164,7 @@ class WorkspaceCaptureCoordinator(QObject):
         self._blur: QSlider | None = None
         self._focus_label: QLabel | None = None
         self._button: QToolButton | None = None
-        self.photo_action = QAction(_tr("&Photo Mode"), parent)
+        self.photo_action = QAction(_tr("P&hoto Mode"), parent)
         self.photo_action.setCheckable(True)
         self.photo_action.setEnabled(False)
         self.photo_action.setStatusTip(_tr("Develop the view like a photo and save it, up to 4K"))
@@ -393,7 +393,7 @@ class WorkspaceCaptureCoordinator(QObject):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             saved = self.write_photo(Path(path), key)
-        except HostStateError:
+        except (HostStateError, CaptureRefused):
             self._warn(_tr("The 3D view is not visible right now. Bring it back and try again."))
             return
         except Exception as error:  # noqa: BLE001 - a failed picture must not take the app down

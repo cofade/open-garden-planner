@@ -432,8 +432,8 @@ def _thumbnail(scene, path):
 
 
 def main(argv=None):
-    """Regenerate the example plans named on the command line, or all of them."""
     script_isolation.isolate()
+    # the example plans named on the command line, or all of them
     app = QApplication.instance() or QApplication([])
     BUNDLED_EXAMPLES.mkdir(parents=True, exist_ok=True)
     only = set(sys.argv[1:] if argv is None else argv)

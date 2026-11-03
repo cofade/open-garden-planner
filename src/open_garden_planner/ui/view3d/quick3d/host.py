@@ -1078,6 +1078,14 @@ class Quick3DHost:
             self._container = QWidget.createWindowContainer(self._view, parent)
         return self._container
 
+    def show_behind(self) -> None:
+        """``show()`` for a window nobody needs to look at (the self-test's): it takes no focus
+        and stays under the others. It is a real window all the same: it renders."""
+        self._open("show_behind")
+        self._view.setProperty("_q_showWithoutActivating", True)
+        self._view.setFlag(Qt.WindowType.WindowStaysOnBottomHint, True)
+        self.show()
+
     def show(self) -> None:
         state = self._open("show")
         if state is HostState.SPENT:

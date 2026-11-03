@@ -71,6 +71,15 @@ def test_a_capture_at_the_views_size_is_the_view(host_answers: dict[str, Any]) -
     assert host_answers["format"] == "Format_RGBX8888", "an opaque picture"
 
 
+def test_the_window_is_behind_and_renders_all_the_same(host_answers: dict[str, Any]) -> None:
+    """``scripts/quiet_windows``: no focus taken, under the other windows, and every other test
+    in this file reads its frames from that very window."""
+    behind = host_answers["behind"]
+    if behind["checked"]:
+        assert behind["no_activation"] and behind["exposed"]
+        assert not behind["foreground"]
+
+
 def test_every_size_comes_out_exact_and_shows_something(host_answers: dict[str, Any]) -> None:
     for name, row in host_answers["sizes"].items():
         width, height = (int(side) for side in name.split("x"))

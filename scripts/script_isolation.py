@@ -85,6 +85,12 @@ _state: dict[str, object] = {}
 def isolate_profile() -> Path:
     """Point every profile variable at a temporary directory of this process and
     return that directory. Call it before the app is imported."""
+    try:  # run as a script, or imported as part of the package ``scripts``
+        from quiet_windows import keep_windows_behind
+    except ImportError:
+        from scripts.quiet_windows import keep_windows_behind
+
+    keep_windows_behind()  # a script's real windows stay behind what its user is working on
     root = _state.get("root")
     if not isinstance(root, Path):
         root = Path(tempfile.mkdtemp(prefix="ogp-script-"))

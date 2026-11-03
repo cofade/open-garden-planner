@@ -2232,6 +2232,8 @@ class GardenPlannerApp(QMainWindow):
             self._set_action_icon(action, icon_name)
         self._set_action_icon(self._workspace.reset_view_action, "zoom_fit")
         self._set_action_icon(self._workspace.walk_action, "walk")
+        self._set_action_icon(self._workspace.capture.photo_action, "camera")
+        self._set_action_icon(self._workspace.capture.tour_action, "path")
         self._view_menu.insertMenu(self._preview_action, workspace_menu)
         # The workspace lives inside the Garden Plan tab, but the View menu is
         # global (#539): its mode actions select the plan tab, so Alt+1/2/3 show

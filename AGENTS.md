@@ -244,6 +244,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 ## Testing Notes
 
 - PyQt6 tests require `qtbot` fixture even when unused (needed for Qt init); ruff per-file ignore ARG002 in test files
+- Real windows of tests and probes open behind everything without taking focus (`scripts/quiet_windows.py`; `script_isolation` turns it on). `OGP_WINDOWS_IN_FRONT=1` to watch one.
 
 ## Where to Pick Up After Restart
 

@@ -2,6 +2,8 @@
 
 DE = {
     "TourDialog": {
+        "The 3D view is still building. Try again in a moment.":
+            "Die 3D-Ansicht wird noch aufgebaut. Versuchen Sie es gleich noch einmal.",
         " s": " s",
         "A frame could not be saved. Is the disk full?":
             "Ein Einzelbild konnte nicht gespeichert werden. Ist der Datenträger voll?",
@@ -66,7 +68,7 @@ DE = {
         "{rate} frames per second": "{rate} Bilder pro Sekunde",
     },
     "Workspace": {
-        "&Photo Mode": "&Fotomodus",
+        "P&hoto Mode": "&Fotomodus",
         "4K (3840 x 2160)": "4K (3840 x 2160)",
         "A colour grade for the whole picture": "Eine Farbstimmung für das ganze Bild",
         "Black and White": "Schwarzweiß",
@@ -115,6 +117,8 @@ DE = {
 
 ES = {
     "TourDialog": {
+        "The 3D view is still building. Try again in a moment.":
+            "La vista 3D aún se está construyendo. Inténtelo de nuevo en un momento.",
         " s": " s",
         "A frame could not be saved. Is the disk full?":
             "No se pudo guardar un fotograma. ¿Está lleno el disco?",
@@ -176,13 +180,13 @@ ES = {
         "{rate} frames per second": "{rate} fotogramas por segundo",
     },
     "Workspace": {
-        "&Photo Mode": "Modo &foto",
+        "P&hoto Mode": "Modo &foto",
         "4K (3840 x 2160)": "4K (3840 x 2160)",
         "A colour grade for the whole picture": "Un etalonaje de color para toda la imagen",
         "Black and White": "Blanco y negro",
         "Blur": "Desenfoque",
         "Brighter or darker, in photographers' stops": "Más claro o más oscuro, en pasos de diafragma",
-        "Camera &Tour...": "&Recorrido de cámara...",
+        "Camera &Tour...": "Recorrido de &cámara...",
         "Capture": "Captura",
         "Click the view to set the focus": "Haga clic en la vista para fijar el foco",
         "Cool Morning": "Mañana fresca",

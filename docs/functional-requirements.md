@@ -1028,7 +1028,7 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
 
 ## FR-EXAMPLE: Offline examples and reusable plan templates (US-F5, #316)
 
-- **FR-EXAMPLE-06** (#390): The examples include **Family garden**, a 24 × 16 m whole garden made to
+- **FR-EXAMPLE-07** (#390): The examples include **Family garden**, a 24 × 16 m whole garden made to
   explore in 3D, the plan of the project's own renders. Its names are localized; its botany is not.
 - **FR-EXAMPLE-01**: Welcome and File offer at least three offline examples with
   localized names/descriptions, PNG previews and visible license attribution.

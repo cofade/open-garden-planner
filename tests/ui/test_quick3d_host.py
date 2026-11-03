@@ -2047,7 +2047,9 @@ class TestClosedAndDestroyedHosts:
         lifecycle._register_calls()  # noqa: SLF001
         public = {name for name in dir(Quick3DHost)
                   if not name.startswith("_") and callable(getattr(Quick3DHost, name))}
-        assert set(lifecycle.HOST_CALLS) == public - {"is_visible", "health", "is_software_adapter"}
+        # end_captures lets go (a no-op on a closed host): it has its own row in the lifecycle
+        assert set(lifecycle.HOST_CALLS) == public - {"is_visible", "health", "is_software_adapter",
+                                                      "end_captures"}
 
     def test_close_then_anything(self, qtbot) -> None:
         made, _sink, _sync, parent, part = self._embedded(qtbot)

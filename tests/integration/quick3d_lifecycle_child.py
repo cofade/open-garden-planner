@@ -44,6 +44,9 @@ if __name__ == "__main__":  # run as a script: make this checkout's code importa
     for entry in (str(REPO / "src"), str(REPO)):
         if entry not in sys.path:
             sys.path.insert(0, entry)
+    from scripts.quiet_windows import keep_windows_behind
+
+    keep_windows_behind()  # run by hand: no start-up hook did this
 
 RING = ((-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0))
 SIZE = (320, 240)
@@ -55,6 +58,12 @@ BOX_SIDE_PX = 50.0
 
 #: Every public call of the host, for the "closed host" rows: name → how to call it.
 HOST_CALLS: dict[str, Callable[[Any, Any], Any]] = {}
+
+
+def _no_photo() -> Any:
+    from open_garden_planner.core.scene3d.photo import NO_PHOTO
+
+    return NO_PHOTO
 
 
 def _register_calls() -> None:
@@ -106,6 +115,10 @@ def _register_calls() -> None:
         "set_ambient": lambda host, _part: host.set_ambient(None),
         "set_life_enabled": lambda host, _part: host.set_life_enabled(True),
         "set_lamps": lambda host, _part: host.set_lamps([]),
+        "set_photo": lambda host, _part: host.set_photo(_no_photo()),
+        "begin_captures": lambda host, _part: host.begin_captures(),
+        "show_behind": lambda host, _part: host.show_behind(),
+        "capture": lambda host, _part: host.capture((64, 64)),
         "focus": lambda host, _part: host.focus(),
         "has_focus": lambda host, _part: host.has_focus(),
         # the three releases: legal on a closed host, and they do nothing there
