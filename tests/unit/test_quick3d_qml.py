@@ -543,6 +543,8 @@ def test_the_atmosphere_never_builds_the_cube_that_crashed_qt_6_12_0() -> None:
     shaders = " ".join(path.read_text(encoding="utf-8") for path in QML_DIR.glob("*.frag"))
     assert "SCREEN_TEXTURE" not in shaders and "SCREEN_MIP_TEXTURE" not in shaders, (
         "a screen texture would build the cube")
+    scenes = " ".join(path.read_text(encoding="utf-8") for path in QML_DIR.glob("*.qml"))
+    assert "transmissionFactor" not in scenes, "transmission needs a screen texture too"
 
 
 def test_the_water_samples_the_sky_under_a_sky_material_too() -> None:

@@ -12,6 +12,14 @@ DE = {
             "berechneter Himmel mit Volumenwolken am Tag, der die Grafikkarte stärker "
             "beansprucht. Sonne, Schatten und Nacht sind in beiden gleich.",
     },
+    "Workspace": {
+        "Partly cloudy": "Teilweise bewölkt",
+        "Sun and scattered clouds: the shadows stay, a little softer. The clouds show "
+        "with the atmosphere sky (Preferences, 3D View, Sky)":
+            "Sonne und vereinzelte Wolken: Die Schatten bleiben, etwas weicher. Die "
+            "Wolken zeigt der Himmel „Atmosphäre mit Wolken“ (Einstellungen, 3D-Ansicht, "
+            "Himmel)",
+    },
 }
 
 ES = {
@@ -25,5 +33,12 @@ ES = {
             "Pintado: el cielo pintado y suave. Atmósfera con nubes: un cielo de base "
             "física con nubes volumétricas de día, que exige más a la tarjeta gráfica. "
             "El sol, las sombras y la noche son iguales en ambos.",
+    },
+    "Workspace": {
+        "Partly cloudy": "Parcialmente nublado",
+        "Sun and scattered clouds: the shadows stay, a little softer. The clouds show "
+        "with the atmosphere sky (Preferences, 3D View, Sky)":
+            "Sol y nubes dispersas: las sombras se mantienen, algo más suaves. Las nubes "
+            "se ven con el cielo «Atmósfera con nubes» (Preferencias, Vista 3D, Cielo)",
     },
 }

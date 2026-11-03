@@ -231,16 +231,21 @@ mode, reduce motion, the sky model and the layout. Each action was printed befor
 seed, three of five runs crashed at the same action: a painted to atmosphere switch at night
 in snow, right after the weather changed. With the cube off, 0 of 4 runs crashed at that action.
 Neither sky switching alone (215 switches) nor the atmosphere without switching crashed in
-200 s. After the fix the same seed ran 4 x 240 s with no crash. The painted sky, the default,
+200 s. After the fix the same seed ran 8 x 240 s with no crash. The painted sky, the default,
 never reaches this code.
 
 Three traps when applying the rule. When `lightProbe` is set, Qt does not request the sky
 material's IBL pass (`else if (layer.skyMaterial)`), but `SkyMaterialBackgroundPass` still
-draws a ScreenSpace sky. A material that reads `SCREEN_TEXTURE` or a `ReflectionProbe` would
-bring the cube back; the QML test pins that neither exists. And the screen path applies no
+draws a ScreenSpace sky, so with a probe set the pass that could build the cube never runs.
+Without a probe (`sky_probe=False`, or a lost binding) `needCube` decides: `enableIBL`, Cubemap
+mode, a `ReflectionProbe`, or a material that needs the screen texture (`SCREEN_TEXTURE`,
+`transmissionFactor`) would bring the cube back. The QML test pins that none of them exists.
+And the screen path applies no
 exposure under our post effects: its main is `qt_tonemap(qt_exposure(FRAGCOLOR, e))`, but
 `qt_exposure` is compiled to a pass-through there, while the skybox shader's Custom variant
 forces it with `QSSG_FORCE_IBL_EXPOSURE`. So the sky shader applies `1 − exp(−c × e)` itself
 (`skyExposed`). Without it the first build of this fix read 1.8× too bright by day and 2.9× at
 night with the disc gone, and a plain multiply left 13–14 luma by day. Re-check the rule on every Qt
-bump: on 2026-11-03 no QTBUG matched this crash, and Qt 6.12.1 was not on PyPI.
+bump: on 2026-11-03 no QTBUG matched this crash, and Qt 6.12.1 was not on PyPI. The instrument
+is `scripts/probe_sky_crash.py`: to ask whether a new Qt fixed it, turn `enableIBL` on and drop
+the probe under the atmosphere in a scratch checkout, and run seed 7 several times.

@@ -696,7 +696,8 @@ sequenceDiagram
 ```
 
 A sun change while the atmosphere shows rebuilds the painted sky (its light), refills the
-same sky-view table in place and writes the inputs; a painted sky is a fresh Texture pair
+same sky-view table in place and writes the inputs, about 0.32 s of GUI thread in all
+(painted alone about 0.12 s), which a playing day feels (#722); a painted sky is a fresh Texture pair
 per build, and the environment re-binds its light
 probe when the previous one is deleted (PF-E3D-16). A shader that compiles to nothing is
 not seen at run time (PF-E3D-14; #720).

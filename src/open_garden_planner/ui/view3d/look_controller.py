@@ -28,8 +28,9 @@ What it owns:
   and which levels it had to leave (and until when) are stored, so a new session
   neither starts over nor retries a barred level.
 - **The sky.** The procedural sky is a whole texture generated on the GUI thread
-  (about 0.1 s) and a light probe Qt filters once per texture, so it follows the
-  sun only when the sun moved noticeably (``look.sky_is_stale``), and — while the
+  (about 0.1 s, 0.3 s under the atmosphere) and a light probe Qt filters once per
+  texture, so it follows the sun only when the sun moved noticeably
+  (``look.sky_is_stale``), and — while the
   sun is being dragged — only once it rests (``SKY_SETTLE_MS``); a change of phase
   (sunset, the end of twilight, and back: ``look.sky_phase``) is built at once.
   The light, the exposure and the fog follow every instant. The fog is derived
@@ -55,7 +56,8 @@ What it owns:
   at 0 — every vertex where its mesh puts it. The particles of L5 (rain, snow,
   leaves, butterflies, fireflies) move on the SAME clock: reduced motion makes them
   a photograph and an idle view presents no frame (issue #389's gate).
-- **The weather (L5, ADR-070).** ``set_weather``: clear, overcast, rain, snow — or
+- **The weather (L5, ADR-070).** ``set_weather``: clear, partly cloudy, overcast, rain,
+  snow — or
   ``today`` (L5.3), which shows the weather ``set_todays_weather`` was given (the
   forecast's, only while the plan date is today; else clear). The look is
   ``weather.living_look(sun, preset, weather)``; a new weather builds its sky at once
@@ -112,8 +114,9 @@ from open_garden_planner.core.scene3d.weather import (
 _LOG: Final = logging.getLogger(__name__)
 
 #: A sky that went stale is rebuilt once the sun has rested this long: a time slider
-#: being dragged moves the sun many times a second, and one build costs about 0.1 s
-#: of the GUI thread. The light, the exposure and the fog never wait.
+#: being dragged moves the sun many times a second, and one build costs about 0.12 s
+#: of the GUI thread (0.32 s under the atmosphere, which builds both skies). The light,
+#: the exposure and the fog never wait. Shorter than a playback step: #722.
 SKY_SETTLE_MS: Final = 150
 #: How often the automatic preset reads the host's frame count while the wind runs.
 AUTO_SAMPLE_MS: Final = 500

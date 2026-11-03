@@ -61,7 +61,8 @@ same machine), 2026-11-02/03, PyQt6 / PyQt6-Qt6 6.12.0:
   `textureLod(volume, vec3, 0.0)` in the sky shader.
 - **Cost:** first atmosphere frame 783 ms (painted 663 ms; a one-time compile), each later sun
   change ~200 ms of GUI thread (painted 122 ms: the CPU sky-view table ~110 ms, the gain
-  ~30 ms), plus the painted sky it now builds as the light. Per frame on screen (1280 × 720,
+  ~30 ms), plus the painted sky it now builds as the light: about 0.32 s in all, which a
+  playing day feels (#722). Per frame on screen (1280 × 720,
   looking into the sky, three runs of the same code): painted 2.1-2.3 ms; the atmosphere at
   cover 0.4: Half 3.1-5.6 ms, Full 4.5-8.9, Quarter 3.7-4.9. The GPU idles at 210 MHz between
   runs and short frames do not always boost it, so one run proves nothing: compare ranges.

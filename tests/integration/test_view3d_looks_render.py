@@ -612,6 +612,15 @@ def test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky(tmp_path: Path) ->
     assert diff(fresh["painted_160"], "painted_215") > OTHER_SKY
     assert diff(fresh["atmosphere_215"], "painted_215") > OTHER_SKY
     assert diff(fresh["atmosphere_200_overcast"], "atmosphere_200") > OTHER_SKY
+    # the painted sky lights the garden under both (PF-E3D-17), so under the horizon the
+    # two are one picture. Without this a lost probe passes above: the references lose it too
+    rows = fresh["painted_215"].shape[0]
+    horizon = rows / 2.0 * (1.0 + math.tan(math.radians(driver.SKY_PITCH))
+                            / math.tan(math.radians(driver.SKY_FOV / 2.0)))
+    ground = int(math.ceil(horizon)) + 1
+    assert ground < rows, "the sequence's view must show ground"
+    assert np.abs(fresh["atmosphere_215"][ground:] - fresh["painted_215"][ground:]).max() == 0.0, (
+        "the garden is lit differently under the two skies")
     assert data["health"]["ok"], data["health"]
 
 

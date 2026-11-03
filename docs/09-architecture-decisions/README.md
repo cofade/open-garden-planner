@@ -3887,7 +3887,9 @@ fix the crash, and add a partly cloudy weather. What changed:
 - **Partly cloudy** (`weather.WEATHER_SPECS["partly_cloudy"]`): cloud 0.4 is the atmosphere's
   cover; the sun stays out, because the light takes 0.15 of the overcast's changes
   (`WeatherSpec.light`) and the sky 0.25 of its grey (`WeatherSpec.grey`). Every other weather
-  has one share for all three, so its look is unchanged. Wind 3.0, haze 0.9, dry, and the mood
+  has one share for all three, so its look under the painted sky is unchanged (under the
+  atmosphere Snow's disc went from 0.15 to 0.30 and its clouds' light × 1.09). Wind 3.0, haze
+  0.9, dry, and the mood
   stays a day (it is overcast from 0.5). The cover sheet of the owner pass read scattered clouds
   at 0.35 and 0.6 and a closed deck at 1.0. Separate clouds take
   `ATMOSPHERE_THIN_CLOUD_LIFT` 4.2 × (1 − cover)² more light (× 2.5 at 0.4, × 1 at Overcast and
@@ -3903,8 +3905,9 @@ fix the crash, and add a partly cloudy weather. What changed:
   between runs. The GPU idles at 210 MHz between them, so we read that as its clock state, but
   did not pin it down; compare ranges, not single runs. Half and Full look the same, so the
   default is Half. A sun change now also builds the painted sky (~120 ms) beside the sky-view
-  table, and the light cube's one-time filter is gone. An integrated GPU is still unmeasured
-  (owner question).
+  table, about 0.32 s of GUI thread in all, and the light cube's one-time filter is gone. An
+  integrated GPU is still unmeasured (owner question), and a playing day stalls on those
+  builds (#722).
 - **The self-test** renders the atmosphere without the painted probe (`sky_probe=False`): a
   machine without a GPU cannot afford a probe filter. The rule it checks is unchanged.
 
@@ -10179,7 +10182,8 @@ haze 0.9. The cloud is the atmosphere sky's cover; the look takes smaller shares
 2's overcast, 0.15 for the light (`WeatherSpec.light`: the key light × 0.88, the shadows' factor
 × 0.90) and 0.25 for the sky's grey (`WeatherSpec.grey`). At the full 0.4 the painted sky read as
 a dull clear day (3D review). The sun and its shadows stay where `core/solar` puts them, as in
-every weather. Every other weather has one share for all three, so no accepted look moved. Its mood stays day, golden hour
+every weather. Every other weather has one share for all three, so no accepted look moved under
+the painted sky. Its mood stays day, golden hour
 or dew (`mood_of` names overcast from cloud 0.5). It exists because the atmosphere sky's
 volumetric clouds show as scattered clouds only at partial cover; Clear has none and Overcast
 closes the deck (ADR-048 addendum L7, revision). Today's Weather maps WMO code 2 (partly

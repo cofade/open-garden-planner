@@ -323,7 +323,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Qt 6.12.0's pre-filter crashed the owner's exe, PF-E3D-17); the painted sky lights under
   both, and Partly cloudy (cover 0.4) shows its clouds. On 6.12 deleting an earlier sky Texture nulls
   the DEFAULT sky's probe: `Garden.qml` re-binds it (PF-E3D-16, local GPU tier only). #714:
-  horizon gate red on master; follow-ups #716, #717, #719 (sky), #720 (hygiene, Qt report),
+  horizon gate red on master; follow-ups #716, #717, #719, #722 (sky), #720 (hygiene, Qt report),
   #718 (flood soak, red on master too).
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
   Subscribe to its signals. Every rect resize uses `geometry_apply.py`; every
