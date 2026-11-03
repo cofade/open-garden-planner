@@ -20,7 +20,7 @@ class SelectTool(BaseTool):
 
     Features:
         - Click to select single item
-        - Shift+click to add/remove from selection
+        - Shift+click or Ctrl+click to add/remove from selection
         - Box selection with AutoCAD convention:
           - Left→right (enclosing): select only fully contained items
           - Right→left (crossing): select items that touch the box
@@ -48,21 +48,35 @@ class SelectTool(BaseTool):
         if event.button() != Qt.MouseButton.LeftButton:
             return False
 
-        # Check if clicking on an item
+        # Check if clicking on an item. ``itemAt`` is the only hit test that
+        # finds a DRAG HANDLE (an ItemIgnoresTransformations control); the
+        # selectable-under walk is what finds a journal pin, which ``itemAt``
+        # misses under the Y-flipped view (manual test, 4). Try the handle
+        # first, then fall back to the selectable walk.
+        from open_garden_planner.ui.canvas.items.resize_handle import DRAG_HANDLE_TYPES
+
         item = self._view.scene().itemAt(scene_pos, self._view.transform())
+        if not isinstance(item, DRAG_HANDLE_TYPES):
+            selectable = self._selectable_under(scene_pos)
+            if selectable is not None:
+                item = selectable
 
         if item is not None:
-            # Handle Shift+click for multi-select toggle
-            shift_held = event.modifiers() & Qt.KeyboardModifier.ShiftModifier
-            if shift_held:
-                from open_garden_planner.ui.canvas.items.resize_handle import DRAG_HANDLE_TYPES
-
+            # Shift+click and Ctrl+click both toggle multi-select (#522). The
+            # app's own toggle path is what makes a pin stay selected when the
+            # next Ctrl+click lands on another object; Qt's default press
+            # replaces the selection for Ctrl.
+            multi_held = event.modifiers() & (
+                Qt.KeyboardModifier.ShiftModifier
+                | Qt.KeyboardModifier.ControlModifier
+            )
+            if multi_held:
                 # Editing controls need the press even though they are not
                 # selectable. Let Qt establish their grab before the view's
                 # drag recovery handles later moves (#522 review regression).
                 if isinstance(item, DRAG_HANDLE_TYPES):
                     return False
-                # Shift+click picks the SELECTABLE item under the cursor: the
+                # Multi-click picks the SELECTABLE item under the cursor: the
                 # topmost one, or - when the topmost is not selectable (an item
                 # on a locked layer, a badge, a label) - the first selectable one
                 # beneath it. Without the see-through, a Shift+click on a locked
@@ -84,7 +98,9 @@ class SelectTool(BaseTool):
         self._box_start = scene_pos
         self._is_box_selecting = True
 
-        # Clear selection unless Shift is held
+        # Clear selection unless Shift is held. Ctrl+click on empty canvas
+        # keeps the canvas's measured rule: it clears (the 3D selection bridge
+        # reproduces that rule), while Ctrl+click on an item toggles it above.
         if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
             self._view.scene().clearSelection()
 

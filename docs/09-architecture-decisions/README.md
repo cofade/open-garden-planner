@@ -2661,9 +2661,16 @@ user selected:
   (a converted rectangle's corner drag has its own hook in `_move_corner_to`,
   where no `itemChange` fires).
 - **A copy never adopts a source ridge.** Mirror Move keeps the house UUID and
-  re-derives the ridge; Mirror Copy gets a fresh UUID and strips the inherited
-  `ridge_item_id`, and a `ROOF_RIDGE` is never itself a mirror source. Offset
-  and array copies still do not build a ridge (documented follow-up).
+  re-derives the ridge; Mirror Copy gets a fresh UUID, strips the inherited
+  `ridge_item_id` and builds its OWN ridge on the reflected outline in the same
+  undo step (`MirrorItemsCommand._add_copy_ridges`, re-adding the same ridge
+  item on redo), and a `ROOF_RIDGE` is never itself a mirror source. Offset and
+  array copies still do not build a ridge (documented follow-up).
+- **A grouped ridge renders above its group.** A house's ridge is a top-level
+  sibling; once the house joins a group the stacking normalizer resolves the
+  owner to the GROUP, so grouping must run the one z derivation
+  (`_update_items_z_order`). Without it the ridge keeps its pre-group z and the
+  group's fill hides all but its ends (manual test 2.7).
 - **Same-type changes and layer moves stay symmetric.** A "Change Type" command
   that finds a HOUSE with no ridge creates one, so its undo removes it again
   (the pre-command item had none); a legacy non-HOUSE shape that already names a

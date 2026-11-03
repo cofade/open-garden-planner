@@ -16,7 +16,8 @@ import inspect
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt6.QtCore import QPoint, QPointF
+from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
 from open_garden_planner.core.commands import GroupCommand
@@ -368,6 +369,47 @@ def test_group_plus_foreign_object_nests(qtbot, monkeypatch) -> None:
 
     view.command_manager.undo()
     assert inner.parentItem() is None and foreign.parentItem() is None
+
+
+@pytest.mark.parametrize(
+    "modifier",
+    [Qt.KeyboardModifier.ControlModifier, Qt.KeyboardModifier.ShiftModifier],
+    ids=["ctrl", "shift"],
+)
+def test_a_pin_and_a_shape_multi_select_then_group(qtbot, modifier) -> None:
+    """Ctrl/Shift+click must keep a selected journal pin and add the shape.
+
+    A pin is an ``ItemIgnoresTransformations`` item; the tool's own toggle path
+    is what keeps it selected, where Qt's default Ctrl press replaced the
+    selection (manual test 4). The grouped pin+note still uses the one undo
+    step covered elsewhere.
+    """
+    from open_garden_planner.core.tools.select_tool import SelectTool
+
+    view = _canvas(qtbot)
+    scene = view.scene()
+    pin = _journal_pin(scene.active_layer.id)
+    rect = _rectangle(scene.active_layer.id)
+    scene.addItem(pin)
+    scene.addItem(rect)
+    pin.setPos(100, 100)
+    pin.setSelected(True)
+
+    tool = view.tool_manager.active_tool
+    assert isinstance(tool, SelectTool)
+    event = MagicMock(spec=QMouseEvent)
+    event.button.return_value = Qt.MouseButton.LeftButton
+    event.modifiers.return_value = modifier
+    centre = rect.mapToScene(rect.rect().center())
+
+    assert tool.mouse_press(event, centre) is True
+    assert pin.isSelected()
+    assert rect.isSelected()
+
+    view.group_selected()
+    group = pin.parentItem()
+    assert group is not None
+    assert rect.parentItem() is group
 
 
 def test_smart_symbol_can_be_grouped_with_another_object(qtbot, monkeypatch) -> None:

@@ -2641,6 +2641,10 @@ class MirrorItemsCommand(Command):
         self._mirrored = list(mirrored)
         self._copy = copy
         self._membership: BedMembershipChange | None = None
+        # A copied HOUSE gets a FRESH ridge, built on first execute and re-added
+        # on redo; Move mode re-derives the source's ridge instead (same UUID).
+        self._copy_ridges: list[QGraphicsItem] = []
+        self._copy_ridges_built = False
         if copy:
             from open_garden_planner.ui.guild_copy import remap_mirror_membership
 
@@ -2687,7 +2691,9 @@ class MirrorItemsCommand(Command):
             for item in self._mirrored:
                 if item.scene() is None:
                     self._scene.addItem(item)
-        if not self._copy:
+        if self._copy:
+            self._add_copy_ridges()
+        else:
             # Move mode reuses the source id, so the existing ridge legitimately
             # belongs to the reflected shape; re-derive it on the new outline.
             from open_garden_planner.ui.canvas.roof_ridge_link import (
@@ -2699,7 +2705,34 @@ class MirrorItemsCommand(Command):
         if self._membership is not None:
             self._membership.reconcile()
 
+    def _add_copy_ridges(self) -> None:
+        """Give every mirrored HOUSE its own linked ridge (copy mode).
+
+        The copied item has a fresh UUID, so it cannot keep the source's
+        ``ridge_item_id`` (stripped in ``__init__``). Build one ridge per copied
+        house on first execute; redo re-adds the SAME ridge items, so their
+        UUIDs and the two-sided links stay stable through undo/redo.
+        """
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
+
+        if not self._copy_ridges_built:
+            self._copy_ridges_built = True
+            for item in self._mirrored:
+                if getattr(item, "object_type", None) is not ObjectType.HOUSE:
+                    continue
+                ridge = build_linked_ridge(item, getattr(item, "layer_id", None))
+                if ridge is not None:
+                    self._copy_ridges.append(ridge)
+        with _bulk_add_scope(self._scene):
+            for ridge in self._copy_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
+
     def undo(self) -> None:
+        for ridge in self._copy_ridges:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
         for item in self._mirrored:
             _detach_from_parent(self._scene, item)
             if item.scene() is self._scene:
@@ -2870,6 +2903,14 @@ class GroupCommand(Command):
             item.setSelected(False)
             self._group.addToGroup(item)  # type: ignore[attr-defined]
         self._group.setSelected(True)
+        # A member HOUSE's ridge is a top-level sibling, not a Qt child. The
+        # normalizer maps an owner inside a group to the GROUP, so one refresh
+        # after grouping lifts the ridge above the group's fill; without it the
+        # ridge keeps its pre-group z (above the house, below the new group) and
+        # only its ends show (manual test 2.7).
+        refresh_all = getattr(self._scene, "_update_items_z_order", None)
+        if callable(refresh_all):
+            refresh_all()
 
     def undo(self) -> None:
         if self._group is None:

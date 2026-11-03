@@ -252,6 +252,72 @@ def test_converting_away_removes_a_ridge_constraint_and_undo_restores_it(qtbot) 
     assert len(graph.constraints) == 1
 
 
+def test_grouping_a_house_lifts_its_ridge_above_the_group(qtbot) -> None:
+    """The ridge of a grouped house must stay visible, not fall behind it.
+
+    A ridge is a top-level sibling of its house. Once the house joins a group,
+    the normalizer resolves the ridge's owner to the GROUP; without a refresh
+    at grouping time the ridge keeps its pre-group z (above the house, below
+    the new group) and only its ends peek out (manual test 2.7).
+    """
+    from open_garden_planner.core.commands import GroupCommand
+
+    scene, _view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    other = RectangleItem(400, 0, 50, 50, layer_id=scene.active_layer.id)
+    scene.addItem(house)
+    scene.addItem(other)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    assert ridge.zValue() > house.zValue()
+
+    GroupCommand(scene, [house, other]).execute()
+    group = house.parentItem()
+    assert group is not None
+    assert ridge.scene() is scene
+    assert ridge.zValue() > group.zValue(), (
+        "the grouped house's ridge renders behind the group"
+    )
+
+
+def test_a_group_offers_move_to_layer_and_moves_its_nested_ridge(qtbot) -> None:
+    """A group is a layered item: its menu must move it (and its ridge) too."""
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.models.layer import Layer
+
+    scene, _view = _scene_view(qtbot)
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=scene.active_layer.id,
+    )
+    other = RectangleItem(400, 0, 50, 50, layer_id=scene.active_layer.id)
+    scene.addItem(house)
+    scene.addItem(other)
+    ridge = build_linked_ridge(house, house.layer_id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    GroupCommand(scene, [house, other]).execute()
+    group = house.parentItem()
+    assert group is not None
+
+    target = Layer(name="Target", z_order=99)
+    scene.add_layer(target)
+    menu = QMenu()
+    layer_menu = group._build_move_to_layer_menu(menu)
+    assert layer_menu is not None, "a group with a second layer offers Move to Layer"
+    assert [action.text() for action in layer_menu.actions()] == ["Target"]
+
+    group._dispatch_move_to_layer(target.id)
+    assert group.layer_id == target.id
+    assert ridge.layer_id == target.id
+
+
 def test_moving_a_group_to_another_layer_moves_a_nested_houses_ridge(qtbot) -> None:
     from open_garden_planner.core.commands import GroupCommand, MoveToLayerCommand
     from open_garden_planner.models.layer import Layer

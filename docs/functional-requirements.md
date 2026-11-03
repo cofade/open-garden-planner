@@ -127,8 +127,10 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   `apply_rect_like_geometry` for undo/redo). Deleting a house or a group containing one removes
   its ridge (menu, Delete key and agent `delete_object` share one tree walk); trimming a house
   into an open fence removes the ridge in the same undo step; fillet/chamfer and a converted
-  rectangle's corner drag re-derive it; a mirror copy strips the inherited link and a ridge is
-  never a mirror source. Acceptance:
+  rectangle's corner drag re-derive it; a mirror copy strips the inherited link and builds a fresh
+  ridge on the reflected outline in the same undo step, and a ridge is never a mirror source.
+  Grouping a house re-runs the stacking derivation, so the ridge renders above the group rather
+  than behind its fill. Acceptance:
   `tests/integration/test_house_roof_ridge.py` (including the two-conversion undo/redo lineage,
   rectangle move/resize/rotate, menu delete and corner drag) and
   `tests/unit/test_roof_tile_orientation.py` (a converted rectangle and a drawn house paint the

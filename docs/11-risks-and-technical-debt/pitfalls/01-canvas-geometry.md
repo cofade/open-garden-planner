@@ -479,3 +479,35 @@ paint branch. The fix extracts the polygon's production painter into
 `ui/canvas/items/roof_paint.paint_roof_with_ridge` and calls it from both
 classes; a converted rectangle and a drawn house now render byte-identically
 over eight orientations.
+
+### PF-CAN-38
+
+- **Rule:** A derived top-level sibling whose owner can be grouped (a HOUSE's `ROOF_RIDGE`) must re-run the stacking derivation when the owner joins or leaves a group; the normalizer resolves the owner inside the group to the GROUP, and only that refresh puts the sibling above the group's fill.
+- **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_grouping_a_house_lifts_its_ridge_above_the_group`; `tests/integration/test_house_roof_ridge.py::test_moving_a_group_to_another_layer_moves_a_nested_houses_ridge`
+- **Source:** #690, PR #713 manual test 2.7 (2026-11-03)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`GroupCommand.execute` added the group (top of its layer) and then moved the
+house into it. The ridge is not a Qt child, so it kept its pre-group z — above
+the house, below the new group — and the group's tile fill covered all but its
+ends. Delete + undo looked correct because those paths already call
+`_update_items_z_order`. Grouping now does too: `_stack_entries` already maps a
+group child's id to the group, so the normalizer puts the ridge immediately
+above it. `UngroupCommand` keeps the mirror-image refresh.
+
+### PF-CAN-39
+
+- **Rule:** Selecting with Shift AND Ctrl must go through the app's own toggle path (`SelectTool._selectable_under` + `setSelected`), not Qt's default press; and a selectable item under the cursor must be found with `QGraphicsScene.items(point)`, never `itemAt` alone — `ItemIgnoresTransformations` items (journal pins) are invisible to `itemAt` under the Y-flipped view.
+- **Pinned by:** `tests/integration/test_group_context_menu.py::test_a_pin_and_a_shape_multi_select_then_group`
+- **Source:** #674, PR #713 manual test 4 (2026-11-03)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt's default Ctrl press replaced the selection, so a selected journal pin was
+cleared by Ctrl+clicking a rectangle; Shift already worked through
+`SelectTool`. Both modifiers now use the same toggle path. The pin itself is
+also invisible to `scene.itemAt(scene_pos, view.transform())` because
+`ItemIgnoresTransformations` is not handled there while the view's m22 is -1;
+the tool's own walk (`scene.items(scene_pos)`) finds it. Pin click selection is
+tracked as a pre-existing hit-test follow-up.

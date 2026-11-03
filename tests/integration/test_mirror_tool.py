@@ -25,6 +25,7 @@ from open_garden_planner.ui.canvas.items import (
     CircleItem,
     PolygonItem,
     PolylineItem,
+    RectangleItem,
     TextItem,
 )
 from open_garden_planner.ui.canvas.roof_ridge_link import (
@@ -123,11 +124,15 @@ class TestMirrorCopy:
         assert len(remaining) == 1
         assert remaining[0] is poly
 
-    def test_copy_strips_a_house_ridge_link_and_does_not_clone_the_ridge(
+    def test_copy_gives_a_house_its_own_fresh_ridge(
         self, canvas: CanvasView
     ) -> None:
-        """A copy gets a fresh UUID, so the inherited ``ridge_item_id`` names
-        the source's ridge — it must not be carried over (P2 of #690 review)."""
+        """A copied HOUSE gets a fresh linked ridge, never the source's.
+
+        The copy has a new UUID, so the inherited ``ridge_item_id`` must be
+        stripped and a ridge built on the reflected outline, in the same undo
+        step. Redo must re-add the same ridge item, not mint a second one.
+        """
         house = PolygonItem(
             vertices=[
                 QPointF(500, 500),
@@ -147,15 +152,58 @@ class TestMirrorCopy:
         _drive_axis(tool, QPointF(400, 0), QPointF(400, 400))
 
         copy = next(p for p in _polygons(canvas) if p is not house)
-        assert "ridge_item_id" not in copy.metadata
-        ridges = [
+        copy_ridge = linked_ridge(copy)
+        assert copy_ridge is not None, "the mirrored house lost its roof"
+        assert copy_ridge is not ridge
+        assert copy.metadata["ridge_item_id"] == str(copy_ridge.item_id)
+        assert copy_ridge.metadata["owner_polygon_id"] == str(copy.item_id)
+        ridges = {
             i
             for i in canvas.scene().items()
             if isinstance(i, PolylineItem)
             and i.object_type == ObjectType.ROOF_RIDGE
-        ]
-        assert ridges == [ridge], "the mirror copied the derived ridge"
+        }
+        assert ridges == {ridge, copy_ridge}
         assert linked_ridge(house) is ridge
+
+        canvas.command_manager.undo()
+        assert linked_ridge(house) is ridge
+        assert copy_ridge.scene() is None
+        assert copy.scene() is None
+
+        ridge_id = copy_ridge.item_id
+        canvas.command_manager.redo()
+        assert copy.scene() is canvas.scene()
+        assert copy_ridge.scene() is canvas.scene()
+        assert copy_ridge.item_id == ridge_id, "redo minted a second ridge"
+        assert linked_ridge(copy) is copy_ridge
+
+    def test_copy_of_a_rectangle_house_gets_its_own_ridge(
+        self, canvas: CanvasView
+    ) -> None:
+        """The manual-test case: a rectangle converted to HOUSE, then mirrored."""
+        house = RectangleItem(500, 500, 200, 150, object_type=ObjectType.HOUSE)
+        canvas.scene().addItem(house)
+        ridge = build_linked_ridge(house, house.layer_id)
+        assert ridge is not None
+        canvas.scene().addItem(ridge)
+        house.setSelected(True)
+
+        tool = _activate(canvas, copy=True)
+        _drive_axis(tool, QPointF(400, 0), QPointF(400, 400))
+
+        copies = [
+            i
+            for i in canvas.scene().items()
+            if isinstance(i, RectangleItem)
+            and i is not house
+            and i.object_type == ObjectType.HOUSE
+        ]
+        assert len(copies) == 1
+        copy_ridge = linked_ridge(copies[0])
+        assert copy_ridge is not None
+        assert copy_ridge is not ridge
+        assert copy_ridge.metadata["owner_polygon_id"] == str(copies[0].item_id)
 
 
 class TestMirrorMove:
