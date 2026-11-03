@@ -30,6 +30,7 @@ from open_garden_planner.agent_api.schema import (
     ObjectDetail,
     ObjectRef,
     PlanSummary,
+    Render3DMeta,
     RenderMeta,
 )
 
@@ -57,6 +58,7 @@ __all__ = [
     "ObjectRef",
     "PlanSummary",
     "PortInUseError",
+    "Render3DMeta",
     "RenderMeta",
     "build_server",
     "diagnostics_from_records",

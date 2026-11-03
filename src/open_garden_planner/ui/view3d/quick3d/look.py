@@ -48,11 +48,19 @@ from open_garden_planner.core.scene3d.look import (
     SkySpec,
     sky_phase,
 )
+from open_garden_planner.core.scene3d.photo import (
+    VIGNETTE_MAX,
+    PhotoSettings,
+    blur_amount,
+    exposure_gain,
+    focus_distance_cm,
+    focus_range_cm,
+)
 
 __all__ = ["ATMOSPHERE_VECTOR_PROPERTIES", "COLOR_PROPERTIES", "LINEAR_COLOR_PROPERTIES",
            "NEUTRAL_DAY", "PRECIP_KINDS", "VECTOR_PROPERTIES", "LookSpec", "SkySpec",
            "atmosphere_properties", "atmosphere_sun_direction", "engine_hex", "engine_linear",
-           "cloud_light_gain", "painted_sky",
+           "cloud_light_gain", "painted_sky", "photo_properties",
            "engine_srgb", "scene_properties", "sky_longitude", "sky_properties"]
 
 #: The look properties of ``Garden.qml`` that are colours given as ``#rrggbb`` …
@@ -174,6 +182,21 @@ def _atmosphere_properties(look: LookSpec) -> dict[str, object]:
         "butterflyLife": float(atmosphere.butterflies),
         "fireflyLife": float(atmosphere.fireflies),
         "lampGlow": float(atmosphere.lamps),
+    }
+
+
+def photo_properties(settings: PhotoSettings, eye: tuple[float, float, float],
+                     picture_height_px: float) -> dict[str, float]:
+    """``settings`` as the scene's photo properties, for a camera at ``eye`` and a picture
+    this many device pixels high (L6.1). The grade is not here: it is a texture, and the
+    host owns those (``Quick3DHost.set_photo``)."""
+    distance = focus_distance_cm(settings, eye)
+    return {
+        "photoExposure": exposure_gain(settings.exposure_ev),
+        "photoVignette": float(settings.vignette) * VIGNETTE_MAX,
+        "photoFocusDistance": distance,
+        "photoFocusRange": focus_range_cm(distance),
+        "photoBlur": blur_amount(settings, picture_height_px) if settings.depth_of_field else 0.0,
     }
 
 

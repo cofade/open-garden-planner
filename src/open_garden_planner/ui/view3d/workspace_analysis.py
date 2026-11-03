@@ -361,6 +361,9 @@ class WorkspaceAnalysisCoordinator:
         if jump is not None and controller is not None:
             jump.on_applied(report.snapshot, controller.pass_date)
 
+    #: Whoever may take a click on the ground before the probe does (L6.1).
+    take_ground_click: Callable[[float, float], bool] | None = None
+
     def ground_point(self, x: float, y: float) -> tuple[float, float] | None:
         host = self._get_host()
         if host is None:
@@ -377,6 +380,8 @@ class WorkspaceAnalysisCoordinator:
         return (ray.origin[0] + reach * ray.direction[0], ray.origin[1] + reach * ray.direction[1])
 
     def on_ground_clicked(self, x: float, y: float) -> None:
+        if self.take_ground_click is not None and self.take_ground_click(x, y):
+            return   # L6.1: in photo mode a click on the ground sets the focus
         analysis = self._analysis
         if analysis is None or analysis.drape_mode is not DrapeMode.SUN_HOURS:
             return

@@ -747,7 +747,8 @@ def test_ground_passes_neither_restart_the_sky_timer_nor_postpone_the_release(
 #: The host calls that render a frame of their own. Measured (ADR-048 addendum
 #: "L1.3"): a frame rendered for a readback is never presented, and what it holds
 #: stays until a presented frame ends — in a view that presents nothing, for good.
-FRAME_TAKERS = frozenset({"grab", "grabWindow", "grabFramebuffer", "wait_ready", "pick", "project"})
+FRAME_TAKERS = frozenset({"grab", "grabWindow", "grabFramebuffer", "wait_ready", "pick", "project",
+                          "capture", "grabToImage"})
 WORKSPACE_MODULES = ("workspace.py", "sync_controller.py", "orbit_input.py",
                      "problems_dialog.py", "init_guard.py",
                      "selection_bridge.py", "info_card.py", "walk_mode.py",  # L1.8's three
@@ -755,12 +756,19 @@ WORKSPACE_MODULES = ("workspace.py", "sync_controller.py", "orbit_input.py",
                      "wipe.py", "compass_glyphs.py",                        # L2's five
                      "workspace_analysis.py", "workspace_legend.py",
                      "workspace_protocols.py", "workspace_selection.py",
-                     "workspace_walk.py", "workspace_wipe.py")
+                     "workspace_walk.py", "workspace_wipe.py",
+                     "workspace_capture.py", "tour_recorder.py", "tour_dialog.py",
+                     "video_writer.py")                                     # L6's four
 #: The frame-taking calls the workspace makes, by name and by place — each a user's own
 #: action: the click handler of the 3D view picks, once per click (L1.8); a growth jump
 #: takes its before and its after picture (L2.3, ``growth_jump._grab``).
 THE_CLICK = ("orbit_input.py", "_release", "pick")
 THE_JUMP = ("growth_jump.py", "_grab", "grab")
+#: … the director's cut (L6, ADR-071): the "Save Photo" button, a frame of a tour the user
+#: started, an agent's request. Each moves nothing on screen; none is a steady path.
+THE_PICTURES = (("workspace_capture.py", "write_photo", "capture"),
+                ("workspace_capture.py", "_tour_frame", "capture"),
+                ("workspace_capture.py", "agent_picture", "capture"))
 
 
 def test_no_steady_path_takes_a_frame_from_the_live_view(
@@ -828,7 +836,7 @@ def test_the_workspaces_modules_never_ask_a_host_for_a_frame() -> None:
         calls = sum(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                     and node.func.attr in FRAME_TAKERS for node in ast.walk(tree))
         assert calls == sum(1 for hit in found if hit[0] == name), f"{name}: a call at module level"
-    assert sorted(found) == sorted([THE_CLICK, THE_JUMP])
+    assert sorted(found) == sorted([THE_CLICK, THE_JUMP, *THE_PICTURES])
     # … and the jump's picture is taken from the jump itself and from the pass that
     # completes it — never from a timer, a move or anything that runs by itself
     jump = ast.parse((folder / "growth_jump.py").read_text(encoding="utf-8"))

@@ -69,6 +69,9 @@ class WorkspaceSelectionCoordinator:
         self._card_slot = slot
         self._card = slot.card
 
+    #: Whoever may take a click before it selects (L6.1); True: it was theirs.
+    take_click: Callable[[object], bool] | None = None
+
     def wire(self, host: EngineHost, orbit: Any, controller: Any) -> None:
         orbit.watch(host)
         orbit.picked.connect(self.on_picked)
@@ -105,6 +108,8 @@ class WorkspaceSelectionCoordinator:
         self._schedule_xray()
 
     def on_picked(self, hit: object, modifiers: object) -> None:
+        if self.take_click is not None and self.take_click(hit):
+            return   # L6.1: in photo mode a click sets the focus
         scene = self._get_scene()
         if scene is not None:
             held = (

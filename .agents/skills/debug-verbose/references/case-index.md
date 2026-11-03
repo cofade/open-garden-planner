@@ -193,3 +193,4 @@
 | Case study: a cloudy evening that brightened (#391) | [Read](190-case-study-a-cloudy-evening-that-brightened-391.md) |
 | Case study: a sky that vanished after the first sun change (#391) | [Read](191-case-study-a-sky-that-vanished-after-the-first-sun-change-391.md) |
 | Case study: a crash with no trace under the new sky (#391) | [Read](192-case-study-a-crash-with-no-trace-under-the-new-sky-391.md) |
+| Case study: leaves that turned red under a neutral grade (#390) | [Read](193-case-study-leaves-that-turned-red-under-a-neutral-grade-390.md) |

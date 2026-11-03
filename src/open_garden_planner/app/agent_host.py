@@ -149,6 +149,24 @@ class AgentHost:
         )
 
 
+    def _agent_render_3d(
+        self,
+        camera: tuple[tuple[float, float, float], tuple[float, float, float], float] | None,
+        size: tuple[int, int],
+    ) -> dict[str, Any]:
+        """A picture of the 3D view ON the Qt main thread (L6.3, ADR-034 addendum). The
+        worker waits up to 30 s: a 2048 px frame is milliseconds on a GPU, but about a
+        second on a software adapter, and the PNG is on the same hop."""
+        host = self._host
+
+        def picture() -> dict[str, Any]:
+            from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+
+            shot = None if camera is None else PerspectiveShot(*camera)
+            return host._workspace.capture.agent_picture(size, shot)
+
+        return host._agent_bridge.run_on_main(picture, timeout=30.0)
+
     def _agent_save_plan(self, file_path: str | None) -> dict[str, Any]:
         """Save the live plan to disk ON the Qt main thread (for the server)."""
         host = self._host
@@ -3643,6 +3661,7 @@ class AgentHost:
             snapshot=host._agent_snapshot,
             diagnostics=host._agent_diagnostics,
             render=host._agent_render,
+            render_3d=host._agent_render_3d,
             save_plan=host._agent_save_plan,
             new_plan=host._agent_new_plan,
             open_plan=host._agent_open_plan,

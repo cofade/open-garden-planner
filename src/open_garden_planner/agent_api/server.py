@@ -58,6 +58,7 @@ import asyncio
 import contextlib
 import contextvars
 import logging
+import math
 import secrets
 import socket
 import threading
@@ -77,7 +78,11 @@ from open_garden_planner.agent_api.mapping import (
     plan_summary_from_snapshot,
 )
 from open_garden_planner.agent_api.providers import AgentProviders
-from open_garden_planner.agent_api.render import DEFAULT_IMAGE_PX
+from open_garden_planner.agent_api.render import (
+    DEFAULT_IMAGE_PX,
+    MAX_IMAGE_PX,
+    MIN_IMAGE_PX,
+)
 from open_garden_planner.agent_api.schema import (
     AmendmentPlanView,
     CompanionSuggestion,
@@ -95,6 +100,7 @@ from open_garden_planner.agent_api.schema import (
     PlacementCheck,
     PlanLifecycleResult,
     PlanSummary,
+    Render3DMeta,
     RenderMeta,
     SoilMismatchBedsView,
     SoilStatusListView,
@@ -270,6 +276,9 @@ _GRACEFUL_STOP_S = 1.0
 _STOP_GRACE_S = 5.0
 # The thread name, so a leak is identifiable in a thread dump and assertable.
 SERVER_THREAD_NAME = "agent-api-mcp"
+#: How far from the plan's origin ``render_3d_view`` lets a camera stand, cm: the orbit
+#: camera's own limit (600 m) with room to spare, and it keeps out what no plan can mean.
+_MAX_CAMERA_CM = 1_000_000.0
 
 
 class PortInUseError(RuntimeError):
@@ -1186,6 +1195,71 @@ def build_server(
                 px_per_cm=result["px_per_cm"],
                 layers_rendered=result["layers_rendered"],
             ),
+        ]
+
+    # structured_output=False for the same reason as render_canvas_image above.
+    @mcp.tool(structured_output=False)
+    async def render_3d_view(
+        eye_x: float | None = None,
+        eye_y: float | None = None,
+        eye_z: float | None = None,
+        target_x: float | None = None,
+        target_y: float | None = None,
+        target_z: float | None = None,
+        fov_deg: float = 40.0,
+        image_width_px: int = 1280,
+        image_height_px: int = 720,
+    ) -> list[Image | Render3DMeta]:
+        """Render a PNG of the garden in the 3D view, plus what the picture shows.
+
+        Read-only: it never moves the owner's camera or date, and it needs no token. The
+        picture shows the plan on the date and at the time the owner has set (see
+        plan_date and time_of_day in the result), under the view's own weather and quality,
+        without photo mode's development and without a selection highlight.
+
+        It needs the 3D view open. When it is not, or while the view is still building, it
+        says so at once rather than waiting: ask the user to open 3D or Split, or call
+        again in a few seconds. Nothing has changed then.
+
+        Args:
+            eye_x: Camera position east, scene cm. Give all six of eye_* and target_*, or
+                none of them for the owner's current view.
+            eye_y: Camera position north, scene cm.
+            eye_z: Camera height above the ground, cm.
+            target_x: The point looked at, east, scene cm.
+            target_y: The point looked at, north, scene cm.
+            target_z: The point looked at, height above the ground, cm.
+            fov_deg: Vertical field of view, degrees, 5 to 120. Only used with a camera
+                given here.
+            image_width_px: Output width, clamped to [128, 2048]; default 1280.
+            image_height_px: Output height, clamped to [128, 2048]; default 720.
+        """
+        render_3d = providers.render_3d
+        if render_3d is None:
+            raise RuntimeError("This server has no 3D view to render. Nothing was changed.")
+        camera = (eye_x, eye_y, eye_z, target_x, target_y, target_z)
+        shot: tuple[tuple[float, float, float], tuple[float, float, float], float] | None
+        if all(value is None for value in camera):
+            shot = None
+        elif any(value is None for value in camera):
+            raise ValueError("eye_x, eye_y, eye_z, target_x, target_y and target_z must all be "
+                             "given together, or all omitted.")
+        else:
+            numbers = tuple(float(value) for value in camera if value is not None)
+            if not all(math.isfinite(value) and abs(value) <= _MAX_CAMERA_CM for value in numbers):
+                raise ValueError(f"The camera's coordinates must be finite and within "
+                                 f"{_MAX_CAMERA_CM:.0f} cm of the plan's origin.")
+            if not 5.0 <= fov_deg <= 120.0:
+                raise ValueError("fov_deg must lie between 5 and 120.")
+            if numbers[:3] == numbers[3:]:
+                raise ValueError("The eye and the target must not be the same point.")
+            shot = (numbers[:3], numbers[3:], float(fov_deg))
+        size = (max(MIN_IMAGE_PX, min(MAX_IMAGE_PX, int(image_width_px))),
+                max(MIN_IMAGE_PX, min(MAX_IMAGE_PX, int(image_height_px))))
+        result = await anyio.to_thread.run_sync(lambda: render_3d(shot, size))
+        return [
+            Image(data=result["png_bytes"], format="png"),
+            Render3DMeta(**{key: value for key, value in result.items() if key != "png_bytes"}),
         ]
 
     @mcp.tool()

@@ -1049,3 +1049,30 @@ pointer cleanup discards ordinary move bookkeeping but retains the rotation's
 partner snapshots until the synthetic release commits the rotation command.
 Only after that release are the partner snapshots cleared. A normal item drag
 still rolls back before the pinch; resize/vertex handle behavior is unchanged.
+
+## 6.x A picture of the 3D view (Phase 17 L6, #390, ADR-071)
+
+```mermaid
+sequenceDiagram
+    participant Caller as Save Photo / a tour's frame / render_3d_view
+    participant Coord as WorkspaceCaptureCoordinator
+    participant Host as Quick3DHost (GUI thread)
+    participant Qt as Qt render thread
+    Caller->>Coord: a picture, please
+    Coord->>Coord: capture_blocker(): not_open, warming_up, recording?
+    Note over Coord: a blocker is a sentence at once, never a wait
+    Coord->>Host: capture(size, shot, wind, photo)
+    Host->>Host: camera, wind, photo for this picture; capture view on
+    Host->>Host: captureView.grabToImage(size / ratio)
+    Host->>Qt: grabWindow(): render now, no display needed
+    Qt-->>Host: the item's grab done (its event is queued)
+    Host->>Host: sendPostedEvents(result): no nested event loop
+    Host->>Host: camera, wind, ring and photo back; capture view rests
+    Host-->>Coord: an image of exactly that size
+    Note over Host,Qt: the frame was never presented, so the view never moved
+```
+
+A tour repeats the capture once per pass of the event loop, after moving the sim clock and
+waiting for the pipeline, the forge and the sky to follow; the capture view keeps its render
+targets between frames (`begin_captures`), and the owner's date and time return at the end.
+

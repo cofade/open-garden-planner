@@ -1040,6 +1040,19 @@ guard make support decisions explicit. Direct `ROOF_RIDGE`,
 is refused with reasons; these are deliberate gaps, not accidental omissions.
 The extension is additive and does not bump `FILE_VERSION`.
 
+### ADR-034 addendum: `render_3d_view` (Phase 17 L6.3, #390, ADR-071)
+
+A second vision tool next to `render_canvas_image`, and like it `structured_output=False`
+(`[ImageContent, TextContent]`, no `structuredContent`). Read-only, so it is registered without a
+token and needs none. `anyio.to_thread` plus `run_on_main(timeout=30)`: the longest hop of any
+read tool, because a picture and its PNG are one hop on the main thread. **It never waits for the
+view:** when the view is closed, warming up or recording, the provider raises `CaptureRefused`,
+which reaches the client as a clean error sentence in under a millisecond of work, never the
+bridge's timeout. A refusal changes nothing, and no call builds an engine or switches a view: the
+owner's camera and date never jump. Its camera is validated before the main thread is asked
+(all six coordinates or none, finite, within 10 km, eye not on target, field of view 5 to 120°);
+its size is clamped like the canvas render's, to 128..2048.
+
 ### ADR-034 addendum: Package F1/F2 curated traits and shared diagnostics
 
 `garden://species` includes recorded food-forest layers/functions. `get_object` exposes curated lowercase trait values for plants (unknown/empty defaults) and null for other objects, alongside the saved metadata. These are read-only additions; authentication and write tools are unchanged. Diagnostic records retain existing fields/messages and add structured `details`; guild warnings carry guild/centre IDs, function and required/present counts. The API adapter delegates to `services/diagnostics.py`, also consumed by the sidebar. Guild warnings come from the last coordinator snapshot, subject to the documented debounce delay.
@@ -7980,6 +7993,16 @@ changing painters and deriving expected pixels from the rectangle under test wer
 rejected. Width/preset geometry notifications precede mutation. Regression coverage
 is documented in section 8.30; the existing ground hairpin/tile-border gates remain.
 
+### ADR-060 addendum L6: pictures on request are not a steady path (#390, ADR-071)
+
+Decision 17 stands: nothing the workspace does by itself takes a frame from the live view. A
+picture for a file, a tour or an agent is someone's own action and is now made through
+`Quick3DHost.capture`, in `workspace_capture.py`, nowhere else. The scan test lists its three
+call sites by name next to the click and the growth jump. It replaces "a picture for a file goes
+through `offscreen.py`", which refuses while the view is shown. A frame of a tour IS paced by a
+timer, one the user started and can stop. What such a frame holds comes back with the next
+presented frame: the session soak (300 pictures at 1080p, 100 at 4K) stayed flat on GPU and WARP.
+
 ## ADR-061: The pitfall catalogue — numbered area files, permanent IDs, one index and a verbatim archive
 
 **Status**: Accepted (2026-10-20). Owner review of the dedupe table and of the pins flagged for a human look is pending. Supersedes the single-section layout of §11.4 ("Known Development Pitfalls") that ADR-047 left in place. The audit family's move is recorded in the ADR-047 addendum above.
@@ -9424,6 +9447,17 @@ sprite's soil rectangle, which is narrower than its 3D soil. Guild membership
 describes nearby plants, while missing roles remain honest diagnostics. Production
 scene rendering and real-font annotation bounds supplement structural assertions.
 
+### ADR-066 addendum: a showcase example (#390)
+
+The fourth example, `family-garden`, is not a teaching plan: it is the plan of every Beauty Board
+(`tests/fixtures/plans/bench_small.ogp`), shipped at the owner's request and the subject of the
+project's visual material. It is built by the same `make_bench_plans.build_small` and keeps the
+fixture's item ids, because a plant's procedural shape is seeded by its id; a test fails when the
+two drift. It keeps the fixture's 6 to 10 cm path widths, so it is exactly that plan. It needs no
+tutorial annotation or soil sample (the teaching plans' gates keep theirs), and its botanical
+fields stay canonical in `de/` and `es/`: the localizer now translates only a species' common
+name, since "Iris" is both a plant's name and a genus.
+
 ## ADR-067: Release download statistics without telemetry
 
 **Status:** Accepted (owner decision, 28 October 2026: no telemetry; chart accepted as "perfect" on the same date).
@@ -10193,3 +10227,120 @@ cloudy) to it; codes 0 and 1 stay clear. The board's cloudy-weather gates (horiz
 dusk) and the render tier's cloudy-evening gate run on it (`HORIZON_WEATHERS`). Pinned by
 `tests/unit/test_scene3d_weather.py::test_a_partly_cloudy_day_keeps_its_sun` and the WMO table.
 
+## ADR-071: Director's cut — one capture path, photo mode, camera tours, video and `render_3d_view` (Phase 17 L6, #390)
+
+**Status:** Accepted (awaiting the owner's manual acceptance on the PR).
+
+### Context
+
+L6 asks for three things that all need a picture of the garden that is not the view on screen:
+a photo up to 4K, the frames of a camera tour, and a picture for an agent — the last
+"through a second View3D of the same scene so the owner's camera and date never jump". The
+issue names "the offscreen path" for the photo, and its owner's comment makes video part of
+the issue ("Photo and video capture need to be implemented both in this issue"), where the
+body had made it conditional on verifying a Qt Multimedia path.
+
+`offscreen.render_records` cannot serve any of them while the view is open: it refuses beside a
+shown Qt Quick window (its message recorder deadlocks with a render thread), builds every Model
+again, and creates a graphics device per call. ADR-060 decision 17 forbids a frame from the live
+view on any steady path.
+
+### Decision
+
+1. **One capture path: a second `View3D` of the same scene, for all three.**
+   `Quick3DHost.capture(size, shot, wind_time_s=, photo=)` renders through `captureView` in
+   `Garden.qml`: `importScene: view.scene`, the same camera, the same environment object. Nothing
+   exists twice, so a photo, a video frame and an agent's picture cannot disagree. This replaces
+   the issue's "offscreen path" for the photo: measured, it is identical to the view, needs no
+   second device and is a hundred times cheaper than a rebuilt scene.
+
+2. **Nothing moves on screen, by construction.** A capture is one synchronous call on the GUI
+   thread. It moves the camera (when a shot is given), renders one frame that is never
+   presented, and puts the camera back before the event loop runs. The view read back afterwards
+   differs in no pixel; a capture from a camera equals the view moved to that camera, pixel for
+   pixel, on Direct3D 11, GPU and WARP.
+
+3. **`grabWindow` drives `grabToImage`.** An item's grab is taken in the window's next frame, and
+   on Windows that frame is paced by a thread that waits for the display: with the display
+   asleep it never comes (`ogp-3d-renderer` §6). `grabWindow` renders on the spot and emits the two
+   signals the item's grab hangs on; the completion event is then delivered to that one object
+   with `sendPostedEvents(result, 0)`. No nested event loop, so no user input during a capture.
+
+4. **The capture view is never destroyed, and rests small.** Making and destroying a `View3D`
+   per picture left about 20 MB behind each time at 4K, linearly (WARP, 60 pictures); on the GPU
+   the driver's pools hid it behind a plateau. A hidden `View3D` keeps its render targets (500 MB
+   after a 4K picture), so before it hides, the host renders it once at `MIN_CAPTURE_SIDE`, which
+   makes Qt replace them. A tour holds the large targets for its frames (`begin_captures`).
+   Measured: 60 single 4K pictures stay flat on the GPU and on WARP.
+
+5. **Photo mode develops a picture and changes nothing in the garden.** Exposure in stops,
+   depth of field on a focused POINT (a tour keeps it on the plant), a vignette and a colour
+   grade, all `ExtendedSceneEnvironment` features on the one environment, so the view previews
+   what is saved. All off is the view, pixel for pixel. A click sets the focus while photo mode
+   is on: selection has its 2D side. No setting is saved in the plan.
+
+6. **A grade is a procedural table, and it carries the look's saturation and contrast.** Qt
+   applies them unclamped right before its table lookup, and that lookup is a `texelFetch` whose
+   column a colour below 0 pushes into the neighbouring slice: the darkest leaves came out red
+   (R 0 became 57, 4181 pixels of a 720p frame). Under a grade the environment's two adjustments
+   are 1 and the table applies them, clamped, with Qt's own formula. Identity table against the
+   view: mean 0.13 levels, p99 1, at most 5.
+
+7. **A tour is a list of frames computed from their index, never timed.** `core/camera_path.py`,
+   Qt-free: a centripetal Catmull-Rom spline at constant speed (`CameraPath`), a `DroneOrbit` from
+   the view's own pose, a `HeldCamera`; a day or a stretch of the year on the sim clock. A slow
+   machine takes longer and writes the same video. `TourRecorder` renders one frame per pass of
+   the event loop, waits for the pipeline to settle after each clock step, and pauses when the
+   view gives no frame. Wind is the frame's own time. A year's date moves at most 8 times per
+   second of video: each new date regrows every dated plant (about a second and 2 MB, #531).
+
+8. **Video through Qt Multimedia, verified for size and licence as the issue asked.**
+   `QVideoFrameInput` → `QMediaCaptureSession` → `QMediaRecorder`, all inside the pinned
+   `PyQt6-Qt6` wheel (LGPL v3). Its FFmpeg 9.0.1 reports `LGPL version 2.1 or later` at run time
+   and its configure line has no `--enable-gpl`. Size: the bundle grows by about 20 MB. H.264
+   comes from the operating system's encoder (`h264_mf`, Windows Media Foundation), so the app
+   ships no H.264 encoder; where there is none, FFmpeg's own MPEG-4 Part 2 encoder writes the file
+   (both tested). The app is GPLv3 and links the wheel dynamically; no new dependency, no new
+   licence category. `video_writer.py` is the only importer, and it imports on first use.
+
+9. **The frames are BT.709 YUV computed by the app, never RGB.** Handed RGB, the recorder converts
+   with swscale's default matrix (BT.601) and writes no colour tag, and every player reads an
+   untagged HD stream as BT.709: (200, 60, 30) came back as (212, 73, 27). `core/video_yuv.py`
+   computes limited-range BT.709 4:2:0 in fixed point: within 2 levels. All tour sizes are HD,
+   because below HD players assume BT.601.
+
+10. **`render_3d_view` is a read-only tool that refuses instead of waiting.** No token (ADR-034):
+    it changes nothing. It calls the one capture path with the owner's camera or one of its own,
+    undeveloped (`NO_PHOTO`), and returns a PNG and what it shows, plan date and sun included.
+    `capture_blocker()` answers at once: `not_open`, `warming_up` (first frame, pipeline, forge),
+    `recording`, `unavailable`. A clean sentence in under a millisecond, where a plain wait would be
+    a 5 s timeout. `run_on_main(timeout=30)`: a 2048 px PNG on a software adapter takes about a
+    second. It has no date argument: the date is the owner's, and a second date needs a second
+    scene.
+
+### Alternatives rejected
+
+- **`render_records` in the running app** (the issue's words): refuses beside a shown window, one
+  device per call, every Model again. Kept for what it is for: tools, tests, the self-test.
+- **A child process per photo or per video**: isolates a crash, but needs the whole look, weather,
+  analysis and date serialized, a second path to the same picture, and a second copy of the plan
+  in memory.
+- **`QQuickRenderControl`**: renders off-window at any size, but PyQt6 cannot hand it a native
+  texture on Direct3D 11.
+- **Creating the capture view per picture** (`Loader`): built, measured, withdrawn (decision 4).
+- **A vignette through `vignetteStrength`**: a lower strength darkens the middle of the picture
+  too (mean luma 99 → 47 at 2.4). The exponent reaches only into the corners.
+- **PNG sequence only, video later** (the issue's fallback): the owner's comment asks for both.
+- **`imageio-ffmpeg` or a bundled `ffmpeg.exe`**: a new dependency of about 30 MB, for what the
+  pinned wheel already holds. GPL builds of it would change the distribution's obligations.
+
+### Consequences
+
+- `render_3d_view` needs the 3D view open: an agent is told so in a sentence (follow-up: a picture
+  while the plan is shown, through the offscreen path, which is allowed then).
+- Keys of a tour live in the session: closing the app loses them, and the plan stays free of 3D
+  data (follow-up: keep tours in the file as additive metadata).
+- A year's time-lapse still spends #531's 2 MB per regrowth; a 12 s video about 200 MB.
+- An MP4 carries no colour tag: the writer relies on the HD convention (decision 9), which the
+  owner's manual test confirms in real players. Qt offers no way to set the tag.
+- No `FILE_VERSION` change; nothing new in the `.ogp`.

@@ -203,6 +203,8 @@ class LookController(QObject):
         self._auto = AutoPreset(auto_level, policy, bars={
             level: (until - now, retry) for level, (until, retry) in (auto_bars or {}).items()})
         self._sky_failed = False
+        #: L6.2: a recording holds the automatic preset where it is (``hold_preset``).
+        self._preset_held = False
         #: L5: the weather picked (``WEATHER_CHOICES``) and what ``today`` stands for.
         self._weather = "clear"
         self._todays: str | None = None
@@ -473,6 +475,19 @@ class LookController(QObject):
     def _system_motion_changed(self, *_args: object) -> None:
         self.set_system_reduced_motion(system_reduced_motion())
 
+    def hold_preset(self, held: bool) -> None:
+        """A camera tour is recording (L6.2): the view presents few frames while the host
+        renders, which must not read as a slow machine. The automatic preset stops
+        measuring until it is over."""
+        self._preset_held = bool(held)
+        self._update_wind()
+
+    def settle_sky(self) -> None:
+        """Build the sky the sun asks for NOW, not when the sun rests: a tour's frame shows
+        its own moment. Nothing happens when the sky on show is still good enough."""
+        self._sky_timer.stop()
+        self._settle_sky()
+
     def set_sky_model(self, model: str) -> None:
         """Draw the sky with ``model`` (``look.SKY_MODELS``, L7): at once, like a new
         weather — or, for the atmosphere, once its cloud volume is ready."""
@@ -653,7 +668,7 @@ class LookController(QObject):
             run = False
         self._wind_running = run
         # the automatic preset measures only frames that flow: while the wind runs
-        if run and self._quality == AUTO:
+        if run and self._quality == AUTO and not self._preset_held:
             if not self._auto_timer.isActive():
                 self._auto.pause()
                 self._auto_timer.start()

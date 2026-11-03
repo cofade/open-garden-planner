@@ -107,6 +107,7 @@ from PyQt6.QtCore import (
     QEventLoop,
     QMetaObject,
     QObject,
+    QSize,
     Qt,
     QTimer,
     QUrl,
@@ -149,6 +150,7 @@ from open_garden_planner.core.scene3d.particles import (
     precipitation_buffers,
     precipitation_volume,
 )
+from open_garden_planner.core.scene3d.photo import NO_GRADE, NO_PHOTO, PhotoSettings, lut_strip
 from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
 
 from .adapter import GroundPlacement, PartSpec
@@ -175,6 +177,7 @@ from .look import (
     SkySpec,
     atmosphere_properties,
     atmosphere_sun_direction,
+    photo_properties,
     scene_properties,
     sky_properties,
 )
@@ -216,6 +219,11 @@ OVERLAY_LAYERS: Final = {"shade": "shadeVisible", "drape": "drapeVisible",
 #: at most half a device pixel off ``logical × ratio``. The rest is the float error of
 #: that product (3000 × 1.1 is not exact; a neighbour's frame is at least 0.1 px further).
 _HALF_PIXEL: Final = 0.5 + 1e-6
+#: What ``capture`` renders, device pixels per side. 3840 is the largest size the product
+#: offers (4K); the bound is what a Direct3D 11 feature level 10 device can still hold
+#: in a texture with room to spare, and 16 is below every real use.
+MIN_CAPTURE_SIDE: Final = 16
+MAX_CAPTURE_SIDE: Final = 8192
 
 _API: Final = QSGRendererInterface.GraphicsApi
 #: Our names for Qt's graphics APIs — keyed by the enum MEMBER, never by its
@@ -455,6 +463,14 @@ class Quick3DHost:
         #: How long the last ``set_sky`` took on the GUI thread, milliseconds (the
         #: generation; the probe's filtering lands in the next frame Qt renders).
         self.last_sky_build_ms = 0.0
+        #: How pictures are developed (L6.1), and the colour grades made so far: each its
+        #: ``Texture`` and the data object Python owns, for the host's life (``set_photo``).
+        self._photo: PhotoSettings = NO_PHOTO
+        self._photo_grades: dict[tuple[str, float, float], tuple[QObject, PatternTexture]] = {}
+        #: Pictures taken through the capture view (L6; the gates read it), and whether its
+        #: view stays between them (``begin_captures``).
+        self.captures = 0
+        self._capture_session = False
         #: The atmosphere sky's two textures (L7): made at its first build and held for
         #: the host's life — their ``Texture`` s are never re-pointed (``cloud_volume``);
         #: the sky-view table is refilled for every new sun.
@@ -1339,6 +1355,8 @@ class Quick3DHost:
         _set(self._root, "camTarget", _engine_vector(shot.target))
         _set(self._root, "camFov", float(shot.fov_deg))
         _set(self._root, "camVersion", int(_get(self._root, "camVersion")) + 1)
+        if self._photo.depth_of_field:   # L6.1: the focus stays on the point, not at a distance
+            self._apply_photo(self._view_height_px())
         # where the rain falls follows the camera (L5): around the point it looks at
         volume = precipitation_volume(shot.eye, shot.target)
         _set(self._root, "volumeCenter", _engine_vector((*volume.center_scene, 0.0)))
@@ -1371,6 +1389,8 @@ class Quick3DHost:
                 value = QVector3D(float(x), float(y), float(z))
             _set(self._root, name, value)
         previous, self._shown_look = self._shown_look, look
+        if self._photo.grade != NO_GRADE:
+            self._apply_grade(self._photo.grade)   # the table carries the mood's adjustments
         if look.moon_travel_scene != previous.moon_travel_scene:
             self._apply_light()   # dusk or dawn: the key light changes hands
         if look.atmosphere.precipitation != "none" and not self._precipitation_failed:
@@ -1476,6 +1496,162 @@ class Quick3DHost:
         self._open("rest_wind")
         _set(self._root, "windRunning", False)
         _set(self._root, "windTime", 0.0)
+
+    # ── photo mode and the capture view (L6, #390, ADR-071) ──────────────────
+
+    def set_photo(self, settings: PhotoSettings) -> None:
+        """How pictures are developed from now on, in the view and in every capture
+        (``core.scene3d.photo``). ``NO_PHOTO`` is the view itself. Moves no camera."""
+        self._open("set_photo")
+        self._photo = settings
+        self._apply_photo(self._view_height_px())
+        self._apply_grade(settings.grade)
+
+    @property
+    def photo(self) -> PhotoSettings:
+        return self._photo
+
+    def _view_height_px(self) -> float:
+        return float(self._root.height()) * float(self._view.effectiveDevicePixelRatio())
+
+    def _apply_photo(self, picture_height_px: float) -> None:
+        """The photo settings for the camera in place and a picture of this height."""
+        shot = self._camera_scene
+        eye = shot.eye if shot is not None else (0.0, 0.0, 0.0)
+        for name, value in photo_properties(self._photo, eye, picture_height_px).items():
+            _set(self._root, name, value)
+
+    def _apply_grade(self, grade: str) -> None:
+        """Show the grade's table for the look's saturation and contrast, which a table
+        carries (``photo.lut_strip``): a few tables per grade over a whole twilight, each
+        a 16 kB texture, kept while the host lives."""
+        if grade == NO_GRADE:
+            _set(self._root, "photoGraded", False)
+            return
+        mood = self._shown_look.mood
+        key = (grade, round(float(mood.saturation), 2), round(float(mood.contrast), 2))
+        made = self._photo_grades.get(key)
+        if made is None:
+            data = PatternTexture(*lut_strip(grade, saturation=key[1], contrast=key[2]))
+            data.setParent(self._root)
+            made = (self._call("createPhotoGrade", data), data)
+            self._photo_grades[key] = made
+        self._call("showPhotoGrade", made[0])
+
+    def begin_captures(self) -> None:
+        """Many pictures are coming (a tour): the capture view stays between them, and its
+        render targets with it. ``end_captures`` lets go; a host that closes does too."""
+        self._open("begin_captures")
+        self._capture_session = True
+
+    def end_captures(self) -> None:
+        self._capture_session = False
+        if not self.is_closed:
+            self._drop_capture_view()
+
+    def _drop_capture_view(self) -> None:
+        """The capture view rests: one frame at the smallest size, so that Qt replaces its
+        large render targets with small ones, and then out of sight (``Garden.qml``)."""
+        root = self._root
+        if not _get(root, "captureWanted"):
+            return
+        _set(root, "captureWidth", MIN_CAPTURE_SIDE)
+        _set(root, "captureHeight", MIN_CAPTURE_SIDE)
+        try:
+            if self.state is HostState.LIVE:
+                self._view.grabWindow()
+        finally:
+            _set(root, "captureWanted", False)
+
+    def capture(self, size: tuple[int, int], shot: PerspectiveShot | None = None, *,
+                wind_time_s: float | None = None, photo: PhotoSettings | None = None,
+                label: str = "") -> QImage:
+        """A picture of exactly ``size`` device pixels, without moving anything on screen:
+        ``shot`` (None: the camera in place) through the scene's second View3D, whose size
+        does not depend on the window's. Selection ring off; the photo settings apply.
+        ``wind_time_s``: the wind's clock for this picture (a tour's frames are computed,
+        not timed). ``photo``: develop this picture differently from the view (an agent's
+        picture takes ``NO_PHOTO``). Legal on a ``LIVE`` host only (``lifecycle.py``); else
+        ``HostStateError``. ``EngineError`` when no picture comes back.
+
+        WHY NOTHING JUMPS (ADR-071, measured: the view read back after a capture differs
+        in no pixel). Everything below is one synchronous call on the GUI thread, and the
+        frame it renders is never presented: ``grabWindow`` renders and reads back on the
+        spot, Qt's render thread cannot sync with the GUI thread while this runs, and the
+        camera is back before anything else can. So the view's next presented frame
+        reads the owner's own camera, as if nothing had happened.
+
+        WHY ``grabWindow`` DRIVES ``grabToImage``. An item's grab is taken in the window's
+        next frame, and on Windows the next frame is paced by a thread that waits for the
+        display: with the display asleep it never comes (``ogp-3d-renderer`` §6).
+        ``grabWindow`` emits the two signals the item's grab hangs on and needs no
+        display at all, and the only thing left is its completion event, delivered here
+        to that one object: no nested event loop, no user input while it runs.
+
+        A user's own action or an agent's request: never a timer's steady path, like
+        every other frame of a live view (ADR-060 decision 17).
+        """
+        state, facts = self._look("capture")
+        self._require_3d("capture")
+        if state is not HostState.LIVE:
+            raise HostStateError(f"capture(): {self._why(state, facts)}")
+        width, height = int(size[0]), int(size[1])
+        if not (MIN_CAPTURE_SIDE <= width <= MAX_CAPTURE_SIDE
+                and MIN_CAPTURE_SIDE <= height <= MAX_CAPTURE_SIDE):
+            raise ValueError(f"capture(): a picture has {MIN_CAPTURE_SIDE} to {MAX_CAPTURE_SIDE} "
+                             f"pixels per side, got {width} x {height}")
+        root = self._root
+        ratio = float(self._view.effectiveDevicePixelRatio())
+        shot_before = self._camera_scene
+        wind_before = _get(root, "windTime")
+        ring_before = _get(root, "selectionVisible")
+        photo_before = self._photo
+        started = time.perf_counter()
+        try:
+            if photo is not None:
+                self._photo = photo
+                self._apply_grade(photo.grade)
+            if shot is not None:
+                self.set_camera(shot.eye, shot.target, shot.fov_deg)
+            if wind_time_s is not None:
+                _set(root, "windTime", float(wind_time_s))
+            _set(root, "selectionVisible", False)
+            _set(root, "capturePixelRatio", ratio)
+            _set(root, "captureWidth", width)
+            _set(root, "captureHeight", height)
+            _set(root, "captureWanted", True)
+            self._apply_photo(float(height))
+            item = cast("QQuickItem", self._call("captureItem"))
+            # Qt multiplies the target size by the window's ratio again
+            result = item.grabToImage(QSize(round(width / ratio), round(height / ratio)))
+            if result is None:
+                raise EngineError(f"capture({label!r}): Qt refused to grab the capture view")
+            self._render("capture", label, HostState.LIVE)   # the frame that takes the grab
+            QCoreApplication.sendPostedEvents(result, 0)
+            image = result.image()
+        finally:
+            if not self._capture_session:
+                self._drop_capture_view()
+            _set(root, "selectionVisible", ring_before)
+            _set(root, "windTime", wind_before)
+            self._photo = photo_before
+            if photo is not None:
+                self._apply_grade(photo_before.grade)
+            if shot is not None and shot_before is not None:
+                self.set_camera(shot_before.eye, shot_before.target, shot_before.fov_deg)
+            self._apply_photo(self._view_height_px())
+        if image.isNull() or image.width() == 0 or image.height() == 0:
+            raise EngineError(f"capture({label!r}): Qt delivered no picture")
+        if (image.width(), image.height()) != (width, height):
+            # a ratio that does not divide this size: at most a pixel off (never at 1, 1.25, 1.5, 2)
+            image = image.scaled(width, height, Qt.AspectRatioMode.IgnoreAspectRatio,
+                                 Qt.TransformationMode.SmoothTransformation)
+        image.setDevicePixelRatio(1.0)
+        self.captures += 1
+        self._log("capture", label=label, px=f"{width}x{height}",
+                  ms=round((time.perf_counter() - started) * 1000.0, 1))
+        # an opaque garden: an alpha channel in a file would only say so at twice the cost
+        return image.convertToFormat(QImage.Format.Format_RGBX8888)
 
     # ── picking and readback ─────────────────────────────────────────────────
 

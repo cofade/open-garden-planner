@@ -162,6 +162,12 @@ class AgentProviders:
             ``diagnostics`` this callable takes parameters — it resolves the
             default region and does the hide/render/encode work in one atomic
             main-thread hop.
+        render_3d: Renders a picture of the 3D view, read-only (L6.3). Takes the
+            camera — ``(eye, target, fov_deg)`` in scene cm, or ``None`` for the owner's
+            own — and the picture's (width, height); returns a plain dict with
+            ``png_bytes`` and what it shows
+            (``ui.view3d.workspace_capture.WorkspaceCaptureCoordinator.agent_picture``).
+            Raises with a clean sentence when the view is not open or still warming up.
         save_plan: Saves the live plan to its ``.ogp`` file (or a new path,
             i.e. Save As). Takes an optional destination path; returns a plain
             dict (``agent_api.exports.save_plan_file``).
@@ -392,3 +398,8 @@ class AgentProviders:
     undo: Callable[[], dict[str, Any]]
     redo: Callable[[], dict[str, Any]]
     get_plant_lists: Callable[[], list[dict[str, Any]]] | None = None
+    render_3d: Callable[
+        [tuple[tuple[float, float, float], tuple[float, float, float], float] | None,
+         tuple[int, int]],
+        dict[str, Any],
+    ] | None = None

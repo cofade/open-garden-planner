@@ -249,3 +249,52 @@ night with the disc gone, and a plain multiply left 13–14 luma by day. Re-chec
 bump: on 2026-11-03 no QTBUG matched this crash, and Qt 6.12.1 was not on PyPI. The instrument
 is `scripts/probe_sky_crash.py`: to ask whether a new Qt fixed it, turn `enableIBL` on and drop
 the probe under the atmosphere in a scratch checkout, and run seed 7 several times.
+
+### PF-E3D-18
+
+- **Rule:** A picture beside a shown view comes from a second `View3D` of the same scene (`importScene`, the same camera and environment), read with `grabToImage` driven by one synchronous `grabWindow`; never a `render_records` beside a shown window, never a wait for the window's next frame, and never a `View3D` made and destroyed per picture.
+- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_a_capture_at_the_views_size_is_the_view`; `tests/integration/test_directors_cut_render.py::test_another_camera_moves_nothing_on_screen`; `tests/integration/test_view3d_workspace_widget.py::test_the_workspaces_modules_never_ask_a_host_for_a_frame`.
+- **Source:** #390 (Phase 17 L6), ADR-071 decisions 1 to 4.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+`grabToImage` alone waits for the window's next frame, and on Windows the next frame waits for the
+display, so with the display asleep it never comes. `grabWindow` needs no display and emits the
+signals the item's grab hangs on; then `QCoreApplication.sendPostedEvents(result, 0)` delivers its
+completion to that one object, with no nested event loop. Qt multiplies the target size by the
+window's ratio again: pass `size / ratio`. A hidden `View3D` keeps its render targets (500 MB after
+a 4K picture), and a destroyed one leaves about 20 MB behind each time, linearly on WARP and behind
+a plateau on the GPU, whose driver pools hide it. So it stays, and rests after one frame at the
+smallest size. A soak on one adapter would have approved the wrong design.
+
+### PF-E3D-19
+
+- **Rule:** With a colour table on, the environment's saturation and contrast are 1 and the table carries them: Qt applies them unclamped right before its table lookup, and that lookup is a `texelFetch` whose column a colour below 0 pushes into the neighbouring slice. Texture DATA for a table runs its rows opposite to a loaded PNG, and a `Texture`'s `flipV` does not reach an effect's sampler.
+- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_a_grades_table_is_the_view_through_it_and_turns_nothing_red`; `tests/unit/test_scene3d_photo.py::test_a_table_carries_the_looks_adjustments_exactly_as_qts_shader_does`; `tests/unit/test_scene3d_photo.py::test_as_texture_data_the_rows_run_opposite_to_qts_identity_png`.
+- **Source:** #390 (Phase 17 L6.1), found by an identity table against the view; ADR-071 decision 6.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+The first grades were magenta and green: the strip matched Qt's `identity.png` byte for byte, but
+that PNG is flipped on upload (`fixY` in `tonemapper.frag`), and data textures are not; setting
+`flipV` changed nothing at all. Then an identity table read mean 0.07, p99 0 and a maximum of 103:
+4181 pixels of a 720p frame, all with R = 0 in the view, came out with R up to 57. Saturation 1.06
+had taken the darkest leaves below 0 on the red channel, and `ivec2(int(lutSize*b + r), …)` then
+read the previous slice's last column, where red is at its maximum. Read the shader out of Qt's
+resources (`:/qtquick3d_helpers/shaders/tonemapper.frag`), do not guess it. A related trap in the
+same file: `vignetteStrength` is not a strength, a lower value darkens the middle of the picture;
+`vignetteRadius` is the exponent that reaches only into the corners.
+
+### PF-E3D-20
+
+- **Rule:** Frames for Qt's recorder are BT.709 YUV computed by the app, in an HD size: handed RGB it converts with BT.601 and writes no colour tag, and players read an untagged HD stream as BT.709. A test reads a decoded frame's Y, Cb and Cr itself; `QVideoFrame.toImage` guesses the matrix differently by platform.
+- **Pinned by:** `tests/integration/test_video_writer.py::test_an_mp4_has_every_frame_the_right_length_and_the_right_colours`; `tests/unit/test_video_yuv.py::test_a_colour_survives_the_round_trip_within_two_levels`; `tests/unit/test_video_yuv.py::test_it_is_the_bt709_matrix_and_not_bt601`.
+- **Source:** #390 (Phase 17 L6.2), found by reading the first video back; ADR-071 decision 9.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+The first encoded test read (200, 60, 30) back as (212, 73, 27), on H.264 and on MPEG-4 alike, while
+the frames count, the size and the duration were all right. Nobody compares a promo video with a
+colour picker. `QMediaRecorder.errorOccurred` carries an enum PyQt6 cannot connect: use
+`errorChanged` and read `error()`. A `QVideoFrame` can be mapped only while the player holds it.
+

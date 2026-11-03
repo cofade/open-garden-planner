@@ -955,6 +955,41 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
   as its legend's. The Weather button keeps the chosen weather's name and adds "(paused
   while analysing)"; with Nothing on the Ground the chosen weather returns.
 
+- **FR-3D-PHOTO-01** (L6.1): The 3D strip's **Capture** menu (and View → Workspace) offers **Photo
+  Mode**: a line of controls for exposure, vignette, blur and a colour grade (Golden Hour, Crisp Day,
+  Cool Morning, Soft Film, Black and White). The view previews them at once. They change how the
+  picture looks, never what stands in the garden, and with photo mode off the view is the view
+  again, pixel for pixel.
+- **FR-3D-PHOTO-02** (L6.1): In photo mode a **click sets the focus** on what is under it (or on the
+  ground) instead of selecting, and the line says how far away it is. The focus is a point: it stays
+  on the plant when the camera moves.
+- **FR-3D-PHOTO-03** (L6.1): **Save Photo** writes a PNG or JPEG at the view's size, Full HD, QHD or
+  4K, whatever the window's size, without moving the view. No selection highlight is in the picture.
+  The file says what date it shows.
+- **FR-3D-TOUR-01** (L6.2): **Camera Tour** moves the camera as a **drone orbit** from where the
+  view is, along **keyframes** (each the current view, on a smooth path at constant speed), or not
+  at all; and the clock not at all, through **a day**, or **through the year**. Duration 1 to 600 s, 24
+  to 60 frames per second, 720p to 4K.
+- **FR-3D-TOUR-02** (L6.2): A tour is saved as an **MP4 video** (H.264 where the system has an encoder,
+  else MPEG-4) or a **PNG sequence**. It is rendered frame by frame, so a slower computer takes
+  longer and writes the same video. A progress bar shows each frame, Cancel stops it, and a cancelled
+  or failed video leaves nothing behind and never replaces an earlier file. If the 3D view stops being
+  visible, the recording waits and goes on.
+- **FR-3D-TOUR-03** (L6.2): **Preview** plays the tour small and in real time inside the dialog and
+  saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
+  time-lapse changes no plan data and leaves nothing to undo.
+- **FR-AGENT-31** (L6.3, #390, ADR-071): **`render_3d_view`** renders a PNG of the 3D view for an
+  agent, from the owner's camera or one of its own, and reports what it shows (plan date, time, sun,
+  weather, quality, roofs, overlays). It is read-only and needs no token; it never moves the
+  owner's camera or date. When the view is closed, still warming up or recording, it says so at once
+  in a clean sentence, and nothing has changed.
+
+Acceptance (L6): `tests/integration/test_directors_cut.py` (§8.10 — photo mode, the click, Save Photo,
+the dialog, a recording end to end, every refusal), `test_agent_api_render_3d.py` (the real MCP
+transport), `test_video_writer.py` (a real encode, read back), the unit suites `test_camera_path.py`,
+`test_video_yuv.py` and `test_scene3d_photo.py`, the render tier `test_directors_cut_render.py`, and
+`--selftest`, which captures and encodes from the bundle.
+
 Acceptance (L5): `tests/integration/test_living_garden.py` (§8.10 — the toolbar's day and
 year playback through the real app and its clock; the Weather menu, the life switch and
 Today's Weather through the workspace; the lamps drawn with their tools and told to the
@@ -993,6 +1028,8 @@ engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py
 
 ## FR-EXAMPLE: Offline examples and reusable plan templates (US-F5, #316)
 
+- **FR-EXAMPLE-06** (#390): The examples include **Family garden**, a 24 × 16 m whole garden made to
+  explore in 3D, the plan of the project's own renders. Its names are localized; its botany is not.
 - **FR-EXAMPLE-01**: Welcome and File offer at least three offline examples with
   localized names/descriptions, PNG previews and visible license attribution.
   User templates in the app-data templates directory appear alongside them.

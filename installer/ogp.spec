@@ -230,6 +230,18 @@ a = Analysis(
         "open_garden_planner.core.scene3d.lights",
         "open_garden_planner.core.scene3d.builders.lights",
         "open_garden_planner.core.playback",
+        # The director's cut (ADR-071, L6): photo mode, the camera tours and their video.
+        # Qt Multimedia is imported when a tour is first saved, and `--selftest` encodes a
+        # few frames from the bundle. The hook collects its multimedia plugins; the FFmpeg
+        # libraries (LGPL, inside the pinned PyQt6-Qt6 wheel) come with ffmpegmediaplugin.
+        "PyQt6.QtMultimedia",
+        "open_garden_planner.core.camera_path",
+        "open_garden_planner.core.scene3d.photo",
+        "open_garden_planner.core.video_yuv",
+        "open_garden_planner.ui.view3d.workspace_capture",
+        "open_garden_planner.ui.view3d.tour_dialog",
+        "open_garden_planner.ui.view3d.tour_recorder",
+        "open_garden_planner.ui.view3d.video_writer",
         # Selection, the info card and walk mode (ADR-060 addendum, L1.8): the
         # card and the bridge are imported when the 3D pane is first built, walk
         # mode when it is first entered.

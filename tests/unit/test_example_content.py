@@ -11,7 +11,9 @@ import pytest
 
 RESOURCES = Path(__file__).parents[2] / "src/open_garden_planner/resources"
 EXAMPLES = RESOURCES / "examples"
-SLUGS = ("raised-bed", "food-forest", "balcony")
+SLUGS = ("raised-bed", "food-forest", "balcony")   # the teaching plans
+SHOWCASE = "family-garden"                         # the 3D view's showcase: no tutorial
+BENCH = Path(__file__).parents[1] / "fixtures/plans/bench_small.ogp"
 
 
 def load(slug, language=""):
@@ -114,6 +116,61 @@ def test_site_tutorial_and_reciprocal_bed_links_are_real_saved_content(slug):
     for target, history in plan.get("soil_tests", {}).items():
         assert target in by_id and history["target_id"] == target
         assert "Fictional" in history["records"][0]["notes"]
+
+
+def test_the_showcase_is_the_bench_plan_and_cannot_drift_from_it():
+    """Exactly the plan of every Beauty Board: same items and ids (a plant's shape is seeded
+    by its id), same geometry, same plants. Regenerating the fixture without the example,
+    or the other way round, fails here."""
+    plan, bench = load(SHOWCASE), json.loads(BENCH.read_text(encoding="utf-8"))
+    assert plan["canvas"] == bench["canvas"]
+    assert plan["version"] == bench["version"]
+    assert len(plan["objects"]) == len(bench["objects"])
+    fields = ("item_id", "type", "object_type", "x", "y", "center_x", "center_y", "radius", "width",
+              "height", "rotation", "points", "parent_bed_id", "child_item_ids", "name")
+    for shipped, fixture in zip(plan["objects"], bench["objects"], strict=True):
+        assert {k: shipped.get(k) for k in fields} == {k: fixture.get(k) for k in fields}
+        assert shipped.get("metadata", {}).get("plant_species") == fixture.get("metadata", {}).get("plant_species")
+    for key in ("latitude", "longitude", "frost_dates"):
+        assert plan["location"][key] == bench["location"][key]
+
+
+def test_the_showcase_is_a_real_saved_plan_with_its_links_and_place():
+    plan = load(SHOWCASE)
+    assert plan["location"]["timezone"] == "Europe/Berlin"
+    by_id = {o["item_id"]: o for o in plan["objects"]}
+    assert len(by_id) == len(plan["objects"]) == 99
+    assert sum(1 for o in plan["objects"] if species(o) or o.get("object_type") in
+               {"TREE", "SHRUB", "PERENNIAL"}) == 61
+    for obj in plan["objects"]:
+        if parent_id := obj.get("parent_bed_id"):
+            assert obj["item_id"] in by_id[parent_id]["child_item_ids"]
+    # it shows off the built world: every class of the 3D pipeline stands in it
+    kinds = {o.get("object_type") for o in plan["objects"]}
+    assert {"HOUSE", "ROOF_RIDGE", "GREENHOUSE", "GARAGE_SHED", "PERGOLA", "RAISED_BED", "POND_POOL",
+            "TRAMPOLINE", "TRELLIS", "FENCE", "HEDGE_POLYGON", "WALL", "TREE"} <= kinds
+
+
+@pytest.mark.parametrize("language", ("de", "es"))
+def test_the_showcase_is_translated_and_keeps_its_geometry_and_plants(language):
+    original, translated = load(SHOWCASE), load(SHOWCASE, language)
+    assert translated["location"] == original["location"]
+    assert translated["canvas"] == original["canvas"]
+    geometry = ("item_id", "type", "object_type", "x", "y", "center_x", "center_y", "radius", "width",
+                "height", "rotation", "points", "parent_bed_id", "child_item_ids")
+    names_changed = 0
+    for old, new in zip(original["objects"], translated["objects"], strict=True):
+        assert {k: old.get(k) for k in geometry} == {k: new.get(k) for k in geometry}
+        names_changed += old.get("name") != new.get("name")
+        if species(old):
+            before, after = old["metadata"]["plant_species"], new["metadata"]["plant_species"]
+            assert {k: v for k, v in before.items() if k != "common_name"} == {
+                k: v for k, v in after.items() if k != "common_name"}
+    # every name of the plan has its translation (a name left in English fails here)
+    english = {o.get("name") for o in original["objects"]} - {None, ""}
+    still = english & {o.get("name") for o in translated["objects"]}
+    assert not still, f"untranslated in {language}: {sorted(still)}"
+    assert names_changed > 0
 
 
 @pytest.mark.parametrize("slug", SLUGS)

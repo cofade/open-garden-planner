@@ -132,7 +132,7 @@ Item {
     // centimetres per pixel per centimetre of depth: a particle is never thinner than a
     // pixel or so, near or far (the selection ring's measure)
     readonly property real particlePerDepth: 2.0 * Math.tan(camFov * Math.PI / 360.0)
-                                             / Math.max(view.height, 1.0)
+                                             / Math.max(pictureHeight, 1.0)
 
     // ---- camera (Quick3DHost.set_shot) ----
     property bool topDown: false
@@ -155,6 +155,61 @@ Item {
     onCamVersionChanged: {
         cam.position = camPos
         cam.lookAt(camTarget)
+    }
+
+    // ---- photo mode (Quick3DHost.set_photo; L6.1, #390, ADR-071) ----
+    // How a picture is DEVELOPED, never what stands in the garden. Python decides the
+    // numbers (quick3d/look.py: photo_properties, from core/scene3d/photo.py). The
+    // defaults are photo.NO_PHOTO: every effect off, the view itself, pixel for pixel.
+    property real photoExposure: 1.0        // a factor on the look's exposure
+    property real photoVignette: 0.0        // Qt's vignetteRadius; 0 is off
+    property real photoFocusDistance: 600.0 // cm, from the camera to the focused point
+    property real photoFocusRange: 100.0    // cm that stay sharp around it
+    property real photoBlur: 0.0            // Qt's depthOfFieldBlurAmount; 0 is off
+    property bool photoGraded: false        // a colour grade is on (showPhotoGrade)
+
+    // A grade's table: ONE Texture per grade, with its data object, for the host's life
+    // (Quick3DHost holds both). A Texture is never pointed at a second data object: that
+    // draws white (ogp-3d-renderer section 5). Switching grades re-points the ENVIRONMENT.
+    Component {
+        id: gradeTexture
+        Texture {
+            tilingModeHorizontal: Texture.ClampToEdge
+            tilingModeVertical: Texture.ClampToEdge
+            magFilter: Texture.Linear
+            minFilter: Texture.Linear
+        }
+    }
+
+    function createPhotoGrade(data) {
+        return gradeTexture.createObject(view.scene, {"textureData": data})
+    }
+
+    function showPhotoGrade(texture) {
+        gardenEnvironment.lutTexture = texture
+        root.photoGraded = true
+        return true
+    }
+
+    // ---- the capture view (Quick3DHost.capture; L6, #390, ADR-071) ----
+    // Pictures for a file, a video or an agent: a second View3D of the SAME scene, same
+    // camera, same environment - so a capture at the view's size IS the view, pixel for
+    // pixel, and no Model exists twice. It is not visible while captureWanted is false and
+    // costs nothing then. Python moves the camera for the frame it takes and puts it back
+    // before anything is presented. It is never destroyed: making and destroying a View3D
+    // per picture left 20 MB behind each time at 4K, linearly (measured on WARP). What a
+    // resting view must not keep is its render targets (500 MB after a 4K picture), so
+    // Python renders it once at MIN_CAPTURE_SIDE before it hides it.
+    property bool captureWanted: false
+    property int captureWidth: 16           // device pixels of the picture
+    property int captureHeight: 16
+    property real capturePixelRatio: 1.0
+    // the height the screen-sized measures go by (a particle's and the ring's minimum size)
+    readonly property real pictureHeight: captureWanted ? captureHeight / capturePixelRatio
+                                                        : view.height
+
+    function captureItem() {
+        return captureView
     }
 
     // The wind's clock. A FrameAnimation advances with the frames Qt draws, holds its
@@ -905,6 +960,7 @@ Item {
         // The numbers that are not properties are the L0 spike's, the same at every
         // preset (pinned against its scene file's values, frozen when L1.10 deleted it).
         environment: ExtendedSceneEnvironment {
+            id: gardenEnvironment
             backgroundMode: view.atmosphereShown ? SceneEnvironment.SkyMaterial
                             : view.paintedShown ? SceneEnvironment.SkyBox : SceneEnvironment.Color
             clearColor: root.skyColor
@@ -924,7 +980,7 @@ Item {
             skyboxBlurAmount: 0.0
             tonemapMode: root.topDown ? SceneEnvironment.TonemapModeNone
                                       : SceneEnvironment.TonemapModeFilmic
-            exposure: root.topDown ? 1.0 : root.exposure
+            exposure: root.topDown ? 1.0 : root.exposure * root.photoExposure
             ditheringEnabled: !root.topDown
             aoEnabled: !root.topDown && root.ambientOcclusion && root.aoFade > 0
             // 0 wherever AO is off: Qt's setAoStrength turns AO on whenever the strength
@@ -970,8 +1026,23 @@ Item {
             // 1280x720); 0.03 is nearly as bad. The render tier bounds the speckles.
             sharpnessAmount: 0.0
             colorAdjustmentsEnabled: !root.topDown
-            adjustmentSaturation: root.saturation
-            adjustmentContrast: root.contrast
+            // Under a grade these two live IN its table (core/scene3d/photo.py lut_strip): Qt
+            // applies them right before the table, unclamped, and its table lookup is a
+            // texelFetch that a colour below 0 reads from the NEIGHBOURING slice - the darkest
+            // leaves came out red (R 0 became 57, 4181 pixels of a 720p frame)
+            adjustmentSaturation: root.photoGraded ? 1.0 : root.saturation
+            adjustmentContrast: root.photoGraded ? 1.0 : root.contrast
+            // photo mode (L6.1): off unless a setting asks, and never in the truth view
+            vignetteEnabled: !root.topDown && root.photoVignette > 0
+            // Qt: colour x (u (1-u) v (1-v) x strength) ^ radius. A LOWER strength darkens the
+            // middle of the picture too; the exponent is what reaches only into the corners
+            vignetteStrength: 15
+            vignetteRadius: root.photoVignette
+            lutEnabled: !root.topDown && root.photoGraded
+            depthOfFieldEnabled: !root.topDown && root.photoBlur > 0
+            depthOfFieldFocusDistance: root.photoFocusDistance
+            depthOfFieldFocusRange: root.photoFocusRange
+            depthOfFieldBlurAmount: root.photoBlur
         }
 
         PerspectiveCamera {
@@ -1089,7 +1160,7 @@ Item {
                 // centimetres per unit of depth (perspective) / centimetres flat (top-down)
                 property real uPerDepth: root.topDown ? 0.0
                     : root.ringWidthPx * 2.0 * Math.tan(root.camFov * Math.PI / 360.0)
-                      / Math.max(view.height, 1.0)
+                      / Math.max(root.pictureHeight, 1.0)
                 property real uFlat: root.topDown ? root.ringWidthPx / root.topDownScale : 0.0
                 property real uDepthScale: root.ringDepthScale
                 shadingMode: CustomMaterial.Unshaded
@@ -1168,7 +1239,7 @@ Item {
                 property vector3d uDomeCenter: root.groundCenter
                 property real uArcPerDepth: root.topDown ? 0.0
                     : 2.5 * 2.0 * Math.tan(root.camFov * Math.PI / 360.0)
-                      / Math.max(view.height, 1.0)
+                      / Math.max(root.pictureHeight, 1.0)
                 property real uArcFlat: root.topDown ? 2.5 / root.topDownScale : 0.0
                 shadingMode: CustomMaterial.Unshaded
                 cullMode: Material.NoCulling
@@ -1355,5 +1426,19 @@ Item {
                 }
             }
         }
+    }
+
+    // the capture view (see "the capture view" above): under the view, which covers it
+    View3D {
+        id: captureView
+        z: -1
+        visible: root.captureWanted
+        width: root.captureWidth / root.capturePixelRatio
+        height: root.captureHeight / root.capturePixelRatio
+        explicitTextureWidth: root.captureWidth
+        explicitTextureHeight: root.captureHeight
+        importScene: view.scene
+        camera: view.camera
+        environment: view.environment
     }
 }

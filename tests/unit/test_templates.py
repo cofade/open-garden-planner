@@ -109,6 +109,8 @@ def test_localized_catalog_uses_localized_thumbnail_with_tutorial_text(language)
     for entry in bundled_examples(language):
         assert entry.thumbnail == entry.path.with_suffix(".png")
         assert entry.thumbnail.is_file()
+        if entry.path.stem == "family-garden":
+            continue   # the showcase has no tutorial text: its picture says nothing to translate
         assert entry.thumbnail.read_bytes() != (BUNDLED_EXAMPLES / entry.thumbnail.name).read_bytes()
 
 

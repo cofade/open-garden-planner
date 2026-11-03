@@ -368,10 +368,10 @@ jobs:
         env:
           QSG_RHI_BACKEND: opengl
           LIBGL_ALWAYS_SOFTWARE: "1"
-        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py tests/integration/test_plant_forge_workspace.py tests/integration/test_living_garden_render.py::test_a_second_ambient_load_on_a_live_host_draws -v -n 0
+        run: xvfb-run -a -s "-screen 0 1920x1080x24" python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py tests/integration/test_directors_cut_render.py tests/integration/test_plant_forge_workspace.py tests/integration/test_living_garden_render.py::test_a_second_ambient_load_on_a_live_host_draws -v -n 0
       - name: Render tier (Windows -- Direct3D 11 on WARP)
         if: runner.os == 'Windows'
-        run: python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py tests/integration/test_plant_forge_workspace.py tests/integration/test_living_garden_render.py::test_a_second_ambient_load_on_a_live_host_draws -v -n 0
+        run: python -m pytest tests/integration/test_quick3d_render.py tests/integration/test_quick3d_engine.py tests/integration/test_quick3d_selftest.py tests/integration/test_quick3d_lifecycle.py tests/integration/test_scene3d_ground_render.py tests/integration/test_directors_cut_render.py tests/integration/test_plant_forge_workspace.py tests/integration/test_living_garden_render.py::test_a_second_ambient_load_on_a_live_host_draws -v -n 0
       - name: Default workspace lifecycle (Linux -- G5 close, G6 compatibility)
         if: runner.os == 'Linux'
         env:

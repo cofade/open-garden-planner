@@ -11,8 +11,9 @@ models, textures, satellite images or reads from the owner's custom plant librar
 | `raised-bed.ogp` | 4 × 2 m raised bed: **16 lettuces, 60 carrots, 88 radishes** (164 crops), plus a ten-plant flower/herb border, gravel access, bench, compost and west-side tool shed. A 2027 succession and fictional soil test belong to the main bed. |
 | `food-forest.ogp` | 200 m²: **2 fruit trees, 3 currants, 24 strawberries, 12 chives, 10 borage, 60 carrots and 3 supported runner beans** (114 plants). Continuous mulched beds and 80/90 cm harvest paths replace isolated plants in lawn. |
 | `balcony.ogp` | 5 × 3 m: **4 basil, 6 parsley, 4 thyme** in three separate troughs, two chairs and a table, a parasol, a north house wall and metal railings on the west/south/east sides. The basil trough has a fictional soil test. |
+| `family-garden.ogp` | 24 × 16 m showcase of the 3D view, not a teaching plan: **61 plants** among a house with its ridge, greenhouse, shed, terrace with pergola, lawn with pond and trampoline, three raised beds, trees, hedge, wall and fences. It is the plan of every Beauty Board (`tests/fixtures/plans/bench_small.ogp`, added 3 November 2026, #390), built by the same `scripts/make_bench_plans.py` and with the same item ids, so its procedural plants have the same shapes; a test pins that the two do not drift. Its paths keep that fixture's 6 to 10 cm widths. It has no soil test and no tutorial annotation. |
 
-The three root `.ogp` files are canonical English. `de/` and `es/` hold localized
+The root `.ogp` files are canonical English. `de/` and `es/` hold localized
 variants with identical stable IDs, coordinates, botanical dimensions, species keys,
 planting dates, links and canonical artwork species strings. Object names, species
 common-name snapshots, layer names, guild text, succession display names, soil notes
@@ -28,6 +29,7 @@ retains these explicit demonstration records.
 
 The teaching date is **21 September 2026**; select it in Plan & Sun. It is an
 explicit reference date, never today's date or an implicit global clock change.
+The family garden is at its best on **21 June 2026**, the date of the Beauty Board.
 The balcony also invites a **21 June 2026, 15:00 local time** shadow comparison.
 
 | Plan | Rounded public city reference | Time zone |
@@ -35,10 +37,12 @@ The balcony also invites a **21 June 2026, 15:00 local time** shadow comparison.
 | Raised bed | Berlin, 52.5200° N, 13.4050° E | `Europe/Berlin` |
 | Food forest | Bonn, 50.7374° N, 7.0982° E | `Europe/Berlin` |
 | Balcony | Freiburg im Breisgau, 47.9990° N, 7.8421° E | `Europe/Berlin` |
+| Family garden | Berlin, 52.5200° N, 13.4050° E | `Europe/Berlin` |
 
 These coordinates are city references, not the address of a surveyed garden or
-balcony. Every plan stores **fictional example frost dates** of 15 May / 15 October;
-these are not local climate statistics or a forecast. Both soil records are clearly
+balcony. The three teaching plans store **fictional example frost dates** of 15 May /
+15 October; the family garden has the bench plan's 9 April / 31 October. None of these
+are local climate statistics or a forecast. Both soil records are clearly
 labelled **fictional teaching samples**, dated 20 May 2026: pH 6.5, Rapitest N1/P2/K3,
 loamy texture. They are not observations or a fertilization prescription.
 
