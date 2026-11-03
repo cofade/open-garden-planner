@@ -1223,5 +1223,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "L7 follow-up: atmosphere sky hygiene from the senior review (dead GLSL, silent compile failure, tests, upstream report)"
+  },
+  "722": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L7 follow-up: playing a day stalls the GUI thread under the atmosphere sky (the settle timer is shorter than a step)"
   }
 }

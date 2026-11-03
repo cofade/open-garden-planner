@@ -35,6 +35,12 @@ sys.path.insert(0, str(REPO / "src"))
 
 import script_isolation  # noqa: E402
 
+if __name__ == "__main__":
+    script_isolation.isolate_profile()
+
+# Match the product's required WebEngine-before-QApplication import order.
+import open_garden_planner.main  # noqa: E402,F401
+
 PLAN = REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp"
 WEATHERS = ["clear", "overcast", "rain", "snow"]
 SIZES = [(1600, 1000), (1100, 700), (1900, 1040), (800, 600)]
@@ -45,6 +51,7 @@ WEIGHTS = {"time": 10, "weather": 3, "walk": 1, "motion": 1, "sky": 1, "mode": 1
 
 
 def main() -> int:
+    script_isolation.isolate()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--seconds", type=float, default=240.0)
     parser.add_argument("--seed", type=int, default=7)
@@ -55,7 +62,6 @@ def main() -> int:
     parser.add_argument("--log", type=Path, help="default: a file in the temp folder")
     args = parser.parse_args()
 
-    script_isolation.isolate_profile()
     log_path = args.log or Path(tempfile.gettempdir()) / f"ogp_sky_probe_{args.seed}.txt"
     log = log_path.open("w", encoding="utf-8")
     faulthandler.enable(file=log, all_threads=True)
@@ -67,7 +73,6 @@ def main() -> int:
         log.write(line + "\n")
         log.flush()
 
-    script_isolation.isolate()
     from PyQt6.QtCore import QTimer
     from PyQt6.QtWidgets import QApplication
 
