@@ -429,9 +429,9 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     if cloud == 0.0 and dew_share == 0.0 and spec.precipitation == "none" and spec.name == "clear":
         # clear and dry: the sun's own look, field for field — but its atmosphere
         weathered = replace(look, atmosphere=atmosphere)
-    light = _particle_light(weathered)
+    particle_light = _particle_light(weathered)
     return replace(weathered, atmosphere=replace(weathered.atmosphere,
-                                                 particle_light_linear=light))
+                                                 particle_light_linear=particle_light))
 
 
 def living_look(sun: SunState, preset: str = "high", weather: str = "clear", *,
