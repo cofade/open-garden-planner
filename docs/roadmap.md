@@ -30,7 +30,7 @@ one-time setup in deployment section 7.4; FR-STATS records acceptance requiremen
 | **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
 | **15** | **v1.25.0 – v1.27.0** | **✅ Complete** (Packages 1–3; epic [#284](https://github.com/cofade/open-garden-planner/issues/284)) | **Visual Refresh** |
 | 16 | — | Future | Platform & Community |
-| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0, L5 ✅ v1.35.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
+| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0, L5 ✅ v1.35.0, L7 ✅ v1.36.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
 
 ---
 
@@ -2723,7 +2723,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ---
 
-## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L5 complete
+## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L5 and L7 complete
 
 **Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 

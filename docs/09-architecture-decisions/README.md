@@ -3847,8 +3847,9 @@ Quick 3D itself ("LicenseRef-Qt-Commercial OR GPL-3.0-only"), the module the app
 under GPLv3. All compatible with the app's GPL-3.0-or-later; the per-file table and the one
 statement of the rule are `qml/PROVENANCE.md`.
 
-**Left open.** The default model: the owner accepted this build as it stands, so the default
-stays painted, and an integrated GPU is unmeasured (#720). The first-frame shader compile could be
+**Left open.** The default model: the painted sky stays the default as built. The owner accepted
+this build ("works perfectly as is") without answering that question by name, and an integrated
+GPU is unmeasured (#720). The first-frame shader compile could be
 pre-warmed like the Cutaway's (`shaderWarmer`). (Whether a "partly cloudy" weather should exist
 was answered by the owner's manual test: see the revision below.)
 

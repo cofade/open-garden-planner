@@ -64,7 +64,9 @@ Use `--far-plan` for bench_large shadow-on/off pairs at2x/4x framing.
 
 - **2026-11-03** - #391 manual pass (PR #721, v1.36.0). First build: the app crashed, and "I
   don't see any difference in the sky". After the fix and the new Partly cloudy: "works perfectly
-  as is". So these stand with no change asked for: the noon clouds' soft off-white, Partly cloudy
-  as a sunny blue day with no clouds on the painted sky, and the painted sky as the default.
-  Lesson: a sky change must be shown where the sky is. The 3D view looks down at about 32 degrees,
-  so a checklist has to say how to tilt the camera, or the change reads as nothing.
+  as is". That accepts the build, but answers none of PR #721's open questions by name, so they
+  are kept as built, not decided: the noon clouds' soft off-white, Partly cloudy as a sunny blue
+  day on the painted sky, the sunset disc, the deck's structure. The default sky stays painted
+  and open until an integrated GPU is measured (#720). Lesson: a sky change must be shown where
+  the sky is. "No difference" had three causes: no weather gave separate clouds, the 3D view looks
+  down at about 32 degrees, and a shortcut started the old app. A checklist has to name all three.

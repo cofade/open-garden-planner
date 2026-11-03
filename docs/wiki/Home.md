@@ -183,9 +183,9 @@ Phase 17 L7 (#391) shipped in
 [v1.36.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.36.0) via
 [PR #721](https://github.com/cofade/open-garden-planner/pull/721) after owner acceptance.
 - **Qt 6.12:** the app moved to the Qt 6.12 LTS. Windows' **Animation effects** setting now also stops the wind in 3D.
-- **Atmosphere sky (optional):** Preferences, 3D View, Sky, **Atmosphere with clouds** draws a physically based sky with volumetric clouds. The painted sky stays the default and lights the garden under both, so the garden is equally bright with either.
+- **Atmosphere sky (optional):** Preferences, 3D View, Sky, **Atmosphere with clouds** draws a physically based sky with volumetric clouds. Clouds follow the weather, so there are none under Clear, and the view opens looking down at the garden: tilt the camera towards the horizon to see the sky. The painted sky stays the default and lights the garden under both, so the garden is equally bright with either.
 - **Partly cloudy:** a new weather with the sun out. Its scattered clouds show with the atmosphere sky; on the painted sky it is a sunny day with a slightly greyer blue.
-- **Known limits:** the atmosphere costs more of the graphics card every frame, measured only on an RTX 4070 and a software renderer, and playing a day pauses briefly while its sky rebuilds ([#722](https://github.com/cofade/open-garden-planner/issues/722)).
+- **Known limits:** the atmosphere costs more of the graphics card every frame, measured only on an RTX 4070 and a software renderer; a pale band can show at the horizon under a closed cloud deck at a low sun ([#719](https://github.com/cofade/open-garden-planner/issues/719)); and playing a day pauses briefly while its sky rebuilds ([#722](https://github.com/cofade/open-garden-planner/issues/722)).
 
 See the [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l7-acceptance-highlights--sky-612-391-adr-048-addendum-l7--shipped-v1360-pr-721).
 

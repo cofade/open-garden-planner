@@ -324,8 +324,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   both, and Partly cloudy (cover 0.4) shows its clouds. On 6.12 deleting an earlier sky Texture nulls
   the DEFAULT sky's probe: `Garden.qml` re-binds it (PF-E3D-16, local GPU tier only). #714:
   horizon gate red on master; follow-ups #716, #717, #719, #722 (sky), #720 (hygiene, Qt report),
-  #718 (flood soak, red on master too), #692 (board exit crash), #723 (intermittent tests), #724.
-  `scripts/probe_sky_crash.py` re-checks PF-E3D-17 on a Qt bump.
+  #718 (flood soak, red on master too), #692 (board exit crash), #723 (intermittent tests),
+  #724 (plan-my-week date). `scripts/probe_sky_crash.py` soaks the sky; a clean run says nothing
+  about the crash while the cube stays off, and PF-E3D-17 says how to ask a new Qt.
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
   Subscribe to its signals. Every rect resize uses `geometry_apply.py`; every
   Arrange surface uses `build_arrange_command`; scene teardown uses
