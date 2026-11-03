@@ -276,15 +276,17 @@ def scenario_atmosphere_sequence(ctx: Context) -> dict[str, Any]:
         host.close()
         pump()
     fresh: dict[str, Any] = {}
-    for azimuth, model in ((160.0, ATMOSPHERE), (200.0, ATMOSPHERE), (215.0, ATMOSPHERE),
-                           (160.0, PAINTED), (215.0, PAINTED)):
+    for azimuth, model, cloud in ((160.0, ATMOSPHERE, 0.0), (200.0, ATMOSPHERE, 0.0),
+                                  (215.0, ATMOSPHERE, 0.0), (200.0, ATMOSPHERE, 1.0),
+                                  (160.0, PAINTED, 0.0), (215.0, PAINTED, 0.0)):
+        name = f"{model}_{int(azimuth)}" + ("_overcast" if cloud else "")
         host = ctx.host()
         try:
             sync = SceneSync(Quick3DSink(host))
             sync.set_ground(ground)
             host.set_camera(eye, target, SKY_FOV)
-            put(host, sync, azimuth, model)
-            fresh[f"{model}_{int(azimuth)}"] = shoot(host, f"fresh_{model}_{int(azimuth)}", azimuth, model)
+            put(host, sync, azimuth, model, cloud=cloud)
+            fresh[name] = shoot(host, f"fresh_{name}", azimuth, model)
         finally:
             host.close()
             pump()

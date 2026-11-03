@@ -1,12 +1,12 @@
 // Copyright (C) 2023 Fernando García Liñán
 // Copyright (C) 2026 The Qt Company Ltd.
-// SPDX-License-Identifier: MIT AND GPL-3.0-only
+// SPDX-License-Identifier: MIT AND GPL-3.0-or-later
 //
 // Open Garden Planner (Phase 17 L7, #391): the atmosphere sky's SkyMaterial shader.
 // Qt's skymaterial example (advancedsky.frag, qtquick3d v6.12.0; MIT) up to its MAIN(),
 // with three marked changes in raymarchClouds(); MAIN() and the painted-sky base below
-// the marked boundary are the app's, GPL-3.0-only (paintedSky() re-expresses Qt's
-// GPL-3.0-only ProceduralSkyTextureData).
+// the marked boundary are the app's (GPL-3.0-or-later). paintedSky() re-expresses the
+// arithmetic of Qt's ProceduralSkyTextureData (GPL-3.0-only): see PROVENANCE.md.
 // Provenance and licence texts: PROVENANCE.md and LICENSE-qt-skymaterial.txt beside this file.
 
 // Configurable parameters
@@ -473,7 +473,7 @@ vec3 gammaCorrect(vec3 linearSrgb)
 //-----------------------------------------------------------------------------
 // Open Garden Planner (Phase 17 L7, #391). Everything above this line is Qt's
 // advancedsky.frag (MIT) but for three marked changes in raymarchClouds(); from here
-// on is the app's (GPL-3.0-only).
+// on is the app's (GPL-3.0-or-later; paintedSky(): see PROVENANCE.md).
 //
 // THE PAINTED SKY IS THE BASE. paintedSky() is Qt's ProceduralSkyTextureData,
 // generateSkyTexture() (qtquick3d v6.12.0, src/helpers/proceduralskytexturedata.cpp),

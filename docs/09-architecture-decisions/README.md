@@ -3701,7 +3701,7 @@ versions):
 
 | Fact | 6.11 | 6.12 | What changed here |
 |---|---|---|---|
-| Pick and cull mode (`qssgrenderray.cpp`) | positive determinants only: front faces of every material | the material's cull mode decides: `NoCulling` picks both sides | the selection witness keeps front faces of culled kinds and every face of `TWO_SIDED_KINDS` (foliage, grass, glass), pinned against the QML; the render tier's selection gate passed in full on 6.12. Accepted as the click hitting what the user sees: a two-sided part is drawn from behind, so it is picked from behind — a crown seen from below, a greenhouse's glass from inside (walk mode). Open for the owner to confirm (PR); `TWO_SIDED_KINDS` treats `vc` as culled although Cutaway draws it two-sided (follow-up) |
+| Pick and cull mode (`qssgrenderray.cpp`) | positive determinants only: front faces of every material | the material's cull mode decides: `NoCulling` picks both sides | the selection witness keeps front faces of culled kinds and every face of `TWO_SIDED_KINDS` (foliage, grass, glass), pinned against the QML; the render tier's selection gate passed in full on 6.12. Accepted as the click hitting what the user sees: a two-sided part is drawn from behind, so it is picked from behind — a crown seen from below, a greenhouse's glass from inside (walk mode). Open for the owner to confirm (PR); `TWO_SIDED_KINDS` treats `vc` as culled although Cutaway draws it two-sided (#720) |
 | `QAccessibilityHints.motionPreference` | absent | `NoPreference` / `ReducedMotion`, with a change signal (Windows: `SPI_GETCLIENTAREAANIMATION`, the "Animation effects" switch) | honoured beside the app's setting (FR-3D-LOOK-04): either stops the wind; the drift guard now fails on a SECOND motion hint |
 | A destroyed window's lambda-connection proxies | freed in the first deferred-delete round | one round later | the widget-leak test flushes two rounds with a collection after each (PF-TST-36); not a product leak — the event loop keeps turning |
 | Destroying an EARLIER sky Texture (`buildSky`'s deferred `old.destroy()`) | the environment's watcher on it was gone with the switch | its destroyed-watcher still fires and sets the light probe to null although the probe is the current sky: after a host's first sun change (in the 3D review's run without the fix: the first rebuild, once also the second; later rebuilds never) the view drew the clear colour (sky-sequence test: (161, 154, 122) against (97, 126, 137); `master`'s code fails identically on the 6.12 wheels) | the environment restores its own `lightProbe` binding in `onLightProbeChanged`, synchronously, before a frame renders (PF-E3D-16); the board, a fresh host per frame, cannot see it |
@@ -3841,9 +3841,10 @@ the example's sky shader (`advancedsky.frag`, three marked changes) and the two 
 shaders ported to numpy (`core/scene3d/atmosphere_lut.py`) are MIT (© 2023 Fernando García Liñán,
 © 2026 The Qt Company), the QML
 and the noise generator BSD-3-Clause (offered as "LicenseRef-Qt-Commercial OR BSD-3-Clause"); the
-painted-sky arithmetic re-expressed in `paintedSky()` comes from Qt Quick 3D itself
-("LicenseRef-Qt-Commercial OR GPL-3.0-only"), the module the app already ships under GPLv3. All
-compatible with the app's GPL-3.0-or-later.
+painted-sky arithmetic re-expressed in `paintedSky()` and `painted_radiance()` comes from Qt
+Quick 3D itself ("LicenseRef-Qt-Commercial OR GPL-3.0-only"), the module the app already ships
+under GPLv3. All compatible with the app's GPL-3.0-or-later; the per-file table and the one
+statement of the rule are `qml/PROVENANCE.md`.
 
 **Left open.** The default model (an owner decision); whether a "partly cloudy" weather should
 exist — the clouds look best at partial cover (the self-test's 0.7), but no preset produces one;

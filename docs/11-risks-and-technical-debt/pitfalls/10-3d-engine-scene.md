@@ -178,7 +178,7 @@ through the same include, so it was never affected.
 ### PF-E3D-16
 
 - **Rule:** On Qt 6.12 destroying an EARLIER sky Texture sets the scene environment's light probe to null although the probe already holds the current sky (the stale destroyed-watcher still fires), so the environment restores its own lightProbe binding in onLightProbeChanged, in the same signal, before any frame renders; a test of the sky must take a frame AFTER the old Textures are deleted.
-- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_light_probe_is_put_back_when_an_earlier_sky_is_destroyed`; `tests/integration/test_view3d_looks_render.py::test_a_sky_rebuilt_three_times_is_still_the_sky_after_the_old_ones_are_gone`
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_light_probe_is_put_back_when_an_earlier_sky_is_destroyed`; `tests/integration/test_view3d_looks_render.py::test_a_sky_rebuilt_three_times_is_still_the_sky_after_the_old_ones_are_gone`; `tests/integration/test_view3d_looks_render.py::test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`
 - **Source:** #391 (Phase 17 L7, found by the render tier after the Qt 6.12 pin), ADR-048 addendum L7.
 - **Status:** standing
 - **Legacy:** none (new entry).
@@ -200,5 +200,7 @@ cosmetically between the tags; the upstream cause is not identified. Fill pictur
 and then destroyed too (a recolour): the senior review measured them unaffected on 6.12 (the
 recoloured pattern still drawn after the delete rounds). Parts and ground tiles destroy themselves
 after detaching. The render tier's live-host atmosphere sequence
-(`test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`) fails without the handler
-(`painted_160` after the delete: 40.7 against a bound of 0.5).
+(`test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`) fails without the handler in
+most runs — 6 of 7 in the senior review's (`painted_160` after the delete: 40.7 against a bound
+of 0.5); in the one that passed, that frame's grab took 1.2 ms against ~1,660 ms, so the stale
+watcher's firing is timing-dependent: a reproducer for Qt must repeat the sequence.

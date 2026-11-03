@@ -662,6 +662,44 @@ after-picture and the wipe shows both in the view's place. A date the user moves
 away from the target first drops the owed comparison; "Back" returns to the date
 before the first jump.
 
+## 6.11 The sky model: painted or atmosphere (Phase 17 L7, #391, ADR-048 addendum L7)
+
+Choosing **Atmosphere with clouds** in Preferences never makes the GUI thread wait: the
+cloud noise volume (about a second of numpy) is made on the look controller's worker,
+and the painted sky shows until it is ready. A failure falls back to the painted sky
+for the session.
+
+```mermaid
+sequenceDiagram
+    participant P as Preferences (Save)
+    participant LC as LookController
+    participant W as worker "cloud-noise"
+    participant H as Quick3DHost
+    participant Q as Garden.qml
+    P->>LC: reload_settings() → set_sky_model("atmosphere")
+    alt software adapter, or an atmosphere failed before
+        LC->>H: set_sky(painted sky) — the stored model is kept
+    else the volume is not made yet
+        LC->>W: submit(cloud_noise_rgba16f)
+        LC->>H: set_sky(painted sky) — meanwhile
+        loop every 50 ms (poll timer)
+            LC->>W: done?
+        end
+        W-->>LC: the 64³ volume (or an exception → painted for the session)
+    end
+    LC->>H: set_sky(atmosphere sky) — the look's sky with model "atmosphere"
+    H->>H: sky-view table for this sun (~0.1 s), gain, inputs
+    H->>Q: buildAtmosphere(inputs, volume, table)
+    Note over Q: ONE AtmosphereSky per scene, made at the first call,<br/>then only written; a painted sky only switches it off
+    Q-->>H: built (a refusal → painted sky for the session)
+```
+
+A sun change while the atmosphere shows refills the same sky-view table in place and
+writes the inputs (about 0.2 s of GUI thread, against 0.12 s for a painted rebuild); a
+painted sky is a fresh Texture pair per build, and the environment re-binds its light
+probe when the previous one is deleted (PF-E3D-16). A shader that compiles to nothing is
+not seen at run time (PF-E3D-14; #720).
+
 ## Guild insertion and computed warning refresh
 
 ```mermaid
