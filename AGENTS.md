@@ -309,14 +309,14 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   `hip`, `shed`), angle-dependent structural fence porosity (`WOODEN_FENCE`,
   `METAL_FENCE`, `CHAIN_LINK`), owner-grouped casting, multiplicative independent
   overlap ($T_1 \times T_2$), and bounded 64 MiB fractional sample allocation.
-- Phase 17 L1–L5 and Package F/G are shipped. L5 (#389, ADR-070) shipped in
+- Phase 17 L1–L5, L7 and Package F/G are shipped. L5 (#389, ADR-070) shipped in
   v1.35.0 (PR #699): playback through the SimClock, weather as a look (never the sun),
   shader particles on the wind clock, Today's Weather, Garden Light, and String Lights
   as a LINE that casts no 2D shadow. Follow-ups: #687, #689, #698, #700, #702–#710;
   L6 (#390) is next. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
-- L7 (#391, ADR-048 addendum L7) is in a draft PR: Qt pins 6.12.0, WebEngine 6.140 moves
+- L7 (#391, ADR-048 addendum L7) shipped in v1.36.0 (PR #721): Qt pins 6.12.0, WebEngine 6.140 moves
   with them (PF-CI-17), the 6.12 pick honours cull mode (PF-E3D-13), the OS reduce-motion
   is honoured, and an opt-in atmosphere `SkyMaterial` sky (default stays painted) whose
   LUTs and cloud volume are CPU texture data (PF-E3D-14). It only DRAWS the sky (no cube:
@@ -324,7 +324,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   both, and Partly cloudy (cover 0.4) shows its clouds. On 6.12 deleting an earlier sky Texture nulls
   the DEFAULT sky's probe: `Garden.qml` re-binds it (PF-E3D-16, local GPU tier only). #714:
   horizon gate red on master; follow-ups #716, #717, #719, #722 (sky), #720 (hygiene, Qt report),
-  #718 (flood soak, red on master too).
+  #718 (flood soak, red on master too), #692 (board exit crash), #723 (intermittent tests),
+  #724 (plan-my-week date). `scripts/probe_sky_crash.py` soaks the sky; a clean run says nothing
+  about the crash while the cube stays off, and PF-E3D-17 says how to ask a new Qt.
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
   Subscribe to its signals. Every rect resize uses `geometry_apply.py`; every
   Arrange surface uses `build_arrange_command`; scene teardown uses

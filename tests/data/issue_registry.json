@@ -526,7 +526,7 @@
   },
   "391": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L7 (optional) \"Sky 6.12\": Qt 6.12 LTS pins, SkyMaterial atmosphere and volumetric clouds (Phase 17)"
   },
   "392": {
@@ -1164,6 +1164,11 @@
     "state": "OPEN",
     "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
   },
+  "692": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board: access violation at process exit after [done] status=ok (Windows, pre-existing)"
+  },
   "695": {
     "is_pr": false,
     "state": "OPEN",
@@ -1224,9 +1229,24 @@
     "state": "OPEN",
     "title": "L7 follow-up: atmosphere sky hygiene from the senior review (dead GLSL, silent compile failure, tests, upstream report)"
   },
+  "721": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#391): L7 Sky 6.12 - Qt 6.12 LTS pins and an opt-in atmosphere sky"
+  },
   "722": {
     "is_pr": false,
     "state": "OPEN",
     "title": "L7 follow-up: playing a day stalls the GUI thread under the atmosphere sky (the settle timer is shorter than a step)"
+  },
+  "723": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Intermittent test failures on the Qt 6.12 branch: a lawn resized in a hold, bulk-layer debounce"
+  },
+  "724": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
   }
 }

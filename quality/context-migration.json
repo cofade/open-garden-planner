@@ -1338,7 +1338,7 @@
         {
           "path": ".agents/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
           "sha256": "6b0f9a4a55034eeafcbc45749e56d6af8dec1ba995187fe06036c525c0c7e3cb",
-          "current_sha256": "6b0f9a4a55034eeafcbc45749e56d6af8dec1ba995187fe06036c525c0c7e3cb"
+          "current_sha256": "842f983d5075d148be0a810c7dbb297ad2c62d9cf69fe3b17024d0fc7212dd12"
         }
       ]
     },
@@ -2738,7 +2738,7 @@
         {
           "path": ".claude/skills/ogp-lush-cinematic/references/008-8-owner-taste-log-append-only-newest-last.md",
           "sha256": "6b0f9a4a55034eeafcbc45749e56d6af8dec1ba995187fe06036c525c0c7e3cb",
-          "current_sha256": "6b0f9a4a55034eeafcbc45749e56d6af8dec1ba995187fe06036c525c0c7e3cb"
+          "current_sha256": "842f983d5075d148be0a810c7dbb297ad2c62d9cf69fe3b17024d0fc7212dd12"
         }
       ]
     },
