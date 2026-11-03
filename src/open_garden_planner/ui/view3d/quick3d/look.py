@@ -31,6 +31,7 @@ look; the scene file's defaults are its mapping, pinned by a test.
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from typing import Final
 
@@ -271,7 +272,7 @@ def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None =
     high = atmosphere_gain(atmosphere_sun_direction(reference), replace(painted, sun=painted.horizon))
     actual = atmosphere_gain(atmosphere_sun_direction(sky), painted) if sky_gain is None else sky_gain
     makeup = float(ATMOSPHERE_CLOUD_MAKEUP)
-    return float(ATMOSPHERE_CLOUD_GAIN) * high ** (1.0 - makeup) * float(actual) ** makeup
+    return float(ATMOSPHERE_CLOUD_GAIN) * math.pow(high, 1.0 - makeup) * math.pow(float(actual), makeup)
 
 
 def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
