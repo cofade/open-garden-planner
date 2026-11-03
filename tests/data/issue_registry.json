@@ -1209,6 +1209,11 @@
     "state": "OPEN",
     "title": "L7 follow-up: sky probe's sun-disc finder misses a low (8°) sun"
   },
+  "718": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: the flood-release soak never settles its initial forge/LOD work (pre-existing on master)"
+  },
   "719": {
     "is_pr": false,
     "state": "OPEN",

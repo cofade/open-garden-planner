@@ -38,7 +38,7 @@ the artifact it runs in: can THIS build render the garden? It
    material's point-light path (``POINT_LIGHT`` in the foliage and lawn shaders) are
    compiled from the bundle: the lamp's warm glow must show (``judge_living_frame``).
 8. renders the atmosphere sky (L7, #391) twice — Qt 6.12's ``SkyMaterial`` from the
-   bundle's ``AtmosphereSky.qml`` and its three shaders, with the cloud noise volume
+   bundle's ``AtmosphereSky.qml`` and its shader (``atmosphere.frag``), with the cloud noise volume
    uploaded as a 3D texture — looking into the sky at eye height, once clear and once
    under the weather's clouds: the sky must be drawn (not the plain background), and
    the cloudy one must differ from the clear one, which only a cloud raymarch through

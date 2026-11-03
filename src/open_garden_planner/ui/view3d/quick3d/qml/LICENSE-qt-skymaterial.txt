@@ -2,9 +2,9 @@ Licences of the files of this directory that come from Qt's skymaterial example
 (qtquick3d v6.12.0, examples/quick3d/skymaterial). See PROVENANCE.md beside this file.
 
 ==============================================================================
-atmosphere.frag (up to its MIT/app boundary), atmosphere_scatter.frag,
-atmosphere_transmittance.frag — from advancedsky.frag, skytexture.frag and
-transmittance.frag. SPDX-License-Identifier: MIT
+atmosphere.frag (up to its MIT/app boundary) — from advancedsky.frag; and
+open_garden_planner/core/scene3d/atmosphere_lut.py — a numpy port of
+skytexture.frag and transmittance.frag. SPDX-License-Identifier: MIT
 ==============================================================================
 
 MIT License

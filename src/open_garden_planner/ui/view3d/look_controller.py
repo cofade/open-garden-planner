@@ -41,8 +41,11 @@ What it owns:
   software adapter. The atmosphere needs the cloud noise volume (about a second of
   numpy): it is made on a worker thread when the model is chosen, and until it is
   ready the painted sky shows — the look's sky turns into an atmosphere sky only
-  once the volume exists, so the GUI thread never waits for it. An atmosphere the
-  engine refuses falls back to the painted sky for the rest of the session.
+  once the volume exists, so the GUI thread never waits for it. An atmosphere whose
+  build fails at once (the scene refuses the call) or whose volume cannot be made
+  falls back to the painted sky for the rest of the session. A shader that compiles
+  to nothing is NOT seen here — Qt then draws its debug sky without a word
+  (PF-E3D-14); the frozen self-test compiles the bundle's shader (point 8).
 - **The animation policy.** Wind runs only while the 3D pane is shown, motion is
   not reduced and the adapter is not a software one. Motion is reduced by the
   app's setting OR — since Qt 6.12 (Phase 17 L7) — by the operating system's

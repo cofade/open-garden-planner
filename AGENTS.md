@@ -321,7 +321,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   is honoured, and an opt-in atmosphere `SkyMaterial` sky (default stays painted) whose
   LUTs and cloud volume are CPU texture data (PF-E3D-14); a custom shader's sky term needs
   the widened probe guard under it (PF-E3D-15). #714: horizon gate red on master;
-  follow-ups #716 (low band) and #717 (sky probe).
+  follow-ups #716 (low band), #717 (sky probe), #719 (band under a cloud deck), #718
+  (flood soak, red on master too).
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
   Subscribe to its signals. Every rect resize uses `geometry_apply.py`; every
   Arrange surface uses `build_arrange_command`; scene teardown uses

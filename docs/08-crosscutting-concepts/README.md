@@ -7777,11 +7777,17 @@ unchanged.
 **How it is tested.** GPU-less: the noise volume against a scalar transcription of the C++
 (`test_scene3d_cloud_noise.py`), the tables, the gain's definition and the sun's mapping over 30
 positions (`test_scene3d_atmosphere_sky.py`), the QML wiring and lifetime
-(`test_quick3d_qml.py`), the controller's model switch, worker, software rule and both fallbacks
+(`test_quick3d_qml.py`), the controller's model switch, worker, software rule and its two fallbacks
+to the painted sky — a build the scene refuses, a volume that cannot be made; a shader that
+silently never compiles is not caught at run time, only by the self-test —
 (`test_view3d_look_controller.py`), and the Preferences → workspace flow end to end
 (`tests/integration/test_view3d_atmosphere_sky.py`). On the engine: every board gate on both
-models (`test_view3d_looks_render.py`'s `board` fixture is parametrized by sky model) and the
-frozen self-test's point 8 (the atmosphere from the bundle, clear and cloudy).
+models (`test_view3d_looks_render.py`'s `board` fixture is parametrized by sky model), the
+atmosphere on ONE live host against a fresh host per sun — the sky-view table refilled in place,
+model switches both ways, a top-down round trip, a cloud deck coming and going
+(`test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`) —, the weather's gates on both
+skies (`test_living_garden_render.py`) and the frozen self-test's point 8 (the atmosphere from the
+bundle, clear and cloudy).
 
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 

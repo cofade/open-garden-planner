@@ -576,6 +576,49 @@ def test_a_sky_rebuilt_three_times_is_still_the_sky_after_the_old_ones_are_gone(
             found["bearing_deg"], driver.SEQUENCE_AZIMUTHS[-1])) < MAX_SKY_ERROR_DEG
 
 
+
+#: Mean absolute difference (0-255 per channel) below which two frames are the same sky;
+#: the senior review of L7 measured 0.000 for a live host against a fresh one at the same
+#: sun, and 13.85 between two suns 40 degrees apart.
+SAME_SKY = 0.5
+OTHER_SKY = 5.0
+
+
+def test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky(tmp_path: Path) -> None:
+    """L7 (#391), senior review: the board renders a fresh host per frame and the
+    self-test one frame, so the live paths were ungated — the sky-view table refilled
+    in place for a new sun, a switch to the painted sky and back (PF-E3D-16 across it),
+    the sky material re-attached after the top-down view, a cloud deck coming and going.
+    Every frame of ONE host must be the fresh host's frame for that (sun, model), also
+    after the old Textures were deleted."""
+    out = tmp_path / "atmosphere"
+    data = _ok_scenario(run_scenario(out, "atmosphere_sequence"), out)
+    fresh = {key: load_rgb(out / row["file"]).astype(float) for key, row in data["fresh"].items()}
+    for row in data["fresh"].values():   # a fresh host's own frame stays its frame
+        before, after = load_rgb(out / row["file"]), load_rgb(out / row["after"])
+        assert float(np.abs(before.astype(float) - after).mean()) < SAME_SKY, row["name"]
+
+    def diff(rgb: Any, key: str) -> float:
+        return float(np.abs(rgb - fresh[key]).mean())
+
+    steps = {row["name"]: row for row in data["steps"]}
+    for row in data["steps"]:
+        if row["name"] == "atm_200_overcast":
+            continue
+        key = f"{row['model']}_{int(row['azimuth'])}"
+        for frame in ("file", "after"):
+            rgb = load_rgb(out / row[frame]).astype(float)
+            assert diff(rgb, key) < SAME_SKY, (row["name"], frame, diff(rgb, key))
+        assert row["atmosphere_built"] is (row["model"] == "atmosphere"), row
+    # the suns are told apart, so "the same sky" above is not a blind comparison
+    assert diff(fresh["atmosphere_160"], "atmosphere_200") > OTHER_SKY
+    assert diff(fresh["painted_160"], "painted_215") > OTHER_SKY
+    assert diff(fresh["atmosphere_215"], "painted_215") > OTHER_SKY
+    # the weather's cloud draws a deck, and it goes again with the weather
+    overcast = load_rgb(out / steps["atm_200_overcast"]["file"]).astype(float)
+    assert diff(overcast, "atmosphere_200") > OTHER_SKY
+    assert data["health"]["ok"], data["health"]
+
 def _engine(vector: tuple[float, float, float]) -> tuple[float, float, float]:
     east, north, up = vector
     return (east, up, -north)

@@ -1,10 +1,12 @@
 // Copyright (C) 2023 Fernando García Liñán
 // Copyright (C) 2026 The Qt Company Ltd.
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT AND GPL-3.0-only
 //
 // Open Garden Planner (Phase 17 L7, #391): the atmosphere sky's SkyMaterial shader.
-// Qt's skymaterial example (advancedsky.frag, qtquick3d v6.12.0) up to its MAIN(),
-// unchanged; MAIN() and the painted-sky base below are the app's (marked).
+// Qt's skymaterial example (advancedsky.frag, qtquick3d v6.12.0; MIT) up to its MAIN(),
+// with three marked changes in raymarchClouds(); MAIN() and the painted-sky base below
+// the marked boundary are the app's, GPL-3.0-only (paintedSky() re-expresses Qt's
+// GPL-3.0-only ProceduralSkyTextureData).
 // Provenance and licence texts: PROVENANCE.md and LICENSE-qt-skymaterial.txt beside this file.
 
 // Configurable parameters
@@ -224,7 +226,7 @@ vec3 raymarchClouds(vec3 ro, vec3 rd, vec3 sunDirWorld, vec3 sunRadiance,
                 // a thick deck diffuses: its forward lobe fades with the cover (3D review
                 // of L7 - at full strength an overcast was bright toward a low sun, and
                 // with the gain that lit a cloudy sunset and a band round the horizon)
-                float gFwd = c * cloudPhaseG * (1.0 - CLOUD_DIFFUSION * cloudHueShare);
+                float gFwd = c * cloudPhaseG * (1.0 - CLOUD_DIFFUSION * cloudCoverage);
                 float gBk  = c * gBack;
                 float ggF = gFwd * gFwd;
                 float ggB = gBk * gBk;
@@ -245,7 +247,7 @@ vec3 raymarchClouds(vec3 ro, vec3 rd, vec3 sunDirWorld, vec3 sunRadiance,
             // Additive silver lining toward the sun.
             float silver = pow(clamp(cosThetaView, 0.0, 1.0), 4.0) * (1.0 - exp(-odSun * 2.0));
             // L7: an edge effect - faded with the weather's cover (3D review)
-            msLight += silver * sunRadiance * (1.0 - cloudHueShare);
+            msLight += silver * sunRadiance * (1.0 - cloudCoverage);
 
             vec3 ambient = mix(skyGroundRGB, skyZenithRGB, clamp(hf, 0.0, 1.0)) * 0.6;
             float sunFacing = clamp(cosThetaView * 0.5 + 0.5, 0.0, 1.0);
@@ -470,7 +472,8 @@ vec3 gammaCorrect(vec3 linearSrgb)
 
 //-----------------------------------------------------------------------------
 // Open Garden Planner (Phase 17 L7, #391). Everything above this line is Qt's
-// advancedsky.frag unchanged; from here on is the app's.
+// advancedsky.frag (MIT) but for three marked changes in raymarchClouds(); from here
+// on is the app's (GPL-3.0-only).
 //
 // THE PAINTED SKY IS THE BASE. paintedSky() is Qt's ProceduralSkyTextureData,
 // generateSkyTexture() (qtquick3d v6.12.0, src/helpers/proceduralskytexturedata.cpp),
@@ -492,7 +495,8 @@ vec3 gammaCorrect(vec3 linearSrgb)
 //
 // The sun disc of the atmosphere is the look's sun colour (sunDiscColor, linear,
 // times sunAlpha: 0 while the sun is down), drawn where the atmosphere shows; the
-// clouds are lit by the example's sunColor x sunEnergy, unchanged.
+// clouds are lit by the example's sunColor x sunEnergy, faded through civil twilight
+// (x atmosphereWeight in MAIN()).
 
 const float PAINTED_SKY_CURVE = 0.09;    // ProceduralSkyTextureData's default skyCurve
 const float PAINTED_SUN_MIN_DEG = 1.0;   // ... sunAngleMin
@@ -582,11 +586,9 @@ void MAIN()
         cloudScatter = mix(cloudScatter, tinted, cloudHueShare);
     }
 
-    // the atmosphere in the painted sky's units; the disc is already in them. The clouds'
-    // own light has its own scale (cloudLightGain, quick3d/look.py cloud_light_gain): the
-    // clear sky's gain rises as the sun sinks to make up for the physical sky's dimming, and
-    // taken whole it lifted a cloudy evening above the painted one (3D review of L7); the
-    // example's scale also saturates a full cover to white
+    // the atmosphere in the painted sky's units; the disc is already in them. The clouds
+    // take the same gain times ATMOSPHERE_CLOUD_GAIN (cloudLightGain, quick3d/look.py
+    // cloud_light_gain): the example's scale saturates a full cover to white
     vec3 atmosphere = max(col * cloudT * atmosphereGain + cloudScatter * cloudLightGain, vec3(0.0))
                       + sunCol * cloudT;
     FRAGCOLOR = vec4(mix(painted, atmosphere, share), 1.0);

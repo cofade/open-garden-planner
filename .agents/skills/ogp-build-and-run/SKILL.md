@@ -275,7 +275,7 @@ makes it a merge gate rather than a post-mortem.
 | Never walk top-level `mcp` | Collect the concrete subpackages, NOT `collect_submodules("mcp")` | Walking `mcp` imports `mcp.cli`, which `sys.exit(1)`s without the unbundled `typer` extra and aborts the build; the spec wraps collection in `_safe_collect_submodules` |
 | Never exclude `multiprocessing` | It is deliberately absent from the spec `excludes` (comment in spec) | uvicorn imports it eagerly (`uvicorn.supervisors → basereload → _subprocess`) even single-process; excluding it → GUI runs, embedded server silently dies with `ModuleNotFoundError` |
 | UPX vs pydantic_core | `upx_exclude=["pydantic_core*.pyd"]` | UPX can corrupt that compiled extension, killing the Agent API at runtime |
-| PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.10.0,<6.11` in `pyproject.toml` | Pinned below 6.11 (satellite map picker uses QWebEngineView); do not bump casually |
+| PyQt6-WebEngine pin | `PyQt6-WebEngine>=6.140.0,<6.141` in `pyproject.toml` | Moves WITH the Qt pair (`PyQt6`/`PyQt6-Qt6` 6.12.0): a WebEngine built for an older Qt fails to load beside a newer core ("procedure not found") and the app dies at start. Since Qt 6.12 its wheels are Chromium-numbered (6.140 = Qt 6.12). The satellite map picker uses `QWebEngineView`. PF-CI-17 |
 | mcp major pin | `mcp>=1.23,<2.0` | mcp v2 renames `FastMCP` → `MCPServer` (pyproject comment); `structured_output=False` behavior verified against mcp 1.28.1 |
 | Any new dependency | Re-run the exe build + `timeout 8` smoke **and `--selftest`** BEFORE merge | Frozen imports diverge from dev imports, and the smoke alone cannot see a subsystem that died silently (#291, #277) — see the `--selftest` section above (AGENTS.md Quick Reference) |
 | A dependency REMOVED from the lock | Re-sync the venv (`UV_PROJECT_ENVIRONMENT=venv uv sync --locked --all-extras --group build`, the from-scratch checklist) before building locally | Removing a pin does not uninstall its wheel; PyInstaller's Qt hooks collect the QML modules (and the DLLs their plugins need) of every Qt wheel installed. Measured in Phase 17 L1.10: a dev-venv build after dropping the old 3D view's runtime wheel still carried its eleven DLLs and its QML module; a locked-env build did not (ADR-048 closing addendum, PF-E3D-09) |
@@ -350,7 +350,7 @@ Volatile facts stamped 2026-07-04 (v1.23.0). Re-verify with:
 
 | Fact | One-line re-check |
 |---|---|
-| Version + deps + pins (WebEngine <6.11, mcp <2.0) | `grep -A20 'dependencies = \[' pyproject.toml` |
+| Version + deps + pins (Qt 6.12.0, WebEngine 6.140 with it, mcp <2.0) | `grep -A20 'dependencies = \[' pyproject.toml` |
 | Dev extra contents (pytest/ruff/mypy/bandit; no PyInstaller) | `sed -n '/\[project.optional-dependencies\]/,/^\[/p' pyproject.toml` |
 | CI apt package list + offscreen env | `grep -A2 'apt-get install' .github/workflows/ci.yml; grep QT_QPA .github/workflows/ci.yml` |
 | Spec traps (safe-collect, no-multiprocessing-exclude, upx_exclude) | `grep -n 'collect_submodules\|multiprocessing\|upx_exclude' installer/ogp.spec` |

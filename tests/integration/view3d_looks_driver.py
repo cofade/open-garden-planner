@@ -21,6 +21,11 @@ Scenarios:
                   objects are gone. The sky must still be the sky (the rule the
                   ground bake found: a Texture loses its data when a data object it
                   held EARLIER is destroyed).
+``atmosphere_sequence``  the atmosphere sky (L7, #391) on ONE live host: three suns (its
+                  sky-view table refilled in place), a switch to the painted sky and two
+                  painted suns, back to the atmosphere, a top-down round trip, a cloud
+                  deck and clear again — a frame after each and one more after the old
+                  Textures went; then a fresh host per (sun, model) as the reference.
 ``wind``          the wind's clock on the real render loop: at rest, running,
                   stopped (frozen where it is), at rest again — with the frames.
 ``controller``    the product's ``LookController`` on a real host through a scripted
@@ -215,6 +220,75 @@ def scenario_sky_sequence(ctx: Context) -> dict[str, Any]:
     finally:
         host.close()
         pump()
+
+
+def scenario_atmosphere_sequence(ctx: Context) -> dict[str, Any]:
+    """The atmosphere on a LIVE host against a fresh host per sun (senior review of L7):
+    the board renders a fresh host per frame and the self-test one frame, so neither sees
+    the sky-view table refilled in place, a model switch either way (PF-E3D-16 across it),
+    or the sky material re-attached after the top-down view."""
+    from open_garden_planner.core.scene3d.look import ATMOSPHERE, PAINTED
+    from open_garden_planner.ui.view3d.quick3d.adapter import Quick3DSink
+    from open_garden_planner.ui.view3d.quick3d.shots import TopDownShot
+
+    eye, target = sky_camera()
+    ground = GroundSpec(width_cm=4000.0, depth_cm=4000.0)
+
+    def put(host: Any, sync: Any, azimuth: float, model: str, cloud: float = 0.0) -> None:
+        sun = SunState(SKY_ELEVATION, azimuth)
+        look = look_for(sun, "low")
+        sky = replace(look.sky, model=model, cloud=cloud)
+        sync.set_sun(sun)
+        host.set_look(replace(look, sky=sky))
+        host.set_sky(sky)
+
+    def shoot(host: Any, name: str, azimuth: float, model: str) -> dict[str, Any]:
+        row: dict[str, Any] = {"name": name, "azimuth": azimuth, "model": model,
+                               "file": ctx.save(name, host.grab(name)),
+                               "atmosphere_built": bool(host.scene_property("atmosphereBuilt"))}
+        pump(300)       # the old painted Textures and their data objects go here
+        gc.collect()
+        row["after"] = ctx.save(f"{name}_after", host.grab(f"{name}_after"))
+        return row
+
+    steps: list[dict[str, Any]] = []
+    host = ctx.host()
+    try:
+        sync = SceneSync(Quick3DSink(host))
+        sync.set_ground(ground)
+        host.set_camera(eye, target, SKY_FOV)
+        for name, azimuth, model in (("atm_160", 160.0, ATMOSPHERE), ("atm_200", 200.0, ATMOSPHERE),
+                                     ("atm_215", 215.0, ATMOSPHERE), ("painted_215", 215.0, PAINTED),
+                                     ("painted_160", 160.0, PAINTED), ("atm_200_again", 200.0, ATMOSPHERE)):
+            put(host, sync, azimuth, model)
+            steps.append(shoot(host, name, azimuth, model))
+        host.set_shot(TopDownShot((0.0, 0.0), 0.5))
+        ctx.save("top_down", host.grab("top_down"))
+        host.set_camera(eye, target, SKY_FOV)
+        steps.append(shoot(host, "atm_200_after_top_down", 200.0, ATMOSPHERE))
+        put(host, sync, 200.0, ATMOSPHERE, cloud=1.0)
+        steps.append(shoot(host, "atm_200_overcast", 200.0, ATMOSPHERE))
+        put(host, sync, 200.0, ATMOSPHERE, cloud=0.0)
+        steps.append(shoot(host, "atm_200_clear_again", 200.0, ATMOSPHERE))
+        health = _health(host)
+        graphics_api = host.graphics_api()
+    finally:
+        host.close()
+        pump()
+    fresh: dict[str, Any] = {}
+    for azimuth, model in ((160.0, ATMOSPHERE), (200.0, ATMOSPHERE), (215.0, ATMOSPHERE),
+                           (160.0, PAINTED), (215.0, PAINTED)):
+        host = ctx.host()
+        try:
+            sync = SceneSync(Quick3DSink(host))
+            sync.set_ground(ground)
+            host.set_camera(eye, target, SKY_FOV)
+            put(host, sync, azimuth, model)
+            fresh[f"{model}_{int(azimuth)}"] = shoot(host, f"fresh_{model}_{int(azimuth)}", azimuth, model)
+        finally:
+            host.close()
+            pump()
+    return {"steps": steps, "fresh": fresh, "health": health, "graphics_api": graphics_api}
 
 
 def scenario_wind(ctx: Context) -> dict[str, Any]:
@@ -503,6 +577,7 @@ def scenario_wind_soak(ctx: Context) -> dict[str, Any]:
 
 SCENARIOS: dict[str, Callable[[Context], dict[str, Any]]] = {
     "sky_sequence": scenario_sky_sequence,
+    "atmosphere_sequence": scenario_atmosphere_sequence,
     "wind": scenario_wind,
     "controller": scenario_controller,
     "sky_soak": scenario_sky_soak,

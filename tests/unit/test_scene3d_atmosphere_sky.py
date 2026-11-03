@@ -299,8 +299,8 @@ def test_a_full_cover_diffuses_the_decks_forward_lobe() -> None:
     the horizon. A thick deck diffuses: the lobe fades with the cover, as the silver
     lining does."""
     code = (QML_DIR / "atmosphere.frag").read_text(encoding="utf-8")
-    assert "float gFwd = c * cloudPhaseG * (1.0 - CLOUD_DIFFUSION * cloudHueShare);" in code
-    assert "msLight += silver * sunRadiance * (1.0 - cloudHueShare);" in code
+    assert "float gFwd = c * cloudPhaseG * (1.0 - CLOUD_DIFFUSION * cloudCoverage);" in code
+    assert "msLight += silver * sunRadiance * (1.0 - cloudCoverage);" in code
     assert re.search(r"const float CLOUD_DIFFUSION = 0\.8;", code)
 
 

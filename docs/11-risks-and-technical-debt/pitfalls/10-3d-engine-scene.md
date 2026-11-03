@@ -196,5 +196,9 @@ old Texture's `Component.onDestruction` came too early (the watcher fires after 
 zero-interval Timer after it came too late for a frame rendered straight after the delete.
 Restoring the binding in `onLightProbeChanged` is synchronous and frame-exact. Qt's
 `qquick3dsceneenvironment.cpp` and `attachWatcher` (`qquick3dobject_p.h`) changed only
-cosmetically between the tags; the upstream cause is not identified. No other scene object is
-re-pointed and then destroyed (parts and ground tiles destroy themselves after detaching).
+cosmetically between the tags; the upstream cause is not identified. Fill pictures are re-pointed
+and then destroyed too (a recolour): the senior review measured them unaffected on 6.12 (the
+recoloured pattern still drawn after the delete rounds). Parts and ground tiles destroy themselves
+after detaching. The render tier's live-host atmosphere sequence
+(`test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky`) fails without the handler
+(`painted_160` after the delete: 40.7 against a bound of 0.5).
