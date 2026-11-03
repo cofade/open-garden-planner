@@ -34,7 +34,6 @@ import importlib.util
 import os
 import sys
 from importlib.machinery import ModuleSpec
-from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -111,8 +110,11 @@ def _at_exit() -> None:
 def _keep_windows_behind() -> None:
     """A real window for the engine, not in front of the developer (``scripts/quiet_windows``),
     loaded by its path: a child's own ``scripts`` on ``sys.path`` must not decide."""
-    path = Path(__file__).resolve().parents[3] / "scripts" / "quiet_windows.py"
-    spec = importlib.util.spec_from_file_location("quiet_windows", path)
+    repo = os.path.abspath(__file__)
+    for _ in range(4):
+        repo = os.path.dirname(repo)
+    spec = importlib.util.spec_from_file_location(
+        "quiet_windows", os.path.join(repo, "scripts", "quiet_windows.py"))
     if spec is None or spec.loader is None:
         return
     module = importlib.util.module_from_spec(spec)
