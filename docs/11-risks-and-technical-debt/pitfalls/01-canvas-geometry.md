@@ -459,3 +459,23 @@ keep only `parentItem() is None` for EVERY item (`groupable_selection` and
 `ungroupable_groups`), and `ungroupable_groups` still excludes a smart symbol. A
 child's `isSelected()` is a fact about its group, not evidence that the user chose
 the child.
+
+### PF-CAN-37
+
+- **Rule:** Two item classes that can represent the same semantic object must render it through ONE shared paint path. Making a rectangle convertible into a HOUSE also obliges its `paint()` to take the ridge-aware tile fill; otherwise the converted house is a flat, wrongly-lapping roof beside a correctly-drawn one.
+- **Pinned by:** `tests/unit/test_roof_tile_orientation.py::test_a_converted_rectangle_paints_the_identical_roof`; `tests/unit/test_roof_tile_orientation.py::test_tiles_lap_away_from_the_ridge`
+- **Source:** #690, PR #713 manual test 2.1 (2026-11-03)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`ChangeObjectTypeCommand` gave a converted rectangle a real `ROOF_RIDGE`, and
+`RectangleItem` followed it on move/resize/rotate — but `RectangleItem.paint()`
+still called `super().paint()`, the plain `QBrush` fill. The 2D roof therefore
+mirrored nothing at the ridge and its tiles lapped toward it, while a
+natively-drawn polygon house mirrored the fill across the ridge and lapped
+away. The 3D records were already identical for the same outline (measured:
+same `ridge` param, slope and z-range), so the only defect was the one missing
+paint branch. The fix extracts the polygon's production painter into
+`ui/canvas/items/roof_paint.paint_roof_with_ridge` and calls it from both
+classes; a converted rectangle and a drawn house now render byte-identically
+over eight orientations.

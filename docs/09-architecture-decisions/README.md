@@ -2628,6 +2628,15 @@ has no `roof_shape` property (the issue's wording predates the current
 `roof_style` metadata, which is 3D-only and does not suppress the 2D ridge).
 Pinned by `tests/integration/test_house_roof_ridge.py`.
 
+**Paint follows the same one-path rule.** A HOUSE is drawn as its roof seen from
+above, and both item classes call `ui/canvas/items/roof_paint.py`'s
+`paint_roof_with_ridge`: the polygon's outline or the rectangle's four corners,
+the same ridge, the same mirrored tile planes. Without it a converted rectangle
+fell back to the flat fill and its tiles lapped back up toward the ridge while a
+drawn house's lapped away — the 2.1 finding of PR #713's manual test. The
+converted and drawn houses are now byte-identical over eight orientations,
+pinned by `tests/unit/test_roof_tile_orientation.py`.
+
 **Addendum (ridge lifecycle, #690 review).** Every operation that removes or
 replaces a house must treat the ridge as derived geometry, not a sibling the
 user selected:

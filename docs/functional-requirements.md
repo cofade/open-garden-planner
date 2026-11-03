@@ -118,8 +118,11 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   the original link (stable UUID) — a save or 3D read after two conversions + two undos still
   follows the live ridge. Geometry uses `core.roof_ridge.compute_roof_ridge_endpoints` mapped
   through the item's own transform, and the ridge is built by
-  `ui/canvas/roof_ridge_link.build_linked_ridge` — the same seam `PolygonTool` and the agent's
-  `create_object` use. A converted rectangle's ridge follows the host on move, resize and rotation
+  `ui/canvas/roof_ridge_link.build_linked_ridge` - the same seam `PolygonTool` and the agent's
+  `create_object` use. It also paints its roof through the same
+  `ui/canvas/items/roof_paint.paint_roof_with_ridge` path, so a converted rectangle's tiles lap
+  down-slope on both sides of the ridge exactly like a drawn house's (manual test of PR #713, 2.1).
+  A converted rectangle's ridge follows the host on move, resize and rotation
   (`update_linked_ridge`, called from `itemChange`, `_apply_rotation`, the resize hook and
   `apply_rect_like_geometry` for undo/redo). Deleting a house or a group containing one removes
   its ridge (menu, Delete key and agent `delete_object` share one tree walk); trimming a house
@@ -127,7 +130,9 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   rectangle's corner drag re-derive it; a mirror copy strips the inherited link and a ridge is
   never a mirror source. Acceptance:
   `tests/integration/test_house_roof_ridge.py` (including the two-conversion undo/redo lineage,
-  rectangle move/resize/rotate, menu delete and corner drag),
+  rectangle move/resize/rotate, menu delete and corner drag) and
+  `tests/unit/test_roof_tile_orientation.py` (a converted rectangle and a drawn house paint the
+  identical roof over eight orientations),
   `tests/integration/test_trim_extend_tool.py`, `tests/integration/test_fillet_chamfer.py`,
   `tests/integration/test_mirror_tool.py` and the grouped-house case in
   `tests/integration/test_agent_api_default_on.py`.

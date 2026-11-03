@@ -19,9 +19,11 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
+from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge, outline_polygon
 
 from .garden_item import GardenItemMixin
 from .resize_handle import RectVertexEditMixin, ResizeHandlesMixin, RotationHandleMixin
+from .roof_paint import paint_roof_with_ridge
 
 
 def _show_properties_dialog(item: QGraphicsRectItem) -> None:
@@ -328,8 +330,29 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     self._draw_soil_mismatch_border(painter)
                 return
 
-        # Fall back to standard rectangle painting
-        super().paint(painter, option, widget)
+        # A HOUSE is drawn as its roof seen from above. A ridge-less rectangle
+        # paints a flat fill, but one converted into a HOUSE (#690) owns a
+        # ROOF_RIDGE, and its tiles must lap down-slope on BOTH sides of it —
+        # the same ridge-aware paint the polygon tool's houses have used since
+        # #372. Without this branch the converted house's tiles lapped back up
+        # toward the ridge (manual test of PR #713, 2.1).
+        if self.object_type == ObjectType.HOUSE:
+            ridge = linked_ridge(self)
+            polygon = outline_polygon(self)
+            if ridge is not None and polygon is not None:
+                paint_roof_with_ridge(
+                    painter,
+                    self,
+                    polygon,
+                    ridge,
+                    self.brush(),
+                    self.pen(),
+                    self.fill_transform,
+                )
+            else:
+                super().paint(painter, option, widget)
+        else:
+            super().paint(painter, option, widget)
 
         # Draw square-foot grid overlay inside bed
         if self._grid_enabled and is_bed_type(self.object_type):
