@@ -315,7 +315,10 @@ class TestRealMcpTransport:
             assert task_id in {t["task_id"] for t in await tasks()}
             calendar = await _call(session, "get_task_calendar", today=TODAY)
             assert calendar["coverage"] == "full"
-            prompt = await session.get_prompt("plan-my-week")
+            # Pass the test's reference date: the prompt's default is the real
+            # clock, and a run months later would put this manual task outside
+            # the brief's one-month window (a date-dependent failure).
+            prompt = await session.get_prompt("plan-my-week", {"today": TODAY})
             assert "Transport reminder" in prompt.messages[0].content.text
         _exercise_mcp(qtbot, mcp_server, workflow, writes=True)
 
