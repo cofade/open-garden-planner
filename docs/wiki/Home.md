@@ -164,6 +164,10 @@ representations with structural roof/wall triangle projection for ridged buildin
 angle-dependent structural fence porosity (`WOODEN_FENCE`, `METAL_FENCE`, `CHAIN_LINK`), owner-grouped
 casting, and independent multiplicative overlap ($T_1 \times T_2$).
 
+## Director's cut (Phase 17 L6)
+
+Photo mode (exposure, focus, colour grades, a vignette; saved up to 4K), camera tours (a drone orbit, your own keyframes, a time-lapse of a day or a year; saved as an MP4 video or a PNG sequence) and the read-only `render_3d_view` agent tool. The plan of the project's own renders ships as the **Family garden** example. See [#390](https://github.com/cofade/open-garden-planner/issues/390).
+
 ## Living garden (Phase 17 L5)
 
 Phase 17 L5, the living garden (#389), shipped in
