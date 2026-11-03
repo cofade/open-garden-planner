@@ -10977,12 +10977,17 @@ para asignar datos de especie.</translation>
             <translation>Permitir a los asistentes de IA editar el plano</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="384" />
+            <source>Atmosphere with clouds</source>
+            <translation>Atmósfera con nubes</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="365" />
             <source>Automatic</source>
             <translation>Automática</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="396" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="412" />
             <source>Cancel</source>
             <translation>Cancelar</translation>
         </message>
@@ -11002,7 +11007,7 @@ para asignar datos de especie.</translation>
             <translation>Conectar asistente de IA…</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="630" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="649" />
             <source>Connection to {api} is working.</source>
             <translation>La conexión con {api} funciona correctamente.</translation>
         </message>
@@ -11012,12 +11017,12 @@ para asignar datos de especie.</translation>
             <translation>Copiar</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="636" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="655" />
             <source>Could not connect to {api}. Please check your credentials.</source>
             <translation>No se pudo conectar con {api}. Por favor, compruebe sus credenciales.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="511" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="529" />
             <source>Enable AI editing to generate a token</source>
             <translation>Active la edición por IA para generar un token</translation>
         </message>
@@ -11057,7 +11062,7 @@ para asignar datos de especie.</translation>
             <translation>Introducir token de API de Trefle...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="647" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="666" />
             <source>Error testing {api}: {error}</source>
             <translation>Error al probar {api}: {error}</translation>
         </message>
@@ -11084,7 +11089,7 @@ para asignar datos de especie.</translation>
             <translation>Con qué nivel de detalle se dibuja la vista 3D. «Automática» elige un nivel según la velocidad de fotogramas que mide en este equipo.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="384" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="400" />
             <source>Keep leaves and grass still instead of swaying in the wind.</source>
             <translation>Mantener quietas las hojas y la hierba en lugar de mecerse con el viento.</translation>
         </message>
@@ -11129,6 +11134,16 @@ para asignar datos de especie.</translation>
             <translation>Umbral de aviso naranja (°C):</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="383" />
+            <source>Painted</source>
+            <translation>Pintado</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="388" />
+            <source>Painted: the soft painted sky. Atmosphere with clouds: a physically based sky with volumetric clouds by day, which costs more on the graphics card. The sun, the shadows and the night are the same in both.</source>
+            <translation>Pintado: el cielo pintado y suave. Atmósfera con nubes: un cielo de base física con nubes volumétricas de día, que exige más a la tarjeta gráfica. El sol, las sombras y la noche son iguales en ambos.</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="139" />
             <source>Perenual (perenual.com)</source>
             <translation>Perenual (perenual.com)</translation>
@@ -11139,17 +11154,17 @@ para asignar datos de especie.</translation>
             <translation>Permapeople (permapeople.org)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="604" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="623" />
             <source>Please enter a Perenual API key first.</source>
             <translation>Por favor, introduzca primero una clave API de Perenual.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="596" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
             <source>Please enter a Trefle API token first.</source>
             <translation>Por favor, introduzca primero un token de API de Trefle.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="634" />
             <source>Please enter both Permapeople Key ID and Key Secret.</source>
             <translation>Por favor, introduzca tanto el ID de clave como el secreto de clave de Permapeople.</translation>
         </message>
@@ -11174,7 +11189,7 @@ para asignar datos de especie.</translation>
             <translation>Umbral de alerta roja (°C):</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="381" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="397" />
             <source>Reduce motion in the 3D view</source>
             <translation>Reducir el movimiento en la vista 3D</translation>
         </message>
@@ -11194,7 +11209,7 @@ para asignar datos de especie.</translation>
             <translation>Ejecutar un servidor local MCP para que los asistentes de IA puedan leer este plano del huerto. Se vincula solo a 127.0.0.1 (este equipo). La edición permanece desactivada a menos que la active abajo.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="400" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="416" />
             <source>Save</source>
             <translation>Guardar</translation>
         </message>
@@ -11212,6 +11227,11 @@ para asignar datos de especie.</translation>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="306" />
             <source>Show this URL and help register it with an AI assistant</source>
             <translation>Mostrar esta URL y facilitar su registro con un asistente de IA</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="394" />
+            <source>Sky:</source>
+            <translation>Cielo:</translation>
         </message>
         <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="239" />
@@ -11232,24 +11252,24 @@ para asignar datos de especie.</translation>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="129" />
             <location filename="../../ui/dialogs/preferences_dialog.py" line="152" />
             <location filename="../../ui/dialogs/preferences_dialog.py" line="181" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="596" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="604" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="614" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="623" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="633" />
             <source>Test</source>
             <translation>Probar</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="646" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="665" />
             <source>Test Error</source>
             <translation>Error de prueba</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="635" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="654" />
             <source>Test Failed</source>
             <translation>Prueba fallida</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="629" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="648" />
             <source>Test Successful</source>
             <translation>Prueba correcta</translation>
         </message>
@@ -11279,7 +11299,7 @@ para asignar datos de especie.</translation>
             <translation>Se usa para Cargar fondo satelital. La clave se guarda solo en su configuración local y nunca se incluye en planos ni en el instalador.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="450" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="466" />
             <source>Using OGP_GOOGLE_MAPS_KEY from environment</source>
             <translation>Usando OGP_GOOGLE_MAPS_KEY del entorno</translation>
         </message>

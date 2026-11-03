@@ -377,6 +377,22 @@ class PreferencesDialog(QDialog):
         )
         view3d_layout.addRow(self.tr("Quality:"), self._view3d_quality_combo)
 
+        # Phase 17 L7 (#391): the atmosphere sky (Qt 6.12's SkyMaterial) is an opt-in
+        self._view3d_sky_combo = QComboBox()
+        for key, label in (
+            ("painted", self.tr("Painted")),
+            ("atmosphere", self.tr("Atmosphere with clouds")),
+        ):
+            self._view3d_sky_combo.addItem(label, key)
+        self._view3d_sky_combo.setToolTip(
+            self.tr(
+                "Painted: the soft painted sky. Atmosphere with clouds: a physically "
+                "based sky with volumetric clouds by day, which costs more on the "
+                "graphics card. The sun, the shadows and the night are the same in both."
+            )
+        )
+        view3d_layout.addRow(self.tr("Sky:"), self._view3d_sky_combo)
+
         self._view3d_reduced_motion_check = QCheckBox(
             self.tr("Reduce motion in the 3D view")
         )
@@ -462,6 +478,8 @@ class PreferencesDialog(QDialog):
         index = self._view3d_quality_combo.findData(settings.view3d_quality)
         self._view3d_quality_combo.setCurrentIndex(max(index, 0))
         self._view3d_reduced_motion_check.setChecked(settings.view3d_reduced_motion)
+        index = self._view3d_sky_combo.findData(settings.view3d_sky_model)
+        self._view3d_sky_combo.setCurrentIndex(max(index, 0))
 
     def _on_agent_api_toggled(self, enabled: bool) -> None:
         """Enable/disable the port + URL rows alongside the Agent API checkbox."""
@@ -579,6 +597,7 @@ class PreferencesDialog(QDialog):
         settings.agent_api_writes_enabled = self._agent_api_writes_check.isChecked()
         settings.view3d_quality = str(self._view3d_quality_combo.currentData())
         settings.view3d_reduced_motion = self._view3d_reduced_motion_check.isChecked()
+        settings.view3d_sky_model = str(self._view3d_sky_combo.currentData())
         settings.sync()
         self.accept()
 

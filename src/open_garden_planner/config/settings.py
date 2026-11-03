@@ -248,6 +248,8 @@ class AppSettings:
     KEY_VIEW3D_REDUCED_MOTION = "view3d/reduced_motion"
     KEY_VIEW3D_AUTO_LEVEL = "view3d/auto_quality_level"
     KEY_VIEW3D_AUTO_BARS = "view3d/auto_quality_bars"
+    # Phase 17 L7 (#391): which sky the 3D view draws
+    KEY_VIEW3D_SKY_MODEL = "view3d/sky_model"
 
     # Default values
     DEFAULT_AUTOSAVE_ENABLED = True
@@ -312,6 +314,8 @@ class AppSettings:
     # pins them against it.
     VIEW3D_QUALITY_CHOICES = ("auto", "low", "medium", "high", "ultra")
     VIEW3D_AUTO_LEVELS = ("low", "medium", "high")
+    # ``core.scene3d.look.SKY_MODELS`` (L7), written out for the same reason.
+    VIEW3D_SKY_MODELS = ("painted", "atmosphere")
     # "auto": the app picks low / medium / high from the frame rate it measures.
     DEFAULT_VIEW3D_QUALITY = "auto"
     # Wind sways leaves and grass unless the user asks for a still view.
@@ -319,6 +323,9 @@ class AppSettings:
     # Where "auto" starts before it has measured anything on this machine: the
     # preset budgeted for an integrated GPU. Afterwards it starts where it ended.
     DEFAULT_VIEW3D_AUTO_LEVEL = "medium"
+    # The painted sky every look of L1-L5 was accepted on; the atmosphere (Qt 6.12's
+    # SkyMaterial, L7) is the user's opt-in until the owner decides otherwise.
+    DEFAULT_VIEW3D_SKY_MODEL = "painted"
 
     def __init__(self) -> None:
         """Initialize the settings manager."""
@@ -917,6 +924,24 @@ class AppSettings:
     @view3d_reduced_motion.setter
     def view3d_reduced_motion(self, value: bool) -> None:
         self._settings.setValue(self.KEY_VIEW3D_REDUCED_MOTION, bool(value))
+
+    @property
+    def view3d_sky_model(self) -> str:
+        """Which sky the 3D view draws: ``painted`` or ``atmosphere`` (L7, #391).
+
+        Anything else in the store reads as the default, like ``view3d_quality``.
+        """
+        value = self._settings.value(self.KEY_VIEW3D_SKY_MODEL, self.DEFAULT_VIEW3D_SKY_MODEL,
+                                     type=str)
+        text = str(value).strip().lower()
+        return text if text in self.VIEW3D_SKY_MODELS else self.DEFAULT_VIEW3D_SKY_MODEL
+
+    @view3d_sky_model.setter
+    def view3d_sky_model(self, value: str) -> None:
+        text = str(value).strip().lower()
+        if text not in self.VIEW3D_SKY_MODELS:
+            text = self.DEFAULT_VIEW3D_SKY_MODEL
+        self._settings.setValue(self.KEY_VIEW3D_SKY_MODEL, text)
 
     @property
     def view3d_auto_level(self) -> str:

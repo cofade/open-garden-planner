@@ -2738,7 +2738,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **✅ shipped v1.34.0 ([PR #613](https://github.com/cofade/open-garden-planner/pull/613)) after owner acceptance (ADR-065, FR-3D-BUILT-01 … 08)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | ✅ | L5 | **Living garden** — year/day playback through the SimClock, moods, weather presets as a look, shader particles (rain, snow, leaves, butterflies, fireflies) on the wind's clock, Today's Weather, Garden Light / String Lights. **✅ shipped v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after owner acceptance (ADR-070, FR-3D-LIVE-01 … 09)** — see below | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
-| 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
+| 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds. **Delivered in a draft PR, awaiting owner acceptance** (ADR-048 addendum L7, FR-3D-LOOK-08) — see below | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
 ### 3D performance and stability (Slice A) — **#452 shipped in v1.34.11 ([PR #676](https://github.com/cofade/open-garden-planner/pull/676)), 2026-11-01**
 
@@ -2777,6 +2777,17 @@ elease.yml, documented ADR-050 version derivation evaluation addendum, and enfor
 - **#583:** Split ui/view3d/workspace.py from 2,381 to 1,861 lines by extracting selection, walk, analysis, wipe, and legend coordinators with typed protocols (EngineHost, EngineSink, ShadowsSource, HeatmapSource, SunHoursSource).
 - **#580:** Expanded info card body line budget (BODY_LINES = 8) to keep all fact rows (including harvest window) visible without vertical clipping at the narrowest 455 px split pane width.
 - **#577:** De-scoped for dedicated geometry research; preserved clean ground drape depth occlusion.
+
+### L7 acceptance highlights — Sky 6.12 (#391, ADR-048 addendum L7) — **draft PR, awaiting owner acceptance**
+
+| Criterion (#391) | Delivered | Evidence |
+|---|---|---|
+| Move all Qt pins together to 6.12 LTS | `PyQt6` / `PyQt6-Qt6` 6.12.0; `PyQt6-WebEngine` 6.140.0 had to move too (6.10 fails to import next to 6.12; ADR-038's scope note corrected); QtPdf now `PyQt6-Pdf` (dev) | lock gate, governance test, frozen smoke + `--selftest`, PF-CI-17 |
+| `SkyMaterial` + a port of Qt's AdvancedSky (Hillaire atmosphere, volumetric clouds), BSD-3, credited after a per-file licence check | opt-in sky model (Preferences → 3D View → Sky); shader ported, its two look-up tables and the cloud noise computed in numpy and handed over as texture data (a `SkyMaterial` draws white until every texture exists, PF-E3D-14); per-file check: shaders MIT, QML and noise BSD-3-Clause | `qml/PROVENANCE.md`, `qml/LICENSE-qt-skymaterial.txt`, `test_scene3d_cloud_noise.py` (voxels vs the C++ recipe) |
+| Cloud cover from the weather preset (L5.2) | the weather's cloud is the clouds' cover; their light calibrated against the painted Overcast | ADR-048 addendum L7's calibration table |
+| Re-run the sky probe (`sky_ok`) and the shadow IoU gates after the upgrade | both skies, every board gate; the sun mapping derived from the shaders and measured, not assumed | `test_view3d_looks_render.py` (board parametrized by sky model) |
+
+Also from the bump: the 3D wind follows the operating system's "reduce motion" (FR-3D-LOOK-04), the selection witness honours 6.12's cull-aware pick (PF-E3D-13), QTBUG-151940 re-checked (still leaking; known limit 11). Pre-existing and filed: #714 (the distant-horizon gate fails on `master` too).
 
 ### L5 acceptance highlights — Living garden (#389, ADR-070) — **shipped v1.35.0, PR #699**
 

@@ -13,9 +13,17 @@ from open_garden_planner.ui.widgets.category_toolbar import CategoryToolbar
 
 
 def _flush_events(app: QApplication) -> None:
-    app.processEvents()
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    app.processEvents()
+    """Two deferred-delete rounds. Qt 6.12 releases the PyQt proxies of a destroyed
+    window's lambda connections one round later than 6.11 did (they are deleted with
+    a ``deleteLater`` posted while the window itself is deleted): after one round the
+    window's wrapper was still alive and pytest-qt's teardown closed a deleted object
+    (Phase 17 L7, #391; measured on both versions with the same test). The wrapper is
+    then only in a Python cycle with its own attributes, so a collection follows."""
+    for _ in range(2):
+        app.processEvents()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        app.processEvents()
+        gc.collect()
 
 
 def test_category_dropdowns_are_parented_to_toolbar(qtbot) -> None:

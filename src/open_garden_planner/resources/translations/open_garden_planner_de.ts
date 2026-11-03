@@ -11374,12 +11374,17 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>KI-Assistenten das Bearbeiten des Plans erlauben</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="384" />
+            <source>Atmosphere with clouds</source>
+            <translation>Atmosphäre mit Wolken</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="365" />
             <source>Automatic</source>
             <translation>Automatisch</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="396" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="412" />
             <source>Cancel</source>
             <translation>Abbrechen</translation>
         </message>
@@ -11407,7 +11412,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>KI-Assistenten verbinden…</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="630" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="649" />
             <source>Connection to {api} is working.</source>
             <translation>Verbindung zu {api} funktioniert.</translation>
         </message>
@@ -11417,12 +11422,12 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Kopieren</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="636" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="655" />
             <source>Could not connect to {api}. Please check your credentials.</source>
             <translation>Verbindung zu {api} konnte nicht hergestellt werden. Bitte überprüfen Sie Ihre Zugangsdaten.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="511" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="529" />
             <source>Enable AI editing to generate a token</source>
             <translation>KI-Bearbeitung aktivieren, um ein Token zu erzeugen</translation>
         </message>
@@ -11462,7 +11467,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Trefle-API-Token eingeben...</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="647" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="666" />
             <source>Error testing {api}: {error}</source>
             <translation>Fehler beim Testen von {api}: {error}</translation>
         </message>
@@ -11493,7 +11498,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Wie detailliert die 3D-Ansicht gezeichnet wird. „Automatisch“ wählt eine Stufe anhand der Bildrate, die auf diesem Computer gemessen wird.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="384" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="400" />
             <source>Keep leaves and grass still instead of swaying in the wind.</source>
             <translation>Blätter und Gras bleiben ruhig, statt sich im Wind zu wiegen.</translation>
         </message>
@@ -11538,6 +11543,16 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Orange Warnschwelle (°C):</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="383" />
+            <source>Painted</source>
+            <translation>Gemalt</translation>
+        </message>
+        <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="388" />
+            <source>Painted: the soft painted sky. Atmosphere with clouds: a physically based sky with volumetric clouds by day, which costs more on the graphics card. The sun, the shadows and the night are the same in both.</source>
+            <translation>Gemalt: der weiche, gemalte Himmel. Atmosphäre mit Wolken: ein physikalisch berechneter Himmel mit Volumenwolken am Tag, der die Grafikkarte stärker beansprucht. Sonne, Schatten und Nacht sind in beiden gleich.</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="139" />
             <source>Perenual (perenual.com)</source>
             <translation>Perenual (perenual.com)</translation>
@@ -11548,17 +11563,17 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Permapeople (permapeople.org)</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="604" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="623" />
             <source>Please enter a Perenual API key first.</source>
             <translation>Bitte zuerst einen Perenual-API-Schlüssel eingeben.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="596" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
             <source>Please enter a Trefle API token first.</source>
             <translation>Bitte zuerst einen Trefle-API-Token eingeben.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="634" />
             <source>Please enter both Permapeople Key ID and Key Secret.</source>
             <translation>Bitte sowohl Permapeople-Schlüssel-ID als auch Schlüssel-Geheimnis eingeben.</translation>
         </message>
@@ -11583,7 +11598,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Roter Alarm-Schwellenwert (°C):</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="381" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="397" />
             <source>Reduce motion in the 3D view</source>
             <translation>Bewegung in der 3D-Ansicht reduzieren</translation>
         </message>
@@ -11611,7 +11626,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation type="vanished">Lokalen MCP-Server starten, damit KI-Assistenten diesen Gartenplan lesen können. Bindet nur an 127.0.0.1 (diesen Computer); nur Lesen.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="400" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="416" />
             <source>Save</source>
             <translation>Speichern</translation>
         </message>
@@ -11639,6 +11654,11 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Diese URL anzeigen und bei der Registrierung mit einem KI-Assistenten helfen</translation>
         </message>
         <message>
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="394" />
+            <source>Sky:</source>
+            <translation>Himmel:</translation>
+        </message>
+        <message>
             <location filename="../../ui/dialogs/preferences_dialog.py" line="239" />
             <source>Tasks</source>
             <translation>Aufgaben</translation>
@@ -11657,24 +11677,24 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <location filename="../../ui/dialogs/preferences_dialog.py" line="129" />
             <location filename="../../ui/dialogs/preferences_dialog.py" line="152" />
             <location filename="../../ui/dialogs/preferences_dialog.py" line="181" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="596" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="604" />
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="614" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="615" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="623" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="633" />
             <source>Test</source>
             <translation>Testen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="646" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="665" />
             <source>Test Error</source>
             <translation>Testfehler</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="635" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="654" />
             <source>Test Failed</source>
             <translation>Test fehlgeschlagen</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="629" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="648" />
             <source>Test Successful</source>
             <translation>Test erfolgreich</translation>
         </message>
@@ -11704,7 +11724,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Für 'Satellitenbild laden' verwendet. Der Schlüssel wird nur in Ihren lokalen Benutzereinstellungen gespeichert und nie in Pläne oder das Installationsprogramm aufgenommen.</translation>
         </message>
         <message>
-            <location filename="../../ui/dialogs/preferences_dialog.py" line="450" />
+            <location filename="../../ui/dialogs/preferences_dialog.py" line="466" />
             <source>Using OGP_GOOGLE_MAPS_KEY from environment</source>
             <translation>OGP_GOOGLE_MAPS_KEY aus der Umgebung wird verwendet</translation>
         </message>

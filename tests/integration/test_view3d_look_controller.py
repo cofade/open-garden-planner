@@ -11,6 +11,7 @@ automatic preset.
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -453,6 +454,65 @@ def test_switching_reduced_motion_on_rests_a_running_wind_and_off_starts_it(qtbo
     assert host.calls == []
 
 
+def test_the_systems_reduce_motion_stops_the_wind_and_the_setting_cannot_undo_it(qtbot) -> None:
+    """Qt 6.12 (Phase 17 L7): the operating system's "reduce motion" preference is
+    honoured beside the app's own setting — EITHER one stops the wind, neither
+    switches the other off, and a change of the system's is followed live."""
+    host = Host()
+    look = make(qtbot, host, system_reduced_motion=True)
+    look.set_showing(True)
+    assert host.take() == [("rest", None)] and look.reduced_motion and not look.animating
+    look.set_reduced_motion(False)       # the app's setting is already off: nothing to undo
+    assert host.calls == [] and look.reduced_motion
+    look.set_reduced_motion(True)
+    look.set_system_reduced_motion(False)
+    assert host.calls == [] and look.reduced_motion, "the app's setting still holds it"
+    look.set_reduced_motion(False)
+    assert host.take() == [("wind", True)] and look.animating and not look.reduced_motion
+    look.set_system_reduced_motion(True)
+    assert host.take() == [("rest", None)] and not look.animating and look.system_reduced_motion
+    look.set_system_reduced_motion(True)
+    assert host.calls == [], "told once"
+
+
+def test_the_system_preference_is_read_from_qt_and_followed(qtbot, monkeypatch) -> None:  # noqa: ARG001
+    """``from_settings`` reads the preference and connects its change signal: a change
+    of it reaches the wind without the Preferences dialog."""
+    from open_garden_planner.ui.view3d import look_controller as module
+
+    preference = {"reduced": True}
+    monkeypatch.setattr(module, "system_reduced_motion", lambda: preference["reduced"])
+    host = Host()
+    look = module.LookController.from_settings(host, software=False)
+    try:
+        look.set_reduced_motion(False)
+        assert look.system_reduced_motion and look.reduced_motion
+        preference["reduced"] = False
+        look._system_motion_changed()       # what motionPreferenceChanged calls
+        assert not look.system_reduced_motion
+    finally:
+        look.shutdown()
+
+
+def test_qt_exposes_the_motion_preference_this_app_honours(qtbot) -> None:  # noqa: ARG001
+    """The successor of the 6.11 drift guard ("Qt exposes no motion preference"): Qt
+    6.12 has ``QAccessibilityHints.motionPreference``, and the reader returns a bool
+    on it. The day the binding moves, this fails instead of the wind silently
+    ignoring the system."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QGuiApplication
+
+    from open_garden_planner.ui.view3d.look_controller import system_reduced_motion
+
+    hints = QGuiApplication.styleHints()
+    assert hints is not None
+    accessibility = hints.accessibility()
+    assert accessibility.motionPreference() in (Qt.MotionPreference.NoPreference,
+                                                Qt.MotionPreference.ReducedMotion)
+    assert hasattr(accessibility, "motionPreferenceChanged")
+    assert isinstance(system_reduced_motion(), bool)
+
+
 def test_hidden_or_still_nothing_of_the_look_ticks(qtbot) -> None:
     """No idle wake-ups: the two timers of the look run only while there is something
     to wait for — a stale sky, a wind whose frames are being counted."""
@@ -756,3 +816,119 @@ def test_the_look_controller_imports_no_engine() -> None:
     modules |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import)
                 for alias in node.names}
     assert not any("QtQuick" in name or "QtQml" in name or "quick3d" in name for name in modules)
+
+
+# ── L7 (#391): the sky model ─────────────────────────────────────────────────
+
+
+@pytest.fixture
+def quick_noise(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """The cloud volume's worker answers at once (the real one takes about a second;
+    ``test_scene3d_cloud_noise.py`` checks the volume itself)."""
+    made = {"calls": 0, "fail": None}
+
+    def make() -> bytes:
+        made["calls"] += 1
+        if made["fail"] is not None:
+            raise made["fail"]
+        return b"volume"
+
+    monkeypatch.setattr(look_controller, "_make_cloud_noise", make)
+    return made
+
+
+def _models(host: Host) -> list[str]:
+    return [sky.model for sky in host.named("sky") if sky is not None]
+
+
+def test_the_atmosphere_waits_for_its_cloud_volume_with_the_painted_sky(qtbot, quick_noise) -> None:
+    """Chosen, the atmosphere is NOT drawn until the worker has made the volume: the
+    painted sky shows first, then the atmosphere is built at once — no sun move needed."""
+    host = Host()
+    look = make(qtbot, host, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    assert _models(host)[:1] == ["painted"], "the first sky cannot wait for a worker"
+    qtbot.waitUntil(lambda: look.sky_model_shown == "atmosphere", timeout=5000)
+    qtbot.waitUntil(lambda: _models(host)[-1:] == ["atmosphere"], timeout=5000)
+    assert quick_noise["calls"] == 1 and look.sky.model == "atmosphere"
+    assert host.named("sky")[-1] == replace(living_look(sun(35.0, 225.0), "high").sky,
+                                            model="atmosphere"), "the same sky, drawn otherwise"
+    look.shutdown()
+
+
+def test_switching_the_model_builds_the_other_sky_at_once(qtbot, quick_noise) -> None:  # noqa: ARG001
+    host = Host()
+    look = make(qtbot, host, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    qtbot.waitUntil(lambda: _models(host)[-1:] == ["atmosphere"], timeout=5000)
+    host.take()
+    look.set_sky_model("painted")
+    assert _models(host) == ["painted"] and look.sky_model == "painted"
+    host.take()
+    look.set_sky_model("atmosphere")   # the volume is ready now: no wait
+    assert _models(host) == ["atmosphere"]
+    look.set_sky_model("atmosphere")
+    assert _models(host) == ["atmosphere"], "told once"
+    look.shutdown()
+
+
+def test_a_software_adapter_never_draws_the_atmosphere_nor_makes_its_volume(qtbot, quick_noise) -> None:
+    host = Host()
+    look = make(qtbot, host, software=True, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    qtbot.wait(200)
+    assert host.named("sky") == [] and quick_noise["calls"] == 0
+    assert look.sky_model == "atmosphere" and look.sky_model_shown == "painted"
+    look.shutdown()
+
+
+class RefusingAtmosphere(Host):
+    def set_sky(self, sky: SkySpec | None) -> None:
+        if sky is not None and sky.model == "atmosphere":
+            self.calls.append(("refused", sky))
+            raise RuntimeError("SkyMaterial: no such type")
+        super().set_sky(sky)
+
+
+def test_an_atmosphere_the_engine_refuses_leaves_the_painted_sky_for_the_session(qtbot, quick_noise,  # noqa: ARG001
+                                                                                 caplog) -> None:
+    host = RefusingAtmosphere()
+    look = make(qtbot, host, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    qtbot.waitUntil(lambda: bool(host.named("refused")), timeout=5000)
+    assert _models(host)[-1] == "painted", "the painted sky in the same pass"
+    assert look.sky_light and look.sky.model == "painted" and look.sky_model_shown == "painted"
+    assert "atmosphere sky could not be built" in caplog.text
+    host.take()
+    look.set_sun(sun(20.0, 250.0))
+    assert host.named("refused") == [], "never asked again"
+    look.shutdown()
+
+
+def test_a_cloud_volume_that_cannot_be_made_keeps_the_painted_sky(qtbot, quick_noise, caplog) -> None:
+    quick_noise["fail"] = MemoryError("no room for 64 cubed")
+    host = Host()
+    look = make(qtbot, host, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    qtbot.waitUntil(lambda: "cloud volume could not be made" in caplog.text, timeout=5000)
+    assert _models(host) == ["painted"] and look.sky_model_shown == "painted"
+    look.shutdown()
+
+
+def test_preferences_reach_the_sky_model(qtbot, quick_noise, monkeypatch) -> None:  # noqa: ARG001
+    """``reload_settings`` follows the stored model, as it follows the quality."""
+    from open_garden_planner.app.settings import get_settings
+
+    settings = get_settings()
+    saved = settings.view3d_sky_model
+    host = Host()
+    look = make(qtbot, host)
+    look.set_sun(sun(35.0, 225.0))
+    try:
+        settings.view3d_sky_model = "atmosphere"
+        look.reload_settings()
+        assert look.sky_model == "atmosphere"
+        qtbot.waitUntil(lambda: _models(host)[-1:] == ["atmosphere"], timeout=5000)
+    finally:
+        settings.view3d_sky_model = saved
+        look.shutdown()

@@ -513,3 +513,18 @@ A completed synchronous repaint can still leave a `scene.changed` delivery
 and a minimap timer pending. Counting either as idle produces an order/load
 dependent failure without proving an idle feedback loop. Drain the queued
 events, then wait for the actual debounce timer with a bounded deadline.
+
+### PF-TST-36
+
+- **Rule:** On Qt 6.12 a destroyed window's lambda-connection proxies are freed one deferred-delete round LATER than on 6.11: a test that asserts a window was reclaimed flushes two rounds (`processEvents`, `sendPostedEvents(DeferredDelete)`, `processEvents`) with a `gc.collect()` after each, or pytest-qt's teardown closes a deleted wrapper (`RuntimeError: wrapped C/C++ object … has been deleted`).
+- **Pinned by:** `tests/unit/test_widget_leak_reclamation.py::test_app_destruction_reclaims_all_child_widgets`
+- **Source:** #391 (Phase 17 L7).
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+On 6.12 the test's body passed and its teardown errored, and the next test failed with
+"previous item was not torn down properly". The window's wrapper was alive in a cycle held by
+lambdas from C++ connection proxies; a minimal reproduction (a lambda on a child, the parent
+`deleteLater`) freed fine on both versions, and the window was collected on 6.11 after one
+flush but on 6.12 only after one more round with a collection — measured with the same test on
+both. It is not a product leak: the running app's event loop turns on.

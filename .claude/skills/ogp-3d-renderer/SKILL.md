@@ -33,5 +33,6 @@ from dated measurements. New lessons belong in a new reference and index row.
 | 17. The built world complete on the engine (L4) | [Read](references/017-17-the-built-world-complete-on-the-engine-l4.md) |
 | 18. Counting engine textures without GPU memory (QTBUG-151940) | [Read](references/018-18-counting-engine-textures-without-gpu-memory-qtbug-151940.md) |
 | 19. The living garden on the engine (L5) | [Read](references/019-19-the-living-garden-on-the-engine-l5.md) |
+| 20. Qt 6.12 and the atmosphere sky (L7) — SkyMaterial, the cull-aware pick | [Read](references/020-20-qt-6-12-and-the-atmosphere-sky-l7.md) |
 
 The host state contract is owned by `ui/view3d/quick3d/lifecycle.py`.

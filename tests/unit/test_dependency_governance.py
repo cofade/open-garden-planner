@@ -74,11 +74,14 @@ def test_the_qt_pair_moves_as_one_and_mcp_stays_on_v1() -> None:
     the old view; tests/unit/test_qt_runtime_pins.py holds the rest of the rule)."""
     qt = {name: _requirement(name) for name in ("PyQt6", "PyQt6-Qt6")}
     versions = {str(r.specifier) for r in qt.values()}
-    assert len(versions) == 1 and versions.pop().startswith("==6.11.0"), (
+    assert len(versions) == 1 and versions.pop().startswith("==6.12.0"), (
         "PyQt6 and PyQt6-Qt6 must pin the SAME micro (#277)"
     )
+    # Since Qt 6.12 WebEngine moves WITH the pair: the 6.10 wheel next to Qt 6.12
+    # failed to import ("procedure not found", Phase 17 L7, ADR-048 addendum). Its
+    # 6.12-era release is numbered 6.140; the cap keeps a 6.141 out until it is tried.
     webengine = _requirement("PyQt6-WebEngine")
-    assert "<6.11" in str(webengine.specifier)
+    assert ">=6.140.0" in str(webengine.specifier) and "<6.141" in str(webengine.specifier)
     mcp = _requirement("mcp")
     assert "<2.0" in str(mcp.specifier) and ">=1.23" in str(mcp.specifier)
 

@@ -121,3 +121,37 @@ inside 160 measured moves). A timer's expiry is not an idle signal: `NET_SETTLE_
 50 ms after it, and a repaint in that window restarts the whole quiet time. Probe with a
 600 ms block in every tenth preview turn: 4 mid-round reads before, 1 after (the net's
 pass once the tool stops).
+
+### PF-E3D-13
+
+- **Rule:** Since Qt 6.12 the engine's pick honours each material's cull mode: a `NoCulling` part is picked from behind too, a culled one only on its front faces (6.11 picked front faces of every material). A selection oracle must keep every face of the two-sided kinds (`materials.TWO_SIDED_KINDS`, pinned against the QML) and the front faces of the rest.
+- **Pinned by:** `tests/unit/test_render_measurement_state.py::test_qt612_selection_honours_the_cull_mode_and_the_general_oracle_keeps_both`; `tests/unit/test_quick3d_qml.py::test_the_two_sided_kinds_are_the_components_that_never_cull`; `tests/integration/test_view3d_selection_render.py`
+- **Source:** #391 (Phase 17 L7), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+`qssgrenderray.cpp` v6.11.0 accepted only positive Moller-Trumbore determinants (its
+back-face branch was commented out); v6.12.0 takes the material's `QSSGCullFaceMode` and accepts
+either sign for `Disabled`. Foliage, grass and glass are `NoCulling` here. The render tier's
+selection test carried a guard that refused to run on any minor but 6.11 ("recharacterize Qt
+picking on upgrade") — that guard is what made the change visible; it now names 6.12. The held
+oracle file records, per triangle, whether its material draws both sides.
+
+### PF-E3D-14
+
+- **Rule:** A Qt 6.12 `SkyMaterial` compiles its shader only once EVERY texture it samples exists: hand it texture DATA (`QQuick3DTextureData`), never a texture rendered in the frame (`QuadTextureProvider`) — a provider's texture exists only after its first render, so the first frame after the sky appears is white, and a frame rendered only once (the app's offscreen frames) is white every time. A texture input left empty never compiles, and Qt silently draws its built-in debug sky.
+- **Pinned by:** `tests/unit/test_quick3d_qml.py::test_the_atmosphere_is_made_once_and_never_destroyed_nor_re_pointed`; `tests/unit/test_quick3d_selftest.py`; `tests/integration/test_view3d_looks_render.py`
+- **Source:** #391 (Phase 17 L7), ADR-048 addendum L7.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+Qt's skymaterial example renders its two look-up tables with `QuadTextureProvider` every
+frame. Ported as is, the atmosphere drew white: `qssgrenderskymaterial.cpp`'s
+`skyShaderTexturesReady` defers the compile "since the GLSL sampler type depends on the actual
+texture", and nothing reported it — no Qt warning, in any category. A minimal harness
+(`SkyMaterial` with no shader, with an inline shader, with ours) told the cases apart: the
+debug sky and the inline shader drew, ours drew white on frame 1 and the debug sky after (one
+texture input was empty). A second `grabWindow()` on the never-shown offscreen view to "warm
+it up" was an access violation — the host's one-offscreen-frame contract stands. The fix
+computes the tables in numpy (`core/scene3d/atmosphere_lut.py`) and hands them over as data,
+which also made the sky's colour known to Python.

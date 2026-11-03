@@ -195,8 +195,39 @@ Item {
         texture.textureData = data
         var old = view.skyTexture
         view.skyTexture = texture      // the scene shows the new sky ...
+        view.atmosphereOn = false      // ... instead of an atmosphere (L7) ...
         if (old)
             old.destroy()              // ... and only then the old pair goes (deferred)
+        root.skyBuilds += 1
+        return {"builds": root.skyBuilds}
+    }
+
+    // ---- the atmosphere sky (Phase 17 L7, #391; Quick3DHost.set_sky, model "atmosphere") ----
+    // ONE AtmosphereSky (a Qt 6.12 SkyMaterial: Hillaire's atmosphere and volumetric
+    // clouds over the painted sky, AtmosphereSky.qml / atmosphere.frag), made at the
+    // first call with its two textures - the cloud volume and the sky-view table, both
+    // texture DATA from Python (quick3d/cloud_volume.py), ready before the first frame -
+    // and from then on only written: a SkyMaterial re-renders its cube and re-filters its
+    // light itself when an input changes, so it is never rebuilt, and the host refills
+    // the sky-view table's data in place for a new sun. Neither it nor a Texture of it is
+    // ever destroyed or re-pointed while the scene lives (a data object attached to a
+    // second Texture draws white: ogp-3d-renderer §2) - a painted sky only switches it off.
+    function buildAtmosphere(inputs, volumeData, skyViewData) {
+        var sky = view.atmosphere
+        if (!sky) {
+            var volume = cloudVolumeComponent.createObject(view.scene, {"textureData": volumeData})
+            var skyView = skyViewComponent.createObject(view.scene, {"textureData": skyViewData})
+            sky = atmosphereComponent.createObject(view.scene, {"noiseVolume": volume,
+                                                                "skytextureBuffer": skyView})
+            view.atmosphere = sky
+        }
+        for (var key in inputs)
+            sky[key] = inputs[key]
+        var old = view.skyTexture
+        view.skyTexture = null
+        view.atmosphereOn = true
+        if (old)
+            old.destroy()              // a painted sky goes after the atmosphere shows
         root.skyBuilds += 1
         return {"builds": root.skyBuilds}
     }
@@ -204,6 +235,7 @@ Item {
     function dropSky() {
         var old = view.skyTexture
         view.skyTexture = null
+        view.atmosphereOn = false
         if (old)
             old.destroy()
         return {"builds": root.skyBuilds}
@@ -211,8 +243,10 @@ Item {
 
     property int skyBuilds: 0
     // read-backs for the host and its tests: is there a sky, and which object is it
-    readonly property bool skyBuilt: view.skyTexture !== null
+    readonly property bool skyBuilt: view.skyTexture !== null || view.atmosphereOn
     readonly property var skyTextureObject: view.skyTexture
+    readonly property bool atmosphereBuilt: view.atmosphereOn
+    readonly property var atmosphereObject: view.atmosphere
 
     // MeshPart.material_kind -> part Component (keys = core.scene3d.MATERIAL_KINDS,
     // pinned against quick3d/materials.py PART_COMPONENTS)
@@ -816,12 +850,45 @@ Item {
 
         // the sky texture of the last buildSky(), or null: no sky was asked for
         property var skyTexture: null
+        // L7: the atmosphere sky (made once, by the first buildAtmosphere) and whether
+        // it is the sky now (buildAtmosphere: yes; buildSky, dropSky: no)
+        property var atmosphere: null
+        property bool atmosphereOn: false
         // a sky lights and backs the PERSPECTIVE view only
-        readonly property bool skyShown: skyTexture !== null && !root.topDown
+        readonly property bool paintedShown: skyTexture !== null && !root.topDown
+        readonly property bool atmosphereShown: atmosphereOn && atmosphere !== null && !root.topDown
+        readonly property bool skyShown: paintedShown || atmosphereShown
 
         Component {
             id: skyTextureComponent
             Texture {}
+        }
+        Component {
+            id: atmosphereComponent
+            AtmosphereSky {}
+        }
+        // the sky-view table (quick3d/cloud_volume.py: RGBA16F, 128 x 128), clamped at
+        // its edges as the example's provider texture was
+        Component {
+            id: skyViewComponent
+            Texture {
+                tilingModeHorizontal: Texture.ClampToEdge
+                tilingModeVertical: Texture.ClampToEdge
+                magFilter: Texture.Linear
+                minFilter: Texture.Linear
+            }
+        }
+        // the cloud volume (quick3d/cloud_volume.py: RGBA16F, 64 cubed), tileable in
+        // all three axes as the example's
+        Component {
+            id: cloudVolumeComponent
+            Texture {
+                tilingModeHorizontal: Texture.Repeat
+                tilingModeVertical: Texture.Repeat
+                tilingModeDepth: Texture.Repeat
+                magFilter: Texture.Linear
+                minFilter: Texture.Linear
+            }
         }
         Component {
             id: skyDataComponent
@@ -838,9 +905,12 @@ Item {
         // The numbers that are not properties are the L0 spike's, the same at every
         // preset (pinned against its scene file's values, frozen when L1.10 deleted it).
         environment: ExtendedSceneEnvironment {
-            backgroundMode: view.skyShown ? SceneEnvironment.SkyBox : SceneEnvironment.Color
+            backgroundMode: view.atmosphereShown ? SceneEnvironment.SkyMaterial
+                            : view.paintedShown ? SceneEnvironment.SkyBox : SceneEnvironment.Color
             clearColor: root.skyColor
-            lightProbe: view.skyShown ? view.skyTexture : null
+            lightProbe: view.paintedShown ? view.skyTexture : null
+            // L7: the atmosphere backs the view AND lights it (its own filtered cube)
+            skyMaterial: view.atmosphereShown ? view.atmosphere : null
             probeExposure: root.probeExposure
             skyboxBlurAmount: 0.0
             tonemapMode: root.topDown ? SceneEnvironment.TonemapModeNone

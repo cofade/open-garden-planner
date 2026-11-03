@@ -58,7 +58,7 @@ class MainThreadBridge(QObject):
         self._pending: set[Future[Any]] = set()
         # QueuedConnection => the slot runs in the thread that owns this QObject
         # (the main thread), regardless of which thread emits the signal.
-        self._invoke.connect(  # type: ignore[call-arg]
+        self._invoke.connect(
             self._on_invoke, Qt.ConnectionType.QueuedConnection
         )
 

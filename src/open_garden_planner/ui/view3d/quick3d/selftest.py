@@ -37,6 +37,14 @@ the artifact it runs in: can THIS build render the garden? It
    (``precipitation.vert`` / ``.frag``, ``ambient.vert`` / ``.frag``) and every lit
    material's point-light path (``POINT_LIGHT`` in the foliage and lawn shaders) are
    compiled from the bundle: the lamp's warm glow must show (``judge_living_frame``).
+8. renders the atmosphere sky (L7, #391) twice — Qt 6.12's ``SkyMaterial`` from the
+   bundle's ``AtmosphereSky.qml`` and its three shaders, with the cloud noise volume
+   uploaded as a 3D texture — looking into the sky at eye height, once clear and once
+   under the weather's clouds: the sky must be drawn (not the plain background), and
+   the cloudy one must differ from the clear one, which only a cloud raymarch through
+   the uploaded volume can do (``judge_atmosphere_frames``). The atmosphere lights
+   nothing here and is drawn on screen at a quarter of the resolution (no cube, no
+   probe: ``atmosphere_light=False``) — a machine without a GPU can afford that.
 
 A QML error, a shader that does not compile, a frame that fails the judge or an
 exception fails the self-test. So does a hang: a watchdog dumps every thread's
@@ -44,7 +52,7 @@ stack into the log and exits with code 1.
 
 It must pass on a machine WITHOUT a GPU: ``release.yml`` runs it on
 ``windows-latest``, where Direct3D 11 renders on WARP. Nothing here needs more
-than one 160 x 120 frame, no sky probe, no post effects.
+than 160 x 120 frames, no sky probe, no post effects.
 
 The exit code is the only channel of a windowed exe; the log
 (``default_log_path()``: the app's per-user log directory, or ``OGP_SELFTEST_LOG``)
@@ -182,6 +190,23 @@ LIVING_LAMP: Final = (_CENTER[0] - 60.0, _CENTER[1] - 40.0, 90.0)
 #: At least this many pixels of the lamp's warm glow (red and green bright, blue well
 #: below green). Nothing else in a rainy night frame is that warm and that bright.
 LIVING_GLOW_PIXELS: Final = 4
+#: The atmosphere frames (point 8): at eye height south of the plan, looking north and
+#: up into the sky, a sun in the south-west at 35° (behind and beside the camera), first
+#: clear and then under ``ATMOSPHERE_CLOUD`` of the weather's cloud.
+ATMOSPHERE_EYE: Final = (_CENTER[0], _CENTER[1] - 500.0, 160.0)
+ATMOSPHERE_TARGET: Final = (_CENTER[0], _CENTER[1] + 500.0, 520.0)
+ATMOSPHERE_SUN: Final = SunState(elevation_deg=35.0, azimuth_deg=200.0)
+ATMOSPHERE_CLOUD: Final = 0.7
+#: The sky band the judge reads: the top rows of the frame, all of it above the haze band.
+ATMOSPHERE_SKY_ROWS: Final = 0.25
+#: The clear sky's band must lie at least this far (mean absolute sRGB difference) from
+#: the plain background a frame without a sky shows, and the cloudy band this far from
+#: the clear one. Measured 2026-11-03 with ``_render_atmosphere`` (the path of
+#: ``--selftest``): 44.3 and 28.1 on the GPU (Direct3D 11, RTX 4070) and 44.3 and 28.1 on
+#: WARP; the three frames took 9.3 s and 8.8 s, the cloud volume made once included. A
+#: quarter of each is the bound.
+ATMOSPHERE_MIN_SKY_DIFF: Final = 11.0
+ATMOSPHERE_MIN_CLOUD_DIFF: Final = 7.0
 
 #: Where the judge looks. Each patch lies well inside what it samples; the shadow
 #: patch is inside the analytic 2D shadow of the box for ``SUN`` and outside the
@@ -350,6 +375,32 @@ def judge_living_frame(rgba: NDArray[np.uint8]) -> list[str]:
     return []
 
 
+def _sky_band(rgba: NDArray[np.uint8]) -> NDArray[np.float64]:
+    rows = max(1, int(round(rgba.shape[0] * ATMOSPHERE_SKY_ROWS)))
+    return rgba[:rows, :, :3].astype(np.float64)
+
+
+def judge_atmosphere_frames(plain: NDArray[np.uint8], clear: NDArray[np.uint8],
+                            cloudy: NDArray[np.uint8]) -> list[str]:
+    """What is wrong with the atmosphere frames (point 8) — an empty list for good ones.
+    ``plain``: the same view without a sky (the plain background), the oracle for "the
+    sky was not drawn"."""
+    problems: list[str] = []
+    sky, clouds = _sky_band(clear), _sky_band(cloudy)
+    mean = sky.reshape(-1, 3).mean(axis=0)
+    if _luma(mean) < 20.0:
+        problems.append(f"the atmosphere sky is black ({_shown(mean)}): its shader drew nothing")
+    off_plain = float(np.abs(sky - _sky_band(plain)).mean())
+    if off_plain < ATMOSPHERE_MIN_SKY_DIFF:
+        problems.append(f"the atmosphere sky is the plain background ({_shown(mean)}, "
+                        f"{off_plain:.1f} from it): the SkyMaterial was not drawn")
+    cloud_diff = float(np.abs(clouds - sky).mean())
+    if cloud_diff < ATMOSPHERE_MIN_CLOUD_DIFF:
+        problems.append(f"the cloudy sky equals the clear one ({cloud_diff:.1f} apart): the "
+                        "cloud raymarch or its noise volume did not reach the GPU")
+    return problems
+
+
 def judge_frame(rgba: NDArray[np.uint8], device_pixel_ratio: float = 1.0) -> list[str]:
     """What is wrong with a self-test frame — an empty list for a good one.
 
@@ -501,6 +552,29 @@ def _render_living(log: RenderLog, qml_dir: Path | None) -> NDArray[np.uint8]:
     return frame.rgba()
 
 
+def _render_atmosphere(log: RenderLog, qml_dir: Path | None
+                       ) -> tuple[NDArray[np.uint8], NDArray[np.uint8], NDArray[np.uint8]]:
+    """The atmosphere frames (module docstring, point 8): the view without a sky (the
+    judge's oracle for the plain background), then the atmosphere clear and cloudy."""
+    from dataclasses import replace
+
+    from open_garden_planner.core.scene3d.look import ATMOSPHERE, look_for
+
+    from .offscreen import render_records
+    from .shots import PerspectiveShot
+
+    look = look_for(ATMOSPHERE_SUN, "low")
+    shot = PerspectiveShot(ATMOSPHERE_EYE, ATMOSPHERE_TARGET, 50.0)
+    frames = []
+    for cloud in (None, 0.0, ATMOSPHERE_CLOUD):
+        sky = replace(look.sky, model=ATMOSPHERE, cloud=cloud or 0.0)
+        frame = render_records({}, shot=shot, sun=ATMOSPHERE_SUN, ground=GROUND, size=SIZE,
+                               look=replace(look, sky=sky), qml_dir=qml_dir, log=log,
+                               sky_light=cloud is not None, atmosphere_light=False)
+        frames.append(frame.rgba())
+    return frames[0], frames[1], frames[2]
+
+
 def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WATCHDOG_S,
                  qml_dir: Path | None = None, log: RenderLog | None = None) -> SelftestResult:
     """Import the engine, render the self-test frame, judge it (module docstring).
@@ -538,10 +612,12 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
             if watchdog_s is None:  # the caller bounds the whole run
                 rendered = _render(log, qml_dir)
                 living = _render_living(log, qml_dir)
+                plain, clear, cloudy = _render_atmosphere(log, qml_dir)
             else:
                 with watchdog(watchdog_s, log, what="the 3D self-test frame"):
                     rendered = _render(log, qml_dir)
                     living = _render_living(log, qml_dir)
+                    plain, clear, cloudy = _render_atmosphere(log, qml_dir)
             problems = [f"the builder of {failure} failed: the item has no solid"
                         for failure in rendered.build_failures]
             if rendered.other_threads:
@@ -560,6 +636,7 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                     "without a GPU its light probe alone takes longer than the whole test may")
             problems += judge_frame(rendered.rgba, rendered.device_pixel_ratio)
             problems += judge_living_frame(living)
+            problems += judge_atmosphere_frames(plain, clear, cloudy)
             where = f"{rendered.graphics_api} / {rendered.adapter or 'adapter unknown'}"
             if problems:
                 for problem in problems:
@@ -571,7 +648,7 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                           f"a baked ground of {rendered.ground_tiles} tiles in "
                           f"{rendered.ground_tiles_painted} tile paints, the selection ring, "
                           f"the shade and the lines overlays, four screen doors; a rainy "
-                          f"night with a garden light)")
+                          f"night with a garden light; the atmosphere sky, clear and cloudy)")
         except Exception as exc:  # noqa: BLE001 - a QML or shader error arrives here
             say(False, f"Qt Quick 3D render -> {type(exc).__name__}: {exc}")
     ok = all(line.startswith("  OK  ") for line in lines)

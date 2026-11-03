@@ -454,6 +454,16 @@ class Board:
 
     # ── one frame ────────────────────────────────────────────────────────────
 
+    def with_sky_model(self, look: LookSpec) -> LookSpec:
+        """``look`` with its sky drawn by ``--sky`` (L7): ``painted`` (the default) or
+        ``atmosphere`` — every frame, probe and look of the run goes through here."""
+        from dataclasses import replace
+
+        model = str(self.args.sky)
+        if model == look.sky.model:
+            return look
+        return replace(look, sky=replace(look.sky, model=model))
+
     def frame(self, name: str, records: dict[str, Record], *, shot: Any, sun: SunState | None,
               look: LookSpec, ground: GroundSpec | None, registry: Any = None,
               sky: bool = True, size: tuple[int, int] | None = None,
@@ -465,6 +475,7 @@ class Board:
         from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
+        look = self.with_sky_model(look)
         try:
             build_date = self._snapshot_day.get(id(records))
             frame = render_records(
@@ -721,6 +732,7 @@ class Board:
         from open_garden_planner.ui.view3d.ground_bake import GroundBaker
         from open_garden_planner.ui.view3d.quick3d.offscreen import RenderError, render_records
 
+        look = self.with_sky_model(look)
         try:
             frame = render_records(
                 records, shot=shot, sun=sun, ground=self.plan_ground(), size=self.size,
@@ -1250,7 +1262,7 @@ class Board:
             host.set_camera(shot.eye, shot.target, shot.fov_deg)
             host.set_look(look_for(sun, presets[0]))
             if not self.software:
-                host.set_sky(look_for(sun, presets[0]).sky)
+                host.set_sky(self.with_sky_model(look_for(sun, presets[0])).sky)
             host.show()
             ready = host.wait_ready(30.0)
             for preset in presets:
@@ -1316,6 +1328,8 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--living", action="store_true",
                         help="the living garden (L5): weather, dew, leaves, butterflies, "
                              "fireflies, garden lights")
+    parser.add_argument("--sky", choices=("painted", "atmosphere"), default="painted",
+                        help="which sky draws every frame (L7: atmosphere = Qt 6.12 SkyMaterial)")
     parser.add_argument("--list", action="store_true", help="print the shots and render nothing")
     return parser.parse_args(argv)   # a typo is an error, never another experiment
 
@@ -1345,7 +1359,8 @@ def run(args: argparse.Namespace, out: Path, log: Any, metrics: dict[str, Any]) 
     offscreen.ensure_application()
     metrics.update({"platform": platform.platform(), "python": sys.version.split()[0],
                     "qt": QT_VERSION_STR, "size": str(args.size), "software": bool(args.software),
-                    "sky_light": not args.software, "wind_time": 0.0})
+                    "sky_light": not args.software, "sky_model": str(args.sky),
+                    "wind_time": 0.0})
     board = Board(args, out, log, metrics)
     log("start", qt=QT_VERSION_STR, size=args.size, presets=args.presets, shots=args.shots,
         software=bool(args.software))

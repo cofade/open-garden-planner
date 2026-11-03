@@ -206,3 +206,22 @@ The About dialog in a direct PyInstaller build said **1.2.0** while `pyproject.t
 - **Source:** #601; ADR-058
 - **Status:** pointer → [§8.10.4](../../08-crosscutting-concepts/README.md#8104-the-inner-loop-and-which-run-is-the-gate-509)
 - **Legacy:** none (new entry)
+
+### PF-CI-17
+
+- **Rule:** Since Qt 6.12 `PyQt6-WebEngine` moves WITH the Qt pair (its 6.12-era release is numbered 6.140 and requires `PyQt6>=6.12.0`): the 6.10 wheel next to Qt 6.12.0 fails to import, which kills the app at start because `main.py` imports WebEngine at module level. QtPdf left the WebEngine wheel for `PyQt6-Pdf` (a `dev` extra here: only tests read PDFs back).
+- **Pinned by:** `tests/unit/test_dependency_governance.py::test_the_qt_pair_moves_as_one_and_mcp_stays_on_v1`; `tests/integration/test_path_style_export.py`; `tests/integration/test_plan_timeline.py`
+- **Source:** #391 (Phase 17 L7), ADR-048 addendum L7, ADR-038 scope note (corrected).
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+ADR-038's scope note said WebEngine links Qt's public ABI only and may float a minor
+behind the core (6.10.2 next to 6.11.0 worked). At 6.12 it did not: `import
+PyQt6.QtWebEngineWidgets` with PyQt6-WebEngine 6.10.0 and PyQt6-Qt6 6.12.0 raised *"DLL load
+failed while importing QtWebEngineWidgets: Die angegebene Prozedur wurde nicht gefunden"* —
+the same message #277's Qt 3D wheels gave. The 6.12-era WebEngine is versioned after its
+Chromium (6.140.0, Chromium 140.0.7339.225), so a cap written as `<6.13` would never have
+admitted it: the cap is `<6.141`. The same release moved QtPdf out of WebEngine into
+`PyQt6-Pdf`; two integration tests failed with `No module named 'PyQt6.QtPdf'` until it became a
+`dev` dependency. On every Qt bump: import every Qt add-on wheel the app uses against the new
+core before believing the lock.

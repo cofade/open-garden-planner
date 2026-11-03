@@ -612,7 +612,7 @@ class Workspace(QWidget):
 
     def apply_look_settings(self) -> None:
         """The 3D settings changed (the Preferences dialog was accepted): the look
-        follows — quality and reduced motion. Nothing to do before 3D was opened:
+        follows — quality, reduced motion and (L7) the sky model. Nothing to do before 3D was opened:
         the look controller reads the settings when it is built."""
         if self._look is not None:
             self._look.reload_settings()

@@ -48,6 +48,15 @@ PART_COMPONENTS: Final = MappingProxyType({
     "water": "waterPart",
 })
 
+#: The kinds whose look draws BOTH sides of a triangle (``cullMode: Material.NoCulling``
+#: in their part component, whatever the scene's state). Since Qt 6.12 the engine's
+#: pick honours a material's cull mode (``qssgrenderray.cpp``: a ``Disabled`` cull
+#: mode accepts either determinant sign), so a ray picks these from behind too; the
+#: other kinds cull back faces and pick front faces only — as every kind did on Qt
+#: 6.11, whose ray test accepted positive determinants alone (Phase 17 L7, #391).
+#: Pinned against the QML by ``tests/unit/test_quick3d_qml.py``.
+TWO_SIDED_KINDS: Final = frozenset({"foliage", "grass", "glass"})
+
 #: The tint of a part that is not tinted: the identity of the multiplication.
 WHITE: Final[Rgba] = (255, 255, 255, 255)
 
