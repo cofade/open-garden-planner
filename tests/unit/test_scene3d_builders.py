@@ -208,14 +208,14 @@ class TestRegistration:
             "WALL_PLANTER", "CONTAINER_ROUND", "GARDEN_BED", "HEDGE_SECTION", "HEDGE_POLYGON",
         }) == BUILT_WORLD_KINDS
         assert frozenset({"TREE", "SHRUB", "PERENNIAL"}) == PLANT_KINDS
-        assert len(OBJECT_KINDS) == 24 and len(SURFACE_KINDS) == 5
+        assert len(OBJECT_KINDS) == 26 and len(SURFACE_KINDS) == 5   # L4's 24, L5.4's 2 lights
         families = (BUILT_WORLD_KINDS, OBJECT_KINDS, SURFACE_KINDS, PLANT_KINDS)
         for index, family in enumerate(families):                      # no kind belongs to two
             for other in families[index + 1:]:
                 assert not family & other
         everything = BUILT_WORLD_KINDS | OBJECT_KINDS | SURFACE_KINDS | PLANT_KINDS
         assert REGISTRY.kinds() == everything                           # … and nothing else is registered
-        assert len(REGISTRY.kinds()) == sum(len(family) for family in families) == 44
+        assert len(REGISTRY.kinds()) == sum(len(family) for family in families) == 46
 
     def test_every_plant_kind_resolves_to_the_plant_builder(self) -> None:
         for kind in sorted(PLANT_KINDS):

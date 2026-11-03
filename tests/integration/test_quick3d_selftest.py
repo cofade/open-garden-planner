@@ -153,7 +153,8 @@ def test_the_3d_selftest_draws_and_judges_the_selection_ring(tmp_path: Path) -> 
     (frame,) = [line for line in proc.stdout.splitlines() if "Qt Quick 3D frame" in line]
     assert frame.endswith("(Garden.qml, 6 materials, a baked ground of 12 tiles in 12 tile "
                           "paints, the selection ring, the shade and the lines overlays, four "
-                          "screen doors)")
+                          "screen doors; a rainy night with a garden light; the atmosphere "
+                          "sky, clear and cloudy)")
 
 
 @pytest.mark.parametrize(("file", "old", "new"), [
@@ -164,6 +165,27 @@ def test_the_3d_selftest_fails_on_a_ring_shader_that_does_not_compile(
         tmp_path: Path, file: str, old: str, new: str) -> None:
     """Positive control for the release gate: without the selected swatch the ring's
     shaders would never be compiled before a user selects something."""
+    qml = tmp_path / "qml"
+    shutil.copytree(QML_SOURCE, qml)
+    shader = qml / file
+    text = shader.read_text(encoding="utf-8")
+    assert old in text
+    shader.write_text(text.replace(old, new), encoding="utf-8")
+    proc, log = _selftest(tmp_path, str(qml))
+    assert proc.returncode == 1, proc.stdout + proc.stderr[-2000:] + "\n--- self-test log ---\n" + log
+    (failure,) = [line for line in proc.stdout.splitlines() if "FAIL" in line]
+    assert "Qt Quick 3D render -> RenderError" in failure and "shader" in failure.lower()
+    assert "result=FAIL" in log
+
+
+@pytest.mark.parametrize(("file", "old", "new"), [
+    ("precipitation.frag", "uLight, alpha * vFade)", "uLightMissing, alpha * vFade)"),
+    ("ambient.vert", "float t = uTime;", "float t = uTimeMissing;"),
+], ids=["precipitation.frag", "ambient.vert"])
+def test_the_3d_selftest_fails_on_a_particle_shader_that_does_not_compile(
+        tmp_path: Path, file: str, old: str, new: str) -> None:
+    """Positive control (L5, #389): the particle shaders are compiled only when it rains or
+    a lamp glows — the self-test's living frame compiles them before a release."""
     qml = tmp_path / "qml"
     shutil.copytree(QML_SOURCE, qml)
     shader = qml / file

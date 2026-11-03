@@ -2354,6 +2354,9 @@ class GardenPlannerApp(QMainWindow):
         # while its tab is hidden, so it can be wired to stack_changed (covers
         # undo/redo) without the heavyweight churn #210 flagged — fixes #225.
         self._tab_widget.currentChanged.connect(self._on_tab_changed)
+        # the weather widget follows the place at once, also while this tab is hidden
+        # (its refresh is skipped then): a fetch for the old place is cancelled (PF-LIF-12)
+        self._project_manager.location_changed.connect(self.calendar_view.follow_location)
         self._project_manager.location_changed.connect(
             lambda _: self.calendar_view.schedule_refresh()
         )
@@ -2387,6 +2390,10 @@ class GardenPlannerApp(QMainWindow):
         self.addAction(tasks_shortcut)
         # Reuse the calendar's single weather fetch for frost tasks.
         self.calendar_view.frost_alerts_ready.connect(self.tasks_view.set_frost_alerts)
+        # ... and for the 3D view's "Today's Weather" (Phase 17 L5.3): no second fetch —
+        # the 3D view asks the calendar's weather widget, also while its tab is hidden.
+        self.calendar_view.forecast_days_ready.connect(self._workspace.set_weather_forecast)
+        self._workspace.forecast_wanted.connect(self.calendar_view.request_forecast)
         # ...and keep an application-owned copy for the agent's PlanState build
         # (US-D3.3). Reading `tasks_view._frost_alerts` from here would couple
         # the agent path to a private attribute of a widget; this is the same
@@ -5325,7 +5332,7 @@ class GardenPlannerApp(QMainWindow):
         dialog = PreferencesDialog(self)
         if dialog.exec():
             self._update_satellite_menu_state()
-            self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4)
+            self._workspace.apply_look_settings()  # 3D quality, reduced motion (L1.4), sky (L7)
             # Canvas (#321): touch gestures take effect at once, like the look settings.
             self.canvas_view.set_touch_gestures_enabled(settings.touch_gestures_enabled)
             after = _agent_api_state()

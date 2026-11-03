@@ -26,7 +26,8 @@ from PyQt6.QtWidgets import QMessageBox
 from open_garden_planner.app.application import GardenPlannerApp
 from open_garden_planner.app.settings import get_settings
 from open_garden_planner.core.scene3d import RecordingSink, SunState
-from open_garden_planner.core.scene3d.look import look_for, moon_travel_scene, sky_is_stale
+from open_garden_planner.core.scene3d.look import moon_travel_scene, sky_is_stale
+from open_garden_planner.core.scene3d.weather import living_look
 from open_garden_planner.core.sim_clock import SimInstant
 from open_garden_planner.core.solar import solar_position
 from open_garden_planner.core.tools import ToolType
@@ -69,12 +70,15 @@ class Engines:
 
 @pytest.fixture()
 def look_settings(qtbot):  # noqa: ARG001 - Qt must be up
-    """The three 3D settings at known values, and put back afterwards."""
+    """The 3D settings at known values, and put back afterwards (L7: the sky model too)."""
     settings = get_settings()
-    saved = (settings.view3d_quality, settings.view3d_reduced_motion, settings.view3d_auto_level)
+    saved = (settings.view3d_quality, settings.view3d_reduced_motion, settings.view3d_auto_level,
+             settings.view3d_sky_model)
     settings.view3d_quality, settings.view3d_reduced_motion = "high", False
+    settings.view3d_sky_model = "painted"
     yield settings
-    settings.view3d_quality, settings.view3d_reduced_motion, settings.view3d_auto_level = saved
+    (settings.view3d_quality, settings.view3d_reduced_motion, settings.view3d_auto_level,
+     settings.view3d_sky_model) = saved
 
 
 @pytest.fixture()
@@ -119,7 +123,8 @@ def _settle(qtbot: Any, ms: int = 0) -> None:
 
 
 def _preferences(window: GardenPlannerApp, monkeypatch: pytest.MonkeyPatch, *,
-                 quality: str | None = None, reduced_motion: bool | None = None) -> None:
+                 quality: str | None = None, reduced_motion: bool | None = None,
+                 sky_model: str | None = None) -> None:
     """Edit → Preferences through the REAL window (``_on_preferences``): the dialog it
     builds is changed as a user would and saved — its ``exec`` returns Accepted — and
     what the window does on "Save" is what is tested (review P1: the window's call to
@@ -130,6 +135,9 @@ def _preferences(window: GardenPlannerApp, monkeypatch: pytest.MonkeyPatch, *,
             combo.setCurrentIndex(combo.findData(quality))
         if reduced_motion is not None:
             dialog._view3d_reduced_motion_check.setChecked(reduced_motion)
+        if sky_model is not None:   # L7 (#391)
+            combo = dialog._view3d_sky_combo
+            combo.setCurrentIndex(combo.findData(sky_model))
         dialog._save_and_accept()
         return 1
 
@@ -157,8 +165,8 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     host, sink, look, controller = engines.host, engines.sink, workspace.look, workspace.controller
     assert look is not None and controller is not None and engines.modes == [False]
     assert sink.sun == NO_LOCATION_SUN
-    assert host.looks == [look_for(NO_LOCATION_SUN, "high")]
-    assert host.skies == [look_for(NO_LOCATION_SUN, "high").sky], "the first sky: with the first sun"
+    assert host.looks == [living_look(NO_LOCATION_SUN, "high")]
+    assert host.skies == [living_look(NO_LOCATION_SUN, "high").sky], "the first sky: with the first sun"
     assert host.wind == ["run"], "shown, motion not reduced: the wind runs"
     assert (look.quality, look.preset, look.sky_light) == ("high", "high", True)
     builds = controller.sync.build_count
@@ -168,7 +176,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     window._project_manager.set_location(dict(BERLIN))
     _settle(qtbot)
     here = _sun_at(clock, clock.wall)
-    assert sink.sun == here and host.looks[-1] == look_for(here, "high")
+    assert sink.sun == here and host.looks[-1] == living_look(here, "high")
 
     # ── the toolbar's time, through sunrise, noon, sunset and night ──────────
     script = [
@@ -190,7 +198,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
         window._on_sun_sim_datetime(wall)
         _settle(qtbot)
         sun = _sun_at(clock, wall)
-        expected = look_for(sun, "high")
+        expected = living_look(sun, "high")
         # the light: the pipeline told the sink the plan's own sun …
         assert sink.sun == sun, name
         assert sink.ops() == [BEGIN, SUN, COMMIT], f"{name}: a time change is light only"
@@ -225,7 +233,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     window._on_sun_sim_datetime(a_minute_later)
     _settle(qtbot)
     nudged = _sun_at(clock, a_minute_later)
-    assert not sky_is_stale(look.sky, look_for(nudged, "high").sky)
+    assert not sky_is_stale(look.sky, living_look(nudged, "high").sky)
     assert len(host.skies) == skies, "a quarter of a degree: zero rebuilds"
     assert sink.sun == nudged and sink.ops() == [BEGIN, SUN, COMMIT]
     # a time of day re-lights the garden; the look never snapshots the plan. A snapshot
@@ -242,7 +250,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     window._on_sun_sim_datetime(december)
     _settle(qtbot)
     winter = _sun_at(clock, december)
-    assert sink.sun == winter and host.looks[-1] == look_for(winter, "high")
+    assert sink.sun == winter and host.looks[-1] == living_look(winter, "high")
     assert len(host.skies) == skies + 1, "the winter sun stands somewhere else: one rebuild"
     assert clock.plan_date == DECEMBER
     assert [op for op in sink.ops() if op[0] not in ("begin", "commit", "set_sun")] == [], \
@@ -252,7 +260,7 @@ def test_a_day_in_the_garden_drives_the_look_and_nothing_else(app3d, qtbot, mous
     sink.clear_calls()
     looks, skies, wind = len(host.looks), len(host.skies), len(host.wind)
     _preferences(window, monkeypatch, quality="low")       # Edit → Preferences → Save
-    assert host.looks[looks:] == [look_for(winter, "low")], "a preset change is ONE look call"
+    assert host.looks[looks:] == [living_look(winter, "low")], "a preset change is ONE look call"
     assert (look.quality, look.preset) == ("low", "low")
     assert len(host.skies) == skies and len(host.wind) == wind
     shown = PreferencesDialog(window)
@@ -313,7 +321,7 @@ def test_compatibility_mode_gets_the_look_without_a_sky(app3d, qtbot, tmp_path: 
         window._on_sun_sim_datetime(datetime(2026, 6, 21, hour, 0))
         _settle(qtbot)
         sun = _sun_at(clock, datetime(2026, 6, 21, hour, 0))
-        assert host.looks[-1] == look_for(sun, look.preset)
+        assert host.looks[-1] == living_look(sun, look.preset)
         assert host.looks[-1].plain_sky == host.looks[-1].fog_color
     assert host.skies == [], "no sky texture, so no light probe, in compatibility mode"
     assert len(host.looks) >= 4
@@ -327,7 +335,7 @@ def test_compatibility_mode_gets_the_look_without_a_sky(app3d, qtbot, tmp_path: 
     looks = len(host.looks)
     _preferences(window, monkeypatch, quality="auto")
     assert look.preset == "low", "auto on a software adapter is low: no frames to measure"
-    assert host.looks[looks:] == [look_for(_sun_at(clock, datetime(2026, 6, 21, 23, 0)), "low")]
+    assert host.looks[looks:] == [living_look(_sun_at(clock, datetime(2026, 6, 21, 23, 0)), "low")]
     assert "run" not in host.wind
 
 

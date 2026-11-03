@@ -511,11 +511,16 @@ def generate_stylesheet(mode: ThemeMode) -> str:
         border-color: {colors['accent']};
     }}
 
-    QToolButton#PlanDateHiddenPlants {{
+    /* A text button that only opens a menu (InstantPopup): the style draws its arrow
+       under the last letter, and the button then reads as a label (owner's manual
+       test of #389: "Wetter: Klar" was not found). Give the arrow room of its own. */
+    QToolButton#PlanDateHiddenPlants,
+    QToolButton[menuChevron="true"] {{
         padding-right: 16px;
     }}
 
-    QToolButton#PlanDateHiddenPlants::menu-indicator {{
+    QToolButton#PlanDateHiddenPlants::menu-indicator,
+    QToolButton[menuChevron="true"]::menu-indicator {{
         image: url("{_dn_path}");
         subcontrol-origin: padding;
         subcontrol-position: center right;

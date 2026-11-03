@@ -3,7 +3,7 @@
 Every SVG under `furniture/` and `infrastructure/` MUST be covered here before
 it merges (`ogp-external-positioning`: assets without provenance don't ship).
 
-## All 24 sprites (regenerated / created 2026-08-17)
+## All 25 sprites (regenerated / created 2026-08-17; `garden_light` added 2026-11-02, Phase 17 L5.4, #389 — a string of lights is a line, drawn by the canvas, with no sprite)
 - **Generator**: `scripts/generate_object_sprites.py` — procedural, pure Python
   (stdlib `random`/`math`/`colorsys`), no external model, service, or input
   asset. **The generator IS the provenance record**: every shape, color and
@@ -27,5 +27,5 @@ it merges (`ogp-external-positioning`: assets without provenance don't ship).
 ## Files
 | Directory | Files |
 |---|---|
-| `furniture/` | bbq_grill, bench, chair, fire_pit, hammock, hot_tub, lounger, parasol, picnic_table, planter_pot, sandbox, swing, table_rectangular, table_round, trampoline |
+| `furniture/` | bbq_grill, bench, chair, fire_pit, garden_light, hammock, hot_tub, lounger, parasol, picnic_table, planter_pot, sandbox, swing, table_rectangular, table_round, trampoline |
 | `infrastructure/` | bird_bath, cold_frame, compost_bin, pergola, rain_barrel, raised_bed, tool_shed, water_tap, wheelbarrow |

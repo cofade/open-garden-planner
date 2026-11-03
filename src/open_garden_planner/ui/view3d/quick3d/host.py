@@ -133,6 +133,7 @@ from open_garden_planner.core.fill_patterns import (
     pattern_from_name,
     tinted_pattern_pixels,
 )
+from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d import (
     EngineBuffers,
     EnginePose,
@@ -142,11 +143,16 @@ from open_garden_planner.core.scene3d import (
     scene_to_engine_points,
     scene_to_engine_vectors,
 )
-from open_garden_planner.core.scene3d.look import fog_depth_cm
+from open_garden_planner.core.scene3d.look import ATMOSPHERE, fog_depth_cm
 from open_garden_planner.core.scene3d.meadow import meadow_frame
+from open_garden_planner.core.scene3d.particles import (
+    precipitation_buffers,
+    precipitation_volume,
+)
 from open_garden_planner.core.scene3d.selection import SELECTION_RGBA
 
 from .adapter import GroundPlacement, PartSpec
+from .cloud_volume import CloudNoiseTexture, SkyViewTexture
 from .geometry import BufferGeometry, MeadowGeometry, ReloadableGeometry
 from .ground_tiles import GroundTileError, GroundTiles
 from .lifecycle import (
@@ -160,11 +166,15 @@ from .lifecycle import (
     why_no_frame,
 )
 from .look import (
+    ATMOSPHERE_VECTOR_PROPERTIES,
     COLOR_PROPERTIES,
     LINEAR_COLOR_PROPERTIES,
     NEUTRAL_DAY,
+    VECTOR_PROPERTIES,
     LookSpec,
     SkySpec,
+    atmosphere_properties,
+    atmosphere_sun_direction,
     scene_properties,
     sky_properties,
 )
@@ -445,6 +455,15 @@ class Quick3DHost:
         #: How long the last ``set_sky`` took on the GUI thread, milliseconds (the
         #: generation; the probe's filtering lands in the next frame Qt renders).
         self.last_sky_build_ms = 0.0
+        #: The atmosphere sky's two textures (L7): made at its first build and held for
+        #: the host's life — their ``Texture`` s are never re-pointed (``cloud_volume``);
+        #: the sky-view table is refilled for every new sun.
+        self._cloud_noise: CloudNoiseTexture | None = None
+        self._sky_view: SkyViewTexture | None = None
+        #: False: an atmosphere sky backs the view WITHOUT the painted sky's light probe
+        #: (``set_sky``) — what the self-test renders on a machine without a GPU, where
+        #: filtering a probe costs seconds. The product leaves it True.
+        self.sky_probe = True
         self._container: QWidget | None = None
         self._spent = False   # the one offscreen frame was taken (Qt cannot tell us)
         self._closed = False  # close() ran to its end (Qt deletes the view only later)
@@ -637,7 +656,9 @@ class Quick3DHost:
                 failures.append(error)
         steps: tuple[Callable[[], None], ...] = (
             lambda: self.set_sun(None), lambda: self.set_ground(None),
-            lambda: self.set_selection_ring(None))  # the ring is no item's: hidden, not destroyed
+            lambda: self.set_selection_ring(None),  # the ring is no item's: hidden, not destroyed
+            # the plan's life and its lights are its items': hidden with them (L5)
+            lambda: self.set_ambient(None), lambda: self.set_lamps([]))
         for step in steps:
             try:
                 step()
@@ -941,6 +962,82 @@ class Quick3DHost:
         """The items whose parts are drawn faded (X-ray, L2.4)."""
         return self._faded
 
+    # ── the living garden (Phase 17 L5, #389, ADR-070) ───────────────────────
+
+    #: The ONE geometry of the precipitation's Model and of the ambient life's — class
+    #: defaults, so that no host starts with one. Like the overlays: a weather, a date
+    #: or a time of day creates and destroys no engine object.
+    _precipitation: ReloadableGeometry | None = None
+    _ambient: ReloadableGeometry | None = None
+    #: How often each was loaded (the gates read them).
+    precipitation_loads = 0
+    ambient_loads = 0
+    #: The precipitation could not be loaded on this host: not tried again.
+    _precipitation_failed = False
+
+    def _load_precipitation(self) -> None:
+        """Load the precipitation's buffer (the same for every plan) into the scene's
+        precipitation Model — once per host, at its first rain or snow."""
+        geometry = self._precipitation
+        if geometry is not None and not sip.isdeleted(geometry):
+            return
+        model = self._call("precipitationModel")
+        try:
+            geometry = ReloadableGeometry(model)
+        except TypeError as error:
+            raise EngineError(f"the scene's precipitation is no 3D object ({error})") from error
+        geometry.load(precipitation_buffers())
+        if self._call("setPrecipitationGeometry", geometry) is not True:
+            raise EngineError("the scene refused the precipitation's geometry")
+        self._precipitation = geometry
+        self.precipitation_loads += 1
+
+    def set_ambient(self, buffers: EngineBuffers | None) -> None:
+        """Show the garden's life — falling leaves, butterflies, fireflies, and the
+        bulbs of the garden lights (``core.scene3d.particles.ambient_buffers``) — or
+        nothing (None, empty). Loaded into the ONE geometry of the scene's ambient
+        Model; WHEN each kind shows is the look's."""
+        self._open("set_ambient")
+        if buffers is None or buffers.is_empty:
+            _set(self._root, "ambientVisible", False)
+            return
+        geometry = self._ambient
+        if geometry is None or sip.isdeleted(geometry):
+            model = self._call("ambientModel")
+            try:
+                geometry = ReloadableGeometry(model)
+            except TypeError as error:
+                raise EngineError(f"the scene's ambient life is no 3D object ({error})") from error
+            geometry.load(buffers)
+            if self._call("setAmbientGeometry", geometry) is not True:
+                raise EngineError("the scene refused the ambient life's geometry")
+            self._ambient = geometry
+        else:
+            geometry.load(buffers)
+        self.ambient_loads += 1
+        _set(self._root, "ambientVisible", True)
+
+    def set_life_enabled(self, enabled: bool) -> None:
+        """The 3D strip's "Wildlife and Falling Leaves" switch: leaves, butterflies and
+        fireflies show (True) or not. The garden lights' bulbs are not life."""
+        self._open("set_life_enabled")
+        _set(self._root, "lifeEnabled", bool(enabled))
+
+    def set_lamps(self, lamps: list[tuple[float, float, float, float]]) -> None:
+        """The garden lights that LIGHT: up to the scene's ``lampSlots`` of
+        ``(east, north, up, strength)`` in the scene frame — the caller picks which
+        (``core.scene3d.lights.nearest_lamps``). Mapped to the engine frame here."""
+        self._open("set_lamps")
+        slots = int(_get(self._root, "lampSlots"))
+        if len(lamps) > slots:
+            raise EngineError(f"the scene lights at most {slots} lamps, got {len(lamps)}")
+        out = []
+        for east, north, up, strength in lamps:
+            engine = scene_to_engine_points(np.array([[east, north, up]], dtype=np.float64))[0]
+            out.append({"x": float(engine[0]), "y": float(engine[1]), "z": float(engine[2]),
+                        "w": float(strength)})
+        _set(self._root, "lamps", out)
+
     # ── lifecycle ────────────────────────────────────────────────────────────
 
     def container(self, parent: QWidget | None = None) -> QWidget:
@@ -1242,6 +1339,11 @@ class Quick3DHost:
         _set(self._root, "camTarget", _engine_vector(shot.target))
         _set(self._root, "camFov", float(shot.fov_deg))
         _set(self._root, "camVersion", int(_get(self._root, "camVersion")) + 1)
+        # where the rain falls follows the camera (L5): around the point it looks at
+        volume = precipitation_volume(shot.eye, shot.target)
+        _set(self._root, "volumeCenter", _engine_vector((*volume.center_scene, 0.0)))
+        _set(self._root, "volumeSize", float(volume.size_cm))
+        _set(self._root, "volumeHeight", float(volume.height_cm))
         self._update_shadow_reach()
 
     def set_top_down(self, center_scene: tuple[float, float], px_per_cm: float) -> None:
@@ -1264,10 +1366,22 @@ class Quick3DHost:
             elif name in LINEAR_COLOR_PROPERTIES:
                 red, green, blue = cast("tuple[float, float, float]", value)  # sRGB-space floats
                 value = QColor.fromRgbF(float(red), float(green), float(blue))
+            elif name in VECTOR_PROPERTIES:
+                x, y, z = cast("tuple[float, float, float]", value)
+                value = QVector3D(float(x), float(y), float(z))
             _set(self._root, name, value)
         previous, self._shown_look = self._shown_look, look
         if look.moon_travel_scene != previous.moon_travel_scene:
             self._apply_light()   # dusk or dawn: the key light changes hands
+        if look.atmosphere.precipitation != "none" and not self._precipitation_failed:
+            try:
+                self._load_precipitation()   # the first rain or snow of this host
+            except EngineError as error:
+                # the look is on screen without its rain: said ONCE, not on every pass
+                # (the caller would retry the whole look, senior review of L5)
+                self._precipitation_failed = True
+                _LOG.error("3D view: the rain and snow could not be loaded; the weather "
+                           "shows without them (%s)", log_text(error))
 
     @property
     def look(self) -> LookSpec:
@@ -1279,7 +1393,13 @@ class Quick3DHost:
         (a plain background and the look's flat fill instead).
 
         EVERY call with a sky builds one: a whole procedural sky on the GUI thread,
-        and a light probe Qt filters in the next frame it renders. WHEN to build is
+        and a light probe Qt filters in the next frame it renders. ``sky.model``
+        says which sky BACKS the view (L7): ``painted`` — the procedural texture — or
+        ``atmosphere`` — the Qt 6.12 ``SkyMaterial``, whose inputs are only written
+        here and which Qt draws on screen. The painted sky is built for BOTH: it is
+        the one light probe. The atmosphere never lights, so Qt never builds its cube.
+        That cube's pre-filter in Qt 6.12.0 uses a freed QRhi resource and crashed the
+        app (PF-E3D-17: 3 of 5 runs of one painted -> atmosphere switch). WHEN to build is
         the caller's policy (``core.scene3d.look.sky_is_stale``: once per noticeable
         sun move) — and so is never building one on a software adapter, where the
         probe's filtering was measured in tens of seconds (``ogp-3d-renderer`` §8).
@@ -1295,13 +1415,49 @@ class Quick3DHost:
             self._sky = None
             return
         started = time.perf_counter()
-        self._call("buildSky", sky_properties(sky))
+        # the painted sky: the light probe of both models, and the background of painted
+        if sky.model == ATMOSPHERE and not self.sky_probe:
+            self._call("dropSky")
+        else:
+            self._call("buildSky", sky_properties(sky))
+        if sky.model == ATMOSPHERE:
+            # L7: the inputs of the ONE atmosphere sky (made at the first call, then only
+            # written) — in the same GUI-thread turn, so no frame shows the painted
+            # background between the two calls
+            self._call("buildAtmosphere", self._atmosphere_inputs(sky), self._cloud_volume(),
+                       self._sky_view_table(atmosphere_sun_direction(sky)))
         self.last_sky_build_ms = (time.perf_counter() - started) * 1000.0
         self._sky = sky
         self.sky_builds += 1
         self._log("sky_built", n=self.sky_builds, ms=round(self.last_sky_build_ms, 1),
                   elevation=round(sky.sun_elevation_deg, 2), azimuth=round(sky.sun_azimuth_deg, 2),
-                  night=sky.night)
+                  night=sky.night, model=sky.model)
+
+    def _atmosphere_inputs(self, sky: SkySpec) -> dict[str, object]:
+        inputs: dict[str, object] = {}
+        for name, value in atmosphere_properties(sky).items():
+            if name in ATMOSPHERE_VECTOR_PROPERTIES:
+                x, y, z = cast("tuple[float, float, float]", value)
+                value = QVector3D(float(x), float(y), float(z))
+            inputs[name] = value
+        return inputs
+
+    def _sky_view_table(self, sun_direction: tuple[float, float, float]) -> SkyViewTexture:
+        """The sky-view table for ``sun_direction``, made once and refilled in place
+        (about 0.1 s of numpy per new sun, on the GUI thread like the painted sky's)."""
+        if self._sky_view is None:
+            self._sky_view = SkyViewTexture(sun_direction)
+        else:
+            self._sky_view.set_sun_direction(sun_direction)
+        return self._sky_view
+
+    def _cloud_volume(self) -> CloudNoiseTexture:
+        """The cloud noise volume, made once per host (the volume itself once per
+        process: ``cloud_noise`` caches it — the look controller makes it on a worker
+        before it asks for an atmosphere, so this never waits there)."""
+        if self._cloud_noise is None:
+            self._cloud_noise = CloudNoiseTexture()
+        return self._cloud_noise
 
     @property
     def sky(self) -> SkySpec | None:

@@ -11,7 +11,10 @@ What is compared, for one item at a sun elevation:
 
 * **2D** — what the sun & shade overlay and the hours-of-sun map cast for it:
   ``core.shadow_geometry.compute_scene_shadows`` of its footprint (for a line item
-  the STROKE strip, ``polyline_footprint``) extruded to its height. A solid prism.
+  the STROKE strip, ``polyline_footprint``) extruded to its height — a solid prism,
+  except (``compute_weighted_shadows``, #440) a pitched building (its roof and wall
+  triangles) and a picket, metal or chain-link fence (the strip weighted by its
+  transmittance: the ratio column).
 * **3D** — the ground shadow of the mesh its production builder makes: every
   triangle projected along the sun ray onto the ground, united. What a shadow map
   of that mesh shows, without the map's resolution.
@@ -21,19 +24,17 @@ union (IoU) of the two, and the REACH difference — how much further (+) or les
 far (-) the 3D shadow extends along the shadow direction than the 2D one, in cm:
 where the shadow's TIP is. The truth gate "Shadows" (``ogp-lush-cinematic`` §1,
 IoU >= 0.85) is defined on a solid box caster, where both models are the same
-solid. The built world departs from the prism in four stated ways, and this table
-is what each costs:
+solid. The built world's 3D bodies differ from the 2D model in these stated ways,
+and this table is what each costs today (the history before #440: ADR-059):
 
 * a LINE has no thickness in the plan (its stroke is a line weight), so the 3D
   body has a nominal section: wider than the stroke for a wall, a stone-wall or
   hedge fence — a wider shadow, more so at a high sun;
 * a PICKET, METAL or CHAIN-LINK fence is mostly air: its 3D shadow is the bars'
-  and wires', a fraction of the solid strip the 2D model casts;
-* a HOUSE or shed has a gable roof where 2D extrudes a flat-topped prism to the
-  ridge height — less shadow square to the ridge, and eaves that overhang. The
-  2D prism's top edge is at the FAR WALL, the gable's ridge is mid-house: with the
-  sun square to the ridge the 3D tip is short by up to half the depth minus the
-  overhang (270 cm less 30 on a 5.4 m deep house);
+  and wires', a fraction of the strip — the 2D model weights the strip by that
+  transmittance (ratio 0.98–1.09; IoU against the unweighted strip 0.12–0.68);
+* a HOUSE or shed with a pitched roof is projected as its roof and walls in both
+  models (reach 0.0); a FLAT roof is still the prism;
 * a POT tapers and a hedge is a leaf shell drawn in from its outline.
 
 A raised bed and a box are prisms in both: IoU 1.00, reach equal. A plain panel
@@ -70,6 +71,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import numpy as np
 import pyclipper
 
+from open_garden_planner.core.object_height import NO_2D_SHADOW_TYPE_NAMES
 from open_garden_planner.core.scene3d import (
     Material,
     MeshPart,
@@ -180,13 +182,16 @@ L4_OBJECT_SIZES: dict[str, float | tuple[float, float]] = {
     "COLD_FRAME": (120.0, 60.0), "RAIN_BARREL": 30.0, "WATER_TAP": 10.0,
     "WHEELBARROW": (60.0, 140.0), "BIRD_BATH": 25.0, "PERGOLA": (300.0, 300.0),
     "TRELLIS": (200.0, 20.0), "GREENHOUSE": (300.0, 200.0),
+    # the garden lights of Phase 17 L5.4 (#389): a lantern post. A string of lights
+    # casts no 2D shadow (``object_height.NO_2D_SHADOW_TYPE_NAMES``): no row to agree.
+    "GARDEN_LIGHT": 20.0,
 }
 
 
 def l4_cases() -> tuple[Case, ...]:
     """Every object missing from the original L4 table, with its actual default height."""
     existing = {"TABLE_RECTANGULAR", "PICNIC_TABLE", "BBQ_GRILL", "GREENHOUSE", "TRAMPOLINE"}
-    assert set(L4_OBJECT_SIZES) == OBJECT_KINDS
+    assert set(L4_OBJECT_SIZES) == OBJECT_KINDS - NO_2D_SHADOW_TYPE_NAMES
     result = []
     for kind, size in L4_OBJECT_SIZES.items():
         if kind in existing:
@@ -416,6 +421,8 @@ DOCUMENTED: dict[str, tuple[Triple, Triple, Triple]] = {
     "wheelbarrow": ((0.44, 0.45, 0.46), (0.44, 0.45, 0.46), (-22.0, -22.0, -22.0)),
     "bird bath": ((0.40, 0.47, 0.61), (0.40, 0.47, 0.61), (-0.8, -0.8, -0.8)),
     "pergola": ((0.25, 0.28, 0.29), (0.25, 0.28, 0.29), (-1.8, -1.8, -1.5)),
+    # Phase 17 L5.4 (#389): a lantern's post and head
+    "garden light": ((0.21, 0.28, 0.37), (0.21, 0.28, 0.37), (-18.4, -12.0, -9.6)),
     "trellis": ((0.32, 0.34, 0.39), (0.32, 0.34, 0.39), (-7.0, -7.0, -6.8)),
 }
 

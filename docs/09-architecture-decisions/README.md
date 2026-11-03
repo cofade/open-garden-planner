@@ -1798,7 +1798,7 @@ The GO decision's evidence log (item 2) already found the Qt3D micro-version tra
 
 **Two bugs, two classes of fix.** The *dependency* bug: pin **all four** Qt wheels to equal micros (`PyQt6`, `PyQt6-Qt6`, `PyQt6-3D`, `PyQt6-3D-Qt6` — the invariant is *equal micros*, not a specific version; bump them together, or all to 6.11.1 once a matching `PyQt6-3D-Qt6 6.11.1` exists). The *process* bug: the release build was not reproducible (no lockfile → the same commit resolves different Qt runtimes on different days), and the only exe gate smoke-tested **startup**, which a lazily-imported subsystem sidesteps — structurally the same miss as the US-D1.4 `unittest` exclusion. Defenses added (PR #274): a source-level guard test (`qVersion()` == `PyQt6-3D-Qt6` micro) that fails the fast CI test job on drift; a frozen-exe `--selftest` step in `release.yml` that imports the Qt3D bindings headless **in the actual shipped artifact** and fails the release on a non-zero exit; and graceful degradation — `_on_open_3d_view` catches the `ImportError` for a translated "3D View Unavailable" dialog, plus a `sys.excepthook` backstop in `main.py` so no uncaught slot exception can ever again abort the process silently. See §11.4.
 
-**Scope note — the equal-micro rule is Qt3D-specific, not a blanket Qt rule.** `PyQt6.Qt3D*` binds Qt's *private* internals, which break on even a patch drift; `PyQt6-WebEngine` links only Qt's *public* ABI (stable across a minor bump), so `PyQt6-WebEngine-Qt6` legitimately floats a minor behind the core (e.g. `6.10.2` next to `PyQt6-Qt6 6.11.0`, which works). Do **not** "fix" the WebEngine pin to match the core micro — tightening it can only break the resolve.
+**Scope note — the equal-micro rule is Qt3D-specific, not a blanket Qt rule.** `PyQt6.Qt3D*` binds Qt's *private* internals, which break on even a patch drift; `PyQt6-WebEngine` links only Qt's *public* ABI (stable across a minor bump), so `PyQt6-WebEngine-Qt6` legitimately floats a minor behind the core (e.g. `6.10.2` next to `PyQt6-Qt6 6.11.0`, which works). Do **not** "fix" the WebEngine pin to match the core micro — tightening it can only break the resolve. **Corrected at Qt 6.12 (Phase 17 L7, #391, 2026-11-03):** the 6.10 WebEngine wheel next to `PyQt6-Qt6 6.12.0` failed to import (*"DLL load failed … procedure not found"*), so WebEngine now moves WITH the pair — its 6.12-era release is numbered `6.140.0` (Chromium 140) and requires `PyQt6>=6.12.0`; ADR-048 addendum L7, PF-CI-17.
 
 **Dependency-lock follow-up (#404, ADR-050).** PR #274 fixed #277 by matching the four Qt pins and adding runtime/frozen guards. This CI/release package adds reproducible selection of all Python dependencies and packaging tools; it complements those Qt guards.
 
@@ -1934,7 +1934,7 @@ marker. PF-TST-29 and §8.8 record the rule. No stored key, `.ogp` field or prod
 
 **Decision — the generator IS the asset, again.** All furniture/infrastructure SVGs are emitted by `scripts/generate_object_sprites.py` — seeded per object, byte-deterministic (`--check` + `tests/unit/test_object_sprite_conformance.py::TestDeterminism`), so hand edits are unlandable and the generator doubles as the provenance record (`resources/objects/PROVENANCE.md`). The style is the man-made sibling of ADR-040's Lush Sprite — **"Lush Object"**, contract in `resources/objects/README.md`: rim-dark → crown-light shading per part, occlusion halos where parts stack, a `MATERIALS` anchor table (woods, metals, enamels/plastics, fabrics, minerals, glass/water/soil/sand) rendered by material primitives (`plank`/`wood_surface`, `disc`/`ring`, `fabric` with weave hatch + puff shading, `metal_bar`, `glass_pane`, `water_fill`, `granular_fill`, `glow`/`flame`), and one builder per object. Two invariants carried over from ADR-040 and one that is new: **(a) QtSvg subset only** (allowlist walk in the gate; rings are two-subpath paths, circle-clipped planks are computed analytically — no clipPath); **(b) rotation safety** — furniture rotation is USER-controlled, so light comes from straight above and **no directional shadow is baked** (`test_no_baked_directional_shadow` pins the legacy `#00000020` shadow's absence; the item-level painted shadow is the single shadow source, still user-toggleable); **(c) the viewBox IS the nominal footprint** in cm (`test_default_dimensions_match_viewboxes` pins it to `FURNITURE_DEFAULT_DIMENSIONS`, a gate-read metadata table with no production sizing consumer) — the canvas stretches art to the user's rect, so square viewBoxes for circle-tool objects and rounded footprints keep mild non-uniform stretch harmless. Owner-decided richness: **full parity** with the plant sprites (per-part gradients, gloss, micro-detail), not a calmer "lite" tier; budgets ≤ 460 elements / 44 KB (1.2× the densest, `hot_tub` at 380 elements / 35,910 bytes).
 
-**Roster growth (owner decision #7).** Nine new object types — `SANDBOX`, `TRAMPOLINE`, `HOT_TUB`, `SWING`, `PICNIC_TABLE`, `HAMMOCK` (furniture) and `WHEELBARROW`, `PERGOLA`, `BIRD_BATH` (infrastructure) — appended to `ObjectType`/`ToolType`, with `OBJECT_STYLES` (fill colour = 3D extrusion colour), `get_valid_types_for_shape` membership, canvas tool registration, renderer maps + default dims, `DEFAULT_HEIGHTS_CM` rows for the **solid** ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath — they cast shadows and extrude), gallery entries, and German strings in all three translation contexts. **Swing, pergola and hammock get no default height** (senior-review finding): the shadow/3D model extrudes the whole item footprint as a solid prism, and those objects are mostly air (sprite ink coverage 0.20 / 0.53 / 0.43) — a solid 3×3 m block at 2.3 m would misstate a sun study; a footprint-fill factor in the shadow model is the follow-up that would let them cast honest shade; until then they are in `_HEIGHT_FIELD_TYPES`, so the properties panel still offers the Height field and a user can opt one in explicitly (round-2 review: without that set the field never appeared and the "explicit" escape hatch was fiction). The `shape` recipe key is gate-checked (not read by the generator): the conformance gate cross-checks it against `get_valid_types_for_shape` and requires square art for circle-tool objects. **No FILE_VERSION bump**: `project.py` already degrades an unknown `object_type` name to `None` → generic shape (name/geometry/metadata survive) — the additive-enum contract is now pinned by `tests/unit/test_project_unknown_object_type.py` so a future loader change cannot silently break it. The agent API's `create_object` scope is deliberately **not** widened (plants + soil containers only) — no schema churn in an asset package; new types are already queryable by name. Existing types without a height default (parasol, fire pit, planter, rain barrel, water tap, cold frame) keep casting no shadow — adding heights would change existing sun studies and is a separate decision. **Superseded (2026-10-27, ADR-065 "Owner's second manual pass"):** the owner made that decision. All nine height-less kinds (swing, pergola, hammock and the six above) now have rows in `DEFAULT_HEIGHTS_CM`, and `_HEIGHT_FIELD_TYPES` is gone. The solid-prism overstatement for the open frames is accepted, as for a picket fence's strip; the footprint-fill factor is still the way to honest frame shadows.
+**Roster growth (owner decision #7).** Nine new object types — `SANDBOX`, `TRAMPOLINE`, `HOT_TUB`, `SWING`, `PICNIC_TABLE`, `HAMMOCK` (furniture) and `WHEELBARROW`, `PERGOLA`, `BIRD_BATH` (infrastructure) — appended to `ObjectType`/`ToolType`, with `OBJECT_STYLES` (fill colour = 3D extrusion colour), `get_valid_types_for_shape` membership, canvas tool registration, renderer maps + default dims, `DEFAULT_HEIGHTS_CM` rows for the **solid** ones (sandbox, trampoline, hot tub, picnic table, wheelbarrow, bird bath — they cast shadows and extrude), gallery entries, and German strings in all three translation contexts. **Swing, pergola and hammock get no default height** (senior-review finding): the shadow/3D model extrudes the whole item footprint as a solid prism, and those objects are mostly air (sprite ink coverage 0.20 / 0.53 / 0.43) — a solid 3×3 m block at 2.3 m would misstate a sun study; a footprint-fill factor in the shadow model is the follow-up that would let them cast honest shade; until then they are in `_HEIGHT_FIELD_TYPES`, so the properties panel still offers the Height field and a user can opt one in explicitly (round-2 review: without that set the field never appeared and the "explicit" escape hatch was fiction). The `shape` recipe key is gate-checked (not read by the generator): the conformance gate cross-checks it against `get_valid_types_for_shape` and requires square art for circle-tool objects. **No FILE_VERSION bump**: `project.py` already degrades an unknown `object_type` name to `None` → generic shape (name/geometry/metadata survive) — the additive-enum contract is now pinned by `tests/unit/test_project_unknown_object_type.py` so a future loader change cannot silently break it. The agent API's `create_object` scope is deliberately **not** widened (plants + soil containers only) — no schema churn in an asset package; new types are already queryable by name. Existing types without a height default (parasol, fire pit, planter, rain barrel, water tap, cold frame) keep casting no shadow — adding heights would change existing sun studies and is a separate decision. **Superseded (2026-10-27, ADR-065 "Owner's second manual pass"):** the owner made that decision. All nine height-less kinds (swing, pergola, hammock and the six above) now have rows in `DEFAULT_HEIGHTS_CM`, and `_HEIGHT_FIELD_TYPES` is gone. The solid-prism overstatement for the open frames is accepted (a picket fence's strip was too, until #440 weighted fences by their transmittance); the footprint-fill factor — #440's caster transmittance — is still the way to honest frame shadows (#698).
 
 **Three latent inconsistencies fixed en passant.** Every SVG-rendered object was drawn upside-down on the canvas — the view/export `scale(1, -1)` flips a pixmap blitted in item-local coordinates, and the plant sprites hid it by radial symmetry; the owner's manual test caught it on the fire pit's flames, and the furniture paint branches now un-flip about the rect centre (§11.4, pinned by `TestUprightOnCanvas`). `BBQ_GRILL` is drawn by the *circle* tool but its art/default dims were 80×60 — the sprite was stretched to a square on every canvas; the art is now square (80×80) and the type is offered in the circle branch of the "Change Type" menu (it was only in the rectangle branch). Gallery thumbnails stretched non-square art into squares (bench → brown block); `gallery_data.render_svg_thumbnail` now letterboxes by the SVG's viewBox aspect (pixel-pinned by `TestGalleryThumbnails`). The `HEDGE_SECTION` mapping in `furniture_renderer.py` looked dead (load-time migration to `HEDGE_POLYGON`) but is still reachable through the rectangle "Change Type" menu — left untouched.
 
@@ -3751,6 +3751,249 @@ one path that destroyed many Models per second (date playback, ADR-060 addendum 
 open: the owner shipped the default with it at the L1 pull request (ADR-060 addendum D5).
 (#532 is closed as a tracker by PR #654; the leak remains: QTBUG-151940, TD-040, §8.29.5
 known limit 11.)
+
+### Addendum L7 — Qt 6.12 LTS and the atmosphere sky (2026-11-03, #391)
+
+**Status**: Shipped in v1.36.0 (PR #721) after the owner's manual test, 2026-11-03. Two parts: the Qt pins
+move to the 6.12 LTS, and an opt-in **atmosphere sky** — Qt 6.12's new `SkyMaterial` with a port
+of Qt's `skymaterial` example (Hillaire's atmosphere, ray-marched volumetric clouds) — joins the
+painted sky. Preconditions of #391 met: PyQt6 6.12.0 was published on 2026-10-28, and L1.10 had
+removed Qt 3D.
+
+**The pins.** `PyQt6` and `PyQt6-Qt6` 6.12.0 (`uv lock --upgrade-package` per package with the
+pinned uv 0.12.23, `pylock.toml` re-exported with `check_dependency_lock.py`'s arguments; the
+gate agrees). Two things moved with them that ADR-038's scope note did not foresee:
+
+- **WebEngine can no longer float a minor behind.** `PyQt6-WebEngine` 6.10.0 next to Qt 6.12.0
+  failed `import PyQt6.QtWebEngineWidgets` with *"DLL load failed … Die angegebene Prozedur wurde
+  nicht gefunden"* — the import `main.py` makes at module level, so the app would not start.
+  Its 6.12-era release is numbered **6.140.0** (`qWebEngineVersion()` 6.140.0, Chromium
+  140.0.7339.225, published 2026-11-02) and requires `PyQt6>=6.12.0`; the pin is
+  `PyQt6-WebEngine>=6.140.0,<6.141`, the governance test holds both bounds.
+- **QtPdf left the WebEngine wheel** for `PyQt6-Pdf` 6.140.0. The app never imports it; two
+  integration tests and `scripts/validate_exports.py` read exported PDFs back with it, so it is a
+  `dev` extra. Its runtime files (`Qt6Pdf.dll`, `Qt6PdfQuick.dll`, the `QtQuick/Pdf` QML module,
+  the `qpdf` image plugin) still land in the bundle, as they did from `PyQt6-WebEngine-Qt6`
+  before: PyInstaller's QML and image-format hooks collect what lies under `PyQt6/Qt6`, and the
+  build environment carries every extra. No WebEngine DLL links `Qt6Pdf.dll` (import tables
+  read); the notices and the SBOM now name `PyQt6-Pdf-Qt6`.
+
+**What 6.12 changed that this repository had pinned** (each measured or read at the tag, both
+versions):
+
+| Fact | 6.11 | 6.12 | What changed here |
+|---|---|---|---|
+| Pick and cull mode (`qssgrenderray.cpp`) | positive determinants only: front faces of every material | the material's cull mode decides: `NoCulling` picks both sides | the selection witness keeps front faces of culled kinds and every face of `TWO_SIDED_KINDS` (foliage, grass, glass), pinned against the QML; the render tier's selection gate passed in full on 6.12. Accepted as the click hitting what the user sees: a two-sided part is drawn from behind, so it is picked from behind — a crown seen from below, a greenhouse's glass from inside (walk mode). Open for the owner to confirm (PR); `TWO_SIDED_KINDS` treats `vc` as culled although Cutaway draws it two-sided (#720) |
+| `QAccessibilityHints.motionPreference` | absent | `NoPreference` / `ReducedMotion`, with a change signal (Windows: `SPI_GETCLIENTAREAANIMATION`, the "Animation effects" switch) | honoured beside the app's setting (FR-3D-LOOK-04): either stops the wind; the drift guard now fails on a SECOND motion hint |
+| A destroyed window's lambda-connection proxies | freed in the first deferred-delete round | one round later | the widget-leak test flushes two rounds with a collection after each (PF-TST-36); not a product leak — the event loop keeps turning |
+| Destroying an EARLIER sky Texture (`buildSky`'s deferred `old.destroy()`) | the environment's watcher on it was gone with the switch | its destroyed-watcher still fires and sets the light probe to null although the probe is the current sky: after a host's first sun change (in the 3D review's run without the fix: the first rebuild, once also the second; later rebuilds never) the view drew the clear colour (sky-sequence test: (161, 154, 122) against (97, 126, 137); `master`'s code fails identically on the 6.12 wheels) | the environment restores its own `lightProbe` binding in `onLightProbeChanged`, synchronously, before a frame renders (PF-E3D-16); the board, a fresh host per frame, cannot see it |
+| Colour-property linearisation (`qssgutils.cpp`) | polynomial | unchanged (byte-identical source) | none |
+| `sampleProbe.glsllib` (`qt_sampleDiffuse` / `qt_sampleGlossy`, used by `water.frag`) | — | unchanged (byte-identical) | none |
+| `QSGRendererInterface.GraphicsApi` member names | `OpenGL`, `Direct3D11Rhi`, … | identical | none |
+| QTBUG-151940 (#532, TD-040) | leaks | the committed reproducer still leaks on the 6.12.0 wheels: 16 → 96 textures over 10 cycles, 8 a cycle (WARP, frames presented); the report is *In Review*, no fix version (2026-11-03) | the versions named move; nothing else |
+
+**The atmosphere sky — the decision.** A second **sky model** (`SkySpec.model`, setting
+`view3d/sky_model`, Preferences → 3D View → **Sky**: *Painted* / *Atmosphere with clouds*). The
+**default stays the painted sky**: every look of L1–L5 was accepted on it, and changing the
+default is the owner's call (asked in the PR). The model is never a quality preset's choice; on
+a software adapter there is no sky at all, as before. A change of model is built at once, like
+a change of phase.
+
+**The design: the painted sky is the base, the atmosphere is painted over it.** `atmosphere.frag`
+is the example's shader up to its `MAIN()`; the app's `MAIN()` evaluates Qt's
+`ProceduralSkyTextureData` formula per direction (`paintedSky()`, the same colours the look gives
+the painted sky) and mixes the atmosphere over it by
+`share = atmosphereWeight × smoothstep(0, hazeDeg, elevation)`:
+
+- **at and below the horizon, and through a 6° haze band, the painted sky shows** — the fog is
+  calibrated on the painted horizon (`FOG_OF_HORIZON`), so the meadow meets the same horizon in
+  either model and in every direction (the atmosphere's horizon changes with the azimuth, the
+  fog's colour cannot);
+- **`atmosphereWeight` = 1 − the look's twilight**: the atmosphere fades out through civil
+  twilight, so the night is the painted night exactly (measured: −8° sun, frame luma 23.98
+  against 23.99, sky 0.9/1.3/6.1 against 0.9/1.4/6.1);
+- **the gain is computed per sky**, not chosen: scaled by `atmosphereGain` the atmosphere sends
+  the same cosine-weighted luminance onto a horizontal surface as the painted sky it replaces
+  (`atmosphere_lut.atmosphere_gain`, 48 × 96 directions of the upper hemisphere). The physical
+  sky's radiance changes about sevenfold between a 60° and a 2° sun; the gain runs from 0.055 to
+  0.31 (and 0.95 at −4°): the auto-exposure the accepted look implies. Measured on the GPU, the
+  sunlit grass reads the same under both skies at every sun height (60°: 197.7 / 197.7; 15°:
+  139.0 / 139.0; 2°: 62.9 / 63.3; −2°: 47.6 / 47.2): the probe's light balance against the sun is
+  the accepted one, only the sky's hue and structure are new;
+- **clouds**: coverage = the weather's cloud (overcast and rain 1.0, snow 0.85, clear 0). Their
+  scattered light takes the atmosphere's one gain: `cloudLightGain` = `ATMOSPHERE_CLOUD_GAIN`
+  0.064 × the clear sky's gain at the actual sun (`quick3d.look.cloud_light_gain`; the example's
+  scale saturates a full cover to white — its own comment says so), calibrated so a full
+  Overcast lights the ground at noon as the painted Overcast does (ground luminance 0.198 /
+  0.207, about 2 luma). A thick deck diffuses: its forward lobe and its silver lining fade with
+  the cover (`atmosphere.frag`, `CLOUD_DIFFUSION` 0.8). Without that, a full overcast was bright
+  toward a low sun, a cloudy sunset read 0.96–1.0 of its noon and the L5 weather gates (which
+  had not run on the atmosphere) failed; a scale of the clouds' own at a fixed high sun dimmed
+  the deck twice (garden at a cloudy sunset 0.6–0.75 of the painted one) and deepened a bright
+  band round the horizon (3D reviews). Measured (Medium, 640 × 360): sunset over noon 0.750 /
+  0.776 / 0.668 for overcast / rain / snow against the painted 0.761 / 0.781 / 0.674; the
+  garden under a cloudy sky 0.96–0.99 of the painted one at noon, 0.90–0.92 at golden hour,
+  0.87–0.89 at the sunset mood. The deck also loses the sun through civil twilight as the look
+  does (its sunlight × `atmosphereWeight`): the example clamps the sun's slant at the horizon,
+  so its deck kept the horizon sun's light down to −6°; every cloudy dusk is monotone, the
+  sunset step 0.0088 / 0.0088 / 0.0142 against day ramps of 0.041 / 0.042 / 0.057. Left over
+  (#719): under the deck at a low sun the painted haze band reads brighter than the deck above
+  it — 30 / 42 / 55 luma toward / across / away from a 0.5° sun (painted sky: 6), 11–20 at 6°.
+  The clouds take the look's horizon hue (under a weather, the weather's own grey) in
+  proportion to the cover (`cloudHueShare`: the example's analytic sun reddening read beige to
+  mustard), and fade out between 120 and 240 km (`cloudMaxDistanceKm`, the example's 80 faded
+  them at 2.4–4.7° elevation, where the clear sky's bright horizon then showed as a stripe);
+- the disc: the look's sun colour × `ATMOSPHERE_DISC_ENERGY` 4 in its core, shown while the sun
+  is up and as far as the cloud lets it (`sunAlpha` = 1 − cloud) — at the painted disc's energy
+  the aerosol halo outshone it (240,239,237 under a glow of 248,244,230). The glow around the
+  core keeps the painted disc's colour and energy: × 4 there clipped a sunset disc and its glow
+  to white (255,255,253 against the painted 222,196,154; 3D review);
+- the water: Qt 6.12 lights a custom material through its `IBL_PROBE()` under a `SkyMaterial`
+  but leaves `QSSG_ENABLE_LIGHT_PROBE` false, so `water.frag` / `water_door.frag` guard their
+  sky term on that macro OR `SAMPLE_PROBE_GLSLLIB` (Qt's probe-sampler include guard) —
+  measured on the render tier's raised pool, the atmosphere's water at a 4° sun read
+  (1, 18, 32) against the painted (5, 40, 65), and (6, 41, 65) with the guard; the painted
+  sky's frames are identical with either guard (PF-E3D-15);
+- the air: the example's composition with half its aerosol haze
+  (`atmosphere_lut.EARTH_ATMOSPHERE`, turbidity 0.5): at 1 the noon sky read pale and a
+  camera facing a low sun washed to cream.
+
+**Why the look-up tables are computed on the CPU** (the example renders both in the frame with
+`QuadTextureProvider`). A `SkyMaterial` compiles its shader only once every texture it samples
+exists (`qssgrenderskymaterial.cpp`, `skyShaderTexturesReady`: "the GLSL sampler type depends on
+the actual texture"), and a provider's texture exists only after its first render. Measured: the
+first frame after the atmosphere appeared was white on a shown window; with a texture input left
+empty the shader never compiled and Qt drew its built-in debug sky; and the app's offscreen
+frames — the board, the probes, `--selftest` — may render only ONCE (a second `grabWindow()` on
+the never-shown view was an access violation), so they were white every time. As texture DATA
+(`core/scene3d/atmosphere_lut.py`, a numpy port of `transmittance.frag` and `skytexture.frag`,
+float32 as the shader computes, within 0.75 % of float64), the table is ready before the first
+frame, it is computed once per sun instead of every frame, and the sky's colour is known to
+Python — which is what makes the gain exact. The cloud noise volume is likewise texture data
+(`core/scene3d/cloud_noise.py`, a port of `CloudNoiseTextureData`, checked voxel by voxel against
+a scalar transcription of the C++ to 1e-12); it costs about a second of numpy, so the look
+controller makes it on a worker when the model is chosen and shows the painted sky until it is
+ready. The volume and the table each have ONE `Texture` for the host's life; the table's data is
+refilled in place for a new sun.
+
+**The sun.** The example derives its sun from a light's forward vector; here it is SET from the
+solar position (at night the key light is the moon): the engine-frame vector at the sun through
+the one scene → engine map, then `(x, y, z) → (−x, −z, y)` — derived from the two shaders (the
+LUT reads z as up; `MAIN()` turns it back with `(−s.x, s.z, −s.y)`) and pinned by a unit test over
+30 sun positions; the painted sky's measured `sunLongitude = azimuth + 90°` is not assumed for
+it. Measured by the board's sky probe (gate G4, disc read 25° off centre in the east, south and
+west): bearing error at most 0.02° (the painted sky: 0.08°), the disc read at
+11.98° for a 12° sun. (Before the disc energy above, the probe locked onto the horizon glow 9°
+below the sun with the bearing still within 0.35° — a gate that checks the bearing alone would
+have passed the wrong blob; the render tier also checks the elevation.).
+
+**Cost** (RTX 4070, Direct3D 11, a shown 960 × 540 host): the first atmosphere sky's frame
+783 ms against the painted sky's 663 ms (a one-time shader compile); each later sun change
+~200 ms on the GUI thread against the painted sky's 122 ms (the sky-view table ~110 ms, the gain
+~30 ms), the next frame 1–7 ms after it. The board renders a fresh host per frame and so pays
+the compile per frame (~2.5 s).
+
+**Truth gates on the atmosphere** (`render_beauty_board.py --sky atmosphere`, 640 × 360,
+low and high): every gate green on the final configuration, the painted
+sky's numbers from the same machine and day in brackets — shadow IoU 0.918 / 0.967 / 0.962
+(low) and 0.985 / 0.968 / 0.962 (high) at 15° / 35° / 60°, identical (the key light is the
+same); north-up identity NCC 0.757 (identical); night over noon 0.093 / 0.086 (0.100 / 0.092;
+bound 0.25); the night rows' luma 53.60 / 51.31 (53.61 / 51.32); dusk monotone, the sunset
+step 0.0089 / 0.0087 against the day ramp's largest 0.030 (0.0067 / 0.0066 against 0.028 /
+0.029); the low preset's picket alias error 7.91 (8.07); the plan edge 0.43 / line 1.36
+(0.21 / 1.64; bounds 1.0 / 2.0); no Qt warning or error in either board. The mood order is read on the garden: the render tier gates
+noon > golden hour > sunset > night on `ground_luminance` (the rows below the horizon,
+`board_probes.ground_luminance`) on both skies, and on the whole frame on the painted sky
+only — facing a low sun, the atmosphere's sun and its halo enter the frame and its sunset
+frame read up to 1.9 % above its golden hour while the garden below darkened 23–25 %, as
+under the painted sky. (Before the 3D review the tier allowed that swap within 3 %; the
+review replaced the tolerance with the garden's own order.) The distant-horizon rows (`--horizon`) read the same as the painted
+sky's and fail its 3.0-luma bound on BOTH skies and on `master` with Qt 6.11 alike (403 m / 15°:
+3.44 / 3.48; 67 m / 31.6° high: 3.11) — a pre-existing failure filed as #714, not this
+package's.
+
+**Self-test** (`--selftest`, point 8): the frozen exe now renders the atmosphere from the bundle,
+clear and under 0.7 of cloud, with no probe (a machine without a GPU can afford that), against
+a frame without a sky. With the revision below (half resolution, the sky's own exposure) it
+reads 81.4 apart from the plain background and 24.5 between clear and cloudy, on the GPU and on
+WARP alike (bounds 11 and 7, a quarter of the first build's 44.3 and 28.1); the three frames
+took 10.2 s / 9.5 s, the cloud volume made once included.
+
+**Licences** (per-file check at the tag; `qml/PROVENANCE.md`, `qml/LICENSE-qt-skymaterial.txt`):
+the example's sky shader (`advancedsky.frag`, three marked changes) and the two look-up-table
+shaders ported to numpy (`core/scene3d/atmosphere_lut.py`) are MIT (© 2023 Fernando García Liñán,
+© 2026 The Qt Company), the QML
+and the noise generator BSD-3-Clause (offered as "LicenseRef-Qt-Commercial OR BSD-3-Clause"); the
+painted-sky arithmetic re-expressed in `paintedSky()` and `painted_radiance()` comes from Qt
+Quick 3D itself ("LicenseRef-Qt-Commercial OR GPL-3.0-only"), the module the app already ships
+under GPLv3. All compatible with the app's GPL-3.0-or-later; the per-file table and the one
+statement of the rule are `qml/PROVENANCE.md`.
+
+**Left open.** The default model: the painted sky stays the default as built. The owner accepted
+this build ("works perfectly as is") without answering that question by name, and an integrated
+GPU is unmeasured (#720). The first-frame shader compile could be
+pre-warmed like the Cutaway's (`shaderWarmer`). (Whether a "partly cloudy" weather should exist
+was answered by the owner's manual test: see the revision below.)
+
+**Revision after the owner's manual test (2026-11-03): the atmosphere only draws the sky.** The
+owner's frozen exe crashed natively while testing *Atmosphere with clouds*. The cause is Qt
+6.12.0's `SkyMaterial` light cube: its pre-filter (`QSSGRenderSkyMaterialManager::
+runPrefilterCycle`) used a freed QRhi resource (PF-E3D-17, with the dump, the probe and the
+numbers). The owner also saw no difference between the skies: Clear has no cloud, and Overcast
+and Rain close the deck, so the clouds never showed. The owner chose to keep the atmosphere,
+fix the crash, and add a partly cloudy weather. What changed:
+
+- **The painted sky lights the garden under both models.** The atmosphere is `enableIBL:
+  false` and `skyboxMode: ScreenSpaceHalf`. Qt draws it on screen per frame
+  (`SkyMaterialBackgroundPass`) and never builds its cube (`resolveLayerIblTexture` builds one
+  only for image-based light, Cubemap mode, reflection probes or a screen texture). For the
+  atmosphere model the host builds the painted sky first (`buildSky`) and then writes the
+  atmosphere (`buildAtmosphere`) in the same GUI-thread turn. The painted texture stays the
+  environment's `lightProbe`. So the light balance above is now exact by construction, and the
+  cloudy-light numbers (0.96–0.99 at noon, 0.87–0.92 toward sunset) no longer apply: the
+  garden is lit as under the painted sky in every weather. `atmosphere_gain` and
+  `cloudLightGain` still scale the sky and the deck to the painted sky's brightness. The
+  water's widened probe guard (PF-E3D-15) is no longer reached under the atmosphere, because a
+  `lightProbe` is set; it stays, correct for any `SkyMaterial`.
+- **The sky applies its own exposure** (`atmosphere.frag` `skyExposed`, `skyExposure` =
+  the look's `probeExposure`): `1 − exp(−radiance × exposure)`, the curve of Qt's `qt_exposure`
+  that the painted sky's skybox shader runs. Qt's screen path passes `FRAGCOLOR` straight
+  through under our post effects, because its tonemap variant has no
+  `QSSG_FORCE_IBL_EXPOSURE`. The first build of this revision missed that (3D review, round 3,
+  REJECT): the sky read 1.8× too bright by day and 2.9× at night, 25–28 % of a low-sun frame
+  clipped, the disc vanished, and the horizon step rose to 36–56 luma. With the curve (no fitted
+  constant; a multiply needed an unexplained 0.80 by day because the curve compresses bright
+  values): clipping 0.0 / 0.8 / 0.04 % at golden hour / sunset / morning, horizon steps 1.1–3.4
+  luma (bound 6.0), the disc read at 12.06° for a 12° sun with a bearing error of 0.01°.
+- **The crash is gone.** A full-app probe of the manual checklist crashed 3 of 5 times at one
+  painted to atmosphere switch before the fix. After it, the same sequence ran 4 × 240 s with
+  no crash.
+- **Partly cloudy** (`weather.WEATHER_SPECS["partly_cloudy"]`): cloud 0.4 is the atmosphere's
+  cover; the sun stays out, because the light takes 0.15 of the overcast's changes
+  (`WeatherSpec.light`) and the sky 0.25 of its grey (`WeatherSpec.grey`). Every other weather
+  has one share for all three, so its look under the painted sky is unchanged (under the
+  atmosphere Snow's disc went from 0.15 to 0.30 and its clouds' light × 1.09). Wind 3.0, haze
+  0.9, dry, and the mood
+  stays a day (it is overcast from 0.5). The cover sheet of the owner pass read scattered clouds
+  at 0.35 and 0.6 and a closed deck at 1.0. Separate clouds take
+  `ATMOSPHERE_THIN_CLOUD_LIFT` 4.2 × (1 − cover)² more light (× 2.5 at 0.4, × 1 at Overcast and
+  Rain, × 1.09 at Snow), because the 0.064 was calibrated on a full deck and they read as dark
+  smoke at noon; `sunAlpha` goes only as the deck closes (1 − max(cloud − 0.5, 0) / 0.5), since
+  the clouds themselves hide the disc. Today's Weather maps WMO code 2 (partly cloudy) to it;
+  codes 0 and 1 stay clear. The painted sky shows only its slightly greyer blue; the clouds are
+  the atmosphere's. ADR-070's weather gates run on it (`HORIZON_WEATHERS`).
+- **Cost** (RTX 4070, Direct3D 11, a shown 1280 × 720 host looking into the sky, the median of
+  40 frames, the range of three runs of the same code): painted 2.1–2.3 ms; atmosphere at
+  cover 0: 2.2–3.6 ms (Half), 3.2–3.7 (Full), 2.1–3.5 (Quarter); at cover 0.4: 3.1–5.6 ms
+  (Half), 4.5–8.9 (Full), 3.7–4.9 (Quarter). The atmosphere's numbers move by up to × 1.9
+  between runs. The GPU idles at 210 MHz between them, so we read that as its clock state, but
+  did not pin it down; compare ranges, not single runs. Half and Full look the same, so the
+  default is Half. A sun change now also builds the painted sky (~120 ms) beside the sky-view
+  table, about 0.32 s of GUI thread in all, and the light cube's one-time filter is gone. An
+  integrated GPU is still unmeasured (owner question), and a playing day stalls on those
+  builds (#722).
+- **The self-test** renders the atmosphere without the painted probe (`sky_probe=False`): a
+  machine without a GPU cannot afford a probe filter. The rule it checks is unchanged.
 
 ## ADR-049: Frost-Date Semantics - One Parser, 29 February Substituted as 1 March
 
@@ -6127,8 +6370,11 @@ only, and correct their heights with a fit after the fact.
   | bird bath | 0.40 / 0.47 / 0.61 | 0.40 / 0.47 / 0.61 | -0.8 / -0.8 / -0.8 | shape and porosity vs solid 2D prism |
   | pergola | 0.25 / 0.28 / 0.29 | 0.25 / 0.28 / 0.29 | -1.8 / -1.8 / -1.5 | shape and porosity vs solid 2D prism |
   | trellis | 0.32 / 0.34 / 0.39 | 0.32 / 0.34 / 0.39 | -7.0 / -7.0 / -6.8 | shape and porosity vs solid 2D prism |
+  | garden light | 0.21 / 0.28 / 0.37 | 0.21 / 0.28 / 0.37 | -18.4 / -12.0 / -9.6 | shape and porosity vs solid 2D prism |
 
-  Follow-up #624 extends the analytic reference to all 24 L4 object kinds.
+  Follow-up #624 extends the analytic reference to all 24 L4 object kinds; Phase 17 L5.4
+  (#389, ADR-070) adds the garden light. A string of lights casts no 2D shadow (ADR-070's
+  addendum from the owner's manual test), so it has no row.
   The script uses each new case's production default height, its stated footprint
   in `L4_OBJECT_SIZES`, and a south sun at 15 / 35 / 60 degrees. Swing, hammock
   and pergola shadows are porous geometry; the analytical 2D caster remains a
@@ -6139,14 +6385,16 @@ only, and correct their heights with a fit after the fact.
   wall 4–5 cm, hedge 8 cm), the 2D model extrudes that strip, and the 3D bodies use the L0
   board's sections (a wall `max(stroke, 30)` cm, a hedge `max(stroke, 40)` cm): a WIDER shadow,
   more so the higher the sun — fine at 15° (IoU ≥ 0.94), under the box gate at 60° (0.73–0.81);
-  **(2) porosity** — a picket, metal or chain-link fence is mostly air, so its 3D shadow lies
-  INSIDE the 2D strip's and is 67 %, 19–24 % and 13–19 % of it: the hours-of-sun map shows full
-  shade behind a chain-link fence where the 3D fence lets more than four fifths of the sun
-  through; **(3) gable against prism** — 2D extrudes a building's footprint flat-topped to its
-  ridge height; **(4) taper and leaf shell** — a pot narrows to its foot, a hedge's block is its
-  footprint drawn in by 4 cm. Only the prisms (raised bed, box, plain panel), the two hedges and
-  the round tub would meet IoU 0.85 at all three elevations; no building, no terracotta pot, no
-  wall and no styled fence does. The analysis — overlay and heatmap — stays the 2D
+  **(2) porosity** (until #440) — a picket, metal or chain-link fence is mostly air, so its 3D
+  shadow lies INSIDE the unweighted 2D strip's and was 67–70 %, 19–24 % and 13–19 % of it
+  (the ratio column before #440, at its parent cc2b3eb7): the hours-of-sun map showed full shade behind a chain-link fence;
+  **(3) gable against prism** (until #440) — 2D extruded a building's footprint flat-topped to
+  its ridge height; **(4) taper and leaf shell** — a pot narrows to its foot, a hedge's block is its
+  footprint drawn in by 4 cm. Which rows meet IoU 0.85 is the table's to say, not a sentence's.
+  Since #440 reasons (2) and (3) no longer hold for the analysis: a picket, metal or
+  chain-link fence is weighted by its transmittance (ratio 0.98–1.09), and a pitched building's roof and
+  walls are projected — the gabled, hip and single-slope houses in the table above read IoU 1.00
+  and a reach of 0.0. The analysis — overlay and heatmap — stays the 2D
   model's, draped onto the 3D ground (ADR-048, the scope note of criterion 8); the 3D shadow is
   a picture of the mesh.
 
@@ -6156,17 +6404,19 @@ only, and correct their heights with a fit after the fact.
   (raised bed and box −0.6 cm: the top edge's bevel; the plain panel 0.0), the pots (−0.6 and
   −0.5 cm: the rim's bevel) and the post fences (picket +2.0 to +2.4, metal +0.8, chain link
   +1.5 cm: a post is wider than the stroke). The hedge polygons pass the 2D tip by 2.7–4.4 cm
-  (leaf tips). *Do not agree:* **(a) a gabled building with the sun square to its ridge.** The
-  2D model extrudes the whole footprint to the ridge height, so its highest edge is at the FAR
-  WALL; a gable's ridge is mid-house. At a low sun the ridge casts the tip and the 3D shadow is
-  exactly half the depth short — 270 cm on the 5.4 m deep house, 150 cm on the 3 m shed; at a
-  high sun the far eave casts it (lower, but half the depth plus the overhang further out) and
-  the miss shrinks to 108 cm and 21 cm at 60°. The roof is right (it is on the live ridge, the
-  2D canvas's own line); the difference is the 2D model's flat-topped prism, and it is not a
-  roof to "fix". **(b) The same building with the sun along its ridge:** the 30 cm overhang
-  carries the ridge height past the gable wall, +30 cm. **(c) Nominal sections:** a wall's
-  coping edge stands 17 cm from the centre line where the 4 cm stroke's edge stands at 2, so
-  its tip lies 15 cm further (stone-wall fence +14.5, hedge fence +19.5). An earlier version of
+  (leaf tips). *Did not agree until #440 (cc2b3eb7's `DOCUMENTED`), which projects a pitched
+  roof and its walls — the table's pitched houses now read a reach of 0.0:* **(a) a gabled
+  building with the sun square to its ridge.** The 2D model extruded the whole footprint to the
+  ridge height, so its highest edge was at the FAR WALL; a gable's ridge is mid-house. At a low
+  sun the ridge cast the tip and the 3D shadow was exactly half the depth short — 270 cm on the
+  5.4 m deep house, 150 cm on the 3 m shed; at a high sun the far eave cast it and the miss
+  shrank to 108 cm and 21 cm at 60°. The roof was right; the difference was the 2D model's
+  flat-topped prism, which #440 replaced. **(b) The same building with the sun along its
+  ridge:** the 30 cm overhang carried the ridge height past the gable wall, +30 cm. *Still do
+  not agree, among these L0 builder rows (the open objects of L4/L5 — a parasol, a swing, the
+  garden lights — and the flat-roofed house are in the table):* **(c) Nominal sections:** a wall's coping edge stands 17 cm from the centre line
+  where the 4 cm stroke's edge stands at 2, so its tip lies 15 cm further (stone-wall fence
+  +14.5, hedge fence +19.5). An earlier version of
   this paragraph claimed the opposite of (a)–(c) in one universal sentence; **no sentence about
   shadows goes next to the gate unless the script prints the number behind it.**
 
@@ -6177,8 +6427,11 @@ only, and correct their heights with a fit after the fact.
   render must read: a shadow map is judged on solid casters (the box gate), and a member near
   one shadow-map texel — a 0.8 cm chain-link wire, a 1.6 cm bar — can read lower in a render
   through no fault of the builder. Thin members are exempt from a per-pixel IoU.
-  **Open owner question (porous fences):** should the 2D sun study keep treating a chain-link or
-  picket fence as a solid strip? It is the shipped behaviour and deliberately not changed here.
+  **Porous fences (answered by #440):** the 2D sun study no longer treats a chain-link, metal or
+  picket fence as a solid strip — #440 weights it by its angle-dependent structural transmittance
+  (the ADR-037 / ADR-048 addendum on the unified geometry-aware caster path), and projects a
+  building's roof and walls; the other open objects in this table still cast a solid prism
+  (#698).
 - A HOUSE's fill colour tints its WALLS in 3D; in 2D it tints the roof texture (a 31 % overlay).
   And the tint rule is uneven for hedges: a hedge POLYGON is baked in the hedge texture's greens
   and ignores a recolour, while a hedge FENCE is tinted with the item's stroke. Both follow what
@@ -9051,9 +9304,10 @@ paths, the house colours, the camera and the fog, and decided the two open point
      shapes, annotations and plants. A new object kind cannot slip back.
    - This supersedes ADR-042's roster note for swing, pergola and hammock. The 2D
      shadow model extrudes the whole footprint as a solid prism, so in 2D a pergola
-     shades its footprint completely, as a picket fence casts a solid strip. A plant
-     under a pergola reads as shaded in 2D. A footprint-fill factor in the 2D model
-     is still the way to honest frame shadows.
+     shades its footprint completely (a picket fence did too, until #440 gave fences a
+     transmittance). A plant under a pergola reads as shaded in 2D. A footprint-fill
+     factor — #440's caster transmittance — is still the way to honest frame shadows
+     (#698).
    - A plant inside a cold frame or a planter pot now lies in its holder's 2D shadow.
      The per-plant sun estimate spares only a soil parent the plant stands on, and a
      plant cannot be linked to either kind. Measured at 50°N on 21 June: 0 minutes,
@@ -9639,7 +9893,390 @@ lane, and the late-timer settle
 and the refusals; `tests/perf/test_scene3d_snapshot_budget.py` pins the read's budget.
 The golden meshes still match below the threshold.
 
-## ADR-070: Per-object fill transform as additive appearance metadata (issue #665)
+## ADR-070: The living garden — playback, weather, particles and garden lights (Phase 17 L5, #389)
+
+**Status**: Accepted (issue #389, epic #383) — all four slices, the two optional ones included. Shipped in v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after the owner's manual acceptance (two rounds; 2026-11-02).
+
+**Context**: After L4 the 3D view showed the plan's garden in a mood that followed the sun's
+height alone (`core/scene3d/look.py`, ADR-059 addendum L1.4), with wind as a shader clock and a
+reduced-motion setting. Issue #389 asked for year and day playback through the shared
+`SimClock` (ADR-053), named moods (morning dew, golden hour, overcast, night), weather presets
+and particles (rain, snow, autumn leaves, butterflies at flowering plants, fireflies on summer
+evenings) with three gates — at most 5,000 particles, at most 15 % of the frame at Medium,
+and with reduced motion an idle frame counter of 0 — and, optionally, "today's weather" only
+when the plan date is today and garden lights as a new object type (2D sprite, §8.23
+registration, 3D light). The forces: truth before beauty (no weather may move a sun or a
+shadow), the engine rules L1–L4 paid for (a destroyed Model leaves graphics state behind —
+ADR-060; a light that comes and goes recompiles every lit material), the software adapter's
+cost (nothing animates there), and one canonical path per behaviour.
+
+**Decision**:
+1. **Playback is a writer of the one clock.** `core/playback.py` is the Qt-free arithmetic of
+   one step: the DAY mode advances the time of day and wraps at midnight onto the SAME date (no
+   `date_changed`); the YEAR mode advances the plan date at the same time and wraps inside the
+   plan's year. Three speeds (5 / 10 / 30 minutes, 1 / 2 / 7 days per 200 ms step; "normal"
+   day = Phase 14's Animate). The Plan & Sun toolbar's Animate button carries the choice
+   (`SunSimToolbar`, a menu on the button) and writes through its existing paths — the slider
+   (time) and `date_requested` (date) — so the 2D overlay, the hours-of-sun map, the 3D light
+   and the 3D growth follow on their own subscriptions; the 3D regrowth stays throttled by
+   `DATE_REGROW_MIN_MS`. Session state only, like the sim moment (FR-SUN-04).
+2. **Weather is a LOOK.** `core/scene3d/weather.py`: `living_look(sun, preset, weather) =
+   apply_weather(look_for(sun, preset), weather, sun)`. Overcast greys the sky towards a hue
+   whose horizon is as bright as the clear one (a cloudy night stays a night), hides the disc,
+   cuts the key light to 22 % and its shadows to 30 % darkness with a softer filter, raises the
+   probe and the exposure a little and lowers saturation; rain adds wetness, a nearer haze and
+   more wind; snow a snow cover. The sun's direction is not in a look and the moon is unchanged;
+   a clear look outside the morning is `look_for`'s field for field except the new
+   `LookSpec.atmosphere` (pinned). The 2D sun study, the hours-of-sun map and every truth gate
+   read clear geometry and are unaffected. A new weather's sky is built at once
+   (`look.sky_must_build_now`, `SkySpec.cloud`); `sky_phase` is now read from the sun's
+   elevation, not the disc's energy, so an overcast day is still day.
+3. **Moods are names of the look.** `weather.mood_of(look, sun)` — night, twilight, rain, snow,
+   overcast, morning dew, golden hour (a clear sun at or below 12°), day — read from the look so
+   the name can never disagree with the picture. Morning dew is east of the meridian (azimuth in
+   (0°, 180°) at every latitude) from the end of civil twilight until the sun is 18° up: a
+   nearer mist, a wet sheen on leaves and blades, a little less colour.
+4. **Particles are geometry a shader moves.** No CPU simulation and no Qt Quick 3D particle
+   module: `core/scene3d/particles.py` builds two buffers — the precipitation (3,600 seeded
+   quads, the same for every plan) and the ambient life (falling leaves under turned trees and
+   shrubs that are dropping them, butterflies at plants in flower up to 3.5 m tall, fireflies in
+   the hemisphere's midsummer, and the bulbs of the garden lights) — each loaded into ONE
+   declared Model for the scene's life (`ReloadableGeometry`, like the selection ring).
+   `precipitation.vert` / `ambient.vert` place every particle from its seeds and the WIND'S
+   CLOCK (`windTime`). So the L1.4 animation policy runs them: hidden, nothing ticks; reduced
+   motion rests the clock at 0 — every particle stands where its seed puts it, a photograph,
+   and an idle view presents no frame; the compatibility mode draws them still. Rain and snow
+   are world-anchored in a box around the camera's target (`precipitation_volume`), so an orbit
+   never drags them. WHICH plants have life is the buffer's (rebuilt with the plants'
+   phenology, i.e. at most twice a second during a date playback); WHEN it shows — by day, dry,
+   at dusk — is the look's (`AtmosphereSpec.leaves / butterflies / fireflies / lamps`), a
+   uniform, so a time-of-day step rebuilds nothing. Budget: precipitation 3,600 + leaves 560 +
+   butterflies 80 + fireflies 360 + bulbs 360 = 4,960 ≤ 5,000 (pinned).
+5. **Wind is a shader value the weather sets.** `LookSpec.wind_strength` (clear 2.5 — L1.4's —,
+   overcast 3.5, rain 5, snow 1.5) sways foliage and grass; `AtmosphereSpec.wind_drift_scene`
+   carries rain, snow and leaves (from the west-south-west). No meteorology is claimed.
+6. **Wet and snowy ground is ONE set of values.** The meadow, the bare plan and both tile
+   materials bind the same `groundRoughness` / `groundSpecular` / `groundTint` (and the tile
+   shader `snowCover`), so the plan meets the meadow without a step in every weather (the L1.4
+   plan-edge rule). Roofs and a bed's soil (principled `vc` parts) are not snow-covered — an
+   accepted limitation.
+7. **Today's weather follows the app's forecast, only on today.** The Planting Calendar's
+   weather widget already fetches Open-Meteo's daily forecast; `forecast_days_ready` fans its
+   `(ISO date, WMO code)` days out to the workspace (no second fetch, nothing from the 3D view to
+   the network). `weather.todays_weather` maps the plan date's code — only when the plan date is
+   today — onto a preset (`weather_from_wmo`: 0–2 clear, 3/45/48 overcast, drizzle/rain/showers/
+   storms rain, snow and snow showers snow); on any other date "Today's Weather" shows clear and
+   its tooltip says why.
+8. **Garden lights are objects, their light a fixed pool.** `GARDEN_LIGHT` (circle tool, a
+   lantern on a post) and `STRING_LIGHTS` (a LINE, drawn like a fence: a post at every point,
+   the wire hanging between them — the owner's addendum below) are registered on every §8.23
+   surface (default heights 110 / 250 cm; the lantern's sprite from
+   `scripts/generate_object_sprites.py`, the string drawn by the canvas) and built by
+   `builders/lights.py`. Where a bulb is is ONE function per kind (`lantern_bulb`,
+   `string_bulbs` — the string's from `core/string_lights.layout`, which the canvas draws
+   too), read by the builder that places the bulb and by `core/scene3d/lights.py` that makes
+   it glow (an ambient `bulb` particle) and light (`pose_points`, the Model's own pose). The scene declares `lampSlots` (6) point lights once;
+   the nearest six lamps to the camera's target light the garden after dusk
+   (`AtmosphereSpec.lamps` ramps in over twilight), the rest glow. No point-light shadows.
+   `foliage.frag`, `foliage_door.frag` and `lawn.frag` gain a `POINT_LIGHT` that lights leaves
+   the way their `DIRECTIONAL_LIGHT` does.
+
+**Alternatives considered**:
+- *Qt Quick 3D's `ParticleSystem3D`.* A CPU simulation per frame, a further QML module to
+  bundle and pin in the frozen exe, and particles that tick on their own clock — a second
+  animation policy to keep in step with reduced motion and with a hidden pane. The shader route
+  reuses the clock the policy already owns.
+- *Weather in the sun study.* Rejected by the truth principle: shading in 2D is a geometric
+  analysis of where the sun's direct light falls; a cloudy day does not move a shadow.
+- *A light per lamp.* Every visible light is computed for every lit pixel and changes the shader
+  of every lit material; a plan with dozens of lamps would recompile and slow the view. Six
+  nearest, the rest glowing, keeps the cost bounded.
+- *Persisting the weather.* The sim moment is not persisted (FR-SUN-04); the weather is part of
+  that simulated moment, so every session starts clear.
+
+**Consequences**: New modules `core/playback.py`, `core/scene3d/weather.py`, `particles.py`,
+`lights.py`, `builders/lights.py`, `ui/view3d/workspace_living.py`; shaders
+`precipitation.vert/.frag`, `ambient.vert/.frag`; two object types added to `ObjectType`
+(appended) and `ToolType` (beside the other furniture tools — `ToolType` values are never
+persisted; `ObjectType` NAMES are serialized — no `FILE_VERSION` bump: an older version loads
+a garden light as a generic shape, but a string as a fence, because its loader gives every line
+of an unknown type `ObjectType.FENCE` (`project.py`, `object_type or ObjectType.FENCE`) — a
+120 cm fence that casts a 2D shadow, builds as a fence in 3D, and stays one if saved
+there); one sprite, the lantern's (§8.23 now 25 artifacts; the string is a line drawn by
+the canvas); `bench_built.ogp` gained one of each (appended last, every earlier id and seed
+kept; the string's middle post moved from y 1290 to y 1210 after the owner's manual test,
+where the old point stood inside the deck at y ≥ 1260). `LookSpec` gained `atmosphere`
+(`CLEAR_STILL` by default), `SkySpec` `cloud`. Measured (RTX 4070, Direct3D 11, bench_small at
+1280 × 720, Medium, interleaved readbacks): clear with life +0.6 %, snow +1.9 %, rain +3.7 % of a
+frame; with reduced motion 0 frames over 2.5 s after the first build. A garden light's
+3D shadow is a small share of its solid 2D prism, as every open object's without a porosity
+model is — a pergola's about a quarter, a swing's about a sixth; #440 gave one to fences
+only, its roof projection to buildings; the open objects' is #698 — the shadow table of
+ADR-059's builders addendum. A string of lights casts no 2D shadow at all (the owner's
+addendum). Tests:
+`tests/unit/test_playback.py`, `test_scene3d_weather.py`, `test_scene3d_particles.py`,
+`tests/unit/test_string_lights.py`, `tests/integration/test_living_garden.py` (§8.10),
+`tests/integration/test_string_lights_line.py` (the string as a line: the tool, its 2D
+picture, no 2D shadow, Change Type and undo, 2D and 3D bulbs at one place however it is
+turned), the render tier
+`tests/integration/test_living_garden_render.py` (the two issue gates and the board), the
+Beauty Board's `--living` shots, and the frozen `--selftest`: a second small frame — a rainy
+night with one garden light, in perspective — compiles the particle shaders and the point-light
+path from the bundle and must show the lamp's warm glow (`selftest.judge_living_frame`; a broken
+particle shader fails it, `test_quick3d_selftest.py`). Cross-refs: FR-3D-LIVE-01 … 09, §8.29.13, §8.10.16,
+PF-L3D-18.
+
+**Addendum (3D review of the L5 board, before the draft PR)**: The `ogp-3d-reviewer`'s first
+pass rejected the board: one P0 and three P1s. Truth was intact (38 truth frames bit-identical
+to the merge base but two pixels by 1 luma; no weather moved a shadow centroid by more than
+3.3 cm). The fixes:
+1. **A weather pauses under an Analyze drape (P0).** The drapes are alpha-blended over a
+   ground the weather recolours: under snow the hours-of-sun drape's saturation fell to 0.31
+   of the clear look's and its hue moved by up to 59° (p90), so its colour key no longer read
+   as its legend. Decision 2's "the drapes are untouched" must hold for their PIXELS: while a
+   drape lies on the ground (2D shadows or hours of sun; Sweep the Day included) the look is
+   `living_look(sun, preset, "clear", dew=False)` — the sun's own look (`LookController.
+   set_analysing`, told by the workspace on every drape change). The Weather button keeps the
+   chosen weather and adds "(paused while analysing)"; Nothing on the Ground brings it back
+   (FR-3D-LIVE-09). The drape frames are then the clear frames, so the review's hue gate (≤ 2.7°)
+   holds by construction. Rejected: opaque drapes under a weather (they would hide the ground
+   the analysis is about).
+2. **The fog under a cloud (P1).** `FOG_OF_HORIZON` was calibrated on the clear sky's texture;
+   an overcast sky draws its horizon row otherwise, so the fog drew 4 luma above the overcast
+   noon horizon and 3.6 under its night — a seam in every cloudy weather that the board's
+   distant-horizon gate raised. `weather.weather_fog` scales the fog by 1 + cloud × (−0.045 by
+   day … +0.23 at night, by `twilight`); the look controller's lagging-sky fog uses it with the
+   SHOWN sky's `cloud`. The board's `--living --horizon` now runs the horizon probe under
+   overcast, rain and snow too (`HORIZON_WEATHERS`). Measured (high, 1280 × 720): near steps at
+   most 1.86 luma in every cloudy mood (night 4.08 → 0.56), every distant row ≤ 2.87; clear
+   unchanged (max 3.0).
+3. **Lanterns and bulbs (P1).** The heads drew as neutral white boxes with dark cores: the
+   point light stood inside the bulb's ball (a culled sphere lit from within renders dark) and
+   lit the lantern's glossy pane at full strength. The light now stands `LIGHT_BELOW_CM` (3 cm)
+   under the lantern or a string's middle bulb (`builders.lights.lamp_light` — the one function
+   the light reads); `constantFade` 4 with brightness 9.4 keeps the 1.5-m pool of 1 / 3.5 / 7
+   while the near field drops to a third; the glow is drawn 6 cm towards the camera, in front of
+   its own ball, as a small hot centre in a warm halo kept under the tone curve's shoulder. The
+   pane went: the constant fade is a floor, so a pane round its lamp is lit at the near-field
+   strength wherever the light stands, and through Filmic at night exposure it drew cream
+   (hue ~50°) whatever its tint. Dark speckles in the lantern heads (luma < 40 inside a ring
+   > 110, the review's speckle probe) 41 → 1 — the board's `isolated_dark_px` reads 41 → 36,
+   the lantern's black post and bars against its own glow; clipped pixels in the heads 55 % →
+   6.6 % (round 2). The glow adds light of hue 12–31° (the head with the lamp-lit wall behind
+   it: hue 46–53°, saturation 0.27, was a neutral white).
+4. **Life is a count (P1).** The look's life shares were opacities; blended in linear HDR a
+   wing at 9 % still lifted a dark lawn by 39 luma (80 ghost butterflies under overcast, 67 at
+   dawn → 25 and 3, every one opaque). A share now collapses the particles whose seed lies
+   above it. Wings stand in a 0.9-rad V at rest (flat they read as slivers), the white wing
+   is a cream (0.70, 0.70, 0.64), and a leaf or butterfly near the camera is not drawn (the
+   1,278-px white blade; largest butterfly blob now 403 px) — round 2 made both a SIZE ramp.
+
+Smaller fixes of the same review: the dew rises over 4° from dawn instead of switching on;
+fireflies stay under 2.5 m and fade over the last 25° of azimuth before solar midnight (either
+hemisphere); falling leaves tumble well out of the horizontal; rain streaks are at least
+1.3 px wide (alpha 0.27, the same total brightness) and flakes at least 2.6 px. Deferred to
+#687: overcast contact shade, fading lamp pools, snow on roofs and bed soil, a dew ground mist,
+the leaf colour from the tree. Left to the owner (the PR): how far a weather may fade a shadow,
+the rain sky's brightness, whether snow may fall on any date.
+
+**Addendum (3D review, round 2)**: The round-1 fixes held (drape pause, cloudy horizon,
+lantern heads, ghost wings), and the round-2 review looked where round 1 had not — a cloudy
+sky facing the sun, a rainy low sun, a moving walk view, a winter noon:
+1. **No black sun.** The overcast sky set `sun_energy` × (1 − cloud); Qt's
+   `ProceduralSkyTextureData` blends the disc and its falloff towards sun colour × energy, so
+   energy 0 drew a BLACK disc with a dark halo (luma 0 at the sun, 150 around it, under
+   overcast and rain). The energy stays; the disc's COLOUR fades into the horizon by cloud.
+2. **No sun glint on wet ground.** At roughness 0.55 the dimmed key light still left a crisp
+   specular lobe on the wet meadow at a low sun — a cream glint carved by the shadows — and a
+   1.75-luma plan-edge step; the round-1 specular change (0.40 → 0.25) did not move it.
+   Roughness is the lever: 0.8 (specular 0.25) gives an edge step of 0.32, no glint, and rain
+   shadows of IoU 0.64 / 0.94 / 0.94 at 15 / 35 / 60° (overcast 0.77 / 0.95 / 0.94; rain
+   0.24 / 0.66 / 0.93 before: most of the "rain fades the shadow" was the glint).
+3. **A whole particle shrinks; none is cut.** Round 1 cut leaves and butterflies within 2 m
+   PER VERTEX: a wing straddling the line sent some corners beyond the far plane and tore
+   into a sliver (40 % of animated walk frames). The size now ramps to zero by the ANCHOR's
+   depth (`smoothstep(150, 250, depth)` — closer bands read a cabbage white as a 728-px
+   blade). The same for the life share: a particle whose seed lies above it shrinks away over
+   a narrow band instead of popping; and a firefly is no longer dimmed on top of its count
+   (its light faded as the share squared).
+4. **The dew fades before noon.** On a winter day whose sun never reaches 18° the dew lay until
+   solar noon and went out at once (0.33 at noon in Berlin on 21 December, 0.97 in Helsinki);
+   it now fades over the last 25° of azimuth before the meridian, in either hemisphere.
+
+**Addendum (senior review, round 1)**: The garden's life had no end-to-end path under test:
+the test bench builds no Plant Forge, so `season_sink` never ran, and the tooling assembles
+the life by hand. `test_living_garden.py` now drives a lavender in flower and an oak turning
+through the PRODUCTION Plant Forge to the engine (June butterflies, October leaves, January
+nothing; it fails when `season_sink` bypasses the coordinator), and the render tier reloads
+the ambient buffer into the same live host (glow A, nothing, glow B — on the GPU and on WARP:
+ADR-069's withdrawn reload drew a replaced geometry as nothing). The living-garden host calls
+(`set_plant_seasons`, `set_ambient`, `set_life_enabled`, `set_lamps`) are declared in
+`EngineHost` — no silent fallback for a host without them. Today's Weather now works in the
+default flow: the 3D view ASKS for the forecast (`Workspace.forecast_wanted` →
+`PlantingCalendarView.request_forecast`, the weather part of the calendar's refresh, so still
+one fetch path) when Today's Weather is chosen and for a new location (a new or opened document
+brings its own; the document itself only forgets the old forecast — round 2); the calendar
+emits an EMPTY forecast without a location or after a failed fetch; the tooltip names which of the plan date,
+the location or the forecast is missing. Smaller: a precipitation that cannot be loaded no
+longer skips the moon's handover and is logged once; the lights are read again only when a
+pass touched a light (500 lights cost ~40 ms per pass); the drape's callback is disconnected
+before the analysis shuts down. Left as stated: a string of lights casts the solid 2D prism
+of its footprint (ADR-059's policy; 2 % of it is its 3D shadow) — an owner question (#698),
+answered in the owner's addendum: it casts none. Measured
+for the review: a night frame with six lamps lit costs +2.3 % on the GPU and +11.9 % on WARP
+(bench_small, Medium, interleaved readbacks). Deferred to #689: the lamp pool's shader
+permutations at the first dusk, the wind clock's precision in long sessions, Today's Weather
+past midnight, the firefly season's date, one life assembly for the product and the tools.
+
+**Addendum (senior review, round 2; 3D review, round 3)**:
+1. **A new or opened plan never follows the old place's forecast.** `document_replaced`
+   comes while the old document's location is still set, so round 1's ask from that slot
+   fetched the OLD place; the result then reached Today's Weather, the calendar's strip
+   (with no location) and the new plan's frost alerts. The document now only forgets the
+   forecast; the ask waits for the new location's `location_changed`, which always follows.
+   `WeatherWidget.set_location` cancels and DISCONNECTS the old place's fetch and forgets
+   its forecast (the disconnect is what keeps a queued result from landing: PF-LIF-12 states
+   the rule and its limit). The widget follows EVERY location change, also while its tab is
+   hidden (`PlantingCalendarView.follow_location`; round 4 found the old place's late forecast
+   landing on a plan at another place when Today's Weather was not chosen), and the forecast
+   carries the place it was fetched for: the 3D view drops another place's instead of
+   guessing (`forecast_days_ready(place, days)`, one reader `solar.plan_place`).
+   An edit at the same coordinates (a frost date) keeps the forecast. No zero-timer: a fetch
+   for the same place already on its way is not started again (`WeatherWidget.refresh`). The forecast as app-owned data keyed by place: #693; the
+   calendar's frost alerts, which keep the old plan's after a cleared location: #694.
+2. **Where noon stands is the place's.** The dew's noon fade and the fireflies' midnight
+   read the meridian from the plan's hemisphere (`noon_azimuth`; `LookController.set_southern`,
+   told by the workspace) — not from both: a summer dawn north of ~60° stands near due north,
+   and round 2's fade dimmed its dew ×0.04 as if it were noon.
+3. **A cloudy evening is an evening.** The low sun's exposure lift (+0.44 EV at a golden
+   hour) makes up for a clear key light; under cloud it made a sunset 98 % as bright as noon.
+   The cloudy day now holds NOON's exposure in the share of its cloud (in stops, like
+   `mix_rig`), the mood's own returning with twilight: an overcast sunset is 0.77 of noon
+   (rain 0.79, snow 0.68; a clear one 0.57; in luma 0.84 / 0.85 / 0.81, clear 0.67; the
+   high preset at 1280 × 720 — the render tier's medium run at 640 × 360 reads
+   0.76 / 0.78 / 0.67) — mean LINEAR
+   luminance of the board's mood
+   camera, `render_beauty_board.py --living --moods --dusk` (`moods_<weather>` /
+   `sunset_over_noon`), re-measured at the final head with the stop blend and the matched set
+   sun; every dusk monotone (`dusk_<weather>`).
+4. **Wet leaves are not glossier than 0.6.** At roughness 0.38 a low sun left cream glints
+   on the leaves in the rain; at 0.6 the golden hour's cream pixels fall 1,005 → 5, the sunset's
+   707 → 38, the sun-facing walk views 413–468 → 0–23 (`foliage.frag`, `foliage_door.frag`,
+   `lawn.frag`).
+5. **Smaller:** a particle's seed spans [0, 11/12), so at a full share every particle is
+   whole (a seed above 11/12 stayed undersized); the reload test adds a reload WHILE SHOWN and
+   stands on both of CI's render lines (OpenGL on llvmpipe, Direct3D 11 on WARP); the host
+   protocol carries the real types; the seasons' host call is contained like every living
+   call; the plan's latitude has ONE finite-checked reader (`phenology.plan_latitude`) for
+   the Forge, the garden's life and the hemisphere; the Weather button forgets the pause
+   with its engine. Filed: #692 (the
+   board's access violation at exit, also on the merge base). Owner questions (the PR): a
+   cloudy evening darker than a clear one, and a glossier dew than the rain.
+
+**Addendum (3D review, round 4; senior review, rounds 4–5)**:
+1. **A set sun MATCHES the sky.** `look_for` drew no sun below 0.5° by `sun_energy` 0 — master's
+   line, which Qt's procedural sky draws as a BLACK disc with a dark halo: luma 0 against a
+   170–182 sky at +0.4°, through all of twilight, in every weather. The board's dusk camera has
+   the sun behind the poplar, so three reviews missed it (#695: a sky-facing probe). A set sun
+   is now the horizon's colour at the sky's own energy (`look.py`; a weather keeps it matched):
+   dip ≤ 1.6 luma and no halo at +0.4 / 0 / −1 / −3°, clear, overcast and snow, and no glow at
+   night — the energy-1 alternative left 23 luma at −3°. Dusk sunset steps halved
+   (0.011 → 0.006).
+2. **The dew rises from solar midnight.** Round 2's symmetric fade had also been the dew's ramp
+   at the midnight meridian; the hemisphere fix removed it, and north of ~61° in June the dew
+   switched 0 → 1 in one frame. It now rises over 15° of azimuth after solar midnight
+   (Tromsø, 21 June, 2-minute steps: max 0.031, was 1.0).
+3. **The producer says where it fetched** (round 4): the weather widget follows every location
+   change, also with its tab hidden, and `forecast_days_ready(place, days)` carries the
+   coordinates; the 3D view drops another place's forecast (PF-LIF-12).
+4. **One validity rule for a place** (round 5): `solar.plan_place` — real numbers, finite,
+   in range — for the calendar's forecast, Today's Weather, the Forge's phenology, the
+   garden's life and the hemisphere (older readers: #697).
+5. **String Lights' 2D shadow, stated truly** (round 5): #440, merged from master, made fences
+   porous in 2D, so "a solid strip, as a picket fence's" no longer held. Like every open
+   object without a porosity model, a string casts a solid 2D prism; its 3D shadow is 2 % of
+   it. #440's transmittance hook could make all of them honest — an owner decision (#698;
+   for the string answered in the owner's addendum: no 2D shadow). Cloudy horizon steps at
+   the final head: ≤ 1.97 (snow sunset), night 0.56–0.94; the clear
+   horizon unchanged (its low-preset sunset step of 3.13, over the 3.0 bound, is master's: #696).
+
+**Addendum (the owner's manual test of L5)**: The owner confirmed the day and year playback,
+the garden's life, a new plan's forecast and the 3D lights, and changed two things:
+1. **A string of lights is a LINE.** "A Lichterkette needs to be a 1D object like a fence or
+   wall … it doesn't have an actual width", and its 2D picture, a sprite stretched over the
+   rectangle, was distorted. `STRING_LIGHTS` is drawn with the line tool: every point is a
+   post, the wire hangs between two posts (`SAG_SHARE` of the span), and a bulb hangs every
+   40 cm along the WIRE, not per span — `core/string_lights.layout`, one layout for the
+   canvas's picture (`ui/canvas/items/string_lights_paint.py`: wire, glowing bulbs, a post per
+   point, sized by the line's width, 12 cm by default), the 3D builder and the night's lights.
+   At most 120 bulbs a string; its triangle budget grows with the line as a fence's does
+   (`lights.string_triangle_budget`). The string has no sprite (the gallery's picture is the
+   same painter's) and no path or fence style. Change Type, the smart-symbol member table and
+   the agent's `create_object` offer it with the lines. A string read from a file as a
+   rectangle (a hand-edited plan; no plan with one has shipped) is the line along its long
+   side: two posts.
+2. **A string of lights casts no 2D shadow** — the answer to the open question #698 asked for
+   strings: "Their shadow is not required in 2D sunlight studies, because the shadowed area
+   is basically irrelevant." `object_height.NO_2D_SHADOW_TYPE_NAMES` /
+   `casts_2d_shadow` is the one rule: the caster walk (`collect_identified_casters`, and
+   with it the overlay, the hours of sun and the plants' sun estimates) leaves the string
+   out, and its record says `has_2d_caster` False. Its 3D model keeps the thin shadow of its
+   posts and wire. ADR-059's table has no row for it. #698 stays open for the other open
+   objects.
+3. **The 3D strip's menu buttons read as buttons.** "Wetter: Klar" was not found: a
+   text-only `QToolButton` that only opens a menu has its arrow drawn under its last letter
+   by the app's style, and reads as a label. The Weather and the Analyze buttons carry the
+   `menuChevron` property; the theme's chevron rule gives the arrow room beside the text
+   (PF-UI-33).
+4. Found along the way: the forecast cards' weekday names and the task list's month names
+   are English in every language (`strftime`; #702).
+
+Its reviews then settled what the line left open. **A bulb keeps 6 cm from its span's posts**
+(`string_lights.POST_CLEAR_CM`): arc-length spacing put the middle bulb of every symmetric
+string with an odd count ON its middle post — a 2.6 cm ball inside a 4 cm post (3D review);
+no bulb moves further. The symbol's post is wider than 3D's 4 cm (a full stroke width), so
+the 2D painter draws the wire and posts UNDER the bulbs and caps the post's drawn side at
+`2 × POST_CLEAR_CM`: a clamped ball is visible on top of the post (59 % was buried at the
+default width, 96 % at 24 cm) and a widened stroke cannot swallow it (senior review round
+12). A string's point light stays under its middle bulb, which the clearance now keeps off
+the posts of its span: the bulbs' centroid, tried in round 11, stood inside the middle post
+of a straight string (senior review round 12); a bulb can still meet a foreign post on a
+line that doubles back, where the paint order keeps it visible. Where a loop's or an L's
+light should stand is a follow-up. The wire's radius is 0.5 cm
+(0.35 broke into dashes at 7 m on Low). **The line's width sizes the 2D symbol only**, as a
+fence's stroke does: the 3D model builds real 4 cm posts and 2.6 cm bulbs at the same places;
+a width of 0, which a file may hold, is drawn at 12 cm by the bounds and the paint alike
+(`string_lights_paint.drawn_width`). The string's style has no fill, as no line has one —
+Change Type from a fence kept the string's cream style fill from its rectangle days, out of
+step with the line's empty brush — and its Type-dropdown icon is the gallery's painted
+picture, not the warning triangle. A crafted line of any length stands on at most
+`MAX_POSTS` (512) posts, and a paint reads the layout the item keeps (security review;
+general vertex caps at load: #703).
+`NO_2D_SHADOW_TYPE_NAMES` is for a kind whose shade is negligible, never for an open frame
+that overstates its own: a pergola or a swing is cast honestly through #440's transmittance
+(#698). **Older versions**: no file-format change, but an older loader gives every line of an
+unknown type `ObjectType.FENCE` — a string opens there as a 120 cm fence that casts a 2D
+shadow, and stays one if saved there. A string drawn as a rectangle by this PR's first build
+(the owner's test plans only; none shipped) opens as the two-post line along its box in 3D
+and as a box on the canvas — draw it again.
+
+**Addendum L7 (#391, the owner's manual test, 2026-11-03): Partly cloudy.** A fifth weather
+between Clear and Overcast: `WEATHER_SPECS["partly_cloudy"]` is cloud 0.4, dry, wind 3.0 and
+haze 0.9. The cloud is the atmosphere sky's cover; the look takes smaller shares of decision
+2's overcast, 0.15 for the light (`WeatherSpec.light`: the key light × 0.88, the shadows' factor
+× 0.90) and 0.25 for the sky's grey (`WeatherSpec.grey`). At the full 0.4 the painted sky read as
+a dull clear day (3D review). The sun and its shadows stay where `core/solar` puts them, as in
+every weather. Every other weather has one share for all three, so no accepted look moved under
+the painted sky. Its mood stays day, golden hour
+or dew (`mood_of` names overcast from cloud 0.5). It exists because the atmosphere sky's
+volumetric clouds show as scattered clouds only at partial cover; Clear has none and Overcast
+closes the deck (ADR-048 addendum L7, revision). Today's Weather maps WMO code 2 (partly
+cloudy) to it; codes 0 and 1 stay clear. The board's cloudy-weather gates (horizon, mood strip,
+dusk) and the render tier's cloudy-evening gate run on it (`HORIZON_WEATHERS`). Pinned by
+`tests/unit/test_scene3d_weather.py::test_a_partly_cloudy_day_keeps_its_sun` and the WMO table.
+
+
+## ADR-071: Per-object fill transform as additive appearance metadata (issue #665)
 
 **Status**: Accepted (2026-11-02, package #674/#665/#690).
 

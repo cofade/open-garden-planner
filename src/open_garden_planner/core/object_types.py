@@ -233,6 +233,10 @@ class ObjectType(Enum):
     # Garden journal map-linked note pin (US-12.9)
     GARDEN_JOURNAL_PIN = auto()
 
+    # Garden lights (Phase 17 L5.4, #389): a lantern post (circle), a string of lights (rect)
+    GARDEN_LIGHT = auto()
+    STRING_LIGHTS = auto()
+
 
 @dataclass(frozen=True)
 class ObjectStyle:
@@ -532,6 +536,14 @@ OBJECT_STYLES: dict[ObjectType, ObjectStyle] = {
         display_name=QT_TR_NOOP("Bird Bath"),
         fill_pattern=FillPattern.SOLID,
     ),
+    ObjectType.GARDEN_LIGHT: ObjectStyle(  # black enamel (Phase 17 L5.4, #389)
+        QColor(49, 53, 56, 255), QColor(19, 21, 23), 1.5, QT_TR_NOOP("Garden Light")),
+    # a LINE (L5.4, owner's manual test of #389): the stroke is its dark wire, its width
+    # the size of its posts and bulbs (ui/canvas/items/string_lights_paint.py); no fill,
+    # as no line has one (a Change Type that kept the rectangle's cream fill left the
+    # item's fill attribute out of step with its brush)
+    ObjectType.STRING_LIGHTS: ObjectStyle(
+        QColor(238, 225, 198, 0), QColor(48, 51, 54), 12.0, QT_TR_NOOP("String Lights")),
     ObjectType.TOOL_SHED: ObjectStyle(
         fill_color=QColor(160, 130, 90, 255),  # Light wood
         stroke_color=QColor(100, 75, 45),  # Dark wood
@@ -776,6 +788,7 @@ def get_valid_types_for_shape(
             ObjectType.WATER_TAP,
             ObjectType.TRAMPOLINE,
             ObjectType.BIRD_BATH,
+            ObjectType.GARDEN_LIGHT,
             ObjectType.POND_POOL,
             # F9: round in-ground beds (keyhole gardens, etc.). RAISED_BED is
             # intentionally excluded — its wooden-frame pixmap is rectangular
@@ -833,5 +846,5 @@ def get_valid_types_for_shape(
             ObjectType.GARDEN_BED,
         ]
     if shape == "polyline":
-        return [ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH]
+        return [ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH, ObjectType.STRING_LIGHTS]
     return list(ObjectType)

@@ -41,6 +41,7 @@ from .plant_art import (
 )
 from .scene3d import Record, srgb_to_linear
 from .scene3d.builders.plants import plant_sprite
+from .solar import plan_place
 
 #: Default temperate Northern-Hemisphere latitude when a plan has no coordinates set.
 DEFAULT_LATITUDE_DEG: Final[float] = 52.0
@@ -69,6 +70,12 @@ def _smoothstep(edge0: float, edge1: float, x: float) -> float:
         return 1.0 if x >= edge1 else 0.0
     t = min(max((x - edge0) / (edge1 - edge0), 0.0), 1.0)
     return t * t * (3.0 - 2.0 * t)
+
+
+def plan_latitude(location: object) -> float:
+    """The latitude of ``plan_place`` — or, with no place, ``DEFAULT_LATITUDE_DEG``."""
+    place = plan_place(location)
+    return place[0] if place is not None else DEFAULT_LATITUDE_DEG
 
 
 def seasonal_day_of_year(plan_date: datetime.date, latitude_deg: float = DEFAULT_LATITUDE_DEG) -> float:
@@ -430,6 +437,7 @@ def evaluate_phenology_for_records(
 
 __all__ = [
     "DEFAULT_LATITUDE_DEG",
+    "plan_latitude",
     "SNOW_LINEAR_RGB",
     "PhenologyState",
     "evaluate_phenology",

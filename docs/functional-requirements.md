@@ -108,7 +108,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   composition order, rendered clockwise sign and tile period) and
   `tests/integration/test_fill_transform.py` (panel spins + Reset, one command per change, geometry
   unchanged, save/reload, copy appearance, roof composition). The 3D ground/faces keep their
-  existing untransformed sampling; the control is a 2D display property (ADR-070). A textured
+  existing untransformed sampling; the control is a 2D display property (ADR-071). A textured
   path/fence (gravel path, dirt path) exposes the same four controls, because its pattern stroke
   carries the same transform.
 - **FR-EDIT-24** *(issue #690)*: Converting a rectangle or polygon to **HOUSE** through the
@@ -761,12 +761,15 @@ Looks, sky and motion (L1.4, ADR-059 addendum "looks, sky and the animation poli
 - **FR-3D-LOOK-01** (L1.4): The light in the 3D view is the plan's sun: its direction comes from the plan's location, date and time and from nothing else, at every quality setting. The mood follows the sun's height without a jump — warm and long-shadowed when the sun is low, neutral at midday — at 0.5° (the height at which the plan's 2D shadows end) the sun's light goes, as in 2D, and through civil twilight down to −6° the picture fades evenly into night — no step larger than a half degree of the afternoon, the light never brightening as the sun sinks, a faint moonlight fading in. Below −6° it is night: dim, cool, moonlit, with less than a quarter of the light of noon in the picture (measured: a tenth).
 - **FR-3D-LOOK-02** (L1.4): The sky shows the sun where the plan's sun stands (within 6°; measured 0.1°). While the time slider is dragged the light, the exposure and the haze follow at once; the picture of the sky follows when the sun has moved by one degree or more and has rested for 0.15 s. Sunset (the sky's sun goes), the end of twilight (the night sky) and dawn switch at once. A sky the graphics device cannot build leaves the view with a plain sky for the session — the light and everything else still follow the sun.
 - **FR-3D-LOOK-03** (L1.4): Preferences → 3D View → Quality offers **Automatic**, **Low**, **Medium**, **High** and **Ultra**. A quality setting changes what a frame costs — shadow resolution and softness, anti-aliasing, ambient occlusion, glow, reflections — and never where anything is, the camera, the light's direction or the mood. **Automatic** (the default) chooses among Low, Medium and High from the frame rate it measures while the view is animated: it steps down when the view runs under about 27 frames a second for three seconds, steps up only after ten seconds of 50 and more, does not go back for five minutes (twice as long each time it fails again, at most an hour) to a level that proved too slow — also not in the next session: where it settled and which level it had to leave, until when, are remembered between sessions — and every session holds its level ten seconds before a first step up. A view that draws nothing — hidden, the display asleep, or still because **Reduce motion** is on — is no measurement and changes nothing: reduced motion freezes the automatic choice where it is. In compatibility mode **Automatic** is **Low**.
-- **FR-3D-LOOK-04** (L1.4): Foliage and grass sway in the wind only while the 3D view is visible and not in compatibility mode; hidden, nothing ticks. Preferences → 3D View → **Reduce motion** stops the wind for good: every plant stands exactly where the plan puts it. (Qt 6.11 exposes no operating-system "reduce motion" preference, so the setting is the application's own.)
+- **FR-3D-LOOK-04** (L1.4): Foliage and grass sway in the wind only while the 3D view is visible and not in compatibility mode; hidden, nothing ticks. Preferences → 3D View → **Reduce motion** stops the wind for good: every plant stands exactly where the plan puts it. Since Phase 17 L7 (#391, Qt 6.12) the operating system's own "reduce motion" preference (Windows: Settings → Accessibility → Visual effects → Animation effects off) stops the wind too, and a change of it takes effect while the app runs; either one stops the wind, and neither switches the other off — and, as with the setting, the operating system's preference also holds **Automatic** quality where it is (FR-3D-LOOK-03: a still view is no measurement). (Qt 6.11 exposed no such preference, so until L7 the setting was the only switch.)
 - **FR-3D-LOOK-05** (L1.4): In compatibility mode (software rendering) the view has no sky picture and no light from the sky — a plain sky colour and an even fill light at half the sky's strength instead — no wind (an animated view would draw continuously), and **Automatic** quality is **Low**, so that it stays responsive; the sun's direction, the shadows and the chosen quality settings are the same.
 - **FR-3D-LOOK-06** (L1.4): The shadow of a solid block in the 3D view covers the ground the plan's 2D shadow covers: an overlap (intersection over union) of at least 0.85 at sun heights of 15°, 35° and 60°, at every quality setting, on a graphics card and in compatibility mode (measured: 0.92 – 0.99).
+- **FR-3D-LOOK-08** (L7, #391): Preferences → 3D View → **Sky** offers **Painted** (the default) and **Atmosphere with clouds**: a physically based sky (Qt 6.12) that is bluer overhead, brightens toward the horizon and toward the sun, reddens at sunset, and shows the weather's cloud as volumetric clouds (Partly cloudy: scattered clouds in a blue sky; Overcast and Rain cover the sky, Snow nearly). The sun stands in the same place in both skies and the shadows are the same. The light on the garden is the same in every weather: the atmosphere only draws the sky, and the painted sky lights the garden under both (its own light crashed the app on Qt 6.12.0, PF-E3D-17). The atmosphere's brightness is scaled to the painted sky's light on the ground at every sun height. The horizon the haze meets is the same, and from the end of civil twilight the night is the same. The change applies at once; the first atmosphere of a session can take about a second to appear (the painted sky shows meanwhile). In compatibility mode there is no sky picture, whichever is chosen.
 - **FR-3D-LOOK-07** (L1.4): At every quality setting thin repeated parts — the pickets of a fence — read as pickets, not as a moiré pattern (Low and Medium use the same 4x multisampling), and the plan's ground meets the meadow around it without a visible edge while nothing is drawn on it.
 
 Acceptance (L1.4): `tests/unit/test_scene3d_look.py` (the rig against the L0 spike's, every ramp step bounded, the presets, the automatic quality on synthetic frame series, when a sky is stale), `tests/unit/test_view3d_look_settings.py`, `tests/integration/test_view3d_look_controller.py`, `tests/integration/test_view3d_looks.py` (§8.10 — a scripted day in the real main window with a recording engine: the looks handed over, the sky rebuilds, the light, a quality change that moves no camera and rebuilds nothing, hide and show), `tests/ui/test_quick3d_host.py` (the light's rotation for a sweep of suns and for the moon; a fresh sky texture per build; the wind's clock); on a real graphics device `tests/integration/test_view3d_looks_render.py` (the production Beauty Board: shadow overlap in a perspective view with cascades at every quality, the sky's sun, the horizon, night against noon, the speckle gate with its control, the software fallback, twenty sun changes without a retained sky, the wind's clock on the real render loop, the evening from 6° to −7°, the fences' aliasing against a supersampled render, the plan's edge, two minutes of wind without a growing memory).
+
+Acceptance (L7, FR-3D-LOOK-08 and FR-3D-LOOK-04's operating-system half): `tests/integration/test_view3d_atmosphere_sky.py` (§8.10 — Preferences → 3D View → Sky in the real main window, and compatibility mode), `tests/integration/test_view3d_look_controller.py` (the model switch, the noise worker, the fallbacks, the operating system's motion preference), `tests/unit/test_scene3d_atmosphere_sky.py`, `tests/unit/test_scene3d_cloud_noise.py`, `tests/unit/test_quick3d_qml.py` (the atmosphere asks Qt for no cube, PF-E3D-17), `tests/ui/test_quick3d_host.py` (`TestSky`: the painted sky built and lighting under the atmosphere), `tests/unit/test_scene3d_weather.py` (Partly cloudy), `tests/unit/test_view3d_look_settings.py`; on a real graphics device `tests/integration/test_view3d_looks_render.py` (every board gate on both skies, the painted night kept, the atmosphere on a live host against a fresh host per sun, a sky rebuilt after its predecessors are deleted) and `tests/integration/test_living_garden_render.py` (the weather's gates on both skies); the frozen self-test's point 8.
 
 - **FR-3D-GROUND-01** (L1.5): Every flat surface of the plan — lawn, terrace, driveway, path, in-ground bed, flat furniture, any item without a 3D solid except a plant — is shown on the 3D ground as the plan paints it: the same fill texture and tint anchored the same way, the same outline pen, the same path or fence style, the same furniture sprite, in the plan's stacking order, north up. Measured against the plan's own full-detail render of the same items: the mean difference per channel is at most 6 of 255 for each of the 24 fill patterns, tinted and untinted, turned and not (measured: 0 not turned, ≤ 0.0002 turned). A plant is never painted on the ground.
 - **FR-3D-GROUND-02** (L1.5): An item that has a 3D solid is not painted; under it the ground shows whatever flat surface was drawn there, else meadow. Plan ground no item covers is meadow in the colour of the ground around the plan.
@@ -840,7 +843,9 @@ The built world complete (L4, #388, ADR-065).
   (250 cm), fire pit (30), planter pot (50), cold frame (45), rain barrel (100),
   water tap (80), swing (220), hammock (110) and pergola (250), which had none
   before L4's owner passes. In 2D an open frame (swing, hammock, pergola) shades its
-  whole footprint, as a fence casts a solid strip. A house is drawn in 2D in the terracotta of its 3D roof
+  whole footprint (a picket, metal or chain-link fence is weighted by its transmittance
+  since #440; the open
+  frames' and the garden light's is #698; a string of lights casts none, FR-3D-LIVE-08). A house is drawn in 2D in the terracotta of its 3D roof
   tiles; its 3D walls are sandstone, whatever the house's 2D colour (a house
   recoloured in 2D before L4 no longer shows that colour on its walls).
 - **FR-3D-BUILT-02** (L4.1): A house, garage or tool shed has **Roof style**
@@ -938,6 +943,82 @@ path's width in cm and its stones; an object without a height), the unit suites
 input), `tests/integration/test_bench_plans.py` (`bench_built.ogp`), the render
 tier `tests/integration/test_scene3d_ground_render.py` and the frozen
 `--selftest` (`ground.frag` compiled from the bundle).
+
+### The living garden (Phase 17 L5, #389, ADR-070)
+
+- **FR-3D-LIVE-01** (L5.1): The Plan & Sun toolbar's **Animate** plays either **the day**
+  (the time of day advances and wraps at midnight onto the same plan date — plant presence
+  and growth never change while it plays) or **the year** (the plan date advances at the
+  same time of day and wraps inside the plan's year), chosen in the menu beside the button,
+  at **Slow / Normal / Fast** (day: 5 / 10 / 30 minutes per step; year: 1 / 2 / 7 days per
+  step; a step every 0.2 s; "Normal" day is Phase 14's Animate). Every step is a write of
+  the one simulation clock: the 2D shadows, the hours of sun, the 3D light and the 3D
+  growth follow it (3D regrowth at most twice a second). Not stored: every session starts
+  with the day at Normal.
+- **FR-3D-LIVE-02** (L5.1): The 3D view names its **mood** in the Weather button's
+  tooltip — Night, Twilight, Rain, Snow, Overcast, Morning dew (a morning, from the end of
+  civil twilight until the sun is 18° up: a mist and a wet sheen on the leaves), Golden hour
+  (a clear sun at or below 12°) or Day — read from the frame's own look.
+- **FR-3D-LIVE-03** (L5.2; Partly cloudy L7): The 3D strip's **Weather** menu picks
+  **Clear**, **Partly cloudy**, **Overcast**, **Rain** or **Snow**. Weather changes how the garden LOOKS and nothing else: the sun's
+  position, the shadows' places, the 2D sun study and the hours-of-sun map stay as they
+  are. Partly cloudy: the sun stays out, its shadows crisp and only a little fainter, the
+  sky a little greyer; with the atmosphere sky (FR-3D-LOOK-08) scattered white clouds cross
+  it, golden toward sunset.
+  Overcast: a grey sky, no sun disc, soft and faint shadows. Rain: overcast, wet
+  leaves and ground, a nearer haze, stronger wind and falling rain. Snow: a pale sky, snow
+  on the ground and the leaves, falling snow, little wind. A new weather shows at once.
+  Not stored: every session starts clear.
+- **FR-3D-LIVE-04** (L5.2): Particles: rain and snow around the point the camera looks at;
+  **falling leaves** under trees and shrubs that are dropping their leaves on the plan
+  date; **butterflies** at plants in flower (up to 3.5 m tall) by day in dry weather;
+  **fireflies** among the plants on summer evenings (the hemisphere's June–August or
+  December–February, from dusk). At most **5,000** particles at once. "Wildlife and Falling
+  Leaves" in the Weather menu switches the leaves, butterflies and fireflies off and on.
+  The wind is a shader value the weather sets (sway and drift), not a simulation.
+- **FR-3D-LIVE-05** (L5.2): With **reduced motion** (Preferences → 3D View) nothing moves:
+  rain, snow and the garden's life are drawn still where they are, and an idle 3D view
+  presents no frame. While the 3D pane is hidden nothing ticks. In compatibility mode
+  (software rendering) they are drawn still. On the graphics card at Medium the particles
+  cost at most 15 % of a frame (measured: rain +3.7 %, snow +1.9 %).
+- **FR-3D-LIVE-06** (L5.3): **Today's Weather** follows the forecast the app shows in the
+  Planting Calendar (Open-Meteo, one fetch path: choosing Today's Weather asks the calendar's
+  weather widget for it, also while that tab is hidden) — clear, partly cloudy (WMO code 2),
+  overcast, rain or snow from the day's weather code — **only while the plan date is today**; on any other date, or
+  without a forecast (no garden location, offline, not loaded yet), it shows clear and its
+  tooltip says which. A new location or document forgets the old forecast.
+- **FR-3D-LIVE-07** (L5.4): **Garden Light** (a lantern on a post; circle tool) and **String
+  Lights** (a LINE drawn like a fence: a post at every click, the wire hanging between two
+  posts with a bulb every 40 cm along it, kept 6 cm from the posts of its span where the
+  span is longer than 12 cm) are placeable objects with a gallery entry, translated name,
+  Change Type membership for their shape (circles; lines), default height (110 cm / 250 cm)
+  and 3D model. The lantern has a sprite; a string is drawn ALONG its line — its wire,
+  glowing bulbs and a post at every point, the bulbs where its 3D model hangs them, sized by
+  the line's width (the 2D symbol only; the 3D posts and bulbs keep their real size) — and
+  has no path or fence style. No file-format change: an older version loads a garden light
+  as a generic shape, but a string as a **fence** — its loader turns every line of an
+  unknown type into one — standing 120 cm high, casting a 2D shadow and built as a fence in
+  3D; saved there, it stays a fence.
+- **FR-3D-LIVE-08** (L5.4): From dusk on, every bulb of a garden light **glows** in 3D and
+  the six lights nearest to the point the camera looks at **light** the garden around them
+  (leaves, lawn and ground included); the lights go off at sunrise. In 2D a garden light
+  casts the usual solid-footprint shadow (ADR-059's table); a **string of lights casts no 2D
+  shadow** — not in the overlay, the hours-of-sun map or a plant's sun estimate (the owner's
+  decision: the shade of a wire is no planning fact). In 3D both cast their own thin
+  shadows.
+- **FR-3D-LIVE-09** (L5.2): While an Analyze drape lies on the 3D ground (2D Shadows on the
+  Ground, or Hours of Sun on the Ground — Sweep the Day included), the weather and the
+  morning dew **pause**: the garden shows the clear sun's look, so the drape's colours read
+  as its legend's. The Weather button keeps the chosen weather's name and adds "(paused
+  while analysing)"; with Nothing on the Ground the chosen weather returns.
+
+Acceptance (L5): `tests/integration/test_living_garden.py` (§8.10 — the toolbar's day and
+year playback through the real app and its clock; the Weather menu, the life switch and
+Today's Weather through the workspace; the lamps drawn with their tools and told to the
+engine), the unit suites `tests/unit/test_playback.py`, `test_scene3d_weather.py` and
+`test_scene3d_particles.py`, the render tier `tests/integration/test_living_garden_render.py`
+(the reduced-motion idle gate, the 15 % frame-cost gate and the board's `--living` shots) and
+`tests/integration/test_object_sprite_rendering.py` (the two tools draw items that paint).
 
 
 ## FR-34: Plan timeline and plant lifetimes (US-F4, #315)

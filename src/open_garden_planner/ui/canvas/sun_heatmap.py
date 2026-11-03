@@ -127,6 +127,8 @@ def rasterize_polygons_qimage(
     finally:
         painter.end()
     pointer = image.bits()
+    if pointer is None:  # an image Qt could not allocate (typed Optional since PyQt6 6.12)
+        raise MemoryError("the heatmap mask could not be allocated")
     pointer.setsize(image.sizeInBytes())
     raw = np.frombuffer(pointer, np.uint8).reshape(
         grid.rows, image.bytesPerLine()

@@ -72,6 +72,7 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     COLOR_PROPERTIES,
     LINEAR_COLOR_PROPERTIES,
     NEUTRAL_DAY,
+    VECTOR_PROPERTIES,
     engine_linear,
     scene_properties,
     sky_properties,
@@ -279,6 +280,8 @@ def _assert_look_shown(host: Any, look: Any) -> None:
             # handed over as floats: a QColor keeps 16 bits a channel, so that a night
             # colour of a few thousandths survives (8 bits are steps of a fifth there)
             assert (shown.redF(), shown.greenF(), shown.blueF()) == pytest.approx(value, abs=2e-5), name
+        elif name in VECTOR_PROPERTIES:   # L5: a vector3d (float precision on the engine side)
+            assert (shown.x(), shown.y(), shown.z()) == pytest.approx(value, abs=1e-5), name
         elif isinstance(value, float):
             assert shown == pytest.approx(value, rel=1e-12), name
         else:
@@ -354,6 +357,49 @@ class TestSceneFile:
         assert host.look is look
         host.set_look(NEUTRAL_DAY)
         _assert_look_shown(host, NEUTRAL_DAY)
+
+    @pytest.mark.parametrize("weather", ["clear", "overcast", "rain", "snow"])
+    @pytest.mark.parametrize(("elevation", "azimuth"), [(-20.0, 10.0), (-3.0, 300.0), (4.0, 80.0),
+                                                        (40.0, 200.0)])
+    def test_a_living_look_is_applied_as_plain_data(self, host, weather: str, elevation: float,
+                                                    azimuth: float) -> None:
+        """L5 (#389): every weather in every mood reaches the scene as the mapping says —
+        and the neutral day again afterwards: no weather sticks."""
+        from open_garden_planner.core.scene3d.weather import living_look
+
+        look = living_look(SunState(elevation, azimuth), "medium", weather)
+        host.set_look(look)
+        _assert_look_shown(host, look)
+        host.set_look(NEUTRAL_DAY)
+        _assert_look_shown(host, NEUTRAL_DAY)
+
+    def test_rain_that_cannot_load_is_said_once_and_keeps_the_moon(self, host, monkeypatch,
+                                                                  caplog) -> None:
+        """Senior review of L5: a precipitation that cannot be loaded must not keep the key
+        light from changing hands at dusk, nor fail the look again on every pass — it is
+        logged once and the weather shows without it."""
+        from open_garden_planner.core.scene3d.weather import living_look
+        from open_garden_planner.ui.view3d.quick3d.host import EngineError
+
+        tries: list[int] = []
+
+        def broken() -> None:
+            tries.append(1)
+            raise EngineError("no precipitation here")
+
+        monkeypatch.setattr(host, "_load_precipitation", broken)
+        lit: list[int] = []
+        real_light = host._apply_light
+        monkeypatch.setattr(host, "_apply_light", lambda: (lit.append(1), real_light())[1])
+        with caplog.at_level("ERROR"):
+            night = living_look(SunState(-20.0, 10.0), "medium", "rain")
+            host.set_look(night)                          # dusk: the moon takes over
+            host.set_look(living_look(SunState(-21.0, 12.0), "medium", "rain"))
+        assert host.look.atmosphere.precipitation == "rain"
+        assert lit, "the key light changed hands although the rain failed"
+        assert tries == [1], "tried once on this host"
+        errors = [r for r in caplog.records if "rain and snow could not be loaded" in r.getMessage()]
+        assert len(errors) == 1
 
     def test_a_look_builds_no_sky_and_touches_no_model_and_no_camera(self, host) -> None:
         """G6's engine half: a change of look (a preset step) writes look properties and
@@ -782,6 +828,41 @@ class TestSky:
             else:
                 assert shown == pytest.approx(value), name
         assert data.property("sunLongitude") == pytest.approx(340.0), "azimuth + 90 degrees"
+
+    def test_the_atmosphere_backs_the_view_and_the_painted_sky_lights_it(self, host) -> None:
+        """PF-E3D-17 (#391): an atmosphere sky is built WITH the painted sky — the same
+        sun, colours and cloud — whose texture stays the light probe, and the atmosphere
+        itself asks Qt 6.12.0 for no cube (its pre-filter crashed the app)."""
+        from dataclasses import replace
+
+        from open_garden_planner.core.scene3d.look import ATMOSPHERE
+
+        sky = replace(look_for(SunState(25.0, 200.0), "high").sky, model=ATMOSPHERE, cloud=0.4)
+        host.set_sky(sky)
+        texture = _sky_texture(host)
+        assert texture is not None, "the painted sky is built under the atmosphere"
+        data = texture.property("textureData")
+        for name, value in sky_properties(sky).items():
+            if not isinstance(value, str):
+                assert data.property(name) == pytest.approx(value), name
+        assert host.scene_property("atmosphereBuilt") is True and host.sky == sky
+        atmosphere = host.scene_property("atmosphereObject")
+        # its skyboxMode (not Cubemap) is test_quick3d_qml's: PyQt6 cannot convert the enum
+        assert atmosphere.property("enableIBL") is False, "no light from the atmosphere"
+        assert atmosphere.property("cloudCoverage") == pytest.approx(0.4)
+        host.set_sky(replace(sky, model="painted"))
+        assert host.scene_property("atmosphereBuilt") is False and _sky_texture(host) is not None
+
+    def test_without_the_probe_the_atmosphere_alone_backs_the_view(self, host) -> None:
+        """``sky_probe`` False (the self-test on a machine without a GPU): no painted
+        sky, no probe to filter — the atmosphere backs the frame alone."""
+        from dataclasses import replace
+
+        from open_garden_planner.core.scene3d.look import ATMOSPHERE
+
+        host.sky_probe = False
+        host.set_sky(replace(look_for(SunState(25.0, 200.0), "high").sky, model=ATMOSPHERE))
+        assert _sky_texture(host) is None and host.scene_property("atmosphereBuilt") is True
 
     def test_dropping_the_sky_goes_back_to_the_plain_background(self, host) -> None:
         host.set_sky(look_for(SunState(30.0, 180.0), "high").sky)
@@ -2200,7 +2281,8 @@ class TestTeardownIsExceptionSafe:
                                       engine_pose(Transform()), RED)
             with pytest.raises(EngineError, match=r"no function destroyPart\(\)"):
                 made.destroy_part(handle)
-            with pytest.raises(EngineError, match=r"clear\(\): 1 of 4 steps failed"):
+            # every Model, the sun, the ground, the ring — and (L5) the life and the lamps
+            with pytest.raises(EngineError, match=r"clear\(\): 1 of 6 steps failed"):
                 made.clear()
             assert made.part_count() == 1 == len(made.engine_parts())
         finally:

@@ -28,18 +28,43 @@ What it owns:
   and which levels it had to leave (and until when) are stored, so a new session
   neither starts over nor retries a barred level.
 - **The sky.** The procedural sky is a whole texture generated on the GUI thread
-  (about 0.1 s) and a light probe Qt filters once per texture, so it follows the
-  sun only when the sun moved noticeably (``look.sky_is_stale``), and — while the
+  (about 0.1 s, 0.3 s under the atmosphere) and a light probe Qt filters once per
+  texture, so it follows the sun only when the sun moved noticeably
+  (``look.sky_is_stale``), and — while the
   sun is being dragged — only once it rests (``SKY_SETTLE_MS``); a change of phase
   (sunset, the end of twilight, and back: ``look.sky_phase``) is built at once.
   The light, the exposure and the fog follow every instant. The fog is derived
   from the sky that is ON SCREEN, so it meets the horizon also while the sky lags.
   A sky the engine cannot build is logged ONCE, the session goes on with the
   plain sky and the flat fill, and the look is sent all the same.
-- **The animation policy.** Wind runs only while the 3D pane is shown, the
-  reduced-motion setting is off and the adapter is not a software one. Hidden:
+- **The sky model (L7, #391).** ``painted`` (the default) or ``atmosphere`` — Qt
+  6.12's ``SkyMaterial`` with volumetric clouds (``look.SKY_MODELS``), never on a
+  software adapter. The atmosphere needs the cloud noise volume (about a second of
+  numpy): it is made on a worker thread when the model is chosen, and until it is
+  ready the painted sky shows — the look's sky turns into an atmosphere sky only
+  once the volume exists, so the GUI thread never waits for it. An atmosphere whose
+  build fails at once (the scene refuses the call) or whose volume cannot be made
+  falls back to the painted sky for the rest of the session. A shader that compiles
+  to nothing is NOT seen here — Qt then draws its debug sky without a word
+  (PF-E3D-14); the frozen self-test compiles the bundle's shader (point 8).
+- **The animation policy.** Wind runs only while the 3D pane is shown, motion is
+  not reduced and the adapter is not a software one. Motion is reduced by the
+  app's setting OR — since Qt 6.12 (Phase 17 L7) — by the operating system's
+  "reduce motion" preference (``QAccessibilityHints.motionPreference``), followed
+  live: either one stops the wind; neither can switch the other off. Hidden:
   the clock stops where it is and nothing ticks. Reduced motion: the clock rests
-  at 0 — every vertex where its mesh puts it.
+  at 0 — every vertex where its mesh puts it. The particles of L5 (rain, snow,
+  leaves, butterflies, fireflies) move on the SAME clock: reduced motion makes them
+  a photograph and an idle view presents no frame (issue #389's gate).
+- **The weather (L5, ADR-070).** ``set_weather``: clear, partly cloudy, overcast, rain,
+  snow — or
+  ``today`` (L5.3), which shows the weather ``set_todays_weather`` was given (the
+  forecast's, only while the plan date is today; else clear). The look is
+  ``weather.living_look(sun, preset, weather)``; a new weather builds its sky at once
+  (``look.sky_must_build_now``). ``mood`` names what the frame shows. While an Analyze
+  drape lies on the ground (``set_analysing``) the weather PAUSES: the look is the sun's
+  own — clear, no dew — so the drape's colours read against its legend (a snow cover
+  washed the hours of sun to a pale lavender: 3D review of L5).
 
 NOTHING HERE TAKES A FRAME (ADR-060 decision 17): the host is told things and
 asked for ``health()``; ``grab`` / ``wait_ready`` / ``pick`` / ``project`` are not
@@ -54,6 +79,7 @@ import contextlib
 import logging
 import time
 from collections.abc import Callable, Mapping
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import replace
 from typing import Any, Final, Protocol
 
@@ -62,27 +88,62 @@ from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from open_garden_planner.core.plain_text import log_text
 from open_garden_planner.core.scene3d import SunState
 from open_garden_planner.core.scene3d.look import (
+    ATMOSPHERE,
     AUTO,
     AUTO_LEVELS,
+    PAINTED,
     AutoPolicy,
     AutoPreset,
     LookSpec,
     SkySpec,
-    fog_linear,
-    look_for,
     normalise_quality,
+    normalise_sky_model,
     sky_is_stale,
-    sky_phase,
+    sky_must_build_now,
+)
+from open_garden_planner.core.scene3d.weather import (
+    TODAY,
+    WEATHER_SPECS,
+    WEATHERS,
+    living_look,
+    mood_of,
+    normalise_weather,
+    weather_fog,
 )
 
 _LOG: Final = logging.getLogger(__name__)
 
 #: A sky that went stale is rebuilt once the sun has rested this long: a time slider
-#: being dragged moves the sun many times a second, and one build costs about 0.1 s
-#: of the GUI thread. The light, the exposure and the fog never wait.
+#: being dragged moves the sun many times a second, and one build costs about 0.12 s
+#: of the GUI thread (0.32 s under the atmosphere, which builds both skies). The light,
+#: the exposure and the fog never wait. Shorter than a playback step: #722.
 SKY_SETTLE_MS: Final = 150
 #: How often the automatic preset reads the host's frame count while the wind runs.
 AUTO_SAMPLE_MS: Final = 500
+#: How often the cloud volume's worker is looked at while it runs (L7; the geometry
+#: lane's way: a poll of one future costs nothing).
+NOISE_POLL_MS: Final = 50
+
+
+def _make_cloud_noise() -> bytes:
+    from open_garden_planner.core.scene3d.cloud_noise import cloud_noise_rgba16f
+
+    return cloud_noise_rgba16f()
+
+
+def system_reduced_motion() -> bool:
+    """Whether the operating system asks for less motion — Qt 6.12's
+    ``QAccessibilityHints.motionPreference`` (Phase 17 L7; Qt 6.11 had none, so
+    until then the app's setting was the only switch). False without an
+    application object: nothing to read."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QGuiApplication
+
+    hints = QGuiApplication.styleHints() if QGuiApplication.instance() is not None else None
+    accessibility = hints.accessibility() if hints is not None else None
+    if accessibility is None:
+        return False
+    return accessibility.motionPreference() == Qt.MotionPreference.ReducedMotion
 
 
 class LookHost(Protocol):
@@ -101,6 +162,8 @@ class LookController(QObject):
 
     #: The preset in use changed (a setting, or a step of the automatic one).
     preset_changed = pyqtSignal(str)
+    #: The mood of the frame changed (``core.scene3d.weather.MOODS``) — L5.
+    mood_changed = pyqtSignal(str)
     #: A sky texture was built — and, from the second one on, an old one retired
     #: with it. Nobody has to count them: a retired sky leaves nothing behind
     #: without a cache release (measured, the sky soak: 0.0 MB per sun change in
@@ -109,7 +172,8 @@ class LookController(QObject):
     sky_rebuilt = pyqtSignal()
 
     def __init__(self, host: LookHost, *, software: bool, quality: str = AUTO,
-                 reduced_motion: bool = False, auto_level: str = "medium",
+                 reduced_motion: bool = False, system_reduced_motion: bool = False,
+                 sky_model: str = PAINTED, auto_level: str = "medium",
                  auto_bars: Mapping[str, tuple[float, float]] | None = None,
                  on_auto_level: Callable[[str], None] | None = None,
                  on_auto_bars: Callable[[dict[str, tuple[float, float]]], None] | None = None,
@@ -117,7 +181,10 @@ class LookController(QObject):
                  clock: Callable[[], float] = time.monotonic,
                  wall_clock: Callable[[], float] = time.time) -> None:
         """``software``: the host renders on a software adapter (the workspace's
-        compatibility mode) — no sky, no wind, ``auto`` = ``low``. ``auto_bars``:
+        compatibility mode) — no sky, no wind, ``auto`` = ``low``.
+        ``reduced_motion``: the app's setting; ``system_reduced_motion``: the
+        operating system's preference (``system_reduced_motion()``). ``sky_model``:
+        one of ``look.SKY_MODELS`` (L7). ``auto_bars``:
         the stored bars, ``{level: (until, next_retry_s)}`` with ``until`` in
         ``wall_clock`` seconds; ``on_auto_level`` / ``on_auto_bars`` store them again
         after every step of the automatic preset."""
@@ -127,6 +194,7 @@ class LookController(QObject):
         self._sky_light = not self._software
         self._quality = normalise_quality(quality)
         self._reduced_motion = bool(reduced_motion)
+        self._system_reduced_motion = bool(system_reduced_motion)
         self._on_auto_level = on_auto_level
         self._on_auto_bars = on_auto_bars
         self._clock = clock
@@ -135,6 +203,12 @@ class LookController(QObject):
         self._auto = AutoPreset(auto_level, policy, bars={
             level: (until - now, retry) for level, (until, retry) in (auto_bars or {}).items()})
         self._sky_failed = False
+        #: L5: the weather picked (``WEATHER_CHOICES``) and what ``today`` stands for.
+        self._weather = "clear"
+        self._todays: str | None = None
+        self._analysing = False
+        self._southern = False   # the place lies south of the equator (noon due north)
+        self._mood = ""
         self._sun: SunState | None = None
         self._look: LookSpec | None = None       # the look the host was last given
         self._sky_shown: SkySpec | None = None   # the sky the host shows
@@ -152,6 +226,18 @@ class LookController(QObject):
         self._auto_timer = QTimer(self)
         self._auto_timer.setInterval(AUTO_SAMPLE_MS)
         self._auto_timer.timeout.connect(self._sample_frames)
+        #: L7: the sky model chosen, whether the atmosphere was refused (for the
+        #: session), and the cloud volume's worker (None: not asked for yet).
+        self._sky_model = normalise_sky_model(sky_model)
+        self._atmosphere_failed = False
+        self._noise_ready = False
+        self._noise_future: Future[bytes] | None = None
+        self._noise_lane: ThreadPoolExecutor | None = None
+        self._noise_timer = QTimer(self)
+        self._noise_timer.setSingleShot(True)
+        self._noise_timer.setInterval(NOISE_POLL_MS)
+        self._noise_timer.timeout.connect(self._check_noise)
+        self._want_noise()
 
     @classmethod
     def from_settings(cls, host: LookHost, *, software: bool,
@@ -168,10 +254,15 @@ class LookController(QObject):
         def keep_bars(bars: dict[str, tuple[float, float]]) -> None:
             get_settings().view3d_auto_bars = bars
 
-        return cls(host, software=software, quality=settings.view3d_quality,
-                   reduced_motion=settings.view3d_reduced_motion,
-                   auto_level=settings.view3d_auto_level, auto_bars=settings.view3d_auto_bars,
-                   on_auto_level=keep_level, on_auto_bars=keep_bars, parent=parent)
+        controller = cls(host, software=software, quality=settings.view3d_quality,
+                         reduced_motion=settings.view3d_reduced_motion,
+                         system_reduced_motion=system_reduced_motion(),
+                         sky_model=settings.view3d_sky_model,
+                         auto_level=settings.view3d_auto_level,
+                         auto_bars=settings.view3d_auto_bars,
+                         on_auto_level=keep_level, on_auto_bars=keep_bars, parent=parent)
+        controller._follow_system_motion()
+        return controller
 
     # ── reads ────────────────────────────────────────────────────────────────
 
@@ -195,7 +286,27 @@ class LookController(QObject):
 
     @property
     def reduced_motion(self) -> bool:
-        return self._reduced_motion
+        """Whether motion is reduced: the app's setting OR the system's preference."""
+        return self._reduced_motion or self._system_reduced_motion
+
+    @property
+    def system_reduced_motion(self) -> bool:
+        """The operating system's "reduce motion" preference, as last told."""
+        return self._system_reduced_motion
+
+    @property
+    def sky_model(self) -> str:
+        """The setting: ``painted`` or ``atmosphere`` (L7)."""
+        return self._sky_model
+
+    @property
+    def sky_model_shown(self) -> str:
+        """The model the sky is DRAWN with now: ``atmosphere`` only when chosen, on a
+        GPU, its cloud volume ready and the engine never having refused it."""
+        if (self._sky_model == ATMOSPHERE and self._noise_ready and not self._software
+                and not self._atmosphere_failed):
+            return ATMOSPHERE
+        return PAINTED
 
     @property
     def sky_light(self) -> bool:
@@ -222,6 +333,45 @@ class LookController(QObject):
     def auto(self) -> AutoPreset:
         return self._auto
 
+    @property
+    def weather_choice(self) -> str:
+        """The weather picked: one of ``weather.WEATHER_CHOICES`` (``today`` included)."""
+        return self._weather
+
+    @property
+    def weather(self) -> str:
+        """The weather shown (``weather.WEATHERS``): ``weather_wanted`` — or clear while
+        an Analyze drape lies on the ground (``set_analysing``)."""
+        return "clear" if self._analysing else self.weather_wanted
+
+    @property
+    def weather_wanted(self) -> str:
+        """The weather picked, resolved (``weather.WEATHERS``): the choice — or for
+        ``today`` what the forecast says while the plan date is today, else clear."""
+        if self._weather == TODAY:
+            return self._todays if self._todays in WEATHERS else "clear"
+        return self._weather
+
+    @property
+    def analysing(self) -> bool:
+        """An Analyze drape lies on the ground: the weather (and the dew) pause."""
+        return self._analysing
+
+    @property
+    def weather_paused(self) -> bool:
+        """A weather was picked that the drape on the ground holds back."""
+        return self._analysing and self.weather_wanted != "clear"
+
+    @property
+    def todays_weather(self) -> str | None:
+        """What ``today`` stands for right now (None: no forecast for the plan date)."""
+        return self._todays
+
+    @property
+    def mood(self) -> str:
+        """The mood of the look on screen (``weather.MOODS``; ``""`` before a sun)."""
+        return self._mood
+
     # ── what the workspace tells it ──────────────────────────────────────────
 
     def set_sun(self, sun: SunState | None) -> None:
@@ -244,6 +394,47 @@ class LookController(QObject):
         if showing and self._sun is not None:
             self._apply()            # also builds the sky that went stale while hidden
 
+    def set_weather(self, weather: str) -> None:
+        """Pick the weather (``weather.WEATHER_CHOICES``; anything else: clear). A new
+        weather is applied at once — its sky too."""
+        weather = normalise_weather(weather)
+        if weather == self._weather or self._closed:
+            return
+        self._weather = weather
+        self._apply()
+
+    def set_analysing(self, analysing: bool) -> None:
+        """An Analyze drape (2D shadows, hours of sun) lies on the ground (True) or not.
+        While it does, the look is the sun's own — no weather, no dew: a weather
+        recolours the ground under the drape, and its colour key no longer reads as the
+        legend's (the 3D review measured a 59° hue shift under snow)."""
+        if bool(analysing) == self._analysing or self._closed:
+            return
+        self._analysing = bool(analysing)
+        self._apply()
+
+    def set_southern(self, southern: bool) -> None:
+        """The garden lies south of the equator (True): its noon stands due north —
+        where the morning dew fades and the fireflies' midnight is (``living_look``)."""
+        if bool(southern) == self._southern or self._closed:
+            return
+        self._southern = bool(southern)
+        self._apply()
+
+    @property
+    def southern(self) -> bool:
+        return self._southern
+
+    def set_todays_weather(self, weather: str | None) -> None:
+        """What ``today`` stands for: the forecast's preset for the plan date — given
+        only while the plan date is today (``weather.todays_weather``), else None."""
+        weather = weather if weather in WEATHERS else None
+        if weather == self._todays or self._closed:
+            return
+        self._todays = weather
+        if self._weather == TODAY:
+            self._apply()
+
     def set_quality(self, quality: str) -> None:
         """``auto`` or a preset (anything else: ``auto``)."""
         quality = normalise_quality(quality)
@@ -256,10 +447,41 @@ class LookController(QObject):
         self._preset_may_have_changed(before)
 
     def set_reduced_motion(self, reduced: bool) -> None:
+        """The app's setting (Preferences → 3D View → Reduce motion)."""
         if bool(reduced) == self._reduced_motion or self._closed:
             return
         self._reduced_motion = bool(reduced)
         self._update_wind()
+
+    def set_system_reduced_motion(self, reduced: bool) -> None:
+        """The operating system's preference changed (``motionPreferenceChanged``)."""
+        if bool(reduced) == self._system_reduced_motion or self._closed:
+            return
+        self._system_reduced_motion = bool(reduced)
+        self._update_wind()
+
+    def _follow_system_motion(self) -> None:
+        """Follow the system's preference while this controller lives (Qt 6.12)."""
+        from PyQt6.QtGui import QGuiApplication
+
+        hints = QGuiApplication.styleHints() if QGuiApplication.instance() is not None else None
+        accessibility = hints.accessibility() if hints is not None else None
+        if accessibility is None:
+            return
+        accessibility.motionPreferenceChanged.connect(self._system_motion_changed)
+
+    def _system_motion_changed(self, *_args: object) -> None:
+        self.set_system_reduced_motion(system_reduced_motion())
+
+    def set_sky_model(self, model: str) -> None:
+        """Draw the sky with ``model`` (``look.SKY_MODELS``, L7): at once, like a new
+        weather — or, for the atmosphere, once its cloud volume is ready."""
+        model = normalise_sky_model(model)
+        if model == self._sky_model or self._closed:
+            return
+        self._sky_model = model
+        self._want_noise()
+        self._apply()
 
     def reload_settings(self) -> None:
         """The Preferences dialog was accepted: follow what it stored."""
@@ -268,14 +490,18 @@ class LookController(QObject):
         settings = get_settings()
         self.set_quality(settings.view3d_quality)
         self.set_reduced_motion(settings.view3d_reduced_motion)
+        self.set_sky_model(settings.view3d_sky_model)
 
     def shutdown(self) -> None:
         """Stop for good (the engine goes). The host is not touched."""
         self._closed = True
         self._showing = self._wind_running = False
-        for timer in (self._sky_timer, self._auto_timer):
+        for timer in (self._sky_timer, self._auto_timer, self._noise_timer):
             with contextlib.suppress(RuntimeError):  # the #230 teardown guard
                 timer.stop()
+        lane, self._noise_lane = self._noise_lane, None
+        if lane is not None:
+            lane.shutdown(wait=False, cancel_futures=True)
 
     # ── internals ────────────────────────────────────────────────────────────
 
@@ -287,11 +513,11 @@ class LookController(QObject):
         sun = self._sun
         if sun is None:
             return
-        look = look_for(sun, self.preset)
+        look = self._living_look(sun)
         if self._sky_light:
             shown = self._sky_shown
-            if shown is None or sky_phase(shown) != sky_phase(look.sky):
-                self._build_sky(look.sky)       # the first sky; sunset, nightfall: at once
+            if sky_must_build_now(shown, look.sky):
+                self._build_sky(look.sky)       # the first sky; sunset, nightfall, a weather: at once
             elif sky_is_stale(shown, look.sky):
                 if self._showing:
                     self._sky_timer.start()     # (re)started: built when the sun rests
@@ -300,8 +526,13 @@ class LookController(QObject):
             shown = self._sky_shown
             if shown is not None and shown.horizon != look.sky.horizon:
                 # the sky on screen is an older one: the fog must meet THAT horizon
-                look = replace(look, fog_linear=fog_linear(
-                    shown.horizon, look.mood.probe_exposure, shown.sky_energy))
+                look = replace(look, fog_linear=weather_fog(
+                    shown.horizon, look.mood.probe_exposure, shown.sky_energy,
+                    WEATHER_SPECS[self.weather].sky_grey, look.mood.twilight))
+        mood = mood_of(look, sun)
+        if mood != self._mood:
+            self._mood = mood
+            self.mood_changed.emit(mood)
         if look == self._look:
             return
         try:
@@ -314,10 +545,35 @@ class LookController(QObject):
         self._look = look
         self.look_calls += 1
 
+    def _living_look(self, sun: SunState) -> LookSpec:
+        """The look to show at ``sun``: the weather shown, and the dew unless a drape
+        lies on the ground."""
+        look = living_look(sun, self.preset, self.weather, dew=not self._analysing,
+                           southern=self._southern)
+        model = self.sky_model_shown
+        if model == look.sky.model:
+            return look
+        return replace(look, sky=replace(look.sky, model=model))
+
     def _build_sky(self, sky: SkySpec) -> None:
         """Build ``sky`` — or, when the engine cannot, log it ONCE and go on for the rest
         of the session with the plain sky and the flat fill (``sky_light`` False)."""
         self._sky_timer.stop()
+        if sky.model == ATMOSPHERE:
+            try:
+                self._host.set_sky(sky)
+            except Exception as error:  # noqa: BLE001 - the painted sky is the fallback
+                self._atmosphere_failed = True
+                _LOG.error("3D look: the atmosphere sky could not be built; the view goes on "
+                           "with the painted sky (%s: %s)",
+                           log_text(type(error).__name__), log_text(error))
+                _LOG.debug("3D look: the atmosphere sky - traceback", exc_info=error)
+                sky = replace(sky, model=PAINTED)
+            else:
+                self._sky_shown = sky
+                self.sky_rebuilds += 1
+                self.sky_rebuilt.emit()
+                return
         try:
             self._host.set_sky(sky)
         except Exception as error:  # noqa: BLE001 - the look must reach the screen anyway
@@ -335,12 +591,44 @@ class LookController(QObject):
         self.sky_rebuilds += 1
         self.sky_rebuilt.emit()
 
+    def _want_noise(self) -> None:
+        """Start making the cloud volume when the atmosphere is chosen and it is not
+        made yet (L7): ONE worker, one job; nothing on a software adapter."""
+        if (self._sky_model != ATMOSPHERE or self._software or self._noise_ready
+                or self._noise_future is not None or self._closed):
+            return
+        self._noise_lane = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cloud-noise")
+        self._noise_future = self._noise_lane.submit(_make_cloud_noise)
+        self._noise_timer.start()
+
+    def _check_noise(self) -> None:
+        """The worker answered (or not yet: look again). A volume that could not be made
+        leaves the painted sky for the session."""
+        future = self._noise_future
+        if future is None or self._closed:
+            return
+        if not future.done():
+            self._noise_timer.start()
+            return
+        lane, self._noise_lane = self._noise_lane, None
+        if lane is not None:
+            lane.shutdown(wait=False)
+        try:
+            future.result()
+        except Exception as error:  # noqa: BLE001 - the painted sky is the fallback
+            self._atmosphere_failed = True
+            _LOG.error("3D look: the cloud volume could not be made; the view keeps the "
+                       "painted sky (%s: %s)", log_text(type(error).__name__), log_text(error))
+            return
+        self._noise_ready = True
+        self._apply()   # the atmosphere replaces the painted sky now (at once: a new model)
+
     def _settle_sky(self) -> None:
         """The sun rested: build the sky it asks for now (if it is still stale)."""
         sun = self._sun
         if sun is None or self._closed or not self._showing or not self._sky_light:
             return
-        wanted = look_for(sun, self.preset).sky
+        wanted = self._living_look(sun).sky
         if not sky_is_stale(self._sky_shown, wanted):
             return
         self._build_sky(wanted)
@@ -349,9 +637,10 @@ class LookController(QObject):
     def _update_wind(self) -> None:
         """The animation policy: wind only while shown, motion not reduced, and not on a
         software adapter (an animated view renders continuously)."""
-        run = self._showing and not self._reduced_motion and not self._software
+        reduced = self.reduced_motion
+        run = self._showing and not reduced and not self._software
         try:
-            if self._reduced_motion:
+            if reduced:
                 if not self._rested or self._wind_running:
                     self._host.rest_wind()       # at rest: the clock IS 0
                     self._rested = True

@@ -21,9 +21,10 @@ from open_garden_planner.ui.view3d.quick3d.look import (
     COLOR_PROPERTIES,
     LINEAR_COLOR_PROPERTIES,
     NEUTRAL_DAY,
+    VECTOR_PROPERTIES,
     scene_properties,
 )
-from open_garden_planner.ui.view3d.quick3d.materials import PART_COMPONENTS
+from open_garden_planner.ui.view3d.quick3d.materials import PART_COMPONENTS, TWO_SIDED_KINDS
 
 #: What the L0 spike measured, frozen when L1.10 deleted it (its provenance field says how).
 SPIKE = json.loads((Path(__file__).resolve().parents[1] / "data" / "l0_spike_reference.json")
@@ -91,7 +92,8 @@ def user_visible_strings(text: str) -> list[str]:
 
 
 def test_there_is_qml_to_scan() -> None:
-    assert [path.name for path in sorted(QML_DIR.glob("*.qml"))] == ["Garden.qml"]
+    # Garden.qml, and since L7 (#391) the atmosphere sky it creates
+    assert [path.name for path in sorted(QML_DIR.glob("*.qml"))] == ["AtmosphereSky.qml", "Garden.qml"]
 
 
 @pytest.mark.parametrize("path", sorted(QML_DIR.glob("*.qml")), ids=lambda p: p.name)
@@ -164,6 +166,22 @@ def test_every_part_component_is_a_pickable_model_with_the_tint_properties() -> 
     for block in blocks:
         if "CustomMaterial" in block:
             assert re.search(r"property vector3d uTint: (?:tintLinear|Qt.vector3d\(tintLinear.x \* seasonTint.x, tintLinear.y \* seasonTint.y, tintLinear.z \* seasonTint.z\))", block), block.split()[0]
+
+
+def test_the_two_sided_kinds_are_the_components_that_never_cull() -> None:
+    """``materials.TWO_SIDED_KINDS`` is what the selection oracle keeps from behind on
+    Qt 6.12 (its pick honours the cull mode). A component counts as two-sided when
+    every cull mode in it is ``NoCulling``; vc's is conditional (a Cutaway shows the
+    walls' inner faces), so with the roofs on it culls."""
+    code = _scene()
+    blocks = {block.split()[0]: block for block in re.split(r"Component\s*\{\s*id:\s*", code)[1:]
+              if block.split()[0].endswith("Part")}
+    two_sided = set()
+    for kind, component in PART_COMPONENTS.items():
+        modes = re.findall(r"cullMode:\s*([^\n]+)", blocks[component])
+        if modes and all(mode.strip() == "Material.NoCulling" for mode in modes):
+            two_sided.add(kind)
+    assert two_sided == TWO_SIDED_KINDS
 
 
 def test_a_faded_or_cut_part_is_a_screen_door_not_a_blend() -> None:
@@ -285,16 +303,24 @@ def test_the_overlays_blend_as_their_layer_says() -> None:
 def test_shaders_named_by_the_scene_ship_beside_it_and_none_is_orphaned() -> None:
     """A shader the scene names but the bundle lacks only fails when a Model uses it —
     in front of a user. The data loop of ``installer/ogp.spec`` ships this directory."""
-    named = set(re.findall(r'"([^"\n]+\.(?:vert|frag))"', _scene()))
+    sky = strip_comments((QML_DIR / "AtmosphereSky.qml").read_text(encoding="utf-8"))
+    named = set(re.findall(r'"([^"\n]+\.(?:vert|frag))"', _scene() + sky))
     shipped = {path.name for path in QML_DIR.iterdir() if path.suffix in (".frag", ".vert")}
     assert named == shipped == {"foliage.vert", "foliage.frag", "grass.vert", "water.frag",
+                                # the atmosphere sky's: L7 (#391; its two look-up
+                                # tables are computed on the CPU, atmosphere_lut.py)
+                                "atmosphere.frag",
                                 "ring.vert", "ring.frag",           # the selection ring: L1.8
                                 "overlay.vert", "overlay.frag",     # the analysis overlays: L2
                                 "screen.frag", "screen.vert",       # X-ray and Cutaway: L2.4
                                 "foliage_door.frag", "water_door.frag",
                                 "foliage_door.vert", "grass_door.vert",
-                                "ground.frag", "lawn.frag"}         # detail normals and lawn lighting
-    assert {path.name for path in QML_DIR.iterdir()} == shipped | {"Garden.qml"}
+                                "ground.frag", "lawn.frag",         # detail normals and lawn lighting
+                                "precipitation.vert", "precipitation.frag",   # rain, snow: L5
+                                "ambient.vert", "ambient.frag"}     # leaves, butterflies, fireflies, bulbs
+    # L7 (#391): the atmosphere sky came from Qt with its provenance and licence texts
+    assert {path.name for path in QML_DIR.iterdir()} == shipped | {
+        "Garden.qml", "AtmosphereSky.qml", "PROVENANCE.md", "LICENSE-qt-skymaterial.txt"}
 
 
 def test_the_ground_detail_shader_flips_v_itself() -> None:
@@ -343,7 +369,8 @@ def _look_block() -> dict[str, tuple[str, str]]:
     """The scene file's look properties: name -> (QML type, default as written)."""
     code = SCENE.read_text(encoding="utf-8")
     block = code[code.index("// ---- look"):code.index("// ---- key light")]
-    found = re.findall(r"^\s*property (\w+) (\w+):\s*([^\s/]+)", strip_comments(block), re.MULTILINE)
+    found = re.findall(r"^\s*property (\w+) (\w+):\s*(Qt\.vector3d\([^)]*\)|[^\s/]+)",
+                       strip_comments(block), re.MULTILINE)
     return {name: (kind, default.strip('"')) for kind, name, default in found}
 
 
@@ -369,6 +396,9 @@ def test_the_look_properties_are_exactly_the_mapping_and_start_as_the_neutral_da
             assert kind == "int" and int(default) == value, name
         elif isinstance(value, float):
             assert kind == "real" and float(default) == value, name
+        elif name in VECTOR_PROPERTIES:  # L5: a vector3d, written as Qt.vector3d(x, y, z)
+            written = tuple(float(v) for v in default[len("Qt.vector3d("):-1].split(","))
+            assert kind == "vector3d" and written == pytest.approx(value), name
         else:
             assert (kind, default) == ("string", value), name
     assert declared["windTime"] == ("real", "0") and declared["windRunning"] == ("bool", "false")
@@ -404,8 +434,13 @@ def test_the_look_rules_the_spike_paid_for() -> None:
     for effect in ("aoEnabled", "glowEnabled", "fxaaEnabled", "ssrEnabled", "ditheringEnabled",
                    "colorAdjustmentsEnabled", "specularAAEnabled"):
         assert re.search(rf"{effect}:\s*!root\.topDown", code), effect
-    assert "readonly property bool skyShown: skyTexture !== null && !root.topDown" in code
-    assert "lightProbe: view.skyShown ? view.skyTexture : null" in code
+    # a sky (painted, or L7's atmosphere) backs and lights the PERSPECTIVE view only
+    assert "readonly property bool paintedShown: skyTexture !== null && !root.topDown" in code
+    assert ("readonly property bool atmosphereShown: atmosphereOn && atmosphere !== null "
+            "&& !root.topDown") in code
+    assert "readonly property bool skyShown: paintedShown || atmosphereShown" in code
+    assert "lightProbe: view.paintedShown ? view.skyTexture : null" in code
+    assert "skyMaterial: view.atmosphereShown ? view.atmosphere : null" in code
     assert "root.topDown ? SceneEnvironment.TonemapModeNone" in code
     assert "csmNumSplits: root.topDown ? 0 : root.shadowCascades" in code
     assert '(root.topDown || root.antialiasing === "msaa")' in code
@@ -424,7 +459,7 @@ def test_the_sky_is_built_on_request_and_never_bound_live() -> None:
     data = data[:data.index("}") + 1]
     assert "root." not in data and "SkyTextureQualityLow" in data, "no live binding; born cheap"
     assert "property var skyTexture: null" in code, "no sky before the first sun is known"
-    build = code[code.index("function buildSky"):code.index("function dropSky")]
+    build = code[code.index("function buildSky"):code.index("function buildAtmosphere")]
     order = [build.index(step) for step in (
         "skyTextureComponent.createObject(view.scene)", "skyDataComponent.createObject(texture)",
         "data[key] = inputs[key]", "data.textureQuality = ProceduralSkyTextureData.SkyTextureQualityMedium",
@@ -432,6 +467,94 @@ def test_the_sky_is_built_on_request_and_never_bound_live() -> None:
     assert order == sorted(order), "inputs first, quality last, the new sky shown before the old goes"
     assert "data.destroy()" not in code and ".textureData = null" not in code
     assert build.count(".destroy()") == 1
+
+
+def test_the_atmosphere_is_made_once_and_never_destroyed_nor_re_pointed() -> None:
+    """L7 (#391): ONE AtmosphereSky, made with the cloud volume's ONE Texture at the
+    first build and from then on only written — a SkyMaterial re-renders by itself, and
+    a data object attached to a second Texture draws white (``ogp-3d-renderer`` §2). A
+    painted sky (or none) only switches it off; the atmosphere leaves the painted sky in
+    place — its texture is the light probe under both models (PF-E3D-17)."""
+    code = _scene()
+    build = code[code.index("function buildAtmosphere"):code.index("function dropSky")]
+    assert build.count("createObject") == 3 and "if (!sky) {" in build, "made once"
+    assert "cloudVolumeComponent.createObject(view.scene, {\"textureData\": volumeData})" in build
+    assert "skyViewComponent.createObject(view.scene, {\"textureData\": skyViewData})" in build
+    assert "atmosphereComponent.createObject(view.scene, {\"noiseVolume\": volume," in build
+    assert "\"skytextureBuffer\": skyView})" in build
+    assert "sky[key] = inputs[key]" in build and "view.atmosphereOn = true" in build
+    assert "view.skyTexture" not in build, "the painted sky stays: it is the light probe"
+    assert ".destroy()" not in build, "the atmosphere destroys nothing"
+    assert "atmosphere.destroy" not in code and "volume.destroy" not in code
+    assert code.count("AtmosphereSky {") == 1, "one declaration: inside its Component"
+    for function in ("function buildSky", "function dropSky"):
+        body = code[code.index(function):]
+        body = body[:body.index("return")]
+        assert "view.atmosphereOn = false" in body, function
+    background = re.search(r"backgroundMode:([^\n]*\n[^\n]*)", code)
+    assert background is not None and " ".join(background.group(1).split()) == (
+        "view.atmosphereShown ? SceneEnvironment.SkyMaterial : view.paintedShown ? "
+        "SceneEnvironment.SkyBox : SceneEnvironment.Color")
+    volume = code[code.index("id: cloudVolumeComponent"):]
+    volume = volume[:volume.index("}") + 1]
+    for axis in ("Horizontal", "Vertical", "Depth"):
+        assert f"tilingMode{axis}: Texture.Repeat" in volume, "the volume tiles in 3D"
+
+
+def test_the_light_probe_is_put_back_when_an_earlier_sky_is_destroyed() -> None:
+    """Qt 6.12 (PF-E3D-16): destroying an EARLIER sky Texture fires its stale
+    destroyed-watcher and sets the environment's light probe to null although the probe
+    is the current sky - the painted sky drew the clear colour after the first sun change.
+    The environment restores the SAME binding in the change signal, before a frame can
+    render. The render tier's sky-sequence test is the engine half of this pin."""
+    code = (QML_DIR / "Garden.qml").read_text(encoding="utf-8")
+    wanted = "view.paintedShown ? view.skyTexture : null"
+    assert f"lightProbe: {wanted}\n" in code
+    handler = code[code.index("onLightProbeChanged: {"):]
+    handler = handler[:handler.index("\n            }\n")]
+    assert f"if (lightProbe !== ({wanted}))" in handler
+    assert f"lightProbe = Qt.binding(function() {{ return {wanted} }})" in handler
+
+
+def test_the_atmosphere_never_builds_the_cube_that_crashed_qt_6_12_0() -> None:
+    """PF-E3D-17 (#391, owner's manual test): Qt 6.12.0's SkyMaterial pre-filters its
+    light cube with a freed QRhi resource — an access violation in Qt6Gui
+    (``sanityCheckResourceOwnership``) under ``QSSGRenderSkyMaterialManager::
+    runPrefilterCycle``. Qt builds that cube only for image-based light, the Cubemap
+    skybox mode, reflection probes or a screen texture (``resolveLayerIblTexture``), so
+    the atmosphere asks for none of them and the painted sky's texture lights the
+    garden under both models."""
+    sky = (QML_DIR / "AtmosphereSky.qml").read_text(encoding="utf-8")
+    assert re.search(r"^\s*enableIBL:\s*false\s*$", sky, re.MULTILINE), "no light from the atmosphere"
+    mode = re.search(r"^\s*skyboxMode:\s*SkyMaterial\.(\w+)\s*$", sky, re.MULTILINE)
+    assert mode is not None and mode.group(1).startswith("ScreenSpace"), "drawn on screen, no cube"
+    for cube_only in ("iblSampleCount", "iblRenderFrames", "radianceMapSize", "iblSamplesPerFrame"):
+        assert cube_only not in sky, f"{cube_only} tunes the cube this sky never builds"
+    frag = (QML_DIR / "atmosphere.frag").read_text(encoding="utf-8")
+    assert frag.count("FRAGCOLOR = ") == 2 and frag.count("FRAGCOLOR = vec4(skyExposed(") == 2, (
+        "Qt's screen path applies no exposure under the post effects: both exits do it "
+        "themselves, or the sky reads 1.8x too bright by day and 2.9x at night")
+    assert "vec3(1.0) - exp(-radiance * skyExposure)" in frag, "the curve of Qt's qt_exposure"
+    code = _scene()
+    assert "AtmosphereSky { skyExposure: root.probeExposure }" in code
+    assert "lightProbe: view.paintedShown ? view.skyTexture : null" in code, (
+        "the painted texture lights, whichever sky backs the view")
+    assert "ReflectionProbe" not in code, "a reflection probe would build the cube"
+    shaders = " ".join(path.read_text(encoding="utf-8") for path in QML_DIR.glob("*.frag"))
+    assert "SCREEN_TEXTURE" not in shaders and "SCREEN_MIP_TEXTURE" not in shaders, (
+        "a screen texture would build the cube")
+    scenes = " ".join(path.read_text(encoding="utf-8") for path in QML_DIR.glob("*.qml"))
+    assert "transmissionFactor" not in scenes, "transmission needs a screen texture too"
+
+
+def test_the_water_samples_the_sky_under_a_sky_material_too() -> None:
+    """3D review of L7: under a ``SkyMaterial`` Qt 6.12 calls ``IBL_PROBE()`` with
+    ``QSSG_ENABLE_LIGHT_PROBE`` false, so a pond guarded by that macro alone went black under
+    the atmosphere sky. The guard also accepts Qt's probe-sampler include guard."""
+    for name in ("water.frag", "water_door.frag"):
+        code = (QML_DIR / name).read_text(encoding="utf-8")
+        assert "#if QSSG_ENABLE_LIGHT_PROBE || defined(SAMPLE_PROBE_GLSLLIB)" in code, name
+        assert "#if QSSG_ENABLE_LIGHT_PROBE\n" not in code, name
 
 
 def test_the_winds_clock_runs_only_while_it_is_told_to() -> None:

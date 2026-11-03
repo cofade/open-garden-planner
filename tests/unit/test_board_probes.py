@@ -253,6 +253,22 @@ def test_the_disc_is_found_off_centre_at_its_bearing(sun_azimuth: float, offset:
     assert abs(P.bearing_error_deg(wrong["bearing_deg"], sun_azimuth)) > 15.0, "the control"
 
 
+def test_the_ground_luminance_reads_only_below_the_horizon() -> None:
+    """L7 (#391): the mood order is judged on the garden. A brighter SKY moves the frame's
+    mean but not the ground's; a darker GROUND moves the ground's (the positive control)."""
+    camera = P.Pinhole(eye=(0.0, 0.0, 160.0), target=(0.0, 1000.0, 300.0), fov_deg=60.0, size=SIZE)
+    frame = _sky(camera, 180.0, 12.0)
+    base = P.ground_luminance(frame, camera)
+    brighter_sky = frame.copy()
+    horizon = int(camera.horizon_row())
+    brighter_sky[:horizon] = np.minimum(brighter_sky[:horizon] + 60.0, 255.0)
+    assert P.ground_luminance(brighter_sky, camera) == base
+    assert P.frame_stats(brighter_sky)["mean_luminance"] > P.frame_stats(frame)["mean_luminance"]
+    darker_ground = frame.copy()
+    darker_ground[horizon + 3:] *= 0.7
+    assert P.ground_luminance(darker_ground, camera) < 0.75 * base
+
+
 def test_a_sky_without_a_disc_is_not_a_measurement() -> None:
     camera = P.Pinhole(eye=(0.0, 0.0, 160.0), target=(0.0, 1000.0, 400.0), fov_deg=70.0, size=SIZE)
     assert P.sun_disc(_sky(camera, 180.0, 12.0), camera)["found"] is False

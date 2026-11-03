@@ -46,7 +46,7 @@ import contextlib
 import datetime
 import sys
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -58,6 +58,7 @@ from PyQt6.QtGui import QImage
 
 from open_garden_planner.core.scene3d import (
     BuilderRegistry,
+    EngineBuffers,
     GroundBaking,
     GroundSpec,
     Mesh,
@@ -203,6 +204,9 @@ def render_records(
     plant_date: datetime.date | None = None,
     latitude_deg: float = 52.0,
     frost_dates: Mapping[str, object] | None = None,
+    ambient: EngineBuffers | None = None,
+    lamps: Sequence[tuple[float, float, float, float]] = (),
+    sky_probe: bool = True,
 ) -> OffscreenFrame:
     """Render ``records`` from ``shot`` under ``sun`` into an image of ``size``
     (logical pixels), through the real ``SceneSync`` → ``Quick3DSink`` path.
@@ -229,7 +233,13 @@ def render_records(
     ``overlays`` (L2): the analysis overlays by layer — ``"drape"``, ``"lines"`` —
     as scene-frame meshes (``core.scene3d.drape`` / ``sun_path``); their shaders are
     compiled only when one is shown. ``roofs_hidden`` / ``faded``: Cutaway's roofs
-    off and the items drawn faded (``core.scene3d.xray.XRAY_OPACITY``).
+    off and the items drawn faded (``core.scene3d.xray.XRAY_OPACITY``). ``ambient`` /
+    ``lamps`` (L5): the garden's life (``core.scene3d.particles.ambient_buffers``) and
+    the garden lights that light (scene frame) — a still picture: the wind's clock is at
+    rest, every particle where its seed puts it. ``sky_probe=False`` (L7): a sky of the
+    atmosphere model (``look.sky.model``) backs the frame without the painted sky's
+    light probe — nothing lit by a sky, no probe to filter — what the self-test renders
+    on a machine without a GPU (``Quick3DHost.sky_probe``).
 
     Raises ``RenderError`` on a QML or shader error, when this backend cannot
     render 3D, when a Qt Quick window is shown in this process (module
@@ -281,6 +291,10 @@ def render_records(
                                    latitude_deg=latitude_deg, frost_dates=frost_dates)
             for layer, mesh in (overlays or {}).items():  # the analysis overlays (L2)
                 host.set_overlay(layer, engine_buffers(mesh))
+            if ambient is not None:   # the living garden (L5)
+                host.set_ambient(ambient)
+            if lamps:
+                host.set_lamps(list(lamps))
             host.set_roofs_hidden(roofs_hidden)
             faded_ids = frozenset(faded)
             if faded_ids:
@@ -288,6 +302,7 @@ def render_records(
             host.set_shot(shot)
             breakdown["scene_apply"] = (time.perf_counter() - mark) * 1000.0
             if sky_light:
+                host.sky_probe = sky_probe
                 host.set_sky(look.sky)
                 breakdown["sky_build"] = host.last_sky_build_ms
             parts = sum(sink.part_count(item_id) for item_id in sink.item_ids())

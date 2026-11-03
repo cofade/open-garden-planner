@@ -72,6 +72,7 @@ host to let go — when the pipeline has been quiet for a moment
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import logging
 import time
@@ -102,15 +103,18 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from open_garden_planner.core.phenology import plan_latitude
 from open_garden_planner.core.plain_text import clip_text, log_text
 from open_garden_planner.core.scene3d.camera import FOV_DEG, OrbitCamera
 
+from .analysis_modes import DrapeMode
 from .init_guard import Init3DGuard, ModeReason, RenderMode, default_directory
 from .workspace_analysis import XRAY_DELAY_MS as XRAY_DELAY_MS
 from .workspace_analysis import WorkspaceAnalysisCoordinator
 from .workspace_legend import (
     SunPathLegend,
 )
+from .workspace_living import WorkspaceLivingCoordinator
 from .workspace_protocols import (
     EngineHost,
     EngineSink,
@@ -417,6 +421,9 @@ class Workspace(QWidget):
     mode_changed = pyqtSignal(object)
     #: The 3D pane's state changed (``View3DState``).
     view3d_state_changed = pyqtSignal(object)
+    #: L5.3: Today's Weather needs the forecast (the app fetches it through the
+    #: Planting Calendar's weather widget and answers with ``set_weather_forecast``).
+    forecast_wanted = pyqtSignal()
 
     def __init__(self, canvas_view: QWidget, *, engine_factory: EngineFactory | None = None,
                  guard: Init3DGuard | None = None, parent: QWidget | None = None) -> None:
@@ -512,6 +519,7 @@ class Workspace(QWidget):
         del command_manager
         self._scene, self._clock, self._location = scene, clock, location
         self._ui_state = ui_state
+        self._living.connect_clock(clock)  # L5: a new plan date may change today's weather
         replaced = getattr(scene, "document_replaced", None)  # a CanvasScene has it
         if replaced is not None:
             replaced.connect(self.document_changed)
@@ -591,9 +599,20 @@ class Workspace(QWidget):
         """The look controller — None until 3D was first opened (L1.4)."""
         return self._look
 
+    @property
+    def living(self) -> WorkspaceLivingCoordinator:
+        """The living garden (L5): the Weather menu, the garden's life and lights."""
+        return self._living
+
+    def set_weather_forecast(self, place: Any, days: Any) -> None:
+        """The app's daily forecast for ``place`` (the ``(lat, lon)`` it was fetched for),
+        ``(ISO date, WMO code)`` per day — what "Today's Weather" follows while the plan
+        date is today (L5.3)."""
+        self._living.set_forecast(place, days)
+
     def apply_look_settings(self) -> None:
         """The 3D settings changed (the Preferences dialog was accepted): the look
-        follows — quality and reduced motion. Nothing to do before 3D was opened:
+        follows — quality, reduced motion and (L7) the sky model. Nothing to do before 3D was opened:
         the look controller reads the settings when it is built."""
         if self._look is not None:
             self._look.reload_settings()
@@ -737,6 +756,7 @@ class Workspace(QWidget):
         strip.addWidget(self._reset_button)
         self._build_walk_controls(pane)  # L1.8: the Walk toggle and the eye height
         self._build_analysis_controls(pane)  # L2: the Analyze menu
+        self._living.build_controls(pane.strip, strip)  # L5: the Weather menu
         # the notices, one per line; every sentence wraps (class docstring of the pane)
         notices = pane.notice_layout
         status = QLabel("", pane.notices)
@@ -859,6 +879,8 @@ class Workspace(QWidget):
             return
         self._host, self._controller, self._input = host, controller, orbit
         self._look = look
+        look.set_southern(self._southern())  # L5: where the place's noon stands
+        self._living.wire(look)  # L5: the session's weather, the life switch
         if self.engine_factory is quick3d_engine:
             from ...core.plant_forge import ForgeCache
             from .forge_worker import ForgeWorker
@@ -867,7 +889,8 @@ class Workspace(QWidget):
             # exclusively to this worker's synthesis thread.
             self._forge_worker = ForgeWorker(
                 sink, cache=ForgeCache(max_entries=256), background=True,
-                season_sink=getattr(host, "set_plant_seasons", None),
+                # the plants' seasons, and from them the garden's life (L5)
+                season_sink=self._living.season_sink(host),
             )
         else:
             self._forge_worker = None
@@ -1072,6 +1095,7 @@ class Workspace(QWidget):
         except Exception:  # noqa: BLE001 - the health poll reports a host that died
             _LOG.debug("3D workspace: the camera could not be set", exc_info=True)
         self._schedule_xray()  # L2.4: the occluders follow the camera once it rests
+        self._living.camera_moved(target)  # L5: the lamps that light are the nearest
         worker = self._forge_worker
         if worker is not None:
             forward = (float(target[0] - eye[0]), float(target[1] - eye[1]), float(target[2] - eye[2]))
@@ -1114,6 +1138,7 @@ class Workspace(QWidget):
         this leaves flags only (the controller is paused). An open that fails its
         validation never gets here: the view, its camera and what it remembers of
         the plan stay as they were."""
+        self._living.document_changed()  # L5: the forecast was the old document's place
         controller = self._controller
         if controller is None:
             return
@@ -1133,6 +1158,9 @@ class Workspace(QWidget):
             self._announce_build()
 
     def location_changed(self, *_arguments: object) -> None:
+        self._living.place_changed()  # L5: the forecast was the old place's
+        if self._look is not None:
+            self._look.set_southern(self._southern())  # L5: and so was its noon
         if self._controller is not None:
             self._controller.refresh_sun()
         if self._analysis is not None:
@@ -1147,6 +1175,7 @@ class Workspace(QWidget):
         self._notices.pop(_NOTICE_BUILDING, None)
         self._notices.pop(_NOTICE_SYNC, None)
         self._refresh_notices()
+        self._living.on_applied(report)  # L5: the garden lights may have moved
         if report.ground_pass:
             # pending ground tiles painted, nothing else: the sun did not move (a
             # set_sun would restart the look's stale-sky timer on every slice) and no
@@ -1168,19 +1197,23 @@ class Workspace(QWidget):
                 worker.invalidate((*report.changes.added, *report.changes.geometry))
             self._refresh_forge()
 
+    def _southern(self) -> bool:
+        """The plan's place lies south of the equator (no location: the phenology's
+        default, a northern one)."""
+        return plan_latitude(self._location()) < 0.0
+
     def _refresh_forge(self) -> None:
         worker, controller = self._forge_worker, self._controller
         if worker is None or controller is None:
             return
         loc = self._location()
-        lat = loc.get("latitude") if isinstance(loc, Mapping) else None
         frost = loc.get("frost_dates") if isinstance(loc, Mapping) else None
         eye, target, _fov = self._camera_now()
         forward = (float(target[0] - eye[0]), float(target[1] - eye[1]), float(target[2] - eye[2]))
         worker.submit_snapshot(
             controller.sync.records.values(), camera_pos=eye, camera_forward=forward,
             plan_date=controller.pass_date,
-            latitude_deg=float(lat) if isinstance(lat, (int, float)) else 52.52,
+            latitude_deg=plan_latitude(loc),
             frost_dates=frost if isinstance(frost, Mapping) else None,
         )
         if worker.pending_count and self._pane_is_showing():
@@ -1474,6 +1507,7 @@ class Workspace(QWidget):
             self._pane.drop_engine()
         if host is not None:
             self._close_host(host)
+        self._living.unwire()  # L5: what the host was given goes; the look is gone first
         self._reset_action.setEnabled(False)
 
     def shutdown(self) -> None:
@@ -1538,6 +1572,14 @@ class Workspace(QWidget):
             on_walk_applied=lambda report: self._walk_coordinator.on_applied(report),
             on_walk_resume_pause=lambda showing: self._walk_coordinator.on_showing_changed(showing),
         )
+        self._living = WorkspaceLivingCoordinator(
+            get_host=lambda: self._host,
+            get_look=lambda: self._look,
+            get_records=lambda: self._controller.sync.records if self._controller else {},
+            get_location=lambda: self._location(),
+            parent=self,
+        )
+        self._living.forecast_wanted.connect(self.forecast_wanted)
         self._analysis_coordinator = WorkspaceAnalysisCoordinator(
             get_host=lambda: self._host,
             get_controller=lambda: self._controller,
@@ -1842,8 +1884,25 @@ class Workspace(QWidget):
     def _wire_analysis(self, host: EngineHost, orbit: OrbitInput,
                        controller: Scene3DController) -> None:
         self._analysis_coordinator.wire(host, orbit, controller)
+        analysis = self._analysis_coordinator.analysis
+        if analysis is not None:
+            analysis.changed.connect(self._drape_changed)   # L5: the weather pauses
+        self._drape_changed()
+
+    def _drape_changed(self) -> None:
+        """L5: while an Analyze drape lies on the ground the weather pauses, so the
+        drape's colours read as its legend's (``LookController.set_analysing``)."""
+        analysis = self._analysis_coordinator.analysis
+        self._living.set_analysing(analysis is not None
+                                   and analysis.drape_mode is not DrapeMode.NONE)
 
     def _unwire_analysis(self) -> None:
+        analysis = self._analysis_coordinator.analysis
+        if analysis is not None:
+            # its shutdown stops a sweep and says so: that must not reach a look and a
+            # host being torn down (senior review of L5)
+            with contextlib.suppress(TypeError, RuntimeError):
+                analysis.changed.disconnect(self._drape_changed)
         self._analysis_coordinator.unwire()
 
     def _analysis_document_changed(self) -> None:

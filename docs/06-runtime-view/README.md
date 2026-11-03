@@ -411,7 +411,12 @@ time-of-day change takes only the right-hand path; a date change takes both, the
 date path first. Since Phase 17 L2 (#386) the 3D view writes the clock in two more
 places, both the user's action: the day sweep (the time of day, sunrise → sunset,
 given back afterwards) and the growth jump (+1/+3/+10 years on the date, and "Back") —
-§6.10.
+§6.10. Since Phase 17 L5 (#389, ADR-070) Animate plays either THE DAY — the time of day,
+through `datetime_changed` as below, wrapping at midnight onto the same date — or THE YEAR:
+the plan date, through the toolbar's `date_requested` → `SimClock.set_date` (the time of
+day kept), so the date path below runs on every step and the 3D regrowth keeps its
+throttle (`core/playback.py` is the arithmetic of one step; the toolbar writes nothing
+else).
 
 ```mermaid
 flowchart TD
@@ -435,6 +440,29 @@ flowchart TD
     D -- no --> IC
     IC --> O --> M
 ```
+
+**The forecast fan-out (L5.3).** The Planting Calendar's weather widget is the app's one
+weather fetch. Its days reach the 3D view's Today's Weather as `(ISO date, WMO code)`, with
+the `(lat, lon)` they were fetched for:
+
+```mermaid
+flowchart LR
+    C([Weather → Today's Weather; while it is chosen,<br/>a new location — also the one a new or<br/>opened document brings (the same coordinates: nothing)])
+    W["Workspace.forecast_wanted"]
+    P["PlantingCalendarView.request_forecast<br/>(the weather part of refresh; tab may be hidden)"]
+    F["WeatherWidget fetch (Open-Meteo) — another place<br/>cancels and disconnects the old fetch"]
+    R["forecast_days_ready(place, days) — days EMPTY without a<br/>location or after a failed fetch"]
+    L["Workspace.set_weather_forecast →<br/>WorkspaceLivingCoordinator (another place's: dropped)<br/>→ LookController.set_todays_weather<br/>(the plan date's code, only while the plan date is today)"]
+    C --> W --> P --> F --> R --> L
+```
+
+A replaced document only FORGETS the forecast (`CanvasScene.document_replaced` comes while the
+old document's location is still set: an ask there fetched the old place's forecast, which then
+landed on the new plan — its strip, its frost alerts and Today's Weather). The new document's
+`location_changed`, which always follows a new, opened or recovered document, asks. Every
+`location_changed` also moves the weather widget at once (`PlantingCalendarView.follow_location`)
+— visible or not, fetching nothing — so a fetch still on its way for the old place is cancelled
+and disconnected (PF-LIF-12).
 
 A write from inside any listener raises `RuntimeError`: the remaining listeners
 would otherwise receive a stale change. Every listener runs even when one raises,
@@ -633,6 +661,46 @@ clock's date; the pipeline's first pass that read the new date (`applied`) grabs
 after-picture and the wipe shows both in the view's place. A date the user moves
 away from the target first drops the owed comparison; "Back" returns to the date
 before the first jump.
+
+## 6.11 The sky model: painted or atmosphere (Phase 17 L7, #391, ADR-048 addendum L7)
+
+Choosing **Atmosphere with clouds** in Preferences never makes the GUI thread wait: the
+cloud noise volume (about a second of numpy) is made on the look controller's worker,
+and the painted sky shows until it is ready. A failure falls back to the painted sky
+for the session.
+
+```mermaid
+sequenceDiagram
+    participant P as Preferences (Save)
+    participant LC as LookController
+    participant W as worker "cloud-noise"
+    participant H as Quick3DHost
+    participant Q as Garden.qml
+    P->>LC: reload_settings() → set_sky_model("atmosphere")
+    alt software adapter, or an atmosphere failed before
+        LC->>H: set_sky(painted sky) — the stored model is kept
+    else the volume is not made yet
+        LC->>W: submit(cloud_noise_rgba16f)
+        LC->>H: set_sky(painted sky) — meanwhile
+        loop every 50 ms (poll timer)
+            LC->>W: done?
+        end
+        W-->>LC: the 64³ volume (or an exception → painted for the session)
+    end
+    LC->>H: set_sky(atmosphere sky) — the look's sky with model "atmosphere"
+    H->>Q: buildSky(painted properties) — the light probe under both models
+    H->>H: sky-view table for this sun (~0.1 s), gain, inputs
+    H->>Q: buildAtmosphere(inputs, volume, table) — same GUI-thread turn, no frame between
+    Note over Q: ONE AtmosphereSky per scene, made at the first call,<br/>then only written; drawn on screen (ScreenSpaceHalf),<br/>no light, no cube (PF-E3D-17); a painted sky only switches it off
+    Q-->>H: built (a refusal → painted sky for the session)
+```
+
+A sun change while the atmosphere shows rebuilds the painted sky (its light), refills the
+same sky-view table in place and writes the inputs, about 0.32 s of GUI thread in all
+(painted alone about 0.12 s), which a playing day feels (#722); a painted sky is a fresh Texture pair
+per build, and the environment re-binds its light
+probe when the previous one is deleted (PF-E3D-16). A shader that compiles to nothing is
+not seen at run time (PF-E3D-14; #720).
 
 ## Guild insertion and computed warning refresh
 

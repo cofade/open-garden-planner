@@ -30,7 +30,7 @@ one-time setup in deployment section 7.4; FR-STATS records acceptance requiremen
 | **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
 | **15** | **v1.25.0 – v1.27.0** | **✅ Complete** (Packages 1–3; epic [#284](https://github.com/cofade/open-garden-planner/issues/284)) | **Visual Refresh** |
 | 16 | — | Future | Platform & Community |
-| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
+| 17 | — | In progress (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0, L5 ✅ v1.35.0, L7 ✅ v1.36.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
 
 ---
 
@@ -2727,7 +2727,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 
 ---
 
-## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L4 complete
+## Phase 17: Living Garden 3D (epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) — L0 complete (GO), L1–L5 and L7 complete
 
 **Current product (since v1.30.14, [PR #484](https://github.com/cofade/open-garden-planner/pull/484))**: the 3D view is the Qt Quick 3D workspace in the main window — View → "3D View" shows it beside the plan (Plan / 3D / Split, Alt+1 / 2 / 3); it follows every edit, casts shadow-map shadows checked against the 2D ones, selects in both directions and walks with collision. The Qt 3D viewer window of US-E6 / E7, unreachable since L1.9, was deleted in L1.10 with its two `PyQt6-3D*` pins, the pre-L1.1 scene module and the L0 spike (its values frozen in `tests/data/l0_spike_reference.json`). The workspace also paints the plan's flat surfaces onto its ground (L1.5). What FR-SUN-06 / 07 / 08 promised and what the new view does is §8.29.9's parity table; the owner shipped the default with #532 open (ADR-060 addendum D5). v1.30.13 was the last release with the Qt 3D window. L0 is complete with a GO; L1.0 (one simulation clock) shipped in v1.29.10 and L1.1–L1.10 in v1.30.14.
 
@@ -2740,9 +2740,9 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L2 | **Analyze in 3D** — shadow and sun-hours drapes + ground probe, sun path + compass + day sweep, info card v1 + growth jump with before/after, Cutaway / X-ray. **✅ shipped v1.31.0 ([PR #584](https://github.com/cofade/open-garden-planner/pull/584)) after owner acceptance (ADR-063, FR-3D-ANALYZE-01 … 08)** — see below | [#386](https://github.com/cofade/open-garden-planner/issues/386) |
 | ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | ✅ | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **✅ shipped v1.34.0 ([PR #613](https://github.com/cofade/open-garden-planner/pull/613)) after owner acceptance (ADR-065, FR-3D-BUILT-01 … 08)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
-| 📋 | L5 | **Living garden** — year/day playback, weather, particles, wind (needs [#315](https://github.com/cofade/open-garden-planner/issues/315)) | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
+| ✅ | L5 | **Living garden** — year/day playback through the SimClock, moods, weather presets as a look, shader particles (rain, snow, leaves, butterflies, fireflies) on the wind's clock, Today's Weather, Garden Light / String Lights. **✅ shipped v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after owner acceptance (ADR-070, FR-3D-LIVE-01 … 09)** — see below | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
-| 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
+| ✅ | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds. **Shipped in v1.36.0 ([PR #721](https://github.com/cofade/open-garden-planner/pull/721)) after owner acceptance (ADR-048 addendum L7, FR-3D-LOOK-08)** — see below | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
 ### 3D performance and stability (Slice A) — **#452 shipped in v1.34.11 ([PR #676](https://github.com/cofade/open-garden-planner/pull/676)), 2026-11-01**
 
@@ -2781,6 +2781,82 @@ elease.yml, documented ADR-050 version derivation evaluation addendum, and enfor
 - **#583:** Split ui/view3d/workspace.py from 2,381 to 1,861 lines by extracting selection, walk, analysis, wipe, and legend coordinators with typed protocols (EngineHost, EngineSink, ShadowsSource, HeatmapSource, SunHoursSource).
 - **#580:** Expanded info card body line budget (BODY_LINES = 8) to keep all fact rows (including harvest window) visible without vertical clipping at the narrowest 455 px split pane width.
 - **#577:** De-scoped for dedicated geometry research; preserved clean ground drape depth occlusion.
+
+### L7 acceptance highlights — Sky 6.12 (#391, ADR-048 addendum L7) — **shipped v1.36.0, PR #721**
+
+| Criterion (#391) | Delivered | Evidence |
+|---|---|---|
+| Move all Qt pins together to 6.12 LTS | `PyQt6` / `PyQt6-Qt6` 6.12.0; `PyQt6-WebEngine` 6.140.0 had to move too (6.10 fails to import next to 6.12; ADR-038's scope note corrected); QtPdf now `PyQt6-Pdf` (dev) | lock gate, governance test, frozen smoke + `--selftest`, PF-CI-17 |
+| `SkyMaterial` + a port of Qt's AdvancedSky (Hillaire atmosphere, volumetric clouds), BSD-3 (shaders: MIT), credited after a per-file licence check | opt-in sky model (Preferences → 3D View → Sky); shader ported, its two look-up tables and the cloud noise computed in numpy and handed over as texture data (a `SkyMaterial` draws white until every texture exists, PF-E3D-14); per-file check (`qml/PROVENANCE.md`): `atmosphere.frag` and the LUT port `atmosphere_lut.py` MIT with the app's parts GPL-3.0-or-later, `AtmosphereSky.qml` and the cloud noise BSD-3-Clause | `qml/PROVENANCE.md`, `qml/LICENSE-qt-skymaterial.txt`, `test_scene3d_cloud_noise.py` (voxels vs the C++ recipe) |
+| Cloud cover from the weather preset (L5.2) | the weather's cloud is the clouds' cover; a new **Partly cloudy** weather (cover 0.4, also from the forecast's code 2) shows scattered clouds, which no L5 preset produced (owner's manual test) | ADR-048 addendum L7's revision, ADR-070 addendum L7, `test_scene3d_weather.py` |
+| (owner's manual test) the atmosphere must not crash the app | Qt 6.12.0's sky-material light cube crashed natively; the atmosphere now only draws the sky on screen and the painted sky lights the garden under both models | PF-E3D-17, `test_quick3d_qml.py`, `test_quick3d_host.py` (`TestSky`) |
+| Re-run the sky probe (`sky_ok`) and the shadow IoU gates after the upgrade | both skies, every board gate; the sun mapping derived from the shaders and measured, not assumed | `test_view3d_looks_render.py` (board parametrized by sky model) |
+
+Also from the bump: the 3D wind follows the operating system's "reduce motion" (FR-3D-LOOK-04), the selection witness honours 6.12's cull-aware pick (PF-E3D-13), QTBUG-151940 re-checked (still leaking; known limit 11). Pre-existing and filed: #714 (the distant-horizon gate fails on `master` too).
+
+### L5 acceptance highlights — Living garden (#389, ADR-070) — **shipped v1.35.0, PR #699**
+
+All four slices of the issue, the optional L5.3 and L5.4 included:
+
+- **L5.1 — year and day playback through the shared `SimClock`.** Animate on the Plan & Sun
+  toolbar plays *The Day* (wraps onto the same date: no `date_changed`) or *The Year* (wraps
+  inside the plan's year, the time kept) at Slow / Normal / Fast (`core/playback.py`); it writes
+  through the toolbar's own paths, so 2D shadows, hours of sun, the 3D light and the 3D growth
+  follow their subscriptions (3D regrowth throttled at 2 Hz). Moods — night, twilight, rain,
+  snow, overcast, morning dew, golden hour, day — are named from the look (`weather.mood_of`);
+  morning dew is a mist and a wet sheen east of the meridian until the sun is 18° up. The
+  reduced-motion setting now also stills the particles.
+- **L5.2 — weather presets and particles; wind as a shader value.** Clear / Overcast / Rain /
+  Snow in the 3D strip's Weather menu, applied as a LOOK (`weather.apply_weather`): the sun's
+  direction, the shadows' places, the 2D study and the drapes are untouched; a clear look
+  outside the morning equals `look_for`'s field for field but its new `atmosphere`. Particles
+  are GPU-shader quads on two Models declared once, moved by the wind's clock: ≤ 5,000 at once
+  (4,960 by construction, pinned); with reduced motion the idle frame counter stays at 0
+  (render tier); rain costs +3.7 % and snow +1.9 % of a Medium frame (gate 15 %, interleaved
+  measurement — PF-L3D-18). Wet and snowy ground share ONE set of ground values, so the plan
+  meets the meadow without a step.
+- **L5.3 — Today's Weather.** Follows the Planting Calendar's own Open-Meteo forecast (WMO
+  code → preset) only while the plan date is today; the 3D view fetches nothing.
+- **L5.4 — garden lights.** `GARDEN_LIGHT` and `STRING_LIGHTS` on every §8.23 surface (the
+  lantern's sprite, tools, gallery, Change Type, default heights 110 / 250 cm, 3D builders, agent
+  `create_object`). After the owner's manual test a string is a LINE — a post at every click, its
+  2D picture drawn along it from the layout its 3D model uses — and casts no 2D shadow;
+  at dusk the bulbs glow and the six lamps nearest the camera's target light the garden (a pool
+  of point lights made once). Bulb positions are ONE function per kind, shared by the builder
+  and the light. `bench_built.ogp` gained one of each (appended last).
+- Reviews: the `ogp-3d-reviewer` and `senior-reviewer` passes are recorded in the PR; an
+  automated security review found a hostile outline typed a light could raise out of the
+  workspace's pass — fixed (the bulbs follow the builder's plain-block rule) and pinned. The
+  first 3D review rejected the board (ADR-070 addendum): a weather recoloured the Analyze
+  drapes — the weather now PAUSES while a drape lies on the ground (FR-3D-LIVE-09) —, the
+  fog drew a seam on every cloudy horizon (recalibrated, and the board's horizon probe now
+  runs per weather), lantern heads drew white with dark cores (the light moved under the
+  lantern, the pane went, a warm glow in front of the bulb) and butterflies drew as ghosts (a life share is a
+  count, not an opacity). Deferred polish: #687. The senior review then added the garden's
+  life end to end through the production Plant Forge, Today's Weather asking for its
+  forecast and the living host calls in `EngineHost`; its second round found that a new or
+  opened plan still received the OLD place's forecast (the ask came before the new location
+  was set) — the ask now waits for the new document's location, and the weather widget
+  cancels and drops another place's fetch. The third 3D review held a cloudy evening's
+  exposure at noon's (an overcast sunset was 98 % as bright as noon) and made wet leaves
+  less glossy (cream glints in the rain at a low sun). Engine follow-ups: #689.
+
+### Out of scope (deferred)
+- Snow on roofs and on a bed's soil (principled `vc` parts take no snow cover).
+- The forecast's hour or its wind direction — Today's Weather is the day's code; the wind's
+  direction is a look.
+
+### Docs updated on completion
+
+| Document | Section |
+|----------|---------|
+| `docs/09-architecture-decisions/` | ADR-070 (with the owner's addendum); ADR-059 builders addendum (the garden light's shadow row) |
+| `docs/functional-requirements.md` | FR-3D-LIVE-01 … 09 |
+| `docs/08-crosscutting-concepts/` | §8.29.13, §8.10.16, §8.23.1 (25 artifacts; a line has no sprite) |
+| `docs/05-building-block-view/` | weather, particles, lights, playback, workspace_living, string_lights, string_lights_paint |
+| `docs/11-risks-and-technical-debt/pitfalls/` | PF-L3D-18, PF-LIF-12, PF-UI-33 |
+| `docs/12-glossary/` | Playback, Weather (3D), Today's Weather, Mood (3D), Morning dew, Garden's life, Lamp pool, Garden Light / String Lights |
+| skills | `ogp-3d-renderer` §19, `ogp-lush-cinematic` living-garden values, `debug-verbose` case studies 184–186 |
 
 ### L4 follow-up hardening — **shipped 2026-10-27 as v1.34.1, PR #630**
 
@@ -3950,6 +4026,6 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   `tests/integration/test_house_roof_ridge.py` (plus the trim, fillet, mirror, journal and
   agent-delete suites).
 
-Docs: FR-EDIT-22/23/24, ADR-070 (the display transform), ADR-046 addendum (type change owns
+Docs: FR-EDIT-22/23/24, ADR-071 (the display transform), ADR-046 addendum (type change owns
 the ridge).
 

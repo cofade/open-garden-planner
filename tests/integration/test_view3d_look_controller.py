@@ -11,6 +11,7 @@ automatic preset.
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -23,8 +24,8 @@ from open_garden_planner.core.scene3d.look import (
     LookSpec,
     SkySpec,
     fog_color,
-    look_for,
 )
+from open_garden_planner.core.scene3d.weather import living_look
 from open_garden_planner.ui.view3d import look_controller
 from open_garden_planner.ui.view3d.look_controller import (
     AUTO_SAMPLE_MS,
@@ -101,7 +102,7 @@ def test_the_first_sun_gives_the_look_and_the_first_sky_at_once(qtbot) -> None:
     host = Host()
     look = make(qtbot, host)
     look.set_sun(sun(35.0, 225.0))
-    expected = look_for(sun(35.0, 225.0), "high")
+    expected = living_look(sun(35.0, 225.0), "high")
     assert host.calls == [("sky", expected.sky), ("look", expected)]
     assert look.look == expected and look.sky == expected.sky and look.sky_rebuilds == 1
 
@@ -120,12 +121,12 @@ def test_the_same_sun_again_sends_nothing(qtbot) -> None:
 
 @pytest.mark.parametrize("elevation", [-12.0, 0.5, 5.89, 15.23, 60.9])
 @pytest.mark.parametrize("quality", ["low", "medium", "high", "ultra"])
-def test_the_look_handed_to_the_engine_is_look_for_of_that_sun(qtbot, elevation: float,
+def test_the_look_handed_to_the_engine_is_the_living_look_of_that_sun(qtbot, elevation: float,
                                                                quality: str) -> None:
     host = Host()
     look = make(qtbot, host, quality=quality)
     look.set_sun(sun(elevation, 200.0))
-    assert host.named("look") == [look_for(sun(elevation, 200.0), quality)]
+    assert host.named("look") == [living_look(sun(elevation, 200.0), quality)]
     assert look.preset == quality == look.quality
 
 
@@ -172,13 +173,13 @@ def test_a_sky_that_cannot_be_built_never_keeps_the_look_from_the_screen(qtbot, 
             look.set_sun(each)
             qtbot.wait(5)
         qtbot.wait(SKY_SETTLE_MS + 100)
-    assert host.named("look") == [look_for(each, "high") for each in suns]
+    assert host.named("look") == [living_look(each, "high") for each in suns]
     assert host.sky_attempts == 2, "one build, and one call that drops what it left"
     sky_errors = [r for r in caplog.records if r.levelname == "ERROR" and "sky" in r.getMessage()]
     assert len(sky_errors) == 1, [r.getMessage() for r in caplog.records]
     assert look.sky is None and not look.sky_light and look.sky_rebuilds == 0
     last = host.named("look")[-1]
-    assert last.fog_color == look_for(suns[-1], "high").fog_color, "the fog of the plain sky"
+    assert last.fog_color == living_look(suns[-1], "high").fog_color, "the fog of the plain sky"
 
 
 # ── gate G4, the decision: one sky per noticeable move ───────────────────────
@@ -207,7 +208,7 @@ def test_a_noticeable_move_builds_one_sky_once_the_sun_rests(qtbot) -> None:
     assert host.named("sky") == [], "not inside the pass: the sun may still be moving"
     assert host.named("look"), "the light, the exposure and the fog do not wait"
     qtbot.waitUntil(lambda: look.sky_rebuilds == 2, timeout=2000)
-    assert host.named("sky") == [look_for(sun(37.0, 228.0), "high").sky]
+    assert host.named("sky") == [living_look(sun(37.0, 228.0), "high").sky]
     assert not look._sky_timer.isActive(), "single shot: nothing ticks afterwards"
 
 
@@ -224,7 +225,7 @@ def test_a_dragged_sun_costs_one_sky_not_one_per_step(qtbot) -> None:
     assert host.named("sky") == [] and len(host.named("look")) == 40
     qtbot.waitUntil(lambda: look.sky_rebuilds == 2, timeout=2000)
     qtbot.wait(SKY_SETTLE_MS + 100)
-    assert host.named("sky") == [look_for(sun(40.0, 160.0), "high").sky]
+    assert host.named("sky") == [living_look(sun(40.0, 160.0), "high").sky]
 
 
 def test_a_sun_that_comes_back_owes_no_sky(qtbot) -> None:
@@ -247,9 +248,9 @@ def test_sunset_nightfall_and_dawn_rebuild_at_once(qtbot) -> None:
     look.set_sun(sun(0.6, 300.0))
     host.take()
     look.set_sun(sun(0.4, 300.1))       # a move of 0.2 degrees — and the sun has set
-    dusk = look_for(sun(0.4, 300.1), "high")
+    dusk = living_look(sun(0.4, 300.1), "high")
     assert host.calls == [("sky", dusk.sky), ("look", dusk)]
-    assert not dusk.night and dusk.mood.twilight > 0.0 and dusk.sky.sun_energy == 0.0
+    assert not dusk.night and dusk.mood.twilight > 0.0 and dusk.sky.sun_disc == dusk.sky.horizon
     look.set_sun(sun(-30.0, 10.0))      # night: the night sky at once
     assert look.sky_rebuilds == 3 and look.sky is not None and look.sky.night
     look.set_sun(sun(-12.0, 60.0))      # the night goes on: the sky draws no sun
@@ -275,7 +276,7 @@ def test_twilight_rebuilds_the_sky_once_per_degree(qtbot) -> None:
         look.set_sun(sun(0.3 - 1.1 * step, 300.0))          # 1.1° from the shown sky
         qtbot.wait(SKY_SETTLE_MS + 60)
         assert look.sky_rebuilds - built == step, step
-    assert all(not each.night and each.sun_energy == 0.0 for each in host.named("sky")[1:])
+    assert all(not each.night and each.sun_disc == each.horizon for each in host.named("sky")[1:])
 
 
 def test_while_the_sky_lags_the_fog_meets_the_sky_on_screen(qtbot) -> None:
@@ -285,10 +286,10 @@ def test_while_the_sky_lags_the_fog_meets_the_sky_on_screen(qtbot) -> None:
     look = make(qtbot, host)
     look.set_showing(True)
     look.set_sun(sun(4.0, 290.0))
-    shown = look_for(sun(4.0, 290.0), "high").sky
+    shown = living_look(sun(4.0, 290.0), "high").sky
     host.take()
     look.set_sun(sun(9.0, 285.0))       # 5 degrees up the ramp: another horizon colour
-    wanted = look_for(sun(9.0, 285.0), "high")
+    wanted = living_look(sun(9.0, 285.0), "high")
     sent = host.named("look")[-1]
     assert wanted.sky.horizon != shown.horizon
     assert sent.fog_color == fog_color(shown.horizon, wanted.mood.probe_exposure)
@@ -296,6 +297,72 @@ def test_while_the_sky_lags_the_fog_meets_the_sky_on_screen(qtbot) -> None:
     assert sent.mood == wanted.mood and sent.sky == wanted.sky, "only the fog is tied to the sky"
     qtbot.waitUntil(lambda: look.sky_rebuilds == 2, timeout=2000)
     assert host.named("look")[-1] == wanted, "with the sky rebuilt the fog is the look's own"
+
+
+def test_while_a_cloudy_sky_lags_the_fog_is_corrected_for_the_cloud_on_screen(qtbot) -> None:
+    """The lagging sky's fog takes the cloud of the sky SHOWN (``SkySpec.cloud``) — the
+    overcast correction of ``weather.weather_fog``, not the clear sky's formula."""
+    from open_garden_planner.core.scene3d.weather import weather_fog
+
+    host = Host()
+    look = make(qtbot, host)
+    look.set_showing(True)
+    look.set_weather("overcast")
+    look.set_sun(sun(4.0, 290.0))
+    shown = living_look(sun(4.0, 290.0), "high", "overcast").sky
+    assert shown.cloud == 1.0
+    host.take()
+    look.set_sun(sun(9.0, 285.0))
+    wanted = living_look(sun(9.0, 285.0), "high", "overcast")
+    sent = host.named("look")[-1]
+    assert sent.fog_linear == weather_fog(shown.horizon, wanted.mood.probe_exposure,
+                                          shown.sky_energy, shown.cloud, wanted.mood.twilight)
+
+
+def test_while_a_partly_cloudy_sky_lags_the_fog_takes_its_grey_not_its_cover(qtbot) -> None:
+    """Partly cloudy's ``cloud`` 0.4 is the atmosphere's cover; its sky and fog take the 0.25
+    of grey (``apply_weather``). The lagging fog takes the same share, or it steps when the
+    sky catches up (3D review of L7)."""
+    from open_garden_planner.core.scene3d.weather import weather_fog
+
+    host = Host()
+    look = make(qtbot, host)
+    look.set_showing(True)
+    look.set_weather("partly_cloudy")
+    look.set_sun(sun(4.0, 290.0))
+    shown = living_look(sun(4.0, 290.0), "high", "partly_cloudy").sky
+    assert shown.cloud == 0.4
+    host.take()
+    look.set_sun(sun(9.0, 285.0))
+    wanted = living_look(sun(9.0, 285.0), "high", "partly_cloudy")
+    sent = host.named("look")[-1]
+    assert sent.fog_linear == weather_fog(shown.horizon, wanted.mood.probe_exposure,
+                                          shown.sky_energy, 0.25, wanted.mood.twilight)
+
+
+def test_an_analyze_drape_pauses_the_weather_and_the_dew(qtbot) -> None:
+    """While a drape lies on the ground the look is the sun's own — no weather, no dew —
+    so the drape's colours read as its legend's (the 3D review measured a 59° hue shift
+    under snow); taking it off brings the weather back."""
+    host = Host()
+    look = make(qtbot, host)
+    dawn = sun(3.0, 70.0)                      # a dewy morning
+    look.set_weather("snow")
+    look.set_sun(dawn)
+    assert host.named("look")[-1] == living_look(dawn, "high", "snow")
+    assert not look.weather_paused and look.weather == "snow"
+    look.set_analysing(True)
+    assert look.analysing and look.weather_paused
+    assert look.weather == "clear" and look.weather_wanted == "snow"
+    paused = host.named("look")[-1]
+    assert paused == living_look(dawn, "high", "clear", dew=False)
+    assert paused.atmosphere.dew == 0.0 and paused.atmosphere.snow_cover == 0.0
+    look.set_weather("clear")
+    assert not look.weather_paused, "a clear choice holds nothing back"
+    look.set_weather("rain")
+    assert host.named("look")[-1] == paused, "a weather picked under a drape waits"
+    look.set_analysing(False)
+    assert host.named("look")[-1] == living_look(dawn, "high", "rain")
 
 
 def test_a_hidden_view_builds_no_sky_until_it_is_seen_again(qtbot) -> None:
@@ -309,7 +376,7 @@ def test_a_hidden_view_builds_no_sky_until_it_is_seen_again(qtbot) -> None:
     assert look.sky_rebuilds == 1 and not look._sky_timer.isActive()
     look.set_showing(True)
     qtbot.waitUntil(lambda: look.sky_rebuilds == 2, timeout=2000)
-    assert host.named("sky")[-1] == look_for(sun(45.0, 240.0), "high").sky
+    assert host.named("sky")[-1] == living_look(sun(45.0, 240.0), "high").sky
 
 
 def test_on_a_software_adapter_no_sky_is_ever_built(qtbot) -> None:
@@ -323,7 +390,7 @@ def test_on_a_software_adapter_no_sky_is_ever_built(qtbot) -> None:
     qtbot.wait(SKY_SETTLE_MS + 120)
     assert host.named("sky") == [] and look.sky_rebuilds == 0 and look.sky is None
     assert not look.sky_light
-    assert host.named("look") == [look_for(sun(e, a), "high") for e, a in (
+    assert host.named("look") == [living_look(sun(e, a), "high") for e, a in (
         (35.0, 225.0), (50.0, 180.0), (0.4, 300.0), (-20.0, 20.0), (10.0, 80.0))]
     last = host.named("look")[-1]
     assert last.plain_sky == last.fog_color, "the plain background is the fog's colour"
@@ -347,7 +414,7 @@ def test_a_software_adapter_never_animates_and_auto_is_low(qtbot, quality: str) 
     assert not look.animating and not look._auto_timer.isActive()
     assert look.software and not look.sky_light
     assert look.preset == ("low" if quality == "auto" else quality)
-    assert host.named("look")[0] == look_for(sun(30.0), look.preset)
+    assert host.named("look")[0] == living_look(sun(30.0), look.preset)
 
 
 def test_every_sky_built_is_announced(qtbot) -> None:
@@ -408,6 +475,65 @@ def test_switching_reduced_motion_on_rests_a_running_wind_and_off_starts_it(qtbo
     assert host.calls == []
 
 
+def test_the_systems_reduce_motion_stops_the_wind_and_the_setting_cannot_undo_it(qtbot) -> None:
+    """Qt 6.12 (Phase 17 L7): the operating system's "reduce motion" preference is
+    honoured beside the app's own setting — EITHER one stops the wind, neither
+    switches the other off, and a change of the system's is followed live."""
+    host = Host()
+    look = make(qtbot, host, system_reduced_motion=True)
+    look.set_showing(True)
+    assert host.take() == [("rest", None)] and look.reduced_motion and not look.animating
+    look.set_reduced_motion(False)       # the app's setting is already off: nothing to undo
+    assert host.calls == [] and look.reduced_motion
+    look.set_reduced_motion(True)
+    look.set_system_reduced_motion(False)
+    assert host.calls == [] and look.reduced_motion, "the app's setting still holds it"
+    look.set_reduced_motion(False)
+    assert host.take() == [("wind", True)] and look.animating and not look.reduced_motion
+    look.set_system_reduced_motion(True)
+    assert host.take() == [("rest", None)] and not look.animating and look.system_reduced_motion
+    look.set_system_reduced_motion(True)
+    assert host.calls == [], "told once"
+
+
+def test_the_system_preference_is_read_from_qt_and_followed(qtbot, monkeypatch) -> None:  # noqa: ARG001
+    """``from_settings`` reads the preference and connects its change signal: a change
+    of it reaches the wind without the Preferences dialog."""
+    from open_garden_planner.ui.view3d import look_controller as module
+
+    preference = {"reduced": True}
+    monkeypatch.setattr(module, "system_reduced_motion", lambda: preference["reduced"])
+    host = Host()
+    look = module.LookController.from_settings(host, software=False)
+    try:
+        look.set_reduced_motion(False)
+        assert look.system_reduced_motion and look.reduced_motion
+        preference["reduced"] = False
+        look._system_motion_changed()       # what motionPreferenceChanged calls
+        assert not look.system_reduced_motion
+    finally:
+        look.shutdown()
+
+
+def test_qt_exposes_the_motion_preference_this_app_honours(qtbot) -> None:  # noqa: ARG001
+    """The successor of the 6.11 drift guard ("Qt exposes no motion preference"): Qt
+    6.12 has ``QAccessibilityHints.motionPreference``, and the reader returns a bool
+    on it. The day the binding moves, this fails instead of the wind silently
+    ignoring the system."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QGuiApplication
+
+    from open_garden_planner.ui.view3d.look_controller import system_reduced_motion
+
+    hints = QGuiApplication.styleHints()
+    assert hints is not None
+    accessibility = hints.accessibility()
+    assert accessibility.motionPreference() in (Qt.MotionPreference.NoPreference,
+                                                Qt.MotionPreference.ReducedMotion)
+    assert hasattr(accessibility, "motionPreferenceChanged")
+    assert isinstance(system_reduced_motion(), bool)
+
+
 def test_hidden_or_still_nothing_of_the_look_ticks(qtbot) -> None:
     """No idle wake-ups: the two timers of the look run only while there is something
     to wait for — a stale sky, a wind whose frames are being counted."""
@@ -464,7 +590,7 @@ def test_a_fixed_preset_is_used_as_it_is_and_measures_nothing(qtbot) -> None:
     look.set_showing(True)
     look.set_sun(sun(40.0))
     _run(look, host, clock, 60.0, 5.0)
-    assert look.preset == "ultra" and host.named("look") == [look_for(sun(40.0), "ultra")]
+    assert look.preset == "ultra" and host.named("look") == [living_look(sun(40.0), "ultra")]
 
 
 def test_auto_starts_where_it_was_left_and_steps_down_when_slow(qtbot) -> None:
@@ -480,7 +606,7 @@ def test_auto_starts_where_it_was_left_and_steps_down_when_slow(qtbot) -> None:
     host.take()
     _run(look, host, clock, 6.0, 12.0)        # 12 frames a second
     assert look.preset == "medium" and changed == ["medium"] and kept == ["medium"]
-    assert host.calls == [("look", look_for(sun(40.0, 200.0), "medium"))], \
+    assert host.calls == [("look", living_look(sun(40.0, 200.0), "medium"))], \
         "a preset step is ONE set_look: no sky, no wind call, nothing else"
     _run(look, host, clock, 6.0, 12.0)
     assert look.preset == "low" and kept == ["medium", "low"]
@@ -543,7 +669,7 @@ def test_a_preset_change_from_the_settings_is_one_look_call(qtbot) -> None:
     look.set_sun(sun(22.0, 140.0))
     host.take()
     look.set_quality("low")
-    assert host.take() == [("look", look_for(sun(22.0, 140.0), "low"))]
+    assert host.take() == [("look", living_look(sun(22.0, 140.0), "low"))]
     look.set_quality("low")
     look.set_quality("LOW")
     assert host.calls == []
@@ -670,7 +796,7 @@ def test_reload_settings_follows_the_preferences_dialog(qtbot, settings) -> None
     settings.view3d_quality = "medium"
     settings.view3d_reduced_motion = True
     look.reload_settings()
-    assert host.take() == [("look", look_for(sun(30.0), "medium")), ("rest", None)]
+    assert host.take() == [("look", living_look(sun(30.0), "medium")), ("rest", None)]
     look.reload_settings()
     assert host.calls == []
 
@@ -711,3 +837,119 @@ def test_the_look_controller_imports_no_engine() -> None:
     modules |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import)
                 for alias in node.names}
     assert not any("QtQuick" in name or "QtQml" in name or "quick3d" in name for name in modules)
+
+
+# ── L7 (#391): the sky model ─────────────────────────────────────────────────
+
+
+@pytest.fixture
+def quick_noise(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """The cloud volume's worker answers at once (the real one takes about a second;
+    ``test_scene3d_cloud_noise.py`` checks the volume itself)."""
+    made = {"calls": 0, "fail": None}
+
+    def make() -> bytes:
+        made["calls"] += 1
+        if made["fail"] is not None:
+            raise made["fail"]
+        return b"volume"
+
+    monkeypatch.setattr(look_controller, "_make_cloud_noise", make)
+    return made
+
+
+def _models(host: Host) -> list[str]:
+    return [sky.model for sky in host.named("sky") if sky is not None]
+
+
+def test_the_atmosphere_waits_for_its_cloud_volume_with_the_painted_sky(qtbot, quick_noise) -> None:
+    """Chosen, the atmosphere is NOT drawn until the worker has made the volume: the
+    painted sky shows first, then the atmosphere is built at once — no sun move needed."""
+    host = Host()
+    look = make(qtbot, host, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    assert _models(host)[:1] == ["painted"], "the first sky cannot wait for a worker"
+    qtbot.waitUntil(lambda: look.sky_model_shown == "atmosphere", timeout=5000)
+    qtbot.waitUntil(lambda: _models(host)[-1:] == ["atmosphere"], timeout=5000)
+    assert quick_noise["calls"] == 1 and look.sky.model == "atmosphere"
+    assert host.named("sky")[-1] == replace(living_look(sun(35.0, 225.0), "high").sky,
+                                            model="atmosphere"), "the same sky, drawn otherwise"
+    look.shutdown()
+
+
+def test_switching_the_model_builds_the_other_sky_at_once(qtbot, quick_noise) -> None:  # noqa: ARG001
+    host = Host()
+    look = make(qtbot, host, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    qtbot.waitUntil(lambda: _models(host)[-1:] == ["atmosphere"], timeout=5000)
+    host.take()
+    look.set_sky_model("painted")
+    assert _models(host) == ["painted"] and look.sky_model == "painted"
+    host.take()
+    look.set_sky_model("atmosphere")   # the volume is ready now: no wait
+    assert _models(host) == ["atmosphere"]
+    look.set_sky_model("atmosphere")
+    assert _models(host) == ["atmosphere"], "told once"
+    look.shutdown()
+
+
+def test_a_software_adapter_never_draws_the_atmosphere_nor_makes_its_volume(qtbot, quick_noise) -> None:
+    host = Host()
+    look = make(qtbot, host, software=True, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    qtbot.wait(200)
+    assert host.named("sky") == [] and quick_noise["calls"] == 0
+    assert look.sky_model == "atmosphere" and look.sky_model_shown == "painted"
+    look.shutdown()
+
+
+class RefusingAtmosphere(Host):
+    def set_sky(self, sky: SkySpec | None) -> None:
+        if sky is not None and sky.model == "atmosphere":
+            self.calls.append(("refused", sky))
+            raise RuntimeError("SkyMaterial: no such type")
+        super().set_sky(sky)
+
+
+def test_an_atmosphere_the_engine_refuses_leaves_the_painted_sky_for_the_session(qtbot, quick_noise,  # noqa: ARG001
+                                                                                 caplog) -> None:
+    host = RefusingAtmosphere()
+    look = make(qtbot, host, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    qtbot.waitUntil(lambda: bool(host.named("refused")), timeout=5000)
+    assert _models(host)[-1] == "painted", "the painted sky in the same pass"
+    assert look.sky_light and look.sky.model == "painted" and look.sky_model_shown == "painted"
+    assert "atmosphere sky could not be built" in caplog.text
+    host.take()
+    look.set_sun(sun(20.0, 250.0))
+    assert host.named("refused") == [], "never asked again"
+    look.shutdown()
+
+
+def test_a_cloud_volume_that_cannot_be_made_keeps_the_painted_sky(qtbot, quick_noise, caplog) -> None:
+    quick_noise["fail"] = MemoryError("no room for 64 cubed")
+    host = Host()
+    look = make(qtbot, host, sky_model="atmosphere")
+    look.set_sun(sun(35.0, 225.0))
+    qtbot.waitUntil(lambda: "cloud volume could not be made" in caplog.text, timeout=5000)
+    assert _models(host) == ["painted"] and look.sky_model_shown == "painted"
+    look.shutdown()
+
+
+def test_preferences_reach_the_sky_model(qtbot, quick_noise, monkeypatch) -> None:  # noqa: ARG001
+    """``reload_settings`` follows the stored model, as it follows the quality."""
+    from open_garden_planner.app.settings import get_settings
+
+    settings = get_settings()
+    saved = settings.view3d_sky_model
+    host = Host()
+    look = make(qtbot, host)
+    look.set_sun(sun(35.0, 225.0))
+    try:
+        settings.view3d_sky_model = "atmosphere"
+        look.reload_settings()
+        assert look.sky_model == "atmosphere"
+        qtbot.waitUntil(lambda: _models(host)[-1:] == ["atmosphere"], timeout=5000)
+    finally:
+        settings.view3d_sky_model = saved
+        look.shutdown()

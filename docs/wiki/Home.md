@@ -164,6 +164,31 @@ representations with structural roof/wall triangle projection for ridged buildin
 angle-dependent structural fence porosity (`WOODEN_FENCE`, `METAL_FENCE`, `CHAIN_LINK`), owner-grouped
 casting, and independent multiplicative overlap ($T_1 \times T_2$).
 
+## Living garden (Phase 17 L5)
+
+Phase 17 L5, the living garden (#389), shipped in
+[v1.35.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.35.0) via
+[PR #699](https://github.com/cofade/open-garden-planner/pull/699) after owner acceptance.
+- **Playback:** the day and the year play through the shared simulation clock, and the 2D shadows and the 3D light turn together.
+- **Weather:** clear, overcast, rain and snow are a look in 3D, set with the **Weather** button in the 3D strip. They never move the sun or change the sun study, and they pause while an analysis is draped on the ground.
+- **Life:** falling rain, snow and leaves, butterflies and fireflies are shader particles on the wind's clock. Reduced motion stills them.
+- **Today's Weather:** while the plan date is today, it shows the forecast for the plan's location; on any other date it shows clear and says why.
+- **Lights:** a Garden Light, and String Lights drawn as a LINE like a fence, with a post at every click. They glow and light the garden after dusk, and a string casts no 2D shadow.
+
+See the [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l5-acceptance-highlights--living-garden-389-adr-070--shipped-v1350-pr-699).
+
+## Sky 6.12 (Phase 17 L7)
+
+Phase 17 L7 (#391) shipped in
+[v1.36.0](https://github.com/cofade/open-garden-planner/releases/tag/v1.36.0) via
+[PR #721](https://github.com/cofade/open-garden-planner/pull/721) after owner acceptance.
+- **Qt 6.12:** the app moved to the Qt 6.12 LTS. Windows' **Animation effects** setting now also stops the wind in 3D.
+- **Atmosphere sky (optional):** Preferences, 3D View, Sky, **Atmosphere with clouds** draws a physically based sky with volumetric clouds. Clouds follow the weather, so there are none under Clear, and the view opens looking down at the garden: tilt the camera towards the horizon to see the sky. The painted sky stays the default and lights the garden under both, so the garden is equally bright with either.
+- **Partly cloudy:** a new weather with the sun out. Its scattered clouds show with the atmosphere sky; on the painted sky it is a sunny day with a slightly greyer blue.
+- **Known limits:** the atmosphere costs more of the graphics card every frame, measured only on an RTX 4070 and a software renderer; a pale band can show at the horizon under a closed cloud deck at a low sun ([#719](https://github.com/cofade/open-garden-planner/issues/719)); and playing a day pauses briefly while its sky rebuilds ([#722](https://github.com/cofade/open-garden-planner/issues/722)).
+
+See the [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l7-acceptance-highlights--sky-612-391-adr-048-addendum-l7--shipped-v1360-pr-721).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

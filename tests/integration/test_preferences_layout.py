@@ -97,9 +97,10 @@ def test_preferences_controls_scroll_without_compression(
             assert not scroll.isAncestorOf(button)
             assert dialog.rect().contains(button.geometry())
 
-        # Tab from the penultimate setting must bring the last setting into view.
-        dialog._view3d_quality_combo.setFocus()
-        qtbot.keyClick(dialog._view3d_quality_combo, Qt.Key.Key_Tab)
+        # Tab from the penultimate setting must bring the last setting into view
+        # (the Sky combo since Phase 17 L7, #391; the quality combo before it).
+        dialog._view3d_sky_combo.setFocus()
+        qtbot.keyClick(dialog._view3d_sky_combo, Qt.Key.Key_Tab)
         last = dialog._view3d_reduced_motion_check
         assert last.hasFocus()
         assert scroll.viewport().rect().contains(

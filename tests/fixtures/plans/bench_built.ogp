@@ -1,7 +1,7 @@
 {
   "version": "1.4",
   "metadata": {
-    "modified": "2026-10-27T08:20:48.037004+00:00"
+    "modified": "2026-11-02T20:27:49.938106+00:00"
   },
   "canvas": {
     "width": 2600.0,
@@ -1692,6 +1692,44 @@
       "stroke_style": "SOLID",
       "plant_species": "lilac",
       "stack_order": 61440
+    },
+    {
+      "type": "circle",
+      "item_id": "6b8f5722-707a-4462-b7a6-6cf6ed29716e",
+      "center_x": 1080.0,
+      "center_y": 1240.0,
+      "radius": 20,
+      "object_type": "GARDEN_LIGHT",
+      "name": "Garden light",
+      "fill_color": "#ff313538",
+      "stroke_color": "#ff000000",
+      "stroke_width": 1.0,
+      "fill_pattern": "SOLID",
+      "stroke_style": "SOLID",
+      "stack_order": 62464
+    },
+    {
+      "type": "polyline",
+      "item_id": "3f36871f-695d-41b6-b1f5-8607089fb2a0",
+      "points": [
+        {
+          "x": 240.0,
+          "y": 1250.0
+        },
+        {
+          "x": 450.0,
+          "y": 1210.0
+        },
+        {
+          "x": 660.0,
+          "y": 1250.0
+        }
+      ],
+      "object_type": "STRING_LIGHTS",
+      "name": "String lights",
+      "stroke_color": "#ff303336",
+      "stroke_width": 12.0,
+      "stack_order": 63488
     }
   ],
   "location": {

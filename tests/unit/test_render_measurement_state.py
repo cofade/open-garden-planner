@@ -56,6 +56,7 @@ def test_memory_sample_does_not_wait_forever_on_a_display_that_presents_nothing(
 def test_oracle_exports_the_held_forge_mesh_instead_of_rebuilding_v0(tmp_path):
     from open_garden_planner.core.plant_forge import forge_record
     from open_garden_planner.core.scene3d.builders import production_registry
+    from open_garden_planner.ui.view3d.quick3d.materials import TWO_SIDED_KINDS
     from tests.integration.view3d_selection_driver import ring_records
     from tests.integration.workspace_render_state import load_held_oracle, save_held_oracle
 
@@ -75,10 +76,15 @@ def test_oracle_exports_the_held_forge_mesh_instead_of_rebuilding_v0(tmp_path):
         for key, parts in held.items() for index, _part in enumerate(parts)])
     path = tmp_path / "oracle.npz"
     counts = save_held_oracle(workspace, path)
-    scene = load_held_oracle(path)
+    scene, two_sided = load_held_oracle(path)
     assert counts["plant"] == expected
     index = scene.item_ids.index("plant")
     assert int((scene.item == index).sum()) == expected
+    # every triangle says whether its material draws both sides (Qt 6.12's pick)
+    kinds = [held[scene.item_ids[item]][part].material_kind
+             for item, part in zip(scene.item.tolist(), scene.part.tolist(), strict=True)]
+    assert two_sided.tolist() == [kind in TWO_SIDED_KINDS for kind in kinds]
+    assert two_sided.any() and not two_sided.all(), "the fixture has both kinds"
 
 
 @pytest.mark.parametrize("accent", ["flowers", "fruits"])
@@ -101,18 +107,26 @@ def test_hidden_shadow_casting_seasonal_parts_are_excluded_without_changing_slot
         for index in range(2)])
     path = tmp_path / "oracle.npz"
     save_held_oracle(SimpleNamespace(controller=SimpleNamespace(sync=sync), host=host), path)
-    oracle = load_held_oracle(path)
+    oracle, _two_sided = load_held_oracle(path)
     assert oracle.triangle_count == visible.mesh.triangle_count
     assert set(oracle.part) == {1}
     assert hidden.casts_shadow and not hidden.ground_detail, "the sink's part must remain untouched"
 
 
-@pytest.mark.parametrize("eye,expected", [((0.2, 0.2, 10.0), "front"), ((0.2, 0.2, -10.0), "back")])
-def test_qt611_selection_uses_front_faces_but_general_oracle_keeps_both(eye, expected):
+@pytest.mark.parametrize("two_sided,eye,expected", [
+    ((False, False), (0.2, 0.2, 10.0), ["front"]),
+    ((False, False), (0.2, 0.2, -10.0), ["back"]),
+    ((True, False), (0.2, 0.2, -10.0), ["back", "front"]),
+    ((True, True), (0.2, 0.2, 10.0), ["front", "back"]),
+])
+def test_qt612_selection_honours_the_cull_mode_and_the_general_oracle_keeps_both(
+        two_sided, eye, expected):
+    """Qt 6.12's pick hits a culled material on its front faces only and a
+    ``NoCulling`` one from either side (Qt 6.11: front faces of every material)."""
     import numpy as np
 
     from open_garden_planner.core.scene3d.pick_oracle import PickScene, Ray, cast_all
-    from tests.integration.workspace_render_state import front_facing_oracle
+    from tests.integration.workspace_render_state import engine_pick_oracle
 
     scene = PickScene(("front", "back"), np.zeros((2, 3)),
                       np.array([[1., 0., 0.], [0., 1., 0.]]),
@@ -120,8 +134,8 @@ def test_qt611_selection_uses_front_faces_but_general_oracle_keeps_both(eye, exp
                       np.array([0, 1]), np.array([0, 1]))
     ray = Ray(eye, (0., 0., -1. if eye[2] > 0 else 1.))
     assert {hit.item_id for hit in cast_all(scene, ray)} == {"front", "back"}
-    selected = front_facing_oracle(scene, eye)
-    assert [hit.item_id for hit in cast_all(selected, ray)] == [expected]
+    selected = engine_pick_oracle(scene, np.array(two_sided), eye)
+    assert sorted(hit.item_id for hit in cast_all(selected, ray)) == sorted(expected)
     assert scene.triangle_count == 2
 
 

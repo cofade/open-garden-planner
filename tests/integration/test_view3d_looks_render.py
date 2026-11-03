@@ -146,18 +146,34 @@ def _ok_scenario(run: tuple[subprocess.CompletedProcess[str], dict[str, Any]], o
 # ── the board on the GPU ─────────────────────────────────────────────────────
 
 
-@pytest.fixture(scope="module")
-def board(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Path]:
-    out = tmp_path_factory.mktemp("looks") / "board"
-    return _ok_board(run_board(out, "--presets", ",".join(PRESETS), "--shots",
-                               "noon,december_noon,night", "--iou", "--orient", "--horizon",
-                               "--moods", "--dusk", "--fence", "--edge"), out), out
+#: The board of each sky model, run once per session (L7, #391: every board gate holds for
+#: BOTH skies — the painted one of L1–L5 and the Qt 6.12 atmosphere — and the two are
+#: compared with each other below).
+_BOARDS: dict[str, tuple[dict[str, Any], Path]] = {}
+SKY_MODELS = ("painted", "atmosphere")
+
+
+def board_for(model: str, tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Path]:
+    if model not in _BOARDS:
+        out = tmp_path_factory.mktemp(f"looks-{model}") / "board"
+        _BOARDS[model] = _ok_board(run_board(
+            out, "--presets", ",".join(PRESETS), "--shots", "noon,december_noon,night", "--iou",
+            "--orient", "--horizon", "--moods", "--dusk", "--fence", "--edge", "--sky", model),
+            out), out
+    return _BOARDS[model]
+
+
+@pytest.fixture(scope="module", params=SKY_MODELS)
+def board(request: pytest.FixtureRequest,
+          tmp_path_factory: pytest.TempPathFactory) -> tuple[dict[str, Any], Path]:
+    return board_for(str(request.param), tmp_path_factory)
 
 
 def test_the_production_board_runs_end_to_end_and_every_truth_row_is_green(board) -> None:
     """Gate G10. The production pipeline — snapshot, builders, sink, host, looks — from a
     plan on disk to PNGs and numbers, with nothing Qt objected to."""
     metrics, out = board
+    assert metrics["sky_model"] in SKY_MODELS, "the board says which sky drew it"
     assert metrics["graphics"]["api"] in ("Direct3D11", "OpenGL", "Vulkan", "Metal", "Direct3D12")
     assert metrics["qt_messages"]["counts"]["error"] == 0, metrics["qt_messages"]
     assert metrics["qt_messages"]["counts"]["warning"] == 0, metrics["qt_messages"]
@@ -264,9 +280,17 @@ def test_night_is_under_a_quarter_of_noons_luminance_on_the_same_shot(board) -> 
         ratio = moods["night_over_noon"]["luminance"]
         assert ratio < MAX_NIGHT_OVER_NOON, (preset, moods["night_over_noon"])
         assert moods["night"]["night"] is True and moods["noon"]["night"] is False
-        # no mood contradicts its time of day: the lower the sun, the darker the frame
-        order = [moods[name]["mean_luminance"] for name in ("noon", "golden_hour", "sunset", "night")]
-        assert order == sorted(order, reverse=True), (preset, order)
+        # no mood contradicts its time of day: the lower the sun, the darker the GARDEN (the
+        # rows below the horizon), on both skies
+        names = ("noon", "golden_hour", "sunset", "night")
+        ground = [moods[name]["ground_luminance"] for name in names]
+        assert ground == sorted(ground, reverse=True), (preset, ground)
+        if metrics["sky_model"] == "painted":
+            # and the whole frame too. Not on the atmosphere (L7, #391, 3D review): its light
+            # sits toward a low sun, so a frame FACING it reads sunset up to 1.9 % above
+            # golden hour while the garden below darkens 23-25 %, as under the painted sky
+            order = [moods[name]["mean_luminance"] for name in names]
+            assert order == sorted(order, reverse=True), (preset, order)
 
 
 def test_the_sky_draws_its_sun_at_the_solar_azimuth(board) -> None:
@@ -353,6 +377,43 @@ def test_the_plan_ground_meets_the_meadow_without_a_step(board) -> None:
         for mood in ("golden_hour", "noon"):
             rows = edge[preset][mood]
             assert len(rows) == 4 and all(row["stations"] == 5 for row in rows.values()), rows
+
+
+# ── L7 (#391): the atmosphere sky against the painted one ─────────────────────
+
+#: The night is the painted night: the atmosphere's weight is 0 from the end of civil
+#: twilight (``atmosphere_properties``). Measured 2026-11-03 (640 x 360, RTX 4070), the
+#: night rows' mean luma: 53.61 / 53.60 at low, 51.32 / 51.31 at high.
+MAX_NIGHT_LUMA_DIFFERENCE = 0.5
+#: By day the atmosphere IS drawn: the sky probe's views (a 12° sun 25° off centre) differ
+#: in their top third by 17.7 per channel (all three suns, same date).
+MIN_DAY_SKY_DIFFERENCE = 5.0
+
+
+def _night_and_sky(model: str, out: Path) -> tuple[dict[str, Any], Path]:
+    """A small board of its own (the night shot, the sky probe): the comparison does not
+    hang on the full board's distant-horizon rows (#714)."""
+    return _ok_board(run_board(out, "--presets", ",".join(PRESETS), "--shots", "night",
+                               "--orient", "--sky", model), out), out
+
+
+def test_the_atmosphere_keeps_the_painted_night_and_draws_its_own_day(tmp_path: Path) -> None:
+    painted, painted_out = _night_and_sky("painted", tmp_path / "painted")
+    atmosphere, atmosphere_out = _night_and_sky("atmosphere", tmp_path / "atmosphere")
+    for metrics in (painted, atmosphere):   # the sky's sun where the solar position puts it
+        assert metrics["sky"]["ok"] and metrics["sky"]["max_abs_error_deg"] < MAX_SKY_ERROR_DEG
+        for view in metrics["sky"]["views"].values():
+            assert abs(view["elevation_deg"] - 12.0) < 3.0, view
+    assert (painted["sky_model"], atmosphere["sky_model"]) == ("painted", "atmosphere")
+    nights = {model: {row["preset"]: row["mean_luma"] for row in metrics["shots"] if row["shot"] == "night"}
+              for model, metrics in (("painted", painted), ("atmosphere", atmosphere))}
+    for preset in PRESETS:
+        assert abs(nights["painted"][preset] - nights["atmosphere"][preset]) <= MAX_NIGHT_LUMA_DIFFERENCE, nights
+    view = "sky_180_-25.png"
+    day_painted, day_atmosphere = load_rgb(painted_out / view), load_rgb(atmosphere_out / view)
+    rows = day_painted.shape[0] // 3
+    difference = float(np.abs(day_painted[:rows].astype(np.float64) - day_atmosphere[:rows]).mean())
+    assert difference >= MIN_DAY_SKY_DIFFERENCE, difference
 
 
 def test_the_horizon_hue_seam_is_reported(board) -> None:
@@ -513,6 +574,54 @@ def test_a_sky_rebuilt_three_times_is_still_the_sky_after_the_old_ones_are_gone(
         found = probes.sun_disc(rgb, _sky_view(rgb.shape))
         assert found["found"] and abs(probes.bearing_error_deg(
             found["bearing_deg"], driver.SEQUENCE_AZIMUTHS[-1])) < MAX_SKY_ERROR_DEG
+
+
+#: Mean absolute difference (0-255 per channel) below which two frames are the same sky;
+#: the senior review of L7 measured 0.00 for a live host against a fresh one at the same
+#: sun and model; two different skies of the sequence read 5.8 (painted, 160 against 215
+#: degrees: 6.06) to 19.3 apart, a cloud deck against the clear sky 38.7.
+SAME_SKY = 0.5
+OTHER_SKY = 3.0
+
+
+def test_the_atmosphere_on_a_live_host_is_the_fresh_hosts_sky(tmp_path: Path) -> None:
+    """L7 (#391), senior review: the board renders a fresh host per frame and the
+    self-test one frame, so the live paths were ungated — the sky-view table refilled
+    in place for a new sun, a switch to the painted sky and back (PF-E3D-16 across it),
+    the sky material re-attached after the top-down view, a cloud deck coming and going.
+    Every frame of ONE host must be the fresh host's frame for that (sun, model, cloud),
+    also after the old Textures were deleted."""
+    out = tmp_path / "atmosphere"
+    data = _ok_scenario(run_scenario(out, "atmosphere_sequence"), out)
+    fresh = {key: load_rgb(out / row["file"]).astype(float) for key, row in data["fresh"].items()}
+    for row in data["fresh"].values():   # a fresh host's own frame stays its frame
+        before, after = load_rgb(out / row["file"]), load_rgb(out / row["after"])
+        assert float(np.abs(before.astype(float) - after).mean()) < SAME_SKY, row["name"]
+
+    def diff(rgb: Any, key: str) -> float:
+        return float(np.abs(rgb - fresh[key]).mean())
+
+    for row in data["steps"]:
+        key = f"{row['model']}_{int(row['azimuth'])}" + ("_overcast" if row["name"].endswith("_overcast") else "")
+        for frame in ("file", "after"):
+            rgb = load_rgb(out / row[frame]).astype(float)
+            assert diff(rgb, key) < SAME_SKY, (row["name"], frame, diff(rgb, key))
+        assert row["atmosphere_built"] is (row["model"] == "atmosphere"), row
+    # the references are told apart, so "the same sky" above is not a blind comparison
+    assert diff(fresh["atmosphere_160"], "atmosphere_200") > OTHER_SKY
+    assert diff(fresh["painted_160"], "painted_215") > OTHER_SKY
+    assert diff(fresh["atmosphere_215"], "painted_215") > OTHER_SKY
+    assert diff(fresh["atmosphere_200_overcast"], "atmosphere_200") > OTHER_SKY
+    # the painted sky lights the garden under both (PF-E3D-17), so under the horizon the
+    # two are one picture. Without this a lost probe passes above: the references lose it too
+    rows = fresh["painted_215"].shape[0]
+    horizon = rows / 2.0 * (1.0 + math.tan(math.radians(driver.SKY_PITCH))
+                            / math.tan(math.radians(driver.SKY_FOV / 2.0)))
+    ground = int(math.ceil(horizon)) + 1
+    assert ground < rows, "the sequence's view must show ground"
+    assert np.abs(fresh["atmosphere_215"][ground:] - fresh["painted_215"][ground:]).max() == 0.0, (
+        "the garden is lit differently under the two skies")
+    assert data["health"]["ok"], data["health"]
 
 
 def _engine(vector: tuple[float, float, float]) -> tuple[float, float, float]:

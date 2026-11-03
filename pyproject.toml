@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-garden-planner"
-version = "1.34.13"
+version = "1.36.0"
 description = "Open-source garden planning tool with CAD-like precision"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -36,9 +36,13 @@ dependencies = [
     # lock disagrees, or if Qt Quick 3D is not in what they pin.
     # When bumping these two pins: re-check QTBUG-151940 (TD-040) as
     # docs/08-crosscutting-concepts/README.md §8.29.5 known limit 11 says.
-    "PyQt6==6.11.0",
-    "PyQt6-Qt6==6.11.0",
-    "PyQt6-WebEngine>=6.10.0,<6.11",
+    # 6.12 is an LTS and brings SkyMaterial (Phase 17 L7, #391, ADR-048 addendum).
+    "PyQt6==6.12.0",
+    "PyQt6-Qt6==6.12.0",
+    # WebEngine moves with the pair since 6.12: the 6.10 wheel next to Qt 6.12 fails
+    # to import ("procedure not found", L7, ADR-048 addendum). Its 6.12-era release is
+    # numbered 6.140 and requires PyQt6>=6.12.0.
+    "PyQt6-WebEngine>=6.140.0,<6.141",
     "Pillow>=10.0.0",
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
@@ -63,6 +67,10 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-qt>=4.4.0",
+    # Tests read exported PDFs back with QtPdf. Until the 6.12 era it came inside
+    # PyQt6-WebEngine; since 6.140 it is its own wheel, versioned with WebEngine.
+    # Tests only: the app never imports QtPdf (Phase 17 L7, #391).
+    "PyQt6-Pdf>=6.140.0,<6.141",
     "pytest-cov>=4.1.0",
     "pytest-timeout>=2.3.0",
     # Parallel suite execution (#509). The measurements, the mode comparison and the
@@ -152,6 +160,13 @@ warn_unused_ignores = true
 warn_no_return = true
 follow_imports = "silent"
 ignore_missing_imports = true
+
+# The Types gate (scripts/check_mypy_baseline.py) reads PyQt6's stubs from a repaired
+# copy on MYPYPATH while PyQt6 6.12.0's own are not valid Python (Phase 17 L7, #391);
+# found there they would be checked like project code. They stay third-party code:
+[[tool.mypy.overrides]]
+module = ["PyQt6", "PyQt6.*"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

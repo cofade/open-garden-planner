@@ -87,6 +87,97 @@ def _good_frame(scale: float = 1.0) -> np.ndarray:
     return frame
 
 
+def _living_frame(warm_pixels: int = 8) -> np.ndarray:
+    """A living frame (point 7) as the engine draws it on a rainy night: dark, with the
+    garden light's warm glow on ``warm_pixels`` pixels."""
+    frame = np.zeros((120, 160, 4), dtype=np.uint8)
+    frame[..., :3] = (12, 14, 22)
+    frame[..., 3] = 255
+    frame[60, 80:80 + warm_pixels, :3] = (255, 196, 110)
+    return frame
+
+
+def _atmosphere_frames(cloud_shift: int = 30, sky: tuple[int, int, int] = (110, 160, 225)
+                       ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The plain background, the clear atmosphere and the cloudy one (point 8, L7)."""
+    width, height = selftest.SIZE
+    plain = np.zeros((height, width, 4), dtype=np.uint8)
+    plain[...] = (143, 156, 168, 255)
+    clear = plain.copy()
+    clear[: height // 2, :, :3] = sky
+    cloudy = clear.copy()
+    cloudy[: height // 4, : width // 2, :3] = np.minimum(
+        np.asarray(sky) + cloud_shift, 255).astype(np.uint8)
+    return plain, clear, cloudy
+
+
+@pytest.fixture(autouse=True)
+def _a_good_living_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every run here stands in for the engine; the living frame (L5) and the atmosphere
+    frames (L7) are good ones unless a test says otherwise."""
+    monkeypatch.setattr(selftest, "_render_living", lambda *_a, **_k: _living_frame())
+    monkeypatch.setattr(selftest, "_render_atmosphere", lambda *_a, **_k: _atmosphere_frames())
+
+
+class TestTheAtmosphereFrames:
+    """Point 8 (L7, #391): the SkyMaterial and its shaders from the bundle, and the cloud
+    volume on the GPU — a sky that is drawn, and clouds that change it."""
+
+    def test_a_drawn_sky_with_clouds_passes(self) -> None:
+        assert selftest.judge_atmosphere_frames(*_atmosphere_frames()) == []
+
+    def test_the_plain_background_is_no_sky(self) -> None:
+        plain, _clear, _cloudy = _atmosphere_frames()
+        problems = selftest.judge_atmosphere_frames(plain, plain.copy(), _cloudy)
+        assert any("is the plain background" in problem for problem in problems)
+
+    def test_a_black_sky_fails(self) -> None:
+        plain, _clear, _cloudy = _atmosphere_frames(sky=(0, 0, 0))
+        assert any("is black" in problem for problem in selftest.judge_atmosphere_frames(
+            plain, _clear, _cloudy))
+
+    def test_clouds_that_change_nothing_fail(self) -> None:
+        """A volume that never reached the GPU samples as zero: no density, no cloud."""
+        plain, clear, _cloudy = _atmosphere_frames()
+        (problem,) = selftest.judge_atmosphere_frames(plain, clear, clear.copy())
+        assert "noise volume did not reach the GPU" in problem
+
+    def test_an_atmosphere_that_failed_fails_the_selftest(self, monkeypatch: pytest.MonkeyPatch,
+                                                          tmp_path: Path) -> None:
+        plain, clear, _cloudy = _atmosphere_frames()
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame()))
+        monkeypatch.setattr(selftest, "_render_atmosphere", lambda *_a, **_k: (plain, clear, clear))
+        result = selftest.run_selftest(tmp_path / "selftest.log")
+        assert not result.ok
+        assert any("noise volume" in line and "FAIL" in line for line in result.lines)
+
+
+class TestTheLivingFrame:
+    """Point 7 (L5, #389): the particle shaders and the lamp's light are compiled — and the
+    lamp's warm glow must show."""
+
+    def test_a_glowing_lamp_passes(self) -> None:
+        assert selftest.judge_living_frame(_living_frame()) == []
+
+    @pytest.mark.parametrize("warm", [0, selftest.LIVING_GLOW_PIXELS - 1])
+    def test_no_glow_fails(self, warm: int) -> None:
+        (problem,) = selftest.judge_living_frame(_living_frame(warm))
+        assert f"shows {warm} warm lamp-glow pixels" in problem
+
+    def test_a_red_box_at_night_is_no_glow(self) -> None:
+        frame = _living_frame(0)
+        frame[50:70, 50:90, :3] = (230, 20, 20)            # the self-test's own red box, lit
+        assert selftest.judge_living_frame(frame) != []
+
+    def test_a_living_frame_without_glow_fails_the_selftest(self, monkeypatch: pytest.MonkeyPatch,
+                                                            tmp_path: Path) -> None:
+        monkeypatch.setattr(selftest, "_render", lambda *_a, **_k: _rendered(_good_frame()))
+        monkeypatch.setattr(selftest, "_render_living", lambda *_a, **_k: _living_frame(0))
+        result = selftest.run_selftest(tmp_path / "selftest.log")
+        assert not result.ok
+        assert any("warm lamp-glow pixels" in line and "FAIL" in line for line in result.lines)
+
+
 def _rendered(rgba: np.ndarray, **extra: object) -> selftest.Rendered:
     """A self-test render as ``_render`` returns it for a good run: the frame, the
     device, and a baked ground of ``GROUND_TILES`` tiles; ``extra`` overrides."""

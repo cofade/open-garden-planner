@@ -513,6 +513,15 @@ def scenario_fill(ctx: Context) -> dict[str, Any]:
     host = Quick3DHost((320, 200), qml_dir=ctx.qml_dir, log=ctx.log)
     sink = Quick3DSink(host)
     part = MeshPart(prism_mesh([FILL_SQUARE], 40.0), "vc", fill_texture=True, name="prism")
+
+    def released() -> None:
+        # a released picture goes with its deleteLater(): Qt 6.12 runs it at the next
+        # deferred-delete round, 6.11 had it gone before the call returned (PF-TST-36)
+        from PyQt6.QtCore import QCoreApplication, QEvent
+
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+
+    released()   # the two offscreen frames' pictures are gone before the baseline
     alive0, uploads0 = textures_alive(), PatternTexture.uploads
     lifetime: dict[str, int] = {}
     try:
@@ -528,12 +537,14 @@ def scenario_fill(ctx: Context) -> dict[str, Any]:
         sink.update_material("lawn", Material("LAWN", fill_rgba=(120, 60, 30, 255),
                                                pattern="SOIL"))
         sink.commit()
+        released()
         lifetime["alive_after_recolour"] = textures_alive() - alive0
         lifetime["uploads_after_recolour"] = PatternTexture.uploads - uploads0
         lifetime["geometry_uploads"] = sink.geometry_uploads
         sink.begin()
         sink.remove("lawn")
         sink.commit()
+        released()
         lifetime["alive_after_remove"] = textures_alive() - alive0
     finally:
         sink.clear()

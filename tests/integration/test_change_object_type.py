@@ -82,9 +82,12 @@ class TestGetValidTypesForShape:
         types = get_valid_types_for_shape("rectangle")
         assert ObjectType.POND_POOL not in types
 
-    def test_polyline_contains_only_path_types(self, qtbot) -> None:
+    def test_polyline_contains_only_line_types(self, qtbot) -> None:
+        """The lines: fences, walls, paths — and a string of lights since the owner's
+        manual test of L5 (#389): a post at every point, no width of its own."""
         types = get_valid_types_for_shape("polyline")
-        assert set(types) == {ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH}
+        assert set(types) == {ObjectType.FENCE, ObjectType.WALL, ObjectType.PATH,
+                              ObjectType.STRING_LIGHTS}
 
     def test_all_shapes_return_non_empty_lists(self, qtbot) -> None:
         for shape in ("circle", "polygon", "rectangle", "polyline"):

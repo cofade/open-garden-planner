@@ -285,3 +285,20 @@ tint is white — but its fade tint (`tintLinear`) must stay the fill colour, or
 door of a `vc` part (which samples no picture) ghosts white: measured max 255 before the fix. A water part's door DOES sample the picture, so a faded raised pool keeps its caustics. The engine holds
 256 KB per picture plus the 256 KB tinted QPixmap it was made from (shared with the canvas's
 200-entry cache).
+
+### PF-L3D-18
+
+- **Rule:** Measure an idle 3D view only after its first build was PRESENTED (a frame after the request, then a quiet stretch), and measure a frame cost A/B interleaved round by round — never in blocks.
+- **Pinned by:** `tests/integration/test_living_garden_render.py::test_with_reduced_motion_the_idle_frame_counter_stays_at_zero`; `tests/integration/test_living_garden_render.py::test_the_particles_cost_at_most_fifteen_percent_of_a_frame_at_medium`
+- **Source:** #389, ADR-070
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Symptom: the reduced-motion gate counted 2 "idle" frames under the render tier's environment
+and 0 by hand; the frame-cost gate read rain +24 % in one run and +3.7 % in the next. Root
+cause: the scene's update requests came at 1.8 s, their frames — the bench plan's pipelines and
+the sky's light probe — were presented at 4.8–5.0 s, so "a second without a frame" was reached
+before the first picture and the picture was counted as idle; and blocks of seconds per look
+measured the machine's drift (clocks, background load), not the look. Fix: `_settle` waits for
+a frame after the build was requested and then for a quiet second; `scenario_frame_cost`
+renders each look once per round and compares medians over 40 rounds.

@@ -110,19 +110,20 @@ def test_a_hand_edited_bar_store_only_loses_bars(settings, stored: str) -> None:
     assert settings.view3d_auto_bars == {"low": (5.0, 300.0)}
 
 
-def test_qt_still_exposes_no_motion_preference(qtbot) -> None:  # noqa: ARG001
-    """The reduced-motion setting is the app's own because Qt 6.11 has no motion
-    preference to honour: ``QAccessibilityHints`` carries ``contrastPreference`` only
-    and ``QStyleHints`` nothing about motion (measured 2026-10-12, Windows 11, read
-    from the meta-objects). When a Qt upgrade adds one, this test fails — honour it
-    in ``LookController.from_settings`` then (FR-3D-LOOK-04)."""
+def test_qt_exposes_exactly_the_one_motion_preference_that_is_honoured(qtbot) -> None:  # noqa: ARG001
+    """Qt 6.11 had no motion preference, so the reduced-motion setting was the app's
+    own (measured 2026-10-12, Windows 11, read from the meta-objects). Qt 6.12 added
+    ``QAccessibilityHints.motionPreference``, and ``LookController.from_settings``
+    honours it beside the setting (Phase 17 L7, FR-3D-LOOK-04). This guard fails when
+    a Qt upgrade adds ANOTHER motion or animation hint — decide about that one then."""
     from PyQt6.QtGui import QGuiApplication
 
     hints = QGuiApplication.styleHints()
     assert hints is not None
-    names: list[str] = []
+    found: dict[str, list[str]] = {}
     for owner in (hints, hints.accessibility()):
         meta = owner.metaObject()
-        names += [meta.property(index).name() for index in range(meta.propertyCount())]
-    assert "contrastPreference" in names, "the hints object this test reads is the right one"
-    assert not [name for name in names if "motion" in name.lower() or "animat" in name.lower()], names
+        found[meta.className()] = [
+            meta.property(index).name() for index in range(meta.propertyCount())
+            if any(word in meta.property(index).name().lower() for word in ("motion", "animat"))]
+    assert found == {"QStyleHints": [], "QAccessibilityHints": ["motionPreference"]}, found

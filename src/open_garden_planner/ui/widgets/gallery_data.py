@@ -123,6 +123,39 @@ def render_svg_thumbnail(svg_path: Path, size: int = THUMB_SIZE) -> QPixmap | No
     return QPixmap.fromImage(image)
 
 
+def render_string_lights_thumbnail(size: int = THUMB_SIZE) -> QPixmap:
+    """A string of lights for the gallery: three posts in a shallow V, painted by the
+    canvas's own painter (``string_lights_paint`` — a string has no sprite, L5.4). The
+    picture is 160 cm across, drawn at twice the line's width so its bulbs read at
+    thumbnail size."""
+    from PyQt6.QtCore import QPointF
+
+    from open_garden_planner.ui.canvas.items.string_lights_paint import (
+        paint_string_lights,
+        string_layout,
+    )
+
+    image = QImage(size, size, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    painter.scale(size / 160.0, size / 160.0)
+    style = OBJECT_STYLES[ObjectType.STRING_LIGHTS]
+    points = [QPointF(14.0, 104.0), QPointF(80.0, 60.0), QPointF(146.0, 104.0)]
+    paint_string_lights(painter, string_layout(points), 2.0 * style.stroke_width,
+                        style.stroke_color)
+    painter.end()
+    return QPixmap.fromImage(image)
+
+
+def thumbnail_for(obj_type: ObjectType) -> QPixmap | None:
+    """The gallery's own painted picture for a type with no sprite (a string of
+    lights), else None. The gallery and the Properties panel's Type dropdown share
+    this one seam, so the two can never show different pictures (L5.4, #389)."""
+    if obj_type == ObjectType.STRING_LIGHTS:
+        return render_string_lights_thumbnail()
+    return None
+
+
 def render_texture_thumbnail(
     pattern: FillPattern, color: QColor, size: int = THUMB_SIZE
 ) -> QPixmap | None:
@@ -397,10 +430,15 @@ def _furniture_items() -> list[GalleryItem]:
         (_tr("Sandbox"), ToolType.SANDBOX, ObjectType.SANDBOX),
         (_tr("Trampoline"), ToolType.TRAMPOLINE, ObjectType.TRAMPOLINE),
         (_tr("Hot Tub"), ToolType.HOT_TUB, ObjectType.HOT_TUB),
+        # Garden lights (Phase 17 L5.4, #389)
+        (_tr("Garden Light"), ToolType.GARDEN_LIGHT, ObjectType.GARDEN_LIGHT),
+        (_tr("String Lights"), ToolType.STRING_LIGHTS, ObjectType.STRING_LIGHTS),
     ]
     for name, tool, obj in furniture:
-        svg_filename = _FURNITURE_FILES.get(obj, "")
-        thumb = render_svg_thumbnail(_FURNITURE_DIR / f"{svg_filename}.svg")
+        thumb = thumbnail_for(obj)   # a line, painted by the canvas: no sprite
+        if thumb is None:
+            svg_filename = _FURNITURE_FILES.get(obj, "")
+            thumb = render_svg_thumbnail(_FURNITURE_DIR / f"{svg_filename}.svg")
         if thumb is None:
             thumb = render_color_circle_thumbnail(OBJECT_STYLES[obj].fill_color)
         items.append(GalleryItem(name=name, tool_type=tool, object_type=obj, thumbnail=thumb))

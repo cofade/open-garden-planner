@@ -33,6 +33,9 @@ SPEC = (REPO / "installer" / "ogp.spec").read_text(encoding="utf-8")
 CI = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 RELEASE = (REPO / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
 FROZEN = (REPO / ".github" / "workflows" / "frozen-selftest.yml").read_text(encoding="utf-8")
+#: One node of the living garden's render tier runs in CI: the reload (L5, ADR-070).
+LIVING_RELOAD = ("tests/integration/test_living_garden_render.py"
+                 "::test_a_second_ambient_load_on_a_live_host_draws")
 RENDER_TESTS = ("tests/integration/test_quick3d_render.py",
                 "tests/integration/test_quick3d_engine.py",
                 "tests/integration/test_quick3d_selftest.py",
@@ -75,9 +78,15 @@ class TestSpec:
             r"\s+datas\.append\(\(str\(f\), str\(rel\.parent\)\)\)", _code(SPEC))
         assert loop is not None, "ogp.spec no longer bundles ui/view3d/quick3d/qml/*"
         assert sorted(p.name for p in (PACKAGE / "qml").iterdir()) == [
-            "Garden.qml", "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
-            "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert", "ring.frag",
-            "ring.vert",
+            # the atmosphere sky (L7, #391) with its provenance and Qt's licence texts:
+            # they ship beside the files they cover (MIT asks for the notice in copies)
+            "AtmosphereSky.qml", "Garden.qml", "LICENSE-qt-skymaterial.txt", "PROVENANCE.md",
+            "ambient.frag", "ambient.vert",   # the garden's life: L5 (#389)
+            "atmosphere.frag",
+            "foliage.frag", "foliage.vert", "foliage_door.frag", "foliage_door.vert",
+            "grass.vert", "grass_door.vert", "ground.frag", "lawn.frag", "overlay.frag", "overlay.vert",
+            "precipitation.frag", "precipitation.vert",    # rain and snow: L5 (#389)
+            "ring.frag", "ring.vert",
             "screen.frag", "screen.vert", "water.frag", "water_door.frag"]
 
     def test_every_module_of_the_package_is_a_hidden_import(self) -> None:
@@ -367,6 +376,9 @@ class TestRenderJob:
             assert " -k " not in line, line
             assert WORKSPACE_RENDER not in line, line
             assert "tests/integration/test_plant_forge_workspace.py" in line
+            # L5: the ambient buffer reloaded into a live host, on OpenGL as well as
+            # Direct3D 11 (ADR-069's withdrawn reload drew a replaced geometry as nothing)
+            assert LIVING_RELOAD in line, line
         for line in workspace_runs:
             # #540: the default workspace's close/compat gates now run on a real host,
             # with the wall-clock bounds and the multi-process soaks kept local.

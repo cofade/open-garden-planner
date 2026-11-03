@@ -29,18 +29,26 @@ vec3 groundLinear(vec3 c)
     return c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878);
 }
 
+// THE WEATHER (Phase 17 L5, ADR-070): the meadow's own values, for every piece of
+// ground at once - uGroundTint (the rain's darkening; a colour property, so through the
+// same polynomial), uRough / uSpecular (1.0 / 0.15 dry), and snow mixed over it by
+// uSnowCover towards weather.SNOW_LINEAR, as the meadow's albedo is mixed in Python.
+// Dry and snowless (tint white, cover 0) this is the L4.5 shader exactly.
 void MAIN()
 {
     vec2 uv = vec2(UV0.x, 1.0 - UV0.y);
-    BASE_COLOR = vec4(groundLinear(texture(uBaseMap, uv).rgb), 1.0);
-    ROUGHNESS = 1.0;
+    vec3 albedo = groundLinear(texture(uBaseMap, uv).rgb) * groundLinear(uGroundTint);
+    BASE_COLOR = vec4(mix(albedo, vec3(0.80, 0.84, 0.89), uSnowCover), 1.0);
+    ROUGHNESS = uRough;
     METALNESS = 0.0;
-    SPECULAR_AMOUNT = 0.15;
+    SPECULAR_AMOUNT = uSpecular;
     vec2 texel = 1.0 / vec2(textureSize(uBaseMap, 0));
     float east = groundLuma(texture(uBaseMap, uv + vec2(texel.x, 0.0)).rgb);
     float west = groundLuma(texture(uBaseMap, uv - vec2(texel.x, 0.0)).rgb);
     float north = groundLuma(texture(uBaseMap, uv - vec2(0.0, texel.y)).rgb);
     float south = groundLuma(texture(uBaseMap, uv + vec2(0.0, texel.y)).rgb);
-    vec2 slope = clamp(vec2(east - west, north - south) * uDetail, vec2(-0.22), vec2(0.22));
+    // snow fills the joints: the relief fades under it
+    vec2 slope = clamp(vec2(east - west, north - south) * uDetail * (1.0 - 0.8 * uSnowCover),
+                       vec2(-0.22), vec2(0.22));
     NORMAL = normalize(vec3(-slope.x, 1.0, slope.y));
 }

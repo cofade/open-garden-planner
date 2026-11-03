@@ -887,6 +887,14 @@ class PropertiesPanel(QWidget):
         from open_garden_planner.core.plant_renderer import _resolve_svg_path
         from open_garden_planner.ui.icons import get_icon
 
+        # 0. A type with no sprite (a string of lights is a line, L5.4): the gallery's
+        #    own painted picture — one seam, so the two views cannot diverge
+        from open_garden_planner.ui.widgets.gallery_data import thumbnail_for
+
+        thumbnail = thumbnail_for(obj_type)
+        if thumbnail is not None:
+            return QIcon(thumbnail)
+
         # 1. Furniture / infrastructure SVGs (objects/ directory — full-color art)
         svg_path = get_furniture_svg_path(obj_type)
         if svg_path is not None and svg_path.exists():
@@ -2283,8 +2291,8 @@ class PropertiesPanel(QWidget):
         if not isinstance(item, (RectangleItem, EllipseItem, PolygonItem, CircleItem, PolylineItem)):
             return
 
-        # Path/fence style preset (only for polylines)
-        if isinstance(item, PolylineItem):
+        # Path/fence style preset (only for polylines; a string of lights has none, L5.4)
+        if isinstance(item, PolylineItem) and item.object_type != ObjectType.STRING_LIGHTS:
             style_combo = QComboBox()
             _style_combo(style_combo)
             # Add "Paths" group

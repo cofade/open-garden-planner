@@ -516,8 +516,18 @@
   },
   "389": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L5 \"Living garden\": year and day playback, weather, particles, wind (Phase 17, needs #315)"
+  },
+  "390": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L6 \"Director's cut\": photo mode, camera tours, render_3d_view MCP tool (Phase 17)"
+  },
+  "391": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "L7 (optional) \"Sky 6.12\": Qt 6.12 LTS pins, SkyMaterial atmosphere and volumetric clouds (Phase 17)"
   },
   "392": {
     "is_pr": false,
@@ -1159,6 +1169,11 @@
     "state": "MERGED",
     "title": "feat(#599, #440): typed smart-symbol members and geometry-aware sun/shade model"
   },
+  "687": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden polish: overcast contact shade, lamp-pool fades, snow on roofs, dew mist, leaf colour (follow-up of #389)"
+  },
   "688": {
     "is_pr": false,
     "state": "OPEN",
@@ -1168,5 +1183,95 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
+  },
+  "689": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
+  },
+  "692": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board: access violation at process exit after [done] status=ok (Windows, pre-existing)"
+  },
+  "695": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Beauty Board: a sky-facing dusk probe (the board's dusk camera hid a black sun for three reviews)"
+  },
+  "698": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "2D shadow: give open objects (string lights, pergola, swing, hammock, trellis, garden light) a transmittance via #440's hook"
+  },
+  "699": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#389): L5 living garden - playback, weather, particles, Today's Weather, garden lights"
+  },
+  "700": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Shadow-agreement prose is ungated: numbers in ADR-059 / §8.29.6 / the script docstring drift from DOCUMENTED"
+  },
+  "702": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Weather forecast cards show English weekday names in every UI language"
+  },
+  "710": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "3D close-up: a string's wire shows its joints and its bulbs read as octagons at walk distance"
+  },
+  "714": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: distant-horizon gate fails on master (403 m / 15° rows 3.44–3.48 > 3.0 luma)"
+  },
+  "716": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L7 follow-up: atmosphere sky's low band too bright (cream wash, horizon inversion)"
+  },
+  "717": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L7 follow-up: sky probe's sun-disc finder misses a low (8°) sun"
+  },
+  "718": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Render tier: the flood-release soak never settles its initial forge/LOD work (pre-existing on master)"
+  },
+  "719": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L7 follow-up: a bright band at the horizon under the atmosphere's cloud deck at a low sun"
+  },
+  "720": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L7 follow-up: atmosphere sky hygiene from the senior review (dead GLSL, silent compile failure, tests, upstream report)"
+  },
+  "721": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#391): L7 Sky 6.12 - Qt 6.12 LTS pins and an opt-in atmosphere sky"
+  },
+  "722": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "L7 follow-up: playing a day stalls the GUI thread under the atmosphere sky (the settle timer is shorter than a step)"
+  },
+  "723": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Intermittent test failures on the Qt 6.12 branch: a lawn resized in a hold, bulk-layer debounce"
+  },
+  "724": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
   }
 }
