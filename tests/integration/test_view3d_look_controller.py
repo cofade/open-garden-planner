@@ -319,6 +319,27 @@ def test_while_a_cloudy_sky_lags_the_fog_is_corrected_for_the_cloud_on_screen(qt
                                           shown.sky_energy, shown.cloud, wanted.mood.twilight)
 
 
+def test_while_a_partly_cloudy_sky_lags_the_fog_takes_its_grey_not_its_cover(qtbot) -> None:
+    """Partly cloudy's ``cloud`` 0.4 is the atmosphere's cover; its sky and fog take the 0.25
+    of grey (``apply_weather``). The lagging fog takes the same share, or it steps when the
+    sky catches up (3D review of L7)."""
+    from open_garden_planner.core.scene3d.weather import weather_fog
+
+    host = Host()
+    look = make(qtbot, host)
+    look.set_showing(True)
+    look.set_weather("partly_cloudy")
+    look.set_sun(sun(4.0, 290.0))
+    shown = living_look(sun(4.0, 290.0), "high", "partly_cloudy").sky
+    assert shown.cloud == 0.4
+    host.take()
+    look.set_sun(sun(9.0, 285.0))
+    wanted = living_look(sun(9.0, 285.0), "high", "partly_cloudy")
+    sent = host.named("look")[-1]
+    assert sent.fog_linear == weather_fog(shown.horizon, wanted.mood.probe_exposure,
+                                          shown.sky_energy, 0.25, wanted.mood.twilight)
+
+
 def test_an_analyze_drape_pauses_the_weather_and_the_dew(qtbot) -> None:
     """While a drape lies on the ground the look is the sun's own — no weather, no dew —
     so the drape's colours read as its legend's (the 3D review measured a 59° hue shift

@@ -110,6 +110,11 @@ class WeatherSpec:
         if not 0.0 < self.haze <= 1.0 or self.wind_strength < 0.0:
             raise ValueError(f"WeatherSpec: haze in (0, 1], wind >= 0 ({self!r})")
 
+    @property
+    def sky_grey(self) -> float:
+        """How far its sky and fog go to the overcast's grey: ``grey``, else ``cloud``."""
+        return self.cloud if self.grey is None else self.grey
+
 
 WEATHER_SPECS: Final = MappingProxyType({
     "clear": WeatherSpec("clear", 0.0, "none", WIND_STRENGTH, 0.0, 1.0),
@@ -353,7 +358,7 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     spec = weather if isinstance(weather, WeatherSpec) else WEATHER_SPECS[weather]
     cloud = spec.cloud
     light = cloud if spec.light is None else spec.light
-    grey = cloud if spec.grey is None else spec.grey
+    grey = spec.sky_grey
     dew_share = dew_amount(sun, spec.name, southern=southern) if dew else 0.0
     mood, sky, shadow = look.mood, look.sky, look.shadow
     if cloud > 0.0:

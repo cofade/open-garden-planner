@@ -203,9 +203,9 @@ ATMOSPHERE_SKY_ROWS: Final = 0.25
 #: The clear sky's band must lie at least this far (mean absolute sRGB difference) from
 #: the plain background a frame without a sky shows, and the cloudy band this far from
 #: the clear one. Measured 2026-11-03 with ``_render_atmosphere`` (the path of
-#: ``--selftest``): 44.3 and 28.1 on the GPU (Direct3D 11, RTX 4070) and 44.3 and 28.1 on
-#: WARP; the three frames took 9.3 s and 8.8 s, the cloud volume made once included. A
-#: quarter of each is the bound.
+#: ``--selftest``), with the sky's own exposure (PF-E3D-17): 81.4 and 24.5 on the GPU
+#: (Direct3D 11, RTX 4070) and on WARP. The bounds are a quarter of the first build's 44.3
+#: and 28.1, and still sit far under what a working sky gives.
 ATMOSPHERE_MIN_SKY_DIFF: Final = 11.0
 ATMOSPHERE_MIN_CLOUD_DIFF: Final = 7.0
 

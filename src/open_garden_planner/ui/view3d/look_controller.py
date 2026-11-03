@@ -101,6 +101,7 @@ from open_garden_planner.core.scene3d.look import (
 )
 from open_garden_planner.core.scene3d.weather import (
     TODAY,
+    WEATHER_SPECS,
     WEATHERS,
     living_look,
     mood_of,
@@ -523,8 +524,8 @@ class LookController(QObject):
             if shown is not None and shown.horizon != look.sky.horizon:
                 # the sky on screen is an older one: the fog must meet THAT horizon
                 look = replace(look, fog_linear=weather_fog(
-                    shown.horizon, look.mood.probe_exposure, shown.sky_energy, shown.cloud,
-                    look.mood.twilight))
+                    shown.horizon, look.mood.probe_exposure, shown.sky_energy,
+                    WEATHER_SPECS[self.weather].sky_grey, look.mood.twilight))
         mood = mood_of(look, sun)
         if mood != self._mood:
             self._mood = mood
