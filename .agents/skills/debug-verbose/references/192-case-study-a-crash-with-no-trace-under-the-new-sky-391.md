@@ -24,6 +24,10 @@
 - **Fix:** the atmosphere never builds the cube: `enableIBL: false`, `ScreenSpaceHalf`, and the
   painted sky's texture lights the garden under both models (PF-E3D-17). The same seed then ran
   4 × 240 s without a crash, and about 40 % faster.
+- **Then the fix's own bug:** the 3D review rejected the first build. Qt's screen path skips
+  the probe exposure under post effects, so the sky read 1.8× too bright. Reading
+  `tonemapping.glsllib` explained the review's fitted 0.80: `qt_exposure` is `1 − exp(−c × e)`,
+  so the shader applies that curve instead of a constant.
 - **Lesson:** a native crash with no trace is still readable. Look for a minidump before
   theorising; a stack scan named by nearest exports and a disassembled warning string identify
   the Qt function without symbols. A crash that needs a sequence takes a seeded action probe

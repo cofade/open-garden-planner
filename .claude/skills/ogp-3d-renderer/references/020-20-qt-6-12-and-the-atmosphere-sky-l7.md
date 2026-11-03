@@ -35,6 +35,11 @@ same machine), 2026-11-02/03, PyQt6 / PyQt6-Qt6 6.12.0:
   (`QSSGLayerRenderData::resolveLayerIblTexture`). The app's atmosphere is `enableIBL: false`
   with `ScreenSpaceHalf`, and the painted sky's texture stays `lightProbe`. With a probe set,
   Qt skips the sky material's IBL pass but `SkyMaterialBackgroundPass` still draws the sky.
+- **The screen path applies no exposure under post effects:** Qt compiles `qt_exposure` to a
+  pass-through there (`mainFragmentSnippetScreen`; a Custom tonemap has no
+  `QSSG_FORCE_IBL_EXPOSURE` variant, while `skybox_hdr_custom` has one). A sky shader writes
+  `1 − exp(−c × e)` itself: 1.8× too bright by day and 2.9× at night without it, and a plain
+  multiply leaves 13–14 luma by day because the curve compresses bright values.
 - **Reading a native crash without a debugger:** a machine with a `LocalDumps` key leaves
   minidumps in `%LOCALAPPDATA%\CrashDumps`. Parse the dump with the `minidump` package, scan
   the faulting thread's stack for return addresses inside loaded modules, and name each by the

@@ -865,7 +865,7 @@ Item {
         }
         Component {
             id: atmosphereComponent
-            AtmosphereSky {}
+            AtmosphereSky { skyExposure: root.probeExposure }
         }
         // the sky-view table (quick3d/cloud_volume.py: RGBA16F, 128 x 128), clamped at
         // its edges as the example's provider texture was
@@ -918,7 +918,7 @@ Item {
                 if (lightProbe !== (view.paintedShown ? view.skyTexture : null))
                     lightProbe = Qt.binding(function() { return view.paintedShown ? view.skyTexture : null })
             }
-            // L7: the atmosphere backs the view AND lights it (its own filtered cube)
+            // L7: the atmosphere only backs the view (PF-E3D-17); the probe above lights it
             skyMaterial: view.atmosphereShown ? view.atmosphere : null
             probeExposure: root.probeExposure
             skyboxBlurAmount: 0.0

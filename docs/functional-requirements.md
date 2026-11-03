@@ -905,8 +905,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
 - **FR-3D-LIVE-03** (L5.2; Partly cloudy L7): The 3D strip's **Weather** menu picks
   **Clear**, **Partly cloudy**, **Overcast**, **Rain** or **Snow**. Weather changes how the garden LOOKS and nothing else: the sun's
   position, the shadows' places, the 2D sun study and the hours-of-sun map stay as they
-  are. Partly cloudy: the sun and its shadows stay, a little softer and fainter, the sky
-  a little greyer; with the atmosphere sky (FR-3D-LOOK-08) scattered clouds cross it.
+  are. Partly cloudy: the sun stays out, its shadows crisp and only a little fainter, the
+  sky a little greyer; with the atmosphere sky (FR-3D-LOOK-08) scattered white clouds cross
+  it, golden toward sunset.
   Overcast: a grey sky, no sun disc, soft and faint shadows. Rain: overcast, wet
   leaves and ground, a nearer haze, stronger wind and falling rain. Snow: a pale sky, snow
   on the ground and the leaves, falling snow, little wind. A new weather shows at once.

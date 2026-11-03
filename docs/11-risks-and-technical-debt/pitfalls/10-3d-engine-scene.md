@@ -234,8 +234,13 @@ Neither sky switching alone (215 switches) nor the atmosphere without switching 
 200 s. After the fix the same seed ran 4 x 240 s with no crash. The painted sky, the default,
 never reaches this code.
 
-Two traps when applying the rule. When `lightProbe` is set, Qt does not request the sky
+Three traps when applying the rule. When `lightProbe` is set, Qt does not request the sky
 material's IBL pass (`else if (layer.skyMaterial)`), but `SkyMaterialBackgroundPass` still
 draws a ScreenSpace sky. A material that reads `SCREEN_TEXTURE` or a `ReflectionProbe` would
-bring the cube back; the QML test pins that neither exists. Re-check the rule on every Qt
+bring the cube back; the QML test pins that neither exists. And the screen path applies no
+exposure under our post effects: its main is `qt_tonemap(qt_exposure(FRAGCOLOR, e))`, but
+`qt_exposure` is compiled to a pass-through there, while the skybox shader's Custom variant
+forces it with `QSSG_FORCE_IBL_EXPOSURE`. So the sky shader applies `1 − exp(−c × e)` itself
+(`skyExposed`). Without it the first build of this fix read 1.8× too bright by day and 2.9× at
+night with the disc gone, and a plain multiply left 13–14 luma by day. Re-check the rule on every Qt
 bump: on 2026-11-03 no QTBUG matched this crash, and Qt 6.12.1 was not on PyPI.

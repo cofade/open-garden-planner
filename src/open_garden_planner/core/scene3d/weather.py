@@ -17,10 +17,10 @@ L1–L4 reads what it read.
 The presets (``WEATHER_SPECS``):
 
 - **clear** — the reviewed L1.4 look.
-- **partly_cloudy** (L7, #391) — sun and scattered clouds: the overcast's changes at
-  ``cloud`` 0.4, so the sun and its shadows stay, a little softer. The clouds
-  themselves are the atmosphere sky's (``AtmosphereSky.qml``); the painted sky shows
-  only its greyer blue.
+- **partly_cloudy** (L7, #391) — the sun out between scattered clouds: ``cloud`` 0.4 is
+  the atmosphere sky's cover (``AtmosphereSky.qml``, the clouds themselves), while the
+  light takes only 0.15 of the overcast's changes and the sky 0.25 of its grey, so the
+  shadows stay crisp and the painted sky stays blue.
 - **overcast** — a grey sky as bright as the clear one at its horizon (so a night
   stays a night), no sun disc, the key light down to a fifth with soft, faint
   shadows, the sky's light up, a little less colour.
@@ -94,22 +94,31 @@ class WeatherSpec:
     haze: float
     #: Snow on the ground and the leaves, 0..1.
     snow_cover: float = 0.0
+    #: How much of the overcast's LIGHT changes it takes (key, shadows, probe, exposure,
+    #: saturation), 0..1; None: ``cloud``. Separate clouds leave the sun out.
+    light: float | None = None
+    #: How far its sky goes to the overcast's grey (and the fog with it), 0..1; None: ``cloud``.
+    grey: float | None = None
 
     def __post_init__(self) -> None:
         if self.precipitation not in ("none", "rain", "snow"):
             raise ValueError(f"WeatherSpec.precipitation: {self.precipitation!r}")
-        for name in ("cloud", "wetness", "snow_cover"):
-            if not 0.0 <= getattr(self, name) <= 1.0:
-                raise ValueError(f"WeatherSpec.{name} lies in 0..1, got {getattr(self, name)!r}")
+        for name in ("cloud", "wetness", "snow_cover", "light", "grey"):
+            value = getattr(self, name)
+            if value is not None and not 0.0 <= value <= 1.0:
+                raise ValueError(f"WeatherSpec.{name} lies in 0..1, got {value!r}")
         if not 0.0 < self.haze <= 1.0 or self.wind_strength < 0.0:
             raise ValueError(f"WeatherSpec: haze in (0, 1], wind >= 0 ({self!r})")
 
 
 WEATHER_SPECS: Final = MappingProxyType({
     "clear": WeatherSpec("clear", 0.0, "none", WIND_STRENGTH, 0.0, 1.0),
-    # the atmosphere's clouds read as scattered up to about 0.6 and close above it
-    # (the cover sheet of L7's owner pass: 0.35 and 0.6 against 1.0)
-    "partly_cloudy": WeatherSpec("partly_cloudy", 0.4, "none", 3.0, 0.0, 0.9),
+    # the atmosphere's clouds read as scattered up to about 0.6 and close above it (the
+    # cover sheet of L7's owner pass: 0.35 and 0.6 against 1.0). The sun stays out: at the
+    # full share the painted sky read as a dull clear day (lawn lit/shadow 6.7 against
+    # clear's 12.2; at 0.15 about 9.3 - 3D review)
+    "partly_cloudy": WeatherSpec("partly_cloudy", 0.4, "none", 3.0, 0.0, 0.9,
+                                 light=0.15, grey=0.25),
     "overcast": WeatherSpec("overcast", 1.0, "none", 3.5, 0.0, 0.8),
     "rain": WeatherSpec("rain", 1.0, "rain", 5.0, 1.0, 0.6),
     "snow": WeatherSpec("snow", 0.85, "snow", 1.5, 0.0, 0.55, snow_cover=0.75),
@@ -343,37 +352,39 @@ def apply_weather(look: LookSpec, weather: str | WeatherSpec, sun: SunState, *,
     """
     spec = weather if isinstance(weather, WeatherSpec) else WEATHER_SPECS[weather]
     cloud = spec.cloud
+    light = cloud if spec.light is None else spec.light
+    grey = cloud if spec.grey is None else spec.grey
     dew_share = dew_amount(sun, spec.name, southern=southern) if dew else 0.0
     mood, sky, shadow = look.mood, look.sky, look.shadow
     if cloud > 0.0:
-        top, horizon = _overcast(sky.top, sky.horizon, cloud)
+        top, horizon = _overcast(sky.top, sky.horizon, grey)
         # the disc fades INTO the cloud — its colour towards the horizon's; its energy
         # stays: Qt's procedural sky blends the disc and its falloff towards sun colour x
         # sun energy, so energy 0 drew a BLACK sun with a dark halo (3D review of L5,
         # round 2: luma 0 at the sun, 150 around it, under overcast and rain)
         sky = replace(sky, top=top, horizon=horizon,
-                      ground_bottom=mix_linear(sky.ground_bottom, "#5a5f62", cloud * 0.6),
+                      ground_bottom=mix_linear(sky.ground_bottom, "#5a5f62", grey * 0.6),
                       sun_disc=(horizon if not sun.is_up       # a set sun stays matched (look_for's test)
-                                else mix_linear(sky.sun_disc, horizon, cloud)),
+                                else mix_linear(sky.sun_disc, horizon, light)),
                       cloud=cloud)
-        held = cloud * (1.0 - mood.twilight)           # how much of NOON's exposure holds
+        held = light * (1.0 - mood.twilight)           # how much of NOON's exposure holds
         mood = replace(
             mood,
-            sun_brightness=mood.sun_brightness * (1.0 + (_KEY_UNDER_CLOUD - 1.0) * cloud),
-            probe_exposure=mood.probe_exposure * (1.0 + (_PROBE_UNDER_CLOUD - 1.0) * cloud),
+            sun_brightness=mood.sun_brightness * (1.0 + (_KEY_UNDER_CLOUD - 1.0) * light),
+            probe_exposure=mood.probe_exposure * (1.0 + (_PROBE_UNDER_CLOUD - 1.0) * light),
             # in stops, like ``mix_rig``
             exposure=2.0 ** (math.log2(mood.exposure) * (1.0 - held)
                              + math.log2(NOON.exposure) * held
-                             + _EXPOSURE_UNDER_CLOUD_EV * cloud),
-            saturation=mood.saturation * (1.0 + (_SATURATION_UNDER_CLOUD - 1.0) * cloud))
+                             + _EXPOSURE_UNDER_CLOUD_EV * light),
+            saturation=mood.saturation * (1.0 + (_SATURATION_UNDER_CLOUD - 1.0) * light))
         shadow = replace(shadow,
-                         factor=shadow.factor * (1.0 + (_SHADOW_UNDER_CLOUD - 1.0) * cloud),
+                         factor=shadow.factor * (1.0 + (_SHADOW_UNDER_CLOUD - 1.0) * light),
                          pcf_factor=shadow.pcf_factor + (_PCF_UNDER_CLOUD - shadow.pcf_factor)
-                         * cloud)
+                         * light)
     if dew_share > 0.0:
         mood = replace(mood, saturation=mood.saturation
                        * (1.0 + (_DEW_SATURATION - 1.0) * dew_share))
-    fog = weather_fog(sky.horizon, mood.probe_exposure, sky.sky_energy, cloud, mood.twilight)
+    fog = weather_fog(sky.horizon, mood.probe_exposure, sky.sky_energy, grey, mood.twilight)
     fill = fill_linear(sky.top, sky.horizon, mood.probe_exposure, sky.sky_energy)
 
     wetness = max(spec.wetness, _DEW_WETNESS * dew_share)

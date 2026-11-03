@@ -56,6 +56,7 @@ from .sink import SunState
 
 __all__ = [
     "ATMOSPHERE", "ATMOSPHERE_CLOUD_GAIN", "ATMOSPHERE_DISC_ENERGY", "ATMOSPHERE_HAZE_DEG",
+    "ATMOSPHERE_THIN_CLOUD_LIFT",
     "AUTO", "AUTO_LEVELS",
     "CLEAR_STILL",
     "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN",
@@ -128,6 +129,10 @@ ATMOSPHERE_HAZE_DEG: Final = 6.0
 #: ``atmosphere.frag`` (a thick deck diffuses): without that a cloudy sunset read 0.96-1.0
 #: of noon and a bright band ran round the horizon under the deck (3D reviews of L7).
 ATMOSPHERE_CLOUD_GAIN: Final = 0.064
+#: Separate clouds' light on top, x (1 - cover)^2: that gain was calibrated on a full deck,
+#: and at Partly cloudy's 0.4 it read as dark smoke at noon. 4.2 is x 2.5 at 0.4, x 1 at
+#: Overcast and Rain, x 1.09 at Snow (3D review of the owner's Partly cloudy).
+ATMOSPHERE_THIN_CLOUD_LIFT: Final = 4.2
 #: The atmosphere's sun disc × this, over the painted disc's colour and energy. The
 #: painted disc stands two to three times above the sky around it; the atmosphere's
 #: aerosol halo, after the gain, is about as bright as the painted disc — at × 1 the disc

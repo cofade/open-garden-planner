@@ -7751,7 +7751,9 @@ written; a painted sky only switches it off.
 `skyboxMode: ScreenSpaceHalf`, drawn on screen per frame. Qt 6.12.0's pre-filter of a sky
 material's light cube used a freed QRhi resource and killed the process. Qt builds that cube for
 image-based light, the Cubemap mode, a reflection probe or a material reading the screen
-texture, so none of these may appear while a `SkyMaterial` is in the scene.
+texture, so none of these may appear while a `SkyMaterial` is in the scene. Qt's screen path
+applies no exposure under our post effects, so `atmosphere.frag` applies the skybox shader's
+`1 − exp(−c × e)` itself (`skyExposed`, `skyExposure` = `probeExposure`).
 
 **The atmosphere is painted over the painted sky.** Per direction the shader computes the painted
 sky (Qt's generator formula, `paintedSky()`) and mixes the atmosphere over it by

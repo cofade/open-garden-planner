@@ -31,6 +31,7 @@ from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE_CLOUD_GAIN,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
+    ATMOSPHERE_THIN_CLOUD_LIFT,
     PAINTED,
     SKY_MODELS,
     look_for,
@@ -193,7 +194,7 @@ def test_the_weathers_cloud_is_the_volumetric_cloud_and_hides_the_disc(weather: 
     sky = living_look(SunState(35.0, 200.0), "high", weather).sky
     inputs = atmosphere_properties(sky)
     assert inputs["cloudsEnabled"] is True and inputs["cloudCoverage"] == sky.cloud > 0.0
-    assert inputs["sunAlpha"] == pytest.approx(1.0 - sky.cloud)
+    assert inputs["sunAlpha"] == pytest.approx(1.0 - (sky.cloud - 0.5) / 0.5), "gone as the deck closes"
     assert inputs["cloudHueShare"] == sky.cloud, "a full cover takes the weather's own grey"
 
 
@@ -289,8 +290,24 @@ def test_the_clouds_are_lit_by_the_one_gain_of_the_atmosphere(weather: str) -> N
         sky = living_look(SunState(elevation, 225.0), "medium", weather).sky
         painted = painted_sky(sky)
         inputs = atmosphere_properties(sky)
-        assert inputs["cloudLightGain"] == pytest.approx(ATMOSPHERE_CLOUD_GAIN * inputs["atmosphereGain"])
+        lift = 1.0 + ATMOSPHERE_THIN_CLOUD_LIFT * (1.0 - sky.cloud) ** 2
+        assert inputs["cloudLightGain"] == pytest.approx(
+            ATMOSPHERE_CLOUD_GAIN * inputs["atmosphereGain"] * lift)
         assert inputs["cloudLightGain"] == pytest.approx(cloud_light_gain(sky, painted))
+
+
+def test_separate_clouds_stay_white_and_leave_the_disc_in_their_gaps() -> None:
+    """3D review of the owner's Partly cloudy: the gain calibrated on a full deck read as
+    dark smoke at cover 0.4 (x 2.5 now, x 1 on a closed deck), and the clouds themselves
+    hide the disc, so ``sunAlpha`` must not dim it in the gaps as well."""
+    at = SunState(40.0, 200.0)
+    partly = atmosphere_properties(living_look(at, "high", "partly_cloudy").sky)
+    overcast = atmosphere_properties(living_look(at, "high", "overcast").sky)
+    assert partly["cloudCoverage"] == pytest.approx(0.4) and partly["sunAlpha"] == 1.0
+    assert overcast["sunAlpha"] == 0.0
+    assert partly["cloudLightGain"] == pytest.approx(
+        ATMOSPHERE_CLOUD_GAIN * partly["atmosphereGain"] * (1.0 + ATMOSPHERE_THIN_CLOUD_LIFT * 0.36))
+    assert overcast["cloudLightGain"] == pytest.approx(ATMOSPHERE_CLOUD_GAIN * overcast["atmosphereGain"])
 
 
 def test_a_full_cover_diffuses_the_decks_forward_lobe() -> None:

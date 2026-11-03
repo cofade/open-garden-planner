@@ -523,6 +523,15 @@ vec3 paintedSky(vec3 dir, vec3 sunDir)
     return color;
 }
 
+// The exposure the painted sky's skybox pass applies (Qt's skybox.frag: qt_exposure, compiled
+// in by QSSG_FORCE_IBL_EXPOSURE). Qt's screen-space sky path has no such variant under the
+// post effects' tonemap, so it passes FRAGCOLOR straight through: without this the
+// atmosphere read 1.8x too bright by day and 2.9x at night (3D review of PF-E3D-17's fix).
+vec3 skyExposed(vec3 radiance)
+{
+    return vec3(1.0) - exp(-radiance * skyExposure);
+}
+
 void MAIN()
 {
     vec3 direction = normalize(qt_eyeDir);
@@ -532,7 +541,7 @@ void MAIN()
     float elevation = asin(clamp(direction.y, -1.0, 1.0));
     float share = atmosphereWeight * smoothstep(0.0, radians(max(hazeDeg, 0.01)), elevation);
     if (share <= 0.0) {
-        FRAGCOLOR = vec4(painted, 1.0);
+        FRAGCOLOR = vec4(skyExposed(painted), 1.0);
         return;
     }
 
@@ -591,5 +600,5 @@ void MAIN()
     // cloud_light_gain): the example's scale saturates a full cover to white
     vec3 atmosphere = max(col * cloudT * atmosphereGain + cloudScatter * cloudLightGain, vec3(0.0))
                       + sunCol * cloudT;
-    FRAGCOLOR = vec4(mix(painted, atmosphere, share), 1.0);
+    FRAGCOLOR = vec4(skyExposed(mix(painted, atmosphere, share)), 1.0);
 }

@@ -42,6 +42,7 @@ from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE_CLOUD_GAIN,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
+    ATMOSPHERE_THIN_CLOUD_LIFT,
     NEUTRAL_DAY,
     LookSpec,
     SkySpec,
@@ -252,9 +253,14 @@ def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None =
     has it) — the one gain of the whole atmosphere (3D reviews of L7: a scale of its own,
     at a fixed high sun, dimmed the deck twice and deepened a bright band at the horizon;
     what made the full gain light a cloudy sunset too brightly was the deck's forward
-    scattering, which ``atmosphere.frag`` now fades with the cover)."""
+    scattering, which ``atmosphere.frag`` now fades with the cover). The gain was
+    calibrated on a full deck: separate clouds take ``ATMOSPHERE_THIN_CLOUD_LIFT`` × (1 −
+    cover)² more on top, or Partly cloudy's noon clouds read as dark smoke on a brighter
+    sky (3D review of the owner's Partly cloudy: luma 167 on gaps of 207)."""
     gain = atmosphere_gain(atmosphere_sun_direction(sky), painted) if sky_gain is None else sky_gain
-    return float(ATMOSPHERE_CLOUD_GAIN) * float(gain)
+    cover = min(max(float(sky.cloud), 0.0), 1.0)
+    return (float(ATMOSPHERE_CLOUD_GAIN) * float(gain)
+            * (1.0 + float(ATMOSPHERE_THIN_CLOUD_LIFT) * (1.0 - cover) ** 2))
 
 
 def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
@@ -276,7 +282,9 @@ def atmosphere_properties(sky: SkySpec) -> dict[str, object]:
     gain = float(atmosphere_gain(sun, painted))
     return {
         "sunDirection": sun,
-        "sunAlpha": (1.0 - cloud) if day else 0.0,
+        # the clouds themselves hide the disc (atmosphere.frag: cloudT): in the gaps of
+        # a partial cover it stays whole, and it goes only as the deck closes
+        "sunAlpha": (1.0 - max(cloud - 0.5, 0.0) / 0.5) if day else 0.0,
         "sunDiscColor": _linear(sky.sun_disc, sky.sun_energy * ATMOSPHERE_DISC_ENERGY),
         "paintedTop": painted.top,
         "paintedHorizon": painted.horizon,

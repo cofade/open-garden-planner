@@ -3870,15 +3870,31 @@ fix the crash, and add a partly cloudy weather. What changed:
   `cloudLightGain` still scale the sky and the deck to the painted sky's brightness. The
   water's widened probe guard (PF-E3D-15) is no longer reached under the atmosphere, because a
   `lightProbe` is set; it stays, correct for any `SkyMaterial`.
+- **The sky applies its own exposure** (`atmosphere.frag` `skyExposed`, `skyExposure` =
+  the look's `probeExposure`): `1 − exp(−radiance × exposure)`, the curve of Qt's `qt_exposure`
+  that the painted sky's skybox shader runs. Qt's screen path passes `FRAGCOLOR` straight
+  through under our post effects, because its tonemap variant has no
+  `QSSG_FORCE_IBL_EXPOSURE`. The first build of this revision missed that (3D review, round 3,
+  REJECT): the sky read 1.8× too bright by day and 2.9× at night, 25–28 % of a low-sun frame
+  clipped, the disc vanished, and the horizon step rose to 36–56 luma. With the curve (no fitted
+  constant; a multiply needed an unexplained 0.80 by day because the curve compresses bright
+  values): clipping 0.0 / 0.8 / 0.04 % at golden hour / sunset / morning, horizon steps 1.1–3.4
+  luma (bound 6.0), the disc read at 12.06° for a 12° sun with a bearing error of 0.01°.
 - **The crash is gone.** A full-app probe of the manual checklist crashed 3 of 5 times at one
   painted to atmosphere switch before the fix. After it, the same sequence ran 4 × 240 s with
   no crash.
-- **Partly cloudy** (`weather.WEATHER_SPECS["partly_cloudy"]`): cloud 0.4, the overcast's
-  changes at that share (the key light 0.69, the shadows 0.72 of clear's), wind 3.0, haze 0.9,
-  dry, and the mood stays a day (it is overcast from 0.5). The cover sheet of the owner pass
-  read scattered clouds at 0.35 and 0.6 and a closed deck at 1.0. Today's Weather maps WMO code
-  2 (partly cloudy) to it; codes 0 and 1 stay clear. The painted sky shows only the greyer blue;
-  the clouds are the atmosphere's. ADR-070's weather gates run on it (`HORIZON_WEATHERS`).
+- **Partly cloudy** (`weather.WEATHER_SPECS["partly_cloudy"]`): cloud 0.4 is the atmosphere's
+  cover; the sun stays out, because the light takes 0.15 of the overcast's changes
+  (`WeatherSpec.light`) and the sky 0.25 of its grey (`WeatherSpec.grey`). Every other weather
+  has one share for all three, so its look is unchanged. Wind 3.0, haze 0.9, dry, and the mood
+  stays a day (it is overcast from 0.5). The cover sheet of the owner pass read scattered clouds
+  at 0.35 and 0.6 and a closed deck at 1.0. Separate clouds take
+  `ATMOSPHERE_THIN_CLOUD_LIFT` 4.2 × (1 − cover)² more light (× 2.5 at 0.4, × 1 at Overcast and
+  Rain, × 1.09 at Snow), because the 0.064 was calibrated on a full deck and they read as dark
+  smoke at noon; `sunAlpha` goes only as the deck closes (1 − max(cloud − 0.5, 0) / 0.5), since
+  the clouds themselves hide the disc. Today's Weather maps WMO code 2 (partly cloudy) to it;
+  codes 0 and 1 stay clear. The painted sky shows only its slightly greyer blue; the clouds are
+  the atmosphere's. ADR-070's weather gates run on it (`HORIZON_WEATHERS`).
 - **Cost** (RTX 4070, Direct3D 11, a shown 1280 × 720 host looking into the sky, the median of
   40 frames): painted 2.23 ms; atmosphere at cover 0: 2.37 ms (Half), 2.25 (Full), 2.14
   (Quarter); at cover 0.4: 3.11 ms (Half), 4.38 (Full), 2.55 (Quarter). Half and Full look the
@@ -10155,9 +10171,11 @@ and as a box on the canvas — draw it again.
 
 **Addendum L7 (#391, the owner's manual test, 2026-11-03): Partly cloudy.** A fifth weather
 between Clear and Overcast: `WEATHER_SPECS["partly_cloudy"]` is cloud 0.4, dry, wind 3.0 and
-haze 0.9. Its look is decision 2's overcast at that share: the key light × 0.69, the shadows'
-factor × 0.72, a little softer, the sky 40 % of the way to the overcast grey. The sun and its
-shadows stay where `core/solar` puts them, as in every weather. Its mood stays day, golden hour
+haze 0.9. The cloud is the atmosphere sky's cover; the look takes smaller shares of decision
+2's overcast, 0.15 for the light (`WeatherSpec.light`: the key light × 0.88, the shadows' factor
+× 0.90) and 0.25 for the sky's grey (`WeatherSpec.grey`). At the full 0.4 the painted sky read as
+a dull clear day (3D review). The sun and its shadows stay where `core/solar` puts them, as in
+every weather. Every other weather has one share for all three, so no accepted look moved. Its mood stays day, golden hour
 or dew (`mood_of` names overcast from cloud 0.5). It exists because the atmosphere sky's
 volumetric clouds show as scattered clouds only at partial cover; Clear has none and Overcast
 closes the deck (ADR-048 addendum L7, revision). Today's Weather maps WMO code 2 (partly

@@ -107,6 +107,9 @@ SkyMaterial {
     // much of the look's horizon hue they take
     property real cloudLightGain: 0.006
     property real cloudHueShare: 0.0
+    // the exposure the painted sky's skybox pass applies (Garden.qml: the look's
+    // probeExposure; atmosphere.frag skyExposed)
+    property real skyExposure: 1.0
     // the atmosphere's disc: the look's sun colour, linear (x sunAlpha)
     property vector3d sunDiscColor: Qt.vector3d(1, 0.88, 0.72)
 

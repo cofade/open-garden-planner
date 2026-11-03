@@ -530,7 +530,13 @@ def test_the_atmosphere_never_builds_the_cube_that_crashed_qt_6_12_0() -> None:
     assert mode is not None and mode.group(1).startswith("ScreenSpace"), "drawn on screen, no cube"
     for cube_only in ("iblSampleCount", "iblRenderFrames", "radianceMapSize", "iblSamplesPerFrame"):
         assert cube_only not in sky, f"{cube_only} tunes the cube this sky never builds"
+    frag = (QML_DIR / "atmosphere.frag").read_text(encoding="utf-8")
+    assert frag.count("FRAGCOLOR = ") == 2 and frag.count("FRAGCOLOR = vec4(skyExposed(") == 2, (
+        "Qt's screen path applies no exposure under the post effects: both exits do it "
+        "themselves, or the sky reads 1.8x too bright by day and 2.9x at night")
+    assert "vec3(1.0) - exp(-radiance * skyExposure)" in frag, "the curve of Qt's qt_exposure"
     code = _scene()
+    assert "AtmosphereSky { skyExposure: root.probeExposure }" in code
     assert "lightProbe: view.paintedShown ? view.skyTexture : null" in code, (
         "the painted texture lights, whichever sky backs the view")
     assert "ReflectionProbe" not in code, "a reflection probe would build the cube"
