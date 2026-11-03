@@ -9453,7 +9453,10 @@ The fourth example, `family-garden`, is not a teaching plan: it is the plan of e
 (`tests/fixtures/plans/bench_small.ogp`), shipped at the owner's request and the subject of the
 project's visual material. It is built by the same `make_bench_plans.build_small` and keeps the
 fixture's item ids, because a plant's procedural shape is seeded by its id; a test fails when the
-two drift. It keeps the fixture's 6 to 10 cm path widths, so it is exactly that plan. It needs no
+two drift. It keeps the fixture's layout and its 6 to 10 cm path widths. One difference: what takes
+a year or more to mature is planted on 1 March, not on the fixture's 15 April, so a default
+time-lapse shows the birch leafing out instead of popping in (949 cm against the fixture's 929 cm
+on 21 June). It needs no
 tutorial annotation or soil sample (the teaching plans' gates keep theirs), and its botanical
 fields stay canonical in `de/` and `es/`: the localizer now translates only a species' common
 name, since "Iris" is both a plant's name and a genus.
@@ -10274,8 +10277,8 @@ view on any steady path.
    Measured: 60 single 4K pictures stay flat on the GPU and on WARP.
 
 5. **Photo mode develops a picture and changes nothing in the garden.** Exposure in stops,
-   depth of field on a focused POINT (a tour keeps it on the plant), a vignette and a colour
-   grade, all `ExtendedSceneEnvironment` features on the one environment, so the view previews
+   depth of field on a focused POINT (a tour keeps it on the plant; Qt compares depths, so the
+   point becomes a depth along the view's axis), a vignette towards black and a colour grade, all `ExtendedSceneEnvironment` features on the one environment, so the view previews
    what is saved. All off is the view, pixel for pixel. A click sets the focus while photo mode
    is on: selection has its 2D side. No setting is saved in the plan.
 
@@ -10293,6 +10296,11 @@ view on any steady path.
    the event loop, waits for the pipeline to settle after each clock step, and pauses when the
    view gives no frame. Wind is the frame's own time. A year's date moves at most 8 times per
    second of video: each new date regrows every dated plant (about a second and 2 MB, #531).
+   While it records, each plant keeps the finest detail any point of the flight asks for
+   (`ForgeWorker.fly_path`), and the first frame waits for that: the view's camera used to decide,
+   and on a close camera a frame lay 17 levels (mean) from the same frame with the flight's detail;
+   now it lies 0 from the view moved there. A plant keeping one detail for the flight also does not
+   change its leaves in mid-video.
 
 8. **Video through Qt Multimedia, verified for size and licence as the issue asked.**
    `QVideoFrameInput` → `QMediaCaptureSession` → `QMediaRecorder`, all inside the pinned
@@ -10338,6 +10346,9 @@ view on any steady path.
 
 - `render_3d_view` needs the 3D view open: an agent is told so in a sentence (follow-up: a picture
   while the plan is shown, through the offscreen path, which is allowed then).
+- An agent's picture from another camera has the plant detail of the view's camera: it is one
+  synchronous call and cannot wait for the forge. The tool's description says so (follow-up: ask
+  the forge for that camera's detail, and let the next call find it ready).
 - Keys of a tour live in the session: closing the app loses them, and the plan stays free of 3D
   data (follow-up: keep tours in the file as additive metadata).
 - A year's time-lapse still spends #531's 2 MB per regrowth; a 12 s video about 200 MB.

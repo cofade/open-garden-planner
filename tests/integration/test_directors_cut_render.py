@@ -143,7 +143,7 @@ def test_a_tour_writes_every_frame_and_leaves_the_view_where_it_was(tmp_path: Pa
 
 
 def test_a_tours_frames_show_the_plants_as_the_view_would_from_there(tmp_path: Path) -> None:
-    """The view's camera used to decide a tour's leaves: 9.72 levels from the view moved there."""
+    """The view's camera used to decide a tour's leaves: 17 levels (mean) on this close camera."""
     result = drive(tmp_path, "detail")
     assert result["tour"]["ok"] and result["tour"]["unsettled"] == 0, result["tour"]
     assert result["finer_than_the_view"] > 0, "the flight really passes closer than the view"

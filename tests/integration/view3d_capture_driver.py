@@ -335,8 +335,10 @@ def main_window_on_plan() -> tuple[Any, Any]:
     from open_garden_planner.app.application import GardenPlannerApp
     from open_garden_planner.ui.view3d.workspace import WorkspaceMode
 
-    # nobody clicks here: as in tests/conftest.py, no modal Welcome dialog over the plan
+    # nobody clicks here: as in tests/conftest.py, no modal Welcome dialog over the plan, and no
+    # Unsaved Changes on close (a dirty plan held a probe for ever, in front of the owner)
     GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
+    GardenPlannerApp._confirm_discard_changes = lambda _self: True  # type: ignore[method-assign]
     window = GardenPlannerApp()
     window.resize(1100, 700)
     window.show()
@@ -459,7 +461,7 @@ def scenario_detail(out: Path) -> dict[str, Any]:
         folder = out / "frames"
         folder.mkdir()
         outcome: list[Any] = []
-        recorder = capture.start_tour(spec, (1280, 720), PngSequenceWriter(folder, (1280, 720)))
+        recorder = capture.start_tour(spec, (1280, 720), PngSequenceWriter(folder))
         recorder.finished.connect(outcome.append)
         result["done_s"] = wait_until(lambda: bool(outcome), 240.0)
         tour = outcome[0]

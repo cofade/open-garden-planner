@@ -845,6 +845,7 @@ def scenario_app_walk(_ctx: Context) -> dict[str, Any]:
     from open_garden_planner.ui.view3d.workspace import WorkspaceMode
 
     GardenPlannerApp._show_welcome_dialog = lambda _self: None  # type: ignore[method-assign]
+    GardenPlannerApp._confirm_discard_changes = lambda _self: True  # type: ignore[method-assign]
 
     window = GardenPlannerApp()
     # Use the desktop's work area; a fixed 1500x900 exceeds a scaled 1280x720 screen.

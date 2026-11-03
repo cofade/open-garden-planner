@@ -37,11 +37,15 @@ PF-E3D-19, PF-E3D-20. Measured on the dev box (RTX 4070, Direct3D 11; WARP on th
   a 4K photo is sharper than its preview), and above about 5 at 1080p the taps read as ghosts.
 - **A capture from another camera has the view camera's plant LOD:** nothing but `_apply_camera` tells
   the forge about a camera, and `capture` must not. A tour gives it the whole flight first
-  (`ForgeWorker.fly_path`, 9.72 levels from the view moved there without it); an agent's single
+  (`ForgeWorker.fly_path`: 0 levels from the view moved there, 17 on a close camera without it); an agent's single
   picture cannot wait, and its tool description says so.
 - **Qt Multimedia in the wheels:** `QVideoFrameInput` is bound and works. `supportedVideoCodecs` for
   MPEG4 on Windows: MPEG1, MPEG2, MPEG4, H264, MotionJPEG (H264 is `h264_mf`, the system's encoder,
   Constrained Baseline). `errorOccurred` cannot be connected from PyQt6: its enum is unknown to the
   signature parser. Use `errorChanged`. `sendVideoFrame` returns False when the queue is full.
+- **A probe on the full main window answers its own dialogs:** stub `_show_welcome_dialog` and
+  `_confirm_discard_changes` first. A plan loaded `as_template` is dirty, so `window.close()` raises
+  a modal "Unsaved Changes" that nobody clicks: the probe waits for ever, with no CPU, in the
+  developer's face. `view3d_capture_driver.main_window_on_plan` does both.
 - **Not measured:** the capture on xcb and llvmpipe before CI's first run; a display scale other than
   100 % and 125 %; what the frozen exe's encoder does on a Windows N edition.
