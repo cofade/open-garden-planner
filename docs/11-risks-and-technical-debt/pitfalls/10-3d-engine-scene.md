@@ -185,7 +185,8 @@ through the same include, so it was never affected.
 
 Every sun change builds a fresh painted-sky Texture and destroys the old one, deferred
 (`buildSky`). On Qt 6.12 the frame after that delete showed the clear colour instead of the
-sky: the render tier's sky-sequence test read the frame after the old Textures were gone as
+sky — on a host's first sun change (the 3D review's run without the fix: the first rebuild, once
+also the second; later rebuilds never): the render tier's sky-sequence test read the frame after the old Textures were gone as
 (161, 154, 122) flat beige against (97, 126, 137) before. `master`'s own code fails the same way
 under the 6.12 wheels and passes under 6.11, so it is the upgrade, not L7's sky. A probe with
 two builds told the cases apart: keeping the old Texture alive kept the sky; a counter on the

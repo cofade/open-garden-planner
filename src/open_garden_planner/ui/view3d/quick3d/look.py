@@ -31,8 +31,6 @@ look; the scene file's defaults are its mapping, pinned by a test.
 
 from __future__ import annotations
 
-import math
-from dataclasses import replace
 from typing import Final
 
 import numpy as np
@@ -42,7 +40,6 @@ from open_garden_planner.core.scene3d.color import srgb_to_linear
 from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors, sun_direction_scene
 from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE_CLOUD_GAIN,
-    ATMOSPHERE_CLOUD_MAKEUP,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
     NEUTRAL_DAY,
@@ -249,30 +246,15 @@ def painted_sky(sky: SkySpec) -> PaintedSky:
                       ground_curve=float(sky.ground_curve))
 
 
-#: The sun the clouds' light is scaled at (``cloud_light_gain``): a high one, at a fixed
-#: azimuth, so its sky-view table is made once (the gain integrates the whole hemisphere,
-#: so it does not depend on the azimuth).
-CLOUD_REFERENCE_ELEVATION_DEG: Final = 50.0
-CLOUD_REFERENCE_AZIMUTH_DEG: Final = 180.0
-
-
 def cloud_light_gain(sky: SkySpec, painted: PaintedSky, sky_gain: float | None = None) -> float:
-    """The clouds' light in the painted sky's units (3D review of L7): ``ATMOSPHERE_CLOUD_GAIN``
-    × the clear-sky gain of a HIGH sun under this look's colours, raised toward the gain at
-    the actual sun (``sky_gain``, ``atmosphere_gain`` of this sky) by
-    ``ATMOSPHERE_CLOUD_MAKEUP``.
-
-    The high sun's gain dims with the look's own sky; the actual sun's gain makes up for
-    the physical sky's dimming, which the deck — lit by the sun — dims less than: taken
-    whole it lit a cloudy sunset above the painted one, left out it dimmed the deck twice.
-    At the reference sun the two agree within 0.1 % (the painted disc, left out of the high
-    sun's gain because its colour switches at sundown): the calibrated noon."""
-    reference = replace(sky, sun_elevation_deg=CLOUD_REFERENCE_ELEVATION_DEG,
-                        sun_azimuth_deg=CLOUD_REFERENCE_AZIMUTH_DEG)
-    high = atmosphere_gain(atmosphere_sun_direction(reference), replace(painted, sun=painted.horizon))
-    actual = atmosphere_gain(atmosphere_sun_direction(sky), painted) if sky_gain is None else sky_gain
-    makeup = float(ATMOSPHERE_CLOUD_MAKEUP)
-    return float(ATMOSPHERE_CLOUD_GAIN) * math.pow(high, 1.0 - makeup) * math.pow(float(actual), makeup)
+    """The clouds' light in the painted sky's units: ``ATMOSPHERE_CLOUD_GAIN`` × the clear
+    sky's gain at this sun (``sky_gain``: ``atmosphere_gain`` of this sky, when the caller
+    has it) — the one gain of the whole atmosphere (3D reviews of L7: a scale of its own,
+    at a fixed high sun, dimmed the deck twice and deepened a bright band at the horizon;
+    what made the full gain light a cloudy sunset too brightly was the deck's forward
+    scattering, which ``atmosphere.frag`` now fades with the cover)."""
+    gain = atmosphere_gain(atmosphere_sun_direction(sky), painted) if sky_gain is None else sky_gain
+    return float(ATMOSPHERE_CLOUD_GAIN) * float(gain)
 
 
 def atmosphere_properties(sky: SkySpec) -> dict[str, object]:

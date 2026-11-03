@@ -3704,7 +3704,7 @@ versions):
 | Pick and cull mode (`qssgrenderray.cpp`) | positive determinants only: front faces of every material | the material's cull mode decides: `NoCulling` picks both sides | the selection witness keeps front faces of culled kinds and every face of `TWO_SIDED_KINDS` (foliage, grass, glass), pinned against the QML; the render tier's selection gate passed in full on 6.12 |
 | `QAccessibilityHints.motionPreference` | absent | `NoPreference` / `ReducedMotion`, with a change signal (Windows: `SPI_GETCLIENTAREAANIMATION`, the "Animation effects" switch) | honoured beside the app's setting (FR-3D-LOOK-04): either stops the wind; the drift guard now fails on a SECOND motion hint |
 | A destroyed window's lambda-connection proxies | freed in the first deferred-delete round | one round later | the widget-leak test flushes two rounds with a collection after each (PF-TST-36); not a product leak — the event loop keeps turning |
-| Destroying an EARLIER sky Texture (`buildSky`'s deferred `old.destroy()`) | the environment's watcher on it was gone with the switch | its destroyed-watcher still fires and sets the light probe to null although the probe is the current sky: the frame after every sun change drew the clear colour (sky-sequence test: (161, 154, 122) against (97, 126, 137); `master`'s code fails identically on the 6.12 wheels) | the environment restores its own `lightProbe` binding in `onLightProbeChanged`, synchronously, before a frame renders (PF-E3D-16); the board, a fresh host per frame, cannot see it |
+| Destroying an EARLIER sky Texture (`buildSky`'s deferred `old.destroy()`) | the environment's watcher on it was gone with the switch | its destroyed-watcher still fires and sets the light probe to null although the probe is the current sky: after a host's first sun change (in the 3D review's run without the fix: the first rebuild, once also the second; later rebuilds never) the view drew the clear colour (sky-sequence test: (161, 154, 122) against (97, 126, 137); `master`'s code fails identically on the 6.12 wheels) | the environment restores its own `lightProbe` binding in `onLightProbeChanged`, synchronously, before a frame renders (PF-E3D-16); the board, a fresh host per frame, cannot see it |
 | Colour-property linearisation (`qssgutils.cpp`) | polynomial | unchanged (byte-identical source) | none |
 | `sampleProbe.glsllib` (`qt_sampleDiffuse` / `qt_sampleGlossy`, used by `water.frag`) | — | unchanged (byte-identical) | none |
 | `QSGRendererInterface.GraphicsApi` member names | `OpenGL`, `Direct3D11Rhi`, … | identical | none |
@@ -3738,30 +3738,29 @@ the painted sky) and mixes the atmosphere over it by
   sunlit grass reads the same under both skies at every sun height (60°: 197.7 / 197.7; 15°:
   139.0 / 139.0; 2°: 62.9 / 63.3; −2°: 47.6 / 47.2): the probe's light balance against the sun is
   the accepted one, only the sky's hue and structure are new;
-- **clouds**: coverage = the weather's cloud (overcast and rain 1.0, snow 0.85, clear 0); their
-  scattered light is scaled apart (`cloudLightGain`, `quick3d.look.cloud_light_gain`): at the
-  reference sun (50°) `ATMOSPHERE_CLOUD_GAIN` 0.06 × the clear sky's gain (the example's scale
-  saturates a full cover to white — its own comment says so), calibrated so a full Overcast
-  lights the ground as the painted Overcast does (noon ground luminance 0.211 / 0.207). As the
-  sun sinks the clear sky's gain at the actual sun rises about sevenfold to make up for the
-  physical sky's dimming, but the deck — lit by the sun — dims less: taken whole, that make-up
-  lit a cloudy sunset at 0.96–1.0 of its noon, and the L5 weather gates (which had not run on
-  the atmosphere) failed (3D review). A fixed high sun's gain alone dimmed the deck twice
-  (sunset over noon 0.56 / 0.59 / 0.47 for overcast / rain / snow). The clouds take
-  `ATMOSPHERE_CLOUD_MAKEUP` 0.7 of the make-up (the high sun's gain^0.3 × the actual one's^0.7),
-  calibrated on the board so a cloudy evening dims from noon as under the painted sky: sunset
-  over noon 0.740 / 0.772 / 0.621 against the painted 0.761 / 0.781 / 0.674 (Medium, 640 × 360;
-  at 1.0: 0.833 / 0.867 / 0.702, rain over the 0.85 bound). The garden at a cloudy sunset reads
-  about a quarter darker than under the painted sky (overcast ground 0.089 against 0.119) — for
-  the owner. The deck loses the sun through civil twilight as the look does (its sunlight ×
-  `atmosphereWeight`): the example clamps the sun's slant at the horizon, so its deck kept the
-  horizon sun's light down to −6° and a cloudy dusk brightened; with the fade every cloudy dusk
-  is monotone, the sunset step 0.0076 / 0.0076 / 0.0114 against day ramps of 0.050 / 0.051 /
-  0.067. Its sun-side silver lining (an edge effect) fades with the cover. The clouds take the
-  look's horizon hue (under a weather, the weather's own grey) in proportion to the cover
-  (`cloudHueShare`: the example's analytic sun reddening read beige to mustard), and fade out
-  between 120 and 240 km (`cloudMaxDistanceKm`, the example's 80 faded them at 2.4–4.7°
-  elevation, where the clear sky's bright horizon then showed as a stripe);
+- **clouds**: coverage = the weather's cloud (overcast and rain 1.0, snow 0.85, clear 0). Their
+  scattered light takes the atmosphere's one gain: `cloudLightGain` = `ATMOSPHERE_CLOUD_GAIN`
+  0.064 × the clear sky's gain at the actual sun (`quick3d.look.cloud_light_gain`; the example's
+  scale saturates a full cover to white — its own comment says so), calibrated so a full
+  Overcast lights the ground at noon as the painted Overcast does (ground luminance 0.198 /
+  0.207, about 2 luma). A thick deck diffuses: its forward lobe and its silver lining fade with
+  the cover (`atmosphere.frag`, `CLOUD_DIFFUSION` 0.8). Without that, a full overcast was bright
+  toward a low sun, a cloudy sunset read 0.96–1.0 of its noon and the L5 weather gates (which
+  had not run on the atmosphere) failed; a scale of the clouds' own at a fixed high sun dimmed
+  the deck twice (garden at a cloudy sunset 0.6–0.75 of the painted one) and deepened a bright
+  band round the horizon (3D reviews). Measured (Medium, 640 × 360): sunset over noon 0.750 /
+  0.776 / 0.668 for overcast / rain / snow against the painted 0.761 / 0.781 / 0.674; the
+  garden under a cloudy sky 0.96–0.99 of the painted one at noon, 0.90–0.92 at golden hour,
+  0.87–0.89 at the sunset mood. The deck also loses the sun through civil twilight as the look
+  does (its sunlight × `atmosphereWeight`): the example clamps the sun's slant at the horizon,
+  so its deck kept the horizon sun's light down to −6°; every cloudy dusk is monotone, the
+  sunset step 0.0088 / 0.0088 / 0.0142 against day ramps of 0.041 / 0.042 / 0.057. Left over
+  (#719): under the deck at a low sun the painted haze band reads brighter than the deck above
+  it — 30 / 42 / 55 luma toward / across / away from a 0.5° sun (painted sky: 6), 11–20 at 6°.
+  The clouds take the look's horizon hue (under a weather, the weather's own grey) in
+  proportion to the cover (`cloudHueShare`: the example's analytic sun reddening read beige to
+  mustard), and fade out between 120 and 240 km (`cloudMaxDistanceKm`, the example's 80 faded
+  them at 2.4–4.7° elevation, where the clear sky's bright horizon then showed as a stripe);
 - the disc: the look's sun colour × `ATMOSPHERE_DISC_ENERGY` 4 in its core, shown while the sun
   is up and as far as the cloud lets it (`sunAlpha` = 1 − cloud) — at the painted disc's energy
   the aerosol halo outshone it (240,239,237 under a glow of 248,244,230). The glow around the

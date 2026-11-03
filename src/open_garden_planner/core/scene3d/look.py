@@ -55,7 +55,7 @@ from .frame import sun_direction_scene
 from .sink import SunState
 
 __all__ = [
-    "ATMOSPHERE", "ATMOSPHERE_CLOUD_GAIN", "ATMOSPHERE_CLOUD_MAKEUP", "ATMOSPHERE_DISC_ENERGY", "ATMOSPHERE_HAZE_DEG",
+    "ATMOSPHERE", "ATMOSPHERE_CLOUD_GAIN", "ATMOSPHERE_DISC_ENERGY", "ATMOSPHERE_HAZE_DEG",
     "AUTO", "AUTO_LEVELS",
     "CLEAR_STILL",
     "DAY", "FILL_OF_SKY", "FOG_OF_HORIZON", "GOLDEN",
@@ -121,17 +121,13 @@ SKY_MODELS: Final = (PAINTED, ATMOSPHERE)
 #: painted sky shows, so the fog meets the same horizon in either model (the fog is
 #: calibrated on the painted horizon: ``FOG_OF_HORIZON``) and in every direction.
 ATMOSPHERE_HAZE_DEG: Final = 6.0
-#: The volumetric clouds' scattered light relative to the clear sky's (the example's
-#: 1 saturates a full cover to white): a full overcast lights the ground as the painted
-#: Overcast does (calibrated, L7 — see the ADR-048 addendum's table).
-ATMOSPHERE_CLOUD_GAIN: Final = 0.06
-#: How much of the clear sky's make-up for a sinking sun the clouds take
-#: (``quick3d.look.cloud_light_gain``): the clear sky's gain rises about sevenfold from
-#: noon to sunset to cancel the physical sky's dimming, but the deck dims less (its light
-#: is the sun's), so the full make-up lit a cloudy sunset at 0.83-0.87 of noon; none at
-#: all dimmed it twice (0.47-0.59). 0.7 is calibrated so a cloudy evening dims from noon
-#: as under the painted sky (3D review of L7; the addendum's table).
-ATMOSPHERE_CLOUD_MAKEUP: Final = 0.7
+#: The volumetric clouds' scattered light relative to the clear sky's, both under the
+#: clear sky's gain at the actual sun (the example's 1 saturates a full cover to white):
+#: a full overcast lights the ground at noon as the painted Overcast does (calibrated,
+#: L7 — see the ADR-048 addendum). The deck's forward scattering fades with the cover in
+#: ``atmosphere.frag`` (a thick deck diffuses): without that a cloudy sunset read 0.96-1.0
+#: of noon and a bright band ran round the horizon under the deck (3D reviews of L7).
+ATMOSPHERE_CLOUD_GAIN: Final = 0.064
 #: The atmosphere's sun disc × this, over the painted disc's colour and energy. The
 #: painted disc stands two to three times above the sky around it; the atmosphere's
 #: aerosol halo, after the gain, is about as bright as the painted disc — at × 1 the disc

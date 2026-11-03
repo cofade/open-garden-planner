@@ -17,10 +17,15 @@
 - **Root cause:** the clear sky's gain at the actual sun rises ~7× toward sunset to cancel
   the physical sky's dimming; the sunlit deck dims less, so the full gain over-brightened it,
   and below the horizon nothing dimmed its sunlight at all.
-- **Fix:** the deck's sunlight × the twilight weight; the clouds take 0.7 of the clear sky's
-  make-up (`ATMOSPHERE_CLOUD_MAKEUP`, calibrated: 0.740 / 0.772 / 0.621 against the painted
-  0.761 / 0.781 / 0.674); the L5 board test is parametrized by sky.
+- **Fix:** the deck's sunlight × the twilight weight; and, after a second 3D review found a
+  bright band round the horizon under the deck that the 0.7 make-up had deepened, the real
+  lever: the example's forward lobe ignores the cover, so a full overcast was bright toward
+  a low sun. The lobe (and the silver lining) fade with the cover (`CLOUD_DIFFUSION` 0.8) and
+  the clouds take the atmosphere's one gain again (`ATMOSPHERE_CLOUD_GAIN` 0.064): 0.750 /
+  0.776 / 0.668 against the painted 0.761 / 0.781 / 0.674, the garden 0.87–0.99 of painted.
+  The L5 board test is parametrized by sky; the band's remainder is #719.
 - **Lesson:** a gate that never ran on a code path proves nothing about it — parametrize the
-  existing gates over the new path before adding new ones. And a reviewer's measured fix is a
-  hypothesis too: compare it against the reference on the quantity the design promises (here,
-  the garden's light), not only on the gate it was measured against.
+  existing gates over the new path before adding new ones. A fitted constant that makes a gate
+  pass is a symptom until the mechanism is found: the 0.7 exponent hid the forward lobe. And a
+  reviewer's measured fix is a hypothesis too: compare it against the reference on the quantity
+  the design promises (here, the garden's light), not only on the gate it was measured against.

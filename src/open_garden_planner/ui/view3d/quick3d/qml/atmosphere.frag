@@ -157,6 +157,10 @@ float cloudDensityAt(vec3 pos, float heightFraction)
     return density * cloudDensityScale * 1.6;
 }
 
+// Open Garden Planner (L7, 3D review): how much of the deck's forward lobe a full cover
+// diffuses away (gFwd below; the silver lining fades with the cover too)
+const float CLOUD_DIFFUSION = 0.8;
+
 vec3 raymarchClouds(vec3 ro, vec3 rd, vec3 sunDirWorld, vec3 sunRadiance,
                     vec3 skyZenithRGB, vec3 skyGroundRGB, vec3 skySunSideRGB,
                     out float transmittance)
@@ -217,7 +221,10 @@ vec3 raymarchClouds(vec3 ro, vec3 rd, vec3 sunDirWorld, vec3 sunRadiance,
             vec3 msLight = vec3(0.0);
             float a = 1.0, b = 1.0, c = 1.0;
             for (int n = 0; n < MS_COUNT; ++n) {
-                float gFwd = c * cloudPhaseG;
+                // a thick deck diffuses: its forward lobe fades with the cover (3D review
+                // of L7 - at full strength an overcast was bright toward a low sun, and
+                // with the gain that lit a cloudy sunset and a band round the horizon)
+                float gFwd = c * cloudPhaseG * (1.0 - CLOUD_DIFFUSION * cloudHueShare);
                 float gBk  = c * gBack;
                 float ggF = gFwd * gFwd;
                 float ggB = gBk * gBk;

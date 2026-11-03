@@ -21,7 +21,7 @@ Per-file licence check (each file's own SPDX header read at the tag):
 | --------- | -------------- | --------------- | ---------- | ------- |
 | `atmosphere_transmittance.frag` | `transmittance.frag` | MIT (© 2023 Fernando García Liñán, © 2026 The Qt Company) | MIT | none (a provenance comment) |
 | `atmosphere_scatter.frag` | `skytexture.frag` | MIT (same holders) | MIT | none (a provenance comment) |
-| `atmosphere.frag` | `advancedsky.frag` | MIT (same holders) | MIT, plus the app's part | the example's code up to its `MAIN()` unchanged; `MAIN()` and `paintedSky()` below the marked boundary are the app's (GPL-3.0-or-later) |
+| `atmosphere.frag` | `advancedsky.frag` | MIT (same holders) | MIT, plus the app's part | the example's code up to its `MAIN()`, with three marked changes in `raymarchClouds()` (the forward lobe and the silver lining fade with the cover, `CLOUD_DIFFUSION`); `MAIN()` and `paintedSky()` below the marked boundary are the app's (GPL-3.0-or-later) |
 | `AtmosphereSky.qml` | `AdvancedSky.qml` | LicenseRef-Qt-Commercial OR BSD-3-Clause | BSD-3-Clause | the sun set from Python (not a light node), the noise volume handed in, the app's inputs, the LUTs fed only what their shaders read (header lists them) |
 | `core/scene3d/cloud_noise.py` (outside this directory) | `cloudnoisetexturedata.cpp` / `.h` | LicenseRef-Qt-Commercial OR BSD-3-Clause | BSD-3-Clause | a numpy port of the same recipe (same hash, octaves, salts), checked against a scalar transcription of the C++ (`tests/unit/test_scene3d_cloud_noise.py`) |
 

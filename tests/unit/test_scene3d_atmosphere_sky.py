@@ -29,7 +29,6 @@ from open_garden_planner.core.scene3d.frame import scene_to_engine_vectors, sun_
 from open_garden_planner.core.scene3d.look import (
     ATMOSPHERE,
     ATMOSPHERE_CLOUD_GAIN,
-    ATMOSPHERE_CLOUD_MAKEUP,
     ATMOSPHERE_DISC_ENERGY,
     ATMOSPHERE_HAZE_DEG,
     PAINTED,
@@ -281,30 +280,28 @@ def test_the_painted_radiance_is_the_generators_formula() -> None:
 
 
 @pytest.mark.parametrize("weather", ["overcast", "rain", "snow"])
-def test_the_clouds_take_part_of_the_clear_skys_make_up_for_a_sinking_sun(weather: str) -> None:
-    """3D review of L7: scaled by the clear sky's gain at the ACTUAL sun (which rises about
-    sevenfold toward sunset), a cloud deck lit a cloudy sunset at 0.96-1.0 of its noon; at a
-    fixed high sun's gain it dimmed twice. The clouds' scale is the high sun's gain raised
-    toward the actual one by ``ATMOSPHERE_CLOUD_MAKEUP`` (calibrated on the board): the
-    calibrated value at the reference sun, and between the two everywhere else."""
+def test_the_clouds_are_lit_by_the_one_gain_of_the_atmosphere(weather: str) -> None:
+    """3D reviews of L7: the clouds' light is ``ATMOSPHERE_CLOUD_GAIN`` x the clear sky's
+    gain at the ACTUAL sun — the one gain of the whole atmosphere. A scale of their own at a
+    fixed high sun dimmed the deck twice and deepened a bright band at the horizon; what had
+    lit a cloudy sunset too brightly under this gain was the deck's forward scattering."""
     for elevation in (60.0, 50.0, 25.0, 8.0, 2.0, 0.6, -2.0, -4.0):
         sky = living_look(SunState(elevation, 225.0), "medium", weather).sky
         painted = painted_sky(sky)
-        actual = atmosphere_gain(atmosphere_sun_direction(sky), painted)
-        reference = replace(sky, sun_elevation_deg=50.0, sun_azimuth_deg=180.0)
-        high = atmosphere_gain(atmosphere_sun_direction(reference), replace(painted, sun=painted.horizon))
         inputs = atmosphere_properties(sky)
+        assert inputs["cloudLightGain"] == pytest.approx(ATMOSPHERE_CLOUD_GAIN * inputs["atmosphereGain"])
         assert inputs["cloudLightGain"] == pytest.approx(cloud_light_gain(sky, painted))
-        assert inputs["cloudLightGain"] == pytest.approx(
-            ATMOSPHERE_CLOUD_GAIN * high ** (1.0 - ATMOSPHERE_CLOUD_MAKEUP) * actual ** ATMOSPHERE_CLOUD_MAKEUP)
-        low, top = sorted((ATMOSPHERE_CLOUD_GAIN * high, ATMOSPHERE_CLOUD_GAIN * actual))
-        assert low * (1 - 1e-9) <= inputs["cloudLightGain"] <= top * (1 + 1e-9), elevation
-    noon = living_look(SunState(50.0, 180.0), "medium", weather).sky
-    painted = painted_sky(noon)
-    # the calibrated noon: the two gains differ there only by the painted disc (< 0.1 %)
-    assert cloud_light_gain(noon, painted) == pytest.approx(ATMOSPHERE_CLOUD_GAIN * atmosphere_gain(
-        atmosphere_sun_direction(noon), replace(painted, sun=painted.horizon)), rel=1e-3)
-    assert 0.0 < ATMOSPHERE_CLOUD_MAKEUP < 1.0
+
+
+def test_a_full_cover_diffuses_the_decks_forward_lobe() -> None:
+    """3D review of L7: the example's forward lobe ignores the cover, so a full overcast
+    was bright toward a low sun — a cloudy sunset near noon's brightness and a band round
+    the horizon. A thick deck diffuses: the lobe fades with the cover, as the silver
+    lining does."""
+    code = (QML_DIR / "atmosphere.frag").read_text(encoding="utf-8")
+    assert "float gFwd = c * cloudPhaseG * (1.0 - CLOUD_DIFFUSION * cloudHueShare);" in code
+    assert "msLight += silver * sunRadiance * (1.0 - cloudHueShare);" in code
+    assert re.search(r"const float CLOUD_DIFFUSION = 0\.8;", code)
 
 
 def test_the_clouds_lose_the_sun_through_civil_twilight() -> None:

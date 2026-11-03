@@ -7,7 +7,8 @@ default and the reference of every gate. Values (ADR-048 addendum L7 has the mea
 |---|---|---|
 | haze band 6° | `look.ATMOSPHERE_HAZE_DEG` | at and below it the painted horizon shows: the fog meets the same horizon in every direction; 10° changed the far-horizon rows by < 0.05 luma |
 | gain per sky | `atmosphere_lut.atmosphere_gain` | the painted sky's light on the ground (cosine-weighted upper hemisphere); the sunlit grass reads the same under both skies — never brighten the atmosphere by hand |
-| cloud light 0.06 at a 50° sun, make-up 0.7 | `look.ATMOSPHERE_CLOUD_GAIN`, `look.ATMOSPHERE_CLOUD_MAKEUP`, `quick3d.look.cloud_light_gain` | a full Overcast lights the ground at noon as the painted Overcast (0.211 / 0.207); toward sunset the clear sky's gain rises ~7× to make up for the physical sky's dimming, but the deck dims less — the whole make-up lit a cloudy sunset at 0.83–0.87 of noon (1.0 before the twilight and silver fades), none dimmed it twice (0.47–0.59). At 0.7 a cloudy evening dims as under the painted sky (sunset over noon 0.740 / 0.772 / 0.621 against 0.761 / 0.781 / 0.674); the garden at a cloudy sunset reads ~¼ darker than painted — owner's call |
+| cloud light 0.064 × the atmosphere's gain | `look.ATMOSPHERE_CLOUD_GAIN`, `quick3d.look.cloud_light_gain` | a full Overcast lights the ground at noon as the painted Overcast (0.198 / 0.207, ~2 luma); the clouds take the one gain of the atmosphere — a scale of their own at a fixed high sun dimmed the deck twice (garden at a cloudy sunset 0.6–0.75 of painted) and deepened the horizon band |
+| forward lobe × (1 − 0.8 × cover) | `atmosphere.frag` `CLOUD_DIFFUSION` | a thick deck diffuses: at full strength a full overcast was bright toward a low sun — a cloudy sunset at 0.96–1.0 of noon. Now sunset over noon 0.750 / 0.776 / 0.668 against the painted 0.761 / 0.781 / 0.674; the garden 0.96–0.99 of painted at noon, 0.87–0.89 at the sunset mood |
 | silver lining × (1 − cover) | `atmosphere.frag` | the example's sun-side edge glow is an edge effect; at full strength across a thick deck it lit a cloudy evening |
 | the deck's sunlight × (1 − twilight) | `atmosphere.frag` | the example clamps the sun's slant at the horizon: its deck kept the horizon sun down to −6° and a cloudy dusk brightened |
 | cloud hue share = cover | `atmosphere.frag` | under a weather the deck is the weather's own grey (the example's clouds read beige to mustard) |
@@ -24,9 +25,10 @@ cover (the self-test's 0.7 reads best), a grey deck at full cover.
 
 **Known gaps** (filed): the low band reads 1.43–1.83× the painted sky's luminance — a cream
 wash and a horizon that darkens toward 0.5° (#716); the sky probe's disc finder misses an 8° sun
-(#717).
+(#717); under a cloud deck at a low sun the painted haze band reads brighter than the deck — 30–55 luma at a 0.5° sun, painted 6 (#719).
 
 **Open for the owner** (none decided): the default model; a "partly cloudy" weather (no preset
 produces partial cover); whether the atmosphere's hazier noon blue and its cream sun-side glow
-at golden hour suit Lush Cinematic; whether a cloudy sunset's garden may read a quarter darker
-than under the painted sky.
+at golden hour suit Lush Cinematic; whether a cloudy sunset's garden may read ~12 % darker
+than under the painted sky; a white-hot or a warm low sun disc; the volumetric deck's
+structure or the painted sky's even grey under a full overcast.

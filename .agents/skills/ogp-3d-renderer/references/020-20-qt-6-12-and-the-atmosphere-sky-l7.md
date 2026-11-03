@@ -6,7 +6,9 @@ same machine), 2026-11-02/03, PyQt6 / PyQt6-Qt6 6.12.0:
 
 - **Destroying an earlier sky Texture nulls the current light probe** (6.12 only): the
   stale destroyed-watcher fires `setLightProbe(nullptr)` although the probe is the new sky,
-  and the next frame draws the clear colour — after every sun change. `Garden.qml` restores
+  and the next frame draws the clear colour — on a host's first sun change (measured without
+  the fix: the first rebuild, once also the second; later rebuilds and those after a sky-model
+  switch never). `Garden.qml` restores
   the binding in `onLightProbeChanged` (synchronous; `Component.onDestruction` is too early,
   a 0 ms Timer too late). A board renders a fresh host per frame and cannot see it; the
   sky-sequence test can (PF-E3D-16).

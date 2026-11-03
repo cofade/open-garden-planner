@@ -7752,11 +7752,11 @@ sky (Qt's generator formula, `paintedSky()`) and mixes the atmosphere over it by
 painted sky's in every direction. Its scale is not a constant: `atmosphere_lut.atmosphere_gain`
 gives it the painted sky's cosine-weighted light on a horizontal surface at every sun — the sun /
 sky balance the owner accepted, measured equal on the lit grass at every sun height. The
-weather's cloud is the clouds' cover; their light is scaled apart (`cloud_light_gain`:
-`ATMOSPHERE_CLOUD_GAIN` at a high sun, calibrated against the painted Overcast, taking
-`ATMOSPHERE_CLOUD_MAKEUP` of the clear sky's make-up for a sinking sun, so a cloudy evening dims
-as under the painted sky), loses the sun through civil twilight and takes the look's horizon hue
-in proportion to the cover. Custom materials sample the sky under a `SkyMaterial` only with the
+weather's cloud is the clouds' cover; their light is `ATMOSPHERE_CLOUD_GAIN` × the same gain
+(`cloud_light_gain`, calibrated against the painted Overcast at noon), their forward scattering
+and silver lining fade with the cover (a thick deck diffuses, so a cloudy evening dims as under
+the painted sky), they lose the sun through civil twilight and take the look's horizon hue in
+proportion to the cover. Custom materials sample the sky under a `SkyMaterial` only with the
 widened probe guard (PF-E3D-15).
 
 **Texture data, not render passes.** A `SkyMaterial` compiles its shader only when every texture
