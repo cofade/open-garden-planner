@@ -61,3 +61,10 @@ Use `--far-plan` for bench_large shadow-on/off pairs at2x/4x framing.
   measured top-down luma std 26.0 with GRASS against 0.0 with SOLID). The look is the 2D
   picture extruded, not a new material; the frame of a raised bed and a container's soil keep
   the builders' own look, and an X-ray ghost of a raised surface is its flat colour.
+
+- **2026-11-03** - #391 manual pass (PR #721, v1.36.0). First build: the app crashed, and "I
+  don't see any difference in the sky". After the fix and the new Partly cloudy: "works perfectly
+  as is". So these stand with no change asked for: the noon clouds' soft off-white, Partly cloudy
+  as a sunny blue day with no clouds on the painted sky, and the painted sky as the default.
+  Lesson: a sky change must be shown where the sky is. The 3D view looks down at about 32 degrees,
+  so a checklist has to say how to tilt the camera, or the change reads as nothing.

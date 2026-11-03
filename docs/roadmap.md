@@ -2738,7 +2738,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **✅ shipped v1.34.0 ([PR #613](https://github.com/cofade/open-garden-planner/pull/613)) after owner acceptance (ADR-065, FR-3D-BUILT-01 … 08)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | ✅ | L5 | **Living garden** — year/day playback through the SimClock, moods, weather presets as a look, shader particles (rain, snow, leaves, butterflies, fireflies) on the wind's clock, Today's Weather, Garden Light / String Lights. **✅ shipped v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after owner acceptance (ADR-070, FR-3D-LIVE-01 … 09)** — see below | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
 | 📋 | L6 | **Director's cut** — photo mode, camera tours, `render_3d_view` MCP tool | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
-| 📋 | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds. **Delivered in a draft PR, awaiting owner acceptance** (ADR-048 addendum L7, FR-3D-LOOK-08) — see below | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
+| ✅ | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds. **Shipped in v1.36.0 ([PR #721](https://github.com/cofade/open-garden-planner/pull/721)) after owner acceptance (ADR-048 addendum L7, FR-3D-LOOK-08)** — see below | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
 ### 3D performance and stability (Slice A) — **#452 shipped in v1.34.11 ([PR #676](https://github.com/cofade/open-garden-planner/pull/676)), 2026-11-01**
 
@@ -2778,7 +2778,7 @@ elease.yml, documented ADR-050 version derivation evaluation addendum, and enfor
 - **#580:** Expanded info card body line budget (BODY_LINES = 8) to keep all fact rows (including harvest window) visible without vertical clipping at the narrowest 455 px split pane width.
 - **#577:** De-scoped for dedicated geometry research; preserved clean ground drape depth occlusion.
 
-### L7 acceptance highlights — Sky 6.12 (#391, ADR-048 addendum L7) — **draft PR, awaiting owner acceptance**
+### L7 acceptance highlights — Sky 6.12 (#391, ADR-048 addendum L7) — **shipped v1.36.0, PR #721**
 
 | Criterion (#391) | Delivered | Evidence |
 |---|---|---|

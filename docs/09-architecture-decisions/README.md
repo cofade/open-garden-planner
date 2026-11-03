@@ -3672,7 +3672,7 @@ known limit 11.)
 
 ### Addendum L7 — Qt 6.12 LTS and the atmosphere sky (2026-11-03, #391)
 
-**Status**: Delivered in a draft PR, awaiting the owner's manual test. Two parts: the Qt pins
+**Status**: Shipped in v1.36.0 (PR #721) after the owner's manual test, 2026-11-03. Two parts: the Qt pins
 move to the 6.12 LTS, and an opt-in **atmosphere sky** — Qt 6.12's new `SkyMaterial` with a port
 of Qt's `skymaterial` example (Hillaire's atmosphere, ray-marched volumetric clouds) — joins the
 painted sky. Preconditions of #391 met: PyQt6 6.12.0 was published on 2026-10-28, and L1.10 had
@@ -3847,7 +3847,8 @@ Quick 3D itself ("LicenseRef-Qt-Commercial OR GPL-3.0-only"), the module the app
 under GPLv3. All compatible with the app's GPL-3.0-or-later; the per-file table and the one
 statement of the rule are `qml/PROVENANCE.md`.
 
-**Left open.** The default model (an owner decision); the first-frame shader compile could be
+**Left open.** The default model: the owner accepted this build as it stands, so the default
+stays painted, and an integrated GPU is unmeasured (#720). The first-frame shader compile could be
 pre-warmed like the Cutaway's (`shaderWarmer`). (Whether a "partly cloudy" weather should exist
 was answered by the owner's manual test: see the revision below.)
 
