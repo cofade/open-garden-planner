@@ -40,7 +40,7 @@ class MoveObjectCommand(Command):
 ## 8.3 Internationalization (i18n)
 
 Qt Linguist remains the runtime format (ADR-008). English is the source language;
-English, German, and Spanish are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+English, German, Spanish, and Russian are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
 the full source inventory mandatory for that locale. New UI keys require translations
 in every registered target locale in the same PR. The required `Test` CI check enforces
 this through `scripts/check_translations.py` and the normal pytest suite (#496).
