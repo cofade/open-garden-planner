@@ -81,7 +81,7 @@ CHILD = Path(child.__file__).resolve()
 WINDOWS = sys.platform == "win32"
 LINUX = sys.platform.startswith("linux")
 FRAME, REFUSED, EITHER, ANY = "frame", "refused", "either", "any"
-#: The three releases: legal on a closed host, where they do nothing.
+#: The releases: legal on a closed host, where they do nothing.
 RELEASES = ("end_captures", "destroy_part", "release_fill", "clear", "close")
 #: Asked of a closed host they still answer (asserted where they are used).
 ANSWERS_WHEN_CLOSED = {"is_visible", "health", "is_software_adapter"}

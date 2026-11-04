@@ -95,3 +95,16 @@ strip's "0 ausgeblendet ⌄" because `QToolButton#PlanDateHiddenPlants` had a ru
 rule now also matches `QToolButton[menuChevron="true"]`; set the property before the button
 is first polished. The test checks both strip buttons carry it and that the rule gives the
 arrow room (a probe button with the property is wider than one without, light and dark).
+
+### PF-UI-34
+
+- **Rule:** `QDialog.reject()` (Esc) hides a dialog without calling `closeEvent`, so a dialog that must stop something before it goes overrides both, and the two agree on what happens.
+- **Pinned by:** `tests/integration/test_directors_cut.py::test_esc_cancels_a_recording_and_the_dialog_stays_to_say_so`; `tests/integration/test_directors_cut.py::test_closing_the_dialog_during_a_recording_stops_it_first_and_then_closes`
+- **Source:** #390 (Phase 17 L6), senior review
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The camera tour's dialog stopped a recording in its `closeEvent`. Esc went through `reject()`, which
+hides and never calls `closeEvent`: the recording went on behind a dialog nobody could reach, with
+the clock held. Now Esc cancels and the dialog stays, to say what happened; the X cancels, ignores
+the close, and closes when the recording has stopped.
