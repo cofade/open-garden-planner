@@ -71,3 +71,5 @@ Use `--far-plan` for bench_large shadow-on/off pairs at2x/4x framing.
   before an integrated GPU is measured (#720). Lesson: a sky change must be shown where
   the sky is. "No difference" had three causes: no weather gave separate clouds, the 3D view looks
   down at about 32 degrees, and a shortcut started the old app. A checklist has to name all three.
+
+- **L6 photo mode (4 November 2026, manual test of #390, two rounds).** The blur was invisible until a click (no depth of field without a focused point); "focus here" should keep about 60 cm sharp, not 30. After the fixes: "alles klappt". Left open, kept as built: at the strongest blur a whole-garden view of 38 m keeps only about 1 m sharp (the owner did not answer whether that needs a limit). Lesson: a control that does nothing until a second action reads as broken, so the first use must show an effect by itself; and the owner's own quality level (Ultra) is a test configuration.

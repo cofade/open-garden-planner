@@ -496,7 +496,7 @@
   },
   "383": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Phase 17 epic: Living Garden 3D — Qt Quick 3D renderer, procedural world, honest beauty"
   },
   "385": {
@@ -526,7 +526,7 @@
   },
   "390": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "L6 \"Director's cut\": photo mode, camera tours, render_3d_view MCP tool (Phase 17)"
   },
   "391": {
@@ -1131,7 +1131,7 @@
   },
   "665": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Fill patterns: angle, scale and X/Y offset controls"
   },
   "668": {
@@ -1156,7 +1156,7 @@
   },
   "674": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "Canvas context menu: add Group, keep Ungroup, and make both follow the selection (incl. nested groups)"
   },
   "675": {
@@ -1201,7 +1201,7 @@
   },
   "690": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
   },
   "692": {
@@ -1241,7 +1241,7 @@
   },
   "713": {
     "is_pr": true,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "feat(#674, #665, #690): 2D drawing tools - group menus, pattern transform, house ridge"
   },
   "714": {
@@ -1296,7 +1296,22 @@
   },
   "728": {
     "is_pr": false,
-    "state": "OPEN",
+    "state": "CLOSED",
     "title": "fix(canvas): a journal pin cannot be selected by clicking it in the Y-flipped canvas"
+  },
+  "729": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(#390): L6 Director's cut - photo mode, camera tours, video and render_3d_view"
+  },
+  "744": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Ultra: reflections + blur + glow in one effect chain crash Qt's render thread in d3d11.dll (workaround drops reflections under blur)"
+  },
+  "745": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Photo mode: blur without a focus after opening a plan, and an auto-focus in mid-air while walking"
   }
 }

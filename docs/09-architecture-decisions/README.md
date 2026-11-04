@@ -10411,7 +10411,7 @@ appearance seams all operate on typed attributes, not free-form metadata.
 
 ## ADR-072: Director's cut — one capture path, photo mode, camera tours, video and `render_3d_view` (Phase 17 L6, #390)
 
-**Status:** Accepted (awaiting the owner's manual acceptance on the PR).
+**Status:** Accepted; shipped in v1.37.0 (PR #729) after the owner's manual acceptance on 4 November 2026 (two rounds: the blur band, and the Ultra crash with the blur that needed a focus point).
 
 ### Context
 
