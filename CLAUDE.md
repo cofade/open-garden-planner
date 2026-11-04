@@ -332,7 +332,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   Beauty Board's plan ships as the `family-garden` example. A plant's rect follows
   `CanvasScene.drawn_plan_date`, announced before it moves: on v1.36.0 a new date crashed the next plan
   opened (PF-CAN-43). Shipped in v1.37.0 (PR #729); Ultra's reflections + blur + glow crashed Qt
-  (PF-E3D-21, #744), and the blur needs a focus (#745).
+  (PF-E3D-21, #744), and first-blur focus edge cases are #745.
 - L7 (#391, ADR-048 addendum L7) shipped in v1.36.0 (PR #721): Qt pins 6.12.0, WebEngine 6.140 moves
   with them (PF-CI-17), the 6.12 pick honours cull mode (PF-E3D-13), the OS reduce-motion
   is honoured, and an opt-in atmosphere `SkyMaterial` sky (default stays painted) whose
