@@ -65,7 +65,7 @@ from tests.integration.workspace_render_state import engine_pick_oracle, load_he
 pytestmark = render_tier
 
 Run = tuple[dict[str, Any], Path]
-SCENARIOS = "ring,ring_depth,pick,lookthrough,workspace,app_walk"
+SCENARIOS = "ring,ring_depth,pick,lookthrough,workspace"
 SOFTWARE_ADAPTERS = ("Basic Render", "llvmpipe", "SwiftShader", "softpipe")
 
 
@@ -724,13 +724,23 @@ def _ring_depth_on_opengl(folder: Path, qml_dir: Path | None = None) -> dict[str
     return {"shares": shares, "qt": result["qt_messages"], "adapter": result.get("adapter")}
 
 
-def test_in_the_full_main_window_every_walkers_key_walks_and_no_shortcut_fires(run: Run) -> None:
+@pytest.fixture(scope="module")
+def app_walk(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    """The one scenario in front of the other windows, for as long as it lasts: it is about the
+    window that HAS the keyboard, and a window kept behind them (quiet_windows) never gets it."""
+    out = tmp_path_factory.mktemp("view3d_app_walk")
+    proc, result = run_selection_driver(out, "app_walk", env=render_env(out, OGP_WINDOWS_IN_FRONT="1"))
+    assert proc.returncode == 0 and result.get("status") == "ok", failure_report(proc, out)
+    return result["scenarios"]["app_walk"]
+
+
+def test_in_the_full_main_window_every_walkers_key_walks_and_no_shortcut_fires(app_walk: dict[str, Any]) -> None:
     """Review 1, P0 and P1-2 on the real engine in the real ``GardenPlannerApp``: the
     Walk action gives the 3D view the keyboard; each walker's key, pressed into the window
     that HAS the keyboard, moves the walker (S too — it was the main window's Snap to
     Grid); no shortcut fires (Snap to Grid unchanged) and the plan's tool is untouched;
     Escape leaves walk mode and the keyboard goes back to the plan."""
-    data = run[0]["scenarios"]["app_walk"]
+    data = app_walk
     assert data["before"]["focus_widget"] == "CanvasView" and not data["before"]["focus_window_is_view"]
     assert "S" in data["window_shortcuts"], "the main window still has its S shortcut"
     assert data["entered"] == {"walking": True, "focus_window_is_view": True}

@@ -2268,7 +2268,11 @@ audit evidence for the command, machine and measured limitations.
   the drivers run by hand. A covered window still renders and reads back: the render tier runs on
   it. `OGP_WINDOWS_IN_FRONT=1` switches it off, to watch a run. A new probe gets it by isolating
   itself, which it must do anyway. The product and the frozen exe never run it; `--selftest`'s one
-  shown window uses `Quick3DHost.show_behind`.
+  shown window uses `Quick3DHost.show_behind`. Two differences a test can see: such a window never
+  has the keyboard, so the full-window walk scenario (`app_walk`) opts out and comes to the front
+  for its seconds; and it maximises over the taskbar, so full screen from maximised changes no size.
+  The hook can be loaded twice in one process (by its path, and through `scripts`): it asks
+  `sys.meta_path` by the finder's type name, because two finders would ask each other for ever.
 
 - **A second reader for a claim about pixels.** "The capture is the view" is asserted by comparing
   with `grab()` at the same size and, for a shot, with the view moved to that camera. Both are
@@ -7867,8 +7871,11 @@ holds the automatic preset, and restores the owner's date and time afterwards. W
 `ForgeWorker.fly_path` gives each plant the finest detail the flight asks for (`path_eyes`), so a
 frame shows what the view would from there and no plant changes its leaves in mid-flight; the first
 frame waits for that, up to `SETTLE_LIMIT_S × FIRST_FRAME_SETTLE_FACTOR`. A recording is
-modal; a preview (small, in real time, skipping what it is late for) is not. `HostStateError` pauses
-it and it goes on without a gap.
+modal, and so is a preview that moves the clock (a time-lapse): the plan behind it must not take that
+date for its own. A preview of a flight (small, in real time, skipping what it is late for) is not
+modal. Esc cancels and leaves the dialog open; the window's X cancels and closes once the recording
+has stopped. `HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
+shown pauses it the same way.
 
 **Where the frames go** (`video_writer.py`, the only module that imports Qt Multimedia, on first
 use): `Mp4Writer` writes `<stem>.part.mp4` and renames it on success, so a cancelled or failed

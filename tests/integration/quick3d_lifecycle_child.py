@@ -121,7 +121,8 @@ def _register_calls() -> None:
         "capture": lambda host, _part: host.capture((64, 64)),
         "focus": lambda host, _part: host.focus(),
         "has_focus": lambda host, _part: host.has_focus(),
-        # the three releases: legal on a closed host, and they do nothing there
+        # the releases: legal on a closed host, and they do nothing there
+        "end_captures": lambda host, _part: host.end_captures(),
         "destroy_part": lambda host, part: host.destroy_part(part),
         "release_fill": lambda host, _part: host.release_fill("GRASS", (90, 160, 60, 255)),
         "clear": lambda host, _part: host.clear(),
