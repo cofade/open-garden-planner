@@ -6269,7 +6269,7 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     item through its cache, which cuts whatever a style draws beyond the item's bounding
     rectangle — the bars of a 30 cm metal fence reach 37.5 cm from the line, the rectangle 17 cm.
     Exports paint without the cache and show them whole; so does the ground.
-11. **OPEN upstream ([QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940);
+11. **CLOSED upstream ([QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940);
     TD-040; #532 closed by PR #654) — every cache release leaves about half of the ground's same-size tile
     textures behind, re-baked or not.** *Cause:* a Qt Quick 3D 6.11.0 bug, read in its source
     and proven by measurement (#532): `QSSGBufferManager::clear()`
@@ -6318,7 +6318,11 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     gate's 0.6 share.
     *Re-checked on the bump to 6.12.0* (Phase 17 L7, #391, 2026-11-03): the reproducer on the
     PyQt6-Qt6 6.12.0 wheels (WARP, frames presented) still leaks — 16 → 96 textures over 10
-    cycles, 8 a cycle; QTBUG-151940 is *In Review* with no fix version. Nothing else moved.
+    cycles, 8 a cycle.
+    *Upstream resolved (2026-11-04):* QTBUG-151940 was closed on merge of commit `fd941509f`
+    in `qt/qtquick3d#dev` (Gerrit 785272; target Qt 6.13.0); a backport to `6.12` (Gerrit
+    786236; target Qt 6.12.1) has +2/+1 and is pending merge. The leak remains active on our
+    current 6.12.0 pin; when PyQt6 6.12.1 wheels land, the bump will run the steps below.
     *Re-check* (this entry and TD-040 replace #532 as the tracker). Triggers: every change of
     the Qt pair's version in `pyproject.toml`, and every change of QTBUG-151940 (the owner
     reported it from their account, which watches it; a "Need More Info" there is answered from
@@ -7865,7 +7869,10 @@ the view's axis, because that is what Qt compares. The slider moves the width of
 gets Qt's half-resolution blur in full whatever the amount, which is capped at its 1080p value (more
 shows the three taps as copies). At 40 % the whole garden lay inside the band and the owner saw no
 difference between a high and a low blur (manual test); a 4K photo is sharper than its preview (ADR-072,
-consequences). Grades come through
+consequences). There is no depth of field without a focused point, so the first blur above 0 focuses what
+the camera looks at (a click moves it), and while the blur is drawn the Ultra preset's screen-space
+reflections stand down: reflections, blur and glow in one chain killed the render thread in `d3d11.dll`
+(PF-E3D-21). Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's
 life, and re-chosen when the look's adjustments change.
 

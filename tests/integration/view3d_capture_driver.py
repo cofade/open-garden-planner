@@ -83,7 +83,7 @@ def difference(first: Any, second: Any) -> dict[str, float]:
             "max": int(delta.max())}
 
 
-def shown_host(out: Path) -> tuple[Any, Any]:
+def shown_host(out: Path, preset: str = "medium") -> tuple[Any, Any]:
     """The plan on a shown host of its own, with its forged plants and a sky."""
     from open_garden_planner.core import ProjectManager
     from open_garden_planner.core.phenology import evaluate_phenology_for_records
@@ -115,7 +115,7 @@ def shown_host(out: Path) -> tuple[Any, Any]:
     worker.submit_snapshot(records.values(), plan_date=DAY, latitude_deg=52.52)
     worker.drain()
     worker.shutdown()
-    look = look_for(sun, "medium")
+    look = look_for(sun, preset)
     host.set_look(look)
     if not host.is_software_adapter():
         host.set_sky(look.sky)
@@ -255,6 +255,40 @@ def scenario_grades(out: Path) -> dict[str, Any]:
         result["grades"] = rows
         result["after"] = difference(view, rgb(host.capture(size, label="after")))
         return result
+    finally:
+        host.close()
+        pump(100)
+
+
+def scenario_ultra_blur(out: Path) -> dict[str, Any]:
+    """The Ultra preset draws screen-space reflections, a high-quality glow and ambient occlusion.
+    With depth of field in the same effect chain Qt's render thread crashed in d3d11.dll
+    (OMSetRenderTargets on a released view) at the first focus click of an owner's manual test
+    of #390. The picture is blurred in the shown window and in a capture, over and over, and
+    the blur is really there."""
+    from open_garden_planner.core.scene3d.photo import PhotoSettings
+
+    host, _sync = shown_host(out, "ultra")
+    try:
+        host.wait_ready(5.0)
+        ratio = host.device_pixel_ratio()
+        size = (round(VIEW[0] * ratio), round(VIEW[1] * ratio))
+        sharp = rgb(host.capture(size, label="sharp"))
+        focus = HERO[1]   # what the hero camera looks at
+        rows: dict[str, Any] = {}
+        for blur in (0.3, 1.0, 0.0, 1.0):
+            host.set_photo(PhotoSettings(blur=blur, focus_scene=focus))
+            pump(400)   # the shown window's own render thread draws with the effect chain
+            live = rgb(host._view.grabWindow())
+            made = rgb(host.capture(size, label=f"blur {blur}"))
+            rows[str(blur)] = {"capture_vs_sharp": difference(sharp, made),
+                               "live_vs_sharp": difference(sharp[: live.shape[0], : live.shape[1]], live)
+                               if live.shape == sharp.shape else None,
+                               "blur_drawn": bool(host._root.property("depthOfFieldActive"))}
+        host.set_photo(PhotoSettings())
+        pump(300)
+        return {"rows": rows, "after": difference(sharp, rgb(host.capture(size, label="after"))),
+                "reflections_back": bool(host._root.property("reflections"))}
     finally:
         host.close()
         pump(100)
@@ -631,7 +665,7 @@ SCENARIOS: dict[str, Callable[[Path], dict[str, Any]]] = {
     "host": scenario_host, "grades": scenario_grades, "tour": scenario_tour,
     "detail": scenario_detail,
     "timelapse": scenario_timelapse, "agent": scenario_agent, "soak": scenario_soak,
-    "daysoak": scenario_daysoak,
+    "daysoak": scenario_daysoak, "ultra_blur": scenario_ultra_blur,
 }
 
 

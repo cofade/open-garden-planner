@@ -300,3 +300,22 @@ the frames count, the size and the duration were all right. Nobody compares a pr
 colour picker. `QMediaRecorder.errorOccurred` carries an enum PyQt6 cannot connect: use
 `errorChanged` and read `error()`. A `QVideoFrame` can be mapped only while the player holds it.
 
+### PF-E3D-21
+
+- **Rule:** Screen-space reflections, depth of field and glow never share one effect chain: with all three on, Qt 6.12's render thread dies in `d3d11.dll` (`OMSetRenderTargets` on a released view, a read at address 0x16d) at the first frame that draws the blur, and nothing reaches stderr or `app.log`. `Garden.qml` turns reflections off while `photoBlur > 0` (`depthOfFieldActive`). Only Ultra has reflections, so only Ultra crashed; and a probe that isolates the profile runs on the default quality, so it never saw it.
+- **Pinned by:** `tests/integration/test_directors_cut_render.py::test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down`
+- **Source:** #390 manual test, two crashes at the same address (v1.36.x exe, `view3d/quality = ultra`); ADR-072.
+- **Status:** standing
+- **Legacy:** none (new entry).
+
+This is a workaround: the cause inside Qt is open, and the pin is a render-tier test (without the gate the
+driver process dies and writes no result file).
+
+Both minidumps put the fault at `d3d11.dll+0x158c32`, `CContext::OMSetRenderTargets+0x2e2`. The name came
+from Microsoft's public `d3d11.pdb` (GUID and age from the DLL's CodeView record, downloaded to a local
+folder) and `dbghelp.dll` through `ctypes`: no debugger is needed. On Ultra, with photo mode on, a
+click that sets the focus died at once (3 of 3); with photo mode off, 20 clicks on a raised bed were
+fine. Taking away reflections or glow let it survive; taking away occlusion, MSAA or the shadow
+quality did not. With the same slider, "no blur visible" was a second, separate cause: there is no
+depth of field without a focused point, so the slider did nothing before the first click (the first
+blur now focuses what the camera looks at).

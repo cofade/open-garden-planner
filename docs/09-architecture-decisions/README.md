@@ -3838,7 +3838,7 @@ versions):
 | Colour-property linearisation (`qssgutils.cpp`) | polynomial | unchanged (byte-identical source) | none |
 | `sampleProbe.glsllib` (`qt_sampleDiffuse` / `qt_sampleGlossy`, used by `water.frag`) | — | unchanged (byte-identical) | none |
 | `QSGRendererInterface.GraphicsApi` member names | `OpenGL`, `Direct3D11Rhi`, … | identical | none |
-| QTBUG-151940 (#532, TD-040) | leaks | the committed reproducer still leaks on the 6.12.0 wheels: 16 → 96 textures over 10 cycles, 8 a cycle (WARP, frames presented); the report is *In Review*, no fix version (2026-11-03) | the versions named move; nothing else |
+| QTBUG-151940 (#532, TD-040) | closed upstream (dev `fd941509f`; 6.12 backport 786236 pending) | the committed reproducer still leaks on the 6.12.0 wheels: 16 → 96 textures over 10 cycles, 8 a cycle (WARP, frames presented); upstream closed on merge in `dev` (Gerrit 785272), backport to `6.12` pending (Gerrit 786236, +2/+1) (2026-11-04) | the versions named move; nothing else |
 
 **The atmosphere sky — the decision.** A second **sky model** (`SkySpec.model`, setting
 `view3d/sky_model`, Preferences → 3D View → **Sky**: *Painted* / *Atmosphere with clouds*). The
@@ -10540,4 +10540,11 @@ view on any steady path.
   as copies. The slider moves the width of the sharp band, not the amount (owner's manual test: with a
   band of 40 % a high and a low blur gave one picture). A picture-relative blur needs a custom depth
   of field `Effect` (follow-up).
+- **Screen-space reflections stand down while the blur is drawn.** On Ultra, reflections + depth of
+  field + glow in one effect chain took Qt's render thread down in `d3d11.dll` at the owner's first
+  focus click (two crashes, one address; PF-E3D-21), and it showed on the owner's `quality = ultra`
+  only. Ultra's photos have no reflections; Low to High never had any. Finding the Qt-side cause, to
+  give them back, is a follow-up.
+- **The blur needs a focused point, so the first blur sets one.** The slider used to do nothing before
+  the first click on the view (owner's manual test: "no difference between a high and a low blur").
 - No `FILE_VERSION` change; nothing new in the `.ogp`.

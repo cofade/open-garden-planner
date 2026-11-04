@@ -127,6 +127,20 @@ def test_a_grades_table_is_the_view_through_it_and_turns_nothing_red(tmp_path: P
     assert result["after"]["max"] <= SAME, "and the view comes back"
 
 
+def test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down(tmp_path: Path) -> None:
+    """Ultra's reflections + glow + occlusion with depth of field in one chain crashed d3d11.dll
+    at an owner's first focus click (#390's manual test): no result file, a dead process."""
+    result = drive(tmp_path, "ultra_blur")
+    rows = result["rows"]
+    for blur in ("0.3", "1.0"):
+        assert rows[blur]["blur_drawn"], blur
+        assert rows[blur]["capture_vs_sharp"]["mean"] > 0.05, f"blur {blur} changed nothing: {rows[blur]}"
+    assert rows["1.0"]["capture_vs_sharp"]["mean"] > rows["0.3"]["capture_vs_sharp"]["mean"]
+    assert not rows["0.0"]["blur_drawn"]
+    assert rows["0.0"]["capture_vs_sharp"]["max"] <= SAME, "no blur is the sharp view again"
+    assert result["after"]["max"] <= SAME and result["reflections_back"]
+
+
 def test_a_tour_writes_every_frame_and_leaves_the_view_where_it_was(tmp_path: Path) -> None:
     from PyQt6 import QtMultimedia  # noqa: F401 - the tier needs the module to read a video back
 

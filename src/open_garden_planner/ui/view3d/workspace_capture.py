@@ -306,6 +306,11 @@ class WorkspaceCaptureCoordinator(QObject):
         if not on:
             self._settings = replace(self._settings, focus_scene=None)
             self._say_focus()
+        if on:
+            focused = self._with_a_focus(self._settings)
+            if focused is not self._settings:   # the blur kept from last time has a point again
+                self._settings = focused
+                self._say_focus()
         self._apply(self._settings if on else NO_PHOTO)
         self.photo_mode_changed.emit(on)
 
@@ -329,12 +334,25 @@ class WorkspaceCaptureCoordinator(QObject):
         if self._exposure is None or self._vignette is None or self._blur is None:
             return
         grade = self._grade_combo.currentData() if self._grade_combo is not None else NO_GRADE
-        self.set_settings(replace(
+        settings = replace(
             self._settings,
             exposure_ev=self._exposure.value() / _EV_STEPS_PER_STOP,
             vignette=self._vignette.value() / _SLIDER_STEPS,
             blur=self._blur.value() / _SLIDER_STEPS,
-            grade=str(grade or NO_GRADE)))
+            grade=str(grade or NO_GRADE))
+        focused = self._with_a_focus(settings) if self._photo_on else settings
+        self.set_settings(focused)
+        if focused is not settings:
+            self._say_focus()
+
+    def _with_a_focus(self, settings: PhotoSettings) -> PhotoSettings:
+        """``settings``, with the point the camera looks at in focus if there is blur and no
+        point. There is no depth of field without a focused point (``core/scene3d/photo.py``),
+        so the blur slider did nothing until the view was clicked (manual test of #390); a
+        click on the view moves the focus from here."""
+        if settings.blur > 0.0 and settings.focus_scene is None:
+            return replace(settings, focus_scene=_point(self._get_camera_now()[1]))
+        return settings
 
     def _say_focus(self) -> None:
         label = self._focus_label

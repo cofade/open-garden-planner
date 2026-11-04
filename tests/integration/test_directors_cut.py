@@ -166,6 +166,34 @@ def test_the_sliders_and_the_combo_are_the_settings(rig: Rig) -> None:
     assert host.photos[-1] == PhotoSettings(exposure_ev=1.5, vignette=0.5, grade="film")
 
 
+def test_the_blur_slider_works_before_any_click_by_focusing_what_the_camera_looks_at(rig: Rig) -> None:
+    """Manual test of #390: the slider did nothing until the view was clicked, because there is
+    no depth of field without a focused point. The first blur now brings the camera's target."""
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    capture.set_photo_mode(True)
+    assert capture.settings.focus_scene is None, "no blur, nothing to focus"
+    target = tuple(float(v) for v in rig.workspace._camera_now()[1])
+    capture._blur.setValue(60)
+    shown = host.photos[-1]
+    assert shown.blur == 0.6 and shown.focus_scene == target and shown.depth_of_field
+    assert "m" in capture._focus_label.text() and "Click" not in capture._focus_label.text()
+    capture.set_settings(PhotoSettings(blur=0.6, focus_scene=(1.0, 2.0, 3.0)))
+    capture._blur.setValue(80)
+    assert host.photos[-1].focus_scene == (1.0, 2.0, 3.0), "a focus that was chosen stays"
+
+
+def test_photo_mode_back_on_focuses_the_blur_it_kept(rig: Rig) -> None:
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    capture.set_photo_mode(True)
+    capture._blur.setValue(70)
+    capture.set_photo_mode(False)
+    assert capture.settings.focus_scene is None and capture.settings.blur == 0.7
+    capture.set_photo_mode(True)
+    assert host.photos[-1].depth_of_field, "the slider still says 70 and the picture must too"
+
+
 def test_in_photo_mode_a_click_sets_the_focus_and_selects_nothing(rig: Rig, qtbot: Any) -> None:
     """A click is the camera's while photo mode is on: the canvas's selection stays."""
     bed = rig.bed(100.0, 100.0)

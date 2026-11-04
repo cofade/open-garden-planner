@@ -202,3 +202,4 @@
 | Case study: the pin drag that had no undo, twice (#674, final review of PR #713) | [Read](199-case-study-the-pin-drag-that-had-no-undo-twice-674.md) |
 | Case study: leaves that turned red under a neutral grade (#390) | [Read](200-case-study-leaves-that-turned-red-under-a-neutral-grade-390.md) |
 | Case study: opening a plan crashed because the date had moved (#390) | [Read](201-case-study-opening-a-plan-crashed-because-the-date-had-moved-390.md) |
+| Case study: a crash only the owner's settings could reach (#390) | [Read](202-case-study-a-crash-only-the-owners-settings-could-reach-390.md) |

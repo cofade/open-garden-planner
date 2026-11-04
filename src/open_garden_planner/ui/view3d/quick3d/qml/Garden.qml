@@ -167,6 +167,10 @@ Item {
     property real photoFocusRange: 100.0    // cm that stay sharp around it
     property real photoBlur: 0.0            // Qt's depthOfFieldBlurAmount; 0 is off
     property bool photoGraded: false        // a colour grade is on (showPhotoGrade)
+    // The blur is drawn (it is never in the truth view). Screen-space reflections stand down
+    // while it is: SSR + depth of field + glow in one effect chain crashed Qt's render thread
+    // in d3d11.dll (OMSetRenderTargets on a released view) on the Ultra preset
+    readonly property bool depthOfFieldActive: !root.topDown && root.photoBlur > 0
 
     // A grade's table: ONE Texture per grade, with its data object, for the host's life
     // (Quick3DHost holds both). A Texture is never pointed at a second data object: that
@@ -1020,7 +1024,7 @@ Item {
             specularAAEnabled: !root.topDown && root.antialiasing === "fxaa"
             // SSGI renders a black frame on Mesa llvmpipe: no preset turns it on
             ssgiEnabled: false
-            ssrEnabled: !root.topDown && root.reflections
+            ssrEnabled: !root.topDown && root.reflections && !root.depthOfFieldActive
             // No sharpening ever - 0.08 overshot every thin lit/dark edge to near-black,
             // red-less pixels (1,500-3,100 isolated dark pixels per daytime frame at
             // 1280x720); 0.03 is nearly as bad. The render tier bounds the speckles.
@@ -1042,7 +1046,7 @@ Item {
             vignetteStrength: 15
             vignetteRadius: root.photoVignette
             lutEnabled: !root.topDown && root.photoGraded
-            depthOfFieldEnabled: !root.topDown && root.photoBlur > 0
+            depthOfFieldEnabled: root.depthOfFieldActive
             depthOfFieldFocusDistance: root.photoFocusDistance
             depthOfFieldFocusRange: root.photoFocusRange
             depthOfFieldBlurAmount: root.photoBlur
