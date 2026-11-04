@@ -895,6 +895,19 @@ class CanvasView(QGraphicsView):
                 return None
         return None
 
+    def _finish_pin_drag(self) -> None:
+        """Close a pin gesture and commit its one undo step, if it is open.
+
+        Release normally arrives, but a release outside the viewport is not
+        delivered to this widget. The next press closes a stale gesture so a
+        later move cannot drag the previous pin.
+        """
+        if self._pin_drag_item is None:
+            return
+        self._pin_drag_item = None
+        self._pin_drag_offset = QPointF()
+        self._finalize_drag_move()
+
     def _begin_pin_interaction(
         self, pin: QGraphicsItem, scene_pos: QPointF, event: QMouseEvent
     ) -> None:
@@ -2471,6 +2484,9 @@ class CanvasView(QGraphicsView):
         # Grab keyboard focus so Delete/arrow keys work
         self.setFocus()
 
+        # A release outside the viewport never reaches us; close that gesture.
+        self._finish_pin_drag()
+
         # ── Guide line handling ─────────────────────────────────────────────
         if self._guides_visible and event.button() == Qt.MouseButton.LeftButton:
             vp_pos = event.position()
@@ -2952,9 +2968,7 @@ class CanvasView(QGraphicsView):
         """Handle mouse release to stop panning and finish tool operations."""
         # A pin drag has no Qt grabber; its release is the one undo step.
         if self._pin_drag_item is not None:
-            self._pin_drag_item = None
-            self._pin_drag_offset = QPointF()
-            self._finalize_drag_move()
+            self._finish_pin_drag()
             event.accept()
             return
 
