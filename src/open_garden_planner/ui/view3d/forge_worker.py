@@ -335,7 +335,7 @@ class ForgeWorker:
             self.submit_record(record, lod=self._force_lod)
 
     def fly_path(self, eyes: Sequence[tuple[float, float, float]] | None) -> None:
-        """A recording is about to fly past ``eyes`` (L6, ADR-071): each plant takes the finest
+        """A recording is about to fly past ``eyes`` (L6, ADR-072): each plant takes the finest
         detail any of them asks for and keeps it, so that a frame shows what the view would from
         there and no plant changes its leaves in mid-flight. ``None``: the camera decides again."""
         self._path_eyes = np.asarray(eyes, dtype=np.float64) if eyes else None

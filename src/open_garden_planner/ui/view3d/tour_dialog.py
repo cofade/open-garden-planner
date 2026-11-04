@@ -1,4 +1,4 @@
-"""The "Camera Tour" dialog of the 3D workspace (Phase 17 L6.2, #390, ADR-071).
+"""The "Camera Tour" dialog of the 3D workspace (Phase 17 L6.2, #390, ADR-072).
 
 Not modal while the tour is being set up: the user orbits the view behind it and adds the
 view as a key. While a recording runs it IS modal, because the recording drives the sim

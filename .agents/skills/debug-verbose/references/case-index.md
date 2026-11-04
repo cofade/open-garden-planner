@@ -193,5 +193,12 @@
 | Case study: a cloudy evening that brightened (#391) | [Read](190-case-study-a-cloudy-evening-that-brightened-391.md) |
 | Case study: a sky that vanished after the first sun change (#391) | [Read](191-case-study-a-sky-that-vanished-after-the-first-sun-change-391.md) |
 | Case study: a crash with no trace under the new sky (#391) | [Read](192-case-study-a-crash-with-no-trace-under-the-new-sky-391.md) |
-| Case study: leaves that turned red under a neutral grade (#390) | [Read](193-case-study-leaves-that-turned-red-under-a-neutral-grade-390.md) |
-| Case study: opening a plan crashed because the date had moved (#390) | [Read](194-case-study-opening-a-plan-crashed-because-the-date-had-moved-390.md) |
+| Case study: a nested group survived its parent's ungroup (#674) | [Read](193-case-study-a-nested-group-survived-its-parents-ungroup-674.md) |
+| Case study: a converted house that painted a flat roof (#690, manual test 2.1) | [Read](194-case-study-a-converted-house-that-painted-a-flat-roof-690.md) |
+| Case study: a ridge that vanished on copy and hid behind its group (#690, manual test 2.6/2.7) | [Read](195-case-study-a-ridge-that-vanished-on-copy-and-hid-behind-its-group-690.md) |
+| Case study: a group that moved its wrapper but not its members (#690, manual test 2.7) | [Read](196-case-study-a-group-that-moved-its-wrapper-but-not-its-members-690.md) |
+| Case study: a journal pin Qt could not hit (#674, manual test 4 / #728) | [Read](197-case-study-a-journal-pin-qt-could-not-hit-674.md) |
+| Case study: the minimap that deselected the pin it was drawing around (#674, manual test 4) | [Read](198-case-study-the-minimap-that-deselected-the-pin-it-was-drawing-around-674.md) |
+| Case study: the pin drag that had no undo, twice (#674, final review of PR #713) | [Read](199-case-study-the-pin-drag-that-had-no-undo-twice-674.md) |
+| Case study: leaves that turned red under a neutral grade (#390) | [Read](200-case-study-leaves-that-turned-red-under-a-neutral-grade-390.md) |
+| Case study: opening a plan crashed because the date had moved (#390) | [Read](201-case-study-opening-a-plan-crashed-because-the-date-had-moved-390.md) |

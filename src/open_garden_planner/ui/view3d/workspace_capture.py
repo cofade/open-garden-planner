@@ -1,5 +1,5 @@
 """Director's cut of the 3D workspace: photo mode, camera tours, pictures for an agent
-(Phase 17 L6, #390, ADR-071).
+(Phase 17 L6, #390, ADR-072).
 
 All three take their pictures the same way — ``Quick3DHost.capture``, the scene's second
 View3D — so a photo, a frame of a video and an agent's picture cannot disagree, and none of

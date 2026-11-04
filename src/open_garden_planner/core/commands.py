@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext, suppress
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from PyQt6.QtCore import QCoreApplication, QObject, QPointF, pyqtSignal
@@ -807,6 +807,29 @@ class DeleteItemsCommand(Command):
         self._scene = scene
         self._items = list(items)  # Copy the list
 
+        # Deleting a derived ROOF_RIDGE directly must clear its owner's link in
+        # the same step (and restore it on undo), or the house claims a ridge
+        # that is no longer in the plan (round-8 review P2).
+        from open_garden_planner.core.object_types import ObjectType
+
+        self._ridge_owners: list[tuple[Any, str]] = []
+        finder = getattr(scene, "find_item_by_id", None)
+        for candidate in self._items:
+            if getattr(candidate, "object_type", None) is not ObjectType.ROOF_RIDGE:
+                continue
+            meta = getattr(candidate, "metadata", None)
+            owner_id = meta.get("owner_polygon_id") if isinstance(meta, dict) else None
+            if not owner_id or not callable(finder):
+                continue
+            try:
+                owner = finder(UUID(str(owner_id)))
+            except (TypeError, ValueError):
+                continue
+            owner_meta = getattr(owner, "metadata", None) if owner is not None else None
+            link = owner_meta.get("ridge_item_id") if isinstance(owner_meta, dict) else None
+            if link and str(link) == str(getattr(candidate, "item_id", "")):
+                self._ridge_owners.append((cast(Any, owner), str(link)))
+
         # Snapshot parent-child relationships for undo restoration.
         # bed UUID → list of child UUIDs (including plant-parent children inside groups)
         self._bed_children: dict[UUID, list[UUID]] = {}
@@ -882,6 +905,9 @@ class DeleteItemsCommand(Command):
                         child.parent_bed_id = None
             item._child_item_ids.clear()
 
+        for owner, _link in self._ridge_owners:
+            if isinstance(getattr(owner, "metadata", None), dict):
+                owner.metadata.pop("ridge_item_id", None)
         for item in self._items:
             if item.scene() is not None:
                 self._scene.removeItem(item)
@@ -896,6 +922,9 @@ class DeleteItemsCommand(Command):
             for item in self._items:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        for owner, link in self._ridge_owners:
+            if isinstance(getattr(owner, "metadata", None), dict):
+                owner.set_metadata("ridge_item_id", link)
         # Restore parent-child relationships from snapshot
         all_restored = list(self._items) + iter_plant_parents(self._items)
         seen_restored: set[UUID] = set()
@@ -1263,6 +1292,189 @@ class ChangePropertyCommand(Command):
             self._apply_func(self._item, self._old_value)
         elif hasattr(self._item, self._property_name):
             setattr(self._item, self._property_name, self._old_value)
+
+
+def _capture_and_remove_constraints(
+    scene: QGraphicsScene | None,
+    item: QGraphicsItem | None,
+    cache: list[Command],
+) -> None:
+    """Remove a derived item's constraints and remember the exact commands.
+
+    A ROOF_RIDGE is constrainable like any polyline. When another command
+    removes it (type change, trim) or the agent deletes it, leaving its graph
+    anchors behind writes a dead UUID into the plan. On a redo the captured
+    commands are re-executed; undo restores them in reverse.
+    """
+    if cache:
+        for command in cache:
+            command.execute()
+        return
+    graph = getattr(scene, "constraint_graph", None)
+    if graph is None or item is None:
+        return
+    item_id = getattr(item, "item_id", None)
+    if item_id is None:
+        return
+    for constraint in graph.get_item_constraints(item_id):
+        cache.append(RemoveConstraintCommand(graph, constraint))
+    for command in cache:
+        command.execute()
+
+
+def _restore_constraints(commands: list[Command]) -> None:
+    for command in reversed(commands):
+        command.undo()
+
+
+class ChangeObjectTypeCommand(Command):
+    """Change an item's type/style and keep a HOUSE's roof ridge in step (#690).
+
+    A HOUSE's ``ROOF_RIDGE`` is derived geometry (ADR-046): the polygon tool
+    creates it on draw, and this command creates it when a shape *becomes* a
+    HOUSE (a rectangle converted from the Properties panel or Change Type), so
+    the canvas shows the same ridge either way. Converting away from HOUSE takes
+    the ridge with it, and both halves are one undo step with the type change.
+
+    The ridge is built once, on the first execute that needs one, and re-added
+    on redo — never rebuilt — so its UUID and the metadata links on both sides
+    stay stable through undo/redo.
+    """
+
+    def __init__(
+        self,
+        scene: QGraphicsScene | None,
+        item: QGraphicsItem,
+        old_state: dict[str, Any],
+        new_state: dict[str, Any],
+        apply_func: Callable[[Any, Any], None],
+    ) -> None:
+        # ``None`` is a unit-test item with no scene: the type change still
+        # applies, and a ridge keeps the item's metadata links but has nowhere
+        # to be shown until the item joins a scene.
+        self._scene = scene
+        self._item = item
+        self._old_state = dict(old_state)
+        self._new_state = dict(new_state)
+        self._apply_func = apply_func
+        self._created_ridge: QGraphicsItem | None = None
+        self._removed_ridge: QGraphicsItem | None = None
+        # Constraints anchored to a removed ridge are part of this undo step.
+        self._ridge_constraints: list[Command] = []
+        # The item's link BEFORE the command ran. Qt-level scene membership
+        # alone is not enough: a save/3D read follows the metadata key, so undo
+        # must restore the link itself (review P0 of this package).
+        metadata = getattr(item, "metadata", None)
+        self._old_ridge_id = (
+            metadata.get("ridge_item_id") if isinstance(metadata, dict) else None
+        )
+
+    @property
+    def description(self) -> str:
+        return QCoreApplication.translate("Commands", "Change type")
+
+    def _new_is_house(self) -> bool:
+        from open_garden_planner.core.object_types import ObjectType
+
+        return bool(
+            getattr(self._item, "object_type", None) == ObjectType.HOUSE
+        )
+
+    def _link(self, ridge: QGraphicsItem | None) -> None:
+        """Name (or unname) the linked ridge on the item — both directions."""
+        if not isinstance(getattr(self._item, "metadata", None), dict):
+            return
+        if ridge is None:
+            self._item.metadata.pop("ridge_item_id", None)  # type: ignore[attr-defined]
+            return
+        self._item.set_metadata("ridge_item_id", str(ridge.item_id))  # type: ignore[attr-defined]
+        ridge.set_metadata("owner_polygon_id", str(self._item.item_id))  # type: ignore[attr-defined]
+
+    def _restore_old_link(self) -> None:
+        """Restore the exact pre-command ``ridge_item_id`` (or its absence).
+
+        A legacy non-HOUSE shape can still name a ridge (the old type-change
+        command removed neither the item nor the key). Undo must keep that
+        one-sided link exactly as it found it; clearing it leaves the ridge
+        visible but unowned and redo then builds a second one (round-7 review P2).
+        """
+        if self._old_ridge_id and isinstance(
+            getattr(self._item, "metadata", None), dict
+        ):
+            self._item.set_metadata("ridge_item_id", str(self._old_ridge_id))  # type: ignore[attr-defined]
+            return
+        self._link(None)
+
+    def execute(self) -> None:
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            build_linked_ridge,
+            linked_ridge,
+        )
+
+        scene = self._item.scene() or self._scene
+        was_house = self._new_is_house()
+        self._apply_func(self._item, self._new_state)
+        if self._new_is_house():
+            ridge = linked_ridge(self._item) or self._created_ridge
+            if ridge is None:
+                self._created_ridge = build_linked_ridge(
+                    self._item, getattr(self._item, "layer_id", None)
+                )
+                ridge = self._created_ridge
+            if ridge is not None:
+                self._link(ridge)
+                if ridge.scene() is None and scene is not None:
+                    scene.addItem(ridge)
+            return
+        if was_house:
+            ridge = linked_ridge(self._item) or self._created_ridge or self._removed_ridge
+            # Clear the link even when the named ridge is gone: a dangling id
+            # would keep the scene treating this item as a ridge owner (PF-PER-25).
+            self._link(None)
+            if ridge is not None:
+                self._removed_ridge = ridge
+                if ridge.scene() is not None:
+                    scene = ridge.scene()
+                    if scene is not None:
+                        _capture_and_remove_constraints(
+                            scene, ridge, self._ridge_constraints
+                        )
+                        scene.removeItem(ridge)
+        else:
+            # A shape that was never a HOUSE must not keep a stale link (a
+            # leftover key makes the scene treat it as a ridge owner).
+            self._link(None)
+
+    def undo(self) -> None:
+        from open_garden_planner.core.object_types import ObjectType
+
+        scene = self._item.scene() or self._scene
+        old_is_house = self._old_state.get("object_type") == ObjectType.HOUSE
+        self._apply_func(self._item, self._old_state)
+        if not old_is_house:
+            if self._created_ridge is not None and self._created_ridge.scene() is not None:
+                created_scene = self._created_ridge.scene()
+                if created_scene is not None:
+                    created_scene.removeItem(self._created_ridge)
+            self._restore_old_link()
+            return
+        if self._removed_ridge is not None:
+            # The pre-command HOUSE owned a ridge and execute removed it.
+            if self._removed_ridge.scene() is None and scene is not None:
+                scene.addItem(self._removed_ridge)
+            self._link(self._removed_ridge)
+            _restore_constraints(self._ridge_constraints)
+            return
+        if self._created_ridge is not None:
+            # The pre-command HOUSE had NO ridge; execute created one because a
+            # same-type Change Type (or the multi-selection variant) still ran.
+            # Undo must remove it again or the scene gains geometry the user
+            # did not have before (round-6 review P2).
+            created_scene = self._created_ridge.scene()
+            if created_scene is not None:
+                created_scene.removeItem(self._created_ridge)
+        # A HOUSE whose link predates this command: restore exactly that key.
+        self._restore_old_link()
 
 
 class ChangeSmartSymbolParamCommand(Command):
@@ -2429,10 +2641,21 @@ class MirrorItemsCommand(Command):
         self._mirrored = list(mirrored)
         self._copy = copy
         self._membership: BedMembershipChange | None = None
+        # A copied HOUSE gets a FRESH ridge, built on first execute and re-added
+        # on redo; Move mode re-derives the source's ridge instead (same UUID).
+        self._copy_ridges: list[QGraphicsItem] = []
+        self._copy_ridges_built = False
         if copy:
             from open_garden_planner.ui.guild_copy import remap_mirror_membership
 
             remap_mirror_membership(scene, self._originals, self._mirrored)
+            # A copy has a fresh UUID, so the inherited ``ridge_item_id`` names
+            # the SOURCE's ridge. Strip it AFTER the membership remap, which
+            # rewrites copied metadata from the source (round-5 review of #690).
+            for item in self._mirrored:
+                metadata = getattr(item, "metadata", None)
+                if isinstance(metadata, dict):
+                    metadata.pop("ridge_item_id", None)
 
     @property
     def description(self) -> str:
@@ -2468,10 +2691,48 @@ class MirrorItemsCommand(Command):
             for item in self._mirrored:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        if self._copy:
+            self._add_copy_ridges()
+        else:
+            # Move mode reuses the source id, so the existing ridge legitimately
+            # belongs to the reflected shape; re-derive it on the new outline.
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                update_linked_ridge,
+            )
+
+            for item in self._mirrored:
+                update_linked_ridge(item)
         if self._membership is not None:
             self._membership.reconcile()
 
+    def _add_copy_ridges(self) -> None:
+        """Give every mirrored HOUSE its own linked ridge (copy mode).
+
+        The copied item has a fresh UUID, so it cannot keep the source's
+        ``ridge_item_id`` (stripped in ``__init__``). Build one ridge per copied
+        house on first execute; redo re-adds the SAME ridge items, so their
+        UUIDs and the two-sided links stay stable through undo/redo.
+        """
+        from open_garden_planner.core.object_types import ObjectType
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
+
+        if not self._copy_ridges_built:
+            self._copy_ridges_built = True
+            for item in self._mirrored:
+                if getattr(item, "object_type", None) is not ObjectType.HOUSE:
+                    continue
+                ridge = build_linked_ridge(item, getattr(item, "layer_id", None))
+                if ridge is not None:
+                    self._copy_ridges.append(ridge)
+        with _bulk_add_scope(self._scene):
+            for ridge in self._copy_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
+
     def undo(self) -> None:
+        for ridge in self._copy_ridges:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
         for item in self._mirrored:
             _detach_from_parent(self._scene, item)
             if item.scene() is self._scene:
@@ -2481,6 +2742,12 @@ class MirrorItemsCommand(Command):
                 for item in self._originals:
                     if item.scene() is None:
                         self._scene.addItem(item)
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                update_linked_ridge,
+            )
+
+            for item in self._originals:
+                update_linked_ridge(item)
         if self._membership is not None:
             self._membership.restore()
 
@@ -2636,6 +2903,14 @@ class GroupCommand(Command):
             item.setSelected(False)
             self._group.addToGroup(item)  # type: ignore[attr-defined]
         self._group.setSelected(True)
+        # A member HOUSE's ridge is a top-level sibling, not a Qt child. The
+        # normalizer maps an owner inside a group to the GROUP, so one refresh
+        # after grouping lifts the ridge above the group's fill; without it the
+        # ridge keeps its pre-group z (above the house, below the new group) and
+        # only its ends show (manual test 2.7).
+        refresh_all = getattr(self._scene, "_update_items_z_order", None)
+        if callable(refresh_all):
+            refresh_all()
 
     def undo(self) -> None:
         if self._group is None:
@@ -2665,12 +2940,18 @@ class UngroupCommand(Command):
         self._scene = scene
         self._group = group
         self._items: list[QGraphicsItem] = list(group.childItems())
+        # The group may have been moved since its members were drawn; undo
+        # gives each member back its own layer (see execute).
+        self._member_layers = {
+            item: getattr(item, "layer_id", None) for item in self._items
+        }
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Ungroup")
 
     def execute(self) -> None:
+        group_layer = getattr(self._group, "layer_id", None)
         for item in self._items:
             self._group.removeFromGroup(item)  # type: ignore[attr-defined]
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
@@ -2678,8 +2959,13 @@ class UngroupCommand(Command):
             item.setSelected(True)
             # Top-level again (issue #338); keeps its pre-group stack_order
             # rank so execute() is the exact inverse of undo() -- see the
-            # matching note in GroupCommand.undo above.
+            # matching note in GroupCommand.undo above. The group's layer is
+            # the one the user saw, so a member drawn on another layer joins
+            # it instead of snapping back (PF-PER-27).
+            if group_layer is not None and hasattr(item, "layer_id"):
+                item.layer_id = group_layer
         self._scene.removeItem(self._group)
+        self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
             refresh_all()
@@ -2690,7 +2976,13 @@ class UngroupCommand(Command):
         for item in self._items:
             item.setSelected(False)
             self._group.addToGroup(item)  # type: ignore[attr-defined]
+            if hasattr(item, "layer_id"):
+                item.layer_id = self._member_layers[item]
         self._group.setSelected(True)
+        self._scene._update_items_visibility()  # type: ignore[attr-defined]
+        refresh_all = getattr(self._scene, "_update_items_z_order", None)
+        if callable(refresh_all):
+            refresh_all()
 
 
 class BooleanShapeCommand(Command):
@@ -2805,18 +3097,49 @@ class MoveToLayerCommand(Command):
                 (used in the undo description only; not looked up at undo time).
         """
         # Snapshot (item, original_layer_id, original_stack_order) at
-        # construction — before any move.
-        self._moves: list[tuple[QGraphicsItem, UUID | None, int | None]] = [
-            (item, item.layer_id, getattr(item, "stack_order", None))
+        # construction - before any move.
+        moves: list[tuple[QGraphicsItem, UUID | None, int | None]] = [
+            (item, getattr(item, "layer_id", None), getattr(item, "stack_order", None))
             for item in items
         ]
+        # The description names what the user selected, not the derived ridge
+        # appended below (otherwise moving one house reads "Move 2 items").
+        self._user_move_count = len(moves)
+        # A linked ROOF_RIDGE is a sibling, not a child: without this it stays
+        # on the house's old layer and can be hidden with it (review P2 of #690).
+        # The tree walk covers a nested HOUSE when a caller passes the group.
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            linked_ridges_under,
+        )
+
+        known = {id(item) for item, _, _ in moves}
+        # A group is ONE layered unit for the user. Its members keep the layer
+        # they were drawn on in old plans, so move the whole Qt subtree with
+        # the group as well: hiding either layer and ungrouping then agree
+        # with what was on screen (manual test 2.7 of PR #713).
+        from open_garden_planner.ui.canvas.items.group_item import selection_tree
+
+        members: list[tuple[QGraphicsItem, UUID | None]] = []
+        for item, _layer, _rank in list(moves):
+            for child in selection_tree([item])[1:]:
+                if id(child) not in known and hasattr(child, "layer_id"):
+                    members.append((child, child.layer_id))
+                    known.add(id(child))
+        for item, _layer, _rank in list(moves):
+            for ridge in linked_ridges_under(item):
+                if id(ridge) not in known:
+                    moves.append((ridge, getattr(ridge, "layer_id", None),
+                                  getattr(ridge, "stack_order", None)))
+                    known.add(id(ridge))
+        self._moves = moves
+        self._members = members
         self._target_layer_id = target_layer_id
         self._scene = scene
         self._target_layer_name = target_layer_name
 
     @property
     def description(self) -> str:
-        n = len(self._moves)
+        n = self._user_move_count
         return QCoreApplication.translate(
             "Commands", "Move {count} item(s) to layer '{name}'"
         ).format(count=n, name=self._target_layer_name)
@@ -2862,18 +3185,23 @@ class MoveToLayerCommand(Command):
             not_in_scene = [item for item in changing if id(item) not in in_scene_ids]
             bottom_to_top = in_scene_order + not_in_scene
             for k, item in enumerate(bottom_to_top, start=1):
-                item.layer_id = self._target_layer_id
+                cast(Any, item).layer_id = self._target_layer_id
                 if hasattr(item, "stack_order"):
                     item.stack_order = max_rank + STACK_STEP * k
+        for item, old_layer_id in self._members:
+            if old_layer_id != self._target_layer_id:
+                cast(Any, item).layer_id = self._target_layer_id
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 
     def undo(self) -> None:
         """Restore each item to its original layer and rank; refresh scene visuals."""
         for item, old_layer_id, old_stack_order in self._moves:
-            item.layer_id = old_layer_id
+            cast(Any, item).layer_id = old_layer_id
             if hasattr(item, "stack_order"):
                 item.stack_order = old_stack_order
+        for item, old_layer_id in self._members:
+            cast(Any, item).layer_id = old_layer_id
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 
@@ -3285,6 +3613,8 @@ class TrimPolygonCommand(Command):
         scene: QGraphicsScene,
         original_polygon: QGraphicsItem,
         result_polyline: QGraphicsItem,
+        *,
+        linked_ridge: QGraphicsItem | None = None,
     ) -> None:
         """Initialize.
 
@@ -3292,10 +3622,15 @@ class TrimPolygonCommand(Command):
             scene: The canvas scene.
             original_polygon: The polygon being trimmed (currently in scene).
             result_polyline: Open polyline wrapping the remaining perimeter.
+            linked_ridge: A HOUSE's derived roof ridge, which stops existing
+                when the closed house becomes an open fence. Removed and
+                restored in this same undo step.
         """
         self._scene = scene
         self._polygon = original_polygon
         self._polyline = result_polyline
+        self._linked_ridge = linked_ridge
+        self._ridge_constraints: list[Command] = []
 
     @property
     def description(self) -> str:
@@ -3304,6 +3639,11 @@ class TrimPolygonCommand(Command):
     def execute(self) -> None:
         if self._polygon.scene() is not None:
             self._scene.removeItem(self._polygon)
+        if self._linked_ridge is not None and self._linked_ridge.scene() is not None:
+            _capture_and_remove_constraints(
+                self._scene, self._linked_ridge, self._ridge_constraints
+            )
+            self._scene.removeItem(self._linked_ridge)
         if self._polyline.scene() is None:
             self._scene.addItem(self._polyline)
 
@@ -3312,6 +3652,9 @@ class TrimPolygonCommand(Command):
             self._scene.removeItem(self._polyline)
         if self._polygon.scene() is None:
             self._scene.addItem(self._polygon)
+        if self._linked_ridge is not None and self._linked_ridge.scene() is None:
+            self._scene.addItem(self._linked_ridge)
+            _restore_constraints(self._ridge_constraints)
 
 
 class TrimRectangleCommand(TrimPolygonCommand):
@@ -3395,8 +3738,12 @@ class _CornerReplacementCommand(Command):
         from open_garden_planner.ui.canvas.items.rectangle_item import (
             RectangleItem,
         )
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
 
         self._rectangle = isinstance(original_item, RectangleItem)
+        # A rounded/bevelled corner changes a polygon's outline, so a HOUSE's
+        # derived ridge must follow the replacement — including on redo.
+        self._linked_ridge = linked_ridge(original_item)
         graph = getattr(scene, "constraint_graph", None)
         item_id = getattr(original_item, "item_id", None)
         self._graph = graph
@@ -3412,6 +3759,12 @@ class _CornerReplacementCommand(Command):
             self._scene.removeItem(self._original)
         if self._new.scene() is None:
             self._scene.addItem(self._new)
+        if self._linked_ridge is not None:
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                update_linked_ridge,
+            )
+
+            update_linked_ridge(self._new)
         if self._graph is not None and self._topology is not None:
             self._graph.apply_corner_edit(
                 self._item_id,
@@ -3425,6 +3778,12 @@ class _CornerReplacementCommand(Command):
             self._scene.removeItem(self._new)
         if self._original.scene() is None:
             self._scene.addItem(self._original)
+        if self._linked_ridge is not None:
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                update_linked_ridge,
+            )
+
+            update_linked_ridge(self._original)
         if self._graph is not None and self._topology is not None:
             self._graph.restore_topology_state(self._topology)
 
@@ -4021,11 +4380,21 @@ class DeleteJournalNoteCommand(Command):
         project_manager: "Any",
         scene: QGraphicsScene,
         pin_item: "Any",   # JournalPinItem
+        *,
+        remove_pin: bool = True,
     ) -> None:
+        """Initialize.
+
+        ``remove_pin=False`` is for a batch delete of a group: the group's own
+        ``DeleteItemsCommand`` removes the nested pin, and this command prunes
+        only the note. Removing it here as well would make undo restore it at
+        the top level instead of inside the group.
+        """
         self._pm = project_manager
         self._scene = scene
         self._pin = pin_item
         self._note_id = pin_item.note_id
+        self._remove_pin = remove_pin
         existing = self._pm.garden_journal_notes.get(self._note_id)
         self._old_dict: dict[str, Any] | None = (
             dict(existing) if existing is not None else None
@@ -4037,13 +4406,13 @@ class DeleteJournalNoteCommand(Command):
 
     def execute(self) -> None:
         self._pm.delete_journal_note(self._note_id)
-        if self._pin.scene() is not None:
+        if self._remove_pin and self._pin.scene() is not None:
             self._scene.removeItem(self._pin)
 
     def undo(self) -> None:
         if self._old_dict is not None:
             self._pm.restore_journal_note(self._note_id, self._old_dict)
-        if self._pin.scene() is None:
+        if self._remove_pin and self._pin.scene() is None:
             self._scene.addItem(self._pin)
 
 

@@ -103,7 +103,7 @@ def test_inside_the_package_only_the_engine_modules_import_it() -> None:
 
 
 def test_only_the_video_writer_imports_qt_multimedia() -> None:
-    """L6.2 (ADR-071): one module, imported when a tour is first saved. Its FFmpeg is 20 MB
+    """L6.2 (ADR-072): one module, imported when a tour is first saved. Its FFmpeg is 20 MB
     of DLLs, and a second importer would be a second reason to load them at start."""
     importers = sorted(
         path.relative_to(SRC).as_posix() for path in SRC.rglob("*.py")

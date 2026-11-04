@@ -487,7 +487,7 @@ def no_new_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestTheDirectorsCutBlocks:
-    """L6 (ADR-071): the self-test captures and encodes, because both load lazily (#277)."""
+    """L6 (ADR-072): the self-test captures and encodes, because both load lazily (#277)."""
 
     def test_a_capture_that_differs_from_the_view_fails(self, monkeypatch: pytest.MonkeyPatch,
                                                         tmp_path) -> None:

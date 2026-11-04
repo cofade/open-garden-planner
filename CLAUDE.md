@@ -289,6 +289,13 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   (in-place Model reuse) and #598 (sparse seasonal index) were built and WITHDRAWN:
   both render tiers draw a replaced geometry as nothing while still picking it. #475
   (raster lane, padded tiles) and #534 (wind memory) are open.
+- 2D drawing-tools package (#674, #665, #690) shipped in v1.36.2 (PR #713) after
+  owner manual acceptance: Group/Ungroup on every item's context menu with one-step multi-group
+  ungroup (FR-EDIT-22), per-object fill angle/scale/offset as additive appearance
+  metadata with roof-frame composition (FR-EDIT-23, ADR-071), and a HOUSE ridge created
+  by a type change in the same undo step (FR-EDIT-24, ADR-046 addendum). #664 (split
+  along line) and #688 (smart-symbol texture stretch) were deliberately left for a
+  follow-up slice.
 - Download-stats current-release basis & tooltip fix (#677, ADR-067 addendum):
   `calendar_series` resolves `current_release` per snapshot (`"version": 2`,
   `"basis": "current_release"`), `_summary_row` notes `new release or asset` only
@@ -316,7 +323,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   as a LINE that casts no 2D shadow. Follow-ups: #687, #689, #698, #700, #702–#710. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
-- L6 (#390, closes epic #383; ADR-071) is the Director's cut: every picture beside a shown view
+- L6 (#390, closes epic #383; ADR-072) is the Director's cut: every picture beside a shown view
   comes through `Quick3DHost.capture`, a second `View3D` of the same scene (0 levels from the view,
   nothing moves; PF-E3D-18), called only from `workspace_capture.py`: photo mode (`core/scene3d/photo.py`,
   grades carry the look's adjustments, PF-E3D-19), camera tours (`core/camera_path.py`,
@@ -324,7 +331,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   PF-E3D-20) and the read-only `render_3d_view`, which refuses at once instead of timing out. The
   Beauty Board's plan ships as the `family-garden` example. A plant's rect follows
   `CanvasScene.drawn_plan_date`, announced before it moves: on v1.36.0 a new date crashed the next plan
-  opened (PF-CAN-36).
+  opened (PF-CAN-43).
 - L7 (#391, ADR-048 addendum L7) shipped in v1.36.0 (PR #721): Qt pins 6.12.0, WebEngine 6.140 moves
   with them (PF-CI-17), the 6.12 pick honours cull mode (PF-E3D-13), the OS reduce-motion
   is honoured, and an opt-in atmosphere `SkyMaterial` sky (default stays painted) whose
@@ -336,6 +343,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   #718 (flood soak, red on master too), #692 (board exit crash), #723 (intermittent tests),
   #724 (plan-my-week date). `scripts/probe_sky_crash.py` soaks the sky; a clean run says nothing
   about the crash while the cube stays off, and PF-E3D-17 says how to ask a new Qt.
+- Russian localization (#492, FR-I18N-09) shipped in v1.36.1 (PR #495): full Russian
+  translation (2,951 keys, 0 missing, 0 vanished), collision-free menu accelerators
+  across menubar and nested submenus, NSIS installer support, and translated example catalog metadata.
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
   Subscribe to its signals. Every rect resize uses `geometry_apply.py`; every
   Arrange surface uses `build_arrange_command`; scene teardown uses

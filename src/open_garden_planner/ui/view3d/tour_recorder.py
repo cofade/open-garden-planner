@@ -1,4 +1,4 @@
-"""A tour rendered frame by frame, on the event loop (L6.2, #390, ADR-071).
+"""A tour rendered frame by frame, on the event loop (L6.2, #390, ADR-072).
 
 One frame per pass, and control goes back to the event loop in between: the window stays
 alive, the Cancel button works and the pipeline gets the turns it needs. A frame:

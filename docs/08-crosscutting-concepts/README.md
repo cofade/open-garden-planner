@@ -40,7 +40,7 @@ class MoveObjectCommand(Command):
 ## 8.3 Internationalization (i18n)
 
 Qt Linguist remains the runtime format (ADR-008). English is the source language;
-English, German, and Spanish are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
+English, German, Spanish, and Russian are currently shipped. Registration in `SUPPORTED_LANGUAGES` makes
 the full source inventory mandatory for that locale. New UI keys require translations
 in every registered target locale in the same PR. The required `Test` CI check enforces
 this through `scripts/check_translations.py` and the normal pytest suite (#496).
@@ -143,7 +143,8 @@ No box-shadow, no transitions, no outline focus rings — focus is a 2 px border
 ### Textures (`resources/textures/`, ADR-042 / #309)
 - **Generated, never hand-edited**: all 24 fill-pattern textures (grass, gravel, concrete, wood, water, soil, mulch, roof tiles, sand, stone, glass, hedge, brick, bark, wildflower, terracotta, pebbles, slate, lattice, compost, flagstone, clay, decking, corten) are emitted by `scripts/generate_asset_forge_textures.py` in the "Lush" texture language; committed PNGs must be pixel-identical to regeneration (`--check` + `tests/unit/test_texture_forge_conformance.py`). See §8.24.
 - 256×256 px RGB, **1 px = 1 cm** on the canvas (no LOD variants — Qt scales the brush); strictly top-down, no directional light; seamless by construction on a torus, gated by `scripts/check_texture_tileability.py` for every file
-- Loaded as `QPixmap` by `core/fill_patterns.py`, recoloured to the user's fill colour by a luminance map (`_tint_texture`: every pixel becomes the chosen colour scaled by the texture's relative luminance, so the colour reads and the detail survives — #502) and applied via `QBrush` texture pattern; the tint-readability band is gated
+- Loaded as `QPixmap` by `core/fill_patterns.py`, recoloured to the user's fill colour by a luminance map (`_tint_texture`: every pixel becomes the chosen colour scaled by the texture's relative luminance, so the colour reads and the detail survives - #502) and applied via `QBrush` texture pattern; the tint-readability band is gated
+- A filled object may **turn, scale and shift its own texture** without touching its geometry: `FillTransform` (`core/fill_patterns.py`) is an additive per-object `fill_transform` block applied as a brush transform (ADR-071, FR-EDIT-23). The identity is never saved; roof tiles compose the transform inside the canonical ridge frame. `core/item_look.fill_brush` / `restore_stored_look` / `_LOOK_ATTRIBUTES` are the one copy/restore path for it
 - Provenance: `resources/textures/PROVENANCE.md` (generator = provenance, one register row per file)
 
 ### Object SVGs (`resources/objects/`, ADR-042 / #308)
@@ -3132,7 +3133,7 @@ bed/plant `ObjectType` name sets, drift-guarded by `tests/unit/test_agent_api_ma
   The one exception is `outside_canvas` (#380): it is not a badge flag but is
   computed on every call from each item's live `sceneBoundingRect()`.
 
-**3D vision tool (L6.3, #390, ADR-071).** `render_3d_view(eye_*?, target_*?, fov_deg?,
+**3D vision tool (L6.3, #390, ADR-072).** `render_3d_view(eye_*?, target_*?, fov_deg?,
 image_width_px?, image_height_px?)` returns a PNG of the 3D view plus a `Render3DMeta` block (camera,
 plan date, time, sun, weather, preset, roofs, overlays). Read-only and token-free. It renders
 through `Quick3DHost.capture`, so the owner's camera and date never move, and refuses with a clean
@@ -4716,7 +4717,7 @@ The map's calibration, crop/mosaic math and existing cancellation outcomes are u
 
 The load seam is the second half. `ProjectManager._deserialize_item_core` refuses a polygon above `MAX_POLYGON_VERTICES = 16_384` and skips it with a logged warning (counted for the app's existing skipped-item notice), so a hostile `.ogp` cannot stall the loader or exhaust memory; the rest of the plan loads normally. At this ceiling the degraded outline is ~69 ms, and no legible garden outline comes near it. Both constants live in `ui/canvas/items/polygon_item.py` and are the only place to retune the bound. The measured cost table, the pen-width finding and the rejected alternatives (convex-hull / bounding-box fill, a hairline-but-wide pen, reflex counting, a low load ceiling) are in ADR-057; the regression is pinned by `tests/integration/test_polygon_paint_bound.py`.
 
-An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug (#441); the L1 branch routes chamfer and fillet copies and `PolylineItem.clone_with_points` through the same helper, and gives a trim result its pen through `adopt_pen`, the module's pen writer (§8.29.5).
+An "item made from an item" copies a shape's **look** through one seam that the **offset tool and mirror** share, `core/item_look.py::copy_visual_style`. It copies both the serialized attributes (`fill_pattern`, `fill_color`, `fill_transform`, `stroke_color`, `stroke_width`, `stroke_style`) and the live `QPen`/`QBrush`, because a copy that writes only one of the two looks right until the next save (#470). Chamfer, fillet and trim are the same shape of bug (#441); the L1 branch routes chamfer and fillet copies and `PolylineItem.clone_with_points` through the same helper, and gives a trim result its pen through `adopt_pen`, the module's pen writer (§8.29.5).
 
 ## 8.29 3D scene pipeline (Phase 17 L1, #385, ADR-059)
 
@@ -7842,7 +7843,7 @@ model switches both ways, a top-down round trip, a cloud deck coming and going
 skies (`test_living_garden_render.py`) and the frozen self-test's point 8 (the atmosphere from the
 bundle, clear and cloudy).
 
-### 8.29.15 The director's cut — pictures, photo mode, tours and video (L6, #390, ADR-071)
+### 8.29.15 The director's cut — pictures, photo mode, tours and video (L6, #390, ADR-072)
 
 **One way to a picture.** `Quick3DHost.capture(size, shot=None, wind_time_s=None, photo=None)`
 renders through `captureView`, a second `View3D` of the same scene in `Garden.qml`, and everything
@@ -7886,7 +7887,7 @@ picks from `CODECS`.
 **The agent's picture.** `capture_blocker()` decides without waiting; `agent_picture` renders with
 `photo=NO_PHOTO` and reports what the picture shows. See §8.19.
 
-Known limits: the view must be open for an agent (ADR-071); a tour's keys live in the session;
+Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
 a capture has the view's quality preset; an agent's picture from another camera has the plant
 detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
 colour tag.
@@ -8140,3 +8141,34 @@ The same suite also reads the actual dashed connector item. Its endpoints
 must match the selected scene-space edge midpoints. Index-only matching is
 valid for polygon/polyline edges whose classification changes on vertex edits;
 rectangle/ellipse/circle edge types are unique but share index 0.
+
+## 8.34 Shared item context-menu capabilities (bed, lock, arrange, group)
+
+An item's right-click menu is built by the item, but a capability that must
+appear on every item type lives in ONE shared seam so a new type cannot miss
+it. There are four, all reachable from `GardenItemMixin` (and used directly by
+the item classes that do not inherit it):
+
+| Capability | Builder / dispatcher | Contract |
+|---|---|---|
+| Bed-only actions | `build_bed_context_menu` / `dispatch_bed_action` | §8.14, ADR-017; gated by `is_plant_parent_type` |
+| Lock / unlock position | `build_lock_context_menu` / `dispatch_lock_action` | FIXED constraint, FR-EDIT-17 |
+| Arrange | `_build_arrange_menu` / `_dispatch_arrange` | `build_arrange_command`, ADR-043 |
+| Group / Ungroup | `group_menu.build_group_context_menu` / `GroupMenuActions.dispatch` | FR-EDIT-22 |
+
+**Group/Ungroup matrix.** The entries are decided from `scene.selectedItems()`
+at the moment the menu opens, after normalising the selection: a right-click on
+an unselected item replaces the selection with it. Zero or one non-group object
+offers nothing; 2+ objects offer **Group**; exactly one group offers
+**Ungroup**; groups plus a foreign object, or 2+ groups, offer both. Dispatch
+calls the view's `group_selected` / `ungroup_selected` — the same methods as
+Ctrl+G / Ctrl+Shift+G — so the menu can never offer a row the shortcut would
+refuse. `ungroupable_groups` keeps only TOP-LEVEL groups (`parentItem() is
+None`; Qt reports a group child as selected when its parent is, PF-CAN-36) and
+excludes `SmartSymbolItem`; a multi-group ungroup is one `CompoundCommand` (one
+undo step). Every menu normalises the selection first — through
+`normalize_context_menu_selection`, except the two construction-item menus, which
+already did the same two lines inline. The background image is deliberately NOT
+groupable (a backdrop grouped with ground surfaces re-bands it above them). The
+14-type matrix and the nested one-level rule are pinned by
+`tests/integration/test_group_context_menu.py`.

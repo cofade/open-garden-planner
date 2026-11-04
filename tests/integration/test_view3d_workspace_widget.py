@@ -764,7 +764,7 @@ WORKSPACE_MODULES = ("workspace.py", "sync_controller.py", "orbit_input.py",
 #: takes its before and its after picture (L2.3, ``growth_jump._grab``).
 THE_CLICK = ("orbit_input.py", "_release", "pick")
 THE_JUMP = ("growth_jump.py", "_grab", "grab")
-#: … the director's cut (L6, ADR-071): the "Save Photo" button, a frame of a tour the user
+#: … the director's cut (L6, ADR-072): the "Save Photo" button, a frame of a tour the user
 #: started, an agent's request. Each moves nothing on screen; none is a steady path.
 THE_PICTURES = (("workspace_capture.py", "write_photo", "capture"),
                 ("workspace_capture.py", "_tour_frame", "capture"),

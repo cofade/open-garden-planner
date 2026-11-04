@@ -1765,6 +1765,10 @@ class RectVertexEditMixin:
         self._update_rect_corner_handles()
         if hasattr(self, '_position_label'):
             self._position_label()
+        if hasattr(self, '_update_house_ridge'):
+            # A corner drag changes rect() without moving pos(), so no
+            # itemChange fires; a converted HOUSE's ridge must follow (FR-EDIT-24).
+            self._update_house_ridge()
 
     def _on_corner_move_end(
         self,

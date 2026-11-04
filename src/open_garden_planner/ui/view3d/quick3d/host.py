@@ -1505,7 +1505,7 @@ class Quick3DHost:
         _set(self._root, "windRunning", False)
         _set(self._root, "windTime", 0.0)
 
-    # ── photo mode and the capture view (L6, #390, ADR-071) ──────────────────
+    # ── photo mode and the capture view (L6, #390, ADR-072) ──────────────────
 
     def set_photo(self, settings: PhotoSettings) -> None:
         """How pictures are developed from now on, in the view and in every capture
@@ -1582,7 +1582,7 @@ class Quick3DHost:
         picture takes ``NO_PHOTO``). Legal on a ``LIVE`` host only (``lifecycle.py``); else
         ``HostStateError``. ``EngineError`` when no picture comes back.
 
-        WHY NOTHING JUMPS (ADR-071, measured: the view read back after a capture differs
+        WHY NOTHING JUMPS (ADR-072, measured: the view read back after a capture differs
         in no pixel). Everything below is one synchronous call on the GUI thread, and the
         frame it renders is never presented: ``grabWindow`` renders and reads back on the
         spot, Qt's render thread cannot sync with the GUI thread while this runs, and the

@@ -164,6 +164,47 @@ class TestFilletWorkflow:
         assert len(rects_after) == 1
         assert len(polygons_after) == 0
 
+    def test_filleting_a_house_re_derives_its_ridge(self, canvas: CanvasView) -> None:
+        """A cut corner changes the outline, so the derived ridge must follow.
+
+        The replacement polygon keeps the house's UUID and metadata, but the
+        replacement command had no ridge hook (round-5 review of #690).
+        """
+        from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            build_linked_ridge,
+            linked_ridge,
+            outline_polygon,
+        )
+
+        rect = RectangleItem(100, 100, 300, 200, object_type=ObjectType.HOUSE)
+        canvas.scene().addItem(rect)
+        ridge = build_linked_ridge(rect, rect.layer_id)
+        assert ridge is not None
+        canvas.scene().addItem(ridge)
+        canonical = [QPointF(p) for p in ridge.points]
+        # Make the ridge stale on purpose: the fillet of these corners keeps
+        # the same extents, so only an explicit re-derivation can repair it.
+        ridge._points = [QPointF(0.0, 0.0), QPointF(1.0, 1.0)]
+        ridge._rebuild_path()
+
+        tool = _activate_fillet(canvas, radius_cm=20.0)
+        tool.mouse_press(_left_click_event(), QPointF(100, 100))
+
+        rounded = next(
+            i for i in canvas.scene().items() if isinstance(i, PolygonItem)
+        )
+        assert linked_ridge(rounded) is ridge
+        polygon = outline_polygon(rounded)
+        assert polygon is not None
+        p1, p2 = compute_roof_ridge_endpoints(polygon, QPointF(0.0, 0.0))
+        assert ridge.points[0] == rounded.mapToScene(p1)
+        assert ridge.points[-1] == rounded.mapToScene(p2)
+
+        canvas.command_manager.undo()
+        assert [QPointF(p) for p in ridge.points] == canonical
+        assert linked_ridge(rect) is ridge
+
     def test_a_rounded_bed_round_trips(self, canvas: CanvasView, tmp_path) -> None:
         """The baked corner is part of the polygon, so a save keeps it."""
         from open_garden_planner.core.project import ProjectManager

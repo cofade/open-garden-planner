@@ -1,4 +1,4 @@
-"""Photo mode's settings and colour grades (Phase 17 L6.1, #390, ADR-071). Qt-free.
+"""Photo mode's settings and colour grades (Phase 17 L6.1, #390, ADR-072). Qt-free.
 
 Photo mode is the only place a view of the garden may leave the look the plan's sun
 and weather decide (``ogp-lush-cinematic`` §2: "DOF/vignette only in photo mode"). It

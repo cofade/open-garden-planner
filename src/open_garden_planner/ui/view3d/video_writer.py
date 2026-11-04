@@ -1,7 +1,7 @@
-"""Where a tour's frames go: an MP4 file, a PNG sequence or nowhere (L6.2, #390, ADR-071).
+"""Where a tour's frames go: an MP4 file, a PNG sequence or nowhere (L6.2, #390, ADR-072).
 
 ``Mp4Writer`` is the app's only use of Qt Multimedia, and it imports it when it is first
-asked for: the module costs the app's start nothing. The verified path (ADR-071):
+asked for: the module costs the app's start nothing. The verified path (ADR-072):
 
 - ``QVideoFrameInput`` → ``QMediaCaptureSession`` → ``QMediaRecorder``, inside the pinned
   PyQt6-Qt6 wheel. Its FFmpeg reports ``LGPL version 2.1 or later`` at run time and was

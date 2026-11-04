@@ -439,6 +439,133 @@ and exports as a line. Closed shapes continue to use the area offset.
 
 ### PF-CAN-36
 
+- **Rule:** A `QGraphicsItemGroup`'s child reports `isSelected() == True` while only the group is selected (Qt propagates selection into group children). An operation that acts on "the selection" must filter to the level it is defined at — group/ungroup count only TOP-LEVEL groups (`parentItem() is None`) — or one gesture dissolves nested levels.
+- **Pinned by:** `tests/integration/test_group_context_menu.py::test_nested_groups_ungroup_one_level_at_a_time`; `tests/integration/test_group_context_menu.py::test_two_groups_ungroup_in_one_undo_step`
+- **Source:** #674
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Merging Group/Ungroup into every item's context menu had to combine "dissolve every
+selected group" with the issue's "one nesting level per gesture" rule. The first
+version filtered `scene.selectedItems()` for `GroupItem` and built one
+`UngroupCommand` per hit. A nested test failed: after grouping an inner group and a
+shape into an outer group, the inner group still reported selected (Qt mirrors a
+group's selection state on its children, even though `GroupCommand` had called
+`setSelected(False)` on it), so one click dissolved the outer *and* the inner
+group. The first fix filtered only GroupItem children, not every child, so the
+menu still counted the plain members Qt reports as selected and offered Group on a
+single selected group; a second grouping then emptied the first. Both filters now
+keep only `parentItem() is None` for EVERY item (`groupable_selection` and
+`ungroupable_groups`), and `ungroupable_groups` still excludes a smart symbol. A
+child's `isSelected()` is a fact about its group, not evidence that the user chose
+the child.
+
+### PF-CAN-37
+
+- **Rule:** Two item classes that can represent the same semantic object must render it through ONE shared paint path. Making a rectangle convertible into a HOUSE also obliges its `paint()` to take the ridge-aware tile fill; otherwise the converted house is a flat, wrongly-lapping roof beside a correctly-drawn one.
+- **Pinned by:** `tests/unit/test_roof_tile_orientation.py::test_a_converted_rectangle_paints_the_identical_roof`; `tests/unit/test_roof_tile_orientation.py::test_tiles_lap_away_from_the_ridge`
+- **Source:** #690, PR #713 manual test 2.1 (2026-11-03)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`ChangeObjectTypeCommand` gave a converted rectangle a real `ROOF_RIDGE`, and
+`RectangleItem` followed it on move/resize/rotate — but `RectangleItem.paint()`
+still called `super().paint()`, the plain `QBrush` fill. The 2D roof therefore
+mirrored nothing at the ridge and its tiles lapped toward it, while a
+natively-drawn polygon house mirrored the fill across the ridge and lapped
+away. The 3D records were already identical for the same outline (measured:
+same `ridge` param, slope and z-range), so the only defect was the one missing
+paint branch. The fix extracts the polygon's production painter into
+`ui/canvas/items/roof_paint.paint_roof_with_ridge` and calls it from both
+classes; a converted rectangle and a drawn house now render byte-identically
+over eight orientations.
+
+### PF-CAN-38
+
+- **Rule:** A derived top-level sibling whose owner can be grouped (a HOUSE's `ROOF_RIDGE`) must re-run the stacking derivation when the owner joins or leaves a group; the normalizer resolves the owner inside the group to the GROUP, and only that refresh puts the sibling above the group's fill.
+- **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_grouping_a_house_lifts_its_ridge_above_the_group`; `tests/integration/test_house_roof_ridge.py::test_moving_a_group_to_another_layer_moves_a_nested_houses_ridge`
+- **Source:** #690, PR #713 manual test 2.7 (2026-11-03)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`GroupCommand.execute` added the group (top of its layer) and then moved the
+house into it. The ridge is not a Qt child, so it kept its pre-group z — above
+the house, below the new group — and the group's tile fill covered all but its
+ends. Delete + undo looked correct because those paths already call
+`_update_items_z_order`. Grouping now does too: `_stack_entries` already maps a
+group child's id to the group, so the normalizer puts the ridge immediately
+above it. `UngroupCommand` keeps the mirror-image refresh.
+
+### PF-CAN-39
+
+- **Rule:** Selecting with Shift AND Ctrl must go through the app's own toggle path (`SelectTool._selectable_under` + `setSelected`), not Qt's default press; and a selectable item under the cursor must be found with `QGraphicsScene.items(point)`, never `itemAt` alone — `ItemIgnoresTransformations` items (journal pins) are invisible to `itemAt` under the Y-flipped view.
+- **Pinned by:** `tests/integration/test_group_context_menu.py::test_a_pin_and_a_shape_multi_select_then_group`
+- **Source:** #674, PR #713 manual test 4 (2026-11-03)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+Qt's default Ctrl press replaced the selection, so a selected journal pin was
+cleared by Ctrl+clicking a rectangle; Shift already worked through
+`SelectTool`. Both modifiers now use the same toggle path. The pin itself is
+also invisible to `scene.itemAt(scene_pos, view.transform())` because
+`ItemIgnoresTransformations` is not handled there while the view's m22 is -1;
+the tool's own walk (`scene.items(scene_pos)`) finds it. The canvas-level hit
+test that makes the pin itself selectable and draggable is PF-CAN-40.
+
+### PF-CAN-40
+
+- **Rule:** `QGraphicsScene.itemAt` never returns an `ItemIgnoresTransformations` item (measured on Qt 6.12, with or without the canvas Y flip), so a constant-screen-size item such as a journal pin needs its own hit test. The view must also drive the interaction it owns - select/toggle, drag with one undo step, double-click - because Qt's press path cannot start it.
+- **Pinned by:** `tests/integration/test_garden_journal.py::TestPinPointerInteraction`
+- **Source:** #674, PR #713 manual test 4; #728 (2026-11-04)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The pin was only selectable from the Journal panel. `scene.items(pos)` finds it,
+but `scene.itemAt(pos, transform)` and `QGraphicsView.itemAt` return None even
+with an identity transform, so Qt's press cleared the selection and started a
+rubber band instead of dragging. `CanvasView._journal_pin_at` now performs the
+same walk (stopping at a drag handle or another selectable item above the pin),
+and `_begin_pin_interaction`/`mouseMoveEvent`/`mouseReleaseEvent` select, toggle,
+drag and commit one `MoveItemsCommand`; double-click opens the note. A pin inside
+a group is deliberately not intercepted - the group remains the click target.
+
+### PF-CAN-41
+
+- **Rule:** A thumbnail or export pass that masks overlay items must suppress their PAINT, not their visibility. Qt deselects an item when it is hidden, so `setVisible(False)`/`True` around a periodic render clears the user's selection; `ItemHasNoContents` masks paint without changing visibility, selection or the plan revision.
+- **Pinned by:** `tests/unit/test_minimap_widget.py`; `tests/integration/test_garden_journal.py`
+- **Source:** #674, PR #713 manual test 4 (2026-11-04)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The minimap hid every `ItemIgnoresTransformations` or high-z item to keep
+handles, labels and the journal pin out of its thumbnail, then restored them.
+A journal pin is exactly such an item, so every thumbnail refresh (100 ms
+throttled, and triggered by the drag itself) hid and re-showed it. Qt deselects
+a hidden item; a pin drag therefore lost its grip milliseconds after it began,
+and a group containing a pin lost the propagated selection. `ItemHasNoContents`
+suppresses the paint while the item stays visible and selected. Export Service
+already preserved the selection around its own hide/restore; the minimap now
+does not need to.
+
+### PF-CAN-42
+
+- **Rule:** A bespoke drag path must end through one finalizer on every exit - release, a release lost outside the viewport, and the next press - and a guard that suppresses a move because a `ResizeItemCommand`/`RotateItemCommand` already exists must be scoped to the gesture that created it (compare the undo depth at drag start), never to the stack top.
+- **Pinned by:** `tests/integration/test_garden_journal.py::test_a_lost_release_is_committed_on_the_next_move`; `tests/integration/test_garden_journal.py::test_a_pin_drag_after_a_resize_is_its_own_undo_step`
+- **Source:** #674, final review of PR #713 (2026-11-04)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The journal-pin drag had two exits that bypassed `_finalize_drag_move`: a
+`MouseMove` with no buttons (the release happened outside the viewport) cleared
+the state, and the next left press overwrote the start positions. Separately,
+`_finalize_drag_move` skipped any drag when the stack top was a Resize/Rotate
+command, even when that command came from an earlier gesture - so a pin dragged
+after a resize moved without an undo entry. `_finish_pin_drag()` is now the one
+end path, and `_drag_start_undo_depth` tells the guard whether *this* gesture
+created the command.
+
+### PF-CAN-43
+
 - **Rule:** A rect that depends on anything outside the item (a plant's on the plan date) reads that input through a value changed only AFTER `prepareGeometryChange`. Qt's BSP index takes an item out of the leaves of the rect it has at that call; told after the rect moved, the old leaves keep the pointer, and it dangles once the item is removed and destroyed.
 - **Pinned by:** `tests/integration/test_plan_timeline.py::test_a_new_date_tells_qt_about_a_plants_rect_while_it_is_still_the_old_one`; `tests/integration/test_plan_timeline.py::test_opening_a_plan_after_the_date_moved_does_not_crash`
 - **Source:** #390 (Phase 17 L6), found by the 3D review after a time-lapse; present on v1.36.0.

@@ -4,12 +4,14 @@ Loads tileable PNG textures from resources/textures/ and recolours each one to
 the item's fill colour to create QBrush objects for rendering garden items.
 """
 
+import math
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PyQt6.QtGui import QBrush, QColor, QImage, QPixmap
+from PyQt6.QtGui import QBrush, QColor, QImage, QPixmap, QTransform
 
 # Directory containing texture PNG files
 _TEXTURES_DIR = Path(__file__).parent.parent / "resources" / "textures"
@@ -22,6 +24,110 @@ _tinted_cache: dict[tuple["FillPattern", int], QPixmap] = {}
 
 # Maximum number of tinted texture cache entries before clearing
 _TINTED_CACHE_MAX = 200
+
+
+def _is_finite(value: float) -> bool:
+    """``math.isfinite`` that treats an unrepresentable value as non-finite."""
+    try:
+        return math.isfinite(value)
+    except (OverflowError, TypeError, ValueError):
+        return False
+
+
+@dataclass(frozen=True)
+class FillTransform:
+    """A per-object transform of the fill texture (issue #665).
+
+    The texture normally tiles in the item's own frame at its authored size.
+    These four values move, turn and resize the *pattern* only — geometry,
+    area, snapping and export coordinates are untouched:
+
+    * ``angle_deg`` — clockwise on screen, 0 = as authored. (The canvas frame
+      is Y-flipped, so a clockwise turn is Qt's positive ``QTransform.rotate``.)
+    * ``scale`` — tile-size multiplier, 1.0 = the authored tile.
+    * ``offset_x_cm`` / ``offset_y_cm`` — shift the pattern in the item's own
+      centimetre frame; +X is right and +Y is up, i.e. CAD axes.
+
+    A plain ``FillTransform()`` is the identity and is never serialized, so old
+    plans keep loading with no visible change and the stored file grows only
+    when the user actually edits the pattern.
+    """
+
+    angle_deg: float = 0.0
+    scale: float = 1.0
+    offset_x_cm: float = 0.0
+    offset_y_cm: float = 0.0
+
+    @property
+    def is_identity(self) -> bool:
+        return (
+            self.angle_deg == 0.0
+            and self.scale == 1.0
+            and self.offset_x_cm == 0.0
+            and self.offset_y_cm == 0.0
+        )
+
+    def brush_transform(self) -> QTransform:
+        """The ``QBrush`` transform these values describe.
+
+        Order is translate(offset) · rotate(angle) · scale(scale), so the
+        offset is applied in centimetres in the item frame and is independent
+        of the scale and the angle (acceptance criterion of #665).
+        """
+        transform = QTransform()
+        transform.translate(self.offset_x_cm, self.offset_y_cm)
+        transform.rotate(self.angle_deg)
+        transform.scale(self.scale, self.scale)
+        return transform
+
+    def to_dict(self) -> dict[str, float] | None:
+        """The additive ``fill_transform`` block, or None for the identity."""
+        if self.is_identity:
+            return None
+        values = (self.angle_deg, self.scale, self.offset_x_cm, self.offset_y_cm)
+        if not all(_is_finite(value) for value in values):
+            # json.dump writes NaN happily; a JSON NaN would reopen as an
+            # invalid number. Dropping the whole block is the safe fallback.
+            return None
+        return {
+            "angle_deg": self.angle_deg,
+            "scale": self.scale,
+            "offset_x_cm": self.offset_x_cm,
+            "offset_y_cm": self.offset_y_cm,
+        }
+
+    @classmethod
+    def from_dict(cls, value: object) -> "FillTransform":
+        """Read a stored block leniently — it arrives from an untrusted file.
+
+        A missing or malformed field keeps its default, a non-finite number is
+        ignored, and a scale that is zero or negative falls back to 1.0 (a
+        mirrored/degenerate tile is never what a plan means). Never raises.
+        """
+        if not isinstance(value, dict):
+            return cls()
+
+        def number(key: str, default: float) -> float:
+            raw = value.get(key, default)
+            if isinstance(raw, bool) or not isinstance(raw, int | float):
+                return default
+            try:
+                result = float(raw)
+            except (OverflowError, TypeError, ValueError):
+                # A huge JSON integer (``10**400``) is a valid ``int`` but not
+                # representable as a float; it is malformed for this field.
+                return default
+            return result if math.isfinite(result) else default
+
+        scale = number("scale", 1.0)
+        if scale <= 0.0:
+            scale = 1.0
+        return cls(
+            angle_deg=number("angle_deg", 0.0),
+            scale=scale,
+            offset_x_cm=number("offset_x_cm", 0.0),
+            offset_y_cm=number("offset_y_cm", 0.0),
+        )
 
 
 class FillPattern(Enum):
@@ -181,16 +287,22 @@ def _tint_texture(texture: QPixmap, color: QColor) -> QPixmap:
     )
 
 
-def create_pattern_brush(pattern: FillPattern, color: QColor) -> QBrush:
+def create_pattern_brush(
+    pattern: FillPattern,
+    color: QColor,
+    transform: FillTransform | None = None,
+) -> QBrush:
     """Create a QBrush with the specified pattern and base color.
 
     For non-SOLID patterns, loads a tileable PNG texture from
     resources/textures/ and applies the color as a tint. Results
-    are cached for performance.
+    are cached for performance; ``transform`` (issue #665) is applied to the
+    brush on top of the cached texture and costs no extra pixmap work.
 
     Args:
         pattern: The fill pattern to use
         color: The base color for the pattern
+        transform: Optional per-object pattern angle/scale/offset
 
     Returns:
         A QBrush configured with the pattern
@@ -206,17 +318,20 @@ def create_pattern_brush(pattern: FillPattern, color: QColor) -> QBrush:
 
     # Check tinted cache
     key = (pattern, _color_key(color))
-    if key in _tinted_cache:
-        return QBrush(_tinted_cache[key])
+    tinted = _tinted_cache.get(key)
+    if tinted is None:
+        # Evict cache if too large
+        if len(_tinted_cache) >= _TINTED_CACHE_MAX:
+            _tinted_cache.clear()
 
-    # Evict cache if too large
-    if len(_tinted_cache) >= _TINTED_CACHE_MAX:
-        _tinted_cache.clear()
+        # Create tinted texture
+        tinted = _tint_texture(texture, color)
+        _tinted_cache[key] = tinted
 
-    # Create tinted texture
-    tinted = _tint_texture(texture, color)
-    _tinted_cache[key] = tinted
-    return QBrush(tinted)
+    brush = QBrush(tinted)
+    if transform is not None and not transform.is_identity:
+        brush.setTransform(transform.brush_transform())
+    return brush
 
 
 def clear_texture_cache() -> None:

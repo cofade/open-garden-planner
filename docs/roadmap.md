@@ -132,6 +132,15 @@ Adds full Spanish localization (`es`, "Español") matching the completeness of E
 - Strict gate verification: passes `scripts/check_translations.py` and `tests/integration/test_translation_gate.py` across English, German, and Spanish.
 - Contributor guide: added a dedicated chapter in `CONTRIBUTING.md` ("Contributing translations and adding languages") documenting step-by-step instructions for contributors to update existing translations or add new languages.
 
+### Russian Translation (i18n)
+
+**Implemented 2026-11-04 (#492, PR #495, released as v1.36.1).**
+Adds full Russian localization (`ru`, "Русский") matching English, German, and Spanish:
+- 100% key coverage: all 2,951 live source keys across all contexts translated with zero missing and zero unfinished keys.
+- Menu mnemonics (`&`): zero accelerator collisions across Russian menubar and all nested submenus (`test_menu_mnemonics_are_unique_per_language`).
+- Packaging: NSIS installer updated with `!insertmacro MUI_LANGUAGE "Russian"`.
+- Strict gate verification: passes `scripts/check_translations.py`, `tests/unit/test_i18n.py`, and `tests/integration/test_translation_gate.py` across English, German, Spanish, and Russian.
+
 **i18n blind-spot fixes (2026-10-04).** Three defects invisible to `test_german_ts_has_no_unfinished` are fixed together: **#393** (five duplicate `TRANSLATIONS` keys shadowed 62 strings; the five `PdfReportService` journal-notes strings never reached `de.ts`, so the German PDF printed English), **#408** (generated soil-amendment task titles stayed English; the task **id** keeps the English data name so saved done/snooze status survives a language switch), and **#410** (the agent `suggest_companions` `name` now follows the UI language, matching the Companion panel). The CI lint step is widened to `ruff check src/ tests/ scripts/`, and `tests/unit/test_i18n.py::TestTranslationRegistry` pins `TRANSLATIONS` key uniqueness with an `ast` parse. See §11.4, §8.19, and the ADR-045 addendum.
 
 ---
@@ -1607,6 +1616,10 @@ Icon designs per tool:
 - Groups serialize/deserialize in project files
 - Properties panel shows "Group (N items)" when group is selected
 
+The right-click half of the first and fourth criteria was never implemented until #674
+(FR-EDIT-22): both entries now live on every groupable object's menu, and a multi-group
+ungroup is one undo step.
+
 **Technical Notes**:
 - Use `QGraphicsItemGroup` from Qt or custom group class
 - New item: `src/open_garden_planner/ui/canvas/items/group_item.py`
@@ -2737,7 +2750,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | ✅ | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **✅ shipped v1.34.0 ([PR #613](https://github.com/cofade/open-garden-planner/pull/613)) after owner acceptance (ADR-065, FR-3D-BUILT-01 … 08)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | ✅ | L5 | **Living garden** — year/day playback through the SimClock, moods, weather presets as a look, shader particles (rain, snow, leaves, butterflies, fireflies) on the wind's clock, Today's Weather, Garden Light / String Lights. **✅ shipped v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after owner acceptance (ADR-070, FR-3D-LIVE-01 … 09)** — see below | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
-| ✅ | L6 | **Director's cut** — one capture path through a second `View3D`, photo mode (focus click, exposure, grades, vignette, up to 4K), camera tours (drone orbit, keyframes, time-lapse) saved as MP4 or PNG sequence, `render_3d_view` MCP tool, and the Family garden example. **Awaiting the owner's acceptance on its PR (ADR-071, FR-3D-PHOTO-01 … 03, FR-3D-TOUR-01 … 03, FR-AGENT-31)** — see below | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
+| ✅ | L6 | **Director's cut** — one capture path through a second `View3D`, photo mode (focus click, exposure, grades, vignette, up to 4K), camera tours (drone orbit, keyframes, time-lapse) saved as MP4 or PNG sequence, `render_3d_view` MCP tool, and the Family garden example. **Awaiting the owner's acceptance on its PR (ADR-072, FR-3D-PHOTO-01 … 03, FR-3D-TOUR-01 … 03, FR-AGENT-31)** — see below | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | ✅ | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds. **Shipped in v1.36.0 ([PR #721](https://github.com/cofade/open-garden-planner/pull/721)) after owner acceptance (ADR-048 addendum L7, FR-3D-LOOK-08)** — see below | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
 ### 3D performance and stability (Slice A) — **#452 shipped in v1.34.11 ([PR #676](https://github.com/cofade/open-garden-planner/pull/676)), 2026-11-01**
@@ -2778,14 +2791,14 @@ elease.yml, documented ADR-050 version derivation evaluation addendum, and enfor
 - **#580:** Expanded info card body line budget (BODY_LINES = 8) to keep all fact rows (including harvest window) visible without vertical clipping at the narrowest 455 px split pane width.
 - **#577:** De-scoped for dedicated geometry research; preserved clean ground drape depth occlusion.
 
-### L6 acceptance highlights — Director's cut (#390, ADR-071)
+### L6 acceptance highlights — Director's cut (#390, ADR-072)
 
 | Criterion (#390) | Delivered | Evidence |
 |---|---|---|
 | Photo mode: focus click, exposure, LUT, vignette | `PhotoSettings` through the one environment; the view previews it; all off is the view, 0 levels apart; a click focuses on a point | `test_directors_cut.py`, `test_directors_cut_render.py` |
-| Export up to 4K "through the offscreen path" | up to 4K through a second `View3D` instead: `offscreen.py` refuses beside a shown view. Identical to the view, 54 to 140 ms at 4K on the GPU, flat over 60 pictures | ADR-071 decisions 1 to 4, PF-E3D-18 |
+| Export up to 4K "through the offscreen path" | up to 4K through a second `View3D` instead: `offscreen.py` refuses beside a shown view. Identical to the view, 54 to 140 ms at 4K on the GPU, flat over 60 pictures | ADR-072 decisions 1 to 4, PF-E3D-18 |
 | `core/camera_path.py` (Catmull-Rom), drone orbit, time-lapse tour, PNG sequences | a centripetal spline at constant speed, the orbit from the view's pose, a day or a year on the sim clock, frames computed from their index; the clock is put back | `test_camera_path.py`, `test_directors_cut.py` |
-| Video "once a Qt Multimedia path is verified for size and licence"; the owner: both photo and video in this issue | Verified: inside the pinned wheel, FFmpeg 9.0.1 LGPL 2.1+, about 20 MB; H.264 from the system's encoder, MPEG-4 fallback; BT.709 frames | `test_video_writer.py`, `--selftest`, ADR-071 decisions 8 and 9, PF-E3D-20 |
+| Video "once a Qt Multimedia path is verified for size and licence"; the owner: both photo and video in this issue | Verified: inside the pinned wheel, FFmpeg 9.0.1 LGPL 2.1+, about 20 MB; H.264 from the system's encoder, MPEG-4 fallback; BT.709 frames | `test_video_writer.py`, `--selftest`, ADR-072 decisions 8 and 9, PF-E3D-20 |
 | MCP `render_3d_view`: read-only, a second View3D, camera and date never jump, a clean "warming up" refusal, ADR-034 addendum | as asked; the refusal takes under a millisecond of work | `test_agent_api_render_3d.py`, `test_directors_cut_render.py` |
 | (owner) the Beauty Board's plan as a shipped example | `family-garden`, built by the same builder with the same ids, in English, German and Spanish | `test_example_content.py` |
 
@@ -3999,4 +4012,48 @@ re-encode it.
   2000 x 2000 image, which is the same code path with no CI memory spike.
 - **Docs.** FR-IMG-12/13; §8.7 (error handling) extended; new pitfalls PF-PER-22/23;
   no `.ogp` change and no `FILE_VERSION` bump (the embedded key already existed).
+
+### 2D drawing-tools package (#674, #665, #690) — shipped in v1.36.2 (PR #713)
+
+Three 2D canvas gaps that share the item-appearance and context-menu seams:
+
+- **#674 — Group / Ungroup in every item's right-click menu.** Both directions are decided
+  from the selection at menu-open time and dispatch through the view's `Ctrl+G` /
+  `Ctrl+Shift+G` methods, so the menu can never be stricter than the shortcut. Ungroup
+  dissolves one nesting level and multiple selected groups in **one** undo step
+  (`CompoundCommand`); a smart symbol can be grouped but never ungrouped. Every item type
+  now normalises the selection before building its menu. Pinned by
+  `tests/integration/test_group_context_menu.py` (77 tests over 14 item types, including the
+  just-grouped state, the nested one-level rule, the two-group one-step undo, group delete/undo,
+  the undoable shape-menu Delete and the deliberately non-groupable background). Manual round 2
+  closed the pin half end to end: Ctrl/Shift multi-select keeps a pin, a click on its head selects
+  it, a drag moves it as one undo step, and double-click opens the note (`test_garden_journal.py`).
+  The minimap masks overlay paint with `ItemHasNoContents`, not visibility, so its 100 ms thumbnail
+  refresh no longer deselects a pin or a group containing one (PF-CAN-41).
+  A group is one layered unit: moving it carries its members and derived ridges, and hiding a
+  member's original layer no longer hides the group (ADR-043 addendum, PF-PER-27).
+- **#665 — per-object fill angle / scale / offset.** `core/fill_patterns.FillTransform` is
+  an additive `fill_transform` appearance block (identity is never written; old plans load
+  unchanged, `FILE_VERSION` stays). The Properties panel offers **Pattern Angle / Scale /
+  Offset X, Y** and **Reset Pattern**; Copy appearance, material changes, undo/redo and
+  save/reload preserve the values. A HOUSE's roof tiles compose the transform with the ridge
+  frame (both planes stay mirrored); gravel/dirt paths expose the same controls because their
+  pattern stroke samples the same brush. Pinned by `tests/unit/test_fill_transform.py` and
+  `tests/integration/test_fill_transform.py`, including a rendered clockwise-sign probe and the
+  textured-path panel path.
+- **#690 — converting a shape to HOUSE creates its linked roof ridge.** The Properties
+  panel and **Change Type** now build the same `ROOF_RIDGE` the polygon tool draws, in the
+  same undo step; converting away removes it and its metadata link, and undo restores the
+  original link. Geometry is the canonical `compute_roof_ridge_endpoints`, mapped through the
+  item's transform, through one shared `build_linked_ridge` seam (`PolygonTool`, the agent and
+  the type change all call it); a converted rectangle's ridge follows move/resize/rotate;
+  delete/trim/fillet/layer-move keep the derived-ridge invariant, Mirror Move re-derives it,
+  and Mirror Copy builds a fresh one on the reflected outline. Grouping re-runs the stacking
+  derivation so the ridge stays above the group; moving the group carries it, with its members,
+  to the target layer. Pinned by `tests/integration/test_house_roof_ridge.py` (plus the trim,
+  fillet, mirror, journal and agent-delete suites).
+
+Docs: FR-EDIT-22/23/24, FR-LAYER-07, FR-JOURNAL-01/06, ADR-071 (the display transform), ADR-046
+addendum (type change owns the ridge), ADR-043 addendum (a group is one layered unit),
+PF-CAN-40/41/42 and PF-PER-27.
 

@@ -104,9 +104,16 @@ class ConstructionLineItem(QGraphicsLineItem):
 
         _ = QCoreApplication.translate
         menu = QMenu()
+        from .group_menu import build_group_context_menu
+
+        group_actions = build_group_context_menu(menu, self)
+        if group_actions.offered:
+            menu.addSeparator()
         delete_action = menu.addAction(_("ConstructionLineItem", "Delete Construction Line"))
         action = menu.exec(event.screenPos())
 
+        if group_actions.dispatch(action, self.scene()):
+            return
         if action == delete_action and self.scene():
             self.scene().removeItem(self)
 
@@ -209,9 +216,16 @@ class ConstructionCircleItem(QGraphicsEllipseItem):
 
         _ = QCoreApplication.translate
         menu = QMenu()
+        from .group_menu import build_group_context_menu
+
+        group_actions = build_group_context_menu(menu, self)
+        if group_actions.offered:
+            menu.addSeparator()
         delete_action = menu.addAction(_("ConstructionCircleItem", "Delete Construction Circle"))
         action = menu.exec(event.screenPos())
 
+        if group_actions.dispatch(action, self.scene()):
+            return
         if action == delete_action and self.scene():
             self.scene().removeItem(self)
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+from collections.abc import Callable
 from datetime import date
 from typing import TYPE_CHECKING, Any, cast
 
@@ -224,6 +225,10 @@ class CanvasView(QGraphicsView):
     journal_notes_batch_delete_requested = pyqtSignal(list)
     # US-12.9: emitted when the sidebar requests viewport centering on a pin.
     journal_note_focus_requested = pyqtSignal(str)
+    #: Set by ``GardenPlannerApp``: note ids -> the ProjectData-linked note
+    #: commands. The view wraps them with the item delete in ONE compound so a
+    #: grouped pin's note and pin survive the first undo together.
+    journal_note_command_factory: Callable[[list[str]], list[Any]] | None = None
 
     # Zoom limits
     min_zoom: float = 0.01  # 1% - very zoomed out
@@ -326,6 +331,10 @@ class CanvasView(QGraphicsView):
 
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
+        # Undo depth when the current drag started. A resize/rotate command
+        # already on the stack from an EARLIER gesture must not swallow this
+        # drag's own move (see _finalize_drag_move).
+        self._drag_start_undo_depth = 0
         # Items whose ItemIsMovable this drag took away because they are FIXED
         # (#662), with the flag value to restore.
         self._fixed_drag_flag_restore: dict[QGraphicsItem, bool] = {}
@@ -335,6 +344,11 @@ class CanvasView(QGraphicsView):
         self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
         # Active handle being dragged — used to re-grab if Qt silently drops it
         self._active_drag_handle: QGraphicsItem | None = None
+        # A journal pin being dragged with the Select tool. A pin carries
+        # ItemIgnoresTransformations, which QGraphicsScene.itemAt never hits,
+        # so Qt's own drag machinery cannot pick it up (PF-CAN-40).
+        self._pin_drag_item: QGraphicsItem | None = None
+        self._pin_drag_offset = QPointF()
         # The item a rotation gesture is turning (issue #485). During rotation
         # only THIS item is pinned in the constraint solver; every other item —
         # selected or not — may be moved by a constraint correction.
@@ -848,6 +862,81 @@ class CanvasView(QGraphicsView):
     def request_journal_note_delete(self, note_id: str) -> None:
         """Forward a delete request for an existing pin's note (US-12.9)."""
         self.journal_note_delete_requested.emit(str(note_id))
+
+    def _journal_pin_at(self, scene_pos: QPointF) -> QGraphicsItem | None:
+        """The top-level journal pin under *scene_pos*, or None.
+
+        ``QGraphicsScene.itemAt`` never returns an ``ItemIgnoresTransformations``
+        item (measured on Qt 6.12 - with or without the canvas Y flip), so a pin
+        is invisible to Qt's own press / drag / double-click machinery even
+        though ``scene.items(pos)`` finds it. This walk is the pin's hit test;
+        it stops at a drag handle or another selectable item above the pin, and
+        ignores a pin inside a group (the group is the click target there).
+        """
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
+            JournalPinItem,
+        )
+        from open_garden_planner.ui.canvas.items.resize_handle import (
+            DRAG_HANDLE_TYPES,
+        )
+
+        scene = self.scene()
+        if scene is None:
+            return None
+        selectable = QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+        for candidate in scene.items(scene_pos):
+            if isinstance(candidate, DRAG_HANDLE_TYPES):
+                return None
+            if isinstance(candidate, JournalPinItem):
+                if (
+                    candidate.parentItem() is None
+                    and candidate.isVisible()
+                    and candidate.flags() & selectable
+                ):
+                    return candidate
+                continue
+            if candidate.parentItem() is None and candidate.flags() & selectable:
+                return None
+        return None
+
+    def _finish_pin_drag(self) -> None:
+        """Close a pin gesture and commit its one undo step, if it is open.
+
+        Release normally arrives, but a release outside the viewport is not
+        delivered to this widget. The next press closes a stale gesture so a
+        later move cannot drag the previous pin.
+        """
+        if self._pin_drag_item is None:
+            return
+        self._pin_drag_item = None
+        self._pin_drag_offset = QPointF()
+        self._finalize_drag_move()
+
+    def _begin_pin_interaction(
+        self, pin: QGraphicsItem, scene_pos: QPointF, event: QMouseEvent
+    ) -> None:
+        """Select/toggle *pin* and start its drag, the way QGraphicsView would.
+
+        Shift/Ctrl use the same toggle rule as every other item. A plain press
+        replaces the selection and records the pin for :meth:`mouseMoveEvent`;
+        release commits one ``MoveItemsCommand`` through the normal drag path.
+        """
+        multi = event.modifiers() & (
+            Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier
+        )
+        if multi:
+            pin.setSelected(not pin.isSelected())
+        else:
+            self.scene().clearSelection()
+            pin.setSelected(True)
+            if pin.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
+                self._pin_drag_item = pin
+                self._pin_drag_offset = pin.pos() - scene_pos
+                self._drag_start_positions = {pin: pin.pos()}
+                self._drag_start_undo_depth = self._command_manager.undo_depth
+                self._constraint_propagated_starts.clear()
+        self.refresh_input_anchor()
+        event.accept()
 
     def focus_on_journal_pin(self, note_id: str) -> None:
         """Center the viewport on the pin matching ``note_id`` (US-12.9)."""
@@ -2400,6 +2489,9 @@ class CanvasView(QGraphicsView):
         # Grab keyboard focus so Delete/arrow keys work
         self.setFocus()
 
+        # A release outside the viewport never reaches us; close that gesture.
+        self._finish_pin_drag()
+
         # ── Guide line handling ─────────────────────────────────────────────
         if self._guides_visible and event.button() == Qt.MouseButton.LeftButton:
             vp_pos = event.position()
@@ -2451,8 +2543,21 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
-        # Delegate to active tool
+        # A journal pin's constant-screen glyph cannot be hit by Qt's own
+        # itemAt; give the Select tool the click it needs (PF-CAN-40).
         tool = self._tool_manager.active_tool
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and tool is not None
+            and getattr(tool, "tool_type", None) == ToolType.SELECT
+        ):
+            scene_pos = self.mapToScene(event.position().toPoint())
+            pin = self._journal_pin_at(scene_pos)
+            if pin is not None:
+                self._begin_pin_interaction(pin, scene_pos, event)
+                return
+
+        # Delegate to active tool
         if tool:
             scene_pos = self.mapToScene(event.position().toPoint())
             scene_pos = self._maybe_apply_anchor_snap(tool, scene_pos)
@@ -2503,6 +2608,7 @@ class CanvasView(QGraphicsView):
             self._drag_start_positions = {
                 item: item.pos() for item in self.scene().selectedItems()
             }
+            self._drag_start_undo_depth = self._command_manager.undo_depth
             self._freeze_fixed_drag_items()
 
     def _freeze_fixed_drag_items(self) -> None:
@@ -2569,6 +2675,19 @@ class CanvasView(QGraphicsView):
 
         # Dynamic Input overlay (Package A US-A4): track the cursor.
         self._update_dynamic_overlay(event.position().toPoint())
+
+        # A pin drag runs without Qt's mouse grabber (PF-CAN-40).
+        if self._pin_drag_item is not None:
+            if event.buttons() & Qt.MouseButton.LeftButton:
+                self._pin_drag_item.setPos(scene_pos + self._pin_drag_offset)
+                self.viewport().update()
+                event.accept()
+                return
+            # The release happened outside the viewport; commit the move the
+            # gesture made instead of dropping its undo step.
+            self._finish_pin_drag()
+            event.accept()
+            return
 
         # ── Guide drag ─────────────────────────────────────────────────────
         if self._dragging_guide is not None:
@@ -2856,6 +2975,12 @@ class CanvasView(QGraphicsView):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Handle mouse release to stop panning and finish tool operations."""
+        # A pin drag has no Qt grabber; its release is the one undo step.
+        if self._pin_drag_item is not None:
+            self._finish_pin_drag()
+            event.accept()
+            return
+
         # Capture the rotation state before any path below can clear it (#485):
         # a release that never reaches the handle must still become one undo
         # entry, or a rotation would be left that no Ctrl+Z can reverse.
@@ -2985,6 +3110,19 @@ class CanvasView(QGraphicsView):
                 event.accept()
                 return
 
+        # A pin is invisible to Qt's hit test (PF-CAN-40): open its note here.
+        if event.button() == Qt.MouseButton.LeftButton:
+            tool = self._tool_manager.active_tool
+            if (
+                tool is not None
+                and getattr(tool, "tool_type", None) == ToolType.SELECT
+            ):
+                pin = self._journal_pin_at(scene_pos)
+                if pin is not None:
+                    self.request_journal_note_edit(pin.note_id)
+                    event.accept()
+                    return
+
         tool = self._tool_manager.active_tool
         if tool and tool.mouse_double_click(event, scene_pos):
             self.refresh_input_anchor()
@@ -3089,9 +3227,9 @@ class CanvasView(QGraphicsView):
             and event.modifiers() & Qt.KeyboardModifier.ControlModifier
         ):
             if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
-                self._ungroup_selected()
+                self.ungroup_selected()
             else:
-                self._group_selected()
+                self.group_selected()
             event.accept()
             return
 
@@ -3297,7 +3435,9 @@ class CanvasView(QGraphicsView):
         Also removes any distance constraints involving the deleted items.
         If a bed with children is selected, prompts the user.
         """
-        selected = list(self.scene().selectedItems())
+        from open_garden_planner.ui.canvas.items.group_item import top_level_selection
+
+        selected = top_level_selection(list(self.scene().selectedItems()))
         if not selected:
             return
 
@@ -3358,31 +3498,31 @@ class CanvasView(QGraphicsView):
                 # children on execute and reattaching on undo.
                 pass
 
-        # Expand deletion to include associated roof ridges (metadata-linked, not Qt children)
-        from uuid import UUID as _UUID
-
-        from open_garden_planner.core.object_types import ObjectType
+        # Expand deletion to include associated roof ridges (metadata-linked, not
+        # Qt children). The validated lookup refuses a copied/stale link, so
+        # deleting a mirrored house never deletes its source's ridge.
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            linked_ridges_under,
+        )
 
         _sel_ids = {item.item_id for item in selected if isinstance(item, GardenItemMixin)}
-        for _item in list(selected):
-            if not isinstance(_item, GardenItemMixin):
-                continue
-            if _item.object_type != ObjectType.HOUSE:
-                continue
-            ridge_id_str = _item.metadata.get("ridge_item_id")
-            if ridge_id_str and hasattr(self._canvas_scene, "find_item_by_id"):
-                try:
-                    ridge = self._canvas_scene.find_item_by_id(_UUID(ridge_id_str))
-                except ValueError:
-                    continue
-                if ridge is not None and ridge.item_id not in _sel_ids:
+
+        for _root in list(selected):
+            # A group's HOUSE is a child, not a selected sibling: walk the tree
+            # or deleting the group leaves the ridge behind.
+            for ridge in linked_ridges_under(_root):
+                if ridge.item_id not in _sel_ids:
                     selected.append(ridge)
                     _sel_ids.add(ridge.item_id)
 
-        # Collect constraints to remove for deleted items (garden + construction)
+        # Collect constraints to remove for deleted items (garden + construction).
+        # Walk each selected item's subtree: a group's child can own a constraint
+        # that the top-level selection no longer names (round-7 review P1).
+        from open_garden_planner.ui.canvas.items.group_item import selection_tree
+
         graph = self._canvas_scene.constraint_graph
         constraints_to_remove = []
-        for item in selected:
+        for item in selection_tree(selected):
             if isinstance(
                 item, (GardenItemMixin, ConstructionLineItem, ConstructionCircleItem)
             ):
@@ -3403,17 +3543,39 @@ class CanvasView(QGraphicsView):
             JournalPinItem,
         )
 
-        journal_pin_ids = [
-            i.note_id for i in selected if isinstance(i, JournalPinItem)
+        # A group hides its pins from the top-level selection too: walk the
+        # same tree, or deleting the group removes the pins but keeps their notes.
+        journal_pins = [
+            item
+            for item in selection_tree(selected)
+            if isinstance(item, JournalPinItem)
         ]
+        journal_pin_ids = [pin.note_id for pin in journal_pins]
         regular_items = [i for i in selected if not isinstance(i, JournalPinItem)]
 
-        if journal_pin_ids:
-            self.journal_notes_batch_delete_requested.emit(journal_pin_ids)
-
+        commands: list[Any] = []
         if regular_items:
-            command = DeleteItemsCommand(self.scene(), regular_items)
-            self._command_manager.execute(command)
+            commands.append(DeleteItemsCommand(self.scene(), regular_items))
+
+        # The note commands join the item delete in ONE compound. Emitting a
+        # separate command left a zombie: one undo restored the group and pin
+        # but not the note (round-8 review P1). The app provides the commands
+        # through the factory; a bare view falls back to the signal.
+        note_commands: list[Any] = []
+        if journal_pin_ids:
+            factory = self.journal_note_command_factory
+            if callable(factory):
+                note_commands = list(factory(journal_pin_ids))
+                commands.extend(note_commands)
+            else:
+                self.journal_notes_batch_delete_requested.emit(journal_pin_ids)
+
+        if len(commands) == 1:
+            self._command_manager.execute(commands[0])
+        elif commands:
+            from open_garden_planner.core.commands import CompoundCommand
+
+            self._command_manager.execute(CompoundCommand(commands))
 
     def _move_selected_items(self, event: QKeyEvent) -> None:
         """Move selected items based on arrow key with undo support.
@@ -3431,7 +3593,9 @@ class CanvasView(QGraphicsView):
         ``keyPressEvent`` is even called. Only bare and Shift+arrow ever
         reach this function's ``event.modifiers()`` check below.
         """
-        selected = self.scene().selectedItems()
+        from open_garden_planner.ui.canvas.items.group_item import top_level_selection
+
+        selected = top_level_selection(list(self.scene().selectedItems()))
         if not selected:
             return
 
@@ -3537,7 +3701,10 @@ class CanvasView(QGraphicsView):
             command_is,
         )
 
-        if self._command_manager.can_undo:
+        if (
+            self._command_manager.can_undo
+            and self._command_manager.undo_depth > self._drag_start_undo_depth
+        ):
             last_cmd = self._command_manager._undo_stack[-1]
             if command_is(last_cmd, (ResizeItemCommand, RotateItemCommand)):
                 self._drag_start_positions.clear()
@@ -4330,16 +4497,17 @@ class CanvasView(QGraphicsView):
     # Group / Ungroup
     # ------------------------------------------------------------------
 
-    def _group_selected(self) -> None:
-        """Group all currently selected items (Ctrl+G)."""
-        from open_garden_planner.core.commands import GroupCommand
-        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+    def group_selected(self) -> None:
+        """Group all currently selected items (Ctrl+G and the Group menu entry).
 
-        selected = [
-            item
-            for item in self.scene().selectedItems()
-            if not isinstance(item, GroupItem) or item.parentItem() is None
-        ]
+        The selection filter is ``group_item.groupable_selection`` — the same
+        one every context menu asks — so the shortcut and the menu can never
+        disagree about whether Group is available (issue #674).
+        """
+        from open_garden_planner.core.commands import GroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import groupable_selection
+
+        selected = groupable_selection(list(self.scene().selectedItems()))
         # Need at least 2 items (or 1 group child) — sensible minimum is 2
         if len(selected) < 2:
             self.set_status_message(self.tr("Select 2 or more items to group"))
@@ -4349,26 +4517,37 @@ class CanvasView(QGraphicsView):
         self._command_manager.execute(command)
         self.set_status_message(self.tr("Grouped {n} items").format(n=len(selected)))
 
-    def _ungroup_selected(self) -> None:
-        """Ungroup all selected GroupItems (Ctrl+Shift+G)."""
-        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+    def ungroup_selected(self) -> None:
+        """Ungroup all selected groups in ONE undo step (Ctrl+Shift+G).
 
-        groups = [
-            item for item in self.scene().selectedItems() if isinstance(item, GroupItem)
-        ]
+        Dissolving several selected groups used to push one ``UngroupCommand``
+        per group, so Ctrl+Z restored them one at a time for a single gesture
+        (issue #674). A ``CompoundCommand`` makes the whole gesture one step;
+        a single group still uses the plain command so its undo label and
+        stack entry are unchanged.
+        """
+        from open_garden_planner.core.commands import CompoundCommand, UngroupCommand
+        from open_garden_planner.ui.canvas.items.group_item import ungroupable_groups
+
+        groups = ungroupable_groups(list(self.scene().selectedItems()))
         if not groups:
             self.set_status_message(self.tr("No group selected"))
             return
-        for group in groups:
-            self.ungroup_item(group)
-
-    def ungroup_item(self, group: QGraphicsItem) -> None:
-        """Ungroup a specific GroupItem."""
-        from open_garden_planner.core.commands import UngroupCommand
-
-        command = UngroupCommand(self.scene(), group)
+        commands = [UngroupCommand(self.scene(), group) for group in groups]
+        command = (
+            commands[0]
+            if len(commands) == 1
+            else CompoundCommand(
+                commands,
+                description=self.tr("Ungroup {n} groups").format(n=len(commands)),
+            )
+        )
         self._command_manager.execute(command)
-        self.set_status_message(self.tr("Ungrouped"))
+        self.set_status_message(
+            self.tr("Ungrouped")
+            if len(commands) == 1
+            else self.tr("Ungrouped {n} groups").format(n=len(commands))
+        )
 
     def copy_selected(self) -> None:
         return self._clipboard_operations.copy_selected()

@@ -213,7 +213,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e"
+          "current_sha256": "3fa270624c5ac5a9e3fcf99f331d067bc5ec2c518abc046c8d7e7c894016dacd"
         },
         {
           "path": ".agents/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -253,7 +253,7 @@
         {
           "path": ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "c4036e891d19e48776e7f3c7e4d9b3d3ec23da69ebc8ad7dfad703ca367f8e8d"
+          "current_sha256": "84de7763ee4ba904e830feca872b1160f04952e483a2040843d5e75dedbb3f8e"
         },
         {
           "path": ".agents/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -1058,7 +1058,7 @@
         {
           "path": ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "8e44abc4b98e0654a85e337cb32e82f57cddd2ae51b025cd8a800bd86ef7d46e"
+          "current_sha256": "14b8e0840b7555ab61295aae45ffdab459342eaa33bf9aab807473711cb0ba23"
         },
         {
           "path": ".agents/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -1613,7 +1613,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/041-case-study-qgraphicspolygonitem-shape-is-the-stroke-envelope-not-the-outline-us-12-10.md",
           "sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e",
-          "current_sha256": "4f1309b3e67b335784ad7de100484d54fab5f135c079e5b271d3370c00c58c6e"
+          "current_sha256": "3fa270624c5ac5a9e3fcf99f331d067bc5ec2c518abc046c8d7e7c894016dacd"
         },
         {
           "path": ".claude/skills/debug-verbose/references/042-case-study-early-return-inside-a-paint-branch-silently-bypasses-later-draws-us-12-10-.md",
@@ -1653,7 +1653,7 @@
         {
           "path": ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
           "sha256": "2659c193018d1c66d8998e653cd419e70e20ed7228e3bf5aeb5fdd6f3588fcf8",
-          "current_sha256": "c4036e891d19e48776e7f3c7e4d9b3d3ec23da69ebc8ad7dfad703ca367f8e8d"
+          "current_sha256": "84de7763ee4ba904e830feca872b1160f04952e483a2040843d5e75dedbb3f8e"
         },
         {
           "path": ".claude/skills/debug-verbose/references/050-case-study-tangent-constraint-flips-to-the-opposite-side-of-the-circle-on-drag-pr-mak.md",
@@ -2458,7 +2458,7 @@
         {
           "path": ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
           "sha256": "e465ebd6f8c9ad9470cff566901ec5795418fac90aeac5373e7d72d6034c8944",
-          "current_sha256": "8e44abc4b98e0654a85e337cb32e82f57cddd2ae51b025cd8a800bd86ef7d46e"
+          "current_sha256": "14b8e0840b7555ab61295aae45ffdab459342eaa33bf9aab807473711cb0ba23"
         },
         {
           "path": ".claude/skills/ogp-architecture-contract/references/004-2-module-map-and-dependency-rules.md",
@@ -2916,6 +2916,16 @@
       "fragments": [
         ".agents/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md",
         ".claude/skills/ogp-3d-renderer/references/013-13-the-engine-inside-the-app-the-workspace-l1-3.md"
+      ]
+    },
+    {
+      "pr": 713,
+      "reason": "The journal-pin hit test adds lines to CanvasView; refresh the shifted scale citation (712 -> 734) and soil slot citation (1208 -> 1293) in both libraries. Original migration hashes remain unchanged.",
+      "fragments": [
+        ".agents/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
+        ".claude/skills/ogp-architecture-contract/references/003-1-invariants-the-heart-of-this-skill.md",
+        ".agents/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md",
+        ".claude/skills/debug-verbose/references/049-case-study-soil-mismatch-warning-goes-stale-on-plant-move-reparent-issue-173-fixed-20.md"
       ]
     }
   ]

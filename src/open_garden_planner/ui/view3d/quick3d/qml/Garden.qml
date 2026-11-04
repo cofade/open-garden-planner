@@ -157,7 +157,7 @@ Item {
         cam.lookAt(camTarget)
     }
 
-    // ---- photo mode (Quick3DHost.set_photo; L6.1, #390, ADR-071) ----
+    // ---- photo mode (Quick3DHost.set_photo; L6.1, #390, ADR-072) ----
     // How a picture is DEVELOPED, never what stands in the garden. Python decides the
     // numbers (quick3d/look.py: photo_properties, from core/scene3d/photo.py). The
     // defaults are photo.NO_PHOTO: every effect off, the view itself, pixel for pixel.
@@ -191,7 +191,7 @@ Item {
         return true
     }
 
-    // ---- the capture view (Quick3DHost.capture; L6, #390, ADR-071) ----
+    // ---- the capture view (Quick3DHost.capture; L6, #390, ADR-072) ----
     // Pictures for a file, a video or an agent: a second View3D of the SAME scene, same
     // camera, same environment - so a capture at the view's size IS the view, pixel for
     // pixel, and no Model exists twice. It is not visible while captureWanted is false and

@@ -57,7 +57,7 @@ its own that gives everything back when it closes), never through the shown host
 A click that picks (L1.8) is a user's own action, once — and it is made in
 ``orbit_input.py``, nowhere else. A photo, a tour's frames and an agent's picture (L6)
 are someone's own action too, and they are made in ``workspace_capture.py``, nowhere else:
-through the scene's second View3D, which moves nothing on screen (ADR-071). Pinned by a
+through the scene's second View3D, which moves nothing on screen (ADR-072). Pinned by a
 scan of this package's modules and by a stand-in host that records such calls.
 
 WHAT A DESTROYED MODEL LEAVES BEHIND (ADR-060, measured). Qt Quick 3D keeps

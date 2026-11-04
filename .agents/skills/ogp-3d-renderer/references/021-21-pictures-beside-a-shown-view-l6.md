@@ -1,6 +1,6 @@
 ## 21. Pictures beside a shown view: the capture view (L6, #390)
 
-Concept: docs §8.29.15; decisions and numbers: ADR-071; tests: §8.10.17; lessons: PF-E3D-18,
+Concept: docs §8.29.15; decisions and numbers: ADR-072; tests: §8.10.17; lessons: PF-E3D-18,
 PF-E3D-19, PF-E3D-20. Measured on the dev box (RTX 4070, Direct3D 11; WARP on the same machine),
 2026-11-03, PyQt6 / PyQt6-Qt6 6.12.0:
 

@@ -724,6 +724,16 @@
     "state": "MERGED",
     "title": "build(454): pin the build toolchain and publish the frozen inventory"
   },
+  "492": {
+    "is_pr": false,
+    "state": "CLOSED",
+    "title": "Russian translation proposal (open_garden_planner_ru.ts)"
+  },
+  "495": {
+    "is_pr": true,
+    "state": "MERGED",
+    "title": "feat(i18n): add Russian translation (ru)"
+  },
   "496": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1114,6 +1124,16 @@
     "state": "CLOSED",
     "title": "FIXED items still move transiently during a drag - Qt moves them before the view resets them"
   },
+  "664": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Split a shape along a two-click snapped line"
+  },
+  "665": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Fill patterns: angle, scale and X/Y offset controls"
+  },
   "668": {
     "is_pr": false,
     "state": "CLOSED",
@@ -1133,6 +1153,11 @@
     "is_pr": true,
     "state": "MERGED",
     "title": "fix(#655, #656, #657, #658, #661, #662, #668, #669, #670): CAD-precision and data-integrity package"
+  },
+  "674": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Canvas context menu: add Group, keep Ungroup, and make both follow the selection (incl. nested groups)"
   },
   "675": {
     "is_pr": false,
@@ -1164,10 +1189,20 @@
     "state": "OPEN",
     "title": "L5 living garden polish: overcast contact shade, lamp-pool fades, snow on roofs, dew mist, leaf colour (follow-up of #389)"
   },
+  "688": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fix(smart_symbols): visual texture stretch on rectangular smart symbols with non-square aspect ratios (e.g. compost_bay_3)"
+  },
   "689": {
     "is_pr": false,
     "state": "OPEN",
     "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
+  },
+  "690": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
   },
   "692": {
     "is_pr": false,
@@ -1203,6 +1238,11 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "3D close-up: a string's wire shows its joints and its bulbs read as octagons at walk distance"
+  },
+  "713": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(#674, #665, #690): 2D drawing tools - group menus, pattern transform, house ridge"
   },
   "714": {
     "is_pr": false,
@@ -1253,5 +1293,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
+  },
+  "728": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fix(canvas): a journal pin cannot be selected by clicking it in the Y-flipped canvas"
   }
 }

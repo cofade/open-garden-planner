@@ -92,7 +92,7 @@ THIS SOFTWARE.""",
     },
 }
 
-#: What a wheel carries beyond its own license (ADR-071). Checked at run time on the pinned
+#: What a wheel carries beyond its own license (ADR-072). Checked at run time on the pinned
 #: wheel: ``avcodec_license()`` says "LGPL version 2.1 or later", its configuration has no
 #: ``--enable-gpl``, and Qt logs "Using Qt multimedia with FFmpeg version 9.0.1".
 EMBEDDED_NOTICES: dict[str, str] = {

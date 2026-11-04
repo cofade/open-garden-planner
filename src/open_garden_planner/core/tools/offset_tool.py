@@ -467,8 +467,17 @@ class OffsetTool(BaseTool):
         return False
 
     def _update_target_from_selection(self) -> None:
+        from open_garden_planner.ui.canvas.items.group_item import top_level_selection
+
         scene = self._view.scene()
-        selected = [i for i in scene.selectedItems() if _is_offsettable(i)]
+        # A group's children are reported selected with the group; the group
+        # itself is not offsettable, so never pick a member behind the user's
+        # back (PF-CAN-36).
+        selected = [
+            item
+            for item in top_level_selection(list(scene.selectedItems()))
+            if _is_offsettable(item)
+        ]
         self._target = selected[0] if len(selected) == 1 else None
 
     def _clear_preview(self) -> None:

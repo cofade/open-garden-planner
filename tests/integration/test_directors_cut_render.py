@@ -1,4 +1,4 @@
-"""The director's cut on the real engine (Phase 17 L6, #390, ADR-071) — render tier.
+"""The director's cut on the real engine (Phase 17 L6, #390, ADR-072) — render tier.
 
 Opt-in (``OGP_RENDER3D=1``; it opens windows on the desktop). The default tier pins every
 decision around a picture (``test_directors_cut.py``); here the ENGINE answers what the

@@ -203,6 +203,15 @@ def capture_rect_like_geometry(item: QGraphicsItem) -> dict[str, Any]:
     return geometry
 
 
+def _update_house_ridge_if_any(item: QGraphicsItem) -> None:
+    """Re-derive a HOUSE's ridge after canonical geometry/rotation was applied."""
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.roof_ridge_link import update_linked_ridge
+
+    if getattr(item, "object_type", None) == ObjectType.HOUSE:
+        update_linked_ridge(item)
+
+
 def apply_rect_like_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
     """Apply a canonical geometry dict to a rect-backed item.
 
@@ -246,6 +255,10 @@ def apply_rect_like_geometry(item: QGraphicsItem, geom: dict[str, Any]) -> None:
         item._update_area_label()
     if hasattr(item, "_update_circle_annotations"):
         item._update_circle_annotations()
+    # A rect-backed HOUSE's ridge is derived from this geometry, and a resize
+    # that leaves pos unchanged fires no itemChange — without this, undo/redo
+    # or a panel/agent resize leaves the ridge behind (review P1 of #690).
+    _update_house_ridge_if_any(item)
 
 
 def apply_rotation(item: QGraphicsItem, angle: float) -> None:
@@ -260,6 +273,7 @@ def apply_rotation(item: QGraphicsItem, angle: float) -> None:
     function instead of a closure each.
     """
     item._apply_rotation(angle)  # type: ignore[attr-defined]
+    _update_house_ridge_if_any(item)
 
 
 def register_rotation_command(item: QGraphicsItem, initial_angle: float) -> bool:

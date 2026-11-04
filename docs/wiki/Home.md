@@ -193,6 +193,22 @@ Phase 17 L7 (#391) shipped in
 
 See the [canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#l7-acceptance-highlights--sky-612-391-adr-048-addendum-l7--shipped-v1360-pr-721).
 
+## Drawing tools and Russian localization (v1.36.1-v1.36.2)
+
+Russian localization (#492, FR-I18N-09) shipped in
+[v1.36.1](https://github.com/cofade/open-garden-planner/releases/tag/v1.36.1) via
+[PR #495](https://github.com/cofade/open-garden-planner/pull/495): a complete Russian
+catalog, collision-free menu accelerators, installer support and translated example
+metadata.
+
+The 2D drawing-tools package (#674, #665, #690) shipped in
+[v1.36.2](https://github.com/cofade/open-garden-planner/releases/tag/v1.36.2) via
+[PR #713](https://github.com/cofade/open-garden-planner/pull/713) after owner acceptance:
+**Group / Ungroup** in every groupable object's context menu, per-object **fill pattern
+angle / scale / offset** with roof-frame composition, and a linked **roof ridge** created
+when a shape is converted to HOUSE. See the
+[canonical delivery record](https://github.com/cofade/open-garden-planner/blob/master/docs/roadmap.md#2d-drawing-tools-package-674-665-690--shipped-in-v1362-pr-713).
+
 ## Community
 
 - [Discussions](https://github.com/cofade/open-garden-planner/discussions): public questions and ideas.

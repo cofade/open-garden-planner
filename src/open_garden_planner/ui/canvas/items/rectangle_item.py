@@ -19,9 +19,11 @@ from PyQt6.QtWidgets import (
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
 from open_garden_planner.core.furniture_renderer import is_furniture_type, render_furniture_pixmap
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle, get_style, is_bed_type
+from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge, outline_polygon
 
 from .garden_item import GardenItemMixin
 from .resize_handle import RectVertexEditMixin, ResizeHandlesMixin, RotationHandleMixin
+from .roof_paint import paint_roof_with_ridge
 
 
 def _show_properties_dialog(item: QGraphicsRectItem) -> None:
@@ -77,7 +79,9 @@ def _show_properties_dialog(item: QGraphicsRectItem) -> None:
             # Apply pattern brush and store pattern
             if hasattr(item, 'fill_pattern'):
                 item.fill_pattern = style.fill_pattern
-            brush = create_pattern_brush(style.fill_pattern, style.fill_color)
+            brush = create_pattern_brush(
+                style.fill_pattern, style.fill_color, item.fill_transform
+            )
             item.setBrush(brush)
 
         # Apply custom fill color and pattern (overrides type default)
@@ -88,7 +92,7 @@ def _show_properties_dialog(item: QGraphicsRectItem) -> None:
             item.fill_pattern = fill_pattern
         if hasattr(item, 'fill_color'):
             item.fill_color = fill_color
-        brush = create_pattern_brush(fill_pattern, fill_color)
+        brush = create_pattern_brush(fill_pattern, fill_color, item.fill_transform)
         item.setBrush(brush)
 
         # Apply custom stroke properties (overrides type default)
@@ -195,7 +199,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         # Use stored fill_pattern and color if available, otherwise use style defaults
         pattern = self.fill_pattern if self.fill_pattern is not None else style.fill_pattern
         color = self.fill_color if self.fill_color is not None else style.fill_color
-        brush = create_pattern_brush(pattern, color)
+        brush = create_pattern_brush(pattern, color, self.fill_transform)
         self.setBrush(brush)
 
     def _setup_flags(self) -> None:
@@ -326,8 +330,29 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     self._draw_soil_mismatch_border(painter)
                 return
 
-        # Fall back to standard rectangle painting
-        super().paint(painter, option, widget)
+        # A HOUSE is drawn as its roof seen from above. A ridge-less rectangle
+        # paints a flat fill, but one converted into a HOUSE (#690) owns a
+        # ROOF_RIDGE, and its tiles must lap down-slope on BOTH sides of it —
+        # the same ridge-aware paint the polygon tool's houses have used since
+        # #372. Without this branch the converted house's tiles lapped back up
+        # toward the ridge (manual test of PR #713, 2.1).
+        if self.object_type == ObjectType.HOUSE:
+            ridge = linked_ridge(self)
+            polygon = outline_polygon(self)
+            if ridge is not None and polygon is not None:
+                paint_roof_with_ridge(
+                    painter,
+                    self,
+                    polygon,
+                    ridge,
+                    self.brush(),
+                    self.pen(),
+                    self.fill_transform,
+                )
+            else:
+                super().paint(painter, option, widget)
+        else:
+            super().paint(painter, option, widget)
 
         # Draw square-foot grid overlay inside bed
         if self._grid_enabled and is_bed_type(self.object_type):
@@ -382,17 +407,40 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
                     self.exit_vertex_edit_mode()
                 self.hide_resize_handles()
                 self.hide_rotation_handle()
-        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged and self.is_vertex_edit_mode:
-            self._update_rect_annotations()
+        elif change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            if self.is_vertex_edit_mode:
+                self._update_rect_annotations()
+            self._update_area_label()
+            self._update_house_ridge()
         elif change == QGraphicsItem.GraphicsItemChange.ItemSceneChange and value is None:
             self.remove_rotation_handle()
         elif change in (
-            QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged,
             QGraphicsItem.GraphicsItemChange.ItemTransformHasChanged,
+            QGraphicsItem.GraphicsItemChange.ItemRotationHasChanged,
         ):
             self._update_area_label()
+            self._update_house_ridge()
 
         return super().itemChange(change, value)
+
+    def _update_house_ridge(self) -> None:
+        """Keep a converted HOUSE's linked ridge on the current outline.
+
+        A rectangle can become a HOUSE (``get_valid_types_for_shape``), and the
+        ridge is a separate scene item, so it must follow the host on a move, a
+        rotation and a resize — otherwise the 2D ridge and the 3D roof keep
+        stale geometry (PF-CAN-34; review P1 of #690).
+        """
+        if self.object_type != ObjectType.HOUSE:
+            return
+        from open_garden_planner.ui.canvas.roof_ridge_link import update_linked_ridge
+
+        update_linked_ridge(self)
+
+    def _apply_rotation(self, angle: float) -> None:
+        """Apply rotation and keep a converted HOUSE's ridge in step."""
+        super()._apply_rotation(angle)
+        self._update_house_ridge()
 
     def _compute_area_cm2(self) -> float | None:
         r = self.rect()
@@ -413,6 +461,7 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         self.update_resize_handles()
         self._position_label()
         self._update_area_label()
+        self._update_house_ridge()
 
     def _on_resize_end(
         self,
@@ -527,13 +576,14 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""
-        # Select this item if not already selected
-        if not self.isSelected():
-            self.scene().clearSelection()
-            self.setSelected(True)
+        self.normalize_context_menu_selection()
 
         _ = QCoreApplication.translate
         menu = QMenu()
+
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
 
         # Edit vertices action
         if self.is_vertex_edit_mode:
@@ -626,6 +676,8 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
 
+        if self.dispatch_group_action(action, group_actions):
+            return
         if self.dispatch_lock_action(action, lock_action):
             return
         # Dispatch bed-specific actions via the shared mixin handler.
@@ -652,10 +704,11 @@ class RectangleItem(RectVertexEditMixin, RotationHandleMixin, ResizeHandlesMixin
         elif action == show_area_action:
             self.area_label_visible = not self._area_label_visible
         elif action == delete_action:
-            # Delete this item and any other selected items
-            scene = self.scene()
-            for item in scene.selectedItems():
-                scene.removeItem(item)
+            # Delete the selection through the view: it owns linked ridges,
+            # constraints and journal-note pruning (round-5 review of #690).
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
         elif repeat_actions.dispatch(action, self.scene()):
             return
         elif action is not None and action in (

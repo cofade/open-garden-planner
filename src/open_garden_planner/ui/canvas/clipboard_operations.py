@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication
@@ -20,12 +21,71 @@ _log = logging.getLogger(__name__)
 
 
 def _strip_item_ids(data: dict[str, Any]) -> dict[str, Any]:
-    """Recursively strip item_id from a serialized item dict so deserialization mints new UUIDs."""
+    """Recursively strip item_id from a serialized item dict so deserialization mints new UUIDs.
+
+    The same applies to the derived-sibling links: a copied HOUSE must not name
+    the source's ``ROOF_RIDGE`` (nor may a copied ridge name the source house),
+    or the copy would re-target the original's ridge on the next move and save
+    a foreign id. A fresh ridge is built for the copy after deserialization
+    (``_with_house_ridges``).
+    """
     copy_d = data.copy()
     copy_d.pop("item_id", None)
+    metadata = copy_d.get("metadata")
+    if isinstance(metadata, dict):
+        metadata = dict(metadata)
+        metadata.pop("ridge_item_id", None)
+        metadata.pop("owner_polygon_id", None)
+        if metadata:
+            copy_d["metadata"] = metadata
+        else:
+            copy_d.pop("metadata", None)
     if "children" in copy_d:
-        copy_d["children"] = [_strip_item_ids(child) for child in copy_d["children"]]
+        copy_d["children"] = [
+            _strip_item_ids(child)
+            for child in copy_d["children"]
+            # A ridge nested in a copied group is replaced by the fresh ridge
+            # built for its HOUSE; keeping it would draw two ridge lines.
+            if child.get("object_type") != "ROOF_RIDGE"
+        ]
     return copy_d
+
+
+def _with_house_ridges(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
+    """Give every copied HOUSE its OWN linked ridge, before the create command.
+
+    Copying a plan object means copying what makes it that object. The ridge is
+    a free top-level sibling (ADR-046), so it is appended beside the copies and
+    created in the same ``CreateItemsCommand`` (one undo step). A HOUSE nested
+    in a copied group gets its ridge at the top level too, exactly as drawing
+    one does; ``build_linked_ridge`` maps through the child's parent transform.
+    """
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
+
+    def houses_of(item: QGraphicsItem) -> Iterator[QGraphicsItem]:
+        if getattr(item, "object_type", None) == ObjectType.HOUSE:
+            yield item
+        for child in item.childItems():
+            yield from houses_of(child)
+
+    # A copied ridge whose owner was stripped is an orphan; the fresh ridge
+    # built below replaces it. (Selecting a house and its ridge together used
+    # to paste both, leaving one unowned line behind.)
+    result = [
+        item
+        for item in items
+        if not (
+            getattr(getattr(item, "object_type", None), "name", "") == "ROOF_RIDGE"
+            and not getattr(item, "metadata", {}).get("owner_polygon_id")
+        )
+    ]
+    for item in list(result):
+        for house in houses_of(item):
+            ridge = build_linked_ridge(house, getattr(house, "layer_id", None))
+            if ridge is not None:
+                result.append(ridge)
+    return result
 
 
 def _offset_item_dict(data: dict[str, Any], dx: float, dy: float) -> dict[str, Any]:
@@ -208,7 +268,18 @@ class ClipboardOperations:
             # Use command for undo support
             from open_garden_planner.core import CreateItemsCommand
 
-            command = CreateItemsCommand(cast("CanvasScene", host.scene()), pasted_items, "pasted objects")
+            created = _with_house_ridges(pasted_items)
+            if not created:
+                # A lone ROOF_RIDGE is derived geometry and is dropped with its
+                # owner link; reporting "Pasted 1" and pushing an empty command
+                # would both lie and add a no-op undo step (round-7 review P2).
+                host.set_status_message(
+                    QCoreApplication.translate("CanvasView", "Nothing to paste")
+                )
+                return
+            command = CreateItemsCommand(
+                cast("CanvasScene", host.scene()), created, "pasted objects"
+            )
             host._command_manager.execute(command)
 
             # Select the pasted items
@@ -307,8 +378,14 @@ class ClipboardOperations:
 
             from open_garden_planner.core import CreateItemsCommand
 
+            created = _with_house_ridges(duplicated_items)
+            if not created:
+                host.set_status_message(
+                    QCoreApplication.translate("CanvasView", "Nothing to duplicate")
+                )
+                return
             command = CreateItemsCommand(
-                cast("CanvasScene", host.scene()), duplicated_items, "duplicated objects"
+                cast("CanvasScene", host.scene()), created, "duplicated objects"
             )
             host._command_manager.execute(command)
 

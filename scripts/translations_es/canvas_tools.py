@@ -72,6 +72,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
     'CanvasView': {
         'Already at back': 'Ya está al fondo',
         'Already at front': 'Ya está al frente',
+        'Ungroup {n} groups': 'Desagrupar {n} grupos',
+        'Ungrouped {n} groups': '{n} grupos desagrupados',
         'Angle': 'Ángulo',
         'Applied boolean {op}': 'Operación booleana {op} aplicada',
         'Apply boolean {op}?': '¿Aplicar operación booleana {op}?',
@@ -301,7 +303,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Change Type': 'Cambiar tipo',
         'Move to Layer': 'Mover a la capa',
     },
-    'GroupItem': {
+    'GardenItem': {
+        'Group': 'Agrupar',
         'Ungroup': 'Desagrupar',
     },
     'GuildActions': {

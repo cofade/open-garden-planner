@@ -557,10 +557,17 @@ class TrimExtendTool(BaseTool):
         # garden bookkeeping — otherwise plants, garden records and constraints
         # would point at an item that no longer exists.
         from open_garden_planner.core.item_look import inherit_item_identity
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
 
         inherit_item_identity(item, result_polyline)
+        # The replacement is an open fence: a copied HOUSE ridge link would
+        # name a ridge that no longer has a closed outline to derive from.
+        result_polyline.metadata.pop("ridge_item_id", None)
+        house_ridge = linked_ridge(item)
 
-        cmd = TrimPolygonCommand(self._view.scene(), item, result_polyline)
+        cmd = TrimPolygonCommand(
+            self._view.scene(), item, result_polyline, linked_ridge=house_ridge
+        )
         self._view.command_manager.execute(cmd)
 
     def _trim_rectangle(self, target: _TrimTarget) -> None:
@@ -609,10 +616,15 @@ class TrimExtendTool(BaseTool):
         result_polyline.setBrush(QBrush(Qt.BrushStyle.NoBrush))
         # #668: same identity rule as the polygon trim — audit note in the issue.
         from open_garden_planner.core.item_look import inherit_item_identity
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridge
 
         inherit_item_identity(item, result_polyline)
+        result_polyline.metadata.pop("ridge_item_id", None)
+        house_ridge = linked_ridge(item)
 
-        cmd = TrimRectangleCommand(self._view.scene(), item, result_polyline)
+        cmd = TrimRectangleCommand(
+            self._view.scene(), item, result_polyline, linked_ridge=house_ridge
+        )
         self._view.command_manager.execute(cmd)
 
     # ── Extend execute ────────────────────────────────────────────────────────

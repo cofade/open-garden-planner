@@ -1,6 +1,6 @@
 # Photo mode and tours — the values (L6, #390)
 
-ADR-071. Photo mode develops a picture; it never changes what stands in the garden, and every
+ADR-072. Photo mode develops a picture; it never changes what stands in the garden, and every
 truth gate of section 1 holds in a developed picture. These are starting values. Tune them with a
 before/after board and a note in the taste log.
 

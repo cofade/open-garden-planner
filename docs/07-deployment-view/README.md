@@ -101,7 +101,7 @@ build.
 
 | File | Purpose |
 |------|---------|
-| `installer/ogp.spec` | PyInstaller spec file (entry point, resources, excludes, icon; bundles the runtime distributions' `.dist-info` metadata for the inventory). Since L6 (#390, ADR-071) it names `PyQt6.QtMultimedia`, which brings the `multimedia` plugins and, through `ffmpegmediaplugin`, the wheel's FFmpeg libraries (LGPL 2.1+, about 20 MB); `--selftest` encodes from them |
+| `installer/ogp.spec` | PyInstaller spec file (entry point, resources, excludes, icon; bundles the runtime distributions' `.dist-info` metadata for the inventory). Since L6 (#390, ADR-072) it names `PyQt6.QtMultimedia`, which brings the `multimedia` plugins and, through `ffmpegmediaplugin`, the wheel's FFmpeg libraries (LGPL 2.1+, about 20 MB); `--selftest` encodes from them |
 | `installer/ogp_installer.nsi` | NSIS installer script (wizard, registry, file association) |
 | `installer/build_installer.py` | Build orchestration script (PyInstaller → distribution inventory → NSIS) |
 | `installer/build_environment.py` | Compares the build venv with `pylock.toml` and warns (or fails under `--strict`) about distributions the lock no longer pins (#538) |

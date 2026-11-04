@@ -205,11 +205,17 @@ class JournalPinItem(GardenItemMixin, QGraphicsObject):
     def contextMenuEvent(
         self, event: QGraphicsSceneContextMenuEvent
     ) -> None:
+        self.normalize_context_menu_selection()
         _ = QCoreApplication.translate
         menu = QMenu()
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
         edit_action = menu.addAction(_("JournalPinItem", "Edit Note…"))
         delete_action = menu.addAction(_("JournalPinItem", "Delete"))
         chosen = menu.exec(event.screenPos())
+        if self.dispatch_group_action(chosen, group_actions):
+            return
         if chosen is edit_action:
             self._emit_to_view("edit")
         elif chosen is delete_action:

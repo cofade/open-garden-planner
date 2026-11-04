@@ -584,7 +584,7 @@ def _render_atmosphere(log: RenderLog, qml_dir: Path | None
 
 
 def _check_capture(log: RenderLog, qml_dir: Path | None) -> str:
-    """The second View3D in a SHOWN window (L6, ADR-071): a capture at the view's size must
+    """The second View3D in a SHOWN window (L6, ADR-072): a capture at the view's size must
     be the view, pixel for pixel. Returns what was seen; raises when it is not. A session
     that cannot show a window at all says so: nothing here is special to the bundle then."""
     from open_garden_planner.core.scene3d import SceneSync
@@ -623,7 +623,7 @@ def _check_capture(log: RenderLog, qml_dir: Path | None) -> str:
 
 
 def _check_video(log: RenderLog, folder: Path) -> str:
-    """Eight frames into an MP4 from the bundle's Qt Multimedia and FFmpeg (L6.2, ADR-071):
+    """Eight frames into an MP4 from the bundle's Qt Multimedia and FFmpeg (L6.2, ADR-072):
     lazily loaded like the old 3D view was (#277), so the only proof it works is doing it.
     Written beside the self-test's log, in the user's own folder, and gone afterwards.
     Returns what was written; raises when nothing was."""

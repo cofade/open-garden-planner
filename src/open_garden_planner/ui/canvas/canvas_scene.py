@@ -1611,7 +1611,7 @@ class CanvasScene(QGraphicsScene):
     def drawn_plan_date(self) -> date | None:
         """The date plants are drawn for, and their bounding rects with them. It follows
         ``plan_date`` in ``refresh_timeline``, not when the clock moves: Qt must hear about a new
-        rect while the old one still stands (PF-CAN-36)."""
+        rect while the old one still stands (PF-CAN-43)."""
         return self._painted_plan_date or self.plan_date
 
     def bind_plan_clock(self, clock: SimClock) -> None:
@@ -1632,7 +1632,7 @@ class CanvasScene(QGraphicsScene):
             plants = [item for item in self.items()
                       if is_plant_type(getattr(item, "object_type", None))]
             # Before the rects move: Qt's index takes an item out of the leaves of the rect it has
-            # NOW, and any leaf left behind dangles once the item is gone (PF-CAN-36)
+            # NOW, and any leaf left behind dangles once the item is gone (PF-CAN-43)
             for item in plants:
                 item.prepareGeometryChange()
             self._painted_plan_date = day
@@ -1652,15 +1652,28 @@ class CanvasScene(QGraphicsScene):
     def _apply_item_visibility(self, item: QGraphicsItem) -> None:
         if not hasattr(item, "layer_id"):
             return
-        layer = self.get_layer_by_id(item.layer_id) if item.layer_id else None
+        # A group is the layered unit: a member follows its ancestor group's
+        # layer even while its own saved ``layer_id`` still names the layer it
+        # was drawn on. Without this, moving a group to another layer and
+        # hiding the old one hid the members one by one while the group and
+        # its derived ridge stayed visible (manual test 2.7 of PR #713).
+        layer_id = item.layer_id
+        parent = item.parentItem()
+        while parent is not None:
+            parent_layer = getattr(parent, "layer_id", None)
+            if parent_layer:
+                layer_id = parent_layer
+            parent = parent.parentItem()
+        layer = self.get_layer_by_id(layer_id) if layer_id else None
         present = self.is_present(item)
         if layer is not None or isinstance(item, QGraphicsItemGroup) or is_plant_type(getattr(item, "object_type", None)):
             item.setVisible(present and (layer is None or layer.visible))
-        if layer is not None:
+        if layer is not None and item.group() is None:
+            # A group's opacity is inherited by its members; setting the same
+            # opacity on both would square it (0.5 -> 0.25).
             item.setOpacity(layer.opacity)
-            if item.group() is None:
-                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not layer.locked)
-                item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not layer.locked)
+            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, not layer.locked)
+            item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, not layer.locked)
 
     def _update_items_visibility(self) -> None:
         """Combine layer and plant-date visibility; construction has its own toggle."""

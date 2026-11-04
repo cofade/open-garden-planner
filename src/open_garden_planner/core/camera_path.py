@@ -1,4 +1,4 @@
-"""Camera tours as plain data (Phase 17 L6.2, #390, ADR-071). Qt-free.
+"""Camera tours as plain data (Phase 17 L6.2, #390, ADR-072). Qt-free.
 
 A tour is three things: how the CAMERA moves (``CameraPath`` through the user's own
 keyframes, ``DroneOrbit`` around the plan, or ``HeldCamera``), what the sim clock does

@@ -452,7 +452,7 @@ def test_explicit_api_layer_render_cannot_resurrect_a_date_absent_plant(win):
 def test_a_new_date_tells_qt_about_a_plants_rect_while_it_is_still_the_old_one(win, monkeypatch):
     """A plant's bounding rect follows the plan date, and Qt's index takes an item out of the
     leaves of the rect it has at ``prepareGeometryChange``. Told after the date moved, the leaves
-    of the old rect keep the item, and they dangle once it is gone (PF-CAN-36)."""
+    of the old rect keep the item, and they dangle once it is gone (PF-CAN-43)."""
     apple = plant(win, "Apple", "2026-04-01")
     apple.metadata["plant_instance"]["current_spread_cm"] = 100
     win.canvas_scene.refresh_timeline()

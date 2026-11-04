@@ -1,6 +1,6 @@
 """Frames for an H.264 / MPEG-4 stream: BT.709, limited range, 4:2:0 (L6.2, #390). Qt-free.
 
-Why this module exists (measured, ADR-071). Handed RGBA frames, Qt's FFmpeg recorder
+Why this module exists (measured, ADR-072). Handed RGBA frames, Qt's FFmpeg recorder
 converts them with swscale's default matrix, BT.601, and the MP4 it writes carries no
 colour tag. Every player treats an untagged HD stream as BT.709, so the picture comes
 back wrong: (200, 60, 30) read back as (212, 73, 27), and (30, 180, 90) as (19, 159, 91)

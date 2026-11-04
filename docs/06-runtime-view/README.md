@@ -1050,7 +1050,7 @@ partner snapshots until the synthetic release commits the rotation command.
 Only after that release are the partner snapshots cleared. A normal item drag
 still rolls back before the pinch; resize/vertex handle behavior is unchanged.
 
-## 6.x A picture of the 3D view (Phase 17 L6, #390, ADR-071)
+## 6.x A picture of the 3D view (Phase 17 L6, #390, ADR-072)
 
 ```mermaid
 sequenceDiagram
