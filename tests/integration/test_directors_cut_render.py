@@ -138,7 +138,9 @@ def test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down
     assert rows["1.0"]["capture_vs_sharp"]["mean"] > rows["0.3"]["capture_vs_sharp"]["mean"]
     assert not rows["0.0"]["blur_drawn"]
     assert rows["0.0"]["capture_vs_sharp"]["max"] <= SAME, "no blur is the sharp view again"
-    assert result["after"]["max"] <= SAME and result["reflections_back"]
+    for blur, row in rows.items():
+        assert row["agent_vs_sharp"]["max"] <= SAME, f"an agent's picture is the plain view ({blur})"
+    assert result["after"]["max"] <= SAME
 
 
 def test_a_tour_writes_every_frame_and_leaves_the_view_where_it_was(tmp_path: Path) -> None:

@@ -304,7 +304,7 @@ colour picker. `QMediaRecorder.errorOccurred` carries an enum PyQt6 cannot conne
 
 - **Rule:** Screen-space reflections, depth of field and glow never share one effect chain: with all three on, Qt 6.12's render thread dies in `d3d11.dll` (`OMSetRenderTargets` on a released view, a read at address 0x16d) at the first frame that draws the blur, and nothing reaches stderr or `app.log`. `Garden.qml` turns reflections off while `photoBlur > 0` (`depthOfFieldActive`). Only Ultra has reflections, so only Ultra crashed; and a probe that isolates the profile runs on the default quality, so it never saw it.
 - **Pinned by:** `tests/integration/test_directors_cut_render.py::test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down`
-- **Source:** #390 manual test, two crashes at the same address (v1.36.x exe, `view3d/quality = ultra`); ADR-072.
+- **Source:** #390 manual test, two crashes at the same address (v1.36.x exe, `view3d/quality = ultra`); ADR-072; Qt-side cause #744.
 - **Status:** standing
 - **Legacy:** none (new entry).
 

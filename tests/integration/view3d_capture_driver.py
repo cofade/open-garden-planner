@@ -266,7 +266,7 @@ def scenario_ultra_blur(out: Path) -> dict[str, Any]:
     (OMSetRenderTargets on a released view) at the first focus click of an owner's manual test
     of #390. The picture is blurred in the shown window and in a capture, over and over, and
     the blur is really there."""
-    from open_garden_planner.core.scene3d.photo import PhotoSettings
+    from open_garden_planner.core.scene3d.photo import NO_PHOTO, PhotoSettings
 
     host, _sync = shown_host(out, "ultra")
     try:
@@ -279,16 +279,16 @@ def scenario_ultra_blur(out: Path) -> dict[str, Any]:
         for blur in (0.3, 1.0, 0.0, 1.0):
             host.set_photo(PhotoSettings(blur=blur, focus_scene=focus))
             pump(400)   # the shown window's own render thread draws with the effect chain
-            live = rgb(host._view.grabWindow())
+            host._view.grabWindow()   # the shown window's frame, with the chain
             made = rgb(host.capture(size, label=f"blur {blur}"))
+            # an agent's picture takes NO_PHOTO: the chain flips to blur off and back, mid-session
+            agent = rgb(host.capture(size, photo=NO_PHOTO, label=f"agent {blur}"))
             rows[str(blur)] = {"capture_vs_sharp": difference(sharp, made),
-                               "live_vs_sharp": difference(sharp[: live.shape[0], : live.shape[1]], live)
-                               if live.shape == sharp.shape else None,
+                               "agent_vs_sharp": difference(sharp, agent),
                                "blur_drawn": bool(host._root.property("depthOfFieldActive"))}
         host.set_photo(PhotoSettings())
         pump(300)
-        return {"rows": rows, "after": difference(sharp, rgb(host.capture(size, label="after"))),
-                "reflections_back": bool(host._root.property("reflections"))}
+        return {"rows": rows, "after": difference(sharp, rgb(host.capture(size, label="after")))}
     finally:
         host.close()
         pump(100)

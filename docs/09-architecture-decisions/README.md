@@ -10544,7 +10544,8 @@ view on any steady path.
   field + glow in one effect chain took Qt's render thread down in `d3d11.dll` at the owner's first
   focus click (two crashes, one address; PF-E3D-21), and it showed on the owner's `quality = ultra`
   only. Ultra's photos have no reflections; Low to High never had any. Finding the Qt-side cause, to
-  give them back, is a follow-up.
+  give them back, is #744.
 - **The blur needs a focused point, so the first blur sets one.** The slider used to do nothing before
   the first click on the view (owner's manual test: "no difference between a high and a low blur").
+  Three edges of that first focus (another plan, walk mode, one invariant) are #745.
 - No `FILE_VERSION` change; nothing new in the `.ogp`.

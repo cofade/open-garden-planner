@@ -444,6 +444,11 @@ def test_the_look_rules_the_spike_paid_for() -> None:
     assert "root.topDown ? SceneEnvironment.TonemapModeNone" in code
     assert "csmNumSplits: root.topDown ? 0 : root.shadowCascades" in code
     assert '(root.topDown || root.antialiasing === "msaa")' in code
+    # reflections, blur and glow in one chain took Qt's render thread down on Ultra (PF-E3D-21)
+    assert re.search(r"ssrEnabled:\s*!root\.topDown\s*&&\s*root\.reflections\s*&&\s*"
+                     r"!root\.depthOfFieldActive", code), "reflections stand down under blur"
+    assert re.search(r"depthOfFieldEnabled:\s*root\.depthOfFieldActive", code)
+    assert "readonly property bool depthOfFieldActive: !root.topDown && root.photoBlur > 0" in code
     # with a sky the sky is the fill; without one, the look's flat fill
     assert "ambientColor: view.skyShown ? Qt.rgba(0, 0, 0, 1) : root.fillColor" in code
 
