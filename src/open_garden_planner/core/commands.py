@@ -2462,6 +2462,8 @@ class LinearArrayCommand(Command):
         self._graph = graph
         self._constraint_ids: list[UUID] = []
         self._membership: BedMembershipChange | None = None
+        self._copy_ridges: list[QGraphicsItem] = []
+        self._copy_ridges_built = False
 
     @property
     def description(self) -> str:
@@ -2484,6 +2486,15 @@ class LinearArrayCommand(Command):
             for anchor_a, anchor_b, dist in self._constraint_pairs:
                 c = self._graph.add_constraint(anchor_a, anchor_b, dist)
                 self._constraint_ids.append(c.constraint_id)
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_copy_ridges
+
+        if not self._copy_ridges_built:
+            self._copy_ridges_built = True
+            self._copy_ridges = build_copy_ridges(self._items)
+        with _bulk_add_scope(self._scene):
+            for ridge in self._copy_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
         if self._membership is not None:
             self._membership.reconcile()
 
@@ -2493,6 +2504,9 @@ class LinearArrayCommand(Command):
             for cid in reversed(self._constraint_ids):
                 self._graph.remove_constraint(cid)
         self._constraint_ids = []
+        for ridge in self._copy_ridges:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
         for item in self._items:
             _detach_from_parent(self._scene, item)
             if item.scene() is not None:
@@ -2530,6 +2544,8 @@ class GridArrayCommand(Command):
         self._graph = graph
         self._constraint_ids: list[UUID] = []
         self._membership: BedMembershipChange | None = None
+        self._copy_ridges: list[QGraphicsItem] = []
+        self._copy_ridges_built = False
 
     @property
     def description(self) -> str:
@@ -2552,6 +2568,15 @@ class GridArrayCommand(Command):
             for anchor_a, anchor_b, dist in self._constraint_pairs:
                 c = self._graph.add_constraint(anchor_a, anchor_b, dist)
                 self._constraint_ids.append(c.constraint_id)
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_copy_ridges
+
+        if not self._copy_ridges_built:
+            self._copy_ridges_built = True
+            self._copy_ridges = build_copy_ridges(self._items)
+        with _bulk_add_scope(self._scene):
+            for ridge in self._copy_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
         if self._membership is not None:
             self._membership.reconcile()
 
@@ -2561,6 +2586,9 @@ class GridArrayCommand(Command):
             for cid in reversed(self._constraint_ids):
                 self._graph.remove_constraint(cid)
         self._constraint_ids = []
+        for ridge in self._copy_ridges:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
         for item in self._items:
             _detach_from_parent(self._scene, item)
             if item.scene() is not None:
@@ -2589,6 +2617,8 @@ class CircularArrayCommand(Command):
         self._scene = scene
         self._items = list(new_items)
         self._membership: BedMembershipChange | None = None
+        self._copy_ridges: list[QGraphicsItem] = []
+        self._copy_ridges_built = False
 
     @property
     def description(self) -> str:
@@ -2606,11 +2636,23 @@ class CircularArrayCommand(Command):
             for item in self._items:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_copy_ridges
+
+        if not self._copy_ridges_built:
+            self._copy_ridges_built = True
+            self._copy_ridges = build_copy_ridges(self._items)
+        with _bulk_add_scope(self._scene):
+            for ridge in self._copy_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
         if self._membership is not None:
             self._membership.reconcile()
 
     def undo(self) -> None:
         """Remove items from the scene; restore the links they displaced."""
+        for ridge in self._copy_ridges:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
         for item in self._items:
             _detach_from_parent(self._scene, item)
             if item.scene() is not None:
@@ -2706,24 +2748,18 @@ class MirrorItemsCommand(Command):
             self._membership.reconcile()
 
     def _add_copy_ridges(self) -> None:
-        """Give every mirrored HOUSE its own linked ridge (copy mode).
+        """Give every mirrored HOUSE its own linked ridge (copy mode, issue #712).
 
         The copied item has a fresh UUID, so it cannot keep the source's
-        ``ridge_item_id`` (stripped in ``__init__``). Build one ridge per copied
-        house on first execute; redo re-adds the SAME ridge items, so their
-        UUIDs and the two-sided links stay stable through undo/redo.
+        ``ridge_item_id``. Build one ridge per copied house (including nested
+        houses in groups) on first execute; redo re-adds the SAME ridge items,
+        so their UUIDs and the two-sided links stay stable through undo/redo.
         """
-        from open_garden_planner.core.object_types import ObjectType
-        from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_copy_ridges
 
         if not self._copy_ridges_built:
             self._copy_ridges_built = True
-            for item in self._mirrored:
-                if getattr(item, "object_type", None) is not ObjectType.HOUSE:
-                    continue
-                ridge = build_linked_ridge(item, getattr(item, "layer_id", None))
-                if ridge is not None:
-                    self._copy_ridges.append(ridge)
+            self._copy_ridges = build_copy_ridges(self._mirrored)
         with _bulk_add_scope(self._scene):
             for ridge in self._copy_ridges:
                 if ridge.scene() is None:
@@ -2878,6 +2914,7 @@ class GroupCommand(Command):
         self._scene = scene
         self._items = list(items)
         self._group: QGraphicsItem | None = None
+        self._original_layers: list[tuple[QGraphicsItem, UUID | None]] = []
 
     @property
     def description(self) -> str:
@@ -2886,7 +2923,8 @@ class GroupCommand(Command):
         )
 
     def execute(self) -> None:
-        from open_garden_planner.ui.canvas.items.group_item import GroupItem
+        from open_garden_planner.ui.canvas.items.group_item import GroupItem, selection_tree
+        from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
 
         if self._group is None:
             # Infer layer_id from the first item that has one
@@ -2899,10 +2937,30 @@ class GroupCommand(Command):
             self._group = GroupItem(layer_id=layer_id)
 
         self._scene.addItem(self._group)
+        group_layer = getattr(self._group, "layer_id", None)
+
+        if not self._original_layers:
+            # Capture original layer for every member and linked ridge under the selection (issue #741)
+            all_affected: list[QGraphicsItem] = []
+            for item in self._items:
+                all_affected.extend(selection_tree([item]))
+                all_affected.extend(linked_ridges_under(item))
+            seen = set()
+            for it in all_affected:
+                if id(it) not in seen and hasattr(it, "layer_id"):
+                    seen.add(id(it))
+                    self._original_layers.append((it, it.layer_id))
+
         for item in self._items:
             item.setSelected(False)
             self._group.addToGroup(item)  # type: ignore[attr-defined]
         self._group.setSelected(True)
+
+        # Normalise members and their linked ridges to the group's layer (issue #741)
+        if group_layer is not None:
+            for it, _ in self._original_layers:
+                it.layer_id = group_layer
+
         # A member HOUSE's ridge is a top-level sibling, not a Qt child. The
         # normalizer maps an owner inside a group to the GROUP, so one refresh
         # after grouping lifts the ridge above the group's fill; without it the
@@ -2911,6 +2969,8 @@ class GroupCommand(Command):
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
             refresh_all()
+        if hasattr(self._scene, "_update_items_visibility"):
+            self._scene._update_items_visibility()
 
     def undo(self) -> None:
         if self._group is None:
@@ -2921,16 +2981,17 @@ class GroupCommand(Command):
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
             item.setSelected(True)
-            # The item is top-level again (issue #338). It keeps the
-            # stack_order rank it had before grouping -- clearing it here
-            # would make undo(Group) not the inverse of execute() (a member
-            # that never had a rank still sorts to the top, which is
-            # acceptable). The refresh below only recomputes z-values from
-            # existing ranks; it never assigns new ones.
+
+        # Restore original individual layers on undo (issue #741)
+        for it, old_layer in self._original_layers:
+            it.layer_id = old_layer
+
         self._scene.removeItem(self._group)
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
             refresh_all()
+        if hasattr(self._scene, "_update_items_visibility"):
+            self._scene._update_items_visibility()
 
 
 class UngroupCommand(Command):
@@ -2964,6 +3025,13 @@ class UngroupCommand(Command):
             # it instead of snapping back (PF-PER-27).
             if group_layer is not None and hasattr(item, "layer_id"):
                 item.layer_id = group_layer
+        if group_layer is not None:
+            from open_garden_planner.ui.canvas.roof_ridge_link import linked_ridges_under
+
+            for item in self._items:
+                for ridge in linked_ridges_under(item):
+                    if hasattr(ridge, "layer_id"):
+                        ridge.layer_id = group_layer
         self._scene.removeItem(self._group)
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
@@ -3038,6 +3106,8 @@ class ArrayAlongPathCommand(Command):
         self._scene = scene
         self._items = list(new_items)
         self._membership: BedMembershipChange | None = None
+        self._copy_ridges: list[QGraphicsItem] = []
+        self._copy_ridges_built = False
 
     @property
     def description(self) -> str:
@@ -3054,10 +3124,22 @@ class ArrayAlongPathCommand(Command):
             for item in self._items:
                 if item.scene() is None:
                     self._scene.addItem(item)
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_copy_ridges
+
+        if not self._copy_ridges_built:
+            self._copy_ridges_built = True
+            self._copy_ridges = build_copy_ridges(self._items)
+        with _bulk_add_scope(self._scene):
+            for ridge in self._copy_ridges:
+                if ridge.scene() is None:
+                    self._scene.addItem(ridge)
         if self._membership is not None:
             self._membership.reconcile()
 
     def undo(self) -> None:
+        for ridge in self._copy_ridges:
+            if ridge.scene() is self._scene:
+                self._scene.removeItem(ridge)
         for item in self._items:
             _detach_from_parent(self._scene, item)
             if item.scene() is not None:

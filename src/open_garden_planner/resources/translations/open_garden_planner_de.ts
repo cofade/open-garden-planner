@@ -663,7 +663,7 @@
             <translation>{count} Element(e) kopiert</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="454" />
+            <location filename="../../core/tools/offset_tool.py" line="463" />
             <source>Created a parallel line at {dist:.1f} cm</source>
             <translation>Parallele Linie mit Abstand {dist:.1f} cm erstellt</translation>
         </message>
@@ -688,7 +688,7 @@
             <translation>Lineares Muster mit {count} Objekten erstellt</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="461" />
+            <location filename="../../core/tools/offset_tool.py" line="470" />
             <source>Created {dir} offset of {dist:.1f} cm</source>
             <translation>{dir}-Versatz von {dist:.1f} cm erstellt</translation>
         </message>
@@ -1182,12 +1182,12 @@
             <translation>Y</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="459" />
+            <location filename="../../core/tools/offset_tool.py" line="468" />
             <source>inward</source>
             <translation>einwärts</translation>
         </message>
         <message>
-            <location filename="../../core/tools/offset_tool.py" line="459" />
+            <location filename="../../core/tools/offset_tool.py" line="468" />
             <source>outward</source>
             <translation>auswärts</translation>
         </message>
@@ -1473,32 +1473,32 @@
             <translation>Bedingung hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4329" />
+            <location filename="../../core/commands.py" line="4411" />
             <source>Add garden journal note</source>
             <translation>Gartentagebuch-Notiz hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4127" />
+            <location filename="../../core/commands.py" line="4209" />
             <source>Add harvest entry</source>
             <translation>Ernte-Eintrag hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3237" />
+            <location filename="../../core/commands.py" line="3319" />
             <source>Add layer '{name}'</source>
             <translation>Ebene '{name}' hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3980" />
+            <location filename="../../core/commands.py" line="4062" />
             <source>Add pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3852" />
+            <location filename="../../core/commands.py" line="3934" />
             <source>Add soil test</source>
             <translation>Bodenprobe hinzufügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4436" />
+            <location filename="../../core/commands.py" line="4518" />
             <source>Add task</source>
             <translation>Aufgabe hinzufügen</translation>
         </message>
@@ -1544,23 +1544,23 @@
             <translation>Oben ausrichten</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2830" />
+            <location filename="../../app/agent_host.py" line="2859" />
             <location filename="../../core/commands.py" line="1587" />
             <source>Apply species data</source>
             <translation>Artdaten anwenden</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3044" />
+            <location filename="../../core/commands.py" line="3114" />
             <source>Array along path ({count} copies)</source>
             <translation>Reihung entlang Pfad ({count} Kopien)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2858" />
+            <location filename="../../core/commands.py" line="2894" />
             <source>Attach plant to bed</source>
             <translation>Pflanze dem Beet zuordnen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3012" />
+            <location filename="../../core/commands.py" line="3080" />
             <source>Boolean {operation}</source>
             <translation>Boolesche Operation {operation}</translation>
         </message>
@@ -1575,7 +1575,7 @@
             <translation>{count} Objekt(e) ganz nach vorn</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3814" />
+            <location filename="../../core/commands.py" line="3896" />
             <source>Chamfer corner</source>
             <translation>Ecke abschrägen</translation>
         </message>
@@ -1601,7 +1601,7 @@
             <translation>{property} ändern</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2595" />
+            <location filename="../../core/commands.py" line="2625" />
             <source>Create circular array ({count} items)</source>
             <translation>Kreisraster erstellen ({count} Objekte)</translation>
         </message>
@@ -1611,12 +1611,12 @@
             <translation>Waldgarten-Ebenen erstellen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2536" />
+            <location filename="../../core/commands.py" line="2552" />
             <source>Create grid array ({count} items)</source>
             <translation>Gitterraster erstellen ({count} Objekte)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2468" />
+            <location filename="../../core/commands.py" line="2470" />
             <source>Create linear array ({count} items)</source>
             <translation>Lineares Raster erstellen ({count} Objekte)</translation>
         </message>
@@ -1632,12 +1632,12 @@
             <translation>{item_type} erstellen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4405" />
+            <location filename="../../core/commands.py" line="4487" />
             <source>Delete garden journal note</source>
             <translation>Gartentagebuch-Notiz löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4247" />
+            <location filename="../../core/commands.py" line="4329" />
             <source>Delete harvest entry</source>
             <translation>Ernte-Eintrag löschen</translation>
         </message>
@@ -1647,22 +1647,22 @@
             <translation>Objekt löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3309" />
+            <location filename="../../core/commands.py" line="3391" />
             <source>Delete layer '{name}'</source>
             <translation>Ebene '{name}' löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4060" />
+            <location filename="../../core/commands.py" line="4142" />
             <source>Delete pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3940" />
+            <location filename="../../core/commands.py" line="4022" />
             <source>Delete soil test</source>
             <translation>Bodenprobe löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4480" />
+            <location filename="../../core/commands.py" line="4562" />
             <source>Delete task</source>
             <translation>Aufgabe löschen</translation>
         </message>
@@ -1677,7 +1677,7 @@
             <translation>{count} Objekte löschen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2857" />
+            <location filename="../../core/commands.py" line="2893" />
             <source>Detach plant from bed</source>
             <translation>Pflanze vom Beet lösen</translation>
         </message>
@@ -1697,22 +1697,22 @@
             <translation>Vertikal verteilen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2801" />
+            <location filename="../../core/commands.py" line="2837" />
             <source>Edit constraint distance</source>
             <translation>Bedingungsabstand bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4364" />
+            <location filename="../../core/commands.py" line="4446" />
             <source>Edit garden journal note</source>
             <translation>Gartentagebuch-Notiz bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4181" />
+            <location filename="../../core/commands.py" line="4263" />
             <source>Edit harvest entry</source>
             <translation>Ernte-Eintrag bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4020" />
+            <location filename="../../core/commands.py" line="4102" />
             <source>Edit pest/disease log</source>
             <translation>Schädlings-/Krankheitseintrag bearbeiten</translation>
         </message>
@@ -1723,32 +1723,32 @@
             <translation>Pflanzendetails bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3896" />
+            <location filename="../../core/commands.py" line="3978" />
             <source>Edit soil test</source>
             <translation>Bodenprobe bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4458" />
+            <location filename="../../core/commands.py" line="4540" />
             <source>Edit task</source>
             <translation>Aufgabe bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3691" />
+            <location filename="../../core/commands.py" line="3773" />
             <source>Extend polyline</source>
             <translation>Polylinie verlängern</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3803" />
+            <location filename="../../core/commands.py" line="3885" />
             <source>Fillet corner</source>
             <translation>Ecke abrunden</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2884" />
+            <location filename="../../core/commands.py" line="2921" />
             <source>Group {count} items</source>
             <translation>{count} Objekte gruppieren</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3541" />
+            <location filename="../../core/commands.py" line="3623" />
             <source>Hide layer '{name}'</source>
             <translation>Ebene '{name}' ausblenden</translation>
         </message>
@@ -1758,17 +1758,17 @@
             <translation>Pflanzengilde einfügen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3546" />
+            <location filename="../../core/commands.py" line="3628" />
             <source>Lock layer '{name}'</source>
             <translation>Ebene '{name}' sperren</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2664" />
+            <location filename="../../core/commands.py" line="2706" />
             <source>Mirror {count} item(s) (copy)</source>
             <translation>{count} Objekt(e) spiegeln (kopieren)</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2667" />
+            <location filename="../../core/commands.py" line="2709" />
             <source>Mirror {count} item(s) (move)</source>
             <translation>{count} Objekt(e) spiegeln (verschieben)</translation>
         </message>
@@ -1797,7 +1797,7 @@
             <translation>Stützpunkt verschieben</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3143" />
+            <location filename="../../core/commands.py" line="3225" />
             <source>Move {count} item(s) to layer '{name}'</source>
             <translation>{count} Objekt(e) auf Ebene '{name}' verschieben</translation>
         </message>
@@ -1817,12 +1817,12 @@
             <translation>Bedingung entfernen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3372" />
+            <location filename="../../core/commands.py" line="3454" />
             <source>Rename layer to '{name}'</source>
             <translation>Ebene umbenennen in '{name}'</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3409" />
+            <location filename="../../core/commands.py" line="3491" />
             <source>Reorder layers</source>
             <translation>Ebenen neu anordnen</translation>
         </message>
@@ -1852,42 +1852,42 @@
             <translation>{count} Objekt(e) ganz nach hinten</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3552" />
+            <location filename="../../core/commands.py" line="3634" />
             <source>Set opacity of layer '{name}' to {pct}%</source>
             <translation>Deckkraft der Ebene '{name}' auf {pct}% setzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4294" />
+            <location filename="../../core/commands.py" line="4376" />
             <source>Set succession plan</source>
             <translation>Folgepflanzung festlegen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3538" />
+            <location filename="../../core/commands.py" line="3620" />
             <source>Show layer '{name}'</source>
             <translation>Ebene '{name}' einblenden</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3637" />
+            <location filename="../../core/commands.py" line="3719" />
             <source>Trim polygon edge</source>
             <translation>Polygonkante stutzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3591" />
+            <location filename="../../core/commands.py" line="3673" />
             <source>Trim polyline</source>
             <translation>Polylinie stutzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3665" />
+            <location filename="../../core/commands.py" line="3747" />
             <source>Trim rectangle edge</source>
             <translation>Rechteckkante stutzen</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="2951" />
+            <location filename="../../core/commands.py" line="3012" />
             <source>Ungroup</source>
             <translation>Gruppierung aufheben</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="3549" />
+            <location filename="../../core/commands.py" line="3631" />
             <source>Unlock layer '{name}'</source>
             <translation>Ebene '{name}' entsperren</translation>
         </message>
@@ -3018,7 +3018,7 @@ Verwenden Sie das Randbedingungen-Werkzeug (K), um eine hinzuzufügen.</translat
     <context>
         <name>ConstructionCircleItem</name>
         <message>
-            <location filename="../../ui/canvas/items/construction_item.py" line="224" />
+            <location filename="../../ui/canvas/items/construction_item.py" line="230" />
             <source>Delete Construction Circle</source>
             <translation>Hilfskreis löschen</translation>
         </message>
@@ -5505,17 +5505,17 @@ Möchten Sie diese Datei wiederherstellen?</translation>
             <translation>Aktives Werkzeug</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3628" />
+            <location filename="../../app/agent_host.py" line="3657" />
             <source>Agent API failed to start (see log)</source>
             <translation>Agent-API konnte nicht gestartet werden (siehe Protokoll)</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3633" />
+            <location filename="../../app/agent_host.py" line="3662" />
             <source>Agent API running at {url}</source>
             <translation>Agent-API läuft unter {url}</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="3620" />
+            <location filename="../../app/agent_host.py" line="3649" />
             <source>Agent API: port {port} is already in use</source>
             <translation>Agent-API: Port {port} wird bereits verwendet</translation>
         </message>
@@ -6426,7 +6426,7 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
             <translation>Bereich auf Google Maps auswählen und maßstabsgetreu als Satellitenbild laden</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="1896" />
+            <location filename="../../app/agent_host.py" line="1919" />
             <source>Plan-wide default</source>
             <translation>Gesamter Plan</translation>
         </message>
@@ -6516,7 +6516,7 @@ Bitte starten Sie die Anwendung neu, damit die Änderung wirksam wird.</translat
             <translation>Den MCP-Server dieses Plans mit Ihrem KI-Assistenten registrieren</translation>
         </message>
         <message>
-            <location filename="../../app/agent_host.py" line="2184" />
+            <location filename="../../app/agent_host.py" line="2207" />
             <source>Remove soil test</source>
             <translation>Bodenprobe entfernen</translation>
         </message>
@@ -7615,12 +7615,12 @@ Bitte speichern Sie Ihr Projekt an einem dauerhaften Speicherort.</translation>
     <context>
         <name>HarvestJournal</name>
         <message>
-            <location filename="../../core/commands.py" line="4080" />
+            <location filename="../../core/commands.py" line="4162" />
             <source>Harvested {qty} {unit}</source>
             <translation>{qty} {unit} geerntet</translation>
         </message>
         <message>
-            <location filename="../../core/commands.py" line="4077" />
+            <location filename="../../core/commands.py" line="4159" />
             <source>Harvested {qty} {unit} of {name}</source>
             <translation>{qty} {unit} {name} geerntet</translation>
         </message>
@@ -11316,7 +11316,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
     <context>
         <name>PolylineItem</name>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="575" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="584" />
             <source>Array Along Path...</source>
             <translation>Muster entlang Pfad...</translation>
         </message>
@@ -11336,7 +11336,7 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Lineares Muster erstellen...</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="562" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="571" />
             <source>Delete</source>
             <translation>Löschen</translation>
         </message>
@@ -11346,17 +11346,17 @@ Platzieren Sie Pflanzen auf der Zeichenfläche und verwenden Sie
             <translation>Duplizieren</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="545" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="554" />
             <source>Edit Label</source>
             <translation>Beschriftung bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="541" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="550" />
             <source>Edit Vertices</source>
             <translation>Knoten bearbeiten</translation>
         </message>
         <message>
-            <location filename="../../ui/canvas/items/polyline_item.py" line="538" />
+            <location filename="../../ui/canvas/items/polyline_item.py" line="547" />
             <source>Exit Vertex Edit Mode</source>
             <translation>Knotenbearbeitungsmodus beenden</translation>
         </message>
@@ -16057,7 +16057,7 @@ Details: {error}</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="188" />
-            <location filename="../../ui/view3d/workspace_capture.py" line="435" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="453" />
             <source>Capture</source>
             <translation>Aufnahme</translation>
         </message>
@@ -16083,7 +16083,7 @@ Details: {error}</translation>
         </message>
         <message>
             <location filename="../../ui/view3d/workspace_capture.py" line="240" />
-            <location filename="../../ui/view3d/workspace_capture.py" line="345" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="363" />
             <source>Click the view to set the focus</source>
             <translation>In die Ansicht klicken, um den Fokus zu setzen</translation>
         </message>
@@ -16148,7 +16148,7 @@ Details: {error}</translation>
             <translation>Eine Kamera durch den Garten fliegen und als Video oder PNG-Sequenz speichern</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="348" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="366" />
             <source>Focus {distance:.1f} m away</source>
             <translation>Fokus {distance:.1f} m entfernt</translation>
         </message>
@@ -16249,7 +16249,7 @@ Details: {error}</translation>
             <translation>&amp;Fotomodus</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="393" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="411" />
             <source>PNG image (*.png);;JPEG image (*.jpg)</source>
             <translation>PNG-Bild (*.png);;JPEG-Bild (*.jpg)</translation>
         </message>
@@ -16285,7 +16285,7 @@ Details: {error}</translation>
             <translation>Regen: grauer Himmel, nasse Blätter und nasser Boden, fallender Regen</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="392" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="410" />
             <source>Save Photo</source>
             <translation>Foto speichern</translation>
         </message>
@@ -16424,7 +16424,7 @@ Details: {error}</translation>
             <translation>Die 3D-Ansicht konnte nicht aktualisiert werden. Bei der nächsten Änderung wird es erneut versucht.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="401" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="419" />
             <source>The 3D view is not visible right now. Bring it back and try again.</source>
             <translation>Die 3D-Ansicht ist gerade nicht sichtbar. Holen Sie sie zurück und versuchen Sie es erneut.</translation>
         </message>
@@ -16464,12 +16464,12 @@ Details: {error}</translation>
             <translation>Die Sonnenstunden konnten für den geänderten Plan nicht berechnet werden.</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="406" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="424" />
             <source>The picture could not be made: {error}</source>
             <translation>Das Bild konnte nicht erstellt werden: {error}</translation>
         </message>
         <message>
-            <location filename="../../ui/view3d/workspace_capture.py" line="411" />
+            <location filename="../../ui/view3d/workspace_capture.py" line="429" />
             <source>The picture could not be saved to {path}.</source>
             <translation>Das Bild konnte nicht unter {path} gespeichert werden.</translation>
         </message>

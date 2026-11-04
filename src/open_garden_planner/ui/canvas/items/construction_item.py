@@ -115,12 +115,18 @@ class ConstructionLineItem(QGraphicsLineItem):
         if group_actions.dispatch(action, self.scene()):
             return
         if action == delete_action and self.scene():
-            self.scene().removeItem(self)
+            self.setSelected(True)
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Handle Delete key."""
         if event.key() == Qt.Key.Key_Delete and self.scene():
-            self.scene().removeItem(self)
+            self.setSelected(True)
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
         else:
             super().keyPressEvent(event)
 
@@ -227,11 +233,17 @@ class ConstructionCircleItem(QGraphicsEllipseItem):
         if group_actions.dispatch(action, self.scene()):
             return
         if action == delete_action and self.scene():
-            self.scene().removeItem(self)
+            self.setSelected(True)
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         """Handle Delete key."""
         if event.key() == Qt.Key.Key_Delete and self.scene():
-            self.scene().removeItem(self)
+            self.setSelected(True)
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
         else:
             super().keyPressEvent(event)

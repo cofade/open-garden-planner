@@ -127,6 +127,7 @@ from open_garden_planner.core.scene3d.record import (
 from open_garden_planner.core.shadow_geometry import (
     CLIPPER_SCALE,
     circle_footprint,
+    polyline_bevel_footprint,
     polyline_footprint,
 )
 from open_garden_planner.models.plant_data import species_key
@@ -628,7 +629,7 @@ def _resolved_regions(rings: list[list[tuple[int, int]]], fill: int, outline: Ri
 
 
 def _stroke_regions(path: Ring, width_cm: float,
-                    budget: WorkBudget) -> tuple[Region, ...] | _Refused:
+                    budget: WorkBudget, *, style: str = "") -> tuple[Region, ...] | _Refused:
     """``_polyline_regions``, paying into ``budget`` — in this order, each step
     paid for before it runs:
 
@@ -649,7 +650,11 @@ def _stroke_regions(path: Ring, width_cm: float,
     budget.spend(_CLIP_UNITS + _OFFSET_NEAR_UNITS * near + _OFFSET_CROSSING_UNITS * crossings
                  + len(path) * (_OFFSET_POINT_UNITS + _OFFSET_STACK_UNITS
                                 * stack_height((path,), closed=False, reach=reach, flat=False)))
-    made = polyline_footprint(list(path), width_cm)
+    made = (
+        polyline_bevel_footprint(list(path), width_cm)
+        if style == "PAVED_PATH"
+        else polyline_footprint(list(path), width_cm)
+    )
     _pay_for_reading(made, budget)
     rings = [_quantized(ring) for ring in made]
     try:
@@ -666,8 +671,8 @@ def _stroke_regions(path: Ring, width_cm: float,
                              pyclipper.PFT_NONZERO, budget=budget)
 
 
-@ring_keyed(vertices=lambda path, _width_cm: len(path), holds=_region_vertices)
-def _polyline_regions(path: Ring, width_cm: float) -> tuple[Region, ...] | _Refused:
+@ring_keyed(vertices=lambda path, _width_cm, *_args: len(path), holds=_region_vertices)
+def _polyline_regions(path: Ring, width_cm: float, style: str = "") -> tuple[Region, ...] | _Refused:
     """A polyline's item-local stroke as buildable regions, or why it has none.
 
     The centre line inflated by half its width (``polyline_footprint`` —
@@ -692,7 +697,7 @@ def _polyline_regions(path: Ring, width_cm: float) -> tuple[Region, ...] | _Refu
     wall reads ``path`` and ``path_width_cm``.
     """
     try:
-        return _stroke_regions(path, width_cm, WorkBudget("the stroke of a path"))
+        return _stroke_regions(path, width_cm, WorkBudget("the stroke of a path"), style=style)
     except RegionTooLargeError:
         return _TOO_LARGE
 
@@ -970,7 +975,7 @@ def _regions_of(outline: ItemOutline, frame: LocalFrame, made: list[Ring] | None
             raise RecordRangeError(f"a stroke width of {width!r} cm is beyond ±{MAX_LENGTH_CM:g} cm")
         if len(ring) < 2:
             return (), ring, width, None, False
-        stroke = _polyline_regions(ring, width)
+        stroke = _polyline_regions(ring, width, outline.style)
         if isinstance(stroke, _Refused):
             raise (_OutlineTooLarge if stroke is _TOO_LARGE else _UnbuildableOutline)(stroke.why)
         return stroke, ring, width, None, False

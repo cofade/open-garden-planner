@@ -292,7 +292,10 @@ class CalloutItem(RotationHandleMixin, GardenItemMixin, QGraphicsItem):
         elif chosen == delete_action:
             scene = self.scene()
             if scene:
-                scene.removeItem(self)
+                self.setSelected(True)
+                from .common_menu import dispatch_delete_selection
+
+                dispatch_delete_selection(scene)
         elif move_layer_menu and chosen and chosen.parent() is move_layer_menu:
             self._dispatch_move_to_layer(chosen.data())
         elif arrange_menu and chosen and chosen.parent() is arrange_menu:

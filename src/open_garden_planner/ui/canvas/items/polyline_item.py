@@ -1,7 +1,7 @@
 """Polyline item for the garden canvas."""
 
 import uuid
-from typing import Any
+from typing import Any, Final
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QKeyEvent, QPainter, QPainterPath, QPen
@@ -36,9 +36,14 @@ from .path_style_paint import (
     current_render_walk_cap,
     style_paint_reach,
 )
+from .polygon_item import MAX_POLYGON_VERTICES
 from .resize_handle import PolylineVertexEditMixin, RotationHandleMixin
 from .string_lights_paint import paint_string_lights, string_layout
 from .string_lights_paint import reach as string_lights_reach
+
+#: Refusal limit for a polyline loaded from a plan file or created via Agent API,
+#: matching the polygon limit (#703, #472).
+MAX_POLYLINE_VERTICES: Final = MAX_POLYGON_VERTICES
 
 #: The most elements ONE interactive paint of a styled line may generate. A
 #: viewport at 100 % zoom holds far fewer (a 1200 x 800 cm window at the
@@ -378,8 +383,12 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         painter.save()
         shadow_pen = QPen(self.SHADOW_COLOR)
         shadow_pen.setWidthF(self.pen().widthF())
-        shadow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        shadow_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        if self._path_fence_style == PathFenceStyle.PAVED_PATH:
+            shadow_pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+            shadow_pen.setJoinStyle(Qt.PenJoinStyle.BevelJoin)
+        else:
+            shadow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            shadow_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(shadow_pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         shadow_path = self.path().translated(

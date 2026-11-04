@@ -42,7 +42,7 @@ from typing import Final, NamedTuple
 import numpy as np
 from numpy.typing import NDArray
 
-from ...shadow_geometry import polyline_round_outline
+from ...shadow_geometry import _offset_line, polyline_round_outline
 from ..build import (
     BuilderRegistry,
     default_builder,
@@ -185,50 +185,7 @@ def _closed(record: Record) -> tuple[F64, bool]:
     return np.asarray(line, dtype=np.float64), closed
 
 
-def _offset_line(line: F64, closed: bool, offset: float) -> F64:
-    """``line`` moved ``offset`` cm to the left of travel, its joints kept inside the
-    path's own outline. The outline (``shadow_geometry.polyline_footprint``) squares
-    a bend off at half the path's width from the joint; a MITRED offset line reaches
-    ``offset / cos(turn / 2)`` there (3D review of #388: a gravel edging 18.6 cm past
-    the path). So on the outside of a bend the two segments' offset ends are joined
-    by a chord — no point further than ``|offset|`` from the joint — and on the inside
-    the two offset lines meet where they cross (the two ends where they do not)."""
-    points = np.asarray(line, dtype=np.float64)
-    if closed and len(points) > 1 and np.allclose(points[0], points[-1]):
-        points = points[:-1]
-    keep = np.ones(len(points), dtype=bool)
-    keep[1:] = np.linalg.norm(np.diff(points, axis=0), axis=1) > 1e-6
-    points = points[keep]
-    if len(points) < 2:
-        return points
-    starts = points if closed else points[:-1]
-    ends = np.roll(points, -1, axis=0) if closed else points[1:]
-    lengths = np.linalg.norm(ends - starts, axis=1)
-    if closed and lengths[-1] <= 1e-6:
-        starts, ends, lengths = starts[:-1], ends[:-1], lengths[:-1]
-    along = (ends - starts) / np.maximum(lengths, 1e-12)[:, None]
-    left = np.stack([-along[:, 1], along[:, 0]], axis=1)
-    out: list[F64] = [] if closed else [starts[0] + left[0] * offset]
-    for joint in (range(len(along)) if closed else range(1, len(along))):
-        before, after = joint - 1, joint
-        corner = starts[after]
-        first, second = corner + left[before] * offset, corner + left[after] * offset
-        turn = float(along[before, 0] * along[after, 1] - along[before, 1] * along[after, 0])
-        if abs(turn) < 1e-9:
-            out.append(first)
-            continue
-        if offset * turn > 0.0:  # the inside of the bend: where the two offset lines cross
-            gap = second - first
-            back = float(gap[0] * along[after, 1] - gap[1] * along[after, 0]) / turn
-            crossing = first + along[before] * back
-            forward = float(np.dot(crossing - second, along[after]))
-            if -lengths[before] <= back <= 0.0 and 0.0 <= forward <= lengths[after]:
-                out.append(crossing)
-                continue
-        out.extend((first, second))
-    if not closed:
-        out.append(ends[-1] + left[-1] * offset)
-    return np.asarray(out)
+# _offset_line imported from shadow_geometry
 
 
 def _rails(line: F64, closed: bool, offsets: tuple[float, ...], width: float, height: float,

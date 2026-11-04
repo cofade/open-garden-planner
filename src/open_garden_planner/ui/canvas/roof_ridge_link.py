@@ -116,6 +116,28 @@ def build_linked_ridge(
     return ridge
 
 
+def build_copy_ridges(items: list[QGraphicsItem]) -> list[QGraphicsItem]:
+    """Build a fresh linked ROOF_RIDGE for every copied HOUSE under *items* (issue #712).
+
+    Walks the selection tree of each item (so nested houses inside groups
+    are included). Clears any inherited ``ridge_item_id`` on copied houses,
+    builds a fresh ridge, sets the two-sided link, and returns all newly
+    built ridges.
+    """
+    from open_garden_planner.ui.canvas.items.group_item import selection_tree
+
+    new_ridges: list[QGraphicsItem] = []
+    for item in selection_tree(items):
+        if getattr(item, "object_type", None) is not ObjectType.HOUSE:
+            continue
+        if isinstance(getattr(item, "metadata", None), dict):
+            item.metadata.pop("ridge_item_id", None)
+        ridge = build_linked_ridge(item, getattr(item, "layer_id", None))
+        if ridge is not None:
+            new_ridges.append(ridge)
+    return new_ridges
+
+
 def linked_ridges_under(item: QGraphicsItem) -> list[QGraphicsItem]:
     """Every live linked ridge of a HOUSE in *item*'s own child tree.
 

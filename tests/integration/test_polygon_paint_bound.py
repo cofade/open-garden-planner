@@ -308,3 +308,153 @@ def test_the_two_bounds_are_consistent() -> None:
     """The load ceiling must leave room for the degraded outline (issue #472)."""
     assert MAX_POLYGON_VERTICES >= 10_000
     assert MAX_FULL_DETAIL_VERTICES < MAX_POLYGON_VERTICES
+
+
+class TestPolylineLoadBound:
+    def test_refuses_a_polyline_above_the_load_ceiling(
+        self, _qt: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "open_garden_planner.ui.canvas.items.polyline_item.MAX_POLYLINE_VERTICES",
+            8,
+        )
+        hostile = {
+            "type": "polyline",
+            "object_type": "FENCE",
+            "points": [{"x": float(i), "y": 0.0} for i in range(9)],
+        }
+        assert ProjectManager._deserialize_item_core(hostile) is None
+
+    def test_accepts_a_polyline_at_the_load_ceiling(
+        self, _qt: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+        monkeypatch.setattr(
+            "open_garden_planner.ui.canvas.items.polyline_item.MAX_POLYLINE_VERTICES",
+            8,
+        )
+        ok = {
+            "type": "polyline",
+            "object_type": "FENCE",
+            "points": [{"x": float(i), "y": float(i % 2)} for i in range(8)],
+        }
+        item = ProjectManager._deserialize_item_core(ok)
+        assert isinstance(item, PolylineItem)
+
+    def test_one_hostile_polyline_does_not_drop_the_rest_of_a_plan(
+        self, _qt: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "open_garden_planner.ui.canvas.items.polyline_item.MAX_POLYLINE_VERTICES",
+            8,
+        )
+        plan = {
+            "version": "1.4",
+            "canvas": {"width": 1000.0, "height": 1000.0},
+            "layers": [
+                {
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "name": "Layer 1",
+                    "visible": True,
+                    "locked": False,
+                    "opacity": 1.0,
+                    "z_order": 0,
+                }
+            ],
+            "objects": [
+                {
+                    "type": "rectangle",
+                    "item_id": "22222222-2222-2222-2222-222222222222",
+                    "x": 10.0,
+                    "y": 10.0,
+                    "width": 100.0,
+                    "height": 100.0,
+                    "object_type": "GARDEN_BED",
+                },
+                {
+                    "type": "polyline",
+                    "item_id": "33333333-3333-3333-3333-333333333333",
+                    "object_type": "FENCE",
+                    "points": [{"x": float(i), "y": 0.0} for i in range(9)],
+                },
+            ],
+        }
+        with tempfile.TemporaryDirectory() as td:
+            plan_path = Path(td) / "hostile_polyline.ogp"
+            plan_path.write_text(json.dumps(plan), encoding="utf-8")
+            scene = CanvasScene()
+            ProjectManager().load(scene, plan_path)
+
+        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+        from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+
+        assert [i for i in scene.items() if isinstance(i, RectangleItem)]
+        assert [i for i in scene.items() if isinstance(i, PolylineItem)] == []
+
+
+class TestAgentAddVertexBound:
+    def test_refuses_adding_vertex_when_polygon_reaches_ceiling(
+        self, _qt: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from open_garden_planner.app.agent_host import AgentHost
+
+        monkeypatch.setattr(
+            "open_garden_planner.ui.canvas.items.polygon_item.MAX_POLYGON_VERTICES",
+            4,
+        )
+        polygon = PolygonItem(
+            [QPointF(0, 0), QPointF(10, 0), QPointF(10, 10), QPointF(0, 10)],
+            object_type=ObjectType.GARDEN_BED,
+        )
+        scene = CanvasScene()
+        scene.addItem(polygon)
+        view = CanvasView(scene=scene)
+        pm = ProjectManager()
+
+        class DummyHost:
+            def __init__(self) -> None:
+                self.canvas_scene = scene
+                self.canvas_view = view
+                self._project_manager = pm
+                self.command_manager = view.command_manager
+
+            def _agent_resolve_vertex_item(self, item_id: str, action: str) -> object:
+                return polygon
+
+        agent = AgentHost(DummyHost())  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="limit is 4"):
+            agent._do_agent_add_vertex(str(polygon.item_id), 0, 5.0, 5.0)
+
+    def test_refuses_adding_vertex_when_polyline_reaches_ceiling(
+        self, _qt: object, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from open_garden_planner.app.agent_host import AgentHost
+        from open_garden_planner.ui.canvas.items.polyline_item import PolylineItem
+
+        monkeypatch.setattr(
+            "open_garden_planner.ui.canvas.items.polygon_item.MAX_POLYGON_VERTICES",
+            4,
+        )
+        polyline = PolylineItem(
+            [QPointF(0, 0), QPointF(10, 0), QPointF(10, 10), QPointF(0, 10)],
+            object_type=ObjectType.FENCE,
+        )
+        scene = CanvasScene()
+        scene.addItem(polyline)
+        view = CanvasView(scene=scene)
+        pm = ProjectManager()
+
+        class DummyHost:
+            def __init__(self) -> None:
+                self.canvas_scene = scene
+                self.canvas_view = view
+                self._project_manager = pm
+                self.command_manager = view.command_manager
+
+            def _agent_resolve_vertex_item(self, item_id: str, action: str) -> object:
+                return polyline
+
+        agent = AgentHost(DummyHost())  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="limit is 4"):
+            agent._do_agent_add_vertex(str(polyline.item_id), 0, 5.0, 5.0)
