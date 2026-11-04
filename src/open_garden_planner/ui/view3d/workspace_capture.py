@@ -284,6 +284,11 @@ class WorkspaceCaptureCoordinator(QObject):
         return self._photo_on
 
     @property
+    def photo_row_open(self) -> bool:
+        """Its controls have a line of the pane's notices (``_refresh_notices``)."""
+        return self._row is not None and not self._row.isHidden()
+
+    @property
     def settings(self) -> PhotoSettings:
         """The photo settings the controls say."""
         return self._settings
@@ -298,9 +303,6 @@ class WorkspaceCaptureCoordinator(QObject):
         self._photo_on = on
         if self._row is not None:
             self._row.setVisible(on)
-            parent = self._row.parentWidget()
-            if parent is not None and on:
-                parent.show()
         if not on:
             self._settings = replace(self._settings, focus_scene=None)
             self._say_focus()
@@ -479,7 +481,8 @@ class WorkspaceCaptureCoordinator(QObject):
 
         self._tour_size = size
         recorder = TourRecorder(spec, writer, self._tour_frame, self._tour_clock,
-                                self._tour_settled, realtime=realtime, parent=self)
+                                self._tour_settled, realtime=realtime,
+                                view_showing=self._is_pane_showing, parent=self)
         recorder.start()   # raises before anything moved
         host.begin_captures()
         self.clock_wanted.emit()
@@ -532,10 +535,14 @@ class WorkspaceCaptureCoordinator(QObject):
         if recorder is not None:
             recorder.deleteLater()
         moment, self._recording_clock = self._recording_clock, None
-        self._fly_path(None)
-        host = self._get_host()
-        if host is not None:
-            host.end_captures()   # its render targets go; a 4K tour holds about 600 MB
+        try:
+            self._fly_path(None)
+            host = self._get_host()
+            if host is not None:
+                host.end_captures()   # its render targets go; a 4K tour holds about 600 MB
+        except Exception as error:  # noqa: BLE001 - a dead engine must not keep the owner's clock
+            _LOG.error("Camera tour: could not let go of the engine (%s: %s)",
+                       type(error).__name__, log_text(error))
         clock = self._get_clock()
         if clock is not None and moment is not None:
             clock.set_datetime(moment)   # the owner's date and time, as they were

@@ -673,6 +673,7 @@ def _check_video(log: RenderLog, folder: Path) -> str:
         return f"{VIDEO_FRAMES} frames into {size} bytes of {writer.codec}"
     finally:
         path.unlink(missing_ok=True)
+        path.with_name(f"{path.stem}.part{path.suffix}").unlink(missing_ok=True)
 
 
 def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WATCHDOG_S,

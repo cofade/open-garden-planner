@@ -1038,9 +1038,9 @@ class Workspace(QWidget):
         if label.text() != text:
             label.setText(text)
         label.setVisible(bool(text))
-        pane.notices.setVisible(bool(text) or not (
+        pane.notices.setVisible(bool(text) or self._capture.photo_row_open or not (
             self._problems_row.isHidden() and self._compat_label.isHidden()
-            and self._compat_button.isHidden()))
+            and self._compat_button.isHidden() and self._legend.isHidden()))
 
     def _watch_window(self) -> None:
         window = self.window()
@@ -1607,6 +1607,7 @@ class Workspace(QWidget):
             default_path=lambda name: self.default_save_path(name),
             parent=self,
         )
+        self._capture.photo_mode_changed.connect(lambda _on: self._refresh_notices())
         self._selection_coordinator.take_click = self._capture.take_click
         self._analysis_coordinator = WorkspaceAnalysisCoordinator(
             get_host=lambda: self._host,

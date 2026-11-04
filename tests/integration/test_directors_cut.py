@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QImage
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QPushButton
 
 from open_garden_planner.core.camera_path import (
@@ -593,6 +594,59 @@ def test_the_first_frame_may_wait_longer_for_the_plants_of_the_whole_flight(
     assert outcome[0].ok and outcome[0].unsettled == 0
 
 
+def test_cancel_while_the_file_closes_changes_nothing_and_the_truth_is_reported(qtbot: Any) -> None:
+    """The file was still written over the earlier one, and the result said "Cancelled."."""
+    class Closing(Sink):
+        def finish(self) -> None:
+            self.ended.append("finish")   # the encoder's flush takes its time
+
+    sink = Closing()
+    made, outcome = recorder(sink)
+    last_call: list[bool] = []
+    made.finishing.connect(lambda: last_call.append(True))
+    made.start()
+    qtbot.waitUntil(lambda: sink.ended == ["finish"], timeout=10000)
+    assert last_call == [True], "the dialog hears that it is too late"
+    assert made.cancel() is False
+    sink.finished.emit(True, "")
+    assert outcome[0].ok and not outcome[0].cancelled
+
+
+def test_a_hidden_view_is_said_at_once_and_counted_as_nothing(qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every retry behind a hidden view counted one frame as rendered too early, and nothing was
+    said until the limit had passed: 3 minutes on the first frame."""
+    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.0)
+    showing = {"now": False}
+    made, outcome = recorder(Sink(), settled=lambda: showing["now"], view_showing=lambda: showing["now"])
+    paused: list[bool] = []
+    made.paused_changed.connect(paused.append)
+    made.start()
+    qtbot.waitUntil(lambda: paused == [True], timeout=2000)
+    qtbot.wait(600)
+    showing["now"] = True
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert paused == [True, False] and outcome[0].frames == 24
+    assert outcome[0].unsettled == 0
+
+
+def test_a_frame_taken_too_early_counts_once_however_often_it_was_tried(
+        qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.0)
+    image = QImage(16, 16, QImage.Format.Format_RGBX8888)
+    refused = {"left": 3}
+
+    def capture(_frame: Any) -> QImage:
+        if refused["left"]:
+            refused["left"] -= 1
+            raise HostStateError("hidden")
+        return image
+
+    made, outcome = recorder(Sink(), capture=capture, settled=lambda: False, seconds=1.0)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert outcome[0].unsettled == 24, "one per frame, not one per try"
+
+
 def test_a_pipeline_that_never_settles_cannot_hold_a_recording_for_ever(
         qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.0)
@@ -785,7 +839,7 @@ def test_closing_the_dialog_stops_what_it_started(rig: Rig, qtbot: Any) -> None:
     qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
 
 
-def test_closing_the_dialog_during_a_recording_does_not_bring_it_back(
+def test_closing_the_dialog_during_a_recording_stops_it_first_and_then_closes(
         rig: Rig, qtbot: Any, tmp_path: Path) -> None:
     dialog = dialog_of(rig)
     dialog.duration_spin.setValue(60.0)
@@ -793,9 +847,50 @@ def test_closing_the_dialog_during_a_recording_does_not_bring_it_back(
     capture = rig.workspace.capture
     assert capture.recording
     dialog.close()
+    assert dialog.isVisible(), "a modal recording does not run on behind nothing"
     qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
-    assert not dialog.isVisible()
+    qtbot.waitUntil(lambda: not dialog.isVisible(), timeout=5000)
     assert dialog.windowModality() == Qt.WindowModality.NonModal
+
+
+def test_esc_cancels_a_recording_and_the_dialog_stays_to_say_so(
+        rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    """``QDialog.reject`` hides without a close event: the recording ran on with the clock moving,
+    the main window live again, and its end told to a hidden dialog."""
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    clock = rig.workspace.capture._get_clock()
+    before = clock.wall
+    dialog.record_png(tmp_path / "tour")
+    capture = rig.workspace.capture
+    QTest.keyClick(dialog, Qt.Key.Key_Escape)
+    assert dialog.isVisible()
+    qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
+    assert dialog.isVisible() and dialog._status.text() == "Cancelled."
+    assert clock.wall == before
+    QTest.keyClick(dialog, Qt.Key.Key_Escape)
+    assert not dialog.isVisible(), "and with nothing running Esc closes it as ever"
+
+
+def test_a_preview_of_a_time_lapse_is_modal_because_new_plants_read_that_clock(
+        rig: Rig, qtbot: Any) -> None:
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(1.0)
+    dialog.time_combo.setCurrentIndex(dialog.time_combo.findData("year"))
+    dialog.preview()
+    assert dialog.windowModality() == Qt.WindowModality.ApplicationModal
+    qtbot.waitUntil(lambda: dialog._recorder is None, timeout=30000)
+    assert dialog.windowModality() == Qt.WindowModality.NonModal and dialog.isVisible()
+    dialog.close()
+
+
+def test_a_date_range_that_runs_backwards_disables_the_buttons_at_once(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    dialog.time_combo.setCurrentIndex(dialog.time_combo.findData("year"))
+    assert dialog.video_button.isEnabled()
+    dialog.date_to.setDate(dialog.date_from.date().addDays(-5))
+    assert not dialog.video_button.isEnabled() and not dialog.png_button.isEnabled()
+    dialog.close()
 
 
 def test_a_tour_refused_for_now_says_so_in_the_users_language(rig: Rig) -> None:
@@ -805,6 +900,84 @@ def test_a_tour_refused_for_now_says_so_in_the_users_language(rig: Rig) -> None:
     assert not rig.workspace.capture.recording
     assert "still building" in dialog._status.text()
     dialog.close()
+
+
+def test_a_tour_refused_for_good_does_not_say_try_again(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    rig.workspace.set_mode(WorkspaceMode.PLAN)
+    dialog.preview()
+    assert "Open the 3D view" in dialog._status.text()
+    for code, words in (("recording", "already running"), ("unavailable", "not available"),
+                        ("warming_up", "still building")):
+        assert words in dialog._refusal(code), code
+    dialog.close()
+
+
+def test_the_end_of_an_engine_ends_a_recording_and_gives_the_clock_back(
+        rig: Rig, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    clock = capture._get_clock()
+    before = clock.wall
+    outcome: list[Any] = []
+    capture.start_tour(TourSpec(HeldCamera(capture.camera_key()), 60.0, 30, time_range=(time(6, 0), time(21, 0))),
+                       (64, 36), NullWriter()).finished.connect(outcome.append)
+    capture.set_enabled(False)
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert outcome[0].cancelled and clock.wall == before
+
+
+def test_a_recording_holds_the_preset_and_lets_go_of_it(
+        rig: Rig, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    held: list[bool] = []
+    monkeypatch.setattr(capture._get_look(), "hold_preset", held.append)
+    run_tour(rig, TourSpec(HeldCamera(capture.camera_key()), 1.0, 24))
+    assert held == [True, False]
+
+
+def test_a_failed_writer_gives_the_clock_back_too(rig: Rig, qtbot: Any) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    clock = capture._get_clock()
+    before = clock.wall
+    sink = Sink()
+    sink.fail_at = 3
+    result = run_tour(rig, TourSpec(HeldCamera(capture.camera_key()), 1.0, 24,
+                                    time_range=(time(6, 0), time(21, 0))), writer=sink)
+    assert not result.ok and "disk is full" in result.message
+    assert clock.wall == before
+
+
+def test_a_failing_engine_cannot_keep_the_owners_clock(
+        rig: Rig, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    clock = capture._get_clock()
+    before = clock.wall
+
+    def dead() -> None:
+        raise RuntimeError("wrapped C/C++ object has been deleted")
+
+    monkeypatch.setattr(rig.host, "end_captures", dead)
+    run_tour(rig, TourSpec(HeldCamera(capture.camera_key()), 1.0, 24,
+                           time_range=(time(6, 0), time(21, 0))))
+    assert clock.wall == before and not capture.recording
+
+
+def test_photo_modes_controls_survive_a_pass_of_the_pipeline(rig: Rig) -> None:
+    """They live in the notices' part of the strip, which a pass hid when it had nothing to say:
+    photo mode stayed on, with Save Photo gone, until it was toggled."""
+    rig.open_3d()
+    capture = rig.workspace.capture
+    workspace = rig.workspace
+    capture.set_photo_mode(True)
+    assert capture._row.isVisible()
+    workspace._refresh_notices()
+    assert capture._row.isVisible(), "a pass with no notice to show"
+    capture.set_photo_mode(False)
+    assert not workspace._pane.notices.isVisible(), "and off, nothing is left open for it"
 
 
 def test_shutting_down_with_a_tour_running_is_clean(rig: Rig) -> None:

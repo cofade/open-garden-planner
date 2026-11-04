@@ -2,7 +2,8 @@
 
 Not modal while the tour is being set up: the user orbits the view behind it and adds the
 view as a key. While a recording runs it IS modal, because the recording drives the sim
-clock and nothing else should; a preview needs none of that and stays out of the way.
+clock and nothing else should (a new plant takes its planting date from that clock); so does a
+preview of a time-lapse. A preview that leaves the clock alone stays out of the way.
 
 What the dialog asks is two independent things and a format: how the CAMERA moves, what
 the CLOCK does meanwhile (a time-lapse), and how the result is saved. The keys live in the
@@ -88,6 +89,8 @@ class TourDialog(QDialog):
         self._keys: list[CameraKey] = []
         self._recorder: TourRecorder | None = None
         self._recording = False
+        self._modal = False
+        self._close_when_stopped = False
         self._output: Path | None = None
         self.setWindowTitle(self.tr("Camera Tour"))
         self.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
@@ -196,6 +199,10 @@ class TourDialog(QDialog):
         year_form.addStretch(1)
         self._time_pages.addWidget(year)
         layout.addWidget(self._time_pages)
+        self.time_from.timeChanged.connect(self._sync_controls)
+        self.time_to.timeChanged.connect(self._sync_controls)
+        self.date_from.dateChanged.connect(self._sync_controls)
+        self.date_to.dateChanged.connect(self._sync_controls)
         return group
 
     def _build_output(self) -> QWidget:
@@ -307,7 +314,7 @@ class TourDialog(QDialog):
         look = self._capture._get_look()
         return bool(look is not None and look.reduced_motion)
 
-    def _sync_controls(self) -> None:
+    def _sync_controls(self, *_arguments: object) -> None:
         self._motion_pages.setCurrentIndex(self.motion_combo.currentIndex())
         self._time_pages.setCurrentIndex(self.time_combo.currentIndex())
         self.remove_key_button.setEnabled(bool(self._keys))
@@ -363,16 +370,18 @@ class TourDialog(QDialog):
             return
         try:
             recorder = self._capture.start_tour(spec, size, writer, realtime=realtime)
-        except CaptureRefused:   # its own text is English: it is an agent's sentence
-            self._status.setText(self.tr("The 3D view is still building. Try again in a moment."))
+        except CaptureRefused as refused:   # its own text is English: it is an agent's sentence
+            self._status.setText(self._refusal(refused.code))
             return
         except VideoError as error:
             self._status.setText(str(error))
             return
         self._recorder = recorder
         self._recording = not realtime
+        self._modal = self._recording or spec.date_range is not None or spec.time_range is not None
         recorder.progress.connect(self._on_progress)
         recorder.paused_changed.connect(self._on_paused)
+        recorder.finishing.connect(self._on_finishing)
         recorder.finished.connect(self._on_finished)
         self._progress.setRange(0, frame_count(spec))
         self._progress.setValue(0)
@@ -380,7 +389,7 @@ class TourDialog(QDialog):
         self._status.setText(self.tr("Rendering…") if not realtime else "")
         self.cancel_button.show()
         self.close_button.setEnabled(False)
-        if self._recording:
+        if self._modal:
             self.setWindowModality(Qt.WindowModality.ApplicationModal)
             # a window's modality takes effect when it is shown
             self.hide()
@@ -393,14 +402,26 @@ class TourDialog(QDialog):
         if self._recording:
             self._status.setText(self.tr("Frame {done} of {total}").format(done=done, total=total))
 
+    def _refusal(self, code: str) -> str:
+        """Why no tour can start, in the user's language (``workspace_capture.BLOCKERS``)."""
+        return {
+            "not_open": self.tr("Open the 3D view first: switch to 3D or Split."),
+            "recording": self.tr("A recording is already running."),
+            "unavailable": self.tr("3D is not available on this computer."),
+        }.get(code, self.tr("The 3D view is still building. Try again in a moment."))
+
+    def _on_finishing(self) -> None:
+        self.cancel_button.setEnabled(False)
+        if self._recording:
+            self._status.setText(self.tr("Finishing the file…"))
+
     def _on_paused(self, paused: bool) -> None:
         if paused:
             self._status.setText(self.tr(
                 "Waiting: the 3D view is not visible. The recording goes on when it is back."))
 
     def _cancel(self) -> None:
-        if self._recorder is not None:
-            self._recorder.cancel()
+        if self._recorder is not None and self._recorder.cancel():
             self.cancel_button.setEnabled(False)
             self._status.setText(self.tr("Stopping…"))
 
@@ -412,13 +433,16 @@ class TourDialog(QDialog):
         self.cancel_button.hide()
         self.cancel_button.setEnabled(True)
         self.close_button.setEnabled(True)
-        if recording:
-            shown = self.isVisible()   # closing the dialog is one way to stop a recording
+        if self._modal:
+            self._modal = False
             self.hide()
             self.setWindowModality(Qt.WindowModality.NonModal)
-            self.setVisible(shown)
+            self.show()
         self._status.setText(self._say(result, recording))
         self._sync_controls()
+        closing, self._close_when_stopped = self._close_when_stopped, False
+        if closing and result.cancelled:   # a finished file's outcome stays to be read
+            self.close()
 
     def _say(self, result: TourResult, recording: bool) -> str:
         if result.cancelled:
@@ -435,8 +459,20 @@ class TourDialog(QDialog):
                                   "up with their date.").format(count=result.unsettled)
         return done
 
-    def closeEvent(self, event: QCloseEvent | None) -> None:  # noqa: N802 - Qt's name
-        """A running preview or recording stops with the dialog."""
+    def reject(self) -> None:
+        """Esc: a running preview or recording stops, and the dialog stays to say how that
+        ended. Hiding it would leave a modal recording running behind nothing at all."""
         if self._recorder is not None:
-            self._recorder.cancel()
+            self._cancel()
+            return
+        super().reject()
+
+    def closeEvent(self, event: QCloseEvent | None) -> None:  # noqa: N802 - Qt's name
+        """A running preview or recording stops first, and then the dialog closes."""
+        if self._recorder is not None:
+            self._close_when_stopped = True
+            self._cancel()
+            if event is not None:
+                event.ignore()
+            return
         super().closeEvent(event)

@@ -2,6 +2,15 @@
 
 DE = {
     "TourDialog": {
+        "3D is not available on this computer.": "3D ist auf diesem Computer nicht verfügbar.",
+        "A recording is already running.": "Es läuft bereits eine Aufnahme.",
+        "Finishing the file…": "Datei wird abgeschlossen…",
+        "Open the 3D view first: switch to 3D or Split.":
+            "Öffnen Sie zuerst die 3D-Ansicht: Wechseln Sie zu 3D oder Geteilt.",
+        "The video file {path} cannot be written: {error}":
+            "Die Videodatei {path} kann nicht geschrieben werden: {error}",
+        "{path} could not be replaced ({error}). The video is saved as {part}.":
+            "{path} konnte nicht ersetzt werden ({error}). Das Video ist als {part} gespeichert.",
         "The 3D view is still building. Try again in a moment.":
             "Die 3D-Ansicht wird noch aufgebaut. Versuchen Sie es gleich noch einmal.",
         " s": " s",
@@ -117,6 +126,15 @@ DE = {
 
 ES = {
     "TourDialog": {
+        "3D is not available on this computer.": "3D no está disponible en este ordenador.",
+        "A recording is already running.": "Ya hay una grabación en curso.",
+        "Finishing the file…": "Terminando el archivo…",
+        "Open the 3D view first: switch to 3D or Split.":
+            "Abra primero la vista 3D: cambie a 3D o Dividido.",
+        "The video file {path} cannot be written: {error}":
+            "No se puede escribir el archivo de vídeo {path}: {error}",
+        "{path} could not be replaced ({error}). The video is saved as {part}.":
+            "No se pudo reemplazar {path} ({error}). El vídeo se ha guardado como {part}.",
         "The 3D view is still building. Try again in a moment.":
             "La vista 3D aún se está construyendo. Inténtelo de nuevo en un momento.",
         " s": " s",

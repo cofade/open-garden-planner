@@ -82,10 +82,13 @@ class TourRecorder(QObject):
     progress = pyqtSignal(int, int, object)
     #: True: the view gives no frame right now, and the recording waits for it.
     paused_changed = pyqtSignal(bool)
+    #: The last frame is out and the writer is closing the file: too late to cancel.
+    finishing = pyqtSignal()
     finished = pyqtSignal(object)   # TourResult
 
     def __init__(self, spec: TourSpec, writer: FrameSink, capture: CaptureFrame,
                  set_clock: SetClock, settled: Settled, *, realtime: bool = False,
+                 view_showing: Callable[[], bool] = lambda: True,
                  parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._spec = spec
@@ -93,6 +96,7 @@ class TourRecorder(QObject):
         self._capture = capture
         self._set_clock = set_clock
         self._settled = settled
+        self._view_showing = view_showing
         self._realtime = realtime
         self.total = frame_count(spec)
         self._frames: Iterator[TourFrame] = tour_frames(spec)
@@ -122,9 +126,13 @@ class TourRecorder(QObject):
         self._started_at = time.monotonic()
         self._timer.start(0)
 
-    def cancel(self) -> None:
-        """End it at the next step; ``finished`` follows with ``cancelled``."""
+    def cancel(self) -> bool:
+        """End it at the next step; ``finished`` follows with ``cancelled``. False: too late,
+        the writer is closing a finished file, and ``finished`` says how that ended."""
+        if self._ending:
+            return False
         self._cancelled = True
+        return True
 
     # ── the steps ────────────────────────────────────────────────────────────
 
@@ -152,20 +160,29 @@ class TourRecorder(QObject):
             return
         frame = self._frame
         assert frame is not None
-        if not self._settled():
+        if not self._view_showing():
+            self._wait_for_the_view()   # nothing settles behind a hidden view: say so at once
+            return
+        settled = self._settled()
+        if not settled:
             limit = SETTLE_LIMIT_S if self._done else SETTLE_LIMIT_S * FIRST_FRAME_SETTLE_FACTOR
             if time.monotonic() - self._settling_since < limit:
                 self._timer.start(_RETRY_MS)
                 return
-            self._unsettled += 1
         try:
             self._image = self._capture(frame)
         except HostStateError as error:
-            self._pause(True, error)
-            self._timer.start(_PAUSED_RETRY_MS)
+            self._wait_for_the_view(error)
             return
+        if not settled:
+            self._unsettled += 1   # this frame, once: not every retry while it could not be taken
         self._pause(False)
         self._offer()
+
+    def _wait_for_the_view(self, error: Exception | None = None) -> None:
+        self._pause(True, error)
+        self._settling_since = time.monotonic()   # its time to settle starts when it is back
+        self._timer.start(_PAUSED_RETRY_MS)
 
     def _next_frame(self) -> bool:
         """The next frame, with the clock moved for it. False: there is none."""
@@ -215,6 +232,7 @@ class TourRecorder(QObject):
         if abort:
             self._writer.abort()
         else:
+            self.finishing.emit()
             self._writer.finish()
 
     def _on_writer_finished(self, ok: bool, message: str) -> None:

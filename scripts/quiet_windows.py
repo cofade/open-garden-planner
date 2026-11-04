@@ -5,7 +5,8 @@ draws nothing under ``QT_QPA_PLATFORM=offscreen`` (§8.10). They do not need to 
 On a developer's desktop each of them used to pop up in front of whatever was being worked
 on, and take the keyboard with it.
 
-``keep_windows_behind()`` makes every top-level window this process shows from then on
+``keep_windows_behind()`` makes every top-level window this process shows through Python's
+``show`` family from then on (a ``QDialog.exec`` shows from C++; tests stub those dialogs)
 
 - **not take the focus** (Qt's ``_q_showWithoutActivating``, ``SW_SHOWNOACTIVATE``), and
 - **stay under all the others** (``WindowStaysOnBottomHint``: ``HWND_BOTTOM``, and ``raise`` is
@@ -41,9 +42,6 @@ OPT_OUT_VARIABLE: Final = "OGP_WINDOWS_IN_FRONT"
 _NO_ACTIVATION: Final = "_q_showWithoutActivating"
 _WINDOW_SHOWS: Final = ("show", "showNormal", "showMaximized", "showFullScreen", "setVisible")
 _WIDGET_SHOWS: Final = ("show", "showNormal", "showMaximized", "showFullScreen")
-
-_state: dict[str, bool] = {"installed": False}
-
 
 def _bottom_hint() -> Any:
     from PyQt6.QtCore import Qt
@@ -123,9 +121,9 @@ def keep_windows_behind(*, everywhere: bool = False) -> bool:
     imported yet does not matter. True: it is on. ``everywhere``: on any platform (a test)."""
     if (sys.platform != "win32" and not everywhere) or os.environ.get(OPT_OUT_VARIABLE):
         return False
-    if _state["installed"]:
-        return True
-    _state["installed"] = True
+    if any(type(finder).__name__ == _AfterImport.__name__ for finder in sys.meta_path):
+        return True   # also from another copy of this module: the child hook loads one by its
+        # path, a driver imports one through ``scripts``, and two finders ask each other for ever
     for name, patch in _PATCHES.items():
         module = sys.modules.get(name)
         if module is not None:

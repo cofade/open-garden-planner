@@ -152,3 +152,26 @@ def test_a_driver_run_by_hand_has_it_on_too(driver: str) -> None:
     """The docs tell people to run these directly, where no start-up hook is installed."""
     source = (REPO / "tests" / "integration" / driver).read_text(encoding="utf-8")
     assert "keep_windows_behind" in source, driver
+
+
+def test_two_copies_of_the_module_do_not_ask_each_other_for_ever(tmp_path: Path) -> None:
+    """The child hook loads it by its path, a driver through ``scripts``: a module each. Two
+    finders, each asking the other, ran out of stack on the first Qt import of every child but one."""
+    result = run(tmp_path, """
+import importlib.util
+import quiet_windows
+spec = importlib.util.spec_from_file_location("another_copy", quiet_windows.__file__)
+other = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(other)
+assert quiet_windows.keep_windows_behind(everywhere=True)
+assert other.keep_windows_behind(everywhere=True)
+from PyQt6.QtGui import QWindow
+from PyQt6.QtWidgets import QWidget
+print(json.dumps({
+    "finders": sum(type(finder).__name__ == "_AfterImport" for finder in sys.meta_path),
+    "window": getattr(QWindow.show, "ogp_quiet", False),
+    "widget": getattr(QWidget.show, "ogp_quiet", False),
+}))
+""")
+    assert result == {"finders": 1, "window": True, "widget": True}
+

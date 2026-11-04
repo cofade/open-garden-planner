@@ -200,6 +200,59 @@ def test_an_aborted_video_leaves_nothing_and_never_touches_the_good_one(qtbot: A
     assert path.read_bytes() == b"the user's earlier video"
 
 
+def test_a_part_file_someone_holds_cannot_stop_the_end_of_a_cancelled_video(
+        qtbot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explorer's thumbnailer or a virus scanner: ``finished`` never fired, and the app stayed
+    behind a modal dialog with both buttons disabled and the clock moved."""
+    needs_an_encoder()
+    writer = Mp4Writer(tmp_path / "tour.mp4", SIZE, FPS)
+    outcome: list[tuple[bool, str]] = []
+    writer.finished.connect(lambda ok, message: outcome.append((ok, message)))
+    writer.start()
+    image = frame(0, 1)
+    qtbot.waitUntil(lambda: writer.write(image), timeout=20000)
+
+    def held(_path: Path, *, missing_ok: bool = False) -> None:
+        raise PermissionError("in use")
+
+    monkeypatch.setattr(Path, "unlink", held)
+    writer.abort()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=60000)
+    monkeypatch.undo()
+    assert outcome[0][0] is False
+
+
+def test_a_target_someone_holds_keeps_the_finished_render_and_says_where(
+        qtbot: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The earlier video open in a player: a long 4K render was deleted for it."""
+    needs_an_encoder()
+    path = tmp_path / "tour.mp4"
+    path.write_bytes(b"the user's earlier video, open in a player")
+
+    def refused(_part: Any, _target: Any) -> None:
+        raise PermissionError("in use")
+
+    monkeypatch.setattr("open_garden_planner.ui.view3d.video_writer.os.replace", refused)
+    writer = Mp4Writer(path, SIZE, FPS)
+    ok, message = write_all(qtbot, writer, 5)
+    assert ok is False
+    assert writer.part_path.stat().st_size > 0, "the render is still there"
+    assert str(writer.part_path) in message, "and the user is told where"
+    assert path.read_bytes().startswith(b"the user's earlier video")
+
+
+def test_a_part_file_that_cannot_be_removed_is_a_sentence_before_anything_moved(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    needs_an_encoder()
+
+    def held(_path: Path, *, missing_ok: bool = False) -> None:
+        raise PermissionError("in use")
+
+    monkeypatch.setattr(Path, "unlink", held)
+    with pytest.raises(VideoError):
+        Mp4Writer(tmp_path / "tour.mp4", SIZE, FPS).start()
+
+
 def test_a_finished_video_replaces_the_one_the_user_chose_to_overwrite(qtbot: Any, tmp_path: Path) -> None:
     needs_an_encoder()
     path = tmp_path / "tour.mp4"
