@@ -1,6 +1,6 @@
 # Maintaining complete application translations
 
-Every language registered in `SUPPORTED_LANGUAGES` (currently English `en`, German `de`, and Spanish `es`)
+Every language registered in `SUPPORTED_LANGUAGES` (currently English `en`, German `de`, Spanish `es`, and Russian `ru`)
 must cover the current UI source inventory. Adding a language requires all existing keys; adding a wrapped UI string
 requires translations in every registered target language in the same PR. Compare
 Qt context/source/disambiguation keys, never word counts or catalog counts.

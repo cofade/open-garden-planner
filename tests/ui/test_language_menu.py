@@ -55,6 +55,14 @@ class TestLanguageMenu:
         action_texts = [a.text() for a in language_menu.actions()]
         assert "Español" in action_texts
 
+    def test_russian_action_exists(self, qtbot) -> None:
+        """Test that Russian language action exists."""
+        window = GardenPlannerApp()
+        qtbot.addWidget(window)
+        language_menu = self._get_language_submenu(window)
+        action_texts = [a.text() for a in language_menu.actions()]
+        assert "Русский" in action_texts
+
     def test_all_supported_languages_present(self, qtbot) -> None:
         """Test that all supported languages have menu actions."""
         window = GardenPlannerApp()
