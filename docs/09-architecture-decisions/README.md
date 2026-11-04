@@ -10533,4 +10533,11 @@ view on any steady path.
 - A year's time-lapse still spends #531's 2 MB per regrowth; a 12 s video about 200 MB.
 - An MP4 carries no colour tag: the writer relies on the HD convention (decision 9), which the
   owner's manual test confirms in real players. Qt offers no way to set the tag.
+- **The blur is only roughly the same in the pane and in a saved photo.** Qt blurs a half-resolution copy
+  with three taps, so the blur is about 2 px at any picture size: a 4K photo looks sharper than its
+  preview (gradient ratio in the middle of the garden at blur 0.8: 0.66 in the pane, 0.91 in a 4K save
+  seen at the same size), and Qt's amount is capped at its 1080p value because more only shows the taps
+  as copies. The slider moves the width of the sharp band, not the amount (owner's manual test: with a
+  band of 40 % a high and a low blur gave one picture). A picture-relative blur needs a custom depth
+  of field `Effect` (follow-up).
 - No `FILE_VERSION` change; nothing new in the `.ogp`.

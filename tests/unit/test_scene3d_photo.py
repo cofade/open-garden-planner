@@ -116,7 +116,7 @@ def test_a_point_behind_the_camera_or_a_camera_without_a_direction_gives_a_usabl
 
 
 def test_what_stays_sharp_grows_with_the_distance_and_never_vanishes() -> None:
-    assert focus_range_cm(4000.0, 0.0) == pytest.approx(600.0)
+    assert focus_range_cm(4000.0, 0.0) == pytest.approx(2400.0)
     assert focus_range_cm(10.0, 1.0) >= 30.0
 
 
@@ -125,7 +125,7 @@ def test_a_stronger_blur_leaves_less_of_the_garden_sharp() -> None:
     same picture, because the whole garden lay inside it. The band is what the slider moves."""
     bands = [focus_range_cm(3860.0, blur) for blur in (0.0, 0.1, 0.25, 0.5, 0.75, 1.0)]
     assert bands == sorted(bands, reverse=True)
-    assert bands[0] / bands[-1] == pytest.approx(5.0), "a fifth of the band at the strongest"
+    assert bands[0] / bands[-1] == pytest.approx(20.0), "a twentieth of the band at the strongest"
     assert bands[-1] < 150.0, "about a metre around the point, in a view of 38 m"
     assert focus_range_cm(3860.0, 7.0) == focus_range_cm(3860.0, 1.0), "the slider's end is the end"
 
@@ -138,11 +138,14 @@ def test_a_focus_without_blur_or_blur_without_a_focus_is_no_depth_of_field() -> 
     assert properties["photoBlur"] == 0.0
 
 
-def test_the_blur_is_scaled_to_the_picture_so_a_4k_photo_looks_like_its_preview() -> None:
-    """Qt's blur is in pixels of the picture."""
+def test_the_blur_follows_the_picture_up_to_1080_pixels_and_stops_there() -> None:
+    """Qt's blur is in pixels of the picture, but over a half-resolution copy: at 4K the doubled
+    amount only moved the three taps apart, and a saved photo showed copies of the bench legs."""
     settings = PhotoSettings(blur=0.5, focus_scene=(1.0, 2.0, 3.0))
     assert blur_amount(settings, 1080.0) == pytest.approx(0.5 * BLUR_MAX)
-    assert blur_amount(settings, 2160.0) == pytest.approx(2.0 * blur_amount(settings, 1080.0))
+    assert blur_amount(settings, 540.0) == pytest.approx(0.5 * 0.5 * BLUR_MAX)
+    assert blur_amount(settings, 2160.0) == blur_amount(settings, 1080.0)
+    assert blur_amount(PhotoSettings(blur=1.0, focus_scene=(0.0, 0.0, 0.0)), 2160.0) == BLUR_MAX
 
 
 @pytest.mark.parametrize("bad", [
