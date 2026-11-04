@@ -11,7 +11,7 @@ before/after board and a note in the taste log.
 | Blur | 0..1 | `depthOfFieldBlurAmount` 0..5 at 1080p, scaled with the picture's height | 0.8 is what a first focus click gives; at 8 Qt's three taps read as ghosts |
 | Focus point | | the first blur above 0 focuses what the camera looks at; a click moves it | no depth of field without a point: the slider did nothing before a click (owner's manual test) |
 | Ultra's reflections | | off while the blur is drawn | with reflections + blur + glow Qt's render thread crashed in `d3d11.dll` (PF-E3D-21) |
-| Focus range | | 60 % of the depth at the faintest blur, 3 % at the strongest, geometric in between (half in front, half behind), at least 30 cm | the depth is along the view's axis; a pixel outside the band gets Qt's half-resolution blur in full whatever the amount, so the band is what the slider moves (owner's manual test: 40 % showed nothing); Qt's amount is capped at its 1080p value, because at 4K the three taps show as copies |
+| Focus range | | 60 % of the depth at the faintest blur, 3 % at the strongest, geometric in between (half in front, half behind), at least 60 cm (a whole plant; the owner's call) | the depth is along the view's axis; a pixel outside the band gets Qt's half-resolution blur in full whatever the amount, so the band is what the slider moves (owner's manual test: 40 % showed nothing); Qt's amount is capped at its 1080p value, because at 4K the three taps show as copies |
 
 Grades (`core/scene3d/photo.py`), each on top of the mood's own saturation and contrast:
 

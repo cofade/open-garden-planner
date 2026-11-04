@@ -117,7 +117,7 @@ def test_a_point_behind_the_camera_or_a_camera_without_a_direction_gives_a_usabl
 
 def test_what_stays_sharp_grows_with_the_distance_and_never_vanishes() -> None:
     assert focus_range_cm(4000.0, 0.0) == pytest.approx(2400.0)
-    assert focus_range_cm(10.0, 1.0) >= 30.0
+    assert focus_range_cm(10.0, 1.0) == 60.0, "a whole plant stays sharp up close (owner: 60 cm)"
 
 
 def test_a_stronger_blur_leaves_less_of_the_garden_sharp() -> None:

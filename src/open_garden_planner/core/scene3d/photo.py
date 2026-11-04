@@ -50,7 +50,7 @@ VIGNETTE_MAX: Final = 0.20
 #: first 1 % of the slider (3D review).
 FOCUS_RANGE_SHARE_FAINT: Final = 0.60
 FOCUS_RANGE_SHARE_STRONG: Final = 0.03
-_FOCUS_RANGE_MIN_CM: Final = 30.0
+_FOCUS_RANGE_MIN_CM: Final = 60.0
 NO_GRADE: Final = "none"
 #: The picture height the blur amount is defined at, and the last one it grows to: Qt's blur is in
 #: pixels but over a half-resolution copy, so more amount at 4K only moves the three taps further
