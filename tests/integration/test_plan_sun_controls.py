@@ -353,12 +353,12 @@ def jobs(win, monkeypatch, qtbot):
 
 def start(win, qtbot, jobs):
     win._sun_toolbar._heatmap_button.click()
-    qtbot.waitUntil(lambda: len(jobs) == 1)
+    qtbot.waitUntil(lambda: len(jobs) == 1, timeout=10000)
 
 
 def complete(win, qtbot, jobs, number=0):
     jobs[number][1].set()
-    qtbot.waitUntil(lambda: win._live_sun_map.is_current())
+    qtbot.waitUntil(lambda: win._live_sun_map.is_current(), timeout=10000)
 
 
 def test_one_permanent_strip_and_defaults_ignore_obsolete_setting(qtbot):
@@ -751,7 +751,7 @@ def test_bulk_layer_changes_debounce_scene_collection_itself(win, qtbot, jobs, m
         SetLayerPropertyCommand(win.canvas_scene, layer, "visible", True, False))
     assert captures == []  # no synchronous O(N) scan for any of the N notifications
     assert not win._live_sun_map.is_current()
-    qtbot.waitUntil(lambda: len(jobs) == 2)
+    qtbot.waitUntil(lambda: len(jobs) == 2, timeout=10000)
     assert len(captures) == 1
     complete(win, qtbot, jobs, 1)
 

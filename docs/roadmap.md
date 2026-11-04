@@ -132,6 +132,15 @@ Adds full Spanish localization (`es`, "Español") matching the completeness of E
 - Strict gate verification: passes `scripts/check_translations.py` and `tests/integration/test_translation_gate.py` across English, German, and Spanish.
 - Contributor guide: added a dedicated chapter in `CONTRIBUTING.md` ("Contributing translations and adding languages") documenting step-by-step instructions for contributors to update existing translations or add new languages.
 
+### Russian Translation (i18n)
+
+**Implemented 2026-11-04 (#492, PR #495, released as v1.36.1).**
+Adds full Russian localization (`ru`, "Русский") matching English, German, and Spanish:
+- 100% key coverage: all 2,951 live source keys across all contexts translated with zero missing and zero unfinished keys.
+- Menu mnemonics (`&`): zero accelerator collisions across Russian menubar and all nested submenus (`test_menu_mnemonics_are_unique_per_language`).
+- Packaging: NSIS installer updated with `!insertmacro MUI_LANGUAGE "Russian"`.
+- Strict gate verification: passes `scripts/check_translations.py`, `tests/unit/test_i18n.py`, and `tests/integration/test_translation_gate.py` across English, German, Spanish, and Russian.
+
 **i18n blind-spot fixes (2026-10-04).** Three defects invisible to `test_german_ts_has_no_unfinished` are fixed together: **#393** (five duplicate `TRANSLATIONS` keys shadowed 62 strings; the five `PdfReportService` journal-notes strings never reached `de.ts`, so the German PDF printed English), **#408** (generated soil-amendment task titles stayed English; the task **id** keeps the English data name so saved done/snooze status survives a language switch), and **#410** (the agent `suggest_companions` `name` now follows the UI language, matching the Companion panel). The CI lint step is widened to `ruff check src/ tests/ scripts/`, and `tests/unit/test_i18n.py::TestTranslationRegistry` pins `TRANSLATIONS` key uniqueness with an `ast` parse. See §11.4, §8.19, and the ADR-045 addendum.
 
 ---

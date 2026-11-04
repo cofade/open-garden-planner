@@ -259,7 +259,7 @@ def test_malformed_seed_is_an_exit_code_not_a_traceback(tmp_path: Path, payload:
 
 def test_preview_is_valid_svg_and_translations_have_identical_keys(tmp_path: Path) -> None:
     catalogs = json.loads((report.WEB / "messages.json").read_text(encoding="utf-8"))
-    registry = ast.parse((report.WEB.parents[1] / "src/open_garden_planner/core/i18n.py").read_text())
+    registry = ast.parse((report.WEB.parents[1] / "src/open_garden_planner/core/i18n.py").read_text(encoding="utf-8"))
     supported = next(ast.literal_eval(node.value) for node in registry.body
                      if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
                      and node.target.id == "SUPPORTED_LANGUAGES")
