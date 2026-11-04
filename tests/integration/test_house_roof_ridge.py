@@ -409,6 +409,45 @@ def test_a_group_controls_its_members_visibility_by_its_own_layer(qtbot) -> None
     assert not other.isVisible()
 
 
+def test_ungrouping_keeps_members_on_the_groups_layer(qtbot) -> None:
+    """A legacy group's members join its layer when the group is dissolved.
+
+    Undo restores each member's own layer, so ungroup/undo stays symmetric.
+    """
+    from open_garden_planner.core.commands import GroupCommand, UngroupCommand
+    from open_garden_planner.models.layer import Layer
+
+    scene, view = _scene_view(qtbot)
+    source = scene.active_layer
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=source.id,
+    )
+    other = RectangleItem(400, 0, 50, 50, layer_id=source.id)
+    scene.addItem(house)
+    scene.addItem(other)
+    GroupCommand(scene, [house, other]).execute()
+    group = house.parentItem()
+    assert group is not None
+
+    target = Layer(name="Target", z_order=99)
+    scene.add_layer(target)
+    # The saved state from before the layer-ownership fix: wrapper and ridge
+    # moved, members still on the layer they were drawn on.
+    group.layer_id = target.id
+
+    view.command_manager.execute(UngroupCommand(scene, group))
+    assert house.parentItem() is None
+    assert house.layer_id == target.id
+    assert other.layer_id == target.id
+
+    view.command_manager.undo()
+    assert house.parentItem() is not None
+    assert house.layer_id == source.id
+    assert other.layer_id == source.id
+
+
 def test_the_command_does_not_mint_a_second_ridge_on_repeat_execute(qtbot) -> None:
     scene, view = _scene_view(qtbot)
     rect = _house_rect(scene)

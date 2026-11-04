@@ -2203,7 +2203,8 @@ layer 1).
 **Decision.** A group is the layered unit for everything it contains.
 `MoveToLayerCommand` walks `selection_tree` and writes the target layer to every
 member as well (undo restores each member's own layer), so hiding either layer and
-ungrouping agree with what was on screen. `_apply_item_visibility` resolves a grouped
+ungrouping agree with what was on screen; `UngroupCommand` likewise puts each
+member on the group's layer and restores its own on undo. `_apply_item_visibility` resolves a grouped
 item's effective layer through its outermost group ancestor, so a plan saved before
 this fix - like the owner's - also renders as one unit instead of relying on a
 migration. Pinned by `tests/integration/test_house_roof_ridge.py`'s

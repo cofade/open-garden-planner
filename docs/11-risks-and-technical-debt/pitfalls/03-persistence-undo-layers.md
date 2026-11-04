@@ -398,7 +398,7 @@ group, its pin and the note together.
 
 ### PF-PER-27
 
-- **Rule:** A group is the layered unit for everything it contains. A command that changes a group's layer must write every member's layer too (and restore each on undo), and visibility must resolve a grouped item's effective layer through its outermost group ancestor; otherwise a plan whose members still name an older layer hides them one by one while the group wrapper and its derived ridge stay visible.
+- **Rule:** A group is the layered unit for everything it contains. A command that changes a group's layer must write every member's layer too (and restore each on undo), ungrouping keeps the members on the group's layer, and visibility must resolve a grouped item's effective layer through its outermost group ancestor; otherwise a plan whose members still name an older layer hides them one by one while the group wrapper and its derived ridge stay visible.
 - **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_moving_a_group_to_another_layer_moves_a_nested_houses_ridge`; `tests/integration/test_house_roof_ridge.py::test_a_group_controls_its_members_visibility_by_its_own_layer`
 - **Source:** #690, PR #713 manual test 2.7 (2026-11-04)
 - **Status:** standing

@@ -2940,12 +2940,18 @@ class UngroupCommand(Command):
         self._scene = scene
         self._group = group
         self._items: list[QGraphicsItem] = list(group.childItems())
+        # The group may have been moved since its members were drawn; undo
+        # gives each member back its own layer (see execute).
+        self._member_layers = {
+            item: getattr(item, "layer_id", None) for item in self._items
+        }
 
     @property
     def description(self) -> str:
         return QCoreApplication.translate("Commands", "Ungroup")
 
     def execute(self) -> None:
+        group_layer = getattr(self._group, "layer_id", None)
         for item in self._items:
             self._group.removeFromGroup(item)  # type: ignore[attr-defined]
             item.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
@@ -2953,8 +2959,13 @@ class UngroupCommand(Command):
             item.setSelected(True)
             # Top-level again (issue #338); keeps its pre-group stack_order
             # rank so execute() is the exact inverse of undo() -- see the
-            # matching note in GroupCommand.undo above.
+            # matching note in GroupCommand.undo above. The group's layer is
+            # the one the user saw, so a member drawn on another layer joins
+            # it instead of snapping back (PF-PER-27).
+            if group_layer is not None and hasattr(item, "layer_id"):
+                item.layer_id = group_layer
         self._scene.removeItem(self._group)
+        self._scene._update_items_visibility()  # type: ignore[attr-defined]
         refresh_all = getattr(self._scene, "_update_items_z_order", None)
         if callable(refresh_all):
             refresh_all()
@@ -2965,7 +2976,13 @@ class UngroupCommand(Command):
         for item in self._items:
             item.setSelected(False)
             self._group.addToGroup(item)  # type: ignore[attr-defined]
+            if hasattr(item, "layer_id"):
+                item.layer_id = self._member_layers[item]
         self._group.setSelected(True)
+        self._scene._update_items_visibility()  # type: ignore[attr-defined]
+        refresh_all = getattr(self._scene, "_update_items_z_order", None)
+        if callable(refresh_all):
+            refresh_all()
 
 
 class BooleanShapeCommand(Command):
