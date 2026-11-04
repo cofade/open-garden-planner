@@ -70,7 +70,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+          sudo apt-get install -y libpulse0 libgl1 libxrandr2 libxext6 libdrm2 libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
 
       - uses: ./.github/actions/setup-locked-env
 
@@ -233,7 +233,7 @@ jobs:
       - name: Install Qt system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+          sudo apt-get install -y libpulse0 libgl1 libxrandr2 libxext6 libdrm2 libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
       - uses: ./.github/actions/setup-locked-env
       - name: Prepare coverage directory
         run: mkdir -p coverage-data
@@ -261,7 +261,7 @@ jobs:
       - name: Install Qt system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
+          sudo apt-get install -y libpulse0 libgl1 libxrandr2 libxext6 libdrm2 libegl1 libxkbcommon0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
       - uses: ./.github/actions/setup-locked-env
       - name: Prepare coverage directory
         run: mkdir -p coverage-data
@@ -361,7 +361,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libegl1 libgl1 libgl1-mesa-dri libglx-mesa0 libopengl0 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1
+          sudo apt-get install -y xvfb libpulse0 libxrandr2 libxext6 libdrm2 libegl1 libgl1 libgl1-mesa-dri libglx-mesa0 libopengl0 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xkb1
       - uses: ./.github/actions/setup-locked-env
       - name: Render tier (Linux -- xvfb, xcb, OpenGL on llvmpipe)
         if: runner.os == 'Linux'
