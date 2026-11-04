@@ -191,7 +191,7 @@ def test_grouped_centre_delete_and_navigation(guild_canvas, qtbot):
     centre, fixer = command.items[:2]
     centre.setSelected(True)
     command.items[2].setSelected(True)
-    view._group_selected()
+    view.group_selected()
     group = centre.parentItem()
     assert group is not None
     view.command_manager.execute(DeleteItemsCommand(scene, [fixer]))
@@ -287,7 +287,7 @@ def test_existing_centre_honours_ancestor_layers(guild_canvas, state):
     view.command_manager.execute(GuildMembershipCommand([(plant, None) for plant in original.items]))
     centre.setSelected(True)
     original.items[2].setSelected(True)
-    view._group_selected()
+    view.group_selected()
     group = centre.parentItem()
     target = Layer(name="Protected")
     scene.add_layer(target)

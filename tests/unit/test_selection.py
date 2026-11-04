@@ -73,7 +73,7 @@ class TestSelectToolBoxSelection:
         # Set up mock to return an item at the click position
         mock_item = MagicMock()
         mock_item.flags.return_value = QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable
-        mock_view.scene().itemAt.return_value = mock_item
+        mock_view.scene().items.return_value = [mock_item]
 
         tool = SelectTool(mock_view)
         event = MagicMock(spec=QMouseEvent)

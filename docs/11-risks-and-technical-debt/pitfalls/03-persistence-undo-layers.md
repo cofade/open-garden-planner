@@ -339,3 +339,75 @@ counting wrapper documents the call count, and `payload is payload` pins the
 behaviour without depending on the helper's name, so a re-implementation that
 drops the cache fails for the right reason.
 
+### PF-PER-24
+
+- **Rule:** A float that is written into `.ogp` JSON must be proven finite first: `json.dump` happily writes `NaN`/`Infinity`, which cannot reopen as a number. A display block (`fill_transform`) drops itself when any value is non-finite; its reader treats missing/malformed fields as defaults and a non-positive scale as 1.0, so a hand-edited plan never fails to show. An integer too large for `float` (`10**400`) is malformed too: convert it inside the same guard, or `OverflowError` escapes the "never raises" reader.
+- **Pinned by:** `tests/unit/test_fill_transform.py::test_nan_is_never_written_to_json`; `tests/unit/test_fill_transform.py::test_malformed_values_fall_back_to_defaults`; `tests/unit/test_fill_transform.py::test_unrepresentable_integers_never_raise`
+- **Source:** #665
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The per-object fill transform accepted a scale from a spin box and a block from a
+plan file; both are untrusted at the file seam. Python's `json.dump` serializes
+`float("nan")` as the bare token `NaN`, which `json.load` accepts in CPython but
+which is not valid JSON for any other consumer, and which a bounds check later
+would not catch. `FillTransform.to_dict()` therefore returns `None` for any
+non-finite member (the identity is also `None`, so the key simply disappears), and
+`from_dict()` sanitizes the other direction. The render side has no NaN guard
+because `QTransform` silently ignores non-finite input; the rule lives where the
+value crosses the persistence boundary.
+
+### PF-PER-25
+
+- **Rule:** A derived sibling's **metadata link** is part of a command's undo state, not just its scene membership. When a command removes or creates a linked item (a HOUSE's `ROOF_RIDGE`), it must capture the owner's pre-command id key and restore it on undo — and clear it when the owner stops being the kind that owns one — or undo leaves a dangling id that silently disables other features. Every path that removes the owner (menu/key Delete, agent delete, trim, group delete) must also remove the live ridge; a tree walk is required for groups, and a copy must strip the inherited key, build its own ridge for the reflected outline, and remove both on undo because its fresh UUID cannot own the source's ridge. Constraints anchored to the removed ridge are part of the same step: remove them and restore them on undo.
+- **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_leaving_house_drops_the_link_and_undo_restores_it`; `tests/integration/test_house_roof_ridge.py::test_a_non_house_type_change_never_leaves_a_stale_ridge_link`; `tests/integration/test_house_roof_ridge.py::test_context_menu_delete_removes_the_ridge_in_the_same_undo_step`; `tests/integration/test_house_roof_ridge.py::test_undo_of_a_same_type_house_change_removes_the_created_ridge`; `tests/integration/test_house_roof_ridge.py::test_undo_restores_a_legacy_ridge_link_on_a_non_house`; `tests/integration/test_house_roof_ridge.py::test_converting_away_removes_a_ridge_constraint_and_undo_restores_it`; `tests/integration/test_trim_extend_tool.py::test_trimming_a_house_removes_its_ridge_and_undo_restores_it`; `tests/integration/test_agent_api_default_on.py::test_delete_object_removes_a_grouped_houses_linked_ridge`; `tests/integration/test_mirror_tool.py::test_copy_gives_a_house_its_own_fresh_ridge`
+- **Source:** #690
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`ChangeObjectTypeCommand` moved the ridge in and out of the scene but left
+`item.metadata["ridge_item_id"]` untouched. A HOUSE → bed → HOUSE sequence
+followed by two undos therefore restored the *first* ridge in the scene while the
+item still named the second: `PolygonItem._find_ridge()` returned nothing, the 3D
+snapshot lost its ridge parameter (flat roof), delete-with-owner left the ridge
+behind, and a save wrote a dangling id. A bed that had once been a house also
+carried the id permanently, so `CanvasScene` treated it as a ridge owner and
+`CanvasView` refused it for boolean operations. The link is now captured in the
+command's `__init__` and written/cleared by `_link()` on every execute/undo; the
+two-conversion undo test is the regression pin.
+
+### PF-PER-26
+
+- **Rule:** A selection filtered to top-level items must still walk each item's subtree for DERIVED references — constraints, metadata links, journal notes — before deleting it. A group is one selectable object, but its children can own rows in another store; deleting only the filtered names leaves a dangling UUID in the saved plan.
+- **Pinned by:** `tests/integration/test_group_context_menu.py::test_deleting_a_group_removes_a_childs_constraint`; `tests/integration/test_agent_api_default_on.py::test_delete_object_removes_a_group_childs_constraint`; `tests/integration/test_house_roof_ridge.py::test_deleting_a_group_removes_its_nested_house_ridge`; `tests/integration/test_garden_journal.py::test_delete_key_prunes_notes_for_pins_inside_a_group`
+- **Source:** #674, #690
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`top_level_selection()` stopped a group and its members from being deleted twice
+(Qt reports the members as selected too). The constraint loop still ran over the
+filtered list, so a constraint anchored to a group CHILD stayed in the graph after
+the child was gone: a phantom row in the Constraints panel and a dead anchor
+written into `.ogp`. The agent's `delete_object` had the same hole for a group
+argument. Both paths now walk `group_item.selection_tree()`; the ridge walk
+(`linked_ridges_under`) is built on the same helper, and a grouped pin's note
+commands are wrapped with the item delete in ONE `CompoundCommand`. The undo
+stack removes the constraints before the items, and a single undo restores the
+group, its pin and the note together.
+
+
+### PF-PER-27
+
+- **Rule:** A group is the layered unit for everything it contains. A command that changes a group's layer must write every member's layer too (and restore each on undo), ungrouping keeps the members on the group's layer, and visibility must resolve a grouped item's effective layer through its outermost group ancestor; otherwise a plan whose members still name an older layer hides them one by one while the group wrapper and its derived ridge stay visible.
+- **Pinned by:** `tests/integration/test_house_roof_ridge.py::test_moving_a_group_to_another_layer_moves_a_nested_houses_ridge`; `tests/integration/test_house_roof_ridge.py::test_a_group_controls_its_members_visibility_by_its_own_layer`
+- **Source:** #690, PR #713 manual test 2.7 (2026-11-04)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`MoveToLayerCommand` moved the selected wrapper and a nested HOUSE's sibling ridge,
+but a group's members kept the layer they were drawn on. Hiding that old layer made
+the house and rectangle disappear while the group and ridge (on the new layer)
+stayed; the owner's saved plan recorded exactly that split. The command now walks
+`group_item.selection_tree` for members, and `_apply_item_visibility` takes the
+outermost group ancestor's layer as the effective one, so pre-fix plans render
+correctly without a migration.

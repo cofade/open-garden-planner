@@ -281,7 +281,12 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                 if clip is not None:
                     budget = current_render_walk_cap() or budget
             if clip is None:
-                path_paint = PathStylePaint(self._points, self.pen(), self.path())
+                path_paint = PathStylePaint(
+                    self._points,
+                    self.pen(),
+                    self.path(),
+                    fill_transform=getattr(self, "fill_transform", None),
+                )
             else:
                 path_paint = PathStylePaint(
                     self._points,
@@ -289,6 +294,7 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
                     self.path(),
                     clip=clip,
                     budget=budget,
+                    fill_transform=getattr(self, "fill_transform", None),
                 )
             path_paint.paint(painter, style)
             self._paint_selection(painter, option)
@@ -518,13 +524,14 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent) -> None:
         """Show context menu on right-click."""
-        # Select this item if not already selected
-        if not self.isSelected():
-            self.scene().clearSelection()
-            self.setSelected(True)
+        self.normalize_context_menu_selection()
 
         _ = QCoreApplication.translate
         menu = QMenu()
+
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
 
         # Edit vertices action
         if self.is_vertex_edit_mode:
@@ -570,6 +577,8 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         # Execute menu and handle result
         lock_action = self.build_lock_context_menu(menu)
         action = menu.exec(event.screenPos())
+        if self.dispatch_group_action(action, group_actions):
+            return
         if self.dispatch_lock_action(action, lock_action):
             return
 
@@ -589,10 +598,11 @@ class PolylineItem(PolylineVertexEditMixin, RotationHandleMixin, GardenItemMixin
         elif action == edit_label_action:
             self.start_label_edit()
         elif action == delete_action:
-            # Delete this item and any other selected items
-            scene = self.scene()
-            for item in scene.selectedItems():
-                scene.removeItem(item)
+            # Delete the selection through the view: it owns linked ridges,
+            # constraints and journal-note pruning (round-5 review of #690).
+            from .common_menu import dispatch_delete_selection
+
+            dispatch_delete_selection(self.scene())
         elif repeat_actions.dispatch(action, self.scene()):
             return
         elif action == array_along_path_action and array_along_path_action is not None:

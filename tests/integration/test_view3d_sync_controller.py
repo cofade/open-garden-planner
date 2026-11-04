@@ -2187,6 +2187,9 @@ def test_a_lawn_resized_inside_a_hold_leaves_the_other_lawns_alone(
     grown, other = _lawn(rig, 0.0), _lawn(rig, 4000.0)
     rig.controller.set_active(True)
     rig.settle()
+    # The geometry lane can outlive settle's fixed wait under a loaded full
+    # suite; the FIRST pass must land before its budget is asserted.
+    qtbot.waitUntil(lambda: rig.controller.apply_count >= 1, timeout=5000)
     assert sum(_applied_shares(rig)) == MAX_PLAN_BLADES   # the budget binds
     other_id = str(other.item_id)
     rig.reports.clear()

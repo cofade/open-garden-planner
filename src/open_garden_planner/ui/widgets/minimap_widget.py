@@ -257,29 +257,39 @@ class MinimapWidget(QWidget):
         self.update()
 
     def _hide_overlay_items(self) -> list[QGraphicsItem]:
-        """Hide screen-space and tool-overlay items before thumbnail render.
+        """Suppress screen-space and tool-overlay items before thumbnail render.
 
-        Returns the list of items that were hidden (for later restore).
+        Uses ``ItemHasNoContents`` rather than ``setVisible(False)``: Qt
+        deselects an item when it is hidden, and this widget re-renders every
+        100 ms while the scene changes - a selected journal pin lost its
+        selection on the next thumbnail, and re-selecting after every render
+        would have made the selection flicker (manual test 4 of PR #713).
+        The flag suppresses paint without changing visibility, selection or
+        the plan revision.
+
+        Returns the list of items that were suppressed (for later restore).
         """
         hidden: list[QGraphicsItem] = []
         ignore_flag = QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
-        # Never hide the scene's current focus item — it may be an active inline
-        # text editor (EditableLabel). Hiding it would steal focus and close the editor.
+        no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
+        # Never suppress the scene's current focus item — it may be an active
+        # inline text editor (EditableLabel). Doing so would close the editor.
         focus_item = self._canvas_scene.focusItem()
         for item in self._canvas_scene.items():
             if item is focus_item:
                 continue
-            if item.isVisible() and (
+            if item.isVisible() and not (item.flags() & no_contents) and (
                 bool(item.flags() & ignore_flag) or item.zValue() >= _OVERLAY_Z_MIN
             ):
-                item.setVisible(False)
+                item.setFlag(no_contents, True)
                 hidden.append(item)
         return hidden
 
     def _restore_overlay_items(self, hidden: list[QGraphicsItem]) -> None:
-        """Restore items that were hidden before thumbnail render."""
+        """Restore items suppressed before thumbnail render."""
+        no_contents = QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
         for item in hidden:
-            item.setVisible(True)
+            item.setFlag(no_contents, False)
 
     def paintEvent(self, _event: object) -> None:
         """Draw the minimap thumbnail, border, and viewport rectangle."""

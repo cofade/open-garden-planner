@@ -448,31 +448,18 @@ class AgentHost:
 
         linked_items: list[Any] = []
         if object_type == "HOUSE":
-            from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
+            from open_garden_planner.ui.canvas.roof_ridge_link import (
+                build_linked_ridge,
+            )
 
-            p1, p2 = compute_roof_ridge_endpoints(cast(Any, item).polygon(), item.pos())
-            # Keep the derived sibling on the loader path too.  The house and
-            # ridge are both created from the same serialized shape vocabulary
-            # that ProjectManager.load() consumes; CreateItemsCommand still
-            # makes their visible appearance one atomic undo step.
-            ridge_spec = {
-                "type": "polyline",
-                "object_type": "ROOF_RIDGE",
-                "points": [
-                    {"x": p1.x(), "y": p1.y()},
-                    {"x": p2.x(), "y": p2.y()},
-                ],
-                "layer_id": str(getattr(item, "layer_id", None))
-                if getattr(item, "layer_id", None) is not None
-                else None,
-            }
-            if ridge_spec["layer_id"] is None:
-                ridge_spec.pop("layer_id")
-            ridge = host._project_manager._deserialize_item_core(ridge_spec)
+            # One construction path with the polygon tool and a type change:
+            # `build_linked_ridge` computes the canonical geometry in the item's
+            # local frame, maps it through the item's transform and links both
+            # metadata ends. CreateItemsCommand still makes the house and its
+            # ridge one atomic undo step.
+            ridge = build_linked_ridge(item, getattr(item, "layer_id", None))
             if ridge is None:
                 raise ValueError("Could not build the HOUSE roof ridge.")
-            cast(Any, ridge).set_metadata("owner_polygon_id", str(cast(Any, item).item_id))
-            cast(Any, item).set_metadata("ridge_item_id", str(cast(Any, ridge).item_id))
             linked_items.append(ridge)
 
         items = [item, *linked_items]
@@ -921,6 +908,7 @@ class AgentHost:
         """
         host = self._host
         from open_garden_planner.core.commands import DeleteItemsCommand, RemoveConstraintCommand
+        from open_garden_planner.ui.canvas.items.group_item import selection_tree
 
         item = host._resolve_agent_item(item_id)
         linked_ridge = host._agent_linked_roof_ridge(item)
@@ -930,7 +918,15 @@ class AgentHost:
             host._agent_item_uuid(candidate) for candidate in targets
         }
 
-        constraints = host._agent_item_constraints(item)
+        # A group's children can own constraints too; the GUI delete walks the
+        # same subtree, so the two receipts cannot disagree (round-7 review P1).
+        constraints: list[Any] = []
+        for member in selection_tree([item, *linked_ridge]):
+            if getattr(member, "item_id", None) is None:
+                continue
+            for constraint in host._agent_item_constraints(member):
+                if constraint not in constraints:
+                    constraints.append(constraint)
         for constraint in constraints:
             host.canvas_view.command_manager.execute(
                 RemoveConstraintCommand(host.canvas_scene.constraint_graph, constraint)
@@ -2258,25 +2254,16 @@ class AgentHost:
 
 
     def _agent_linked_roof_ridge(self, item: Any) -> list[Any]:
-        """A HOUSE's linked ``ROOF_RIDGE`` item, if any — mirroring
-        ``CanvasView._delete_selected_items``'s ``ridge_item_id`` expansion so
-        deleting a house doesn't orphan its ridge polyline."""
-        host = self._host
-        from uuid import UUID
+        """Every linked ``ROOF_RIDGE`` under *item* — the same tree walk as
+        ``CanvasView._delete_selected_items``. A group's HOUSE is a child, so
+        inspecting only the resolved wrapper would orphan its ridge. The
+        validated lookup refuses a copied/stale link, so the agent's
+        delete_object never removes another house's ridge."""
+        from open_garden_planner.ui.canvas.roof_ridge_link import (
+            linked_ridges_under,
+        )
 
-        from open_garden_planner.core.object_types import ObjectType
-        from open_garden_planner.ui.canvas.items import GardenItemMixin
-
-        if not isinstance(item, GardenItemMixin) or item.object_type != ObjectType.HOUSE:
-            return []
-        ridge_id_str = item.metadata.get("ridge_item_id")
-        if not ridge_id_str:
-            return []
-        try:
-            ridge = host.canvas_scene.find_item_by_id(UUID(ridge_id_str))
-        except ValueError:
-            return []
-        return [ridge] if ridge is not None else []
+        return linked_ridges_under(cast(Any, item))
 
 
     def _agent_require_unconstrained(

@@ -27,6 +27,8 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         'Change food-forest auto-assignment': 'Cambiar asignación automática de bosque de alimentos',
         'Change guild membership': 'Cambiar pertenencia al gremio',
         'Change {property}': 'Cambiar {property}',
+        'Change type': 'Cambiar tipo',
+        'fill pattern transform': 'transformación del patrón de relleno',
         # The seven Properties-panel edits that became undoable commands (#530).
         'container drainage': 'Drenaje del contenedor',
         'container height': 'Altura del contenedor',

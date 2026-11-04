@@ -481,6 +481,14 @@ TRANSLATIONS = {
         "Text": "Texto",
         "Total: {count} plant(s)": "Total: {count} planta(s)",
         "Type:": "Tipo:",
+        "Pattern Angle:": "Ángulo del patrón:",
+        "Pattern Offset:": "Desplazamiento del patrón:",
+        "Pattern Scale:": "Escala del patrón:",
+        "Reset Pattern": "Restablecer patrón",
+        "Restore the pattern's original angle, scale and offset":
+            "Restaurar el ángulo, la escala y el desplazamiento originales del patrón",
+        "Turns the 2D texture only; the object's geometry and measurements stay unchanged":
+            "Gira solo la textura 2D; la geometría y las medidas del objeto no cambian",
         "Unlink": "Desvincular",
         "Water": "Agua",
         "Wildflower Meadow": "Pradera silvestre",

@@ -836,6 +836,110 @@ def test_delete_object_deletes_linked_roof_ridge(qtbot: Any, monkeypatch: Any) -
         win._stop_agent_api()
 
 
+def test_delete_object_removes_a_grouped_houses_linked_ridge(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """A group's HOUSE is a child, not the resolved wrapper.
+
+    The agent delete walked only the wrapper, so deleting a group removed the
+    house but left its free-standing ridge — the same hole the GUI closed in
+    ``CanvasView._delete_selected_items`` (round-5 review of #690).
+    """
+    from PyQt6.QtCore import QPointF
+
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.core.object_types import ObjectType
+    from open_garden_planner.ui.canvas.items import PolygonItem, RectangleItem
+    from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        house = PolygonItem(
+            [QPointF(0, 0), QPointF(500, 0), QPointF(500, 400), QPointF(0, 400)],
+            object_type=ObjectType.HOUSE,
+        )
+        other = RectangleItem(600, 0, 50, 50)
+        peer = RectangleItem(900, 0, 50, 50)
+        win.canvas_scene.addItem(house)
+        win.canvas_scene.addItem(other)
+        win.canvas_scene.addItem(peer)
+        ridge = build_linked_ridge(house, house.layer_id)
+        assert ridge is not None
+        win.canvas_scene.addItem(ridge)
+        graph = win.canvas_scene.constraint_graph
+        graph.add_constraint(
+            AnchorRef(item_id=ridge.item_id, anchor_type=AnchorType.CENTER),
+            AnchorRef(item_id=peer.item_id, anchor_type=AnchorType.CENTER),
+            50.0,
+        )
+        GroupCommand(win.canvas_scene, [house, other]).execute()
+        group = house.parentItem()
+        assert group is not None
+
+        result = win._do_agent_delete_object(str(group.item_id))
+
+        assert win.canvas_scene.find_item_by_id(house.item_id) is None
+        assert win.canvas_scene.find_item_by_id(ridge.item_id) is None
+        assert graph.constraints == {}
+        assert result["linked_items_deleted"] == 1
+        assert result["constraints_removed"] == 1
+
+        win.canvas_view.command_manager.undo()
+        win.canvas_view.command_manager.undo()
+        assert win.canvas_scene.find_item_by_id(group.item_id) is not None
+        assert win.canvas_scene.find_item_by_id(ridge.item_id) is not None
+        assert len(graph.constraints) == 1
+    finally:
+        win._stop_agent_api()
+
+
+def test_delete_object_removes_a_group_childs_constraint(
+    qtbot: Any, monkeypatch: Any
+) -> None:
+    """The agent delete must walk the group's subtree like the GUI delete.
+
+    Otherwise it leaves a constraint keyed to a child UUID no longer in the
+    scene and writes a dangling anchor into the plan (round-7 review P1).
+    """
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.core.constraints import AnchorRef
+    from open_garden_planner.core.measure_snapper import AnchorType
+    from open_garden_planner.ui.canvas.items import RectangleItem
+
+    _discard_on_close(monkeypatch)
+    win = GardenPlannerApp()
+    qtbot.addWidget(win)
+    try:
+        child = RectangleItem(100, 100, 50, 50)
+        peer = RectangleItem(300, 100, 50, 50)
+        win.canvas_scene.addItem(child)
+        win.canvas_scene.addItem(peer)
+        graph = win.canvas_scene.constraint_graph
+        graph.add_constraint(
+            AnchorRef(item_id=child.item_id, anchor_type=AnchorType.CENTER),
+            AnchorRef(item_id=peer.item_id, anchor_type=AnchorType.CENTER),
+            50.0,
+        )
+        GroupCommand(win.canvas_scene, [child, peer]).execute()
+        group = child.parentItem()
+        assert group is not None
+
+        result = win._do_agent_delete_object(str(group.item_id))
+
+        assert graph.constraints == {}
+        assert result["constraints_removed"] == 1
+        win.canvas_view.command_manager.undo()
+        win.canvas_view.command_manager.undo()
+        assert len(graph.constraints) == 1
+        assert child.scene() is win.canvas_scene
+    finally:
+        win._stop_agent_api()
+
+
 def test_move_and_delete_reject_journal_pin(qtbot: Any, monkeypatch: Any) -> None:
     """Journal pins have a ProjectData-linked delete path (pruning the note
     dict) that DeleteItemsCommand alone doesn't replicate — must be refused,

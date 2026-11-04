@@ -428,14 +428,14 @@ def _select(live: Live, *items: Any) -> None:
 
 def _group(live: Live) -> None:
     _select(live, live.bed, live.drawn)                             # type: ignore[attr-defined]
-    live.canvas._group_selected()
+    live.canvas.group_selected()
     live.group = next(item for item in live.scene.items()           # type: ignore[attr-defined]
                       if isinstance(item, GroupItem))
 
 
 def _ungroup(live: Live) -> None:
     _select(live, live.group)                                       # type: ignore[attr-defined]
-    live.canvas._ungroup_selected()
+    live.canvas.ungroup_selected()
     live.scene.clearSelection()
 
 

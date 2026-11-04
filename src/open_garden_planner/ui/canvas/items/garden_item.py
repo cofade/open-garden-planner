@@ -16,7 +16,7 @@ bed-capable shape exposes all bed actions
 
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from PyQt6.QtCore import QCoreApplication, QPointF, QRectF, Qt
 from PyQt6.QtGui import QAction, QColor, QFont, QFontMetricsF, QPainter, QPen
@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QMenu
 
-from open_garden_planner.core.fill_patterns import FillPattern
+from open_garden_planner.core.fill_patterns import FillPattern, FillTransform
 from open_garden_planner.core.object_types import ObjectType, StrokeStyle
 from open_garden_planner.core.stacking import ArrangeMode
 
@@ -517,6 +517,9 @@ class GardenItemMixin(PositionLockMixin):
         self._metadata = metadata or {}
         self._fill_pattern = fill_pattern
         self._fill_color = fill_color  # Store base color for serialization
+        # Per-object pattern angle/scale/offset (issue #665). The identity is
+        # never serialized, so an old plan loads with no visible change.
+        self._fill_transform = FillTransform()
         self._stroke_color = stroke_color
         self._stroke_width = stroke_width
         self._stroke_style = stroke_style
@@ -551,6 +554,36 @@ class GardenItemMixin(PositionLockMixin):
         self._edit_label_item: QGraphicsTextItem | None = None
         self._label_edit_start_time: float = 0.0
         self._lock_badge_item: QGraphicsSimpleTextItem | None = None
+
+    def normalize_context_menu_selection(self) -> None:
+        """Make an unselected right-clicked item the selection (issue #674).
+
+        A menu built from ``scene.selectedItems()`` must describe what the user
+        is about to act on. Five shapes cleared and selected themselves before
+        this helper existed; the other item types did not, so right-clicking an
+        unselected object beside a selected group could offer Group for a
+        selection the user never picked. Every item menu now calls this first.
+        """
+        if not isinstance(self, QGraphicsItem):
+            return
+        from .group_menu import normalize_context_menu_selection
+
+        normalize_context_menu_selection(self)
+
+    def build_group_context_menu(self, menu: "QMenu") -> Any:
+        """Add Group / Ungroup for the current selection (issue #674)."""
+        from .group_menu import GroupMenuActions, build_group_context_menu
+
+        if not isinstance(self, QGraphicsItem):
+            return GroupMenuActions()
+        return build_group_context_menu(menu, self)
+
+    def dispatch_group_action(self, action: Any, actions: Any) -> bool:
+        """Run a Group/Ungroup entry on the whole selection via the view."""
+        if action is None or actions is None:
+            return False
+        scene = self.scene() if isinstance(self, QGraphicsItem) else None
+        return bool(actions.dispatch(action, scene))
 
     # ── Performance: Caching and Level of Detail (LOD, issue #409) ──────
 
@@ -630,6 +663,15 @@ class GardenItemMixin(PositionLockMixin):
     def fill_pattern(self, value: FillPattern | None) -> None:
         """Set the fill pattern."""
         self._fill_pattern = value
+
+    @property
+    def fill_transform(self) -> FillTransform:
+        """The pattern's angle/scale/offset (issue #665); identity by default."""
+        return self._fill_transform
+
+    @fill_transform.setter
+    def fill_transform(self, value: FillTransform | None) -> None:
+        self._fill_transform = value if value is not None else FillTransform()
 
     @property
     def fill_color(self) -> Any | None:  # QColor, but avoiding import
@@ -1746,13 +1788,19 @@ class GardenItemMixin(PositionLockMixin):
     def _dispatch_change_type(self, new_type: object) -> None:
         """Apply an object-type change with full undo support.
 
-        Mirrors :meth:`_dispatch_move_to_layer`: applies the change
-        immediately, then pushes a :class:`ChangePropertyCommand` onto the
-        undo stack so Ctrl+Z restores both type and style.  Only items of
-        the same concrete class as *self* are affected (safe for mixed
-        multi-selections).
+        Mirrors :meth:`_dispatch_move_to_layer`: the change and its style are
+        one :class:`ChangeObjectTypeCommand` (which also creates a HOUSE's
+        linked ridge, #690), or one compound step for a same-class
+        multi-selection of shapes. Polyline type changes keep their own
+        one-command-per-line path (the line look, not the shape style, is what
+        changes there). Only items of the same concrete class as *self* are
+        affected (safe for mixed multi-selections).
         """
-        from open_garden_planner.core.commands import ChangePropertyCommand
+        from open_garden_planner.core.commands import (
+            ChangeObjectTypeCommand,
+            ChangePropertyCommand,
+            CompoundCommand,
+        )
         from open_garden_planner.core.item_look import (
             apply_line_look,
             capture_line_look,
@@ -1781,6 +1829,7 @@ class GardenItemMixin(PositionLockMixin):
             if hasattr(itm, "update"):
                 itm.update()
 
+        commands = []
         for item in items:
             if isinstance(item, PolylineItem):
                 if item.object_type == new_type:
@@ -1809,10 +1858,24 @@ class GardenItemMixin(PositionLockMixin):
                 "stroke_width": style.stroke_width,
                 "stroke_style": style.stroke_style,
             }
-            _apply(item, new_state)
-            cmd = ChangePropertyCommand(item, "type", old_state, new_state, _apply)
+            commands.append(
+                ChangeObjectTypeCommand(
+                    scene, cast(QGraphicsItem, item), old_state, new_state, _apply
+                )
+            )
+
+        if commands:
+            # One gesture, one undo step (invariant 4) — and a HOUSE's ridge is
+            # created inside the same command (#690).
+            command = (
+                commands[0]
+                if len(commands) == 1
+                else CompoundCommand(commands)
+            )
             if hasattr(scene, "_command_manager") and scene._command_manager:
-                scene._command_manager.register_applied(cmd)
+                scene._command_manager.execute(command)
+            else:
+                command.execute()
 
         # Refresh the properties panel by re-emitting the selection signal
         scene.selectionChanged.emit()

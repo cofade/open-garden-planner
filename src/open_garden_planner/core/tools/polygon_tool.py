@@ -254,21 +254,11 @@ class PolygonTool(BaseTool):
             polygon_item: The newly created HOUSE polygon item
             layer_id: Layer to place the ridge on
         """
-        from open_garden_planner.core.object_types import ObjectType as OT
-        from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
-        from open_garden_planner.ui.canvas.items import PolylineItem
+        from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge
 
-        p1, p2 = compute_roof_ridge_endpoints(
-            polygon_item.polygon(), polygon_item.pos()
-        )
-
-        ridge = PolylineItem([p1, p2], object_type=OT.ROOF_RIDGE, layer_id=layer_id)
-
-        # Store cross-references in metadata
-        ridge.set_metadata("owner_polygon_id", str(polygon_item.item_id))
-        polygon_item.set_metadata("ridge_item_id", str(ridge.item_id))
-
-        self._view.add_item(ridge, "ridge")
+        ridge = build_linked_ridge(polygon_item, layer_id)
+        if ridge is not None:
+            self._view.add_item(ridge, "ridge")
 
     def _cleanup_preview(self) -> None:
         """Remove all preview items from scene."""

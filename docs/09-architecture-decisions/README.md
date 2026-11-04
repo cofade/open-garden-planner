@@ -2190,6 +2190,33 @@ and `contains_path`. `tests/unit/test_plant_bed_relationship.py`'s rank-symmetry
 puts its plant OUTSIDE the bed, because a contained plant is clamped by geometry and the
 pre-attach assertion would stop being falsifiable.
 
+### ADR-043 addendum - a group is one layered unit (manual test 2.7 of PR #713, 2026-11-04)
+
+**Context.** A group stores its own `layer_id`, but its members kept the layer they
+were drawn on. `MoveToLayerCommand` moved only the selected wrapper (and, since #690,
+a nested HOUSE's ridge), so `_apply_item_visibility` still hid each member by its own
+layer: the owner moved a group from layer 1 to layer 2, hid layer 1, and the group's
+house and rectangle disappeared while the group wrapper and its ridge stayed. The
+saved plan recorded exactly that split (group and ridge on layer 2, both shapes on
+layer 1).
+
+**Decision.** A group is the layered unit for everything it contains.
+`MoveToLayerCommand` walks `selection_tree` and writes the target layer to every
+member as well (undo restores each member's own layer), so hiding either layer and
+ungrouping agree with what was on screen; `UngroupCommand` likewise puts each
+member on the group's layer and restores its own on undo. `_apply_item_visibility` resolves a grouped
+item's effective layer through its outermost group ancestor, so a plan saved before
+this fix - like the owner's - also renders as one unit instead of relying on a
+migration. Pinned by `tests/integration/test_house_roof_ridge.py`'s
+`test_a_group_controls_its_members_visibility_by_its_own_layer` and the extended
+layer-move test.
+
+**Known gap (follow-up #741).** Grouping two objects drawn on different layers
+does not consolidate the second member's free-standing `ROOF_RIDGE` onto the
+group's layer; only a Move to Layer normalises the whole tree. The visibility
+walk above resolves Qt ancestors, not a ridge's owner through a group. Move the
+group once to repair a legacy plan.
+
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
 **Status**: Accepted (2026-09-15)
@@ -2597,6 +2624,96 @@ fail against the unfixed brush assignment. Landscape cases alone would leave the
 `rotate()` sign unpinned — see alternative (b).
 
 **Cross-refs:** §11.4, issue #372, issue #114, ADR-046.
+
+### ADR-046 addendum: a type change into HOUSE owns its ridge (issue #690)
+
+The polygon tool and `create_object` already build the canonical ridge, but a
+rectangle or polygon converted to HOUSE through the Properties panel or
+**Change Type** stayed ridgeless on the canvas (3D still worked from its type).
+A type change is now `ChangeObjectTypeCommand`: it applies the type/style state,
+creates the linked `ROOF_RIDGE` when the new type is HOUSE, and removes it — and
+its `ridge_item_id` link — when the shape leaves HOUSE, all in the type change's
+one undo step. The ridge is built once and re-added on redo. **The link itself is
+part of the undo state**, not just scene membership: the command remembers the
+item's pre-command `ridge_item_id` and restores it on undo, so a HOUSE → bed →
+HOUSE sequence followed by two undos leaves the item naming the *original, live*
+ridge (a stale key would also make the scene treat the bed as a ridge owner and
+refuse it for booleans). Construction goes through
+`ui/canvas/roof_ridge_link.build_linked_ridge`; `PolygonTool`, the agent's
+`create_object` and the type change all use it, so there is exactly one
+construction path and one geometry computation
+(`compute_roof_ridge_endpoints`, mapped through the item's own transform). A
+converted rectangle's ridge follows the host on move, resize and rotation via
+`update_linked_ridge` (the same derivation `PolygonItem` uses; called from the
+item hooks, the group-move hook and the canonical `apply_rect_like_geometry`, so
+undo/redo follows too). A ridge is created on every path that creates or converts
+a HOUSE — drawing, `create_object`, the type change, paste, duplicate and Mirror
+Copy. Offset and array copies do not build one yet (follow-up); they can never
+adopt the source's, because every lookup (`linked_ridge`, `PolygonItem._find_ridge`, delete,
+3D snapshot, sun/shadow) validates the reverse `owner_polygon_id`. This codebase
+has no `roof_shape` property (the issue's wording predates the current
+`roof_style` metadata, which is 3D-only and does not suppress the 2D ridge).
+Pinned by `tests/integration/test_house_roof_ridge.py`.
+
+**Paint follows the same one-path rule.** A HOUSE is drawn as its roof seen from
+above, and both item classes call `ui/canvas/items/roof_paint.py`'s
+`paint_roof_with_ridge`: the polygon's outline or the rectangle's four corners,
+the same ridge, the same mirrored tile planes. Without it a converted rectangle
+fell back to the flat fill and its tiles lapped back up toward the ridge while a
+drawn house's lapped away — the 2.1 finding of PR #713's manual test. The
+converted and drawn houses are now byte-identical over eight orientations,
+pinned by `tests/unit/test_roof_tile_orientation.py`.
+
+**Addendum (ridge lifecycle, #690 review).** Every operation that removes or
+replaces a house must treat the ridge as derived geometry, not a sibling the
+user selected:
+
+- **Deletion owns the tree.** `group_item.selection_tree()` walks a selected
+  item's Qt child tree once; `roof_ridge_link.linked_ridges_under()` uses the
+  same walk for ridges, and the GUI delete paths use the tree for constraints
+  and journal notes too. Deleting a group therefore removes a nested HOUSE's
+  ridge, a child's constraint and a grouped pin's note. The GUI's Delete key, the shared
+  shape-menu Delete (routed through `CanvasView._delete_selected_items`, so it is
+  undoable) and the Agent API's `delete_object` share it. A grouped pin's
+  ProjectData note command is bundled with the item delete in ONE
+  `CompoundCommand`, so the first undo restores pin and note together (never a pin
+  without its note); the Agent API's delete still leaves a nested pin's note row
+  behind (open follow-up, #740).
+- **A trim that opens a house removes its roof.** Trimming a HOUSE polygon or
+  rectangle produces an open FENCE; the old closed-shape ridge and any
+  constraint anchored to it are removed and restored by `TrimPolygonCommand`'s
+  `linked_ridge` parameter, and the replacement does not inherit
+  `ridge_item_id`.
+- **A corner edit re-derives.** Fillet/chamfer replace the host shape, so
+  `_CornerReplacementCommand` re-derives the ridge on execute, undo and redo
+  (a converted rectangle's corner drag has its own hook in `_move_corner_to`,
+  where no `itemChange` fires).
+- **A copy never adopts a source ridge.** Mirror Move keeps the house UUID and
+  re-derives the ridge; Mirror Copy gets a fresh UUID, strips the inherited
+  `ridge_item_id` and builds its OWN ridge on the reflected outline in the same
+  undo step (`MirrorItemsCommand._add_copy_ridges`, re-adding the same ridge
+  item on redo), and a `ROOF_RIDGE` is never itself a mirror source. Offset and
+  array copies still do not build a ridge (documented follow-up).
+- **A grouped ridge renders above its group.** A house's ridge is a top-level
+  sibling; once the house joins a group the stacking normalizer resolves the
+  owner to the GROUP, so grouping must run the one z derivation
+  (`_update_items_z_order`). Without it the ridge keeps its pre-group z and the
+  group's fill hides all but its ends (manual test 2.7).
+- **Same-type changes and layer moves stay symmetric.** A "Change Type" command
+  that finds a HOUSE with no ridge creates one, so its undo removes it again
+  (the pre-command item had none); a legacy non-HOUSE shape that already names a
+  ridge keeps that exact one-sided link on undo. `MoveToLayerCommand` uses the
+  same `linked_ridges_under` walk as delete, so a nested HOUSE's ridge follows
+  its group to the target layer. One ownership predicate
+  (`roof_ridge_link.is_owned_ridge`, reverse `owner_polygon_id`) is shared by
+  the 2D lookup, the 3D snapshot and the sun/shadow caster; a missing reverse
+  link stays valid for older plans, a mismatched one is never adopted.
+
+Pinned by `tests/integration/test_house_roof_ridge.py`,
+`tests/integration/test_trim_extend_tool.py`,
+`tests/integration/test_fillet_chamfer.py`,
+`tests/integration/test_mirror_tool.py` and
+`tests/integration/test_agent_api_default_on.py`.
 
 ## ADR-047: Audit snapshots plus a living debt register (2026-10 repository audit)
 
@@ -10193,3 +10310,64 @@ cloudy) to it; codes 0 and 1 stay clear. The board's cloudy-weather gates (horiz
 dusk) and the render tier's cloudy-evening gate run on it (`HORIZON_WEATHERS`). Pinned by
 `tests/unit/test_scene3d_weather.py::test_a_partly_cloudy_day_keeps_its_sun` and the WMO table.
 
+
+## ADR-071: Per-object fill transform as additive appearance metadata (issue #665)
+
+**Status**: Accepted (2026-11-02, package #674/#665/#690).
+
+**Context.** Fill textures were painted at one fixed tile scale and orientation.
+Rotating the object to align decking, roof tiles or paving also rotates its
+geometry and every measurement, and baking rotated assets is combinatorial. The
+only fudge was picking a different pattern — the plan stayed geometrically exact
+but visually misleading (boards running the wrong way, tiles out of phase between
+two roof planes).
+
+**Decision.** Add three **display-only** values per filled object: pattern angle
+(degrees clockwise as displayed, 0 = as authored), pattern scale (multiplier,
+1.0 = the authored tile) and pattern offset X/Y (centimetres in the item's own
+frame, negative allowed). They live in `core/fill_patterns.FillTransform`, are
+applied as a `QBrush` transform on top of the cached tinted texture, and travel
+in an additive `.ogp` block:
+
+```json
+"fill_transform": {"angle_deg": 30.0, "scale": 1.5, "offset_x_cm": -12.5, "offset_y_cm": 7.0}
+```
+
+The identity is **never serialized**; old plans load with the identity and no
+visible change, so `FILE_VERSION` stays `"1.4"`. The stored block is read
+leniently (unknown/malformed/non-finite fields fall back; a zero or negative
+scale becomes 1.0), and a non-finite value is never written — `json.dump` would
+otherwise emit a JSON `NaN` that cannot reopen. An integer too large to become
+a float (`10**400`) is malformed for these fields and falls back to its default
+on read; `to_dict()` drops the block rather than raising `OverflowError`.
+
+**Composition.** The offset is applied in centimetres in the item frame and is
+independent of angle and scale (`translate · rotate · scale`). A HOUSE's
+`_paint_with_ridge` composes the user transform *inside* the canonical ridge
+frame (`ridge_tx · user_tx`), on both the normal and mirrored halves, so a
+default transform is byte-identical to the previous roof and a user angle turns
+the tiles relative to the roof while the two planes stay mirror images.
+
+**Scope.** Geometry, area, snapping, selection, DXF/export coordinates and the
+Agent API's centimetre contract are untouched. The Properties panel exposes the
+four controls for filled shapes AND for the patterned path styles (gravel path,
+dirt path), whose stroke samples the same brush; a plain line has no pattern
+row. The 3D ground/face texture sampling keeps its existing untransformed tile
+ruler; this is a 2D display property, stated in FR-EDIT-23 and the Properties
+tooltip. Extending the transform into 3D materials is separate work.
+
+**Consequences.** A new appearance attribute must be added to the one
+copy/restore list (`core/item_look._LOOK_ATTRIBUTES`), the one brush builder
+(`fill_brush`) and the save/load look path (`restore_stored_look`) — those three
+seams already exist, so Copy appearance, material changes, undo/redo and reload
+stay in step (`style_gaps` verifies it). Pinned by
+`tests/unit/test_fill_transform.py` (model, leniency, composition, rendered
+clockwise sign and tile period) and `tests/integration/test_fill_transform.py`
+(panel spins + Reset, one command per change, geometry unchanged, save/reload,
+copy appearance, roof composition).
+
+**Alternatives rejected.** *Rotate the object* (changes geometry and all
+measurements); *bake one texture per angle/scale* (combinatorial and still not
+user-adjustable); *do nothing* (the status quo the issue documents). A per-object
+key inside `metadata` was also rejected: this is appearance, and the existing
+appearance seams all operate on typed attributes, not free-form metadata.

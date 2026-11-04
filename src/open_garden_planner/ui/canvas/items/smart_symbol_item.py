@@ -72,13 +72,21 @@ class SmartSymbolItem(GroupItem):
             return
         from PyQt6.QtWidgets import QMenu
 
+        self.normalize_context_menu_selection()
         menu = QMenu()
+        # A smart symbol may be GROUPED with other objects, but it is never an
+        # Ungroup target (its members are generated from its parameters).
+        group_actions = self.build_group_context_menu(menu)
+        if group_actions.offered:
+            menu.addSeparator()
         move_layer_menu = self._build_move_to_layer_menu(menu)
         # Arrange submenu (Bring to Front / Forward / Send Backward / Back) —
         # always built, so the menu is never empty (the old isEmpty() guard
         # that papered over a single-layer project is dead now).
         arrange_menu = self._build_arrange_menu(menu)
         action = menu.exec(event.screenPos())
+        if self.dispatch_group_action(action, group_actions):
+            return
         if move_layer_menu and action and action.parent() is move_layer_menu:
             self._dispatch_move_to_layer(action.data())
         elif arrange_menu and action and action.parent() is arrange_menu:

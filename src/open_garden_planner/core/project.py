@@ -775,11 +775,13 @@ class ProjectManager(QObject):
     def _sync_journal_note_positions(
         self, scene: QGraphicsScene, notes: dict[str, Any] | None = None
     ) -> None:
-        """Copy each ``JournalPinItem.pos()`` into its matching note dict (US-12.9).
+        """Copy each ``JournalPinItem.scenePos()`` into its note dict (US-12.9).
 
         The pin's position is updated by the standard Qt drag pathway, but the
-        ``JournalNote`` model also carries scene coordinates (used at load time
-        to recreate pins, and exposed to headless consumers). Without this
+        ``JournalNote`` model also carries SCENE coordinates (used at load time
+        to recreate pins, and exposed to headless consumers). ``pos()`` would be
+        the parent group's local frame for a grouped pin (pins became groupable
+        in #674), so the note must read the scene position. Without this
         save-time reconciliation, a dragged pin's note would stay stuck at its
         original placement coordinates after save/reload.
         """
@@ -794,8 +796,9 @@ class ProjectManager(QObject):
             raw = target_notes.get(item.note_id)
             if raw is None:
                 continue
-            raw["scene_x"] = item.pos().x()
-            raw["scene_y"] = item.pos().y()
+            scene_pos = item.scenePos()
+            raw["scene_x"] = scene_pos.x()
+            raw["scene_y"] = scene_pos.y()
 
     def set_location(self, location: dict[str, Any] | None) -> None:
         """Set the garden location and mark project as dirty.
@@ -1534,6 +1537,19 @@ class ProjectManager(QObject):
         return QColor(brush.color())
 
     @staticmethod
+    def _stored_fill_transform(item: Any) -> dict[str, float] | None:
+        """The additive ``fill_transform`` block for ``item`` (issue #665).
+
+        ``None`` for the identity, so an untouched plan's file is byte-for-byte
+        what it was before the feature existed; a non-finite value is dropped
+        rather than written into JSON as ``NaN``.
+        """
+        transform = getattr(item, "fill_transform", None)
+        if transform is None:
+            return None
+        return transform.to_dict()
+
+    @staticmethod
     def _serialize_item_core(item: QGraphicsItem) -> dict[str, Any] | None:
         """Core serialization logic for a single graphics item."""
         for field_name, value in (("x", item.pos().x()), ("y", item.pos().y()),
@@ -1598,6 +1614,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
@@ -1633,6 +1652,9 @@ class ProjectManager(QObject):
             data["stroke_width"] = item.pen().widthF()
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
             if hasattr(item, "rotation_angle") and abs(item.rotation_angle) > 0.01:
@@ -1668,6 +1690,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
@@ -1718,6 +1743,12 @@ class ProjectManager(QObject):
             dash = stroke_style_of(item.pen())
             if dash is not None and dash is not StrokeStyle.SOLID:
                 data["stroke_style"] = dash.name
+            # A textured path/fence fill can carry the additive pattern
+            # transform too (#665); without this a copy's transform would be
+            # lost on save while the loader already reads it.
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             # Save path/fence style preset
             if hasattr(item, "path_fence_style") and item.path_fence_style and item.path_fence_style.name != "NONE":
                 data["path_fence_style"] = item.path_fence_style.name
@@ -1759,6 +1790,9 @@ class ProjectManager(QObject):
             # Save fill pattern
             if hasattr(item, "fill_pattern") and item.fill_pattern:
                 data["fill_pattern"] = item.fill_pattern.name
+            fill_transform = ProjectManager._stored_fill_transform(item)
+            if fill_transform:
+                data["fill_transform"] = fill_transform
             # Save stroke style
             if hasattr(item, "stroke_style") and item.stroke_style:
                 data["stroke_style"] = item.stroke_style.name
@@ -2302,6 +2336,22 @@ class ProjectManager(QObject):
                     hedge_item._item_id = UUID(obj["item_id"])
                 if not label_visible:
                     hedge_item.label_visible = False
+                # Migrated shape keeps its saved look, including the additive
+                # fill transform (#665) — the migration used to drop it.
+                restore_stored_look(
+                    hedge_item, obj, fill_pattern=fill_pattern, stroke_style=stroke_style
+                )
+                hedge_item.setBrush(
+                    fill_brush(hedge_item, ProjectManager._stored_fill_color(hedge_item))
+                )
+                if "stroke_color" in obj:
+                    pen = hedge_item.pen()
+                    pen.setColor(QColor(obj["stroke_color"]))
+                    if "stroke_width" in obj:
+                        pen.setWidthF(obj["stroke_width"])
+                    if stroke_style:
+                        pen.setStyle(stroke_style.to_qt_pen_style())
+                    adopt_pen(hedge_item, pen)
                 if "rotation_angle" in obj:
                     hedge_item._apply_rotation(obj["rotation_angle"])
                 return hedge_item

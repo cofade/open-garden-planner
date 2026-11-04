@@ -1616,6 +1616,10 @@ Icon designs per tool:
 - Groups serialize/deserialize in project files
 - Properties panel shows "Group (N items)" when group is selected
 
+The right-click half of the first and fourth criteria was never implemented until #674
+(FR-EDIT-22): both entries now live on every groupable object's menu, and a multi-group
+ungroup is one undo step.
+
 **Technical Notes**:
 - Use `QGraphicsItemGroup` from Qt or custom group class
 - New item: `src/open_garden_planner/ui/canvas/items/group_item.py`
@@ -3997,4 +4001,48 @@ re-encode it.
   2000 x 2000 image, which is the same code path with no CI memory spike.
 - **Docs.** FR-IMG-12/13; §8.7 (error handling) extended; new pitfalls PF-PER-22/23;
   no `.ogp` change and no `FILE_VERSION` bump (the embedded key already existed).
+
+### 2D drawing-tools package (#674, #665, #690) — **draft PR, awaiting owner manual testing**
+
+Three 2D canvas gaps that share the item-appearance and context-menu seams:
+
+- **#674 — Group / Ungroup in every item's right-click menu.** Both directions are decided
+  from the selection at menu-open time and dispatch through the view's `Ctrl+G` /
+  `Ctrl+Shift+G` methods, so the menu can never be stricter than the shortcut. Ungroup
+  dissolves one nesting level and multiple selected groups in **one** undo step
+  (`CompoundCommand`); a smart symbol can be grouped but never ungrouped. Every item type
+  now normalises the selection before building its menu. Pinned by
+  `tests/integration/test_group_context_menu.py` (77 tests over 14 item types, including the
+  just-grouped state, the nested one-level rule, the two-group one-step undo, group delete/undo,
+  the undoable shape-menu Delete and the deliberately non-groupable background). Manual round 2
+  closed the pin half end to end: Ctrl/Shift multi-select keeps a pin, a click on its head selects
+  it, a drag moves it as one undo step, and double-click opens the note (`test_garden_journal.py`).
+  The minimap masks overlay paint with `ItemHasNoContents`, not visibility, so its 100 ms thumbnail
+  refresh no longer deselects a pin or a group containing one (PF-CAN-41).
+  A group is one layered unit: moving it carries its members and derived ridges, and hiding a
+  member's original layer no longer hides the group (ADR-043 addendum, PF-PER-27).
+- **#665 — per-object fill angle / scale / offset.** `core/fill_patterns.FillTransform` is
+  an additive `fill_transform` appearance block (identity is never written; old plans load
+  unchanged, `FILE_VERSION` stays). The Properties panel offers **Pattern Angle / Scale /
+  Offset X, Y** and **Reset Pattern**; Copy appearance, material changes, undo/redo and
+  save/reload preserve the values. A HOUSE's roof tiles compose the transform with the ridge
+  frame (both planes stay mirrored); gravel/dirt paths expose the same controls because their
+  pattern stroke samples the same brush. Pinned by `tests/unit/test_fill_transform.py` and
+  `tests/integration/test_fill_transform.py`, including a rendered clockwise-sign probe and the
+  textured-path panel path.
+- **#690 — converting a shape to HOUSE creates its linked roof ridge.** The Properties
+  panel and **Change Type** now build the same `ROOF_RIDGE` the polygon tool draws, in the
+  same undo step; converting away removes it and its metadata link, and undo restores the
+  original link. Geometry is the canonical `compute_roof_ridge_endpoints`, mapped through the
+  item's transform, through one shared `build_linked_ridge` seam (`PolygonTool`, the agent and
+  the type change all call it); a converted rectangle's ridge follows move/resize/rotate;
+  delete/trim/fillet/layer-move keep the derived-ridge invariant, Mirror Move re-derives it,
+  and Mirror Copy builds a fresh one on the reflected outline. Grouping re-runs the stacking
+  derivation so the ridge stays above the group; moving the group carries it, with its members,
+  to the target layer. Pinned by `tests/integration/test_house_roof_ridge.py` (plus the trim,
+  fillet, mirror, journal and agent-delete suites).
+
+Docs: FR-EDIT-22/23/24, FR-LAYER-07, FR-JOURNAL-01/06, ADR-071 (the display transform), ADR-046
+addendum (type change owns the ridge), ADR-043 addendum (a group is one layered unit),
+PF-CAN-40/41/42 and PF-PER-27.
 

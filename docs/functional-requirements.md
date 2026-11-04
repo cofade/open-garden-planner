@@ -79,6 +79,65 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
   are one undo/redo pair; a bed dragged with its linked plant keeps the link; a bed
   dragged alone carries its child), `tests/unit/test_commands.py::TestCompoundCommand`
   (order, reverse undo, a step that raises rolls the ones that ran back).
+- **FR-EDIT-22** *(issue #674)*: **Group** and **Ungroup** are reachable from every groupable
+  object's right-click menu, not only from `Ctrl+G` / `Ctrl+Shift+G`. The entries are decided from
+  the selection at menu-open time: 2+ objects (no group) offer **Group**; exactly one group offers
+  **Ungroup**; a group plus a foreign object, or 2+ groups, offer both. Group nests the selected
+  items (including a group) into a new outer group; Ungroup dissolves **one nesting level** and
+  dissolves every selected top-level group in **one undo step**. A smart symbol may be grouped but
+  never ungrouped (its members are generated from its parameters); its own menu still offers
+  **Ungroup** when another selected group can be dissolved. Right-clicking an unselected
+  object replaces the selection first, on every item type including group, smart symbol, callout,
+  text, journal pin and construction geometry. The background image is deliberately **not**
+  groupable (it is a plan backdrop; grouping it would re-band it above ground surfaces). The menu
+  never offers a row the shortcut would refuse: both read `group_item.groupable_selection` /
+  `ungroupable_groups`, and dispatch calls the view's `group_selected` / `ungroup_selected`. No new
+  persisted field. Acceptance: `tests/integration/test_group_context_menu.py` (14 item types, real
+  `contextMenuEvent`, menu matrix, the just-grouped state, nested one-level rule, one-step
+  multi-group undo, selection normalisation and group-delete subtree cleanup).
+- **FR-EDIT-23** *(issue #665)*: A filled object's texture can be **turned, scaled and shifted**
+  independently of its geometry from the Properties panel: **Pattern Angle** (degrees clockwise,
+  0 = as authored), **Pattern Scale** (multiplier, 1.0 = authored tile), and **Pattern Offset X/Y**
+  (centimetres, negative allowed), plus one **Reset Pattern** button. The values live in an
+  additive per-object `fill_transform` block (`{angle_deg, scale, offset_x_cm, offset_y_cm}`);
+  the identity is not written, so old plans load unchanged and `FILE_VERSION` stays. Copy
+  appearance, material/pattern changes, undo/redo and save/reload preserve all four values; a
+  second save/reload is stable. Geometry, area, selection and snapping are untouched. A HOUSE's
+  roof tiles compose the transform with the ridge frame, so both roof planes stay mirrored.
+  Acceptance: `tests/unit/test_fill_transform.py` (model round-trip, malformed-file leniency,
+  composition order, rendered clockwise sign and tile period) and
+  `tests/integration/test_fill_transform.py` (panel spins + Reset, one command per change, geometry
+  unchanged, save/reload, copy appearance, roof composition). The 3D ground/faces keep their
+  existing untransformed sampling; the control is a 2D display property (ADR-071). A textured
+  path/fence (gravel path, dirt path) exposes the same four controls, because its pattern stroke
+  carries the same transform.
+- **FR-EDIT-24** *(issue #690)*: Converting a rectangle or polygon to **HOUSE** through the
+  Properties panel's Type field or the context menu's **Change Type** creates the same linked
+  `ROOF_RIDGE` the polygon tool draws, in the **same undo step** as the type change; converting
+  away from HOUSE removes it **and its `ridge_item_id` link**, and undo restores the same ridge and
+  the original link (stable UUID) — a save or 3D read after two conversions + two undos still
+  follows the live ridge. Geometry uses `core.roof_ridge.compute_roof_ridge_endpoints` mapped
+  through the item's own transform, and the ridge is built by
+  `ui/canvas/roof_ridge_link.build_linked_ridge` - the same seam `PolygonTool` and the agent's
+  `create_object` use. It also paints its roof through the same
+  `ui/canvas/items/roof_paint.paint_roof_with_ridge` path, so a converted rectangle's tiles lap
+  down-slope on both sides of the ridge exactly like a drawn house's (manual test of PR #713, 2.1).
+  A converted rectangle's ridge follows the host on move, resize and rotation
+  (`update_linked_ridge`, called from `itemChange`, `_apply_rotation`, the resize hook and
+  `apply_rect_like_geometry` for undo/redo). Deleting a house or a group containing one removes
+  its ridge (menu, Delete key and agent `delete_object` share one tree walk); trimming a house
+  into an open fence removes the ridge in the same undo step; fillet/chamfer and a converted
+  rectangle's corner drag re-derive it; a mirror copy strips the inherited link and builds a fresh
+  ridge on the reflected outline in the same undo step, and a ridge is never a mirror source.
+  Grouping a house re-runs the stacking derivation, so the ridge renders above the group rather
+  than behind its fill. Acceptance:
+  `tests/integration/test_house_roof_ridge.py` (including the two-conversion undo/redo lineage,
+  rectangle move/resize/rotate, menu delete and corner drag) and
+  `tests/unit/test_roof_tile_orientation.py` (a converted rectangle and a drawn house paint the
+  identical roof over eight orientations),
+  `tests/integration/test_trim_extend_tool.py`, `tests/integration/test_fillet_chamfer.py`,
+  `tests/integration/test_mirror_tool.py` and the grouped-house case in
+  `tests/integration/test_agent_api_default_on.py`.
 
 
 ## FR-3: Layers
@@ -89,7 +148,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-LAYER-04**: Layer lock toggle (prevent editing)
 - **FR-LAYER-05**: Layer opacity
 - **FR-LAYER-06**: Layer reordering (drag in layer panel)
-- **FR-LAYER-07**: Assign objects to layers (default based on object type, manual override)
+- **FR-LAYER-07**: Assign objects to layers (default based on object type, manual override). A **group is one layered unit**: moving it to another layer carries its members and their derived roof ridges, and hiding a member's old layer does not hide a group now on another layer - undo restores every member's original layer.
 - **FR-LAYER-08**: New layers are created at the top of the layer order and become the active layer, so newly drawn elements stay visible and selectable (issue #201)
 - **FR-LAYER-09**: All layer operations are undoable via Ctrl+Z/Ctrl+Y: create, delete (including the item reassignment it causes), rename, reorder, visibility, lock, and opacity — an opacity slider drag coalesces into a single undo step
 
@@ -344,7 +403,7 @@ Pre-defined object types for common property elements:
 
 ## FR-18: Garden Journal (Phase 12, US-12.9)
 
-- **FR-JOURNAL-01**: The Journal Pin tool (toolbar / shortcut **J**) drops a map-pin marker at the click position and opens `JournalNoteDialog` for the new entry. Pins use `ItemIgnoresTransformations` so they stay at a constant screen size at every zoom level.
+- **FR-JOURNAL-01**: The Journal Pin tool (toolbar / shortcut **J**) drops a map-pin marker at the click position and opens `JournalNoteDialog` for the new entry. Pins use `ItemIgnoresTransformations` so they stay at a constant screen size at every zoom level. Because Qt's `itemAt` never returns such an item, the canvas owns the pin hit test: a click on the head selects it, Ctrl/Shift toggles it with the rest of the selection, a drag moves it as one undo step, and a double-click opens the note. The minimap masks overlays by paint (`ItemHasNoContents`), not visibility, so its periodic thumbnail refresh never clears a selected pin or a group containing one.
 - **FR-JOURNAL-02**: Each entry stores ISO date, multi-line plain text, optional photo, and the pin's scene coordinates (`JournalNote` in `models/journal_note.py`). Notes are persisted under top-level key `garden_journal_notes` in the .ogp file, keyed by the note's own UUID (independent of any bed or plant).
 - **FR-JOURNAL-03**: All add / edit / delete actions are wrapped in `AddJournalNoteCommand` / `EditJournalNoteCommand` / `DeleteJournalNoteCommand`, snapshotting the prior dict for undo/redo. The pin item and note dict are added and removed atomically.
 - **FR-JOURNAL-04**: Photo attachments are copied into `{project_dir}/journal_photos/{uuid}_{filename}` (parallel to `pest_photos/`); the note stores a project-relative POSIX path so .ogp files stay portable. Attaching a photo requires a saved project (button disabled with explanatory tooltip otherwise).

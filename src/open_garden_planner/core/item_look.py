@@ -55,7 +55,11 @@ from typing import Any
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QBrush, QColor, QPen
 
-from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.fill_patterns import (
+    FillPattern,
+    FillTransform,
+    create_pattern_brush,
+)
 from open_garden_planner.core.object_types import (
     ObjectType,
     PathFenceStyle,
@@ -164,6 +168,7 @@ def apply_line_look(item: Any, state: LineLook) -> None:
 _LOOK_ATTRIBUTES = (
     "fill_pattern",
     "fill_color",
+    "fill_transform",
     "stroke_color",
     "stroke_width",
     "stroke_style",
@@ -308,6 +313,8 @@ def restore_stored_look(
         item.fill_pattern = fill_pattern
     if "fill_color" in obj and hasattr(item, "fill_color"):
         item.fill_color = QColor(obj["fill_color"])
+    if "fill_transform" in obj and hasattr(item, "fill_transform"):
+        item.fill_transform = FillTransform.from_dict(obj["fill_transform"])
     if "stroke_color" in obj and hasattr(item, "stroke_color"):
         colour = _converted(QColor, obj["stroke_color"])
         if colour is not None:
@@ -363,7 +370,9 @@ def fill_brush(item: Any, colour: QColor) -> QBrush:
     ``fill_pattern`` it states (plain for an item that states none). What
     ``style_gaps`` expects of an item whose ``fill_color`` is ``colour``."""
     pattern = getattr(item, "fill_pattern", None) or FillPattern.SOLID
-    return create_pattern_brush(pattern, QColor(colour))
+    return create_pattern_brush(
+        pattern, QColor(colour), getattr(item, "fill_transform", None)
+    )
 
 
 def adopt_pen(item: Any, pen: QPen) -> None:
@@ -409,7 +418,7 @@ def style_gaps(item: Any) -> list[str]:
     pattern = getattr(item, "fill_pattern", None)
     brush = item.brush()
     if colour is not None and pattern is not None and brush.style() != Qt.BrushStyle.NoBrush:
-        expected = create_pattern_brush(pattern, QColor(colour))
+        expected = fill_brush(item, QColor(colour))
         if not _same_brush(brush, expected):
             gaps.append(f"fill {pattern.name} {QColor(colour).name(QColor.NameFormat.HexArgb)} "
                         f"is not the brush ({brush.style().name}, "

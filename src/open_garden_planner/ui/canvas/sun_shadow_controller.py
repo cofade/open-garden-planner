@@ -477,6 +477,16 @@ def collect_identified_casters(
             if kind in BUILDING_KINDS and len(footprints) == 1:
                 ridge_id = meta_dict.get("ridge_item_id") if kind == "HOUSE" else None
                 ridge_item = lookup.get(ridge_id) if ridge_id else None
+                # A copied/stale link must not let this house use another's
+                # ridge; the ownership rule is shared with the 2D lookup and
+                # the 3D snapshot (is_owned_ridge).
+                if ridge_item is not None:
+                    from open_garden_planner.ui.canvas.roof_ridge_link import (
+                        is_owned_ridge,
+                    )
+
+                    if not is_owned_ridge(item, ridge_item):
+                        ridge_item = None
                 roof_tris = _building_roof_triangles(
                     item, kind, meta_dict, height, ridge_item, at_date
                 )

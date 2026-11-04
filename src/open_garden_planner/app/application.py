@@ -1965,6 +1965,10 @@ class GardenPlannerApp(QMainWindow):
         # Create canvas scene and view
         self.canvas_scene = CanvasScene(width_cm=5000, height_cm=3000)
         self.canvas_view = CanvasView(self.canvas_scene)
+        # The view wraps note pruning and item deletion in one compound step;
+        # it needs the ProjectData-linked commands, not a signal that executes
+        # them separately (round-8 review P1).
+        self.canvas_view.journal_note_command_factory = self._journal_note_commands_for
 
         # Status-bar typed coordinate input (Package A US-A1/A2). Created
         # here so it can attach to the canvas_view's shared input buffer.
@@ -6261,11 +6265,12 @@ class GardenPlannerApp(QMainWindow):
                 self.canvas_view.command_manager.execute(cmd)
                 return
 
-    def _on_journal_notes_batch_delete(self, note_ids: list[str]) -> None:
-        """Keyboard-Delete batch: drop pins + notes for every id, no per-pin prompt.
+    def _journal_note_commands_for(self, note_ids: list[str]) -> list[Any]:
+        """Build (but do not execute) the ProjectData-linked delete commands.
 
-        Matches the Delete-key UX for regular items (no confirmation; undo is
-        available). The right-click "Delete" path stays single-pin + confirmed.
+        The canvas view wraps these with the item delete in one compound, so a
+        grouped pin and its note undo together. ``remove_pin=False`` for a
+        nested pin: the group's own delete owns its placement.
         """
         from open_garden_planner.core import DeleteJournalNoteCommand
         from open_garden_planner.ui.canvas.items.journal_pin_item import (
@@ -6277,19 +6282,35 @@ class GardenPlannerApp(QMainWindow):
             or self.canvas_view.scene()
         )
         if scene is None:
-            return
+            return []
         pins_by_id: dict[str, JournalPinItem] = {
             item.note_id: item
             for item in scene.items()
             if isinstance(item, JournalPinItem)
         }
+        commands: list[Any] = []
         for note_id in note_ids:
             pin = pins_by_id.get(note_id)
             if pin is None:
                 continue
-            self.canvas_view.command_manager.execute(
-                DeleteJournalNoteCommand(self._project_manager, scene, pin)
+            commands.append(
+                DeleteJournalNoteCommand(
+                    self._project_manager,
+                    scene,
+                    pin,
+                    remove_pin=pin.parentItem() is None,
+                )
             )
+        return commands
+
+    def _on_journal_notes_batch_delete(self, note_ids: list[str]) -> None:
+        """Fallback for a view with no command factory: execute note commands.
+
+        The app's real path is ``_journal_note_commands_for`` through the view's
+        compound; this keeps a bare/older view coherent.
+        """
+        for command in self._journal_note_commands_for(note_ids):
+            self.canvas_view.command_manager.execute(command)
 
     def _on_journal_note_activated(self, note_id: str) -> None:
         """Sidebar double-click → centre viewport on pin + open editor."""

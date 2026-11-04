@@ -2918,6 +2918,20 @@ class TestHouseRidge:
         canvas.scene().removeItem(ridge)
         assert "ridge" not in snapshot_records(canvas.scene())[str(house.item_id)].params
 
+    def test_a_mismatched_reverse_owner_is_not_adopted(self, house_stage) -> None:
+        """A copied/stale ``ridge_item_id`` must not feed 3D the source's ridge.
+
+        The reverse ``owner_polygon_id`` is the shared ownership proof
+        (``roof_ridge_link.is_owned_ridge``, also used by the 2D lookup and the
+        sun/shadow caster).
+        """
+        canvas, house, ridge = house_stage
+        ridge.set_metadata("owner_polygon_id", "00000000-0000-0000-0000-000000000001")
+        assert "ridge" not in snapshot_records(canvas.scene())[str(house.item_id)].params
+        # A MISSING reverse link is a legacy/hand-authored plan and stays valid.
+        ridge.metadata.pop("owner_polygon_id", None)
+        assert "ridge" in snapshot_records(canvas.scene())[str(house.item_id)].params
+
     def test_a_ridge_link_to_something_else_is_no_ridge(self, house_stage) -> None:
         """A stale or corrupt ``ridge_item_id`` (it names a shed, or a line that
         lost a point) gives a HOUSE without a ridge param — the builder falls back,

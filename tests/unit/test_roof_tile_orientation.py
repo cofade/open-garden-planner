@@ -86,6 +86,8 @@ from PyQt6.QtWidgets import QGraphicsScene
 from open_garden_planner.core.object_types import ObjectType
 from open_garden_planner.core.roof_ridge import compute_roof_ridge_endpoints
 from open_garden_planner.ui.canvas.items import PolygonItem, PolylineItem
+from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
+from open_garden_planner.ui.canvas.roof_ridge_link import build_linked_ridge, linked_ridge
 
 #: The test cases, as ``(house_w, house_h, rotation)``.
 #:
@@ -153,45 +155,67 @@ def _probe_pixmap() -> QPixmap:
 
 
 def _house_with_probe(
-    rotation: float, house_w: float, house_h: float
-) -> tuple[QGraphicsScene, PolygonItem]:
+    rotation: float,
+    house_w: float,
+    house_h: float,
+    kind: str = "polygon",
+) -> tuple[QGraphicsScene, PolygonItem | RectangleItem]:
     """A HOUSE carrying the probe as its own brush, with a linked ridge.
 
     ``_paint_with_ridge`` reads ``self.brush()``, so installing the probe here
     means the production code transforms it exactly as it transforms the real
     texture -- no test-local copy of the brush construction.
 
+    ``kind`` selects which of the two item classes that can be a HOUSE is under
+    test: ``"polygon"`` (drawn with the polygon tool) or ``"rectangle"`` (a
+    rectangle converted by Change Type, #690). Both must paint the identical
+    roof; before it had its own ridge-aware branch, the rectangle fell back to
+    the flat fill and its tiles lapped back up toward the ridge.
+
     ``house._apply_rotation`` is the production entry point, and it calls
-    ``_update_ridge_on_boundary``, so the ridge is re-derived into the rotated
-    frame by the app's own code rather than by the test.
+    ``_update_ridge_on_boundary`` (polygon) or ``_update_house_ridge``
+    (rectangle), so the ridge is re-derived into the rotated frame by the app's
+    own code rather than by the test.
     """
     scene = QGraphicsScene()
-    house = PolygonItem(
-        [
-            QPointF(0.0, 0.0),
-            QPointF(house_w, 0.0),
-            QPointF(house_w, house_h),
-            QPointF(0.0, house_h),
-        ],
-        object_type=ObjectType.HOUSE,
-    )
+    if kind == "rectangle":
+        house: PolygonItem | RectangleItem = RectangleItem(
+            0.0, 0.0, house_w, house_h, object_type=ObjectType.HOUSE
+        )
+        ridge = build_linked_ridge(house, None)
+        assert ridge is not None, "a rectangle converted to HOUSE must get a ridge"
+    else:
+        house = PolygonItem(
+            [
+                QPointF(0.0, 0.0),
+                QPointF(house_w, 0.0),
+                QPointF(house_w, house_h),
+                QPointF(0.0, house_h),
+            ],
+            object_type=ObjectType.HOUSE,
+        )
+        p1, p2 = compute_roof_ridge_endpoints(house.polygon(), house.pos())
+        ridge = PolylineItem([p1, p2], object_type=ObjectType.ROOF_RIDGE)
+        house.set_metadata("ridge_item_id", str(ridge.item_id))
+        ridge.set_metadata("owner_polygon_id", str(house.item_id))
+
     house.setPos(0.0, 0.0)
     house.setBrush(QBrush(_probe_pixmap()))
-
-    p1, p2 = compute_roof_ridge_endpoints(house.polygon(), house.pos())
-    ridge = PolylineItem([p1, p2], object_type=ObjectType.ROOF_RIDGE)
-    house.set_metadata("ridge_item_id", str(ridge.item_id))
-    ridge.set_metadata("owner_polygon_id", str(house.item_id))
     scene.addItem(house)
     scene.addItem(ridge)
 
     if rotation:
-        house.setTransformOriginPoint(house.polygon().boundingRect().center())
+        centre = (
+            house.polygon().boundingRect().center()
+            if isinstance(house, PolygonItem)
+            else house.rect().center()
+        )
+        house.setTransformOriginPoint(centre)
         house._apply_rotation(rotation)
     return scene, house
 
 
-def _render(scene: QGraphicsScene, house: PolygonItem) -> QImage:
+def _render(scene: QGraphicsScene, house: PolygonItem | RectangleItem) -> QImage:
     """Render through Qt's real pipeline, preserving the house's aspect ratio.
 
     Aspect matters: ``scene.render`` into a fixed square stretches the scene
@@ -214,14 +238,14 @@ def _render(scene: QGraphicsScene, house: PolygonItem) -> QImage:
       the ridge painting over its own sample points while its docstring
       asserted a suppression that never happened.
 
-    ``_find_ridge`` does not filter on visibility, and ``scene.render`` skips
+    ``linked_ridge`` does not filter on visibility, and ``scene.render`` skips
     invisible items -- so ``setVisible(False)`` suppresses the decoration while
     leaving the production paint path intact.
     """
-    ridge = house._find_ridge()
+    ridge = linked_ridge(house)
     assert ridge is not None, (
-        "the linked ridge must stay in the scene: _paint_with_ridge only runs "
-        "when _find_ridge() returns it"
+        "the linked ridge must stay in the scene: the roof paint only runs "
+        "when the house's one validated ridge lookup returns it"
     )
     ridge.setVisible(False)
 
@@ -236,7 +260,9 @@ def _render(scene: QGraphicsScene, house: PolygonItem) -> QImage:
     return img
 
 
-def _ridge_axis(house: PolygonItem) -> tuple[float, float, float, float]:
+def _ridge_axis(
+    house: PolygonItem | RectangleItem,
+) -> tuple[float, float, float, float]:
     """Ridge midpoint and its left-perpendicular, in scene coordinates.
 
     Since #364 the ridge points are already **scene** space:
@@ -249,7 +275,7 @@ def _ridge_axis(house: PolygonItem) -> tuple[float, float, float, float]:
     rotation. That single bug produced a phantom "degenerate" band at 90 and
     270 degrees and wrong readings at every other rotation except 0.
     """
-    ridge = house._find_ridge()
+    ridge = linked_ridge(house)
     assert ridge is not None, "the HOUSE has no linked ridge"
     a = ridge.mapToScene(ridge.points[0])
     b = ridge.mapToScene(ridge.points[-1])
@@ -345,8 +371,10 @@ def _phase_runs_outward(sequence: str) -> bool:
     return sequence.index("B") > sequence.index("R")
 
 
-def _both_sequences(rotation: float, house_w: float, house_h: float) -> tuple[str, str]:
-    scene, house = _house_with_probe(rotation, house_w, house_h)
+def _both_sequences(
+    rotation: float, house_w: float, house_h: float, kind: str = "polygon"
+) -> tuple[str, str]:
+    scene, house = _house_with_probe(rotation, house_w, house_h, kind)
     axis = _ridge_axis(house)
     img = _render(scene, house)
     return (
@@ -355,9 +383,19 @@ def _both_sequences(rotation: float, house_w: float, house_h: float) -> tuple[st
     )
 
 
+#: The two item classes that can be a HOUSE (#690): the polygon tool's house
+#: and a rectangle converted through Change Type / the Properties panel. They
+#: must draw the SAME roof, so every orientation case runs for both.
+HOUSE_KINDS = [
+    pytest.param("polygon", id="drawn-polygon"),
+    pytest.param("rectangle", id="converted-rectangle"),
+]
+
+
+@pytest.mark.parametrize("kind", HOUSE_KINDS)
 @pytest.mark.parametrize(("house_w", "house_h", "rotation"), HOUSE_CASES)
 def test_tiles_lap_away_from_the_ridge(
-    house_w: float, house_h: float, rotation: float, qtbot: object
+    house_w: float, house_h: float, rotation: float, kind: str, qtbot: object
 ) -> None:
     """Both halves must run down-slope *outward*, in every orientation.
 
@@ -366,21 +404,21 @@ def test_tiles_lap_away_from_the_ridge(
     ``RBBRBB`` becoming ``BRRBRR``. Negating the ``rotate`` sign is caught by
     the portrait cases only -- see ``HOUSE_CASES``.
     """
-    plus, minus = _both_sequences(rotation, house_w, house_h)
+    plus, minus = _both_sequences(rotation, house_w, house_h, kind)
 
     assert _is_informative(plus) and _is_informative(minus), (
-        f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: samples were not "
-        f"informative ({plus!r} / {minus!r}); the house, render size or "
-        "sample distances changed"
+        f"{kind} house {house_w:.0f}x{house_h:.0f} at {rotation} deg: samples "
+        f"were not informative ({plus!r} / {minus!r}); the house, render size "
+        "or sample distances changed"
     )
     assert _phase_runs_outward(plus), (
-        f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: the +n half laps "
-        f"TOWARD the ridge (sequence {plus!r}); water would run uphill under "
-        "the laps"
+        f"{kind} house {house_w:.0f}x{house_h:.0f} at {rotation} deg: the +n "
+        f"half laps TOWARD the ridge (sequence {plus!r}); water would run "
+        "uphill under the laps"
     )
     assert _phase_runs_outward(minus), (
-        f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: the -n half laps "
-        f"TOWARD the ridge (sequence {minus!r})"
+        f"{kind} house {house_w:.0f}x{house_h:.0f} at {rotation} deg: the -n "
+        f"half laps TOWARD the ridge (sequence {minus!r})"
     )
 
 
@@ -397,16 +435,52 @@ def test_both_halves_are_mirror_images(qtbot: object) -> None:
     ``_is_informative`` requires the sequences to be informative, so a sample
     point that strayed off the roof fails here rather than passing vacuously.
     """
+    for kind in ("polygon", "rectangle"):
+        for house_w, house_h, rotation in HOUSE_CASE_VALUES:
+            plus, minus = _both_sequences(rotation, house_w, house_h, kind)
+            assert _is_informative(plus) and _is_informative(minus), (
+                f"{kind} house {house_w:.0f}x{house_h:.0f} at {rotation} deg: "
+                f"samples were not informative ({plus!r} / {minus!r})"
+            )
+            assert _is_mirror_pair(plus, minus), (
+                f"{kind} house {house_w:.0f}x{house_h:.0f} at {rotation} deg: "
+                f"halves disagree ({plus!r} vs {minus!r}), so the split itself "
+                "is wrong rather than the brush assignment"
+            )
+
+
+def test_a_converted_rectangle_paints_the_identical_roof(qtbot: object) -> None:
+    """A rectangle converted to HOUSE must not merely lap correctly -- it must
+    paint the *same roof* as a drawn house of the same outline.
+
+    This is the manual-test failure of PR #713 (2.1): converting a 1600 x 750
+    rectangle gave a flat tile fill while the neighbouring drawn house showed
+    the ridge-mirrored planes. Driving both production paint paths with the same
+    probe and the same outline makes the difference a byte comparison rather
+    than an eyeballed one.
+    """
     for house_w, house_h, rotation in HOUSE_CASE_VALUES:
-        plus, minus = _both_sequences(rotation, house_w, house_h)
-        assert _is_informative(plus) and _is_informative(minus), (
-            f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: samples were not "
-            f"informative ({plus!r} / {minus!r})"
+        drawn_scene, drawn = _house_with_probe(rotation, house_w, house_h, "polygon")
+        converted_scene, converted = _house_with_probe(
+            rotation, house_w, house_h, "rectangle"
         )
-        assert _is_mirror_pair(plus, minus), (
-            f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: halves disagree "
-            f"({plus!r} vs {minus!r}), so the split itself is wrong rather than "
-            "the brush assignment"
+        drawn_img = _render(drawn_scene, drawn)
+        converted_img = _render(converted_scene, converted)
+
+        assert drawn_img.size() == converted_img.size(), (
+            f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: the two houses "
+            "render at different sizes"
+        )
+        drawn_bytes = bytes(
+            drawn_img.constBits().asstring(drawn_img.sizeInBytes())
+        )
+        converted_bytes = bytes(
+            converted_img.constBits().asstring(converted_img.sizeInBytes())
+        )
+        assert drawn_bytes == converted_bytes, (
+            f"{house_w:.0f}x{house_h:.0f} at {rotation} deg: a converted "
+            "rectangle paints a different roof from a drawn house of the same "
+            "outline"
         )
 
 

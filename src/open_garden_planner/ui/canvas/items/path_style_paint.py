@@ -54,7 +54,7 @@ import math
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Final
+from typing import Any, Final
 
 from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import (
@@ -229,9 +229,13 @@ class PathStylePaint:
     def __init__(self, points: Sequence[QPointF], pen: QPen,
                  path: QPainterPath | None = None, *,
                  clip: tuple[float, float, float, float] | None = None,
-                 budget: WalkBudget | None = None) -> None:
+                 budget: WalkBudget | None = None,
+                 fill_transform: Any | None = None) -> None:
         if (clip is None) != (budget is None):
             raise ValueError("a clipped walk needs a budget, and a budget a clip")
+        # A path's textured fill may carry the object's pattern transform
+        # (#665); the 3D ground bake passes None (its ruler is unchanged).
+        self._fill_transform = fill_transform
         # read only, never changed: the canvas item's own list is used as it is (this
         # object lives for one paint)
         self._points = points if isinstance(points, list) else list(points)
@@ -343,7 +347,9 @@ class PathStylePaint:
         export writes a pen as its colour, and a texture brush's colour is black (a
         black bar in every exported SVG, PF-CAN-27)."""
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(create_pattern_brush(pattern, self.pen().color()))
+        painter.setBrush(create_pattern_brush(
+            pattern, self.pen().color(), self._fill_transform
+        ))
         painter.drawPath(self._stroke_outline(width))
 
     def _paint_gravel_path(self, painter: QPainter) -> None:

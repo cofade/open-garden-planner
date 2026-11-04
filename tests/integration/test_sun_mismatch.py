@@ -157,7 +157,7 @@ def test_badge_group_navigation_geometry_and_reload(sun_app, qtbot, tmp_path, mo
     win.canvas_scene.clearSelection()
     north.setSelected(True)
     by_name(win)["Southern tomato"].setSelected(True)
-    win.canvas_view._group_selected()
+    win.canvas_view.group_selected()
     compute(win, qtbot)
     qtbot.waitUntil(lambda: bool(sun_records(win)))
     root = north.parentItem()
@@ -310,7 +310,7 @@ def test_imported_grouped_concave_plant_badge_is_inside_footprint(sun_app, qtbot
     win.canvas_scene.addItem(plant)
     plant.setSelected(True)
     by_name(win)["Southern tomato"].setSelected(True)
-    win.canvas_view._group_selected()
+    win.canvas_view.group_selected()
     saved = tmp_path / "concave.ogp"
     win._project_manager.save(win.canvas_scene, saved)
     win._load_project_file(str(saved))
