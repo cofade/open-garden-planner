@@ -106,8 +106,8 @@ RED = (230, 20, 20, 255)
 BLUE = (20, 40, 230, 255)
 #: Set by the positive control only: the QML directory the hosts of this file load.
 QML_OVERRIDE = "OGP_TEST_QUICK3D_QML_DIR"
-#: The three releases: legal on a closed host, where they do nothing.
-RELEASES = ("destroy_part", "release_fill", "clear", "close")
+#: The releases: legal on a closed host, where they do nothing.
+RELEASES = ("end_captures", "destroy_part", "release_fill", "clear", "close")
 
 # No product code in here — that is the point (module docstring). It does to bare Qt
 # what the tests below do to the host: load a View3D scene from a file, create a Model
@@ -2047,9 +2047,7 @@ class TestClosedAndDestroyedHosts:
         lifecycle._register_calls()  # noqa: SLF001
         public = {name for name in dir(Quick3DHost)
                   if not name.startswith("_") and callable(getattr(Quick3DHost, name))}
-        # end_captures lets go (a no-op on a closed host): it has its own row in the lifecycle
-        assert set(lifecycle.HOST_CALLS) == public - {"is_visible", "health", "is_software_adapter",
-                                                      "end_captures"}
+        assert set(lifecycle.HOST_CALLS) == public - {"is_visible", "health", "is_software_adapter"}
 
     def test_close_then_anything(self, qtbot) -> None:
         made, _sink, _sync, parent, part = self._embedded(qtbot)

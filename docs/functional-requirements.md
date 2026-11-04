@@ -973,8 +973,9 @@ tier `tests/integration/test_scene3d_ground_render.py` and the frozen
 - **FR-3D-TOUR-02** (L6.2): A tour is saved as an **MP4 video** (H.264 where the system has an encoder,
   else MPEG-4) or a **PNG sequence**. It is rendered frame by frame, so a slower computer takes
   longer and writes the same video. A progress bar shows each frame, Cancel stops it, and a cancelled
-  or failed video leaves nothing behind and never replaces an earlier file. If the 3D view stops being
-  visible, the recording waits and goes on.
+  or failed video leaves nothing behind and never replaces an earlier file. When an earlier file is
+  held open (a player has it), the finished video stays beside it and the message says where. If
+  the 3D view stops being visible, the recording waits and goes on.
 - **FR-3D-TOUR-03** (L6.2): **Preview** plays the tour small and in real time inside the dialog and
   saves nothing. After a tour the plan's date, time and the view's camera are as they were; a
   time-lapse changes no plan data and leaves nothing to undo.
