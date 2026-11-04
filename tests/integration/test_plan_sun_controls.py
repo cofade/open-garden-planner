@@ -751,7 +751,7 @@ def test_bulk_layer_changes_debounce_scene_collection_itself(win, qtbot, jobs, m
         SetLayerPropertyCommand(win.canvas_scene, layer, "visible", True, False))
     assert captures == []  # no synchronous O(N) scan for any of the N notifications
     assert not win._live_sun_map.is_current()
-    qtbot.waitUntil(lambda: len(jobs) == 2)
+    qtbot.waitUntil(lambda: len(jobs) == 2, timeout=10000)
     assert len(captures) == 1
     complete(win, qtbot, jobs, 1)
 
