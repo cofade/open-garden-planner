@@ -3099,7 +3099,7 @@ class MoveToLayerCommand(Command):
         # Snapshot (item, original_layer_id, original_stack_order) at
         # construction - before any move.
         moves: list[tuple[QGraphicsItem, UUID | None, int | None]] = [
-            (item, item.layer_id, getattr(item, "stack_order", None))
+            (item, getattr(item, "layer_id", None), getattr(item, "stack_order", None))
             for item in items
         ]
         # The description names what the user selected, not the derived ridge
@@ -3185,23 +3185,23 @@ class MoveToLayerCommand(Command):
             not_in_scene = [item for item in changing if id(item) not in in_scene_ids]
             bottom_to_top = in_scene_order + not_in_scene
             for k, item in enumerate(bottom_to_top, start=1):
-                item.layer_id = self._target_layer_id
+                cast(Any, item).layer_id = self._target_layer_id
                 if hasattr(item, "stack_order"):
                     item.stack_order = max_rank + STACK_STEP * k
         for item, old_layer_id in self._members:
             if old_layer_id != self._target_layer_id:
-                item.layer_id = self._target_layer_id
+                cast(Any, item).layer_id = self._target_layer_id
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 
     def undo(self) -> None:
         """Restore each item to its original layer and rank; refresh scene visuals."""
         for item, old_layer_id, old_stack_order in self._moves:
-            item.layer_id = old_layer_id
+            cast(Any, item).layer_id = old_layer_id
             if hasattr(item, "stack_order"):
                 item.stack_order = old_stack_order
         for item, old_layer_id in self._members:
-            item.layer_id = old_layer_id
+            cast(Any, item).layer_id = old_layer_id
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 
