@@ -30,7 +30,7 @@ one-time setup in deployment section 7.4; FR-STATS records acceptance requiremen
 | **14** | **v1.24.5 – v1.24.12** | **✅ Complete** ([epic #255](https://github.com/cofade/open-garden-planner/issues/255); no v2.0 bump — see the Phase 14 section) | **3D Visualization & Sun/Shade** |
 | **15** | **v1.25.0 – v1.27.0** | **✅ Complete** (Packages 1–3; epic [#284](https://github.com/cofade/open-garden-planner/issues/284)) | **Visual Refresh** |
 | 16 | — | Future | Platform & Community |
-| 17 | — | Complete with L6 (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0, L5 ✅ v1.35.0, L6 ✅ awaiting acceptance, L7 ✅ v1.36.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
+| 17 | — | Complete with L6 (L0 ✅ **GO** — ADR-048, 2026-10-05; L1 ✅ v1.29.10 + v1.30.14, L2 ✅ v1.31.0, L3 ✅ v1.32.0, L4 ✅ v1.34.0, L5 ✅ v1.35.0, L6 ✅ v1.37.0, L7 ✅ v1.36.0; epic [#383](https://github.com/cofade/open-garden-planner/issues/383)) | Living Garden 3D |
 
 ---
 
@@ -2750,7 +2750,7 @@ The app's visuals grew ad-hoc while functionality matured; Phase 15 modernizes t
 | ✅ | L3 | **Plant Forge** — shipped in v1.32.0 ([PR #593](https://github.com/cofade/open-garden-planner/pull/593)) after owner acceptance (ADR-064, FR-3D-FORGE-01 … 06) — see below | [#387](https://github.com/cofade/open-garden-planner/issues/387) |
 | ✅ | L4 | **Built world complete** — roof styles, paths, glass, 24 object builders, water and lawn. **✅ shipped v1.34.0 ([PR #613](https://github.com/cofade/open-garden-planner/pull/613)) after owner acceptance (ADR-065, FR-3D-BUILT-01 … 08)** — see below | [#388](https://github.com/cofade/open-garden-planner/issues/388) |
 | ✅ | L5 | **Living garden** — year/day playback through the SimClock, moods, weather presets as a look, shader particles (rain, snow, leaves, butterflies, fireflies) on the wind's clock, Today's Weather, Garden Light / String Lights. **✅ shipped v1.35.0 ([PR #699](https://github.com/cofade/open-garden-planner/pull/699)) after owner acceptance (ADR-070, FR-3D-LIVE-01 … 09)** — see below | [#389](https://github.com/cofade/open-garden-planner/issues/389) |
-| ✅ | L6 | **Director's cut** — one capture path through a second `View3D`, photo mode (focus click, exposure, grades, vignette, up to 4K), camera tours (drone orbit, keyframes, time-lapse) saved as MP4 or PNG sequence, `render_3d_view` MCP tool, and the Family garden example. **Awaiting the owner's acceptance on its PR (ADR-072, FR-3D-PHOTO-01 … 03, FR-3D-TOUR-01 … 03, FR-AGENT-31)** — see below | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
+| ✅ | L6 | **Director's cut** — one capture path through a second `View3D`, photo mode (focus click, exposure, grades, vignette, up to 4K), camera tours (drone orbit, keyframes, time-lapse) saved as MP4 or PNG sequence, `render_3d_view` MCP tool, and the Family garden example. **Shipped in v1.37.0 (PR #729) after owner acceptance (ADR-072, FR-3D-PHOTO-01 … 03, FR-3D-TOUR-01 … 03, FR-AGENT-31)** — see below | [#390](https://github.com/cofade/open-garden-planner/issues/390) |
 | ✅ | L7 | *(optional)* **Sky 6.12** — Qt 6.12 LTS pins, `SkyMaterial` atmosphere and clouds. **Shipped in v1.36.0 ([PR #721](https://github.com/cofade/open-garden-planner/pull/721)) after owner acceptance (ADR-048 addendum L7, FR-3D-LOOK-08)** — see below | [#391](https://github.com/cofade/open-garden-planner/issues/391) |
 
 ### 3D performance and stability (Slice A) — **#452 shipped in v1.34.11 ([PR #676](https://github.com/cofade/open-garden-planner/pull/676)), 2026-11-01**
@@ -2791,7 +2791,7 @@ elease.yml, documented ADR-050 version derivation evaluation addendum, and enfor
 - **#580:** Expanded info card body line budget (BODY_LINES = 8) to keep all fact rows (including harvest window) visible without vertical clipping at the narrowest 455 px split pane width.
 - **#577:** De-scoped for dedicated geometry research; preserved clean ground drape depth occlusion.
 
-### L6 acceptance highlights — Director's cut (#390, ADR-072)
+### L6 acceptance highlights — Director's cut (#390, ADR-072) — **shipped v1.37.0, PR #729**
 
 | Criterion (#390) | Delivered | Evidence |
 |---|---|---|
@@ -2801,6 +2801,7 @@ elease.yml, documented ADR-050 version derivation evaluation addendum, and enfor
 | Video "once a Qt Multimedia path is verified for size and licence"; the owner: both photo and video in this issue | Verified: inside the pinned wheel, FFmpeg 9.0.1 LGPL 2.1+, about 20 MB; H.264 from the system's encoder, MPEG-4 fallback; BT.709 frames | `test_video_writer.py`, `--selftest`, ADR-072 decisions 8 and 9, PF-E3D-20 |
 | MCP `render_3d_view`: read-only, a second View3D, camera and date never jump, a clean "warming up" refusal, ADR-034 addendum | as asked; the refusal takes under a millisecond of work | `test_agent_api_render_3d.py`, `test_directors_cut_render.py` |
 | (owner) the Beauty Board's plan as a shipped example | `family-garden`, built by the same builder with the same ids, in English, German and Spanish | `test_example_content.py` |
+| (owner's manual test) the blur must be visible, must not crash the app, and a focus keeps a whole plant sharp | the slider narrows the sharp band from 60 % to 3 % of the depth (at least 60 cm); the first blur focuses what the camera looks at; on Ultra the reflections stand down while the blur is drawn (Qt's render thread died in `d3d11.dll`; cause #744) | PF-E3D-21, `test_quick3d_qml.py`, `test_directors_cut.py`, `test_directors_cut_render.py::test_blur_on_the_ultra_preset_draws_and_does_not_take_the_render_thread_down` |
 
 ### L7 acceptance highlights — Sky 6.12 (#391, ADR-048 addendum L7) — **shipped v1.36.0, PR #721**
 
