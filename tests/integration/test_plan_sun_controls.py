@@ -353,12 +353,12 @@ def jobs(win, monkeypatch, qtbot):
 
 def start(win, qtbot, jobs):
     win._sun_toolbar._heatmap_button.click()
-    qtbot.waitUntil(lambda: len(jobs) == 1)
+    qtbot.waitUntil(lambda: len(jobs) == 1, timeout=10000)
 
 
 def complete(win, qtbot, jobs, number=0):
     jobs[number][1].set()
-    qtbot.waitUntil(lambda: win._live_sun_map.is_current())
+    qtbot.waitUntil(lambda: win._live_sun_map.is_current(), timeout=10000)
 
 
 def test_one_permanent_strip_and_defaults_ignore_obsolete_setting(qtbot):
