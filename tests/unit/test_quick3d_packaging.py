@@ -40,7 +40,8 @@ RENDER_TESTS = ("tests/integration/test_quick3d_render.py",
                 "tests/integration/test_quick3d_engine.py",
                 "tests/integration/test_quick3d_selftest.py",
                 "tests/integration/test_quick3d_lifecycle.py",
-                "tests/integration/test_scene3d_ground_render.py")  # the baked ground (L1.5)
+                "tests/integration/test_scene3d_ground_render.py",  # the baked ground (L1.5)
+                "tests/integration/test_directors_cut_render.py")   # the capture view (L6)
 #: The default workspace's real-host gates (#540) — close and compatibility only in CI.
 WORKSPACE_RENDER = "tests/integration/test_view3d_workspace_render.py"
 #: The subset: G5's close rows (with the frozen-exe variants, which skip without the exe)
@@ -100,6 +101,18 @@ class TestSpec:
                 assert name in code, f"{module.name} is missing from ogp.spec's hiddenimports"
         for binding in ("PyQt6.QtQuick", "PyQt6.QtQml", "PyQt6.QtQuick3D"):
             assert f'"{binding}",' in code
+
+    def test_the_directors_cut_is_in_the_bundle(self) -> None:
+        """Qt Multimedia and the tour's modules are imported when a tour is first saved: a
+        lazily loaded part must be named here, and ``--selftest`` must use it (#277)."""
+        code = _code(SPEC)
+        assert '"PyQt6.QtMultimedia",' in code
+        for module in ("core.camera_path", "core.scene3d.photo", "core.video_yuv",
+                       "ui.view3d.workspace_capture", "ui.view3d.tour_dialog",
+                       "ui.view3d.tour_recorder", "ui.view3d.video_writer"):
+            assert f'"open_garden_planner.{module}",' in code, module
+        selftest = (PACKAGE / "selftest.py").read_text(encoding="utf-8")
+        assert "_check_video(log, path.parent)" in selftest and "_check_capture(log, qml_dir)" in selftest
 
     def test_the_spike_left_the_bundle_with_l1_10(self) -> None:
         """L1.10 trimmed the spec with the spike: its QML, its modules and

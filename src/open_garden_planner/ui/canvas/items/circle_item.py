@@ -333,7 +333,7 @@ class CircleItem(RotationHandleMixin, ResizeHandlesMixin, GardenItemMixin, QGrap
         species = self.metadata.get("plant_species")
         if not isinstance(species, dict):
             return footprint_diameter
-        day = getattr(self.scene(), "plan_date", None) or date.today()
+        day = getattr(self.scene(), "drawn_plan_date", None) or date.today()
         grown = grown_spread_cm(
             species, self.metadata, day, getattr(self.object_type, "name", "")
         )

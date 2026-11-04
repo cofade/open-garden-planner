@@ -160,7 +160,7 @@ def test_examples_resource_over_real_transport_is_read_only(window, qtbot):
         thread.start()
         qtbot.waitUntil(lambda: result.get("done", False), timeout=20000)
         assert "error" not in result, result.get("error")
-        assert len(result["entries"]) == 3
+        assert len(result["entries"]) == 4   # three teaching plans and the 3D showcase
         assert all(Path(e["path"]).is_file() for e in result["entries"])
         after = window._project_manager.snapshot_dict(window.canvas_scene)
         before.pop("metadata", None)

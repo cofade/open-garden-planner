@@ -81,8 +81,8 @@ CHILD = Path(child.__file__).resolve()
 WINDOWS = sys.platform == "win32"
 LINUX = sys.platform.startswith("linux")
 FRAME, REFUSED, EITHER, ANY = "frame", "refused", "either", "any"
-#: The three releases: legal on a closed host, where they do nothing.
-RELEASES = ("destroy_part", "release_fill", "clear", "close")
+#: The releases: legal on a closed host, where they do nothing.
+RELEASES = ("end_captures", "destroy_part", "release_fill", "clear", "close")
 #: Asked of a closed host they still answer (asserted where they are used).
 ANSWERS_WHEN_CLOSED = {"is_visible", "health", "is_software_adapter"}
 
@@ -450,19 +450,27 @@ def test_after_wait_ready_the_frame_has_the_windows_new_size(tmp_path: Path, ord
         assert out["maximised"]["window"][0] > small[0]
         assert out["normal"]["window"] == small and out["normal_again"]["window"] == small
         # the very moment of the finding, pinned: Qt has resized window AND scene, the
-        # render target is the old one — the host takes the frame, sees its size, refuses
-        for step in ("fullscreen_at_once", "fullscreen_from_maximised_at_once"):
+        # render target is the old one — the host takes the frame, sees its size, refuses.
+        # Only where the size changed: a window kept under the others (quiet_windows) maximises
+        # over the taskbar as well, so that going full screen from there changes nothing.
+        resizing = [("fullscreen_at_once", small),
+                    ("fullscreen_from_maximised_at_once", out["maximised"]["window"])]
+        for step, before in resizing:
             at_once = out[step]
             assert at_once["window"] == full and at_once["view"] == [float(full[0]), float(full[1])]
             assert at_once["state"] == "live"
+            if before == full:
+                assert not is_refusal(at_once["grab"]), step
+                continue
             for call in ("grab", "pick", "project"):
                 assert is_refusal(at_once[call]) and STALE in at_once[call], (step, call)
             # …and wait_ready(0) says so without delivering the expose that would mend it
             assert out[f"ready0_{step.removesuffix('_at_once')}"] is False, step
-        # two transitions; in each, grab() takes the frame that is refused, pick() and
+        # per transition that resized, grab() takes the frame that is refused, pick() and
         # project() refuse on its evidence WITHOUT another (review round 5: they took one
-        # per call), and wait_ready(0) takes its own probe: 4 frames, not 8
-        assert 4 <= out["stale_frames"] < 8, out["stale_frames"]
+        # per call), and wait_ready(0) takes its own probe: 2 frames each, not 4
+        transitions = sum(before != full for _step, before in resizing)
+        assert 2 * transitions <= out["stale_frames"] < 4 * transitions, out["stale_frames"]
 
 
 #: What a ``wait_ready()`` may take beyond its timeout in THIS matrix. The contract's bound is

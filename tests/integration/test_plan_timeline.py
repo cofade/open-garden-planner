@@ -1,6 +1,8 @@
 """US-F4: real scrubber → shared clock → visibility, history and outputs."""
 
 import json
+import subprocess
+import sys
 from datetime import date
 
 import pytest
@@ -445,3 +447,77 @@ def test_explicit_api_layer_render_cannot_resurrect_a_date_absent_plant(win):
     with _hidden_layers_not_in(win.canvas_scene, [layer_id]):
         assert not item.isVisible()
     assert not item.isVisible()
+
+
+def test_a_new_date_tells_qt_about_a_plants_rect_while_it_is_still_the_old_one(win, monkeypatch):
+    """A plant's bounding rect follows the plan date, and Qt's index takes an item out of the
+    leaves of the rect it has at ``prepareGeometryChange``. Told after the date moved, the leaves
+    of the old rect keep the item, and they dangle once it is gone (PF-CAN-43)."""
+    apple = plant(win, "Apple", "2026-04-01")
+    apple.metadata["plant_instance"]["current_spread_cm"] = 100
+    win.canvas_scene.refresh_timeline()
+    before = apple.boundingRect()
+    announced = []
+    original = CircleItem.prepareGeometryChange
+
+    def spy(item):
+        announced.append(item.boundingRect())
+        original(item)
+
+    monkeypatch.setattr(CircleItem, "prepareGeometryChange", spy)
+    win._sim_clock.set_date(date(2031, 6, 1))
+    assert apple.boundingRect() != before, "the date really moves this plant's rect"
+    assert announced, "and Qt heard about it"
+    assert announced[0] == before, "while the rect was still the old one"
+
+
+OPEN_AFTER_A_NEW_DATE = """
+import sys
+from datetime import date, datetime
+from pathlib import Path
+from PyQt6.QtCore import QEventLoop, QTimer
+from PyQt6.QtWidgets import QApplication
+app = QApplication(sys.argv[:1])
+from open_garden_planner.app.application import GardenPlannerApp
+GardenPlannerApp._show_welcome_dialog = lambda _self: None
+GardenPlannerApp._confirm_discard_changes = lambda _self: True
+
+def pump(ms):
+    loop = QEventLoop()
+    QTimer.singleShot(ms, loop.quit)
+    loop.exec()
+
+window = GardenPlannerApp()
+window.resize(1100, 700)
+window.show()
+plan = sys.argv[1]
+window._project_manager.load(window.canvas_scene, Path(plan))
+clock = window._sim_clock
+clock.set_datetime(datetime(2026, 6, 21, 15, 0))
+pump(200)
+clock.set_date(date(2026, 9, 1))
+pump(100)
+clock.set_date(date(2026, 6, 21))
+pump(100)
+window._load_project_file(plan, as_template=True)
+pump(1500)
+print("survived", flush=True)
+window._workspace.shutdown()
+window.close()
+pump(100)
+"""
+
+
+def test_opening_a_plan_after_the_date_moved_does_not_crash(tmp_path):
+    """The whole chain, in a child of its own, because the failure takes the process down:
+    Qt aborted or read a dangling pointer in the next paint, 2 of 2 on v1.36.0. A year's
+    time-lapse moves the date for the user, and the next plan opened was the crash."""
+    from tests.integration.quick3d_render_support import REPO, isolated_env
+
+    done = subprocess.run(
+        [sys.executable, "-c", OPEN_AFTER_A_NEW_DATE,
+         str(REPO / "tests" / "fixtures" / "plans" / "bench_small.ogp")],
+        env=isolated_env(tmp_path, QT_QPA_PLATFORM="offscreen"), capture_output=True, text=True,
+        timeout=180, cwd=tmp_path, check=False)
+    assert done.returncode == 0, f"exit {done.returncode}\n{done.stderr[-1500:]}"
+    assert "survived" in done.stdout

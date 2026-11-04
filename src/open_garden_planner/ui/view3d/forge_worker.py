@@ -19,6 +19,9 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
 
+import numpy as np
+from numpy.typing import NDArray
+
 from ...core.phenology import (
     DEFAULT_LATITUDE_DEG,
     PhenologyState,
@@ -75,6 +78,7 @@ class ForgeWorker:
         self._camera_pos: tuple[float, float, float] = (0.0, 0.0, 170.0)
         self._camera_forward: tuple[float, float, float] | None = None
         self._force_lod: int | None = None
+        self._path_eyes: NDArray[np.float64] | None = None
         self._generation: int = 0
         self._latest_records: dict[str, Record] = {}
         self._applied_state: dict[str, tuple[object, int, object]] = {}
@@ -169,7 +173,11 @@ class ForgeWorker:
                 # Treat items inside ~100 deg half-angle cone as visible in front
                 visible = cos_angle >= -0.15
 
-        lod = self._force_lod if self._force_lod is not None else select_lod(dist)
+        if self._path_eyes is not None:
+            dist_for_lod = float(np.linalg.norm(self._path_eyes - (px, py, pz), axis=1).min())
+        else:
+            dist_for_lod = dist
+        lod = self._force_lod if self._force_lod is not None else select_lod(dist_for_lod)
         return visible, dist, lod
 
     @staticmethod
@@ -323,6 +331,14 @@ class ForgeWorker:
         if force_lod is not None:
             self._force_lod = validate_lod(force_lod)
 
+        for record in list(self._latest_records.values()):
+            self.submit_record(record, lod=self._force_lod)
+
+    def fly_path(self, eyes: Sequence[tuple[float, float, float]] | None) -> None:
+        """A recording is about to fly past ``eyes`` (L6, ADR-072): each plant takes the finest
+        detail any of them asks for and keeps it, so that a frame shows what the view would from
+        there and no plant changes its leaves in mid-flight. ``None``: the camera decides again."""
+        self._path_eyes = np.asarray(eyes, dtype=np.float64) if eyes else None
         for record in list(self._latest_records.values()):
             self.submit_record(record, lod=self._force_lod)
 

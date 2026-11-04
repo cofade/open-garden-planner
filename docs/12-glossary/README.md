@@ -342,6 +342,17 @@ download integrity; it is not an Authenticode signature or provenance attestatio
 on this day and later. Planting is inclusive. This is separate from a Season Manager
 yearly plan copy and from task reminder reference dates (ADR-062).
 
+### Capture view, Grade, Drone orbit and Camera tour (L6, #390, ADR-072)
+
+- **Capture view:** the scene's second `View3D`: same scene, camera and environment, any size. Every
+  picture for a file, a video or an agent comes through it; the view on screen does not move.
+- **Develop (a picture):** change how it looks, never what stands in it: exposure, depth of field,
+  vignette, grade. Photo mode's word for what it does.
+- **Grade:** a colour treatment of the whole picture, computed as a 16-level lookup table (LUT).
+- **Keyframe (of a tour):** a camera placement the path passes through.
+- **Drone orbit:** a tour around the plan at the view's distance and height, starting where the view is.
+- **Time-lapse:** a tour during which the sim clock runs through a day or a stretch of the year.
+
 ### Plant Forge, Space colonisation, Pipe model and Phenology (L3, #387, ADR-064)
 
 - **Plant Forge:** The Qt-free procedural 3D plant mesh synthesis subsystem (`core/plant_forge/`) that turns all 123 2D procedural plant sprite recipes (`core/plant_art/traits3d.py`) into multi-LOD 3D plant models across 13 archetypes, with zero external 3D asset files.

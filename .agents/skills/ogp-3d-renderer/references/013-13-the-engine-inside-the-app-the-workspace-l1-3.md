@@ -22,9 +22,8 @@ test patterns: docs §8.10.9. What the ENGINE taught once it ran inside the real
   `LEAK_BOUND` + 0.6 × its OWN tile-texture bytes per release × releases per reload
   (the driver reports `ground_texture_mb`) — not with the bake off, not against a fixed
   ceiling (L1.5 review 3).
-- **#532 upstream: QTBUG-151940 (filed 2026-10-30); a bump to 6.11.3 or 6.12.0 does not fix
-  it.** Read on 2026-10-30, the `clear()` loop is unchanged in qtquick3d v6.11.3, v6.12.0 and
-  `dev` (eaf90eeb8c32). The report's reproducer
+- **#532 upstream: QTBUG-151940 (filed 2026-10-30; closed 2026-11-04 in dev `fd941509f`, 6.12 backport pending).**
+  Fixed upstream on 2026-11-04 (Gerrit 785272; 6.12 backport Gerrit 786236 has +2/+1); a bump to 6.11.3 or 6.12.0 did not fix it. The report's reproducer
   (`docs/09-architecture-decisions/adr-048-evidence/qtbug-151940/`, no project code) leaks the
   same on 6.12.0 as on 6.11.0, with the official `qml.exe` 6.12.0 and with the PyQt6 6.11.0 /
   6.12.0 wheels: 6 to 8 of 16 same-size 512² textures per release on D3D11 (hardware and

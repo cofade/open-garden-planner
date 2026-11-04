@@ -148,6 +148,7 @@ class CanvasScene(QGraphicsScene):
         """
         super().__init__(parent)
         self._plan_clock: SimClock | None = None
+        self._painted_plan_date: date | None = None
 
         self._width_cm = width_cm
         self._height_cm = height_cm
@@ -1606,6 +1607,13 @@ class CanvasScene(QGraphicsScene):
         """Read the shared clock; standalone scenes need no timeline."""
         return self._plan_clock.plan_date if self._plan_clock is not None else None
 
+    @property
+    def drawn_plan_date(self) -> date | None:
+        """The date plants are drawn for, and their bounding rects with them. It follows
+        ``plan_date`` in ``refresh_timeline``, not when the clock moves: Qt must hear about a new
+        rect while the old one still stands (PF-CAN-43)."""
+        return self._painted_plan_date or self.plan_date
+
     def bind_plan_clock(self, clock: SimClock) -> None:
         self._plan_clock = clock
         self.refresh_timeline()
@@ -1620,12 +1628,16 @@ class CanvasScene(QGraphicsScene):
     def refresh_timeline(self) -> None:
         """Apply the current date after edits/undo/load without changing history."""
         day = self.plan_date
-        if day != getattr(self, "_painted_plan_date", None):
+        if day != self._painted_plan_date:
+            plants = [item for item in self.items()
+                      if is_plant_type(getattr(item, "object_type", None))]
+            # Before the rects move: Qt's index takes an item out of the leaves of the rect it has
+            # NOW, and any leaf left behind dangles once the item is gone (PF-CAN-43)
+            for item in plants:
+                item.prepareGeometryChange()
             self._painted_plan_date = day
-            for item in self.items():
-                if is_plant_type(getattr(item, "object_type", None)):
-                    item.prepareGeometryChange()
-                    item.update()  # only a new date invalidates every canopy cache
+            for item in plants:
+                item.update()  # only a new date invalidates every canopy cache
         # Presence is a view of the clock, not a plan edit. In particular its
         # ItemVisibleHasChanged notices must not bypass the 3D controller's
         # throttled date-regrowth path. Other item changes keep announcing edits.

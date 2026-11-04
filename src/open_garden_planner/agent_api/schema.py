@@ -358,6 +358,44 @@ class RenderMeta(BaseModel):
     )
 
 
+class Render3DMeta(BaseModel):
+    """What a ``render_3d_view`` picture shows (L6.3, #390, ADR-034 addendum)."""
+
+    image_width_px: int = Field(description="Output image width, pixels.")
+    image_height_px: int = Field(description="Output image height, pixels.")
+    eye: tuple[float, float, float] = Field(
+        description="Where the camera stood: scene cm, (east, north, up). The owner's own "
+        "camera when the call gave none."
+    )
+    target: tuple[float, float, float] = Field(
+        description="The point it looked at: scene cm, (east, north, up)."
+    )
+    fov_deg: float = Field(description="Vertical field of view, degrees.")
+    plan_date: str | None = Field(
+        default=None,
+        description="The plan date the picture shows, ISO: plants, growth and season follow "
+        "it. It is the date the owner has set; this tool never changes it.",
+    )
+    time_of_day: str | None = Field(default=None, description="The time of day shown, HH:MM.")
+    sun_elevation_deg: float | None = Field(
+        default=None, description="The sun's elevation in this picture, degrees. Null: no sun yet."
+    )
+    sun_azimuth_deg: float | None = Field(
+        default=None, description="The sun's compass bearing in this picture, degrees."
+    )
+    weather: str | None = Field(default=None, description="The weather the view shows.")
+    quality_preset: str | None = Field(
+        default=None, description="The quality the picture was rendered at (low to ultra)."
+    )
+    roofs_hidden: bool = Field(
+        description="True: Cutaway is on and the picture shows buildings without their roofs."
+    )
+    overlays: list[str] = Field(
+        description="Analysis overlays in the picture: 'shade' (2D shadows on the ground), "
+        "'drape' (hours of sun), 'lines' (sun path). The owner's own choice; empty for none."
+    )
+
+
 # --- US-D1.4: export / save tools -------------------------------------------
 #
 # These are the first Agent API tools with a filesystem side effect beyond

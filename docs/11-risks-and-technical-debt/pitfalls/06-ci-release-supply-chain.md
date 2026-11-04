@@ -225,3 +225,19 @@ admitted it: the cap is `<6.141`. The same release moved QtPdf out of WebEngine 
 `PyQt6-Pdf`; two integration tests failed with `No module named 'PyQt6.QtPdf'` until it became a
 `dev` dependency. On every Qt bump: import every Qt add-on wheel the app uses against the new
 core before believing the lock.
+
+### PF-CI-18
+
+- **Rule:** On Linux, `PyQt6.QtMultimedia` links `libpulse.so.0` even with no sound in use, and the import fails without it: every job that encodes a video installs `libpulse0`, and a missing library stays a red test, never a skip.
+- **Pinned by:** `tests/integration/test_video_writer.py::test_an_mp4_has_every_frame_the_right_length_and_the_right_colours`; `tests/unit/test_quick3d_selftest.py::test_the_video_block_really_encodes_and_leaves_nothing`
+- **Source:** #390 (Phase 17 L6), first CI run of PR #729
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The dev box and both Windows CI jobs never showed it: Windows has no such dependency. All the
+video tests and the 3D self-test's video block failed on the Linux runners with
+`ImportError: libpulse.so.0`, which the app reports as "Video is not available in this build of the
+app." The list came from the wheels' ELF headers, not from trial and error: Qt Multimedia needs
+`libpulse.so.0`, `libGL`, `libEGL` and `libxkbcommon`; its FFmpeg plugin `libX11`, `libXrandr` and
+`libXext`; the bundled FFmpeg `libdrm`, `libbz2` and `libz`. Without H.264 on Linux, the MP4 tests
+walk the MPEG-4 path there.

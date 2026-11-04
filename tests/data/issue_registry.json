@@ -494,6 +494,11 @@
     "state": "CLOSED",
     "title": "Plant/shape drag preview is drawn behind beds and objects — invisible until you release"
   },
+  "383": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "Phase 17 epic: Living Garden 3D — Qt Quick 3D renderer, procedural world, honest beauty"
+  },
   "385": {
     "is_pr": false,
     "state": "CLOSED",

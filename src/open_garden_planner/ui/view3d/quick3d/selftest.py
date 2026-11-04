@@ -99,6 +99,13 @@ ENGINE_MODULES: Final = ("PyQt6.QtQml", "PyQt6.QtQuick", "PyQt6.QtQuick3D")
 #: A hang past this fails the self-test (measured wall times: ADR-048 addendum L1.2).
 WATCHDOG_S: Final = 180.0
 LOG_NAME: Final = "OpenGardenPlanner-selftest-3d.log"
+#: The capture's check (L6): how far the capture may lie from the view, in 8-bit levels. It
+#: is the same render of the same scene: 0, measured on Direct3D 11, GPU and WARP.
+CAPTURE_MAX_DIFFERENCE: Final = 1
+#: The video's check (L6.2): small, and even-sided as 4:2:0 asks.
+VIDEO_SIZE: Final = (320, 180)
+VIDEO_FRAMES: Final = 8
+VIDEO_ATTEMPTS: Final = 2000
 
 # ── the scene: plain data, so the judge and the unit tests share it ──────────
 
@@ -576,6 +583,99 @@ def _render_atmosphere(log: RenderLog, qml_dir: Path | None
     return frames[0], frames[1], frames[2]
 
 
+def _check_capture(log: RenderLog, qml_dir: Path | None) -> str:
+    """The second View3D in a SHOWN window (L6, ADR-072): a capture at the view's size must
+    be the view, pixel for pixel. Returns what was seen; raises when it is not. A session
+    that cannot show a window at all says so: nothing here is special to the bundle then."""
+    from open_garden_planner.core.scene3d import SceneSync
+
+    from .adapter import Quick3DSink
+    from .host import EngineError, Quick3DHost
+    from .offscreen import ensure_application, image_rgba
+
+    ensure_application()   # a frame above that failed early may not have made one
+    host = Quick3DHost(SIZE, qml_dir=qml_dir, log=log)
+    try:
+        if not host.renders_3d():
+            return f"not exercised: the {host.graphics_api()} backend draws no 3D"
+        host.show_behind()
+        if not host.wait_ready(30.0):
+            return "not exercised: no window could be shown in this session"
+        sync = SceneSync(Quick3DSink(host), registry())
+        sync.apply(records(), sun=SUN, ground=GROUND)
+        host.set_camera(LIVING_EYE, LIVING_TARGET, 40.0)
+        ratio = host.device_pixel_ratio()
+        size = (round(SIZE[0] * ratio), round(SIZE[1] * ratio))
+        if not host.wait_ready(5.0):
+            return "not exercised: the window did not come back after the scene was loaded"
+        seen = image_rgba(host.grab("selftest-view"))
+        taken = image_rgba(host.capture(size, label="selftest-capture"))
+        if seen.shape != taken.shape:
+            raise EngineError(f"a capture of {taken.shape[:2]} for a view of {seen.shape[:2]}")
+        difference = int(np.abs(seen[..., :3].astype(np.int16) - taken[..., :3].astype(np.int16)).max())
+        if difference > CAPTURE_MAX_DIFFERENCE:
+            raise EngineError(f"the capture differs from the view by up to {difference} levels")
+        if float(taken[..., :3].astype(np.float64).std()) < 2.0:
+            raise EngineError("the capture and the view are one flat colour")
+        return f"{size[0]}x{size[1]} equals the view (at most {difference} levels apart)"
+    finally:
+        host.close()
+
+
+def _check_video(log: RenderLog, folder: Path) -> str:
+    """Eight frames into an MP4 from the bundle's Qt Multimedia and FFmpeg (L6.2, ADR-072):
+    lazily loaded like the old 3D view was (#277), so the only proof it works is doing it.
+    Written beside the self-test's log, in the user's own folder, and gone afterwards.
+    Returns what was written; raises when nothing was."""
+    from PyQt6.QtCore import QEventLoop, QTimer
+    from PyQt6.QtGui import QColor, QImage
+
+    from ..video_writer import Mp4Writer, best_codec
+    from .host import EngineError
+    from .offscreen import ensure_application
+
+    ensure_application()
+    if best_codec() is None:
+        raise EngineError("Qt Multimedia loaded, but it offers no encoder for an MP4 file")
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "OpenGardenPlanner-selftest-video.mp4"
+    try:
+        writer = Mp4Writer(path, VIDEO_SIZE, 30)
+        outcome: list[tuple[bool, str]] = []
+        writer.finished.connect(lambda ok, message: outcome.append((ok, message)))
+
+        def pump(milliseconds: int) -> None:
+            loop = QEventLoop()
+            QTimer.singleShot(milliseconds, loop.quit)
+            loop.exec()
+
+        writer.start()
+        for index in range(VIDEO_FRAMES):
+            image = QImage(VIDEO_SIZE[0], VIDEO_SIZE[1], QImage.Format.Format_RGBX8888)
+            image.fill(QColor(40 + index * 20, 120, 60))
+            for _attempt in range(VIDEO_ATTEMPTS):
+                if writer.write(image):
+                    break
+                pump(5)
+            else:
+                raise EngineError("the video encoder never took a frame")
+        writer.finish()
+        for _attempt in range(VIDEO_ATTEMPTS):
+            if outcome:
+                break
+            pump(5)
+        if not outcome or not outcome[0][0]:
+            raise EngineError(f"the video did not finish: {outcome or 'no answer'}")
+        size = path.stat().st_size if path.is_file() else 0
+        if size == 0:
+            raise EngineError("the video file is empty")
+        log("selftest_video", codec=writer.codec, bytes=size)
+        return f"{VIDEO_FRAMES} frames into {size} bytes of {writer.codec}"
+    finally:
+        path.unlink(missing_ok=True)
+        path.with_name(f"{path.stem}.part{path.suffix}").unlink(missing_ok=True)
+
+
 def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WATCHDOG_S,
                  qml_dir: Path | None = None, log: RenderLog | None = None) -> SelftestResult:
     """Import the engine, render the self-test frame, judge it (module docstring).
@@ -652,6 +752,16 @@ def run_selftest(log_path: Path | None = None, *, watchdog_s: float | None = WAT
                           f"night with a garden light; the atmosphere sky, clear and cloudy)")
         except Exception as exc:  # noqa: BLE001 - a QML or shader error arrives here
             say(False, f"Qt Quick 3D render -> {type(exc).__name__}: {exc}")
+        # the director's cut (L6): after the frames above, because a shown window and the
+        # message recorder they render under must never meet (qt_messages.py)
+        try:
+            say(True, f"capture view: {_check_capture(log, qml_dir)}")
+        except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+            say(False, f"capture view -> {type(exc).__name__}: {exc}")
+        try:
+            say(True, f"video: {_check_video(log, path.parent)}")
+        except Exception as exc:  # noqa: BLE001 - report every failure, never abort
+            say(False, f"video -> {type(exc).__name__}: {exc}")
     ok = all(line.startswith("  OK  ") for line in lines)
     log("selftest_done", result="PASS" if ok else "FAIL",
         wall_ms=round((time.perf_counter() - started) * 1000.0))

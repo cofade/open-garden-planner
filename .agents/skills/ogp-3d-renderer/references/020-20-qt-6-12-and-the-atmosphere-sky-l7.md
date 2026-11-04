@@ -75,6 +75,6 @@ same machine), 2026-11-02/03, PyQt6 / PyQt6-Qt6 6.12.0:
   halo: at the painted disc's energy the probe locked onto the horizon glow 9° below the sun
   (bearing still within 0.35°); `ATMOSPHERE_DISC_ENERGY` 4 → bearing 0.02°, elevation 11.98° for
   12°. A probe that checks only the bearing would have passed the wrong blob.
-- **QTBUG-151940** still leaks on the 6.12.0 wheels (8 textures a cycle; *In Review*).
+- **QTBUG-151940** still leaks on the 6.12.0 wheels (8 textures a cycle; upstream closed 2026-11-04 in `dev` commit `fd941509f`, 6.12 backport Gerrit 786236 pending).
 - **`QAccessibilityHints.motionPreference`** exists in 6.12 (Windows reads
   `SPI_GETCLIENTAREAANIMATION`).

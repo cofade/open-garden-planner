@@ -244,6 +244,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 ## Testing Notes
 
 - PyQt6 tests require `qtbot` fixture even when unused (needed for Qt init); ruff per-file ignore ARG002 in test files
+- Real windows of tests and probes open behind everything without taking focus (`scripts/quiet_windows.py`; `script_isolation` turns it on). `OGP_WINDOWS_IN_FRONT=1` to watch one.
 
 ## Where to Pick Up After Restart
 
@@ -316,13 +317,21 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   `hip`, `shed`), angle-dependent structural fence porosity (`WOODEN_FENCE`,
   `METAL_FENCE`, `CHAIN_LINK`), owner-grouped casting, multiplicative independent
   overlap ($T_1 \times T_2$), and bounded 64 MiB fractional sample allocation.
-- Phase 17 L1–L5, L7 and Package F/G are shipped. L5 (#389, ADR-070) shipped in
+- Phase 17 L1–L7 and Package F/G are shipped. L5 (#389, ADR-070) shipped in
   v1.35.0 (PR #699): playback through the SimClock, weather as a look (never the sun),
   shader particles on the wind clock, Today's Weather, Garden Light, and String Lights
-  as a LINE that casts no 2D shadow. Follow-ups: #687, #689, #698, #700, #702–#710;
-  L6 (#390) is next. Load
+  as a LINE that casts no 2D shadow. Follow-ups: #687, #689, #698, #700, #702–#710. Load
   `ogp-lush-cinematic` and `ogp-3d-renderer` before any visible 3D change, and
   `ogp-3d-sunshade-campaign` for sun, shade, growth or solar maintenance.
+- L6 (#390, closes epic #383; ADR-072) is the Director's cut: every picture beside a shown view
+  comes through `Quick3DHost.capture`, a second `View3D` of the same scene (0 levels from the view,
+  nothing moves; PF-E3D-18), called only from `workspace_capture.py`: photo mode (`core/scene3d/photo.py`,
+  grades carry the look's adjustments, PF-E3D-19), camera tours (`core/camera_path.py`,
+  `tour_recorder.py`), video (`video_writer.py`, the only Qt Multimedia importer, BT.709 frames,
+  PF-E3D-20) and the read-only `render_3d_view`, which refuses at once instead of timing out. The
+  Beauty Board's plan ships as the `family-garden` example. A plant's rect follows
+  `CanvasScene.drawn_plan_date`, announced before it moves: on v1.36.0 a new date crashed the next plan
+  opened (PF-CAN-43).
 - L7 (#391, ADR-048 addendum L7) shipped in v1.36.0 (PR #721): Qt pins 6.12.0, WebEngine 6.140 moves
   with them (PF-CI-17), the 6.12 pick honours cull mode (PF-E3D-13), the OS reduce-motion
   is honoured, and an opt-in atmosphere `SkyMaterial` sky (default stays painted) whose

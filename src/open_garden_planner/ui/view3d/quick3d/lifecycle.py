@@ -128,9 +128,12 @@ call                        new    starting  live    hidden  spent  closed
 ==========================  =====  ========  ======  ======  =====  ======
 ``grab``                    once*  refuse    frame#  refuse  refuse refuse
 ``pick``, ``project``       refuse refuse    frame#  refuse  refuse refuse
+``capture``                 refuse refuse    frame   refuse  refuse refuse
 ``show``, ``container``     yes    yes       yes     yes     refuse refuse
 ``wait_ready``              False  waits+    probes  False+  False  refuse
 ``destroy_part``, ``clear``,
+``release_fill``,
+``end_captures``,
 ``close``                   yes    yes       yes     yes     yes    no-op
 ``state``, ``is_closed``,
 ``is_visible``, ``health``  yes    yes       yes     yes     yes    yes

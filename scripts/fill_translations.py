@@ -23,6 +23,7 @@ from scripts.translations_f4 import DE as _F4_TRANSLATIONS
 from scripts.translations_l2 import DE as _L2_TRANSLATIONS
 from scripts.translations_l4 import DE as _L4_TRANSLATIONS
 from scripts.translations_l5 import DE as _L5_TRANSLATIONS
+from scripts.translations_l6 import DE as _L6_TRANSLATIONS
 from scripts.translations_l7 import DE as _L7_TRANSLATIONS
 
 if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
@@ -3546,6 +3547,10 @@ for _ctx, _strings in _L4_TRANSLATIONS.items():
 
 # ── Phase 17 L5: the living garden (#389) ──
 for _ctx, _strings in _L5_TRANSLATIONS.items():
+    TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
+
+# ── Phase 17 L6: the director's cut (#390) ──
+for _ctx, _strings in _L6_TRANSLATIONS.items():
     TRANSLATIONS.setdefault(_ctx, {}).update(_strings)
 
 # ── Phase 17 L7: the atmosphere sky (#391) ──

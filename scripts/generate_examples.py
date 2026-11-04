@@ -1,7 +1,12 @@
-"""Author the three offline example plans and thumbnails through production paths.
+"""Author the offline example plans and thumbnails through production paths.
 
 Run from the repository root. Layouts are illustrative, not climate prescriptions.
 Deterministic IDs and dates keep content reviewable across regenerations.
+
+Three are teaching plans authored here. The fourth, ``family-garden``, is the 3D view's
+showcase: the very plan the bench fixture ``bench_small.ogp`` is, built by the same
+``make_bench_plans.build_small`` so that it cannot drift from what every Beauty Board shows,
+and with that fixture's item ids, because a plant's procedural shape is seeded by its id.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ from PyQt6.QtWidgets import QApplication
 
 from open_garden_planner.core.commands import CreateItemsCommand
 from open_garden_planner.core.fill_patterns import FillPattern, create_pattern_brush
+from open_garden_planner.core.growth_model import years_to_maturity
 from open_garden_planner.core.guild_commands import GuildMembershipCommand
 from open_garden_planner.core.item_look import restore_stored_look
 from open_garden_planner.core.object_types import ObjectType, PathFenceStyle
@@ -307,8 +313,84 @@ def balcony():
     return scene, manager
 
 
+# The showcase garden's own words (``family_garden``): every item name of the builder and
+# every species name beyond the teaching plans'.
+for _en, _de, _es in (
+    ("Layer 1", "Ebene 1", "Capa 1"), ("Lawn", "Rasen", "Césped"), ("Terrace", "Terrasse", "Terraza"),
+    ("Gravel yard", "Kieshof", "Patio de grava"), ("Pond", "Teich", "Estanque"),
+    ("House", "Haus", "Casa"), ("Greenhouse", "Gewächshaus", "Invernadero"),
+    ("Shed", "Schuppen", "Cobertizo"), ("Pergola", "Holzpergola", "Pérgola"),
+    ("South fence", "Südzaun", "Valla sur"), ("East fence", "Ostzaun", "Valla este"),
+    ("Beech hedge", "Buchenhecke", "Seto de haya"), ("Yard wall", "Hofmauer", "Muro del patio"),
+    ("Gravel path", "Kiesweg", "Camino de grava"), ("Stepping stones", "Trittsteine", "Pasaderas"),
+    ("Herb strip", "Kräuterstreifen", "Franja de hierbas"),
+    ("Perennial border", "Staudenrabatte", "Arriate de vivaces"),
+    ("Flower bed", "Blumenbeet", "Parterre de flores"),
+    ("Raised bed 1", "Hochbeet 1", "Bancal elevado 1"), ("Raised bed 2", "Hochbeet 2", "Bancal elevado 2"),
+    ("Raised bed 3", "Hochbeet 3", "Bancal elevado 3"), ("Pot 1", "Topf 1", "Maceta 1"),
+    ("Pot 2", "Topf 2", "Maceta 2"), ("Pot 3", "Topf 3", "Maceta 3"),
+    ("Trellis", "Rankgitter", "Espaldera"), ("Table", "Tisch", "Mesa"), ("Chair", "Stuhl", "Silla"),
+    ("BBQ", "Grill", "Barbacoa"), ("Fire pit", "Feuerstelle", "Hoguera"), ("Bench", "Sitzbank", "Banco"),
+    ("Bird bath", "Vogeltränke", "Bebedero de pájaros"), ("Trampoline", "Trampolin", "Cama elástica"),
+    ("Compost", "Kompost", "Compostador"), ("Wheelbarrow", "Schubkarre", "Carretilla"),
+    ("Rain barrel", "Regentonne", "Barril de lluvia"),
+    # species the teaching plans do not have; a name both languages share stays as it is
+    ("Sage", "Salbei", "Salvia"), ("Oregano", "Oregano", "Orégano"), ("Lavender", "Lavendel", "Lavanda"),
+    ("Peony", "Pfingstrose", "Peonía"), ("Iris", "Schwertlilie", "Lirio"),
+    ("Echinacea", "Sonnenhut", "Equinácea"), ("Aster", "Aster", "Áster"),
+    ("Geranium", "Geranie", "Geranio"), ("Chrysanthemum", "Chrysantheme", "Crisantemo"),
+    ("Lily", "Lilie", "Azucena"), ("Pansy", "Stiefmütterchen", "Pensamiento"),
+    ("Sunflower", "Sonnenblume", "Girasol"), ("Dahlia", "Dahlie", "Dalia"),
+    ("Marigold", "Studentenblume", "Tagete"), ("Cosmos", "Schmuckkörbchen", "Cosmos"),
+    ("Zinnia", "Zinnie", "Zinnia"), ("Tulip", "Tulpe", "Tulipán"), ("Tomato", "Tomate", "Tomate"),
+    ("Sweet Pepper", "Paprika", "Pimiento"), ("Cabbage", "Kohl", "Col"), ("Kale", "Grünkohl", "Col rizada"),
+    ("Onion", "Zwiebel", "Cebolla"), ("Beet", "Rote Bete", "Remolacha"), ("Zucchini", "Zucchini", "Calabacín"),
+    ("Leek", "Lauch", "Puerro"), ("Spinach", "Spinat", "Espinaca"), ("Rosemary", "Rosmarin", "Romero"),
+    ("Cucumber", "Gurke", "Pepino"), ("Hydrangea", "Hortensie", "Hortensia"), ("Rose", "Rose", "Rosal"),
+    ("Lilac", "Flieder", "Lila"), ("Boxwood", "Buchsbaum", "Boj"), ("Forsythia", "Forsythie", "Forsitia"),
+    ("Rhododendron", "Rhododendron", "Rododendro"), ("Blueberry", "Heidelbeere", "Arándano"),
+    ("Raspberry", "Himbeere", "Frambuesa"), ("Gooseberry", "Stachelbeere", "Grosella espinosa"),
+    ("Cherry Tree", "Kirschbaum", "Cerezo"), ("Birch", "Birke", "Abedul"), ("Pear Tree", "Birnbaum", "Peral"),
+    ("Spruce", "Fichte", "Picea"), ("Magnolia", "Magnolie", "Magnolia"),
+):
+    text(_en, _de, _es)
+
+
+#: Before the first day of a tour's default time-lapse (``tour_dialog.DEFAULT_SEASON``).
+ESTABLISHED = "2026-03-01"
+
+
+def _establish(item):
+    """A tree, a shrub, a perennial stood here before the season: a time-lapse from March shows
+    it leafing out, not popping in on the fixture's one date. What ripens within a season keeps
+    its planting day and comes up in the beds."""
+    metadata = getattr(item, "metadata", None) or {}
+    instance, species = metadata.get("plant_instance"), metadata.get("plant_species")
+    if not instance or not species:
+        return
+    kind = item.object_type.name if getattr(item, "object_type", None) is not None else ""
+    if years_to_maturity(species, kind) >= 1.0:
+        instance["planting_date"] = ESTABLISHED
+
+
+def family_garden():
+    """The bench plan as an example: ``make_bench_plans.build_small``, one builder for both."""
+    from make_bench_plans import BERLIN, build_small
+
+    builder = build_small()
+    for item in builder.scene.items():
+        _establish(item)
+    manager = ProjectManager()
+    manager.set_location(dict(BERLIN) | {"timezone": "Europe/Berlin"})
+    return builder.scene, manager
+
+
 def localized_plan(plan, language):
     def localize(value, key=""):
+        if key == "plant_species" and isinstance(value, dict):
+            # botany stays canonical: a genus may read like a name ("Iris" the plant, "Iris"
+            # the genus), and only the common name is ever shown in the user's language
+            return value | {"common_name": localize(value.get("common_name"))}
         if isinstance(value, dict):
             return {k: localize(v, k) for k, v in value.items()}
         if isinstance(value, list):
@@ -320,6 +402,14 @@ def localized_plan(plan, language):
 
 
 METADATA = {
+    "family-garden": {
+        "name_en": "Family garden - 24 x 16 m", "name_de": "Familiengarten - 24 x 16 m",
+        "name_es": "Jardín familiar - 24 x 16 m",
+        "description_en": "A whole garden to explore in 3D: house, greenhouse, shed, terrace with pergola, lawn with pond and trampoline, three raised vegetable beds, fruit trees, hedge and fences. 61 plants. Berlin reference; set Plan & Sun to 21 June 2026, then open 3D. Illustrative layout.",
+        "description_de": "Ein ganzer Garten zum Erkunden in 3D: Haus, Gewächshaus, Schuppen, Terrasse mit Pergola, Rasen mit Teich und Trampolin, drei Hochbeete, Obstbäume, Hecke und Zäune. 61 Pflanzen. Referenz Berlin; Plan & Sonne auf den 21. Juni 2026 stellen, dann 3D öffnen. Beispielentwurf.",
+        "description_es": "Un jardín entero para explorar en 3D: casa, invernadero, cobertizo, terraza con pérgola, césped con estanque y cama elástica, tres bancales elevados, frutales, seto y vallas. 61 plantas. Referencia Berlín; ajuste Plan y sol al 21 de junio de 2026 y abra 3D. Diseño ilustrativo.",
+        "tags": ["showcase", "3d", "family-garden"],
+    },
     "food-forest": {
         "name_en": "Food forest - 200 m²", "name_de": "Waldgarten - 200 m²",
         "name_es": "Bosque comestible - 200 m²",
@@ -361,18 +451,24 @@ def _thumbnail(scene, path):
     assert image.save(str(path))
 
 
-def main():
+def main(argv=None):
     script_isolation.isolate()
+    # the example plans named on the command line, or all of them
     app = QApplication.instance() or QApplication([])
     BUNDLED_EXAMPLES.mkdir(parents=True, exist_ok=True)
-    for slug, author in [("food-forest", food_forest), ("raised-bed", raised_bed), ("balcony", balcony)]:
+    only = set(sys.argv[1:] if argv is None else argv)
+    for slug, author in [("food-forest", food_forest), ("raised-bed", raised_bed), ("balcony", balcony),
+                         ("family-garden", family_garden)]:
+        if only and slug not in only:
+            continue
         scene, manager = author()
         for item in scene.items():
             if hasattr(item, "label_visible"):
                 item.label_visible = False
         raw = manager._build_project_data(scene).to_dict()
         raw["metadata"] = {"modified": "2026-10-26T00:00:00+00:00"}
-        plan = _stable_ids(raw, slug)
+        # the showcase keeps the bench plan's ids: they seed its plants' shapes
+        plan = raw if slug == "family-garden" else _stable_ids(raw, slug)
         write_plan(BUNDLED_EXAMPLES / (slug + ".ogp"), plan)
         for language in ("de", "es"):
             folder = BUNDLED_EXAMPLES / language

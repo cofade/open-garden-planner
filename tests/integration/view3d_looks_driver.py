@@ -68,6 +68,9 @@ if __name__ == "__main__":  # run as a script: make this checkout's code importa
     for entry in (str(REPO / "src"), str(REPO)):
         if entry not in sys.path:
             sys.path.insert(0, entry)
+    from scripts.quiet_windows import keep_windows_behind
+
+    keep_windows_behind()  # run by hand: no start-up hook did this
 
 from open_garden_planner.core.scene3d import GroundSpec, SceneSync, SunState  # noqa: E402
 from open_garden_planner.core.scene3d.look import NEUTRAL_DAY, look_for  # noqa: E402

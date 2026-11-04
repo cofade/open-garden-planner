@@ -263,6 +263,13 @@ class GardenPlannerApp(QMainWindow):
     ) -> dict[str, Any]:
         return self._agent_host._agent_render(region, layers, image_width_px)
 
+    def _agent_render_3d(
+        self,
+        camera: tuple[tuple[float, float, float], tuple[float, float, float], float] | None,
+        size: tuple[int, int],
+    ) -> dict[str, Any]:
+        return self._agent_host._agent_render_3d(camera, size)
+
     def _agent_save_plan(self, file_path: str | None) -> dict[str, Any]:
         return self._agent_host._agent_save_plan(file_path)
 
@@ -2217,6 +2224,9 @@ class GardenPlannerApp(QMainWindow):
         # and "Hours of Sun on the Ground" switches the shared Hours of Sun on.
         self._workspace.connect_analysis(self._sun_controller, self._sun_heatmap,
                                          self._live_sun_map)
+        # the director's cut (L6): a tour plays the clock itself, and saves like everything else
+        self._workspace.capture.clock_wanted.connect(self._sun_toolbar.stop_animation)
+        self._workspace.default_save_path = self._default_save_path
         workspace_menu = self._workspace.create_menu(self._view_menu)
         # every menu action carries an icon (#310) — the workspace's too, now that it is
         # in every window (L1.9); its own buttons keep their words (ToolButtonTextOnly)
@@ -2226,6 +2236,8 @@ class GardenPlannerApp(QMainWindow):
             self._set_action_icon(action, icon_name)
         self._set_action_icon(self._workspace.reset_view_action, "zoom_fit")
         self._set_action_icon(self._workspace.walk_action, "walk")
+        self._set_action_icon(self._workspace.capture.photo_action, "camera")
+        self._set_action_icon(self._workspace.capture.tour_action, "path")
         self._view_menu.insertMenu(self._preview_action, workspace_menu)
         # The workspace lives inside the Garden Plan tab, but the View menu is
         # global (#539): its mode actions select the plan tab, so Alt+1/2/3 show

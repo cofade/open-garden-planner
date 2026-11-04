@@ -55,8 +55,10 @@ tells the engine what the plan is, and Qt draws it when it draws. A picture of t
 3D view for a file or a thumbnail goes through ``quick3d/offscreen.py`` (a host of
 its own that gives everything back when it closes), never through the shown host.
 A click that picks (L1.8) is a user's own action, once — and it is made in
-``orbit_input.py``, nowhere else. Pinned by a scan of this package's modules and by
-a stand-in host that records such calls.
+``orbit_input.py``, nowhere else. A photo, a tour's frames and an agent's picture (L6)
+are someone's own action too, and they are made in ``workspace_capture.py``, nowhere else:
+through the scene's second View3D, which moves nothing on screen (ADR-072). Pinned by a
+scan of this package's modules and by a stand-in host that records such calls.
 
 WHAT A DESTROYED MODEL LEAVES BEHIND (ADR-060, measured). Qt Quick 3D keeps
 graphics state for every Model it once drew — about 0.2 MB each on Direct3D 11
@@ -111,6 +113,7 @@ from .analysis_modes import DrapeMode
 from .init_guard import Init3DGuard, ModeReason, RenderMode, default_directory
 from .workspace_analysis import XRAY_DELAY_MS as XRAY_DELAY_MS
 from .workspace_analysis import WorkspaceAnalysisCoordinator
+from .workspace_capture import WorkspaceCaptureCoordinator
 from .workspace_legend import (
     SunPathLegend,
 )
@@ -564,11 +567,15 @@ class Workspace(QWidget):
         return self._reset_action
 
     def create_menu(self, parent: QWidget | None = None) -> QMenu:
-        """The View menu's entry: a submenu with the three modes and "Reset 3D View"."""
+        """The View menu's entry: a submenu with the three modes, "Reset 3D View" and the
+        director's cut (L6)."""
         menu = QMenu(self.tr("&Workspace"), parent)
         menu.addActions(self.mode_actions())
         menu.addSeparator()
         menu.addAction(self._reset_action)
+        menu.addSeparator()
+        menu.addAction(self._capture.photo_action)
+        menu.addAction(self._capture.tour_action)
         return menu
 
     # ── reads ────────────────────────────────────────────────────────────────
@@ -757,6 +764,7 @@ class Workspace(QWidget):
         self._build_walk_controls(pane)  # L1.8: the Walk toggle and the eye height
         self._build_analysis_controls(pane)  # L2: the Analyze menu
         self._living.build_controls(pane.strip, strip)  # L5: the Weather menu
+        self._capture.build_controls(pane.strip, strip)  # L6: photo mode and the tours
         # the notices, one per line; every sentence wraps (class docstring of the pane)
         notices = pane.notice_layout
         status = QLabel("", pane.notices)
@@ -792,6 +800,7 @@ class Workspace(QWidget):
         self._compat_button.hide()
         notices.addWidget(self._compat_button, 0, Qt.AlignmentFlag.AlignLeft)
         self._build_legend(pane)  # L2: the sun path's legend, a line of the notices
+        self._capture.build_photo_row(pane.notices, notices)  # L6.1: photo mode's controls
         pane.message_button.clicked.connect(self._on_message_button)
         pane.showing_changed.connect(self._on_pane_showing)
         pane.strip.setVisible(self._chrome_visible)
@@ -898,6 +907,7 @@ class Workspace(QWidget):
         orbit.reset_requested.connect(self.reset_view)
         self._wire_selection(host, orbit, controller)  # L1.8: the click, the ring, the card
         self._wire_analysis(host, orbit, controller)   # L2: drapes, sun path, probe, jumps
+        self._capture.set_enabled(True)                # L6: pictures can be taken now
         controller.applied.connect(self._on_applied)
         controller.capturing_changed.connect(self._on_capturing_changed)
         controller.problems_changed.connect(self._update_problems)
@@ -1028,9 +1038,9 @@ class Workspace(QWidget):
         if label.text() != text:
             label.setText(text)
         label.setVisible(bool(text))
-        pane.notices.setVisible(bool(text) or not (
+        pane.notices.setVisible(bool(text) or self._capture.photo_row_open or not (
             self._problems_row.isHidden() and self._compat_label.isHidden()
-            and self._compat_button.isHidden()))
+            and self._compat_button.isHidden() and self._legend.isHidden()))
 
     def _watch_window(self) -> None:
         window = self.window()
@@ -1143,6 +1153,7 @@ class Workspace(QWidget):
         if controller is None:
             return
         self.set_walking(False)  # L1.8: the walker's world is gone with the document
+        self._capture.document_changed()  # L6: a tour and a focus were the old document's
         self._analysis_document_changed()  # L2: the probe, the sweep, the jump, the wipe
         self._forge_timer.stop()
         if self._forge_worker is not None:
@@ -1479,6 +1490,7 @@ class Workspace(QWidget):
             _log_failure("3D workspace: the engine host did not close cleanly", error)
 
     def _stop_engine(self) -> None:
+        self._capture.set_enabled(False)  # L6: a recording ends with its engine
         self._unwire_selection()  # L1.8: walk mode ends, the canvas is let go
         self._unwire_analysis()   # L2: its timers and its sources
         self._camera_timer.stop()
@@ -1580,6 +1592,23 @@ class Workspace(QWidget):
             parent=self,
         )
         self._living.forecast_wanted.connect(self.forecast_wanted)
+        self._capture = WorkspaceCaptureCoordinator(
+            get_host=lambda: self._host,
+            get_controller=lambda: self._controller,
+            get_look=lambda: self._look,
+            get_clock=lambda: self._clock,
+            get_camera=lambda: self._camera,
+            get_camera_now=self._camera_now,
+            forge_pending=self._forge_pending,
+            is_pane_showing=self._pane_is_showing,
+            view_state=lambda: self._state.value,
+            ground_point=self._ground_point,
+            fly_path=self._fly_path,
+            default_path=lambda name: self.default_save_path(name),
+            parent=self,
+        )
+        self._capture.photo_mode_changed.connect(lambda _on: self._refresh_notices())
+        self._selection_coordinator.take_click = self._capture.take_click
         self._analysis_coordinator = WorkspaceAnalysisCoordinator(
             get_host=lambda: self._host,
             get_controller=lambda: self._controller,
@@ -1594,6 +1623,7 @@ class Workspace(QWidget):
             say_notice=self._say,
             parent_widget=self,
         )
+        self._analysis_coordinator.take_ground_click = self._capture.take_ground_click
 
     def _init_selection_and_walk(self) -> None:
         self._eye_height: float | None = None
@@ -1605,6 +1635,29 @@ class Workspace(QWidget):
             "drag to look around, Shift runs, Esc leaves)"))
         self._walk_action.triggered.connect(lambda checked=False: self.set_walking(bool(checked)))
         self._walk_action.setEnabled(False)
+
+    @property
+    def capture(self) -> WorkspaceCaptureCoordinator:
+        """Photo mode, the camera tours and the agent's pictures (L6)."""
+        return self._capture
+
+    def _fly_path(self, eyes: Any) -> None:
+        """A recording's flight (None after it): the plants' detail follows it, not the camera,
+        and the recording waits for that (``ForgeWorker.fly_path``)."""
+        worker = self._forge_worker
+        if worker is None:
+            return
+        worker.fly_path(eyes)
+        if worker.pending_count and self._pane_is_showing():
+            self._forge_timer.start(10)
+
+    def _forge_pending(self) -> int:
+        worker = self._forge_worker
+        return int(worker.pending_count) if worker is not None else 0
+
+    #: Where a save dialog of the 3D view starts: the main window's rule (``connect_plan``'s
+    #: caller replaces it); a bare file name in the working folder until then.
+    default_save_path: Callable[[str], str] = staticmethod(lambda name: name)
 
     @property
     def walk_action(self) -> QAction:

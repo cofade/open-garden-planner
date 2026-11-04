@@ -799,7 +799,7 @@ OGP_RENDER3D=1 QSG_RHI_BACKEND=opengl QT_QPA_PLATFORM=xcb LIBGL_ALWAYS_SOFTWARE=
   venv/bin/python -m pytest tests/integration/test_quick3d_render.py -n 0
 ```
 
-On Linux the tier forces `xcb` + OpenGL and is skipped without `DISPLAY` (Mesa llvmpipe in a container needs `libegl1` and `libxcb-cursor0`); on Windows it renders with Direct3D 11 — on the GPU, or on WARP with `QSG_RHI_PREFER_SOFTWARE_RENDERER=1`. CI's `render3d` job (§7.4, since L1.2) runs the engine package's render files on both. The render files are `tests/integration/test_quick3d_*.py`, `test_view3d_*_render.py` and `tests/unit/test_render_beauty_board.py`; until L1.10 the L0 spike's `test_spike_q3d_render.py` was the tier's only file. The assertions are about **meaning, never pixel-exact goldens**: shadow-map footprint vs the analytic shadow (IoU ≥ 0.85), north-up ground, the sky's sun at the solar azimuth, picks against a CPU oracle (`core/scene3d/pick_oracle.py`), a clean exit while animating. Headless render tooling writes its own timestamped log and per-phase metrics and arms a watchdog, because a frozen GUI exe has no stdout (PF-E3D-04).
+On Linux the tier forces `xcb` + OpenGL and is skipped without `DISPLAY` (Mesa llvmpipe in a container needs `libegl1` and `libxcb-cursor0`, and video needs `libpulse0`, PF-CI-18); on Windows it renders with Direct3D 11 — on the GPU, or on WARP with `QSG_RHI_PREFER_SOFTWARE_RENDERER=1`. CI's `render3d` job (§7.4, since L1.2) runs the engine package's render files on both. The render files are `tests/integration/test_quick3d_*.py`, `test_view3d_*_render.py` and `tests/unit/test_render_beauty_board.py`; until L1.10 the L0 spike's `test_spike_q3d_render.py` was the tier's only file. The assertions are about **meaning, never pixel-exact goldens**: shadow-map footprint vs the analytic shadow (IoU ≥ 0.85), north-up ground, the sky's sun at the solar azimuth, picks against a CPU oracle (`core/scene3d/pick_oracle.py`), a clean exit while animating. Headless render tooling writes its own timestamped log and per-phase metrics and arms a watchdog, because a frozen GUI exe has no stdout (PF-E3D-04).
 
 ### 8.10.1 Gating our own documentation's shell commands
 
@@ -2259,6 +2259,41 @@ all samples and explicit output dimensions; the evidence never substitutes an
 old audit observation for a current result. See the quality requirements and
 audit evidence for the command, machine and measured limitations.
 
+### 8.10.17 Patterns from the director's cut (Phase 17 L6, #390)
+
+- **Real windows stay behind.** The render tier, its drivers, the Beauty Board and the probes show
+  real windows, because the engine draws nothing under `offscreen`. `scripts/quiet_windows.py` (the
+  owner's request) shows them without activating them and under every other window, so a run no
+  longer interrupts work on the same desktop. It is on for every child of `render_env` /
+  `isolated_env` (the start-up hook), everything that calls `script_isolation.isolate_profile`, and
+  the drivers run by hand. A covered window still renders and reads back: the render tier runs on
+  it. `OGP_WINDOWS_IN_FRONT=1` switches it off, to watch a run. A new probe gets it by isolating
+  itself, which it must do anyway. The product and the frozen exe never run it; `--selftest`'s one
+  shown window uses `Quick3DHost.show_behind`. Two differences a test can see: such a window never
+  has the keyboard, so the full-window walk scenario (`app_walk`) opts out and comes to the front
+  for its seconds; and it maximises over the taskbar, so full screen from maximised changes no size.
+  The hook can be loaded twice in one process (by its path, and through `scripts`): it asks
+  `sys.meta_path` by the finder's type name, because two finders would ask each other for ever.
+
+- **A second reader for a claim about pixels.** "The capture is the view" is asserted by comparing
+  with `grab()` at the same size and, for a shot, with the view moved to that camera. Both are
+  max-difference 0, not a threshold of taste.
+- **Read a video's numbers, not Qt's opinion of them.** `QVideoFrame.toImage` guesses the matrix of
+  an untagged stream, differently by platform: BT.709 through its shader, BT.601 under `offscreen`,
+  which read a correct (200, 60, 30) as (188, 45, 35). `test_video_writer.py` maps the decoded
+  frame and converts its Y, Cb and Cr itself, with the inverse every player uses. A decoded frame
+  can only be mapped while the player holds it: read it in the slot.
+- **A soak over the shape of the use, on both adapters.** The per-picture `Loader` looked fine on
+  the GPU, whose driver pools hide a leak behind a plateau, and showed 20 MB a picture on WARP.
+- **A control for each piece of the frame chain.** A table with the identity grade shows what the
+  LUT step does when it should do nothing: mean 0.07 with a maximum of 103 was the clue to the red
+  leaves. Mean and p99 alone called it fine.
+- **The recorder's seams are callables** (`capture`, `set_clock`, `settled`), so its waits, pause,
+  back-pressure and failures are pinned without a GPU; the render tier then runs the real thing
+  through `view3d_capture_driver.py`.
+- **`QComboBox.findData` does not find a tuple** (PyQt wraps it): the size combo started on
+  "nothing", and only an end-to-end test through the dialog met it.
+
 ### 8.10.16 Patterns from the living garden (Phase 17 L5, #389)
 
 - **An idle gate waits for the first PRESENTED frame.** "No frame for a second" is not
@@ -3097,6 +3132,13 @@ bed/plant `ObjectType` name sets, drift-guarded by `tests/unit/test_agent_api_ma
   computed badge state (may lag a debounce tick — fine for read-only inspection).
   The one exception is `outside_canvas` (#380): it is not a badge flag but is
   computed on every call from each item's live `sceneBoundingRect()`.
+
+**3D vision tool (L6.3, #390, ADR-072).** `render_3d_view(eye_*?, target_*?, fov_deg?,
+image_width_px?, image_height_px?)` returns a PNG of the 3D view plus a `Render3DMeta` block (camera,
+plan date, time, sun, weather, preset, roofs, overlays). Read-only and token-free. It renders
+through `Quick3DHost.capture`, so the owner's camera and date never move, and refuses with a clean
+sentence (`not_open`, `warming_up`, `recording`, `unavailable`) instead of timing out; a refusal
+changes nothing and builds nothing. Scene frame: x east, y north, z up, cm.
 
 **Vision tool (US-D1.3).** `render_canvas_image(x?, y?, width?, height?, layers?,
 image_width_px?)` returns a PNG of the live canvas plus a `RenderMeta` block,
@@ -6227,7 +6269,7 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     item through its cache, which cuts whatever a style draws beyond the item's bounding
     rectangle — the bars of a 30 cm metal fence reach 37.5 cm from the line, the rectangle 17 cm.
     Exports paint without the cache and show them whole; so does the ground.
-11. **OPEN upstream ([QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940);
+11. **CLOSED upstream ([QTBUG-151940](https://qt-project.atlassian.net/browse/QTBUG-151940);
     TD-040; #532 closed by PR #654) — every cache release leaves about half of the ground's same-size tile
     textures behind, re-baked or not.** *Cause:* a Qt Quick 3D 6.11.0 bug, read in its source
     and proven by measurement (#532): `QSSGBufferManager::clear()`
@@ -6276,7 +6318,11 @@ A STILL PICTURE of a live view goes that way too, never through repeated `host.g
     gate's 0.6 share.
     *Re-checked on the bump to 6.12.0* (Phase 17 L7, #391, 2026-11-03): the reproducer on the
     PyQt6-Qt6 6.12.0 wheels (WARP, frames presented) still leaks — 16 → 96 textures over 10
-    cycles, 8 a cycle; QTBUG-151940 is *In Review* with no fix version. Nothing else moved.
+    cycles, 8 a cycle.
+    *Upstream resolved (2026-11-04):* QTBUG-151940 was closed on merge of commit `fd941509f`
+    in `qt/qtquick3d#dev` (Gerrit 785272; target Qt 6.13.0); a backport to `6.12` (Gerrit
+    786236; target Qt 6.12.1) has +2/+1 and is pending merge. The leak remains active on our
+    current 6.12.0 pin; when PyQt6 6.12.1 wheels land, the bump will run the steps below.
     *Re-check* (this entry and TD-040 replace #532 as the tracker). Triggers: every change of
     the Qt pair's version in `pyproject.toml`, and every change of QTBUG-151940 (the owner
     reported it from their account, which watches it; a "Need More Info" there is answered from
@@ -7801,6 +7847,63 @@ model switches both ways, a top-down round trip, a cloud deck coming and going
 skies (`test_living_garden_render.py`) and the frozen self-test's point 8 (the atmosphere from the
 bundle, clear and cloudy).
 
+### 8.29.15 The director's cut — pictures, photo mode, tours and video (L6, #390, ADR-072)
+
+**One way to a picture.** `Quick3DHost.capture(size, shot=None, wind_time_s=None, photo=None)`
+renders through `captureView`, a second `View3D` of the same scene in `Garden.qml`, and everything
+that wants a picture calls it: Save Photo, a tour's frames, `render_3d_view`. It is legal on a
+`LIVE` host only (`lifecycle.py`); `HostStateError` otherwise. Callers go through
+`WorkspaceCaptureCoordinator` (`workspace_capture.py`), the only module of the workspace that may
+call it. A capture is synchronous and renders a frame that is never presented, so the view does
+not move, and it costs what a frame costs: bench_small at 1080p about 20 ms and at 4K about 60 ms
+on the RTX 4070; 420 ms and 800 ms on WARP. Its selection ring is off; overlays and Cutaway stay
+what the owner has on, and the agent's metadata says which.
+
+**Photo mode** (`3D ▸ Capture ▸ Photo Mode`, or View ▸ Workspace) adds a line of controls to the
+pane's notices and turns a click into "focus here". `core/scene3d/photo.py` is the Qt-free truth:
+`PhotoSettings` (exposure in stops, vignette, grade, blur, a focused POINT), `NO_PHOTO`, and the
+procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene. Blur is
+scaled to the picture's height, because Qt's is in pixels; the focused point becomes a depth along
+the view's axis, because that is what Qt compares. The slider moves the width of the sharp band
+(`focus_range_cm`: 60 % of the depth at a faint blur, 3 % at the strongest): a pixel outside the band
+gets Qt's half-resolution blur in full whatever the amount, which is capped at its 1080p value (more
+shows the three taps as copies). At 40 % the whole garden lay inside the band and the owner saw no
+difference between a high and a low blur (manual test); a 4K photo is sharper than its preview (ADR-072,
+consequences). There is no depth of field without a focused point, so the first blur above 0 focuses what
+the camera looks at (a click moves it), and while the blur is drawn the Ultra preset's screen-space
+reflections stand down: reflections, blur and glow in one chain killed the render thread in `d3d11.dll`
+(PF-E3D-21). Grades come through
+`Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's
+life, and re-chosen when the look's adjustments change.
+
+**A tour** is `TourSpec` → `tour_frames` (`core/camera_path.py`): frames computed from their index.
+`TourRecorder` runs them one per event-loop pass: move the clock, wait until `_tour_settled`
+(the controller idle, no forge pending, the sky of this moment built), capture, offer to the
+writer. `start_tour` stops whoever else plays the clock (`clock_wanted` → the toolbar's Animate),
+holds the automatic preset, and restores the owner's date and time afterwards. While it records,
+`ForgeWorker.fly_path` gives each plant the finest detail the flight asks for (`path_eyes`), so a
+frame shows what the view would from there and no plant changes its leaves in mid-flight; the first
+frame waits for that, up to `SETTLE_LIMIT_S × FIRST_FRAME_SETTLE_FACTOR`. A recording is
+modal, and so is a preview that moves the clock (a time-lapse): the plan behind it must not take that
+date for its own. A preview of a flight (small, in real time, skipping what it is late for) is not
+modal. Esc cancels and leaves the dialog open; the window's X cancels and closes once the recording
+has stopped. `HostStateError` pauses a tour and it goes on without a gap; a view that is no longer
+shown pauses it the same way.
+
+**Where the frames go** (`video_writer.py`, the only module that imports Qt Multimedia, on first
+use): `Mp4Writer` writes `<stem>.part.mp4` and renames it on success, so a cancelled or failed
+tour never replaces a good video; `PngSequenceWriter` writes `frame_000001.png` on two workers
+and refuses a folder that holds another tour's frames; `NullWriter` is a preview's. `best_codec`
+picks from `CODECS`.
+
+**The agent's picture.** `capture_blocker()` decides without waiting; `agent_picture` renders with
+`photo=NO_PHOTO` and reports what the picture shows. See §8.19.
+
+Known limits: the view must be open for an agent (ADR-072); a tour's keys live in the session;
+a capture has the view's quality preset; an agent's picture from another camera has the plant
+detail of the view's camera; a year's time-lapse spends #531's 2 MB per regrowth; the MP4 carries no
+colour tag.
+
 ## 8.30 Line appearance snapshots and paint containment (#524, #525, #526, #471)
 
 `core/item_look.py` owns `LineLook`, `capture_line_look`, `apply_line_look`,
@@ -8007,6 +8110,10 @@ existing scheduler. Date navigation remains available without a location.
 
 
 ## 8.33 Offline examples and template authoring (US-F5, ADR-066)
+
+Four examples ship: three teaching plans and `family-garden`, the 3D view's showcase (the plan of
+the Beauty Board, ADR-066 addendum). `scripts/generate_examples.py [slug ...]` regenerates the
+named ones, or all.
 
 Welcome's Examples & templates tab and File > New from example share
 `TemplateGallery`; File > New from template accepts any `.ogp`. Both call the one

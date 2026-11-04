@@ -563,3 +563,23 @@ command, even when that command came from an earlier gesture - so a pin dragged
 after a resize moved without an undo entry. `_finish_pin_drag()` is now the one
 end path, and `_drag_start_undo_depth` tells the guard whether *this* gesture
 created the command.
+
+### PF-CAN-43
+
+- **Rule:** A rect that depends on anything outside the item (a plant's on the plan date) reads that input through a value changed only AFTER `prepareGeometryChange`. Qt's BSP index takes an item out of the leaves of the rect it has at that call; told after the rect moved, the old leaves keep the pointer, and it dangles once the item is removed and destroyed.
+- **Pinned by:** `tests/integration/test_plan_timeline.py::test_a_new_date_tells_qt_about_a_plants_rect_while_it_is_still_the_old_one`; `tests/integration/test_plan_timeline.py::test_opening_a_plan_after_the_date_moved_does_not_crash`
+- **Source:** #390 (Phase 17 L6), found by the 3D review after a time-lapse; present on v1.36.0.
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+`boundingRect()` of a plant read `scene.plan_date` live, and `refresh_timeline` called
+`prepareGeometryChange` from the clock's signal, when the rect had already moved. One date step later
+than a plant's planting date, in plain plan view, was enough: the next plan opened died in the
+next paint with an access violation, an abort or `0xC0000409`, wherever that paint happened to be
+(the minimap's `scene.render`, or `CanvasView.paintEvent`), with nothing on stderr. A date before
+the planting date survived, by luck of the hidden plants being re-indexed. `CanvasScene.clear()`
+would have hidden it too, because it empties the index first: the load path deliberately removes
+document items one by one (`_is_project_document_item`), and each removal leaves its old leaves
+behind. `NoIndex` survives, which is the way to tell a stale index from anything else; it is not
+the fix. The fix is `CanvasScene.drawn_plan_date`, which moves between the announcement and the
+repaint, so the announcement still sees the old rect.

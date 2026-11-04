@@ -15,6 +15,10 @@ def test_every_tutorial_annotation_stays_inside_its_canvas(qtbot, language):
         manager = ProjectManager()
         manager.load(scene, entry.path, as_template=True)
         notes = [item for item in scene.items() if isinstance(item, TextItem)]
+        if entry.path.stem == "family-garden":
+            assert not notes, "the 3D showcase teaches nothing: it has no tutorial note"
+            scene.clear()
+            continue
         assert notes, entry.path
         for note in notes:
             assert scene.canvas_rect.contains(note.sceneBoundingRect()), (

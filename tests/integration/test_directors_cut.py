@@ -1,0 +1,1024 @@
+"""The director's cut in the workspace (Phase 17 L6, #390, ADR-072) — the default tier.
+
+The engine is replaced at the workspace's seam (a host that records, ``FakeHost`` of the
+workspace's own tests): what is pinned here is every decision around a picture. What a
+real engine answers is in ``test_directors_cut_render.py``.
+
+End to end: ``3D ▸ Capture ▸ Photo Mode``, a click, ``Save Photo``; a tour from its dialog
+through the clock to its writer; the refusals an agent gets instead of a timeout.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime, time
+from pathlib import Path
+from time import monotonic
+from typing import Any
+
+import pytest
+from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtGui import QImage
+from PyQt6.QtTest import QTest
+from PyQt6.QtWidgets import QPushButton
+
+from open_garden_planner.core.camera_path import (
+    CameraKey,
+    HeldCamera,
+    TourSpec,
+    frame_count,
+    path_eyes,
+)
+from open_garden_planner.core.scene3d.photo import DEFAULT_BLUR, NO_PHOTO, PhotoSettings
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
+from open_garden_planner.ui.view3d.quick3d.lifecycle import HostStateError
+from open_garden_planner.ui.view3d.quick3d.shots import PerspectiveShot
+from open_garden_planner.ui.view3d.tour_recorder import SETTLE_LIMIT_S, TourRecorder, TourResult
+from open_garden_planner.ui.view3d.video_writer import NullWriter, VideoError
+from open_garden_planner.ui.view3d.workspace import WorkspaceMode
+from open_garden_planner.ui.view3d.workspace_capture import (
+    BLOCKERS,
+    PHOTO_SIZES,
+    CaptureRefused,
+    photo_size,
+)
+from tests.integration.test_view3d_workspace_widget import Bench, FakeHost
+
+
+class CapturingHost(FakeHost):
+    """The workspace's stand-in host, with the capture path recorded."""
+
+    def __init__(self, prefer_software: bool) -> None:
+        super().__init__(prefer_software)
+        self.pictures: list[dict[str, Any]] = []
+        self.photos: list[PhotoSettings] = []
+        self.capture_error: Exception | None = None
+        self.sessions: list[str] = []
+
+    def set_photo(self, settings: PhotoSettings) -> None:
+        self.photos.append(settings)
+
+    def begin_captures(self) -> None:
+        self.sessions.append("begin")
+
+    def end_captures(self) -> None:
+        self.sessions.append("end")
+
+    def device_pixel_ratio(self) -> float:
+        return 1.0
+
+    def scene_property(self, name: str) -> Any:
+        return False
+
+    def capture(self, size: tuple[int, int], shot: Any = None, *, wind_time_s: float | None = None,
+                photo: Any = None, label: str = "") -> QImage:
+        if self.capture_error is not None:
+            raise self.capture_error
+        self.pictures.append({"size": size, "shot": shot, "wind": wind_time_s, "photo": photo,
+                              "label": label})
+        image = QImage(size[0], size[1], QImage.Format.Format_RGBX8888)
+        image.fill(Qt.GlobalColor.darkGreen)
+        return image
+
+    def pick(self, _x: float, _y: float) -> Any:
+        self.frames_taken.append("pick")
+        return self.pick_answer
+
+    pick_answer: Any = None
+
+
+class Hit:
+    item_id = "x"
+    part_index = 0
+    point = (150.0, 250.0, 40.0)
+    behind = ()
+
+
+class Rig(Bench):
+    """A window with the workspace in 3D on the capturing host."""
+
+    def _factory(self, prefer_software: bool) -> tuple[Any, Any]:
+        from open_garden_planner.core.scene3d import RecordingSink
+
+        self.factory_calls.append(prefer_software)
+        host, sink = CapturingHost(prefer_software), RecordingSink()
+        self.hosts.append(host)
+        self.sinks.append(sink)
+        return host, sink
+
+    def open_3d(self) -> None:
+        self.workspace.set_mode(WorkspaceMode.VIEW3D)
+        self.settle(150)
+        self.host.health_now.frames_presented = 3
+        self.workspace._poll_health()
+        self.qtbot.waitUntil(lambda: self.workspace.capture.capture_blocker() is None, timeout=5000)
+
+    def click(self, x: float = 50.0, y: float = 60.0) -> None:
+        """A left click into the 3D view, through the view's own event filter."""
+        from PyQt6.QtCore import QEvent, QPointF
+        from PyQt6.QtGui import QMouseEvent
+
+        orbit = self.workspace._input
+        for kind, buttons in ((QEvent.Type.MouseButtonPress, Qt.MouseButton.LeftButton),
+                              (QEvent.Type.MouseButtonRelease, Qt.MouseButton.NoButton)):
+            event = QMouseEvent(kind, QPointF(x, y), QPointF(x, y), Qt.MouseButton.LeftButton,
+                                buttons, Qt.KeyboardModifier.NoModifier)
+            orbit.eventFilter(None, event)
+
+
+@pytest.fixture()
+def rig(canvas: CanvasView, qtbot: Any, tmp_path: Path) -> Rig:
+    return Rig(canvas, qtbot, tmp_path)
+
+
+# ── photo mode ───────────────────────────────────────────────────────────────
+
+
+def test_the_actions_wait_for_the_engine_and_the_menu_names_them(rig: Rig) -> None:
+    capture = rig.workspace.capture
+    assert not capture.photo_action.isEnabled() and not capture.tour_action.isEnabled()
+    rig.open_3d()
+    assert capture.photo_action.isEnabled() and capture.tour_action.isEnabled()
+    assert rig.host.frames_taken == [], "opening the actions takes no frame"
+
+
+def test_photo_mode_on_shows_its_row_and_off_is_the_view_again(rig: Rig) -> None:
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    assert capture._row is not None and not capture._row.isVisible()
+    capture.photo_action.trigger()
+    assert capture.photo_mode and capture._row.isVisible()
+    capture.set_settings(PhotoSettings(exposure_ev=1.0, vignette=0.4, grade="golden"))
+    assert host.photos[-1].grade == "golden"
+    capture.photo_action.trigger()
+    assert not capture.photo_mode and not capture._row.isVisible()
+    assert host.photos[-1] == NO_PHOTO
+    capture.photo_action.trigger()
+    assert host.photos[-1].grade == "golden", "the settings wait for the next time"
+
+
+def test_the_sliders_and_the_combo_are_the_settings(rig: Rig) -> None:
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    capture.set_photo_mode(True)
+    capture._exposure.setValue(15)
+    capture._vignette.setValue(50)
+    capture._grade_combo.setCurrentIndex(capture._grade_combo.findData("film"))
+    assert host.photos[-1] == PhotoSettings(exposure_ev=1.5, vignette=0.5, grade="film")
+
+
+def test_the_blur_slider_works_before_any_click_by_focusing_what_the_camera_looks_at(rig: Rig) -> None:
+    """Manual test of #390: the slider did nothing until the view was clicked, because there is
+    no depth of field without a focused point. The first blur now brings the camera's target."""
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    capture.set_photo_mode(True)
+    assert capture.settings.focus_scene is None, "no blur, nothing to focus"
+    target = tuple(float(v) for v in rig.workspace._camera_now()[1])
+    capture._blur.setValue(60)
+    shown = host.photos[-1]
+    assert shown.blur == 0.6 and shown.focus_scene == target and shown.depth_of_field
+    assert "m" in capture._focus_label.text() and "Click" not in capture._focus_label.text()
+    capture.set_settings(PhotoSettings(blur=0.6, focus_scene=(1.0, 2.0, 3.0)))
+    capture._blur.setValue(80)
+    assert host.photos[-1].focus_scene == (1.0, 2.0, 3.0), "a focus that was chosen stays"
+
+
+def test_photo_mode_back_on_focuses_the_blur_it_kept(rig: Rig) -> None:
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    capture.set_photo_mode(True)
+    capture._blur.setValue(70)
+    capture.set_photo_mode(False)
+    assert capture.settings.focus_scene is None and capture.settings.blur == 0.7
+    capture.set_photo_mode(True)
+    assert host.photos[-1].depth_of_field, "the slider still says 70 and the picture must too"
+
+
+def test_in_photo_mode_a_click_sets_the_focus_and_selects_nothing(rig: Rig, qtbot: Any) -> None:
+    """A click is the camera's while photo mode is on: the canvas's selection stays."""
+    bed = rig.bed(100.0, 100.0)
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    capture.set_photo_mode(True)
+    host.pick_answer = Hit()
+    Hit.item_id = str(bed.item_id)
+    rig.click()
+    assert host.photos[-1].focus_scene == Hit.point
+    assert host.photos[-1].blur == DEFAULT_BLUR, "a focus gets a blur to be seen by"
+    assert capture._blur.value() == round(DEFAULT_BLUR * 100)
+    assert "m" in capture._focus_label.text()
+    assert not rig.scene.selectedItems()
+
+
+def test_a_click_outside_photo_mode_selects_as_ever(rig: Rig) -> None:
+    bed = rig.bed(100.0, 100.0)
+    rig.open_3d()
+    rig.host.pick_answer = Hit()
+    Hit.item_id = str(bed.item_id)
+    rig.click()
+    assert bed in rig.scene.selectedItems()
+    assert rig.host.photos == []
+
+
+def test_a_click_on_the_ground_focuses_on_the_ground_and_the_sky_changes_nothing(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    capture.set_photo_mode(True)
+    host.pick_answer = None
+    monkeypatch.setattr(capture, "_ground_point", lambda _x, _y: (10.0, 20.0))
+    rig.click()
+    assert host.photos[-1].focus_scene == (10.0, 20.0, 0.0)
+    before = len(host.photos)
+    monkeypatch.setattr(capture, "_ground_point", lambda _x, _y: None)
+    rig.click()
+    assert len(host.photos) == before
+
+
+def test_the_focus_goes_with_the_document_and_with_photo_mode(rig: Rig) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    capture.set_photo_mode(True)
+    capture.set_settings(PhotoSettings(blur=0.5, focus_scene=(1.0, 2.0, 3.0)))
+    rig.workspace.document_changed()
+    assert capture.settings.focus_scene is None
+    capture.set_settings(PhotoSettings(blur=0.5, focus_scene=(1.0, 2.0, 3.0)))
+    capture.set_photo_mode(False)
+    assert capture.settings.focus_scene is None
+
+
+@pytest.mark.parametrize("key", PHOTO_SIZES)
+def test_a_photo_is_saved_at_the_size_it_asks_for(rig: Rig, tmp_path: Path, key: str) -> None:
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    path = tmp_path / f"{key}.png"
+    assert capture.write_photo(path, key)
+    expected = PHOTO_SIZES[key] or (round(host.size[0]), round(host.size[1]))
+    assert host.pictures[-1]["size"] == expected
+    assert host.pictures[-1]["shot"] is None, "the view's own camera"
+    assert QImage(str(path)).size().width() == expected[0]
+
+
+def test_a_saved_photo_says_what_date_it_shows(rig: Rig, tmp_path: Path) -> None:
+    rig.open_3d()
+    rig.clock.set_datetime(datetime(2026, 6, 21, 15, 0))
+    path = tmp_path / "photo.png"
+    rig.workspace.capture.write_photo(path, "1080p")
+    assert QImage(str(path)).text("Creation Time") == "2026-06-21T15:00"
+
+
+def test_the_window_size_follows_the_display_scale() -> None:
+    assert photo_size("window", (800.0, 450.0), 1.25) == (1000, 562)
+    assert photo_size("4k", (800.0, 450.0), 1.25) == (3840, 2160)
+
+
+def test_a_view_that_gives_no_frame_is_a_sentence_and_no_crash(rig: Rig, monkeypatch: pytest.MonkeyPatch,
+                                                               tmp_path: Path) -> None:
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    warnings: list[str] = []
+    monkeypatch.setattr(capture, "_warn", warnings.append)
+    monkeypatch.setattr("open_garden_planner.ui.view3d.workspace_capture.QFileDialog.getSaveFileName",
+                        lambda *_a, **_k: (str(tmp_path / "x.png"), ""))
+    host.capture_error = HostStateError("minimised")
+    capture.save_photo()
+    assert warnings and not (tmp_path / "x.png").exists()
+    host.capture_error = RuntimeError("the engine says no")
+    capture.save_photo()
+    assert "the engine says no" in warnings[-1]
+
+
+# ── the agent's picture ──────────────────────────────────────────────────────
+
+
+def test_every_refusal_is_a_key_with_a_sentence_and_changes_nothing(rig: Rig) -> None:
+    capture = rig.workspace.capture
+    # 3D never opened: nothing was built for this, and nothing is built by it
+    assert capture.capture_blocker() == "not_open"
+    with pytest.raises(CaptureRefused) as refused:
+        capture.agent_picture((640, 360))
+    assert refused.value.code == "not_open" and str(refused.value) == BLOCKERS["not_open"]
+    assert rig.hosts == [], "a refused picture builds no engine"
+    assert rig.workspace.mode is WorkspaceMode.PLAN, "and switches no view"
+
+
+def test_warming_up_is_refused_until_the_first_frame_and_the_pipeline_are_through(rig: Rig) -> None:
+    rig.bed(100.0, 100.0)
+    rig.workspace.set_mode(WorkspaceMode.VIEW3D)
+    capture = rig.workspace.capture
+    assert capture.capture_blocker() == "warming_up"
+    rig.settle(150)
+    assert capture.capture_blocker() == "warming_up", "no frame was presented yet"
+    rig.host.health_now.frames_presented = 3
+    rig.workspace._poll_health()
+    assert capture.capture_blocker() is None
+    # an edit is on its way: the picture would not show it yet
+    rig.bed(300.0, 300.0)
+    assert capture.capture_blocker() == "warming_up"
+    rig.settle(150)
+    assert capture.capture_blocker() is None
+
+
+def test_a_hidden_view_is_not_open(rig: Rig) -> None:
+    rig.open_3d()
+    rig.workspace.set_mode(WorkspaceMode.PLAN)
+    assert rig.workspace.capture.capture_blocker() == "not_open"
+    rig.workspace.set_mode(WorkspaceMode.SPLIT)
+    rig.settle(150)
+    rig.qtbot.waitUntil(lambda: rig.workspace.capture.capture_blocker() is None, timeout=5000)
+
+
+def test_the_agents_picture_is_read_only_and_undeveloped(rig: Rig) -> None:
+    """The contract: PNG bytes and what they show; no development; nothing moved, nothing
+    undoable, nothing dirty — and photo mode's settings left as they were."""
+    rig.open_3d()
+    capture, host = rig.workspace.capture, rig.host
+    capture.set_photo_mode(True)
+    capture.set_settings(PhotoSettings(exposure_ev=1.0))
+    rig.clock.set_datetime(datetime(2026, 6, 21, 15, 0))
+    rig.settle(150)
+    rig.qtbot.waitUntil(lambda: capture.capture_blocker() is None, timeout=5000)
+    photos, cameras = len(host.photos), len(host.cameras)
+    undo = rig.commands.can_undo
+    pose = rig.workspace.camera.pose
+    shot = PerspectiveShot((1.0, 2.0, 300.0), (4.0, 5.0, 6.0), 50.0)
+    answer = capture.agent_picture((640, 360), shot)
+    assert answer["png_bytes"].startswith(b"\x89PNG")
+    assert (answer["image_width_px"], answer["image_height_px"]) == (640, 360)
+    assert answer["eye"] == (1.0, 2.0, 300.0) and answer["target"] == (4.0, 5.0, 6.0)
+    assert answer["fov_deg"] == 50.0
+    assert answer["plan_date"] == "2026-06-21" and answer["time_of_day"] == "15:00"
+    assert host.pictures[-1]["photo"] == NO_PHOTO and host.pictures[-1]["shot"] is shot
+    assert len(host.photos) == photos, "no setting was changed for it"
+    assert len(host.cameras) == cameras, "the workspace moved no camera for it"
+    assert rig.workspace.camera.pose == pose and rig.commands.can_undo == undo
+    assert capture.settings.exposure_ev == 1.0
+
+
+def test_the_owners_view_is_what_an_agent_gets_when_it_names_no_camera(rig: Rig) -> None:
+    rig.open_3d()
+    answer = rig.workspace.capture.agent_picture((640, 360))
+    pose = rig.workspace.camera.pose
+    assert answer["eye"] == pytest.approx(pose.eye)
+    assert answer["target"] == pytest.approx(pose.target_scene)
+    assert rig.host.pictures[-1]["shot"] is None
+
+
+def test_a_frame_that_cannot_be_had_right_now_is_warming_up_not_an_error(rig: Rig) -> None:
+    rig.open_3d()
+    rig.host.capture_error = HostStateError("mid-resize")
+    with pytest.raises(CaptureRefused) as refused:
+        rig.workspace.capture.agent_picture((640, 360))
+    assert refused.value.code == "warming_up"
+
+
+def test_a_recording_refuses_the_agent(rig: Rig, qtbot: Any) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    spec = TourSpec(HeldCamera(capture.camera_key()), 1.0, 24)
+    outcome: list[TourResult] = []
+    recorder = capture.start_tour(spec, (64, 36), NullWriter())
+    recorder.finished.connect(outcome.append)
+    assert capture.capture_blocker() == "recording"
+    qtbot.waitUntil(lambda: bool(outcome), timeout=20000)
+    assert capture.capture_blocker() is None
+
+
+# ── a tour ───────────────────────────────────────────────────────────────────
+
+
+def run_tour(rig: Rig, spec: TourSpec, writer: Any = None, size: tuple[int, int] = (64, 36),
+             **arguments: Any) -> TourResult:
+    outcome: list[TourResult] = []
+    recorder = rig.workspace.capture.start_tour(spec, size, writer or NullWriter(), **arguments)
+    recorder.finished.connect(outcome.append)
+    rig.qtbot.waitUntil(lambda: bool(outcome), timeout=60000)
+    return outcome[0]
+
+
+def test_a_recording_gives_the_plants_its_flight_and_takes_it_back_and_a_preview_does_not(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    flights: list[Any] = []
+    monkeypatch.setattr(capture, "_fly_path", flights.append)
+    key = CameraKey((0.0, 0.0, 500.0), (10.0, 10.0, 0.0))
+    spec = TourSpec(HeldCamera(key), 1.0, 24)
+    assert run_tour(rig, spec).ok
+    assert flights[0] == path_eyes(spec) and flights[-1] is None and len(flights) == 2
+    flights.clear()
+    assert run_tour(rig, spec, realtime=True).ok
+    assert flights == [None], "a preview shows how a tour moves, and does not wait for leaves"
+
+
+def test_the_flight_reaches_the_forge_and_its_work_starts(
+        rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    class Forge:
+        pending_count = 3
+        flights: list[Any] = []
+
+        def fly_path(self, eyes: Any) -> None:
+            self.flights.append(eyes)
+
+        def step(self, max_items: int = 1) -> list[str]:
+            return []
+
+    rig.open_3d()
+    workspace = rig.workspace
+    assert workspace._forge_worker is None, "no forge on this bench unless it is put there"
+    workspace._fly_path(((0.0, 0.0, 500.0),))   # and without one it is nothing to worry about
+    forge = Forge()
+    monkeypatch.setattr(workspace, "_forge_worker", forge)
+    eyes = ((0.0, 0.0, 500.0),)
+    workspace._fly_path(eyes)
+    assert forge.flights == [eyes]
+    assert workspace._forge_timer.isActive(), "the plants of the flight are forged from now on"
+    workspace._forge_timer.stop()
+
+
+def test_a_tour_renders_every_frame_from_its_own_camera_without_moving_the_view(rig: Rig) -> None:
+    rig.open_3d()
+    host = rig.host
+    first = CameraKey((0.0, 0.0, 500.0), (10.0, 10.0, 0.0))
+    spec = TourSpec(HeldCamera(first), 1.0, 24)
+    pose, cameras = rig.workspace.camera.pose, len(host.cameras)
+    result = run_tour(rig, spec)
+    assert result.ok and result.frames == frame_count(spec) == 24 and result.unsettled == 0
+    assert len(host.pictures) == 24
+    assert all(picture["shot"].eye == first.eye for picture in host.pictures)
+    assert all(picture["size"] == (64, 36) for picture in host.pictures)
+    assert host.pictures[1]["wind"] > host.pictures[0]["wind"]
+    assert rig.workspace.camera.pose == pose and len(host.cameras) == cameras
+    assert host.sessions == ["begin", "end"], "the capture view rests again after it"
+
+
+def test_a_time_lapse_moves_the_clock_frame_by_frame_and_puts_it_back(rig: Rig) -> None:
+    rig.open_3d()
+    capture, clock = rig.workspace.capture, rig.clock
+    before = datetime(2026, 6, 21, 15, 0)
+    clock.set_datetime(before)
+    rig.settle(150)
+    rig.qtbot.waitUntil(lambda: capture.capture_blocker() is None, timeout=5000)
+    seen: list[tuple[date, time]] = []
+    original = rig.host.capture
+
+    def noting(*arguments: Any, **keywords: Any) -> QImage:
+        seen.append((clock.plan_date, clock.time_of_day))
+        return original(*arguments, **keywords)
+
+    rig.host.capture = noting  # type: ignore[method-assign]
+    spec = TourSpec(HeldCamera(capture.camera_key()), 1.0, 24,
+                    date_range=(date(2026, 3, 1), date(2026, 3, 24)),
+                    time_range=(time(8, 0), time(20, 0)))
+    assert run_tour(rig, spec).ok
+    assert seen[0] == (date(2026, 3, 1), time(8, 0))
+    assert seen[-1] == (date(2026, 3, 24), time(20, 0))
+    assert [moment[0] for moment in seen] == sorted(moment[0] for moment in seen)
+    assert clock.wall == before, "the owner's date and time, as they were"
+
+
+def test_a_tour_stops_whoever_else_plays_the_clock_and_holds_the_automatic_preset(rig: Rig) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    asked: list[bool] = []
+    capture.clock_wanted.connect(lambda: asked.append(True))
+    run_tour(rig, TourSpec(HeldCamera(capture.camera_key()), 1.0, 24))
+    assert asked == [True]
+    assert rig.workspace.look._preset_held is False, "and lets it go"
+
+
+def test_a_cancelled_tour_says_so_and_puts_the_clock_back(rig: Rig) -> None:
+    rig.open_3d()
+    capture, clock = rig.workspace.capture, rig.clock
+    before = clock.wall
+    spec = TourSpec(HeldCamera(capture.camera_key()), 10.0, 30, time_range=(time(6, 0), time(21, 0)))
+    outcome: list[TourResult] = []
+    recorder = capture.start_tour(spec, (64, 36), NullWriter())
+    recorder.finished.connect(outcome.append)
+    recorder.progress.connect(lambda done, _total, _image: capture.cancel_recording() if done >= 3 else None)
+    rig.qtbot.waitUntil(lambda: bool(outcome), timeout=30000)
+    assert outcome[0].cancelled and not outcome[0].ok
+    assert outcome[0].frames < frame_count(spec)
+    assert clock.wall == before
+
+
+def test_a_new_document_or_the_engine_going_ends_a_recording(rig: Rig, qtbot: Any) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    spec = TourSpec(HeldCamera(capture.camera_key()), 60.0, 30)
+    outcome: list[TourResult] = []
+    recorder = capture.start_tour(spec, (64, 36), NullWriter())
+    recorder.finished.connect(outcome.append)
+    rig.workspace.document_changed()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=20000)
+    assert outcome[0].cancelled
+    assert capture.capture_blocker() != "recording"
+
+
+def test_a_writer_that_cannot_start_moves_nothing(rig: Rig) -> None:
+    rig.open_3d()
+    capture, clock = rig.workspace.capture, rig.clock
+
+    class Broken(NullWriter):
+        def start(self) -> None:
+            raise VideoError("no encoder")
+
+    before = clock.wall
+    sessions = list(rig.host.sessions)
+    with pytest.raises(VideoError):
+        capture.start_tour(TourSpec(HeldCamera(capture.camera_key()), 1.0, 24), (64, 36), Broken())
+    assert not capture.recording and clock.wall == before and rig.host.sessions == sessions
+
+
+def test_a_tour_cannot_start_without_a_view(rig: Rig) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    spec = TourSpec(HeldCamera(capture.camera_key()), 1.0, 24)
+    rig.workspace.set_mode(WorkspaceMode.PLAN)
+    with pytest.raises(CaptureRefused) as refused:
+        capture.start_tour(spec, (64, 36), NullWriter())
+    assert refused.value.code == "not_open"
+
+
+# ── the recorder alone: its waits, its pause, its failures ───────────────────
+
+
+class Sink(QObject):
+    finished = pyqtSignal(bool, str)
+
+    def __init__(self, refuse_first: int = 0) -> None:
+        super().__init__()
+        self.refuse = refuse_first
+        self.frames = 0
+        self.ended: list[str] = []
+        self.fail_at: int | None = None
+
+    def start(self) -> None:
+        pass
+
+    def write(self, _image: QImage) -> bool:
+        if self.fail_at is not None and self.frames == self.fail_at:
+            raise VideoError("the disk is full")
+        if self.refuse > 0:
+            self.refuse -= 1
+            return False
+        self.frames += 1
+        return True
+
+    def finish(self) -> None:
+        self.ended.append("finish")
+        self.finished.emit(True, "")
+
+    def abort(self) -> None:
+        self.ended.append("abort")
+        self.finished.emit(False, "")
+
+
+def recorder(writer: Any, *, capture: Any = None, settled: Any = None, seconds: float = 1.0,
+             **arguments: Any) -> tuple[TourRecorder, list[TourResult]]:
+    key = CameraKey((0.0, 0.0, 500.0), (10.0, 10.0, 0.0))
+    image = QImage(16, 16, QImage.Format.Format_RGBX8888)
+    made = TourRecorder(TourSpec(HeldCamera(key), seconds, 24), writer,
+                        capture or (lambda _frame: image), lambda _day, _moment: None,
+                        settled or (lambda: True), **arguments)
+    outcome: list[TourResult] = []
+    made.finished.connect(outcome.append)
+    return made, outcome
+
+
+def test_a_full_writer_is_offered_the_same_frame_again(qtbot: Any) -> None:
+    sink = Sink(refuse_first=5)
+    calls: list[int] = []
+    image = QImage(16, 16, QImage.Format.Format_RGBX8888)
+
+    def capture(frame: Any) -> QImage:
+        calls.append(frame.index)
+        return image
+
+    made, outcome = recorder(sink, capture=capture)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert sink.frames == 24
+    assert calls == list(range(24)), "rendered once each, in order, none skipped or repeated"
+
+
+def test_a_frame_waits_for_the_pipeline_to_settle(qtbot: Any) -> None:
+    answers = [False] * 20 + [True] * 1000
+    made, outcome = recorder(Sink(), settled=lambda: answers.pop(0))
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert outcome[0].unsettled == 0 and len(answers) < 1000
+
+
+def test_the_first_frame_may_wait_longer_for_the_plants_of_the_whole_flight(
+        qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The forge is at work on everything the flight passes close by; later frames only on what
+    a day has changed. Rendered too early, a video opens on coarse leaves that pop in later."""
+    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.05)
+    ready_at = monotonic() + 0.25
+    made, outcome = recorder(Sink(), settled=lambda: monotonic() > ready_at)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert outcome[0].ok and outcome[0].unsettled == 0
+
+
+def test_cancel_while_the_file_closes_changes_nothing_and_the_truth_is_reported(qtbot: Any) -> None:
+    """The file was still written over the earlier one, and the result said "Cancelled."."""
+    class Closing(Sink):
+        def finish(self) -> None:
+            self.ended.append("finish")   # the encoder's flush takes its time
+
+    sink = Closing()
+    made, outcome = recorder(sink)
+    last_call: list[bool] = []
+    made.finishing.connect(lambda: last_call.append(True))
+    made.start()
+    qtbot.waitUntil(lambda: sink.ended == ["finish"], timeout=10000)
+    assert last_call == [True], "the dialog hears that it is too late"
+    assert made.cancel() is False
+    sink.finished.emit(True, "")
+    assert outcome[0].ok and not outcome[0].cancelled
+
+
+def test_a_hidden_view_is_said_at_once_and_counted_as_nothing(qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every retry behind a hidden view counted one frame as rendered too early, and nothing was
+    said until the limit had passed: 3 minutes on the first frame."""
+    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.0)
+    showing = {"now": False}
+    made, outcome = recorder(Sink(), settled=lambda: showing["now"], view_showing=lambda: showing["now"])
+    paused: list[bool] = []
+    made.paused_changed.connect(paused.append)
+    made.start()
+    qtbot.waitUntil(lambda: paused == [True], timeout=2000)
+    qtbot.wait(600)
+    showing["now"] = True
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert paused == [True, False] and outcome[0].frames == 24
+    assert outcome[0].unsettled == 0
+
+
+def test_a_frame_taken_too_early_counts_once_however_often_it_was_tried(
+        qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.0)
+    image = QImage(16, 16, QImage.Format.Format_RGBX8888)
+    refused = {"left": 3}
+
+    def capture(_frame: Any) -> QImage:
+        if refused["left"]:
+            refused["left"] -= 1
+            raise HostStateError("hidden")
+        return image
+
+    made, outcome = recorder(Sink(), capture=capture, settled=lambda: False, seconds=1.0)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert outcome[0].unsettled == 24, "one per frame, not one per try"
+
+
+def test_a_pipeline_that_never_settles_cannot_hold_a_recording_for_ever(
+        qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("open_garden_planner.ui.view3d.tour_recorder.SETTLE_LIMIT_S", 0.0)
+    assert SETTLE_LIMIT_S > 0.0
+    made, outcome = recorder(Sink(), settled=lambda: False)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert outcome[0].ok and outcome[0].frames == 24
+    assert outcome[0].unsettled == 24, "and the result counts them"
+
+
+def test_a_view_that_gives_no_frame_pauses_it_and_it_goes_on_without_a_gap(qtbot: Any) -> None:
+    image = QImage(16, 16, QImage.Format.Format_RGBX8888)
+    refusals = [True, True]
+    indices: list[int] = []
+
+    def capture(frame: Any) -> QImage:
+        if frame.index == 3 and refusals:
+            refusals.pop()
+            raise HostStateError("minimised")
+        indices.append(frame.index)
+        return image
+
+    pauses: list[bool] = []
+    sink = Sink()
+    made, outcome = recorder(sink, capture=capture)
+    made.paused_changed.connect(pauses.append)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=20000)
+    assert pauses == [True, False]
+    assert indices == list(range(24)) and sink.frames == 24
+    assert outcome[0].ok
+
+
+def test_a_writer_that_fails_ends_it_with_the_reason_and_aborts(qtbot: Any) -> None:
+    sink = Sink()
+    sink.fail_at = 2
+    made, outcome = recorder(sink)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert not outcome[0].ok and "disk is full" in outcome[0].message
+    assert sink.ended == ["abort"]
+
+
+def test_an_engine_that_fails_ends_it_with_the_reason(qtbot: Any) -> None:
+    def capture(_frame: Any) -> QImage:
+        raise RuntimeError("device lost")
+
+    sink = Sink()
+    made, outcome = recorder(sink, capture=capture)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert not outcome[0].ok and "device lost" in outcome[0].message
+    assert sink.ended == ["abort"]
+
+
+def test_a_preview_follows_the_wall_clock_and_skips_what_it_is_late_for(qtbot: Any) -> None:
+    """A slow machine previews fewer frames over the same time, and always reaches the end."""
+    import time as stopwatch
+
+    image = QImage(16, 16, QImage.Format.Format_RGBX8888)
+    indices: list[int] = []
+
+    def slow(frame: Any) -> QImage:
+        indices.append(frame.index)
+        stopwatch.sleep(0.06)
+        return image
+
+    made, outcome = recorder(Sink(), capture=slow, realtime=True)
+    made.start()
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert len(indices) < 24
+    assert indices == sorted(indices)
+    assert outcome[0].ok
+
+
+# ── the dialog ───────────────────────────────────────────────────────────────
+
+
+def dialog_of(rig: Rig) -> Any:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    capture.tour_action.trigger()
+    dialog = capture.dialog
+    assert dialog is not None and dialog.isVisible()
+    return dialog
+
+
+def test_a_keyframe_path_needs_two_views(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    dialog.motion_combo.setCurrentIndex(dialog.motion_combo.findData("path"))
+    assert not dialog.video_button.isEnabled() and dialog.spec() is None
+    dialog.add_key()
+    assert dialog.spec() is None
+    rig.workspace.camera.orbit(30.0, 5.0)
+    rig.workspace.camera.snap()
+    dialog.add_key()
+    assert len(dialog.keys) == 2 and dialog.keys_list.count() == 2
+    assert dialog.video_button.isEnabled() and dialog.spec() is not None
+    dialog.keys_list.setCurrentRow(0)
+    dialog.remove_key_button.click()
+    assert len(dialog.keys) == 1 and dialog.spec() is None
+    dialog.close()
+
+
+def test_the_dialog_starts_with_a_size_a_frame_rate_and_a_tour_it_can_record(rig: Rig) -> None:
+    """A combo cannot find a tuple among its data: the size started as "nothing", and the
+    first Save Video raised (found by the end-to-end test below)."""
+    dialog = dialog_of(rig)
+    assert dialog._size() == (1920, 1080)
+    assert dialog.fps_combo.currentData() == 30
+    assert dialog.video_button.isEnabled()
+    dialog.close()
+
+
+def test_the_orbit_and_the_held_view_need_no_keys(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    assert dialog.motion_combo.currentData() == "orbit" and dialog.spec() is not None
+    assert dialog.spec().motion.closed
+    dialog.motion_combo.setCurrentIndex(dialog.motion_combo.findData("hold"))
+    assert dialog.spec().motion.at(0.5) == dialog.spec().motion.at(0.0)
+    dialog.close()
+
+
+def test_a_time_lapse_range_that_runs_backwards_cannot_be_recorded(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    dialog.time_combo.setCurrentIndex(dialog.time_combo.findData("day"))
+    from PyQt6.QtCore import QTime
+
+    dialog.time_from.setTime(QTime(20, 0))
+    dialog.time_to.setTime(QTime(8, 0))
+    assert dialog.spec() is None
+    dialog.time_to.setTime(QTime(21, 0))
+    assert dialog.spec().time_range == (time(20, 0), time(21, 0))
+    dialog.close()
+
+
+def test_the_year_of_the_time_lapse_is_the_plans(rig: Rig) -> None:
+    rig.clock.set_date(date(2031, 7, 1))
+    dialog = dialog_of(rig)
+    dialog.time_combo.setCurrentIndex(dialog.time_combo.findData("year"))
+    assert dialog.spec().date_range == (date(2031, 3, 1), date(2031, 10, 31))
+    dialog.close()
+
+
+def test_reduced_motion_holds_the_wind_in_a_tour(rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = dialog_of(rig)
+    assert dialog.spec().wind
+    rig.workspace.look.set_reduced_motion(True)
+    assert not dialog.spec().wind
+    dialog.close()
+
+
+def test_recording_from_the_dialog_end_to_end(rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    """Dialog → a real PNG sequence on disk → what it says afterwards → the dialog free again."""
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(1.0)
+    dialog.fps_combo.setCurrentIndex(dialog.fps_combo.findData(24))
+    dialog.size_combo.setCurrentIndex(0)
+    folder = tmp_path / "tour"
+    dialog.record_png(folder)
+    assert dialog.isModal() or dialog.windowModality() == Qt.WindowModality.ApplicationModal
+    assert not dialog.video_button.isEnabled(), "one recording at a time"
+    assert dialog.cancel_button.isVisible()
+    qtbot.waitUntil(lambda: dialog._recorder is None, timeout=60000)
+    assert len(list(folder.glob("frame_*.png"))) == 24
+    assert str(folder) in dialog._status.text()
+    assert dialog.video_button.isEnabled() and not dialog.cancel_button.isVisible()
+    assert dialog.windowModality() == Qt.WindowModality.NonModal
+    dialog.close()
+
+
+def test_a_preview_saves_nothing_and_stays_small(rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(1.0)
+    dialog.preview()
+    assert dialog.windowModality() == Qt.WindowModality.NonModal
+    qtbot.waitUntil(lambda: dialog._recorder is None, timeout=30000)
+    assert {picture["size"] for picture in rig.host.pictures} == {(640, 360)}
+    dialog.close()
+
+
+def test_closing_the_dialog_stops_what_it_started(rig: Rig, qtbot: Any) -> None:
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    dialog.preview()
+    capture = rig.workspace.capture
+    assert capture.recording
+    dialog.close()
+    qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
+
+
+def test_closing_the_dialog_during_a_recording_stops_it_first_and_then_closes(
+        rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    dialog.record_png(tmp_path / "tour")
+    capture = rig.workspace.capture
+    assert capture.recording
+    dialog.close()
+    assert dialog.isVisible(), "a modal recording does not run on behind nothing"
+    qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
+    qtbot.waitUntil(lambda: not dialog.isVisible(), timeout=5000)
+    assert dialog.windowModality() == Qt.WindowModality.NonModal
+
+
+def test_esc_cancels_a_recording_and_the_dialog_stays_to_say_so(
+        rig: Rig, qtbot: Any, tmp_path: Path) -> None:
+    """``QDialog.reject`` hides without a close event: the recording ran on with the clock moving,
+    the main window live again, and its end told to a hidden dialog."""
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(60.0)
+    clock = rig.workspace.capture._get_clock()
+    before = clock.wall
+    dialog.record_png(tmp_path / "tour")
+    capture = rig.workspace.capture
+    QTest.keyClick(dialog, Qt.Key.Key_Escape)
+    assert dialog.isVisible()
+    qtbot.waitUntil(lambda: not capture.recording, timeout=20000)
+    assert dialog.isVisible() and dialog._status.text() == "Cancelled."
+    assert clock.wall == before
+    QTest.keyClick(dialog, Qt.Key.Key_Escape)
+    assert not dialog.isVisible(), "and with nothing running Esc closes it as ever"
+
+
+def test_a_preview_of_a_time_lapse_is_modal_because_new_plants_read_that_clock(
+        rig: Rig, qtbot: Any) -> None:
+    dialog = dialog_of(rig)
+    dialog.duration_spin.setValue(1.0)
+    dialog.time_combo.setCurrentIndex(dialog.time_combo.findData("year"))
+    dialog.preview()
+    assert dialog.windowModality() == Qt.WindowModality.ApplicationModal
+    qtbot.waitUntil(lambda: dialog._recorder is None, timeout=30000)
+    assert dialog.windowModality() == Qt.WindowModality.NonModal and dialog.isVisible()
+    dialog.close()
+
+
+def test_a_date_range_that_runs_backwards_disables_the_buttons_at_once(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    dialog.time_combo.setCurrentIndex(dialog.time_combo.findData("year"))
+    assert dialog.video_button.isEnabled()
+    dialog.date_to.setDate(dialog.date_from.date().addDays(-5))
+    assert not dialog.video_button.isEnabled() and not dialog.png_button.isEnabled()
+    dialog.close()
+
+
+def test_a_tour_refused_for_now_says_so_in_the_users_language(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    rig.bed(300.0, 300.0)   # an edit is on its way: the view is warming up
+    dialog.preview()
+    assert not rig.workspace.capture.recording
+    assert "still building" in dialog._status.text()
+    dialog.close()
+
+
+def test_a_tour_refused_for_good_does_not_say_try_again(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    rig.workspace.set_mode(WorkspaceMode.PLAN)
+    dialog.preview()
+    assert "Open the 3D view" in dialog._status.text()
+    for code, words in (("recording", "already running"), ("unavailable", "not available"),
+                        ("warming_up", "still building")):
+        assert words in dialog._refusal(code), code
+    dialog.close()
+
+
+def test_the_end_of_an_engine_ends_a_recording_and_gives_the_clock_back(
+        rig: Rig, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    clock = capture._get_clock()
+    before = clock.wall
+    outcome: list[Any] = []
+    capture.start_tour(TourSpec(HeldCamera(capture.camera_key()), 60.0, 30, time_range=(time(6, 0), time(21, 0))),
+                       (64, 36), NullWriter()).finished.connect(outcome.append)
+    capture.set_enabled(False)
+    qtbot.waitUntil(lambda: bool(outcome), timeout=10000)
+    assert outcome[0].cancelled and clock.wall == before
+
+
+def test_a_recording_holds_the_preset_and_lets_go_of_it(
+        rig: Rig, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    held: list[bool] = []
+    monkeypatch.setattr(capture._get_look(), "hold_preset", held.append)
+    run_tour(rig, TourSpec(HeldCamera(capture.camera_key()), 1.0, 24))
+    assert held == [True, False]
+
+
+def test_a_failed_writer_gives_the_clock_back_too(rig: Rig, qtbot: Any) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    clock = capture._get_clock()
+    before = clock.wall
+    sink = Sink()
+    sink.fail_at = 3
+    result = run_tour(rig, TourSpec(HeldCamera(capture.camera_key()), 1.0, 24,
+                                    time_range=(time(6, 0), time(21, 0))), writer=sink)
+    assert not result.ok and "disk is full" in result.message
+    assert clock.wall == before
+
+
+def test_a_failing_engine_cannot_keep_the_owners_clock(
+        rig: Rig, qtbot: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    clock = capture._get_clock()
+    before = clock.wall
+
+    def dead() -> None:
+        raise RuntimeError("wrapped C/C++ object has been deleted")
+
+    monkeypatch.setattr(rig.host, "end_captures", dead)
+    run_tour(rig, TourSpec(HeldCamera(capture.camera_key()), 1.0, 24,
+                           time_range=(time(6, 0), time(21, 0))))
+    assert clock.wall == before and not capture.recording
+
+
+def test_photo_modes_controls_survive_a_pass_of_the_pipeline(rig: Rig) -> None:
+    """They live in the notices' part of the strip, which a pass hid when it had nothing to say:
+    photo mode stayed on, with Save Photo gone, until it was toggled."""
+    rig.open_3d()
+    capture = rig.workspace.capture
+    workspace = rig.workspace
+    capture.set_photo_mode(True)
+    assert capture._row.isVisible()
+    workspace._refresh_notices()
+    assert capture._row.isVisible(), "a pass with no notice to show"
+    capture.set_photo_mode(False)
+    assert not workspace._pane.notices.isVisible(), "and off, nothing is left open for it"
+
+
+def test_shutting_down_with_a_tour_running_is_clean(rig: Rig) -> None:
+    rig.open_3d()
+    capture = rig.workspace.capture
+    capture.start_tour(TourSpec(HeldCamera(capture.camera_key()), 60.0, 30), (64, 36), NullWriter())
+    rig.workspace.shutdown()
+    assert not capture.photo_action.isEnabled()
+    assert rig.host.closed
+
+
+def test_the_buttons_have_their_words(rig: Rig) -> None:
+    dialog = dialog_of(rig)
+    texts = {button.text() for button in dialog.findChildren(QPushButton)}
+    assert {"Preview", "Save Video...", "Save PNG Sequence...", "Close"} <= texts
+    dialog.close()

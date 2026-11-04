@@ -1,0 +1,20 @@
+{
+  "name_en": "Family garden - 24 x 16 m",
+  "name_de": "Familiengarten - 24 x 16 m",
+  "name_es": "Jardín familiar - 24 x 16 m",
+  "name_ru": "Семейный сад - 24 x 16 м",
+  "description_en": "A whole garden to explore in 3D: house, greenhouse, shed, terrace with pergola, lawn with pond and trampoline, three raised vegetable beds, fruit trees, hedge and fences. 61 plants. Berlin reference; set Plan & Sun to 21 June 2026, then open 3D. Illustrative layout.",
+  "description_de": "Ein ganzer Garten zum Erkunden in 3D: Haus, Gewächshaus, Schuppen, Terrasse mit Pergola, Rasen mit Teich und Trampolin, drei Hochbeete, Obstbäume, Hecke und Zäune. 61 Pflanzen. Referenz Berlin; Plan & Sonne auf den 21. Juni 2026 stellen, dann 3D öffnen. Beispielentwurf.",
+  "description_es": "Un jardín entero para explorar en 3D: casa, invernadero, cobertizo, terraza con pérgola, césped con estanque y cama elástica, tres bancales elevados, frutales, seto y vallas. 61 plantas. Referencia Berlín; ajuste Plan y sol al 21 de junio de 2026 y abra 3D. Diseño ilustrativo.",
+  "description_ru": "Целый сад для изучения в 3D: дом, теплица, сарай, терраса с перголой, газон с прудом и батутом, три высокие грядки с овощами, плодовые деревья, живая изгородь и заборы. 61 растение. Ориентир: Берлин; установите «План и солнце» на 21 июня 2026 года, затем откройте 3D. Примерный проект.",
+  "tags": [
+    "showcase",
+    "3d",
+    "family-garden"
+  ],
+  "license": "CC-BY-SA-4.0",
+  "attribution": "Open Garden Planner contributors; CC-BY-SA-4.0; see PROVENANCE.md.",
+  "attribution_en": "Open Garden Planner contributors; bundled CC-BY-SA-4.0 species data; see PROVENANCE.md.",
+  "attribution_de": "Mitwirkende von Open Garden Planner; mitgelieferte Artendaten unter CC-BY-SA-4.0; siehe PROVENANCE.md.",
+  "attribution_es": "Colaboradores de Open Garden Planner; datos de especies incluidos bajo CC-BY-SA-4.0; véase PROVENANCE.md."
+}

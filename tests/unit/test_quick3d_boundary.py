@@ -102,6 +102,17 @@ def test_inside_the_package_only_the_engine_modules_import_it() -> None:
         "offscreen.py", "qt_messages.py", "runlog.py", "selftest.py", "shots.py"}
 
 
+def test_only_the_video_writer_imports_qt_multimedia() -> None:
+    """L6.2 (ADR-072): one module, imported when a tour is first saved. Its FFmpeg is 20 MB
+    of DLLs, and a second importer would be a second reason to load them at start."""
+    importers = sorted(
+        path.relative_to(SRC).as_posix() for path in SRC.rglob("*.py")
+        if "QtMultimedia" in path.read_text(encoding="utf-8") and "import" in
+        "".join(line for line in path.read_text(encoding="utf-8").splitlines()
+                if "QtMultimedia" in line and "import" in line))
+    assert importers == ["open_garden_planner/ui/view3d/video_writer.py"]
+
+
 def test_the_product_never_uses_a_qquickwidget() -> None:
     """ADR-048 criterion 3: a ``QQuickWidget`` moves the whole top-level window onto RHI
     composition (2D pan x1.4–x5.7). The engine package hosts a ``QQuickView``; it does
