@@ -288,8 +288,8 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   (in-place Model reuse) and #598 (sparse seasonal index) were built and WITHDRAWN:
   both render tiers draw a replaced geometry as nothing while still picking it. #475
   (raster lane, padded tiles) and #534 (wind memory) are open.
-- 2D drawing-tools package (#674, #665, #690) is in a **draft PR, awaiting owner
-  manual testing**: Group/Ungroup on every item's context menu with one-step multi-group
+- 2D drawing-tools package (#674, #665, #690) shipped in v1.36.2 (PR #713) after
+  owner manual acceptance: Group/Ungroup on every item's context menu with one-step multi-group
   ungroup (FR-EDIT-22), per-object fill angle/scale/offset as additive appearance
   metadata with roof-frame composition (FR-EDIT-23, ADR-071), and a HOUSE ridge created
   by a type change in the same undo step (FR-EDIT-24, ADR-046 addendum). #664 (split
