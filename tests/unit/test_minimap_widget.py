@@ -238,7 +238,7 @@ class TestMinimapOverlayFiltering:
         self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
     ) -> None:
         """Items with zValue >= _OVERLAY_Z_MIN (overlay handles) must be
-        hidden during render and restored afterwards."""
+        suppressed during render and restored afterwards."""
         from PyQt6.QtWidgets import QGraphicsRectItem
 
         view, scene = canvas_pair
@@ -252,16 +252,85 @@ class TestMinimapOverlayFiltering:
         minimap._restore_overlay_items(hidden)
         assert overlay.isVisible()
 
+    def test_suppressing_an_overlay_keeps_it_selected(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """A thumbnail refresh must not deselect a selected overlay (PF-CAN-41).
+
+        ``setVisible(False)`` deselects an item in Qt. The minimap re-renders
+        while the scene changes, so hiding a selected journal pin every 100 ms
+        made a drag lose its grip and a grouped pin unselectable (manual test 4
+        of PR #713). ``ItemHasNoContents`` suppresses the paint instead.
+        """
+        from PyQt6.QtWidgets import QGraphicsItem, QGraphicsRectItem
+
+        view, scene = canvas_pair
+        overlay = QGraphicsRectItem(0, 0, 10, 10)
+        overlay.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations)
+        overlay.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+        overlay.setZValue(_OVERLAY_Z_MIN)
+        scene.addItem(overlay)
+        overlay.setSelected(True)
+
+        minimap = MinimapWidget(view, scene)
+        hidden = minimap._hide_overlay_items()
+        try:
+            assert overlay in hidden
+            assert overlay.isSelected(), "suppression must not clear selection"
+            assert overlay.isVisible()
+            assert overlay.flags() & QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
+        finally:
+            minimap._restore_overlay_items(hidden)
+
+        assert overlay.isSelected()
+        assert overlay.isVisible()
+        assert not (
+            overlay.flags() & QGraphicsItem.GraphicsItemFlag.ItemHasNoContents
+        )
+
+    def test_suppressed_overlay_is_not_painted(
+        self, canvas_pair: tuple[CanvasView, CanvasScene], qtbot: object
+    ) -> None:
+        """The paint mask must actually keep overlays out of the thumbnail."""
+        from PyQt6.QtGui import QColor, QImage, QPainter, QPen
+        from PyQt6.QtWidgets import QGraphicsRectItem
+
+        view, scene = canvas_pair
+        overlay = QGraphicsRectItem(0, 0, 100, 100)
+        overlay.setBrush(QColor(255, 0, 0))
+        overlay.setPen(QPen(Qt.PenStyle.NoPen))
+        overlay.setZValue(_OVERLAY_Z_MIN)
+        scene.addItem(overlay)
+        minimap = MinimapWidget(view, scene)
+
+        def sample() -> QColor:
+            image = QImage(10, 10, QImage.Format.Format_ARGB32)
+            image.fill(QColor(0, 0, 0, 0))
+            painter = QPainter(image)
+            scene.render(painter, QRectF(0, 0, 10, 10), QRectF(0, 0, 100, 100))
+            painter.end()
+            return image.pixelColor(5, 5)
+
+        # Red overlay on the scene's light background: the green channel tells
+        # them apart (the background is not neutral, so red alone does not).
+        assert sample().green() < 100, "precondition: the overlay paints"
+        hidden = minimap._hide_overlay_items()
+        try:
+            assert sample().green() > 100, "ItemHasNoContents did not mask the overlay"
+        finally:
+            minimap._restore_overlay_items(hidden)
+        assert sample().green() < 100, "restoring the flag must restore the paint"
+
 
 class TestMinimapIdleQuiescence:
     """Regression tests for issue #305 — self-sustaining idle render loop.
 
-    ``_do_update`` hides overlay items, renders, then restores them. Each
-    ``setVisible()`` makes the scene emit ``changed`` ASYNCHRONOUSLY
-    (queued, delivered after ``_do_update`` has already returned), and
-    ``changed`` used to restart the 100 ms throttle timer unconditionally,
-    causing ``_do_update`` to run again, hide/restore again, and so on
-    forever, even while the app was otherwise completely idle. Measured
+    ``_do_update`` suppresses overlay items, renders, then restores them. Each
+    toggle makes the scene emit ``changed`` ASYNCHRONOUSLY (queued, delivered
+    after ``_do_update`` has already returned), and ``changed`` used to restart
+    the 100 ms throttle timer unconditionally, causing ``_do_update`` to run
+    again, suppress/restore again, and so on forever, even while the app was
+    otherwise completely idle. Measured
     before the fix: 13-14 renders per 1.5 s with a single overlay item
     present (vs. ~1/1.5s baseline with none, never quiescent). The fix is
     content-based: ``_on_scene_changed`` ignores an emission iff every rect

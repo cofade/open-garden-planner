@@ -4008,6 +4008,8 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   the undoable shape-menu Delete and the deliberately non-groupable background). Manual round 2
   closed the pin half end to end: Ctrl/Shift multi-select keeps a pin, a click on its head selects
   it, a drag moves it as one undo step, and double-click opens the note (`test_garden_journal.py`).
+  The minimap masks overlay paint with `ItemHasNoContents`, not visibility, so its 100 ms thumbnail
+  refresh no longer deselects a pin or a group containing one (PF-CAN-41).
   A group is one layered unit: moving it carries its members and derived ridges, and hiding a
   member's original layer no longer hides the group (ADR-043 addendum, PF-PER-27).
 - **#665 — per-object fill angle / scale / offset.** `core/fill_patterns.FillTransform` is
@@ -4033,5 +4035,5 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
 
 Docs: FR-EDIT-22/23/24, FR-LAYER-07, FR-JOURNAL-01/06, ADR-071 (the display transform), ADR-046
 addendum (type change owns the ridge), ADR-043 addendum (a group is one layered unit),
-PF-CAN-40 and PF-PER-27.
+PF-CAN-40/41 and PF-PER-27.
 

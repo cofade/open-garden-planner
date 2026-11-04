@@ -528,3 +528,21 @@ same walk (stopping at a drag handle or another selectable item above the pin),
 and `_begin_pin_interaction`/`mouseMoveEvent`/`mouseReleaseEvent` select, toggle,
 drag and commit one `MoveItemsCommand`; double-click opens the note. A pin inside
 a group is deliberately not intercepted - the group remains the click target.
+
+### PF-CAN-41
+
+- **Rule:** A thumbnail or export pass that masks overlay items must suppress their PAINT, not their visibility. Qt deselects an item when it is hidden, so `setVisible(False)`/`True` around a periodic render clears the user's selection; `ItemHasNoContents` masks paint without changing visibility, selection or the plan revision.
+- **Pinned by:** `tests/unit/test_minimap_widget.py`; `tests/integration/test_garden_journal.py`
+- **Source:** #674, PR #713 manual test 4 (2026-11-04)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The minimap hid every `ItemIgnoresTransformations` or high-z item to keep
+handles, labels and the journal pin out of its thumbnail, then restored them.
+A journal pin is exactly such an item, so every thumbnail refresh (100 ms
+throttled, and triggered by the drag itself) hid and re-showed it. Qt deselects
+a hidden item; a pin drag therefore lost its grip milliseconds after it began,
+and a group containing a pin lost the propagated selection. `ItemHasNoContents`
+suppresses the paint while the item stays visible and selected. Export Service
+already preserved the selection around its own hide/restore; the minimap now
+does not need to.

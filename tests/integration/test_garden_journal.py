@@ -706,3 +706,55 @@ class TestPinPointerInteraction:
             self._head(view, pin),
         )
         assert seen == ["note-1"]
+
+    def test_selection_survives_a_minimap_refresh(self, qtbot) -> None:
+        """The minimap suppresses overlays' paint, not their visibility.
+
+        ``setVisible(False)`` deselects an item; the minimap refreshes while
+        the scene changes, so a selected pin lost its selection mid-drag
+        (manual test 4 of PR #713).
+        """
+        from open_garden_planner.ui.widgets.minimap_widget import MinimapWidget
+
+        scene, view = self._canvas(qtbot)
+        minimap = MinimapWidget(view, scene)
+        qtbot.addWidget(minimap)
+        pin = JournalPinItem(200, 200, "note-1", layer_id=scene.active_layer.id)
+        scene.addItem(pin)
+        view.centerOn(pin.pos())
+
+        QTest.mouseClick(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            self._head(view, pin),
+        )
+        assert pin.isSelected()
+
+        minimap._do_update()
+        assert pin.isSelected(), "a thumbnail refresh deselected the pin"
+        assert pin.isVisible()
+
+    def test_a_group_with_a_pin_survives_a_minimap_refresh(self, qtbot) -> None:
+        """A grouped pin is a child; suppressing its paint keeps the group selected."""
+        from open_garden_planner.ui.widgets.minimap_widget import MinimapWidget
+
+        scene, view = self._canvas(qtbot)
+        minimap = MinimapWidget(view, scene)
+        qtbot.addWidget(minimap)
+        pin = JournalPinItem(200, 200, "note-1", layer_id=scene.active_layer.id)
+        rect = RectangleItem(400, 150, 200, 100, layer_id=scene.active_layer.id)
+        scene.addItem(pin)
+        scene.addItem(rect)
+        view.centerOn(300, 200)
+        pin.setSelected(True)
+        rect.setSelected(True)
+        view.group_selected()
+        group = pin.parentItem()
+        assert group is not None
+        scene.clearSelection()
+        group.setSelected(True)
+
+        minimap._do_update()
+        assert group.isSelected(), "a thumbnail refresh deselected the group"
+        assert pin.isSelected(), "the grouped pin lost the selection Qt propagates"
