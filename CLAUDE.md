@@ -327,6 +327,9 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
   #718 (flood soak, red on master too), #692 (board exit crash), #723 (intermittent tests),
   #724 (plan-my-week date). `scripts/probe_sky_crash.py` soaks the sky; a clean run says nothing
   about the crash while the cube stays off, and PF-E3D-17 says how to ask a new Qt.
+- Russian localization (#492, FR-I18N-09) shipped in v1.36.1 (PR #495): full Russian
+  translation (2,951 keys, 0 missing, 0 vanished), collision-free menu accelerators
+  across menubar and nested submenus, NSIS installer support, and translated example catalog metadata.
 - The shared SimClock retains the toolbar's local wall date (ADR-053/062).
   Subscribe to its signals. Every rect resize uses `geometry_apply.py`; every
   Arrange surface uses `build_arrange_command`; scene teardown uses

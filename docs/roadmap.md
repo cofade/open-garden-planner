@@ -134,7 +134,7 @@ Adds full Spanish localization (`es`, "Español") matching the completeness of E
 
 ### Russian Translation (i18n)
 
-**Implemented 2026-11-04 (#492, PR #495).**
+**Implemented 2026-11-04 (#492, PR #495, released as v1.36.1).**
 Adds full Russian localization (`ru`, "Русский") matching English, German, and Spanish:
 - 100% key coverage: all 2,951 live source keys across all contexts translated with zero missing and zero unfinished keys.
 - Menu mnemonics (`&`): zero accelerator collisions across Russian menubar and all nested submenus (`test_menu_mnemonics_are_unique_per_language`).
