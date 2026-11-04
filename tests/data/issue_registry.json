@@ -1179,15 +1179,15 @@
     "state": "OPEN",
     "title": "fix(smart_symbols): visual texture stretch on rectangular smart symbols with non-square aspect ratios (e.g. compost_bay_3)"
   },
-  "690": {
-    "is_pr": false,
-    "state": "OPEN",
-    "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
-  },
   "689": {
     "is_pr": false,
     "state": "OPEN",
     "title": "L5 living garden engine follow-ups: dusk shader permutations, wind-clock precision, Today's Weather at midnight, one life assembly (follow-up of #389)"
+  },
+  "690": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fix(cad): converting rectangle to House does not create 2D roof ridge (ROOF_RIDGE)"
   },
   "692": {
     "is_pr": false,
@@ -1273,5 +1273,10 @@
     "is_pr": false,
     "state": "OPEN",
     "title": "plan-my-week: should the prompt default to the plan's simulated date rather than the wall clock?"
+  },
+  "728": {
+    "is_pr": false,
+    "state": "OPEN",
+    "title": "fix(canvas): a journal pin cannot be selected by clicking it in the Y-flipped canvas"
   }
 }

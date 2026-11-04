@@ -16,6 +16,7 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock
 
+import pytest
 from PyQt6.QtCore import QPoint, QPointF
 from PyQt6.QtWidgets import QGraphicsSceneContextMenuEvent, QMenu
 
@@ -345,10 +346,67 @@ def test_moving_a_group_to_another_layer_moves_a_nested_houses_ridge(qtbot) -> N
     view.command_manager.execute(command)
 
     assert ridge.layer_id == target.id
+    assert house.layer_id == target.id, "a group's members follow it to the target"
+    assert other.layer_id == target.id
     assert command.description == "Move 1 item(s) to layer 'Target'"
 
     view.command_manager.undo()
     assert ridge.layer_id == original_layer
+    assert house.layer_id == scene.active_layer.id
+    assert other.layer_id == scene.active_layer.id
+
+
+def test_a_group_controls_its_members_visibility_by_its_own_layer(qtbot) -> None:
+    """A plan saved before the group-layer fix must still render as one unit.
+
+    This is the owner's file from manual test 2.7: the group is on layer 2,
+    while the two shapes it contains still carry layer 1. Hiding layer 1 must
+    not take the group's members with it.
+    """
+    from open_garden_planner.core.commands import GroupCommand
+    from open_garden_planner.models.layer import Layer
+
+    scene, _view = _scene_view(qtbot)
+    source = scene.active_layer
+    house = PolygonItem(
+        [QPointF(0, 0), QPointF(300, 0), QPointF(300, 150), QPointF(0, 150)],
+        object_type=ObjectType.HOUSE,
+        layer_id=source.id,
+    )
+    other = RectangleItem(400, 0, 50, 50, layer_id=source.id)
+    scene.addItem(house)
+    scene.addItem(other)
+    ridge = build_linked_ridge(house, source.id)
+    assert ridge is not None
+    scene.addItem(ridge)
+    GroupCommand(scene, [house, other]).execute()
+    group = house.parentItem()
+    assert group is not None
+
+    target = Layer(name="Target", z_order=99)
+    scene.add_layer(target)
+    # Simulate the saved state: only the group wrapper and its derived ridge
+    # moved; the members kept the layer they were drawn on.
+    group.layer_id = target.id
+    ridge.layer_id = target.id
+
+    source.visible = False
+    target.visible = True
+    target.opacity = 0.4
+    scene._update_items_visibility()
+    assert group.isVisible()
+    assert house.isVisible(), "the grouped house followed its old layer"
+    assert other.isVisible(), "the grouped rectangle followed its old layer"
+    assert group.opacity() == pytest.approx(0.4)
+    assert house.opacity() == pytest.approx(1.0), "group opacity must not be squared"
+    assert other.opacity() == pytest.approx(1.0)
+
+    source.visible = True
+    target.visible = False
+    scene._update_items_visibility()
+    assert not group.isVisible()
+    assert not house.isVisible()
+    assert not other.isVisible()
 
 
 def test_the_command_does_not_mint_a_second_ridge_on_repeat_execute(qtbot) -> None:

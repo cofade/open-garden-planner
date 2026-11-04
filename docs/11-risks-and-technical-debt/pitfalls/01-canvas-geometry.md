@@ -509,5 +509,22 @@ cleared by Ctrl+clicking a rectangle; Shift already worked through
 `SelectTool`. Both modifiers now use the same toggle path. The pin itself is
 also invisible to `scene.itemAt(scene_pos, view.transform())` because
 `ItemIgnoresTransformations` is not handled there while the view's m22 is -1;
-the tool's own walk (`scene.items(scene_pos)`) finds it. Pin click selection is
-tracked as a pre-existing hit-test follow-up.
+the tool's own walk (`scene.items(scene_pos)`) finds it. The canvas-level hit
+test that makes the pin itself selectable and draggable is PF-CAN-40.
+
+### PF-CAN-40
+
+- **Rule:** `QGraphicsScene.itemAt` never returns an `ItemIgnoresTransformations` item (measured on Qt 6.12, with or without the canvas Y flip), so a constant-screen-size item such as a journal pin needs its own hit test. The view must also drive the interaction it owns - select/toggle, drag with one undo step, double-click - because Qt's press path cannot start it.
+- **Pinned by:** `tests/integration/test_garden_journal.py::TestPinPointerInteraction`
+- **Source:** #674, PR #713 manual test 4; #728 (2026-11-04)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The pin was only selectable from the Journal panel. `scene.items(pos)` finds it,
+but `scene.itemAt(pos, transform)` and `QGraphicsView.itemAt` return None even
+with an identity transform, so Qt's press cleared the selection and started a
+rubber band instead of dragging. `CanvasView._journal_pin_at` now performs the
+same walk (stopping at a drag handle or another selectable item above the pin),
+and `_begin_pin_interaction`/`mouseMoveEvent`/`mouseReleaseEvent` select, toggle,
+drag and commit one `MoveItemsCommand`; double-click opens the note. A pin inside
+a group is deliberately not intercepted - the group remains the click target.

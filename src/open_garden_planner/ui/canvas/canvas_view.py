@@ -340,6 +340,11 @@ class CanvasView(QGraphicsView):
         self._child_drag_origins: dict[QGraphicsItem, QPointF] = {}
         # Active handle being dragged — used to re-grab if Qt silently drops it
         self._active_drag_handle: QGraphicsItem | None = None
+        # A journal pin being dragged with the Select tool. A pin carries
+        # ItemIgnoresTransformations, which QGraphicsScene.itemAt never hits,
+        # so Qt's own drag machinery cannot pick it up (PF-CAN-40).
+        self._pin_drag_item: QGraphicsItem | None = None
+        self._pin_drag_offset = QPointF()
         # The item a rotation gesture is turning (issue #485). During rotation
         # only THIS item is pinned in the constraint solver; every other item —
         # selected or not — may be moved by a constraint correction.
@@ -853,6 +858,67 @@ class CanvasView(QGraphicsView):
     def request_journal_note_delete(self, note_id: str) -> None:
         """Forward a delete request for an existing pin's note (US-12.9)."""
         self.journal_note_delete_requested.emit(str(note_id))
+
+    def _journal_pin_at(self, scene_pos: QPointF) -> QGraphicsItem | None:
+        """The top-level journal pin under *scene_pos*, or None.
+
+        ``QGraphicsScene.itemAt`` never returns an ``ItemIgnoresTransformations``
+        item (measured on Qt 6.12 - with or without the canvas Y flip), so a pin
+        is invisible to Qt's own press / drag / double-click machinery even
+        though ``scene.items(pos)`` finds it. This walk is the pin's hit test;
+        it stops at a drag handle or another selectable item above the pin, and
+        ignores a pin inside a group (the group is the click target there).
+        """
+        from open_garden_planner.ui.canvas.items.journal_pin_item import (
+            JournalPinItem,
+        )
+        from open_garden_planner.ui.canvas.items.resize_handle import (
+            DRAG_HANDLE_TYPES,
+        )
+
+        scene = self.scene()
+        if scene is None:
+            return None
+        selectable = QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
+        for candidate in scene.items(scene_pos):
+            if isinstance(candidate, DRAG_HANDLE_TYPES):
+                return None
+            if isinstance(candidate, JournalPinItem):
+                if (
+                    candidate.parentItem() is None
+                    and candidate.isVisible()
+                    and candidate.flags() & selectable
+                ):
+                    return candidate
+                continue
+            if candidate.parentItem() is None and candidate.flags() & selectable:
+                return None
+        return None
+
+    def _begin_pin_interaction(
+        self, pin: QGraphicsItem, scene_pos: QPointF, event: QMouseEvent
+    ) -> None:
+        """Select/toggle *pin* and start its drag, the way QGraphicsView would.
+
+        Shift/Ctrl use the same toggle rule as every other item. A plain press
+        replaces the selection and records the pin for :meth:`mouseMoveEvent`;
+        release commits one ``MoveItemsCommand`` through the normal drag path.
+        """
+        multi = event.modifiers() & (
+            Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier
+        )
+        if multi:
+            pin.setSelected(not pin.isSelected())
+        else:
+            self.scene().clearSelection()
+            pin.setSelected(True)
+            if pin.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable:
+                self._pin_drag_item = pin
+                self._pin_drag_offset = pin.pos() - scene_pos
+                self._drag_start_positions = {pin: pin.pos()}
+                self._constraint_propagated_starts.clear()
+        self.refresh_input_anchor()
+        event.accept()
 
     def focus_on_journal_pin(self, note_id: str) -> None:
         """Center the viewport on the pin matching ``note_id`` (US-12.9)."""
@@ -2456,8 +2522,21 @@ class CanvasView(QGraphicsView):
             event.accept()
             return
 
-        # Delegate to active tool
+        # A journal pin's constant-screen glyph cannot be hit by Qt's own
+        # itemAt; give the Select tool the click it needs (PF-CAN-40).
         tool = self._tool_manager.active_tool
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and tool is not None
+            and getattr(tool, "tool_type", None) == ToolType.SELECT
+        ):
+            scene_pos = self.mapToScene(event.position().toPoint())
+            pin = self._journal_pin_at(scene_pos)
+            if pin is not None:
+                self._begin_pin_interaction(pin, scene_pos, event)
+                return
+
+        # Delegate to active tool
         if tool:
             scene_pos = self.mapToScene(event.position().toPoint())
             scene_pos = self._maybe_apply_anchor_snap(tool, scene_pos)
@@ -2574,6 +2653,16 @@ class CanvasView(QGraphicsView):
 
         # Dynamic Input overlay (Package A US-A4): track the cursor.
         self._update_dynamic_overlay(event.position().toPoint())
+
+        # A pin drag runs without Qt's mouse grabber (PF-CAN-40).
+        if self._pin_drag_item is not None:
+            if event.buttons() & Qt.MouseButton.LeftButton:
+                self._pin_drag_item.setPos(scene_pos + self._pin_drag_offset)
+                self.viewport().update()
+                event.accept()
+                return
+            self._pin_drag_item = None
+            self._pin_drag_offset = QPointF()
 
         # ── Guide drag ─────────────────────────────────────────────────────
         if self._dragging_guide is not None:
@@ -2861,6 +2950,14 @@ class CanvasView(QGraphicsView):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Handle mouse release to stop panning and finish tool operations."""
+        # A pin drag has no Qt grabber; its release is the one undo step.
+        if self._pin_drag_item is not None:
+            self._pin_drag_item = None
+            self._pin_drag_offset = QPointF()
+            self._finalize_drag_move()
+            event.accept()
+            return
+
         # Capture the rotation state before any path below can clear it (#485):
         # a release that never reaches the handle must still become one undo
         # entry, or a rotation would be left that no Ctrl+Z can reverse.
@@ -2989,6 +3086,19 @@ class CanvasView(QGraphicsView):
                 self._edit_constraint_distance(cid)
                 event.accept()
                 return
+
+        # A pin is invisible to Qt's hit test (PF-CAN-40): open its note here.
+        if event.button() == Qt.MouseButton.LeftButton:
+            tool = self._tool_manager.active_tool
+            if (
+                tool is not None
+                and getattr(tool, "tool_type", None) == ToolType.SELECT
+            ):
+                pin = self._journal_pin_at(scene_pos)
+                if pin is not None:
+                    self.request_journal_note_edit(pin.note_id)
+                    event.accept()
+                    return
 
         tool = self._tool_manager.active_tool
         if tool and tool.mouse_double_click(event, scene_pos):

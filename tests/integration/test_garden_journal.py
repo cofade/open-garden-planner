@@ -14,6 +14,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6.QtTest import QTest
 
 from open_garden_planner.core import (
     AddJournalNoteCommand,
@@ -24,7 +26,9 @@ from open_garden_planner.core import (
 )
 from open_garden_planner.models.journal_note import JournalNote
 from open_garden_planner.ui.canvas.canvas_scene import CanvasScene
+from open_garden_planner.ui.canvas.canvas_view import CanvasView
 from open_garden_planner.ui.canvas.items.journal_pin_item import JournalPinItem
+from open_garden_planner.ui.canvas.items.rectangle_item import RectangleItem
 from open_garden_planner.ui.panels.journal_panel import JournalPanel
 
 
@@ -607,3 +611,98 @@ class TestPdfGardenNotesPage:
         assert path_with.exists()
         assert path_without.exists()
         assert path_with.stat().st_size > path_without.stat().st_size
+
+class TestPinPointerInteraction:
+    """A pin is selected, dragged and opened by its visible head (PF-CAN-40).
+
+    A pin carries ``ItemIgnoresTransformations``, which ``QGraphicsScene.itemAt``
+    never hits, so the canvas owns a small pin hit test. These tests drive real
+    viewport events rather than calling that helper.
+    """
+
+    @staticmethod
+    def _canvas(qtbot) -> tuple[CanvasScene, CanvasView]:
+        scene = CanvasScene(width_cm=2000, height_cm=1500)
+        view = CanvasView(scene)
+        qtbot.addWidget(view)
+        view.resize(1000, 800)
+        view.show()
+        qtbot.waitExposed(view)
+        return scene, view
+
+    @staticmethod
+    def _head(view: CanvasView, pin: JournalPinItem) -> QPoint:
+        return view.mapFromScene(pin.mapToScene(QPointF(0.0, -10.0)))
+
+    def test_click_selects_the_pin_and_ctrl_click_adds_a_shape(self, qtbot) -> None:
+        scene, view = self._canvas(qtbot)
+        pin = JournalPinItem(200, 200, "note-1", layer_id=scene.active_layer.id)
+        rect = RectangleItem(500, 400, 200, 100, layer_id=scene.active_layer.id)
+        scene.addItem(pin)
+        scene.addItem(rect)
+        view.centerOn(350, 350)
+
+        QTest.mouseClick(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            self._head(view, pin),
+        )
+        assert scene.selectedItems() == [pin]
+
+        QTest.mouseClick(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.ControlModifier,
+            view.mapFromScene(rect.mapToScene(rect.rect().center())),
+        )
+        assert set(scene.selectedItems()) == {pin, rect}
+
+        view.group_selected()
+        assert pin.parentItem() is not None
+        assert rect.parentItem() is pin.parentItem()
+
+    def test_drag_moves_the_pin_and_undo_restores_it(self, qtbot) -> None:
+        scene, view = self._canvas(qtbot)
+        pin = JournalPinItem(200, 200, "note-1", layer_id=scene.active_layer.id)
+        scene.addItem(pin)
+        view.centerOn(pin.pos())
+        start = self._head(view, pin)
+        target = start + QPoint(60, 30)
+        undo_depth = len(view.command_manager._undo_stack)
+
+        QTest.mousePress(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            start,
+        )
+        QTest.mouseMove(view.viewport(), target)
+        QTest.mouseRelease(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            target,
+        )
+
+        assert pin.isSelected()
+        assert pin.pos() != QPointF(200, 200)
+        assert len(view.command_manager._undo_stack) == undo_depth + 1
+        view.command_manager.undo()
+        assert pin.pos() == QPointF(200, 200)
+
+    def test_double_click_opens_the_note(self, qtbot) -> None:
+        scene, view = self._canvas(qtbot)
+        pin = JournalPinItem(200, 200, "note-1", layer_id=scene.active_layer.id)
+        scene.addItem(pin)
+        view.centerOn(pin.pos())
+        seen: list[str] = []
+        view.journal_note_edit_requested.connect(seen.append)
+
+        QTest.mouseDClick(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            self._head(view, pin),
+        )
+        assert seen == ["note-1"]

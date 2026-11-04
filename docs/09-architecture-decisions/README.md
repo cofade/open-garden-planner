@@ -2190,6 +2190,26 @@ and `contains_path`. `tests/unit/test_plant_bed_relationship.py`'s rank-symmetry
 puts its plant OUTSIDE the bed, because a contained plant is clamped by geometry and the
 pre-attach assertion would stop being falsifiable.
 
+### ADR-043 addendum - a group is one layered unit (manual test 2.7 of PR #713, 2026-11-04)
+
+**Context.** A group stores its own `layer_id`, but its members kept the layer they
+were drawn on. `MoveToLayerCommand` moved only the selected wrapper (and, since #690,
+a nested HOUSE's ridge), so `_apply_item_visibility` still hid each member by its own
+layer: the owner moved a group from layer 1 to layer 2, hid layer 1, and the group's
+house and rectangle disappeared while the group wrapper and its ridge stayed. The
+saved plan recorded exactly that split (group and ridge on layer 2, both shapes on
+layer 1).
+
+**Decision.** A group is the layered unit for everything it contains.
+`MoveToLayerCommand` walks `selection_tree` and writes the target layer to every
+member as well (undo restores each member's own layer), so hiding either layer and
+ungrouping agree with what was on screen. `_apply_item_visibility` resolves a grouped
+item's effective layer through its outermost group ancestor, so a plan saved before
+this fix - like the owner's - also renders as one unit instead of relying on a
+migration. Pinned by `tests/integration/test_house_roof_ridge.py`'s
+`test_a_group_controls_its_members_visibility_by_its_own_layer` and the extended
+layer-move test.
+
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
 **Status**: Accepted (2026-09-15)

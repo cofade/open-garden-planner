@@ -3096,6 +3096,18 @@ class MoveToLayerCommand(Command):
         )
 
         known = {id(item) for item, _, _ in moves}
+        # A group is ONE layered unit for the user. Its members keep the layer
+        # they were drawn on in old plans, so move the whole Qt subtree with
+        # the group as well: hiding either layer and ungrouping then agree
+        # with what was on screen (manual test 2.7 of PR #713).
+        from open_garden_planner.ui.canvas.items.group_item import selection_tree
+
+        members: list[tuple[QGraphicsItem, UUID | None]] = []
+        for item, _layer, _rank in list(moves):
+            for child in selection_tree([item])[1:]:
+                if id(child) not in known and hasattr(child, "layer_id"):
+                    members.append((child, child.layer_id))
+                    known.add(id(child))
         for item, _layer, _rank in list(moves):
             for ridge in linked_ridges_under(item):
                 if id(ridge) not in known:
@@ -3103,6 +3115,7 @@ class MoveToLayerCommand(Command):
                                   getattr(ridge, "stack_order", None)))
                     known.add(id(ridge))
         self._moves = moves
+        self._members = members
         self._target_layer_id = target_layer_id
         self._scene = scene
         self._target_layer_name = target_layer_name
@@ -3158,6 +3171,9 @@ class MoveToLayerCommand(Command):
                 item.layer_id = self._target_layer_id
                 if hasattr(item, "stack_order"):
                     item.stack_order = max_rank + STACK_STEP * k
+        for item, old_layer_id in self._members:
+            if old_layer_id != self._target_layer_id:
+                item.layer_id = self._target_layer_id
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 
@@ -3167,6 +3183,8 @@ class MoveToLayerCommand(Command):
             item.layer_id = old_layer_id
             if hasattr(item, "stack_order"):
                 item.stack_order = old_stack_order
+        for item, old_layer_id in self._members:
+            item.layer_id = old_layer_id
         self._scene._update_items_visibility()  # type: ignore[attr-defined]
         self._scene._update_items_z_order()  # type: ignore[attr-defined]
 

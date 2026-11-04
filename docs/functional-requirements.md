@@ -148,7 +148,7 @@ Detailed functional requirements for Open Garden Planner. These serve as the spe
 - **FR-LAYER-04**: Layer lock toggle (prevent editing)
 - **FR-LAYER-05**: Layer opacity
 - **FR-LAYER-06**: Layer reordering (drag in layer panel)
-- **FR-LAYER-07**: Assign objects to layers (default based on object type, manual override)
+- **FR-LAYER-07**: Assign objects to layers (default based on object type, manual override). A **group is one layered unit**: moving it to another layer carries its members and their derived roof ridges, and hiding a member's old layer does not hide a group now on another layer - undo restores every member's original layer.
 - **FR-LAYER-08**: New layers are created at the top of the layer order and become the active layer, so newly drawn elements stay visible and selectable (issue #201)
 - **FR-LAYER-09**: All layer operations are undoable via Ctrl+Z/Ctrl+Y: create, delete (including the item reassignment it causes), rename, reorder, visibility, lock, and opacity — an opacity slider drag coalesces into a single undo step
 
@@ -402,7 +402,7 @@ Pre-defined object types for common property elements:
 
 ## FR-18: Garden Journal (Phase 12, US-12.9)
 
-- **FR-JOURNAL-01**: The Journal Pin tool (toolbar / shortcut **J**) drops a map-pin marker at the click position and opens `JournalNoteDialog` for the new entry. Pins use `ItemIgnoresTransformations` so they stay at a constant screen size at every zoom level.
+- **FR-JOURNAL-01**: The Journal Pin tool (toolbar / shortcut **J**) drops a map-pin marker at the click position and opens `JournalNoteDialog` for the new entry. Pins use `ItemIgnoresTransformations` so they stay at a constant screen size at every zoom level. Because Qt's `itemAt` never returns such an item, the canvas owns the pin hit test: a click on the head selects it, Ctrl/Shift toggles it with the rest of the selection, a drag moves it as one undo step, and a double-click opens the note.
 - **FR-JOURNAL-02**: Each entry stores ISO date, multi-line plain text, optional photo, and the pin's scene coordinates (`JournalNote` in `models/journal_note.py`). Notes are persisted under top-level key `garden_journal_notes` in the .ogp file, keyed by the note's own UUID (independent of any bed or plant).
 - **FR-JOURNAL-03**: All add / edit / delete actions are wrapped in `AddJournalNoteCommand` / `EditJournalNoteCommand` / `DeleteJournalNoteCommand`, snapshotting the prior dict for undo/redo. The pin item and note dict are added and removed atomically.
 - **FR-JOURNAL-04**: Photo attachments are copied into `{project_dir}/journal_photos/{uuid}_{filename}` (parallel to `pest_photos/`); the note stores a project-relative POSIX path so .ogp files stay portable. Attaching a photo requires a saved project (button disabled with explanatory tooltip otherwise).

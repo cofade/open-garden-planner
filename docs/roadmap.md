@@ -4005,7 +4005,11 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   now normalises the selection before building its menu. Pinned by
   `tests/integration/test_group_context_menu.py` (73 tests over 14 item types, including the
   just-grouped state, the nested one-level rule, the two-group one-step undo, group delete/undo,
-  the undoable shape-menu Delete and the deliberately non-groupable background).
+  the undoable shape-menu Delete and the deliberately non-groupable background). Manual round 2
+  closed the pin half end to end: Ctrl/Shift multi-select keeps a pin, a click on its head selects
+  it, a drag moves it as one undo step, and double-click opens the note (`test_garden_journal.py`).
+  A group is one layered unit: moving it carries its members and derived ridges, and hiding a
+  member's original layer no longer hides the group (ADR-043 addendum, PF-PER-27).
 - **#665 — per-object fill angle / scale / offset.** `core/fill_patterns.FillTransform` is
   an additive `fill_transform` appearance block (identity is never written; old plans load
   unchanged, `FILE_VERSION` stays). The Properties panel offers **Pattern Angle / Scale /
@@ -4022,10 +4026,12 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   item's transform, through one shared `build_linked_ridge` seam (`PolygonTool`, the agent and
   the type change all call it); a converted rectangle's ridge follows move/resize/rotate;
   delete/trim/fillet/layer-move keep the derived-ridge invariant, Mirror Move re-derives it,
-  and Mirror Copy deliberately does not build one yet (documented follow-up). Pinned by
-  `tests/integration/test_house_roof_ridge.py` (plus the trim, fillet, mirror, journal and
-  agent-delete suites).
+  and Mirror Copy builds a fresh one on the reflected outline. Grouping re-runs the stacking
+  derivation so the ridge stays above the group; moving the group carries it, with its members,
+  to the target layer. Pinned by `tests/integration/test_house_roof_ridge.py` (plus the trim,
+  fillet, mirror, journal and agent-delete suites).
 
-Docs: FR-EDIT-22/23/24, ADR-071 (the display transform), ADR-046 addendum (type change owns
-the ridge).
+Docs: FR-EDIT-22/23/24, FR-LAYER-07, FR-JOURNAL-01/06, ADR-071 (the display transform), ADR-046
+addendum (type change owns the ridge), ADR-043 addendum (a group is one layered unit),
+PF-CAN-40 and PF-PER-27.
 
