@@ -114,7 +114,7 @@ def focus_range_cm(distance_cm: float, blur: float) -> float:
     (geometric: the blur grows about linearly with the log of the band, measured at three
     cameras, so the slider reads about evenly along its length)."""
     amount = min(max(blur, 0.0), 1.0)
-    share = FOCUS_RANGE_SHARE_FAINT * (FOCUS_RANGE_SHARE_STRONG / FOCUS_RANGE_SHARE_FAINT) ** amount
+    share = float(FOCUS_RANGE_SHARE_FAINT * (FOCUS_RANGE_SHARE_STRONG / FOCUS_RANGE_SHARE_FAINT) ** amount)
     return max(distance_cm * share, _FOCUS_RANGE_MIN_CM)
 
 
