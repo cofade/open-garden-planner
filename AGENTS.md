@@ -291,7 +291,7 @@ Full how-to (step-by-step, `.ts` format, recompile command): see `docs/08-crossc
 - 2D drawing-tools package (#674, #665, #690) is in a **draft PR, awaiting owner
   manual testing**: Group/Ungroup on every item's context menu with one-step multi-group
   ungroup (FR-EDIT-22), per-object fill angle/scale/offset as additive appearance
-  metadata with roof-frame composition (FR-EDIT-23, ADR-070), and a HOUSE ridge created
+  metadata with roof-frame composition (FR-EDIT-23, ADR-071), and a HOUSE ridge created
   by a type change in the same undo step (FR-EDIT-24, ADR-046 addendum). #664 (split
   along line) and #688 (smart-symbol texture stretch) were deliberately left for a
   follow-up slice.

@@ -331,6 +331,10 @@ class CanvasView(QGraphicsView):
 
         # Drag tracking for undo support
         self._drag_start_positions: dict[QGraphicsItem, QPointF] = {}
+        # Undo depth when the current drag started. A resize/rotate command
+        # already on the stack from an EARLIER gesture must not swallow this
+        # drag's own move (see _finalize_drag_move).
+        self._drag_start_undo_depth = 0
         # Items whose ItemIsMovable this drag took away because they are FIXED
         # (#662), with the flag value to restore.
         self._fixed_drag_flag_restore: dict[QGraphicsItem, bool] = {}
@@ -929,6 +933,7 @@ class CanvasView(QGraphicsView):
                 self._pin_drag_item = pin
                 self._pin_drag_offset = pin.pos() - scene_pos
                 self._drag_start_positions = {pin: pin.pos()}
+                self._drag_start_undo_depth = self._command_manager.undo_depth
                 self._constraint_propagated_starts.clear()
         self.refresh_input_anchor()
         event.accept()
@@ -2603,6 +2608,7 @@ class CanvasView(QGraphicsView):
             self._drag_start_positions = {
                 item: item.pos() for item in self.scene().selectedItems()
             }
+            self._drag_start_undo_depth = self._command_manager.undo_depth
             self._freeze_fixed_drag_items()
 
     def _freeze_fixed_drag_items(self) -> None:
@@ -2677,8 +2683,11 @@ class CanvasView(QGraphicsView):
                 self.viewport().update()
                 event.accept()
                 return
-            self._pin_drag_item = None
-            self._pin_drag_offset = QPointF()
+            # The release happened outside the viewport; commit the move the
+            # gesture made instead of dropping its undo step.
+            self._finish_pin_drag()
+            event.accept()
+            return
 
         # ── Guide drag ─────────────────────────────────────────────────────
         if self._dragging_guide is not None:
@@ -3692,7 +3701,10 @@ class CanvasView(QGraphicsView):
             command_is,
         )
 
-        if self._command_manager.can_undo:
+        if (
+            self._command_manager.can_undo
+            and self._command_manager.undo_depth > self._drag_start_undo_depth
+        ):
             last_cmd = self._command_manager._undo_stack[-1]
             if command_is(last_cmd, (ResizeItemCommand, RotateItemCommand)):
                 self._drag_start_positions.clear()

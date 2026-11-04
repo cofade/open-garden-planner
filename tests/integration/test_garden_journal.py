@@ -707,6 +707,81 @@ class TestPinPointerInteraction:
         )
         assert seen == ["note-1"]
 
+    def test_a_lost_release_is_committed_on_the_next_move(self, qtbot) -> None:
+        """A release outside the viewport must not lose the pin's undo step."""
+        from PyQt6.QtCore import QEvent
+        from PyQt6.QtGui import QMouseEvent
+
+        scene, view = self._canvas(qtbot)
+        pin = JournalPinItem(200, 200, "note-1", layer_id=scene.active_layer.id)
+        scene.addItem(pin)
+        view.centerOn(pin.pos())
+        start = self._head(view, pin)
+        target = start + QPoint(60, 30)
+        undo_depth = len(view.command_manager._undo_stack)
+
+        QTest.mousePress(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            start,
+        )
+        QTest.mouseMove(view.viewport(), target)
+        local = QPointF(target)
+        lost_release = QMouseEvent(
+            QEvent.Type.MouseMove,
+            local,
+            local,
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        view.mouseMoveEvent(lost_release)
+
+        assert pin.pos() != QPointF(200, 200)
+        assert len(view.command_manager._undo_stack) == undo_depth + 1
+        view.command_manager.undo()
+        assert pin.pos() == QPointF(200, 200)
+
+    def test_a_pin_drag_after_a_resize_is_its_own_undo_step(self, qtbot) -> None:
+        """A resize already on the stack must not swallow the next pin drag."""
+        from open_garden_planner.core.commands import ResizeItemCommand
+        from open_garden_planner.ui.canvas.geometry_apply import (
+            apply_rect_like_geometry,
+            build_rect_resize,
+        )
+
+        scene, view = self._canvas(qtbot)
+        pin = JournalPinItem(200, 200, "note-1", layer_id=scene.active_layer.id)
+        rect = RectangleItem(600, 400, 100, 80, layer_id=scene.active_layer.id)
+        scene.addItem(pin)
+        scene.addItem(rect)
+        view.centerOn(pin.pos())
+        old, new = build_rect_resize(rect, 150, 100)
+        view.command_manager.execute(
+            ResizeItemCommand(rect, old, new, apply_rect_like_geometry)
+        )
+        resized_depth = len(view.command_manager._undo_stack)
+
+        start = self._head(view, pin)
+        QTest.mousePress(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            start,
+        )
+        QTest.mouseMove(view.viewport(), start + QPoint(60, 30))
+        QTest.mouseRelease(
+            view.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+            start + QPoint(60, 30),
+        )
+
+        assert len(view.command_manager._undo_stack) == resized_depth + 1
+        view.command_manager.undo()
+        assert pin.pos() == QPointF(200, 200)
+
     def test_selection_survives_a_minimap_refresh(self, qtbot) -> None:
         """The minimap suppresses overlays' paint, not their visibility.
 

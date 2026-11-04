@@ -1234,6 +1234,11 @@
     "state": "OPEN",
     "title": "3D close-up: a string's wire shows its joints and its bulbs read as octagons at walk distance"
   },
+  "713": {
+    "is_pr": true,
+    "state": "OPEN",
+    "title": "feat(#674, #665, #690): 2D drawing tools - group menus, pattern transform, house ridge"
+  },
   "714": {
     "is_pr": false,
     "state": "OPEN",

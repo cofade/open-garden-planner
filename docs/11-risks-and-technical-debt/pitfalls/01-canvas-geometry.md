@@ -546,3 +546,20 @@ and a group containing a pin lost the propagated selection. `ItemHasNoContents`
 suppresses the paint while the item stays visible and selected. Export Service
 already preserved the selection around its own hide/restore; the minimap now
 does not need to.
+
+### PF-CAN-42
+
+- **Rule:** A bespoke drag path must end through one finalizer on every exit - release, a release lost outside the viewport, and the next press - and a guard that suppresses a move because a `ResizeItemCommand`/`RotateItemCommand` already exists must be scoped to the gesture that created it (compare the undo depth at drag start), never to the stack top.
+- **Pinned by:** `tests/integration/test_garden_journal.py::test_a_lost_release_is_committed_on_the_next_move`; `tests/integration/test_garden_journal.py::test_a_pin_drag_after_a_resize_is_its_own_undo_step`
+- **Source:** #674, final review of PR #713 (2026-11-04)
+- **Status:** standing
+- **Legacy:** none (new entry)
+
+The journal-pin drag had two exits that bypassed `_finalize_drag_move`: a
+`MouseMove` with no buttons (the release happened outside the viewport) cleared
+the state, and the next left press overwrote the start positions. Separately,
+`_finalize_drag_move` skipped any drag when the stack top was a Resize/Rotate
+command, even when that command came from an earlier gesture - so a pin dragged
+after a resize moved without an undo entry. `_finish_pin_drag()` is now the one
+end path, and `_drag_start_undo_depth` tells the guard whether *this* gesture
+created the command.

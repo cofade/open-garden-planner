@@ -4012,7 +4012,7 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
   dissolves one nesting level and multiple selected groups in **one** undo step
   (`CompoundCommand`); a smart symbol can be grouped but never ungrouped. Every item type
   now normalises the selection before building its menu. Pinned by
-  `tests/integration/test_group_context_menu.py` (73 tests over 14 item types, including the
+  `tests/integration/test_group_context_menu.py` (77 tests over 14 item types, including the
   just-grouped state, the nested one-level rule, the two-group one-step undo, group delete/undo,
   the undoable shape-menu Delete and the deliberately non-groupable background). Manual round 2
   closed the pin half end to end: Ctrl/Shift multi-select keeps a pin, a click on its head selects
@@ -4044,5 +4044,5 @@ Three 2D canvas gaps that share the item-appearance and context-menu seams:
 
 Docs: FR-EDIT-22/23/24, FR-LAYER-07, FR-JOURNAL-01/06, ADR-071 (the display transform), ADR-046
 addendum (type change owns the ridge), ADR-043 addendum (a group is one layered unit),
-PF-CAN-40/41 and PF-PER-27.
+PF-CAN-40/41/42 and PF-PER-27.
 

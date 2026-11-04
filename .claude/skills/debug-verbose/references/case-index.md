@@ -199,3 +199,4 @@
 | Case study: a group that moved its wrapper but not its members (#690, manual test 2.7) | [Read](196-case-study-a-group-that-moved-its-wrapper-but-not-its-members-690.md) |
 | Case study: a journal pin Qt could not hit (#674, manual test 4 / #728) | [Read](197-case-study-a-journal-pin-qt-could-not-hit-674.md) |
 | Case study: the minimap that deselected the pin it was drawing around (#674, manual test 4) | [Read](198-case-study-the-minimap-that-deselected-the-pin-it-was-drawing-around-674.md) |
+| Case study: the pin drag that had no undo, twice (#674, final review of PR #713) | [Read](199-case-study-the-pin-drag-that-had-no-undo-twice-674.md) |

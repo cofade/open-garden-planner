@@ -2211,6 +2211,12 @@ migration. Pinned by `tests/integration/test_house_roof_ridge.py`'s
 `test_a_group_controls_its_members_visibility_by_its_own_layer` and the extended
 layer-move test.
 
+**Known gap (follow-up #741).** Grouping two objects drawn on different layers
+does not consolidate the second member's free-standing `ROOF_RIDGE` onto the
+group's layer; only a Move to Layer normalises the whole tree. The visibility
+walk above resolves Qt ancestors, not a ridge's owner through a group. Move the
+group once to repair a legacy plan.
+
 ## ADR-044: Build Provenance Attestation for Release Artifacts (issue #356)
 
 **Status**: Accepted (2026-09-15)
@@ -2641,9 +2647,9 @@ converted rectangle's ridge follows the host on move, resize and rotation via
 `update_linked_ridge` (the same derivation `PolygonItem` uses; called from the
 item hooks, the group-move hook and the canonical `apply_rect_like_geometry`, so
 undo/redo follows too). A ridge is created on every path that creates or converts
-a HOUSE — drawing, `create_object`, the type change, paste and duplicate. Mirror,
-offset and array copies do not build one yet (follow-up); they can never adopt the
-source's, because every lookup (`linked_ridge`, `PolygonItem._find_ridge`, delete,
+a HOUSE — drawing, `create_object`, the type change, paste, duplicate and Mirror
+Copy. Offset and array copies do not build one yet (follow-up); they can never
+adopt the source's, because every lookup (`linked_ridge`, `PolygonItem._find_ridge`, delete,
 3D snapshot, sun/shadow) validates the reverse `owner_polygon_id`. This codebase
 has no `roof_shape` property (the issue's wording predates the current
 `roof_style` metadata, which is 3D-only and does not suppress the 2D ridge).
@@ -2664,14 +2670,15 @@ user selected:
 
 - **Deletion owns the tree.** `group_item.selection_tree()` walks a selected
   item's Qt child tree once; `roof_ridge_link.linked_ridges_under()` uses the
-  same walk for ridges, and both delete paths use the tree for constraints and
-  journal notes too. Deleting a group therefore removes a nested HOUSE's ridge,
-  a child's constraint and a grouped pin's note. The GUI's Delete key, every
-  shape's context-menu Delete (routed through
-  `CanvasView._delete_selected_items`, so it is undoable) and the Agent API's
-  `delete_object` share it. A grouped pin's ProjectData note command is bundled
-  with the item delete in ONE `CompoundCommand`, so the first undo restores pin
-  and note together (never a pin without its note).
+  same walk for ridges, and the GUI delete paths use the tree for constraints
+  and journal notes too. Deleting a group therefore removes a nested HOUSE's
+  ridge, a child's constraint and a grouped pin's note. The GUI's Delete key, the shared
+  shape-menu Delete (routed through `CanvasView._delete_selected_items`, so it is
+  undoable) and the Agent API's `delete_object` share it. A grouped pin's
+  ProjectData note command is bundled with the item delete in ONE
+  `CompoundCommand`, so the first undo restores pin and note together (never a pin
+  without its note); the Agent API's delete still leaves a nested pin's note row
+  behind (open follow-up, #740).
 - **A trim that opens a house removes its roof.** Trimming a HOUSE polygon or
   rectangle produces an open FENCE; the old closed-shape ridge and any
   constraint anchored to it are removed and restored by `TrimPolygonCommand`'s

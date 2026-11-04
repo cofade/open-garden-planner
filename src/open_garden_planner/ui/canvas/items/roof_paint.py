@@ -25,6 +25,7 @@ tests fail.
 from __future__ import annotations
 
 import math
+from typing import Any, cast
 
 from PyQt6.QtCore import QLineF, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QPainter, QPainterPath, QPen, QPolygonF, QTransform
@@ -118,7 +119,7 @@ def paint_roof_with_ridge(
     # `ridge.mapToScene` then `host.mapFromScene`. Do not add a second
     # `host.mapToScene` on top — that rotates the axis twice and is
     # precisely the bug that made the #372 test sample off-axis (§11.4).
-    pts = getattr(ridge, "points", [])
+    pts = cast(Any, ridge).points
     if len(pts) < 2:
         return
     p1 = host.mapFromScene(ridge.mapToScene(pts[0]))
