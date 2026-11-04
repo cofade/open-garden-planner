@@ -4002,7 +4002,7 @@ re-encode it.
 - **Docs.** FR-IMG-12/13; §8.7 (error handling) extended; new pitfalls PF-PER-22/23;
   no `.ogp` change and no `FILE_VERSION` bump (the embedded key already existed).
 
-### 2D drawing-tools package (#674, #665, #690) — **draft PR, awaiting owner manual testing**
+### 2D drawing-tools package (#674, #665, #690) — shipped in v1.36.2 (PR #713)
 
 Three 2D canvas gaps that share the item-appearance and context-menu seams:
 
