@@ -229,7 +229,7 @@ core before believing the lock.
 ### PF-CI-18
 
 - **Rule:** On Linux, `PyQt6.QtMultimedia` links `libpulse.so.0` even with no sound in use, and the import fails without it: every job that encodes a video installs `libpulse0`, and a missing library stays a red test, never a skip.
-- **Pinned by:** `tests/integration/test_video_writer.py::test_an_mp4_has_every_frame_the_right_length_and_the_right_colours`; `tests/unit/test_quick3d_selftest.py::TestTheDirectorsCutBlocks::test_the_video_block_really_encodes_and_leaves_nothing`
+- **Pinned by:** `tests/integration/test_video_writer.py::test_an_mp4_has_every_frame_the_right_length_and_the_right_colours`; `tests/unit/test_quick3d_selftest.py::test_the_video_block_really_encodes_and_leaves_nothing`
 - **Source:** #390 (Phase 17 L6), first CI run of PR #729
 - **Status:** standing
 - **Legacy:** none (new entry)
