@@ -7860,7 +7860,10 @@ pane's notices and turns a click into "focus here". `core/scene3d/photo.py` is t
 `PhotoSettings` (exposure in stops, vignette, grade, blur, a focused POINT), `NO_PHOTO`, and the
 procedural 16-level grades. `quick3d/look.py::photo_properties` maps them to the scene. Blur is
 scaled to the picture's height, because Qt's is in pixels; the focused point becomes a depth along
-the view's axis, because that is what Qt compares. Grades come through
+the view's axis, because that is what Qt compares. The slider moves the width of the sharp band
+(`focus_range_cm`: 15 % of the depth at a faint blur, 3 % at the strongest), not Qt's blur amount,
+which stops mattering almost at once: at 40 % the whole garden lay inside the band and the owner saw
+no difference between a high and a low blur (manual test). Grades come through
 `Quick3DHost._apply_grade`, one `Texture` per (grade, saturation, contrast), held for the host's
 life, and re-chosen when the look's adjustments change.
 

@@ -9,7 +9,7 @@ before/after board and a note in the taste log.
 | Exposure | -2 to +1.5 stops | a factor on the mood's own exposure | a stop is a stop in every mood; +2 clipped 66 % of a noon picture |
 | Vignette | 0..1 | `vignetteRadius` 0..0.20, strength fixed at 15, colour black | at 1, a corner down to about a half, the middle within 2 %; Qt's default grey brightens a night |
 | Blur | 0..1 | `depthOfFieldBlurAmount` 0..5 at 1080p, scaled with the picture's height | 0.8 is what a first focus click gives; at 8 Qt's three taps read as ghosts |
-| Focus range | | 40 % of the depth (half in front, half behind), at least 30 cm | the depth is along the view's axis |
+| Focus range | | 15 % of the depth at the faintest blur, 3 % at the strongest, geometric in between (half in front, half behind), at least 30 cm | the depth is along the view's axis; Qt's blur AMOUNT stops mattering almost at once (0.05 and 5 gave one picture), so the band is what the slider moves (owner's manual test: 40 % showed nothing) |
 
 Grades (`core/scene3d/photo.py`), each on top of the mood's own saturation and contrast:
 

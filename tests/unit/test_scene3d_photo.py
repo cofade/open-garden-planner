@@ -116,8 +116,18 @@ def test_a_point_behind_the_camera_or_a_camera_without_a_direction_gives_a_usabl
 
 
 def test_what_stays_sharp_grows_with_the_distance_and_never_vanishes() -> None:
-    assert focus_range_cm(4000.0) == pytest.approx(1600.0)
-    assert focus_range_cm(10.0) >= 30.0
+    assert focus_range_cm(4000.0, 0.0) == pytest.approx(600.0)
+    assert focus_range_cm(10.0, 1.0) >= 30.0
+
+
+def test_a_stronger_blur_leaves_less_of_the_garden_sharp() -> None:
+    """Manual test of #390: with a band of 40 % of the depth, a high blur and a low one gave the
+    same picture, because the whole garden lay inside it. The band is what the slider moves."""
+    bands = [focus_range_cm(3860.0, blur) for blur in (0.0, 0.1, 0.25, 0.5, 0.75, 1.0)]
+    assert bands == sorted(bands, reverse=True)
+    assert bands[0] / bands[-1] == pytest.approx(5.0), "a fifth of the band at the strongest"
+    assert bands[-1] < 150.0, "about a metre around the point, in a view of 38 m"
+    assert focus_range_cm(3860.0, 7.0) == focus_range_cm(3860.0, 1.0), "the slider's end is the end"
 
 
 def test_a_focus_without_blur_or_blur_without_a_focus_is_no_depth_of_field() -> None:

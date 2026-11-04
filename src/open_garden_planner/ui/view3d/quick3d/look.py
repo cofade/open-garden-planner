@@ -196,7 +196,7 @@ def photo_properties(settings: PhotoSettings, eye: tuple[float, float, float],
         "photoExposure": exposure_gain(settings.exposure_ev),
         "photoVignette": float(settings.vignette) * VIGNETTE_MAX,
         "photoFocusDistance": distance,
-        "photoFocusRange": focus_range_cm(distance),
+        "photoFocusRange": focus_range_cm(distance, settings.blur),
         "photoBlur": blur_amount(settings, picture_height_px) if settings.depth_of_field else 0.0,
     }
 

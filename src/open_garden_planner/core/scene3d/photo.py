@@ -40,8 +40,13 @@ DEFAULT_BLUR: Final = 0.8
 #: ``Garden.qml``: Qt's default grey BRIGHTENS a picture darker than it (a third of a night).
 VIGNETTE_MAX: Final = 0.20
 #: How deep the band that stays sharp is, as a share of the focused point's depth: half of it
-#: in front of the point, half behind (Qt's ``depthOfFieldFocusRange``).
-FOCUS_RANGE_SHARE: Final = 0.40
+#: in front of the point, half behind (Qt's ``depthOfFieldFocusRange``). It shrinks with the
+#: blur setting, from the first to the second value: the owner could not tell a high blur from
+#: a low one in a whole-garden view (manual test of #390). Qt's blur AMOUNT stops mattering
+#: almost at once (0.05 and 5 gave the same picture), while the band decides how much of the
+#: garden is out of focus: at 0.40 of a 3860 cm view nothing was.
+FOCUS_RANGE_SHARE_FAINT: Final = 0.15
+FOCUS_RANGE_SHARE_STRONG: Final = 0.03
 _FOCUS_RANGE_MIN_CM: Final = 30.0
 NO_GRADE: Final = "none"
 #: The picture height the blur amount is defined at. Qt's blur is measured in pixels of the
@@ -100,8 +105,12 @@ def focus_distance_cm(settings: PhotoSettings, eye: tuple[float, float, float],
     return max(depth, 0.0)
 
 
-def focus_range_cm(distance_cm: float) -> float:
-    return max(distance_cm * FOCUS_RANGE_SHARE, _FOCUS_RANGE_MIN_CM)
+def focus_range_cm(distance_cm: float, blur: float) -> float:
+    """The sharp band around the focused point: wide at a faint blur, narrow at a strong one
+    (geometric in between, so each step of the slider is about as visible as the last)."""
+    amount = min(max(blur, 0.0), 1.0)
+    share = FOCUS_RANGE_SHARE_FAINT * (FOCUS_RANGE_SHARE_STRONG / FOCUS_RANGE_SHARE_FAINT) ** amount
+    return max(distance_cm * share, _FOCUS_RANGE_MIN_CM)
 
 
 def blur_amount(settings: PhotoSettings, picture_height_px: float) -> float:
